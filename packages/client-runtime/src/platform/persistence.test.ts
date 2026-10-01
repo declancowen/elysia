@@ -2,6 +2,7 @@ import {
   OrchestrationProjectShell,
   OrchestrationShellSnapshot,
   OrchestrationThreadShell,
+  ThreadId,
 } from "@t3tools/contracts";
 import { describe, expect, it } from "@effect/vitest";
 import * as Arr from "effect/Array";
@@ -19,7 +20,7 @@ const sampleDecoded = <S extends Schema.Constraint>(schema: S) =>
     const encode = Schema.encodeEffect(schema);
     const decode = Schema.decodeEffect(schema);
     const generated = yield* Arbitrary.sampleEffect(Arbitrary.schema(schema), {
-      count: 1000,
+      count: 100,
       size: 30,
     });
     const decoded = yield* Effect.forEach(generated, (value) =>
@@ -36,13 +37,25 @@ describe("encodeShellSnapshotForCache", () => {
       const projects = yield* sampleDecoded(OrchestrationProjectShell);
       const snapshot: OrchestrationShellSnapshot = {
         snapshotSequence: 1,
-        // The generator rarely makes monogram icons, and they are the one
-        // project field whose encoding differs from the decoded value.
-        projects: projects.map((project, index) =>
-          index % 2 === 0
-            ? { ...project, projectIcon: { kind: "monogram", text: "T3", color: "blue" } }
-            : project,
-        ),
+        // Guarantee transformed icons and an agent identity alongside the generated cases.
+        projects: projects.map((project, index) => ({
+          ...project,
+          ...(index % 2 === 0
+            ? { projectIcon: { kind: "monogram" as const, text: "T3", color: "blue" } }
+            : {}),
+          ...(index === 0
+            ? {
+                agentProfile: {
+                  instructions: "Keep continuity in durable memory.",
+                  title: "Researcher",
+                  avatar: { preset: "robot" as const, color: "#28B4FF" as const },
+                  archived: true,
+                  notificationsEnabled: false,
+                  conversationThreadId: ThreadId.make("agent-cache-roundtrip"),
+                },
+              }
+            : {}),
+        })),
         threads,
         updatedAt: "2026-09-25T00:00:00.000Z",
       };

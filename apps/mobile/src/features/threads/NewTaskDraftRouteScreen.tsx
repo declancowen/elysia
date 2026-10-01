@@ -6,7 +6,7 @@ import {
   squashAtomCommandFailure,
 } from "@t3tools/client-runtime/state/runtime";
 import { AppText as Text } from "../../components/AppText";
-import { useProjects } from "../../state/entities";
+import { useRegularProjects } from "../agents/use-agent-catalog";
 import { useAtomCommand } from "../../state/use-atom-command";
 import { useWorkspaceState } from "../../state/workspace";
 import { vcsEnvironment } from "../../state/vcs";
@@ -34,7 +34,7 @@ export function NewTaskDraftRouteScreen({ route }: StaticScreenProps<NewTaskDraf
     ? params.pendingTaskId[0]
     : params.pendingTaskId;
   const draftId = Array.isArray(params.draftId) ? params.draftId[0] : params.draftId;
-  const projects = useProjects();
+  const projects = useRegularProjects();
   const { state: catalogState } = useWorkspaceState();
   const navigation = useNavigation();
   const switchRef = useAtomCommand(vcsEnvironment.switchRef, { reportFailure: false });

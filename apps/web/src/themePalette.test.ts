@@ -119,7 +119,7 @@ describe("theme files", () => {
     expectThemeColors(dark, {
       canvas: "#002244",
       sidebar: "#062d52",
-      sidebarRowActive: "#003cb2",
+      sidebarRowActive: "#28b4ff",
       sidebarRowSelected: "#28b4ff",
       accentForeground: "#002244",
       messageSurface: "#10375c",

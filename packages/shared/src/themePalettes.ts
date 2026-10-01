@@ -247,7 +247,7 @@ export const T3_CODE_DARK_THEME_COLORS: ThemeColors = {
   sidebarMutedForeground: "#9AC9E3",
   sidebarControlSurface: "#062D52",
   sidebarRowHover: "#10375C",
-  sidebarRowActive: "#003CB2",
+  sidebarRowActive: "#28B4FF",
   sidebarRowSelected: "#28B4FF",
   sidebarBorder: "#315578",
   terminalBackground: "#002244",

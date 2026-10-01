@@ -3,7 +3,7 @@ import { buildProjectGroups } from "@t3tools/client-runtime/state/project-groupi
 import { createContext, useContext, useMemo, useState, type ReactNode } from "react";
 
 import { useEnvironments, type EnvironmentPresentation } from "../../state/environments";
-import { useProjects } from "../../state/entities";
+import { useRegularProjects } from "../agents/use-agent-catalog";
 import { useMobileProjectGroupingSettings } from "../../state/project-grouping";
 import { toggleSettingsEnvironment } from "./settings-environment-filter.logic";
 
@@ -32,7 +32,7 @@ const SettingsEnvironmentFilterContext = createContext<{
 
 export function SettingsEnvironmentFilterProvider(props: { readonly children: ReactNode }) {
   const { environments } = useEnvironments();
-  const projects = useProjects();
+  const projects = useRegularProjects();
   const groupingSettings = useMobileProjectGroupingSettings();
   const groupingMode = groupingSettings.sidebarProjectGroupingMode;
   const [selectedIds, setSelectedIds] = useState<ReadonlySet<EnvironmentId> | null>(null);

@@ -4,6 +4,7 @@ import {
   EventId,
   MessageId,
   type ProjectId,
+  type AgentProfile,
   ThreadId,
   TurnId,
   type OrchestrationEvent,
@@ -210,9 +211,20 @@ const make = Effect.gen(function* () {
   const resolveCheckpointCwd = Effect.fn("resolveCheckpointCwd")(function* (input: {
     readonly threadId: ThreadId;
     readonly thread: { readonly projectId: ProjectId; readonly worktreePath: string | null };
-    readonly projects: ReadonlyArray<{ readonly id: ProjectId; readonly workspaceRoot: string }>;
+    readonly projects: ReadonlyArray<{
+      readonly id: ProjectId;
+      readonly workspaceRoot: string;
+      readonly agentProfile?: AgentProfile | undefined;
+    }>;
     readonly preferSessionRuntime: boolean;
   }): Effect.fn.Return<string | undefined, CheckpointStoreError> {
+    // Agent workspaces are app-owned, including when development state lives inside a checkout.
+    if (
+      input.projects.some(
+        (project) => project.id === input.thread.projectId && project.agentProfile,
+      )
+    )
+      return undefined;
     const fromSession = yield* resolveSessionRuntimeForThread(input.threadId);
     const fromThread = resolveThreadWorkspaceCwd({
       thread: input.thread,

@@ -309,14 +309,14 @@ const baseCursorSettings: CursorSettings = {
 };
 const cursorAcpDiscoveryFailedMessage = [
   "Cursor ACP model discovery failed.",
-  "Cursor CLI setup may be incomplete; install or enable the Cursor CLI, restart T3 Code, and try again.",
+  "Cursor CLI setup may be incomplete; install or enable the Cursor CLI, restart Elysia, and try again.",
   "See https://cursor.com/docs/cli/installation.",
   "Check server logs for ACP details.",
 ].join(" ");
 const missingCursorBinaryPath = "/definitely/not/installed/t3-cursor-agent";
 const cursorCliCommandMissingMessage = [
   `Cursor CLI command \`${missingCursorBinaryPath}\` was not found.`,
-  `Install or enable the Cursor CLI, make sure \`${missingCursorBinaryPath}\` is on PATH, then restart T3 Code.`,
+  `Install or enable the Cursor CLI, make sure \`${missingCursorBinaryPath}\` is on PATH, then restart Elysia.`,
   "See https://cursor.com/docs/cli/installation.",
 ].join(" ");
 
@@ -330,10 +330,12 @@ describe("Cursor skills", () => {
           directory: NodeOS.tmpdir(),
           prefix: "cursor-skills-home-",
         });
-        const workspace = yield* fileSystem.makeTempDirectory({
-          directory: NodeOS.tmpdir(),
-          prefix: "cursor-skills-workspace-",
-        });
+        const workspace = yield* fileSystem
+          .makeTempDirectory({
+            directory: NodeOS.tmpdir(),
+            prefix: "cursor-skills-workspace-",
+          })
+          .pipe(Effect.flatMap(fileSystem.realPath));
         const writeSkill = Effect.fn("writeCursorSkill")(function* (
           root: string,
           name: string,
@@ -409,10 +411,12 @@ describe("Cursor skills", () => {
           directory: NodeOS.tmpdir(),
           prefix: "cursor-skills-home-",
         });
-        const workspace = yield* fileSystem.makeTempDirectory({
-          directory: NodeOS.tmpdir(),
-          prefix: "cursor-skills-workspace-",
-        });
+        const workspace = yield* fileSystem
+          .makeTempDirectory({
+            directory: NodeOS.tmpdir(),
+            prefix: "cursor-skills-workspace-",
+          })
+          .pipe(Effect.flatMap(fileSystem.realPath));
         const library = yield* fileSystem.makeTempDirectory({
           directory: NodeOS.tmpdir(),
           prefix: "cursor-skills-library-",

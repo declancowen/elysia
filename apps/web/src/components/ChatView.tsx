@@ -9130,6 +9130,7 @@ export default function ChatView(props: ChatViewProps) {
     if (
       !activeThread ||
       !activeProject ||
+      activeProject.agentProfile != null ||
       !activeProposedPlan ||
       !isServerThread ||
       isSendBusy ||
@@ -9821,6 +9822,7 @@ export default function ChatView(props: ChatViewProps) {
           rightPanelMaximized ? "w-0 flex-none" : "flex-1",
         )}
         data-chat-column-maximized-away={rightPanelMaximized ? "true" : "false"}
+        data-chat-column
       >
         {/* Top bar */}
         <WorkspacePageHeader
@@ -9888,7 +9890,7 @@ export default function ChatView(props: ChatViewProps) {
         </WorkspacePageHeader>
 
         {/* Main content area with optional plan sidebar */}
-        <div className="flex min-h-0 min-w-0 flex-1">
+        <div className="flex min-h-0 min-w-0 flex-1" data-chat-content>
           {/* Chat column */}
           <div
             className="relative flex min-h-0 min-w-0 flex-1 flex-col"
@@ -10204,6 +10206,7 @@ export default function ChatView(props: ChatViewProps) {
                             onSend={onSend}
                             onInterrupt={onInterrupt}
                             onImplementPlanInNewThread={onImplementPlanInNewThread}
+                            allowImplementPlanInNewThread={activeProject?.agentProfile == null}
                             onRespondToApproval={onRespondToApproval}
                             onSelectActivePendingUserInputOption={
                               onSelectActivePendingUserInputOption

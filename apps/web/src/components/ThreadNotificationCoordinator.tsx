@@ -113,7 +113,15 @@ function EnvironmentNotifications({
       return;
     }
     const next = new Map<ThreadId, { attention: string | null; completion: number | null }>();
+    const projectById = new Map(
+      shell.snapshot.value.projects.map((project) => [project.id, project]),
+    );
     for (const thread of shell.snapshot.value.threads) {
+      const project = projectById.get(thread.projectId);
+      const agentProfile = project?.agentProfile;
+      if (agentProfile && (!agentProfile.notificationsEnabled || agentProfile.archived)) continue;
+      const displayName = project?.agentProfile ? project.title : thread.title;
+      const subject = agentProfile ? "Agent" : "Thread";
       let status = resolveSidebarThreadStatus(thread);
       if (status === "ready" && thread.latestTurn?.state === "error") status = "failed";
       const prior = previous.current.get(thread.id);
@@ -139,11 +147,11 @@ function EnvironmentNotifications({
       if (!kind) continue;
       const title =
         kind === "completion"
-          ? "Thread completed"
+          ? `${subject} completed`
           : status === "approval"
             ? "Approval needed"
             : status === "failed"
-              ? "Thread failed"
+              ? `${subject} failed`
               : "Input needed";
       if (hasNotificationSound(mode)) {
         void playNotificationSound(kind, () =>
@@ -159,7 +167,7 @@ function EnvironmentNotifications({
         const toastId = toastManager.add({
           type: kind === "completion" ? "success" : status === "failed" ? "error" : "warning",
           title,
-          description: thread.title,
+          description: displayName,
           data: {
             hideCopyButton: true,
             leadingIcon:
@@ -195,7 +203,7 @@ function EnvironmentNotifications({
         continue;
       try {
         const notification = new Notification(title, {
-          body: thread.title,
+          body: displayName,
           tag: `${environmentId}:${thread.id}`,
           silent: true,
         });

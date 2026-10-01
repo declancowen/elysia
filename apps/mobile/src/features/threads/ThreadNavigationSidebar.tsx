@@ -28,7 +28,8 @@ import { SymbolView } from "../../components/AppSymbol";
 import { NATIVE_LIQUID_GLASS_SUPPORTED } from "../../native/native-glass";
 import { NativeStackScreenOptions } from "../../native/StackHeader";
 import { scopedProjectKey, scopedThreadKey } from "../../lib/scopedEntities";
-import { useProjects, useThreadShells } from "../../state/entities";
+import { AgentRoster } from "../agents/AgentRoster";
+import { useAgentCatalog, useRegularProjectItems } from "../agents/use-agent-catalog";
 import { useThreadSearch } from "../../state/queries";
 import { useThreadListV2ShelfPreferences } from "./use-thread-list-v2-shelf-preferences";
 import { usePendingThreadOrder } from "../../state/thread-order";
@@ -135,8 +136,7 @@ function ThreadNavigationSidebarPane(
 
   const insets = useSafeAreaInsets();
   const { fabClearance } = useAndroidControlSizing();
-  const projects = useProjects();
-  const threads = useThreadShells();
+  const { projects, threads, agents } = useAgentCatalog();
   const { environments: workspaceEnvironments, state: catalogState } = useWorkspaceState();
   const { savedConnectionsById } = useSavedRemoteConnections();
   const searchInputRef = useRef<TextInput>(null);
@@ -157,7 +157,7 @@ function ThreadNavigationSidebarPane(
     renameThread,
     regenerateThreadTitle,
   } = useThreadListActions();
-  const pendingTasks = usePendingNewTasks();
+  const pendingTasks = useRegularProjectItems(usePendingNewTasks());
   const queuedThreadKeys = useQueuedThreadKeys();
   const { openPendingTask, confirmDeletePendingTask } = usePendingTaskListActions();
   const environments = useMemo(
@@ -922,6 +922,16 @@ function ThreadNavigationSidebarPane(
     </Text>
   );
 
+  const agentRoster = (
+    <AgentRoster
+      agents={agents}
+      environmentId={options.selectedEnvironmentId}
+      searchQuery={props.searchQuery}
+      selectedThreadKey={props.selectedThreadKey}
+      onSelectThread={props.onSelectThread}
+    />
+  );
+
   if (props.nativeChrome) {
     return (
       <>
@@ -988,6 +998,7 @@ function ThreadNavigationSidebarPane(
                 scrollEventThrottle={16}
                 showsVerticalScrollIndicator={false}
                 style={styles.threadList}
+                ListHeaderComponent={agentRoster}
                 ListEmptyComponent={listEmpty}
               />
             </GestureDetector>
@@ -1021,7 +1032,7 @@ function ThreadNavigationSidebarPane(
             : { paddingBottom: insets.bottom }
         }
       >
-        {Platform.OS === "android" && listItems.length === 0 ? (
+        {Platform.OS === "android" && listItems.length === 0 && agents.length === 0 ? (
           <View className="flex-1 items-center justify-center">{listEmpty}</View>
         ) : (
           <SwipeableScrollGateProvider enabled={swipeEnabled}>
@@ -1053,6 +1064,7 @@ function ThreadNavigationSidebarPane(
                 scrollEventThrottle={16}
                 showsVerticalScrollIndicator={false}
                 style={styles.threadList}
+                ListHeaderComponent={agentRoster}
                 ListEmptyComponent={listEmpty}
               />
             </GestureDetector>

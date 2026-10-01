@@ -1,4 +1,5 @@
 import {
+  AgentProfile,
   AgentSessionImportSource,
   ApprovalRequestId,
   ChatAttachment,
@@ -104,6 +105,7 @@ const MESSAGE_TRIM_WHITESPACE =
 const ProjectionProjectDbRowSchema = ProjectionProject.mapFields(
   Struct.assign({
     defaultModelSelection: Schema.NullOr(Schema.fromJsonString(ModelSelection)),
+    agentProfile: Schema.NullOr(Schema.fromJsonString(AgentProfile)),
     autoPull: Schema.Number,
     projectIcon: Schema.NullOr(Schema.fromJsonString(ProjectIconOverride)),
     scripts: Schema.fromJsonString(Schema.Array(ProjectScript)),
@@ -401,6 +403,7 @@ function mapProjectShellRow(
     title: row.title,
     workspaceRoot: row.workspaceRoot,
     repositoryIdentity,
+    ...(row.agentProfile ? { agentProfile: row.agentProfile } : {}),
     defaultModelSelection: row.defaultModelSelection,
     defaultThreadEnvMode: row.defaultThreadEnvMode,
     autoPull: row.autoPull === 1,
@@ -505,10 +508,9 @@ const makeProjectionSnapshotQuery = Effect.gen(function* () {
       readonly includeDeleted?: boolean;
     },
   ) {
-    const filteredProjectRows =
-      options?.includeDeleted === true
-        ? projectRows
-        : projectRows.filter((row) => row.deletedAt === null);
+    const filteredProjectRows = projectRows.filter(
+      (row) => !row.agentProfile && (options?.includeDeleted === true || row.deletedAt === null),
+    );
     const uniqueWorkspaceRoots = [...new Set(filteredProjectRows.map((row) => row.workspaceRoot))];
     const repositoryIdentityByWorkspaceRoot = new Map(
       yield* Effect.forEach(
@@ -543,6 +545,7 @@ const makeProjectionSnapshotQuery = Effect.gen(function* () {
           project_id AS "projectId",
           title,
           workspace_root AS "workspaceRoot",
+          agent_profile_json AS "agentProfile",
           default_model_selection_json AS "defaultModelSelection",
           default_thread_env_mode AS "defaultThreadEnvMode",
           auto_pull AS "autoPull",
@@ -1182,6 +1185,7 @@ const makeProjectionSnapshotQuery = Effect.gen(function* () {
           project_id AS "projectId",
           title,
           workspace_root AS "workspaceRoot",
+          agent_profile_json AS "agentProfile",
           default_model_selection_json AS "defaultModelSelection",
           default_thread_env_mode AS "defaultThreadEnvMode",
           auto_pull AS "autoPull",
@@ -1208,6 +1212,7 @@ const makeProjectionSnapshotQuery = Effect.gen(function* () {
           project_id AS "projectId",
           title,
           workspace_root AS "workspaceRoot",
+          agent_profile_json AS "agentProfile",
           default_model_selection_json AS "defaultModelSelection",
           default_thread_env_mode AS "defaultThreadEnvMode",
           auto_pull AS "autoPull",
@@ -2353,6 +2358,7 @@ pending_approval_requests AS (
                 title: row.title,
                 workspaceRoot: row.workspaceRoot,
                 repositoryIdentity: repositoryIdentities.get(row.projectId) ?? null,
+                ...(row.agentProfile ? { agentProfile: row.agentProfile } : {}),
                 defaultModelSelection: row.defaultModelSelection,
                 defaultThreadEnvMode: row.defaultThreadEnvMode,
                 autoPull: row.autoPull === 1,
@@ -2522,6 +2528,7 @@ pending_approval_requests AS (
                   title: row.title,
                   workspaceRoot: row.workspaceRoot,
                   repositoryIdentity: repositoryIdentities.get(row.projectId) ?? null,
+                  ...(row.agentProfile ? { agentProfile: row.agentProfile } : {}),
                   defaultModelSelection: row.defaultModelSelection,
                   defaultThreadEnvMode: row.defaultThreadEnvMode,
                   autoPull: row.autoPull === 1,
@@ -3090,13 +3097,19 @@ pending_approval_requests AS (
         Effect.flatMap((option) =>
           Option.isNone(option)
             ? Effect.succeed(Option.none<OrchestrationProject>())
-            : repositoryIdentityResolver.resolve(option.value.workspaceRoot).pipe(
+            : (option.value.agentProfile
+                ? Effect.succeed(null)
+                : repositoryIdentityResolver.resolve(option.value.workspaceRoot)
+              ).pipe(
                 Effect.map((repositoryIdentity) =>
                   Option.some({
                     id: option.value.projectId,
                     title: option.value.title,
                     workspaceRoot: option.value.workspaceRoot,
                     repositoryIdentity,
+                    ...(option.value.agentProfile
+                      ? { agentProfile: option.value.agentProfile }
+                      : {}),
                     defaultModelSelection: option.value.defaultModelSelection,
                     defaultThreadEnvMode: option.value.defaultThreadEnvMode,
                     autoPull: option.value.autoPull === 1,
@@ -3142,13 +3155,15 @@ pending_approval_requests AS (
       Effect.flatMap((option) =>
         Option.isNone(option)
           ? Effect.succeed(Option.none<OrchestrationProjectShell>())
-          : repositoryIdentityResolver
-              .resolve(option.value.workspaceRoot)
-              .pipe(
-                Effect.map((repositoryIdentity) =>
-                  Option.some(mapProjectShellRow(option.value, repositoryIdentity)),
+          : option.value.agentProfile
+            ? Effect.succeedSome(mapProjectShellRow(option.value, null))
+            : repositoryIdentityResolver
+                .resolve(option.value.workspaceRoot)
+                .pipe(
+                  Effect.map((repositoryIdentity) =>
+                    Option.some(mapProjectShellRow(option.value, repositoryIdentity)),
+                  ),
                 ),
-              ),
       ),
     );
 

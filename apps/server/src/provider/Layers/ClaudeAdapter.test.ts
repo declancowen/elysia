@@ -407,6 +407,61 @@ describe("ClaudeAdapterLive", () => {
     },
   );
 
+  it.effect(
+    "starts persistent agents with native memory, compaction and Elysia tracing intact",
+    () => {
+      const harness = makeHarness({
+        environment: {
+          ELYSIA_PROFILE_ROOT: "/tmp/elysia-managed-profile",
+          TRACE_TO_LANGSMITH: "true",
+          ANTHROPIC_AUTH_TOKEN: "fixture-key",
+          DISABLE_AUTO_COMPACT: "1",
+        },
+      });
+      return Effect.gen(function* () {
+        const adapter = yield* ClaudeAdapter;
+        yield* adapter.startSession({
+          threadId: THREAD_ID,
+          provider: ProviderDriverKind.make("claudeAgent"),
+          runtimeMode: "full-access",
+          cwd: "/tmp/elysia-agent-workspace",
+          persistentAgent: {
+            name: "Edna",
+            instructions: "Help with editorial work.",
+            memoryDirectory: "/tmp/elysia-agent-workspace/.claude/memory",
+          },
+        });
+        const options = harness.getLastCreateQueryInput()!.options;
+        assert.include(options.settings as object, {
+          autoMemoryEnabled: true,
+          autoMemoryDirectory: "/tmp/elysia-agent-workspace/.claude/memory",
+          autoCompactEnabled: true,
+        });
+        assert.include(options.env!, {
+          TRACE_TO_LANGSMITH: "true",
+          ANTHROPIC_AUTH_TOKEN: "fixture-key",
+          DISABLE_AUTO_COMPACT: "0",
+          DISABLE_COMPACT: "0",
+          GIT_CEILING_DIRECTORIES: "/tmp",
+        });
+        assert.isAtLeast(Number(options.env!.CLAUDE_CODE_AUTO_COMPACT_WINDOW), 100000);
+        assert.include((options.systemPrompt as { append: string }).append, "Edna");
+        assert.include(
+          (options.systemPrompt as { append: string }).append,
+          "Help with editorial work.",
+        );
+        assert.include(
+          (options.systemPrompt as { append: string }).append,
+          "/tmp/elysia-agent-workspace/.claude/memory/session-handoff.md",
+        );
+        assert.deepEqual(options.settingSources, ["user", "project", "local"]);
+      }).pipe(
+        Effect.provideService(Random.Random, makeDeterministicRandomService()),
+        Effect.provide(harness.layer),
+      );
+    },
+  );
+
   it.effect("returns validation error for non-claude provider on startSession", () => {
     const harness = makeHarness();
     return Effect.gen(function* () {
@@ -2563,6 +2618,250 @@ describe("ClaudeAdapterLive", () => {
     assert(event?.type === "turn.completed");
     return event.payload;
   };
+
+  it.effect.each(["prompt_too_long", "rapid_refill_breaker"])(
+    "renews persistent agent context after %s without replacing its chat or replaying work blindly",
+    (terminalReason) => {
+      const temporary = NodeFS.mkdtempSync(NodePath.join(NodeOS.tmpdir(), "elysia-agent-context-"));
+      const memoryDirectory = NodePath.join(temporary, ".claude", "memory");
+      const harness = makeHarness({ cwd: temporary });
+      return Effect.gen(function* () {
+        const adapter = yield* ClaudeAdapter;
+        const events = yield* adapter.streamEvents.pipe(
+          Stream.takeUntil((event) => event.type === "turn.completed"),
+          Stream.runCollect,
+          Effect.forkChild,
+        );
+        yield* adapter.startSession({
+          threadId: THREAD_ID,
+          provider: ProviderDriverKind.make("claudeAgent"),
+          runtimeMode: "full-access",
+          cwd: temporary,
+          persistentAgent: {
+            name: "Researcher",
+            instructions: "Help with research.",
+            memoryDirectory,
+          },
+        });
+        const input = harness.getLastCreateQueryInput()!;
+        const settings = input.options.settings;
+        assert(typeof settings === "object");
+        assert.equal(settings.autoMemoryEnabled, true);
+        assert.equal(settings.autoMemoryDirectory, memoryDirectory);
+        assert.equal(settings.autoCompactEnabled, true);
+        assert.equal(input.options.env?.DISABLE_AUTO_COMPACT, "0");
+        const prompts = input.prompt[Symbol.asyncIterator]();
+        const turn = yield* adapter.sendTurn({
+          threadId: THREAD_ID,
+          input: "Finish the report",
+          attachments: [],
+        });
+        yield* Effect.promise(() => prompts.next());
+        harness.query.emit({
+          type: "assistant",
+          session_id: "old-session",
+          uuid: "assistant-before-renewal",
+          parent_tool_use_id: null,
+          message: {
+            id: "partial",
+            content: [{ type: "text", text: "The first section is already saved." }],
+          },
+        } as unknown as SDKMessage);
+        harness.query.emit({
+          type: "result",
+          subtype: "error_during_execution",
+          is_error: true,
+          terminal_reason: terminalReason,
+          user_message_uuids: [turn.turnId],
+          session_id: "old-session",
+          uuid: "overflow-result",
+          errors: [],
+        } as unknown as SDKMessage);
+        const clear = yield* Effect.promise(() => prompts.next());
+        assert.include(encodeUnknownJsonString(clear.value.message.content), '"/clear"');
+        assert.notEqual(clear.value.uuid, turn.turnId);
+        assert.include(
+          NodeFS.readFileSync(NodePath.join(memoryDirectory, "session-handoff.md"), "utf8"),
+          "first section is already saved",
+        );
+        harness.query.emit({
+          type: "conversation_reset",
+          session_id: "old-session",
+          new_conversation_id: "new-session",
+          uuid: "renewed",
+        } as unknown as SDKMessage);
+        const continued = yield* Effect.promise(() => prompts.next());
+        assert.equal(continued.value.uuid, turn.turnId);
+        const continuedText = encodeUnknownJsonString(continued.value.message.content);
+        assert.include(continuedText, "avoid repeating actions");
+        assert.include(continuedText, "session-handoff.md");
+        assert.include(continuedText, "Finish the report");
+        // The internal clear acknowledgement must not finish the user's original turn.
+        harness.query.emit({
+          type: "result",
+          subtype: "success",
+          is_error: false,
+          user_message_uuids: [clear.value.uuid],
+          session_id: "new-session",
+          uuid: "clear-result",
+          num_turns: 0,
+        } as unknown as SDKMessage);
+        harness.query.emit({
+          type: "result",
+          subtype: "success",
+          is_error: false,
+          user_message_uuids: [turn.turnId],
+          session_id: "new-session",
+          uuid: "final-result",
+          num_turns: 1,
+        } as unknown as SDKMessage);
+        const runtimeEvents = Array.from(yield* Fiber.join(events));
+        assert.equal(runtimeEvents.filter((event) => event.type === "turn.completed").length, 1);
+        assert.equal(runtimeEvents.filter((event) => event.type === "turn.started").length, 1);
+        assert.equal(completedTurn(runtimeEvents).state, "completed");
+        assert(runtimeEvents.every((event) => event.threadId === THREAD_ID));
+        assert.isFalse(runtimeEvents.some((event) => event.type === "runtime.error"));
+        yield* adapter.stopSession(THREAD_ID);
+      }).pipe(
+        Effect.ensuring(
+          Effect.sync(() => NodeFS.rmSync(temporary, { recursive: true, force: true })),
+        ),
+        Effect.provide(harness.layer),
+      );
+    },
+  );
+
+  it.effect(
+    "finishes the agent turn if native context renewal fails instead of leaving it busy",
+    () => {
+      const temporary = NodeFS.mkdtempSync(NodePath.join(NodeOS.tmpdir(), "elysia-agent-reset-"));
+      const harness = makeHarness({ cwd: temporary });
+      return Effect.gen(function* () {
+        const adapter = yield* ClaudeAdapter;
+        const events = yield* adapter.streamEvents.pipe(
+          Stream.takeUntil((event) => event.type === "turn.completed"),
+          Stream.runCollect,
+          Effect.forkChild,
+        );
+        yield* adapter.startSession({
+          threadId: THREAD_ID,
+          runtimeMode: "full-access",
+          cwd: temporary,
+          persistentAgent: {
+            name: "Researcher",
+            instructions: "Help",
+            memoryDirectory: NodePath.join(temporary, "memory"),
+          },
+        });
+        const prompts = harness.getLastCreateQueryInput()!.prompt[Symbol.asyncIterator]();
+        const turn = yield* adapter.sendTurn({
+          threadId: THREAD_ID,
+          input: "Finish the report",
+          attachments: [],
+        });
+        yield* Effect.promise(() => prompts.next());
+        harness.query.emit({
+          type: "result",
+          subtype: "error_during_execution",
+          is_error: true,
+          terminal_reason: "prompt_too_long",
+          user_message_uuids: [turn.turnId],
+          session_id: "session",
+          uuid: "limit",
+          errors: [],
+        } as unknown as SDKMessage);
+        const clear = yield* Effect.promise(() => prompts.next());
+        harness.query.emit({
+          type: "result",
+          subtype: "error_during_execution",
+          is_error: true,
+          user_message_uuids: [clear.value.uuid],
+          session_id: "session",
+          uuid: "clear-failed",
+          errors: ["Context renewal failed"],
+        } as unknown as SDKMessage);
+        const runtimeEvents = Array.from(yield* Fiber.join(events));
+        assert.equal(completedTurn(runtimeEvents).state, "failed");
+        assert(runtimeEvents.some((event) => event.type === "runtime.error"));
+        assert.include(
+          NodeFS.readFileSync(NodePath.join(temporary, "memory", "session-handoff.md"), "utf8"),
+          "Finish the report",
+        );
+        yield* adapter.stopSession(THREAD_ID);
+      }).pipe(
+        Effect.ensuring(
+          Effect.sync(() => NodeFS.rmSync(temporary, { recursive: true, force: true })),
+        ),
+        Effect.provide(harness.layer),
+      );
+    },
+  );
+
+  it.effect(
+    "does not loop or erase a persistent conversation when a single request remains too large",
+    () => {
+      const temporary = NodeFS.mkdtempSync(NodePath.join(NodeOS.tmpdir(), "elysia-agent-limit-"));
+      const harness = makeHarness({ cwd: temporary });
+      return Effect.gen(function* () {
+        const adapter = yield* ClaudeAdapter;
+        const events = yield* adapter.streamEvents.pipe(
+          Stream.takeUntil((event) => event.type === "turn.completed"),
+          Stream.runCollect,
+          Effect.forkChild,
+        );
+        yield* adapter.startSession({
+          threadId: THREAD_ID,
+          runtimeMode: "full-access",
+          cwd: temporary,
+          persistentAgent: {
+            name: "Researcher",
+            instructions: "Help",
+            memoryDirectory: NodePath.join(temporary, "memory"),
+          },
+        });
+        const prompts = harness.getLastCreateQueryInput()!.prompt[Symbol.asyncIterator]();
+        const turn = yield* adapter.sendTurn({
+          threadId: THREAD_ID,
+          input: "x".repeat(50_000),
+          attachments: [],
+        });
+        yield* Effect.promise(() => prompts.next());
+        const failure = {
+          type: "result",
+          subtype: "error_during_execution",
+          is_error: true,
+          terminal_reason: "prompt_too_long",
+          user_message_uuids: [turn.turnId],
+          session_id: "session",
+          uuid: "limit",
+          errors: [],
+        } as unknown as SDKMessage;
+        harness.query.emit(failure);
+        yield* Effect.promise(() => prompts.next());
+        harness.query.emit({
+          type: "conversation_reset",
+          session_id: "session",
+          new_conversation_id: "renewed-session",
+          uuid: "reset",
+        } as unknown as SDKMessage);
+        yield* Effect.promise(() => prompts.next());
+        harness.query.emit(failure);
+        const runtimeEvents = Array.from(yield* Fiber.join(events));
+        assert.equal(completedTurn(runtimeEvents).state, "failed");
+        assert.equal(runtimeEvents.filter((event) => event.type === "runtime.warning").length, 1);
+        assert.isBelow(
+          NodeFS.statSync(NodePath.join(temporary, "memory", "session-handoff.md")).size,
+          37_000,
+        );
+        yield* adapter.stopSession(THREAD_ID);
+      }).pipe(
+        Effect.ensuring(
+          Effect.sync(() => NodeFS.rmSync(temporary, { recursive: true, force: true })),
+        ),
+        Effect.provide(harness.layer),
+      );
+    },
+  );
 
   it.effect.each([
     {

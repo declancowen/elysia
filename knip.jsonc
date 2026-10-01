@@ -31,6 +31,8 @@
       // Keep the transitive Effect runtime pinned for standalone npm installs.
       // The Vite+ web build prerequisite.
       "ignoreDependencies": ["@effect/platform-node-shared", "@t3tools/web"],
+      // Elysia's runtime policy disables upstream triage; retain its implementation for merges.
+      "ignoreIssues": { "src/cli/triage.ts": ["files"] },
     },
     "apps/desktop": {
       // Electron loads these bundles by filename rather than importing them.
@@ -61,7 +63,17 @@
       // UI component modules are copied and adapted as cohesive sets. Keep their
       // named subcomponents even before they have callers; the file audit still
       // reports an entire component module when nothing imports it.
-      "ignoreIssues": { "src/components/ui/*.tsx": ["exports", "nsExports", "duplicates"] },
+      "ignoreIssues": {
+        "src/components/ui/*.tsx": ["exports", "nsExports", "duplicates"],
+        // Elysia disables upstream connections and usage UI. Keep the dormant source for merges;
+        // suppress only unused-file reports so dependency analysis remains active.
+        "src/components/clerk/RemoveT3ConnectEnvironmentDialog.tsx": ["files"],
+        "src/components/settings/AddUsageLimitSourceDialog.tsx": ["files"],
+        "src/components/settings/ConnectionsSettings.tsx": ["files"],
+        "src/components/settings/LocalEnvironmentSetting.tsx": ["files"],
+        "src/components/settings/UsageProviderSettings.tsx": ["files"],
+        "src/state/auth.ts": ["files"],
+      },
     },
     "apps/mobile": {
       // Expo loads plugins by string; Metro embeds the browser entry in the native WebView.
@@ -77,6 +89,14 @@
         "@t3tools/mobile-review-diff-native",
         "@t3tools/mobile-terminal-native",
       ],
+      // Elysia's runtime policy hides upstream grouping and usage screens, retained for merges.
+      "ignoreIssues": {
+        "src/features/settings/SettingsProjectGroupingRouteScreen.tsx": ["files"],
+        "src/features/usage/ChatGptUsageSummary.tsx": ["files"],
+        "src/features/usage/UsageDailyChart.tsx": ["files"],
+        "src/features/usage/UsageRouteScreen.tsx": ["files"],
+        "src/state/usage.ts": ["files"],
+      },
     },
     "apps/mobile/modules/t3-markdown-text": {
       // React Native codegen discovers component specifications by filename.

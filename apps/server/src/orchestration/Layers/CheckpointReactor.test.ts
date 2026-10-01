@@ -11,6 +11,7 @@ import {
   ProviderRuntimeEvent,
   ProviderSession,
   ProviderInstanceId,
+  type AgentProfile,
 } from "@t3tools/contracts";
 import {
   CommandId,
@@ -292,6 +293,7 @@ describe("CheckpointReactor", () => {
   });
 
   async function createHarness(options?: {
+    readonly agentProfile?: AgentProfile;
     readonly checkpointLookupFailure?: (
       cwd: string,
     ) => VcsProcessTimeoutError | VcsProcessSpawnError | undefined;
@@ -433,6 +435,7 @@ describe("CheckpointReactor", () => {
         commandId: CommandId.make("cmd-project-create"),
         projectId: asProjectId("project-1"),
         title: "Test Project",
+        ...(options?.agentProfile ? { agentProfile: options.agentProfile } : {}),
         workspaceRoot: options?.projectWorkspaceRoot ?? cwd,
         defaultModelSelection: {
           instanceId: ProviderInstanceId.make("codex"),
@@ -1436,6 +1439,44 @@ describe("CheckpointReactor", () => {
     expect(pullRequestRefreshCalls).toEqual([harness.cwd]);
     expect(harness.pullRequestRefreshes).toEqual([1]);
   });
+
+  effectIt.effect(
+    "agent profiles never create Git checkpoints even inside a development checkout",
+    () =>
+      Effect.gen(function* () {
+        const harness = yield* Effect.promise(() =>
+          createHarness({
+            seedFilesystemCheckpoints: false,
+            agentProfile: {
+              instructions: "Help with work.",
+              avatar: { preset: "robot", color: "blue" },
+              notificationsEnabled: true,
+              archived: false,
+            },
+          }),
+        );
+        yield* harness.engine.dispatch({
+          type: "thread.turn.start",
+          commandId: CommandId.make("agent-start"),
+          threadId: ThreadId.make("thread-1"),
+          message: {
+            messageId: MessageId.make("agent-message"),
+            role: "user",
+            text: "Help with work.",
+            attachments: [],
+          },
+          runtimeMode: "approval-required",
+          interactionMode: DEFAULT_PROVIDER_INTERACTION_MODE,
+          createdAt: "2026-01-01T00:00:01.000Z",
+        });
+        yield* Effect.promise(harness.drain);
+        expect(
+          gitRefExists(harness.cwd, checkpointRefForThreadTurn(ThreadId.make("thread-1"), 0)),
+        ).toBe(false);
+        const snapshot = yield* Effect.promise(harness.readModel);
+        expect(snapshot.threads[0]?.checkpoints).toEqual([]);
+      }),
+  );
 
   it("captures pre-turn and completion checkpoints for claude runtime events", async () => {
     const harness = await createHarness({

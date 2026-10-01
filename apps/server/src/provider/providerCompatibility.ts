@@ -1,6 +1,7 @@
 import {
   TrimmedNonEmptyString,
   ServerProviderCompatibilityStatus,
+  SINGLE_PROVIDER_UI,
   type ProviderDriverKind,
   type ServerProvider,
   type ServerProviderCompatibilityAdvisory,
@@ -8,6 +9,11 @@ import {
 import { satisfiesSemverRange } from "@t3tools/shared/semver";
 import * as Schema from "effect/Schema";
 import packageJson from "../../package.json" with { type: "json" };
+
+// Elysia numbers its own releases from 0.0.1, while its inherited harness
+// adapters implement the upstream 0.0.44 contract. CLI policy ranges describe
+// that adapter baseline, not the independently numbered Elysia app release.
+const ELYSIA_UPSTREAM_COMPATIBILITY_VERSION = "0.0.44";
 
 // Deliberately uses the shared CLI gate syntax: comparator groups joined by ||.
 // Prereleases and unrecognized release tags remain unknown.
@@ -60,7 +66,9 @@ export function resolveProviderCompatibility(
   policies: ReadonlyArray<ProviderCompatibilityPolicy> | undefined,
   driver: ProviderDriverKind,
   version: string | null,
-  t3CodeVersion = packageJson.version,
+  t3CodeVersion = SINGLE_PROVIDER_UI && driver === "claudeAgent"
+    ? ELYSIA_UPSTREAM_COMPATIBILITY_VERSION
+    : packageJson.version,
 ): ServerProviderCompatibilityAdvisory | undefined {
   const policy = policies?.find(
     (entry) => entry.driver === driver && satisfiesSemverRange(t3CodeVersion, entry.t3CodeRange),

@@ -93,8 +93,19 @@ it("keeps the wide overview open during chat interaction and resets it when the 
   await click("Thread overview");
   await outsidePress();
   expect(document.querySelector('[role="dialog"]')).not.toBeNull();
+  await click("View all");
+  expect(document.querySelector('[role="dialog"]')).toBeNull();
+  await click("Thread overview");
   state.wide = false;
   await render();
+  expect(document.querySelector('[role="dialog"]')).toBeNull();
+});
+
+it("uses a dismissible overlay when another sidebar occupies the wide screen", async () => {
+  state.wide = true;
+  await render({ transient: true });
+  await click("Thread overview");
+  await outsidePress();
   expect(document.querySelector('[role="dialog"]')).toBeNull();
 });
 

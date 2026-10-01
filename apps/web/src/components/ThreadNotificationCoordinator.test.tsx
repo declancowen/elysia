@@ -1,4 +1,5 @@
 import type { ClientSettings } from "@t3tools/contracts/settings";
+import type { AgentProfile } from "@t3tools/contracts";
 import * as Option from "effect/Option";
 import { act } from "react";
 import { create, type ReactTestRenderer } from "react-test-renderer";
@@ -13,6 +14,8 @@ const state = vi.hoisted(() => ({
   live: true,
   completedAt: null as string | null,
   archivedAt: null as string | null,
+  agentProfile: undefined as AgentProfile | undefined,
+  projectTitle: "Research workspace",
   input: false,
   approval: false,
   sessionError: false,
@@ -33,9 +36,11 @@ vi.mock("@effect/atom-react", () => ({
   useAtomValue: () => ({
     status: state.live ? "live" : "disconnected",
     snapshot: Option.some({
+      projects: [{ id: "project-1", title: state.projectTitle, agentProfile: state.agentProfile }],
       threads: [
         {
           id: "thread-1",
+          projectId: "project-1",
           title: "Fix the login form",
           archivedAt: state.archivedAt,
           hasPendingUserInput: state.input,
@@ -105,6 +110,8 @@ beforeEach(() => {
     live: true,
     completedAt: null,
     archivedAt: null,
+    agentProfile: undefined,
+    projectTitle: "Research workspace",
     input: false,
     approval: false,
     sessionError: false,
@@ -130,6 +137,102 @@ afterEach(async () => {
 });
 
 describe("thread notifications", () => {
+  it.each(["muted", "archived"])("suppresses all alerts for %s agents", async (condition) => {
+    state.mode = "notifications-and-sound";
+    state.agentProfile = {
+      instructions: "Help with research.",
+      avatar: { preset: "robot", color: "blue" },
+      archived: condition === "archived",
+      notificationsEnabled: condition !== "muted",
+    };
+    await render();
+    state.input = true;
+    await render();
+    state.input = false;
+    state.focused = false;
+    await complete();
+    expect(state.add).not.toHaveBeenCalled();
+    expect(state.notification).not.toHaveBeenCalled();
+    expect(state.sound).not.toHaveBeenCalled();
+  });
+
+  it("notifies for agents that have notifications enabled", async () => {
+    state.agentProfile = {
+      instructions: "Help with research.",
+      avatar: { preset: "robot", color: "blue" },
+      archived: false,
+      notificationsEnabled: true,
+    };
+    await render();
+    await complete();
+    expect(state.add).toHaveBeenCalledTimes(1);
+  });
+
+  it.each(["in-app", "desktop"])(
+    "uses the renamed agent name in %s completion alerts without alerting on the rename",
+    async (surface) => {
+      state.agentProfile = {
+        instructions: "Help with research.",
+        title: "Researcher",
+        avatar: { preset: "robot", color: "blue" },
+        archived: false,
+        notificationsEnabled: true,
+      };
+      state.projectTitle = "Alex";
+      state.mode = surface === "desktop" ? "notifications" : "off";
+      state.focused = surface === "in-app";
+      await render();
+      state.projectTitle = "Sam";
+      await render();
+      expect(state.add).not.toHaveBeenCalled();
+      expect(state.notification).not.toHaveBeenCalled();
+      expect(state.sound).not.toHaveBeenCalled();
+
+      await complete();
+      if (surface === "desktop") {
+        expect(state.add).not.toHaveBeenCalled();
+        expect(state.notification).toHaveBeenCalledOnce();
+        expect(state.notification).toHaveBeenCalledWith("Agent completed", {
+          body: "Sam",
+          tag: "env-1:thread-1",
+          silent: true,
+        });
+      } else {
+        expect(state.notification).not.toHaveBeenCalled();
+        expect(state.add).toHaveBeenCalledOnce();
+        expect(state.add).toHaveBeenCalledWith(
+          expect.objectContaining({ title: "Agent completed", description: "Sam" }),
+        );
+      }
+    },
+  );
+
+  it.each([
+    ["input", "Input needed"],
+    ["approval", "Approval needed"],
+    ["sessionError", "Agent failed"],
+    ["turnError", "Agent failed"],
+  ] as const)("uses the agent name in desktop %s alerts", async (event, title) => {
+    state.agentProfile = {
+      instructions: "Help with research.",
+      avatar: { preset: "brain", color: "violet" },
+      archived: false,
+      notificationsEnabled: true,
+    };
+    state.projectTitle = "Riley";
+    state.mode = "notifications";
+    state.focused = false;
+    await render();
+    state[event] = true;
+    await render();
+    expect(state.notification).toHaveBeenCalledOnce();
+    expect(state.notification).toHaveBeenCalledWith(title, {
+      body: "Riley",
+      tag: "env-1:thread-1",
+      silent: true,
+    });
+  });
+
   it("alerts once with system alerts off and opens the completed thread", async () => {
     await render();
     await complete();

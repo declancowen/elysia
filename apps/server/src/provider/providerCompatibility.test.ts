@@ -1,3 +1,6 @@
+import "../testUtils/upstreamForkPolicy.ts";
+import "../testUtils/upstreamReleaseFixture.ts";
+
 import { assert, describe, it } from "@effect/vitest";
 import { ProviderDriverKind, ProviderInstanceId, type ServerProvider } from "@t3tools/contracts";
 import * as NodeServices from "@effect/platform-node/NodeServices";

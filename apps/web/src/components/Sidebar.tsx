@@ -124,7 +124,13 @@ import {
 } from "../threadSelectionStore";
 import { useThreadActions } from "../hooks/useThreadActions";
 import { useHandleNewThread } from "../hooks/useHandleNewThread";
-import { RecentThreadsHeader } from "./sidebar/RecentThreadsHeader";
+import { RecentThreadsHeader, useRecentThreadsExpansion } from "./sidebar/RecentThreadsHeader";
+import { AgentRoster } from "./agents/AgentRoster";
+import {
+  isAgentProject,
+  selectNonAgentProjectItems,
+  selectRegularProjects,
+} from "../agentPresentation";
 import { isCommandPaletteOpen, openCommandPalette } from "../commandPaletteBus";
 import { startNewThreadFromContext } from "../lib/chatThreadActions";
 import { useClientSettings, useCodeWorkspace, getClientSettings } from "../hooks/useSettings";
@@ -822,6 +828,7 @@ interface SidebarDraftRowData {
 // subscription + closing divider) so per-keystroke composer updates
 // re-render only this block, never the whole sidebar. Vanishes at count 0.
 const SidebarDraftBlock = memo(function SidebarDraftBlock(props: {
+  agentProjectKeys: ReadonlySet<string>;
   projectByKey: ReadonlyMap<string, EnvironmentProject>;
   projectDisplayNameByKey: ReadonlyMap<string, string>;
   scopedProjectKeys: ReadonlySet<string> | null;
@@ -861,6 +868,7 @@ const SidebarDraftBlock = memo(function SidebarDraftBlock(props: {
     // new-thread surfaces mint fresh drafts and leave invested ones behind
     // unmapped, so the mapping only knows about the latest per project.
     for (const [draftKey, session] of Object.entries(draftThreadsByThreadKey)) {
+      if (props.agentProjectKeys.has(`${session.environmentId}:${session.projectId}`)) continue;
       if (session.promotedTo != null) {
         continue;
       }
@@ -893,6 +901,7 @@ const SidebarDraftBlock = memo(function SidebarDraftBlock(props: {
     frozenActive,
     props.routeDraftId,
     props.scopedProjectKeys,
+    props.agentProjectKeys,
   ]);
   const handleDiscard = useCallback(
     (draftId: DraftId) => {
@@ -2177,9 +2186,24 @@ const SidebarSearchResultRow = memo(function SidebarSearchResultRow(props: {
 });
 
 export default function Sidebar() {
-  const projects = useProjects();
+  const allProjects = useProjects();
+  const projects = useMemo(() => selectRegularProjects(allProjects), [allProjects]);
+  const agentProjectKeys = useMemo(
+    () =>
+      new Set(
+        allProjects
+          .filter(isAgentProject)
+          .map((project) => `${project.environmentId}:${project.id}`),
+      ),
+    [allProjects],
+  );
+  const { expanded: recentExpanded } = useRecentThreadsExpansion();
   const projectOrder = useUiStateStore((store) => store.projectOrder);
-  const threads = useThreadShells();
+  const allThreads = useThreadShells();
+  const threads = useMemo(
+    () => selectNonAgentProjectItems(allThreads, allProjects),
+    [allThreads, allProjects],
+  );
   const router = useRouter();
   const { isMobile, setOpenMobile } = useSidebar();
   const keybindings = useAtomValue(primaryServerKeybindingsAtom);
@@ -2488,6 +2512,7 @@ export default function Sidebar() {
   const visibleDraftSessionCount = useComposerDraftStore((store) => {
     let count = 0;
     for (const [draftKey, session] of Object.entries(store.draftThreadsByThreadKey)) {
+      if (agentProjectKeys.has(`${session.environmentId}:${session.projectId}`)) continue;
       if (session.promotedTo != null) {
         continue;
       }
@@ -2814,10 +2839,12 @@ export default function Sidebar() {
   );
   const orderedThreadKeys = useMemo(
     () =>
-      orderedThreads.map((thread) =>
-        scopedThreadKey(scopeThreadRef(thread.environmentId, thread.id)),
-      ),
-    [orderedThreads],
+      recentExpanded
+        ? orderedThreads.map((thread) =>
+            scopedThreadKey(scopeThreadRef(thread.environmentId, thread.id)),
+          )
+        : [],
+    [orderedThreads, recentExpanded],
   );
   // Rows call back into the click handler without carrying the ordered list as
   // a prop — a fresh array identity per shell update would defeat every row's
@@ -3392,6 +3419,7 @@ export default function Sidebar() {
   // Include every visible row in the measured order. Older servers disable
   // pickup on their rows without changing where those rows render.
   const sidebarListItems = useMemo((): readonly SidebarListItem[] => {
+    if (!recentExpanded) return [];
     const rowsOf = (
       list: readonly EnvironmentThreadShell[],
       section: SidebarSection,
@@ -3429,6 +3457,7 @@ export default function Sidebar() {
     activeThreads,
     pinnedThreads,
     renderedSettledThreads,
+    recentExpanded,
     settledThreads.length,
     snoozedThreads.length,
     visibleSnoozedThreads,
@@ -4450,6 +4479,7 @@ export default function Sidebar() {
           // Lifted above the stage backdrop, whose fade bleeds below the
           // header and would otherwise paint across the search row's outline.
           <SidebarGroup className="z-[1]">
+            <AgentRoster />
             <SidebarThreadHeader
               searchFieldRef={headerSearchRef}
               hasProjects={projectGroups.length > 0}
@@ -4609,7 +4639,10 @@ export default function Sidebar() {
           </SidebarGroup>
         }
       >
-        <SidebarGroup className="flex-1" role="presentation">
+        <SidebarGroup
+          className={cn("flex-1", !recentExpanded && !isSearchingThreads && "hidden")}
+          role="presentation"
+        >
           {isSearchingThreads ? (
             threadSearchResults.length > 0 ? (
               <TooltipProvider
@@ -4843,6 +4876,7 @@ export default function Sidebar() {
                       const from = dragState?.activeSection ?? null;
                       const items: ReactNode[] = [
                         <SidebarDraftBlock
+                          agentProjectKeys={agentProjectKeys}
                           key="draft-sessions"
                           projectByKey={projectByKey}
                           projectDisplayNameByKey={projectDisplayNameByKey}

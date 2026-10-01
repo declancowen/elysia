@@ -26,3 +26,16 @@ export function buildRuntimeInstructions(runtime: {
 function toSingleLine(value: string): string {
   return value.replaceAll(/\s+/g, " ").trim();
 }
+
+/** Agent identity is session-level context; native Claude memory remains responsible for facts. */
+export function buildPersistentAgentInstructions(agent: {
+  readonly name: string;
+  readonly title?: string | undefined;
+  readonly instructions: string;
+  readonly memoryDirectory: string;
+}): string {
+  return `<persistent_agent>
+You are ${toSingleLine(agent.name)}, a persistent agent in Elysia. Keep relevant durable preferences and working context in your native auto memory. Your conversation continues across context compaction. On a fresh context, read ${agent.memoryDirectory}/MEMORY.md and ${agent.memoryDirectory}/session-handoff.md when present. Keep durable facts and ongoing work in native memory.
+${agent.title ? `Your role: ${toSingleLine(agent.title)}.\n` : ""}${agent.instructions}
+</persistent_agent>`;
+}

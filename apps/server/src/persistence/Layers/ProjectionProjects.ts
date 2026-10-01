@@ -6,7 +6,12 @@ import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import * as Struct from "effect/Struct";
 
-import { ModelSelection, ProjectIconOverride, ProjectScript } from "@t3tools/contracts";
+import {
+  AgentProfile,
+  ModelSelection,
+  ProjectIconOverride,
+  ProjectScript,
+} from "@t3tools/contracts";
 import { toPersistenceSqlError } from "../Errors.ts";
 import {
   GetProjectionProjectInput,
@@ -18,6 +23,7 @@ import {
 const ProjectionProjectDbRow = ProjectionProject.mapFields(
   Struct.assign({
     defaultModelSelection: Schema.NullOr(Schema.fromJsonString(ModelSelection)),
+    agentProfile: Schema.NullOr(Schema.fromJsonString(AgentProfile)),
     autoPull: Schema.Number,
     projectIcon: Schema.NullOr(Schema.fromJsonString(ProjectIconOverride)),
     scripts: Schema.fromJsonString(Schema.Array(ProjectScript)),
@@ -34,6 +40,7 @@ const makeProjectionProjectRepository = Effect.gen(function* () {
         INSERT INTO projection_projects (
           project_id,
           title,
+          agent_profile_json,
           workspace_root,
           default_model_selection_json,
           default_thread_env_mode,
@@ -48,6 +55,7 @@ const makeProjectionProjectRepository = Effect.gen(function* () {
         VALUES (
           ${row.projectId},
           ${row.title},
+          ${row.agentProfile ? JSON.stringify(row.agentProfile) : null},
           ${row.workspaceRoot},
           ${row.defaultModelSelection !== null ? JSON.stringify(row.defaultModelSelection) : null},
           ${row.defaultThreadEnvMode},
@@ -62,6 +70,7 @@ const makeProjectionProjectRepository = Effect.gen(function* () {
         ON CONFLICT (project_id)
         DO UPDATE SET
           title = excluded.title,
+          agent_profile_json = excluded.agent_profile_json,
           workspace_root = excluded.workspace_root,
           default_model_selection_json = excluded.default_model_selection_json,
           default_thread_env_mode = excluded.default_thread_env_mode,
@@ -83,6 +92,7 @@ const makeProjectionProjectRepository = Effect.gen(function* () {
         SELECT
           project_id AS "projectId",
           title,
+          agent_profile_json AS "agentProfile",
           workspace_root AS "workspaceRoot",
           default_model_selection_json AS "defaultModelSelection",
           default_thread_env_mode AS "defaultThreadEnvMode",
@@ -105,7 +115,13 @@ const makeProjectionProjectRepository = Effect.gen(function* () {
 
   const getById: ProjectionProjectRepositoryShape["getById"] = (input) =>
     getProjectionProjectRow(input).pipe(
-      Effect.map(Option.map((row) => ({ ...row, autoPull: row.autoPull === 1 }))),
+      Effect.map(
+        Option.map((row) => ({
+          ...row,
+          agentProfile: row.agentProfile ?? undefined,
+          autoPull: row.autoPull === 1,
+        })),
+      ),
       Effect.mapError(toPersistenceSqlError("ProjectionProjectRepository.getById:query")),
     );
 

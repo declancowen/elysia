@@ -2430,3 +2430,12 @@ describe("worktree setup visibility", () => {
     });
   });
 });
+
+// Exercise retained upstream provider behavior; Elysia policy has separate native-only tests.
+vi.mock("../../../../packages/contracts/src/forkPolicy.ts", async (importOriginal) => ({
+  ...(await importOriginal<
+    Pick<typeof import("@t3tools/contracts"), "isEnabledProviderDriver" | "SINGLE_PROVIDER_UI">
+  >()),
+  isEnabledProviderDriver: () => true,
+  SINGLE_PROVIDER_UI: false,
+}));

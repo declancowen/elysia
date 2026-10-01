@@ -9,7 +9,7 @@ import {
   FileDiffIcon,
   FileIcon,
   LinkIcon,
-  ListChecksIcon,
+  ListIcon,
   PlusIcon,
 } from "lucide-react";
 import { cn } from "~/lib/utils";
@@ -34,6 +34,7 @@ export interface ThreadOverviewPanelProps {
   onOpenSources: () => void;
   onAddSources: () => void;
   onOpenSource: (sourceId: string) => void;
+  transient?: boolean;
 }
 
 const rowClassName =
@@ -57,7 +58,7 @@ function OverviewPopover({
   const visibleSources = sourcesExpanded ? sources : sources.slice(0, 3);
   const openView = (action: () => void) => {
     action();
-    if (!wide) setOpen(false);
+    setOpen(false);
   };
 
   return (
@@ -72,9 +73,17 @@ function OverviewPopover({
       }}
     >
       <PopoverTrigger
-        render={<Button variant="ghost" size="icon-sm" aria-label="Thread overview" />}
+        render={
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            aria-label="Thread overview"
+            data-thread-overview-trigger
+            data-overview-docked={wide}
+          />
+        }
       >
-        <ListChecksIcon className="size-4" />
+        <ListIcon className="size-4" />
       </PopoverTrigger>
       <PopoverPrimitive.Portal>
         <PopoverPrimitive.Positioner
@@ -203,7 +212,7 @@ function OverviewPopover({
 }
 
 export function ThreadOverviewPanel(props: ThreadOverviewPanelProps) {
-  const wide = useMediaQuery("xl");
+  const wide = useMediaQuery("xl") && !props.transient;
   // Resizing into the narrow layout or navigating starts with its transient overlay closed.
   return <OverviewPopover key={`${props.threadKey}:${wide}`} {...props} wide={wide} />;
 }

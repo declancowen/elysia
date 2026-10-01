@@ -7,6 +7,7 @@ import {
 import * as Schema from "effect/Schema";
 import {
   defaultInstanceIdForDriver,
+  DEFAULT_MODEL_BY_PROVIDER,
   EnvironmentId,
   MessageId,
   ProjectId,
@@ -2463,7 +2464,7 @@ describe("composerDraftStore model seed migration", () => {
   });
 
   it.each([1, 2])(
-    "keeps the legacy sticky Codex selection when v%s storage omitted the provider",
+    "assigns untagged v%s legacy models to Elysia while preserving dormant Codex options",
     async (version) => {
       vi.useFakeTimers();
       try {
@@ -2489,7 +2490,16 @@ describe("composerDraftStore model seed migration", () => {
         await useComposerDraftStore.persist.rehydrate();
 
         expect(useComposerDraftStore.getState()).toMatchObject({
-          stickyModelSelectionByProvider: { [CODEX_INSTANCE]: stickySelection },
+          stickyModelSelectionByProvider: {
+            [CLAUDE_AGENT_INSTANCE]: createModelSelection(
+              CLAUDE_AGENT_INSTANCE,
+              stickySelection.model,
+            ),
+            [CODEX_INSTANCE]: {
+              ...stickySelection,
+              model: DEFAULT_MODEL_BY_PROVIDER[CODEX_DRIVER],
+            },
+          },
           stickyActiveProvider: null,
         });
       } finally {

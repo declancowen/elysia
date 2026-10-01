@@ -5,8 +5,9 @@ import { createRoot } from "react-dom/client";
 import { expect, it, vi } from "vite-plus/test";
 
 import { SidebarProvider } from "../ui/sidebar";
-import { RecentThreadsHeader } from "./RecentThreadsHeader";
+import { RECENT_THREADS_EXPANSION_KEY, RecentThreadsHeader } from "./RecentThreadsHeader";
 import { SidebarUtilityMenu } from "./SidebarChrome";
+import { useUiStateStore } from "~/uiStateStore";
 
 const state = vi.hoisted(() => ({
   pathname: "/",
@@ -67,6 +68,8 @@ it("keeps Work/Code beside Settings, preserves sidebar layout, and hides both sw
   state.pathname = "/";
   state.settings = { workspaceMode: "code", legacySidebarEnabled: true };
   state.connected = true;
+  const originalProjectExpansion = useUiStateStore.getState().projectExpandedById;
+  useUiStateStore.setState({ projectExpandedById: {} });
   state.startScratchThread.mockReset();
   state.updateSettings.mockImplementation((patch: Partial<typeof state.settings>) => {
     state.settings = { ...state.settings, ...patch };
@@ -103,8 +106,19 @@ it("keeps Work/Code beside Settings, preserves sidebar layout, and hides both sw
     await act(async () => render());
     expect(button("Pull Requests")).not.toBeNull();
 
+    await act(async () => button("Recent threads")!.click());
+    expect(useUiStateStore.getState().projectExpandedById[RECENT_THREADS_EXPANSION_KEY]).toBe(
+      false,
+    );
+    state.settings = { ...state.settings, legacySidebarEnabled: false };
+    await act(async () => render());
+    expect(button("Recent threads")!.getAttribute("aria-expanded")).toBe("false");
+    state.settings = { ...state.settings, legacySidebarEnabled: true };
+    await act(async () => render());
+
     await act(async () => button("New thread without a project")!.click());
     expect(state.startScratchThread).toHaveBeenCalledWith(environmentId);
+    expect(useUiStateStore.getState().projectExpandedById[RECENT_THREADS_EXPANSION_KEY]).toBe(true);
     state.connected = false;
     await act(async () => render());
     expect(button("New thread without a project")!.disabled).toBe(true);
@@ -124,6 +138,7 @@ it("keeps Work/Code beside Settings, preserves sidebar layout, and hides both sw
     expect(button("Switch to flat sidebar")).not.toBeNull();
   } finally {
     await act(async () => root.unmount());
+    useUiStateStore.setState({ projectExpandedById: originalProjectExpansion });
     container.remove();
     vi.unstubAllGlobals();
   }

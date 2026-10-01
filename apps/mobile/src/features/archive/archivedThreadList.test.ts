@@ -144,4 +144,41 @@ describe("buildArchivedThreadGroups", () => {
 
     expect(result).toEqual([]);
   });
+
+  it("does not expose persistent agent history in the generic archive", () => {
+    const agent = makeProject({
+      id: ProjectId.make("agent"),
+      title: "Researcher",
+      agentProfile: {
+        instructions: "Research documents.",
+        avatar: { preset: "brain", color: "blue" },
+        notificationsEnabled: true,
+        archived: true,
+      },
+    });
+    const ordinary = makeProject({ id: ProjectId.make("work"), title: "Work" });
+    const agentThread = makeThread({
+      id: ThreadId.make("agent-chat"),
+      projectId: agent.id,
+      title: "Agent chat",
+    });
+    const ordinaryThread = makeThread({
+      id: ThreadId.make("work-chat"),
+      projectId: ordinary.id,
+      title: "Work chat",
+    });
+    const snapshot = makeSnapshot([agent, ordinary], [agentThread, ordinaryThread]);
+
+    const result = buildArchivedThreadGroups({
+      snapshots: [snapshot],
+      environmentLabels: {},
+      environmentId: null,
+      searchQuery: "",
+      sortOrder: "newest",
+    });
+
+    expect(result.map((group) => group.project.id)).toEqual([ordinary.id]);
+    expect(result[0]?.threads.map((thread) => thread.id)).toEqual([ordinaryThread.id]);
+    expect(snapshot.snapshot.threads).toEqual([agentThread, ordinaryThread]);
+  });
 });

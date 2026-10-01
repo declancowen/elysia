@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vite-plus/test";
-import { buildRuntimeInstructions } from "./RuntimeInstructions.ts";
+import {
+  buildPersistentAgentInstructions,
+  buildRuntimeInstructions,
+} from "./RuntimeInstructions.ts";
 
 describe("buildRuntimeInstructions", () => {
   it("requires explicit registration of every PR and stack layer", () => {
@@ -35,4 +38,17 @@ describe("buildRuntimeInstructions", () => {
     expect(instructions).toContain("through the Cursor harness.");
     expect(instructions).not.toContain("reasoning effort");
   });
+});
+
+it("persistent identity includes the editable role and exact native memory paths", () => {
+  const instructions = buildPersistentAgentInstructions({
+    name: "Edna",
+    title: "Editorial assistant",
+    instructions: "Review copy.",
+    memoryDirectory: "/agents/edna/.claude/memory",
+  });
+  expect(instructions).toContain("You are Edna");
+  expect(instructions).toContain("Your role: Editorial assistant.");
+  expect(instructions).toContain("/agents/edna/.claude/memory/MEMORY.md");
+  expect(instructions).toContain("Review copy.");
 });

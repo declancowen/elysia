@@ -1,7 +1,10 @@
+import "../testUtils/upstreamForkPolicy.ts";
+
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { describe, expect, it, vi } from "@effect/vitest";
 import {
   AgentSessionImportProjectChangedError,
+  AgentSessionScanError,
   CommandId,
   MessageId,
   ProjectId,
@@ -317,6 +320,44 @@ it.layer(NodeServices.layer)("AgentSessionImporter", (it) => {
         expect(error).toEqual(new AgentSessionImportProjectChangedError({ projectId: PROJECT_ID }));
         expect(recentThreads).not.toHaveBeenCalled();
       }),
+    );
+
+    it.effect(
+      "preserves a persistent agent conversation before scanning or writing resume bindings",
+      () =>
+        Effect.gen(function* () {
+          const recentThreads = vi.fn(() => Stream.empty);
+          const error = yield* importRecentAgentThreads({ projectId: PROJECT_ID }).pipe(
+            Effect.provideService(
+              AgentSessionScanner.AgentSessionScanner,
+              AgentSessionScanner.AgentSessionScanner.of({
+                scan: Effect.die("must not scan a persistent agent"),
+                recentThreads,
+              }),
+            ),
+            Effect.provide(
+              Layer.mergeAll(
+                Layer.mock(OrchestrationEngine.OrchestrationEngineService)({}),
+                Layer.mock(ProviderSessionDirectory.ProviderSessionDirectory)({}),
+                makeSnapshotsLayer({
+                  project: {
+                    ...makeProject(),
+                    agentProfile: {
+                      instructions: "Help with editorial work.",
+                      avatar: { preset: "briefcase", color: "blue" },
+                      notificationsEnabled: true,
+                      archived: false,
+                      conversationThreadId: ThreadId.make("existing-agent-conversation"),
+                    },
+                  },
+                }),
+              ),
+            ),
+            Effect.flip,
+          );
+          expect(error).toBeInstanceOf(AgentSessionScanError);
+          expect(recentThreads).not.toHaveBeenCalled();
+        }),
     );
 
     it.effect("counts scanner skips without writing a thread or binding", () =>

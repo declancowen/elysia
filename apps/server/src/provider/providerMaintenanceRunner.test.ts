@@ -1,3 +1,6 @@
+import "../testUtils/upstreamForkPolicy.ts";
+import "../testUtils/upstreamReleaseFixture.ts";
+
 import { describe, it, assert } from "@effect/vitest";
 import {
   ProviderDriverKind,

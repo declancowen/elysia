@@ -1,3 +1,6 @@
+import "../testUtils/upstreamForkPolicy.ts";
+import "../testUtils/upstreamReleaseFixture.ts";
+
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { BUNDLED_MODEL_MANIFEST, ModelManifest, type ModelManifestData } from "./ModelManifest.ts";
 import { expect, it } from "@effect/vitest";

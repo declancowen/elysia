@@ -108,6 +108,7 @@ import {
   normalizeDispatchCommand,
 } from "./orchestration/Normalizer.ts";
 import * as OrchestrationEngine from "./orchestration/Services/OrchestrationEngine.ts";
+import { createPersistentAgent } from "./orchestration/PersistentAgents.ts";
 import * as ProjectionSnapshotQuery from "./orchestration/Services/ProjectionSnapshotQuery.ts";
 import { ThreadDeletionReactor } from "./orchestration/Services/ThreadDeletionReactor.ts";
 import {
@@ -3280,6 +3281,14 @@ const makeWsRpcLayer = (
                 ),
             }),
             { "rpc.aggregate": "source-control" },
+          ),
+        [WS_METHODS.agentsCreate]: (input) =>
+          observeRpcEffect(
+            WS_METHODS.agentsCreate,
+            createPersistentAgent(input, dispatchNormalizedCommand),
+            {
+              "rpc.aggregate": "orchestration",
+            },
           ),
         [WS_METHODS.projectsEnsureScratch]: () =>
           observeRpcEffect(WS_METHODS.projectsEnsureScratch, ensureScratchProject, {

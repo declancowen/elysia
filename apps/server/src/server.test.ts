@@ -1,3 +1,5 @@
+import { setUpstreamSingleProviderUi } from "./testUtils/upstreamForkPolicy.ts";
+
 import * as NodeHttpServer from "@effect/platform-node/NodeHttpServer";
 import * as NodeSocket from "@effect/platform-node/NodeSocket";
 import * as NodeServices from "@effect/platform-node/NodeServices";
@@ -7006,6 +7008,7 @@ it.layer(NodeServices.layer)("server router seam", (it) => {
 
   for (const mode of ["all", "targeted", "background", "elysia"] as const) {
     it.effect(`provider refresh invalidates T3 caches before probing (${mode})`, () => {
+      setUpstreamSingleProviderUi(mode === "elysia");
       const driver = ProviderDriverKind.make(mode === "elysia" ? "claudeAgent" : "codex");
       const instanceIds = [ProviderInstanceId.make("codex"), ProviderInstanceId.make("codex_work")];
       const packageNames = ["@example/personal", "@example/work"];
@@ -7104,6 +7107,11 @@ it.layer(NodeServices.layer)("server router seam", (it) => {
         );
         assert.isTrue(probed);
       }).pipe(
+        Effect.ensuring(
+          Effect.sync(() => {
+            setUpstreamSingleProviderUi(false);
+          }),
+        ),
         Effect.provideService(ProviderVersionCache, versionCache),
         Effect.provide(NodeHttpServer.layerTest),
       );

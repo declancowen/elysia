@@ -8,11 +8,14 @@ import {
   isConnectionsRpcMethod,
   CONNECTIONS_ENABLED,
   UPSTREAM_ANALYTICS_ENABLED,
+  type ServerProvider,
 } from "@t3tools/contracts";
 import { expect, it } from "vite-plus/test";
 import { BUILT_IN_DRIVERS } from "./builtInDrivers.ts";
 import { deriveProviderInstanceConfigMap } from "./Layers/ProviderInstanceRegistryHydration.ts";
 import { elysiaModelCatalog, ELYSIA_MODELS, elysiaModelEnvironment } from "./ElysiaModelCatalog.ts";
+import { BUNDLED_MODEL_MANIFEST } from "./ModelManifest.ts";
+import { applyProviderCompatibility } from "./providerCompatibility.ts";
 
 it("cannot register another runtime even when legacy or custom settings enable it", () => {
   const map = deriveProviderInstanceConfigMap({
@@ -95,4 +98,32 @@ it("synchronizes the app default with the native CLI configuration", () => {
   expect(map[ProviderInstanceId.make("claudeAgent")]?.config).toMatchObject({
     elysiaDefaultModel: "kimi-k3",
   });
+});
+
+it("preserves native Claude compatibility independently of the Elysia app and CLI versions", () => {
+  const provider: ServerProvider = {
+    driver: ProviderDriverKind.make("claudeAgent"),
+    instanceId: ProviderInstanceId.make("claudeAgent"),
+    enabled: true,
+    installed: true,
+    status: "ready",
+    auth: { status: "authenticated" },
+    version: "0.3.8",
+    runtimeVersion: "2.1.286",
+    checkedAt: "2026-10-01T00:00:00Z",
+    models: [],
+    skills: [],
+    slashCommands: [],
+  };
+  expect(
+    applyProviderCompatibility(provider, undefined, BUNDLED_MODEL_MANIFEST.compatibility)
+      .compatibilityAdvisory?.status,
+  ).toBe("supported");
+  expect(
+    applyProviderCompatibility(
+      { ...provider, runtimeVersion: "2.1.110" },
+      undefined,
+      BUNDLED_MODEL_MANIFEST.compatibility,
+    ).compatibilityAdvisory?.status,
+  ).toBe("unsupported");
 });

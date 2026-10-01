@@ -105,9 +105,9 @@ describe("searchSettings", () => {
     expect(searchSettings("git security keys")[0]?.id).toBe("git-fetch-interval");
     expect(searchSettings("push notifications")[0]?.id).toBe("publish-agent-activity");
     expect(searchSettings("battery saver")[0]?.id).toBe("background-activity");
-    expect(searchSettings("binary path")[0]?.id).toBe("providers");
-    expect(searchSettings("Antigravity")[0]?.id).toBe("providers");
-    expect(searchSettings("Google sign in")[0]?.id).toBe("providers");
+    expect(searchSettings("python path")[0]?.id).toBe("providers");
+    expect(searchSettings("Antigravity")).toEqual([]);
+    expect(searchSettings("Elysia authentication")[0]?.id).toBe("providers");
     expect(searchSettings("authorized clients")[0]?.id).toBe("connections-environment");
     expect(searchSettings("administrative access")[0]?.id).toBe("connections-environment");
   });
@@ -189,7 +189,7 @@ describe("searchSettings", () => {
     expect(available.map((item) => item.id).filter((id) => gatedIds.has(id))).toEqual([]);
   });
 
-  it("offers Cursor Keychain settings only when a macOS provider environment is available", () => {
+  it("keeps disabled Cursor Keychain settings unavailable even on a macOS environment", () => {
     const availability = {
       hasCloudPublicConfig: false,
       hasEnvironment: true,
@@ -205,10 +205,10 @@ describe("searchSettings", () => {
         hasMacProviderSettingsEnvironment: macAvailable,
       }).map((item) => item.id);
     expect(itemIds(false)).not.toContain("cursor-keychain-usage");
-    expect(itemIds(true)).toContain("cursor-keychain-usage");
+    expect(itemIds(true)).not.toContain("cursor-keychain-usage");
   });
 
-  it("keeps the local toggle searchable without offering hidden host publishing controls", () => {
+  it("keeps connection controls unavailable regardless of host publishing capability", () => {
     const availability = {
       hasCloudPublicConfig: true,
       hasEnvironment: true,
@@ -222,13 +222,13 @@ describe("searchSettings", () => {
       ...availability,
       localEnvironmentDisabled: true,
     }).map((item) => item.id);
-    expect(remoteOnly).toContain("local-environment");
+    expect(remoteOnly).not.toContain("local-environment");
     expect(remoteOnly).not.toContain("t3-connect");
     expect(remoteOnly).not.toContain("publish-agent-activity");
     expect(remoteOnly).not.toContain("wsl-backend");
-    // Browsers without access:write still render CloudLinkRow for their host.
+    // Dormant cloud publishing cannot become available through environment capabilities.
     const browser = filterAvailableSettingsSearchItems(availability).map((item) => item.id);
-    expect(browser).toContain("publish-agent-activity");
+    expect(browser).not.toContain("publish-agent-activity");
   });
 
   it("shows automatic settlement settings when the server supports them", () => {

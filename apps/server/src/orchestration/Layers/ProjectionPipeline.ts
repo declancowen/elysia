@@ -506,6 +506,7 @@ const makeOrchestrationProjectionPipeline = Effect.fn("makeOrchestrationProjecti
             title: event.payload.title,
             workspaceRoot: event.payload.workspaceRoot,
             defaultModelSelection: event.payload.defaultModelSelection,
+            ...(event.payload.agentProfile ? { agentProfile: event.payload.agentProfile } : {}),
             defaultThreadEnvMode: null,
             autoPull: false,
             faviconPath: event.payload.faviconPath ?? null,
@@ -526,6 +527,9 @@ const makeOrchestrationProjectionPipeline = Effect.fn("makeOrchestrationProjecti
           }
           yield* projectionProjectRepository.upsert({
             ...existingRow.value,
+            ...(event.payload.agentProfile !== undefined
+              ? { agentProfile: event.payload.agentProfile }
+              : {}),
             ...(event.payload.title !== undefined ? { title: event.payload.title } : {}),
             ...(event.payload.workspaceRoot !== undefined
               ? { workspaceRoot: event.payload.workspaceRoot }

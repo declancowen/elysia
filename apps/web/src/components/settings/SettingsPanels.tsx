@@ -1,4 +1,5 @@
 import { SettingsGroup } from "./SettingsGroup";
+import { ArchivedAgentsSection } from "./ArchivedAgentsSection";
 import { Spinner } from "~/components/ui/spinner";
 import { NotificationSettings } from "./NotificationSettings";
 import { ArchiveIcon, ArchiveX, CheckIcon, ChevronRightIcon, SettingsIcon } from "lucide-react";
@@ -46,6 +47,7 @@ import * as Duration from "effect/Duration";
 import * as Equal from "effect/Equal";
 import * as Schema from "effect/Schema";
 import { APP_VERSION, HOSTED_APP_CHANNEL } from "../../branding";
+import { isAgentProject } from "../../agentPresentation";
 import {
   canCheckForUpdate,
   getDesktopUpdateButtonTooltip,
@@ -3097,8 +3099,9 @@ export function ArchivedThreadsPanel() {
         snapshot.projects
           .filter(
             (project) =>
-              selectedProjectKeys === null ||
-              selectedProjectKeys.has(`${environmentId}:${project.id}`),
+              !isAgentProject(project) &&
+              (selectedProjectKeys === null ||
+                selectedProjectKeys.has(`${environmentId}:${project.id}`)),
           )
           .map(
             (project) => [`${environmentId}:${project.id}`, { ...project, environmentId }] as const,
@@ -3188,6 +3191,7 @@ export function ArchivedThreadsPanel() {
 
   return (
     <SettingsPageContainer>
+      <ArchivedAgentsSection environmentIds={scope.environmentIds} />
       {archivedGroups.length === 0 ? (
         <SettingsSection
           id={isLoadingArchive ? undefined : searchableSetting("archive").id}

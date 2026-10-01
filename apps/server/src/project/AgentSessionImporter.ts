@@ -117,6 +117,14 @@ export const importRecentAgentThreads = Effect.fn("importRecentAgentThreads")(fu
     ),
   );
   const workspaceRoot = project.workspaceRoot;
+  if (project.agentProfile !== undefined) {
+    return yield* new AgentSessionScanError({
+      operation: "read-projects",
+      cause: new Error(
+        "Persistent agents use their existing conversation and cannot import other CLI sessions.",
+      ),
+    });
+  }
   if (
     input.expectedWorkspaceRoot !== undefined &&
     normalizeProjectPathForComparison(workspaceRoot) !==

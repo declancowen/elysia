@@ -71,9 +71,13 @@ import { createSwipeRowActivation } from "./swipe-row-activation";
 import { SwipeableScrollGateProvider, useSwipeableScrollGate } from "./thread-swipe-actions";
 import { useMaterialFabScroll } from "./MaterialFabScrollContext";
 
+import { AgentRoster } from "../agents/AgentRoster";
+import type { AgentRosterEntry } from "../agents/agentPresentation";
+
 /* ─── Types ──────────────────────────────────────────────────────────── */
 
 interface HomeScreenProps {
+  readonly agents: ReadonlyArray<AgentRosterEntry>;
   readonly projects: ReadonlyArray<EnvironmentProject>;
   readonly threads: ReadonlyArray<EnvironmentThreadShell>;
   readonly pendingTasks: ReadonlyArray<PendingNewTask>;
@@ -903,7 +907,7 @@ export function HomeScreen(props: HomeScreenProps) {
     projectCount: props.projects.length,
   });
 
-  if (!hasAnyThreads) {
+  if (!hasAnyThreads && props.agents.length === 0) {
     return (
       <View className="flex-1 bg-screen android:bg-header">
         <View
@@ -960,7 +964,17 @@ export function HomeScreen(props: HomeScreenProps) {
 
   // Project scoping lives in the header filter menu (no inline chip row on
   // mobile — the menu is the one filter surface).
-  const v2ListHeader = listHeader;
+  const v2ListHeader = (
+    <>
+      {listHeader}
+      <AgentRoster
+        agents={props.agents}
+        environmentId={props.selectedEnvironmentId}
+        searchQuery={props.searchQuery}
+        onSelectThread={props.onSelectThread}
+      />
+    </>
+  );
 
   // Use the v2 project scope for its empty state. Snoozed threads need no
   // special empty state: their shelf header is a list row even while collapsed.
@@ -991,7 +1005,7 @@ export function HomeScreen(props: HomeScreenProps) {
       />
     );
 
-  if (Platform.OS === "android" && threadListV2Items.length === 0) {
+  if (Platform.OS === "android" && threadListV2Items.length === 0 && props.agents.length === 0) {
     return (
       <View className="flex-1 bg-header">
         <View

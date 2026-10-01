@@ -1420,6 +1420,42 @@ const makeProviderService = Effect.fn("makeProviderService")(function* (
     );
   });
 
+  const readAgentProject = Effect.fn("ProviderService.readAgentProject")(function* (
+    threadId: ThreadId,
+    provider: string,
+  ) {
+    const thread = Option.isSome(projectionQuery)
+      ? yield* projectionQuery.value.getThreadRuntimeContext(threadId).pipe(
+          Effect.map(Option.getOrUndefined),
+          Effect.mapError(
+            (cause) =>
+              new ProviderAdapterRequestError({
+                provider,
+                method: "ProviderService.readAgentProject",
+                detail: "Could not read the agent conversation.",
+                cause,
+              }),
+          ),
+        )
+      : undefined;
+    const project =
+      thread && Option.isSome(projectionQuery)
+        ? yield* projectionQuery.value.getProjectShellById(thread.projectId).pipe(
+            Effect.map(Option.getOrUndefined),
+            Effect.mapError(
+              (cause) =>
+                new ProviderAdapterRequestError({
+                  provider,
+                  method: "ProviderService.readAgentProject",
+                  detail: "Could not read the agent profile.",
+                  cause,
+                }),
+            ),
+          )
+        : undefined;
+    return project;
+  });
+
   const startSession: ProviderServiceMethod<"startSession"> = Effect.fn("startSession")(
     function* (threadId, rawInput) {
       const parsed = yield* decodeInputOrValidationError({
@@ -1449,10 +1485,25 @@ const makeProviderService = Effect.fn("makeProviderService")(function* (
             `Provider instance '${resolvedInstanceId}' belongs to driver '${resolvedProvider}', not '${parsed.provider}'.`,
           );
         }
+        const project = yield* readAgentProject(threadId, resolvedProvider);
+        if (project?.agentProfile?.archived) {
+          return yield* toValidationError(
+            "ProviderService.startSession",
+            "Restore this agent before sending a message.",
+          );
+        }
         const input = {
           ...parsed,
           threadId,
           provider: resolvedProvider,
+          persistentAgent: project?.agentProfile
+            ? {
+                name: project.title,
+                ...(project.agentProfile.title ? { title: project.agentProfile.title } : {}),
+                instructions: project.agentProfile.instructions,
+                memoryDirectory: pathService.join(project.workspaceRoot, ".claude", "memory"),
+              }
+            : undefined,
         };
         if (!instanceInfo.enabled) {
           return yield* toValidationError(
@@ -1598,6 +1649,14 @@ const makeProviderService = Effect.fn("makeProviderService")(function* (
       schema: ProviderSendTurnInput,
       payload: rawInput,
     });
+
+    const project = yield* readAgentProject(parsed.threadId, "claudeAgent");
+    if (project?.agentProfile?.archived) {
+      return yield* toValidationError(
+        "ProviderService.sendTurn",
+        "Restore this agent before sending a message.",
+      );
+    }
 
     const attachments = parsed.attachments ?? [];
     if (!parsed.input && attachments.length === 0 && parsed.continuation !== true) {

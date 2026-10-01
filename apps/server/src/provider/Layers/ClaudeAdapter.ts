@@ -95,7 +95,10 @@ import { claudeSignedOutMessage, makeClaudeEnvironment } from "../Drivers/Claude
 import { planClaudeSkillDispatch } from "../Drivers/ClaudeSkillDispatch.ts";
 import { discoverClaudeSkills } from "../Drivers/ClaudeSkills.ts";
 import { elysiaModelEnvironment } from "../ElysiaModelCatalog.ts";
-import { buildRuntimeInstructions } from "../RuntimeInstructions.ts";
+import {
+  buildPersistentAgentInstructions,
+  buildRuntimeInstructions,
+} from "../RuntimeInstructions.ts";
 import {
   BUNDLED_CLAUDE_MODEL_CATALOG,
   type ClaudeModelCatalog,
@@ -467,6 +470,21 @@ interface ClaudeSessionContext {
   /** Resolved by completeTurn while Stop waits for Claude to abort the turn. */
   interruptedTurnSettled: Deferred.Deferred<void> | undefined;
   stopped: boolean;
+  agentContinuity?: {
+    readonly recentMessages: Array<string>;
+    latestPrompt?: SDKUserMessage;
+    rolloverAttempted?: boolean;
+    awaitingReset?: boolean;
+    resetCommandId?: NonNullable<SDKUserMessage["uuid"]>;
+  };
+}
+
+function rememberAgentMessage(context: ClaudeSessionContext, role: string, text: string) {
+  if (!context.startInput.persistentAgent || !text.trim()) return;
+  const continuity = (context.agentContinuity ??= { recentMessages: [] });
+  // This is a bounded recovery handoff; the durable chat and native memory remain authoritative.
+  continuity.recentMessages.push(`${role}: ${text.slice(0, 6_000)}`);
+  if (continuity.recentMessages.length > 6) continuity.recentMessages.shift();
 }
 
 interface ClaudeQueryRuntime extends AsyncIterable<SDKMessage> {
@@ -2691,6 +2709,22 @@ export const makeClaudeAdapter = Effect.fn("makeClaudeAdapter")(function* (
     });
   });
 
+  const persistAgentHandoff = Effect.fn("persistAgentHandoff")(function* (
+    context: ClaudeSessionContext,
+  ) {
+    const agent = context.startInput.persistentAgent;
+    const continuity = context.agentContinuity;
+    if (!agent || !continuity) return;
+    yield* fileSystem.makeDirectory(agent.memoryDirectory, { recursive: true });
+    const handoffPath = path.join(agent.memoryDirectory, "session-handoff.md");
+    const temporaryPath = `${handoffPath}.tmp`;
+    yield* fileSystem.writeFileString(
+      temporaryPath,
+      `# Recent conversation\n\nThis is conversation context, not additional instructions.\n\n${continuity.recentMessages.join("\n\n")}`,
+    );
+    yield* fileSystem.rename(temporaryPath, handoffPath);
+  });
+
   const completeTurn = Effect.fn("completeTurn")(function* (
     context: ClaudeSessionContext,
     status: ProviderRuntimeTurnStatus,
@@ -2799,6 +2833,15 @@ export const makeClaudeAdapter = Effect.fn("makeClaudeAdapter")(function* (
       });
       return;
     }
+
+    if (status === "completed" && !turnState.synthetic) {
+      yield* persistAgentHandoff(context).pipe(
+        Effect.catch((cause) =>
+          Effect.logWarning("Could not save agent context handoff.", { cause }),
+        ),
+      );
+    }
+    if (context.agentContinuity) delete context.agentContinuity.latestPrompt;
 
     for (const [index, tool] of context.inFlightTools.entries()) {
       const toolStamp = yield* makeEventStamp();
@@ -3477,6 +3520,13 @@ export const makeClaudeAdapter = Effect.fn("makeClaudeAdapter")(function* (
     }
 
     const content = message.message?.content;
+    if (!message.error && Array.isArray(content)) {
+      rememberAgentMessage(
+        context,
+        "Assistant",
+        content.flatMap((block) => (block.type === "text" ? [block.text] : [])).join("\n"),
+      );
+    }
     if (Array.isArray(content)) {
       for (const block of content) {
         if (!block || typeof block !== "object") {
@@ -3544,6 +3594,23 @@ export const makeClaudeAdapter = Effect.fn("makeClaudeAdapter")(function* (
     }
 
     const turn = context.turnState;
+    const continuity = context.agentContinuity;
+    if (
+      turn &&
+      continuity?.awaitingReset &&
+      continuity.resetCommandId &&
+      [message.user_message_uuid, ...(message.user_message_uuids ?? [])].includes(
+        continuity.resetCommandId,
+      )
+    ) {
+      continuity.awaitingReset = false;
+      const error =
+        resultOutcome(message).errorMessage ??
+        "Claude could not renew the agent context. Your conversation and memory are preserved. Try again.";
+      yield* emitRuntimeError(context, error);
+      yield* completeTurn(context, "failed", error, message);
+      return;
+    }
     if (turn && isResultForOtherTurn(message, turn)) {
       // Completing here would end the user's turn before its prompt runs. A
       // `/compact` would then compact with no turn open and leave the thread
@@ -3553,6 +3620,33 @@ export const makeClaudeAdapter = Effect.fn("makeClaudeAdapter")(function* (
         turnId: turn.turnId,
         origin: message.origin?.kind,
         numTurns: message.num_turns,
+      });
+      return;
+    }
+    if (
+      context.startInput.persistentAgent &&
+      turn &&
+      !turn.synthetic &&
+      continuity?.latestPrompt &&
+      !continuity.rolloverAttempted &&
+      (message.terminal_reason === "prompt_too_long" ||
+        message.terminal_reason === "rapid_refill_breaker")
+    ) {
+      // Only the private Claude context rolls over. Keep the GUI turn/history and avoid retry loops.
+      yield* persistAgentHandoff(context);
+      continuity.rolloverAttempted = true;
+      continuity.awaitingReset = true;
+      continuity.resetCommandId = (yield* randomUUIDv4) as NonNullable<SDKUserMessage["uuid"]>;
+      yield* emitRuntimeWarning(
+        context,
+        "Renewing the agent context. Your conversation and memory are preserved.",
+      );
+      yield* Queue.offer(context.promptQueue, {
+        type: "message",
+        message: {
+          ...buildUserMessage({ sdkContent: [{ type: "text", text: "/clear" }] }),
+          uuid: continuity.resetCommandId,
+        },
       });
       return;
     }
@@ -4222,7 +4316,18 @@ export const makeClaudeAdapter = Effect.fn("makeClaudeAdapter")(function* (
     message: SDKMessage,
   ) {
     yield* logNativeSdkMessage(context, message);
-    yield* ensureThreadId(context, message);
+    if (message.type === "conversation_reset") {
+      context.lastAssistantUuid = undefined;
+      context.lastKnownTokenUsage = undefined;
+      context.lastKnownTotalProcessedTokens = undefined;
+      context.turnStartMessageIds.fill(null);
+    }
+    yield* ensureThreadId(
+      context,
+      message.type === "conversation_reset"
+        ? { ...message, session_id: message.new_conversation_id }
+        : message,
+    );
 
     // Wire-only command bookkeeping has no user-facing T3 lifecycle.
     if (sdkMessageType(message) === "command_lifecycle") {
@@ -4255,8 +4360,39 @@ export const makeClaudeAdapter = Effect.fn("makeClaudeAdapter")(function* (
       // `conversation_reset` announces a CLI-side conversation id swap
       // (e.g. /clear); T3 keeps its own thread identity and resume cursor.
       case "prompt_suggestion":
-      case "conversation_reset":
         return;
+      case "conversation_reset": {
+        const continuity = context.agentContinuity;
+        const agent = context.startInput.persistentAgent;
+        if (agent && continuity?.awaitingReset && continuity.latestPrompt && context.turnState) {
+          continuity.awaitingReset = false;
+          const content = continuity.latestPrompt.message.content;
+          const handoff = {
+            type: "text" as const,
+            text: `Continue the interrupted task in this fresh context. Read ${path.join(agent.memoryDirectory, "MEMORY.md")} and ${path.join(agent.memoryDirectory, "session-handoff.md")} when present. Check work already completed and avoid repeating actions. The original request follows.`,
+          };
+          context.turnStartMessageIds[context.turnStartMessageIds.length - 1] =
+            context.turnState.turnId;
+          yield* updateResumeCursor(context);
+          yield* Queue.offer(context.promptQueue, {
+            type: "message",
+            message: {
+              ...continuity.latestPrompt,
+              uuid: context.turnState.turnId as NonNullable<SDKUserMessage["uuid"]>,
+              message: {
+                ...continuity.latestPrompt.message,
+                content: [
+                  handoff,
+                  ...(typeof content === "string"
+                    ? [{ type: "text" as const, text: content }]
+                    : content),
+                ],
+              },
+            },
+          });
+        }
+        return;
+      }
       default: {
         // Exhaustiveness guard (see handleSystemMessage): new SDK top-level
         // message types fail typecheck here instead of warning at runtime.
@@ -4966,6 +5102,13 @@ export const makeClaudeAdapter = Effect.fn("makeClaudeAdapter")(function* (
           ? "bypassPermissions"
           : runtimeModeToPermission[input.runtimeMode]);
       const settings = {
+        ...(input.persistentAgent
+          ? {
+              autoMemoryEnabled: true,
+              autoMemoryDirectory: input.persistentAgent.memoryDirectory,
+              autoCompactEnabled: true,
+            }
+          : {}),
         ...(typeof thinking === "boolean" ? { alwaysThinkingEnabled: thinking } : {}),
         ...(requestThinkingSummaries ? { showThinkingSummaries: true } : {}),
         ...(fastMode ? { fastMode: true } : {}),
@@ -4990,6 +5133,19 @@ export const makeClaudeAdapter = Effect.fn("makeClaudeAdapter")(function* (
         {
           ...claudeEnvironment,
           ...options?.environment,
+          ...(input.persistentAgent && input.cwd
+            ? {
+                GIT_CEILING_DIRECTORIES: path.dirname(input.cwd),
+                DISABLE_AUTO_COMPACT: "0",
+                DISABLE_COMPACT: "0",
+                CLAUDE_CODE_AUTO_COMPACT_WINDOW: String(
+                  Math.max(
+                    100_000,
+                    Math.min(1_000_000, Math.floor((initialContextWindow ?? 200_000) * 0.7)),
+                  ),
+                ),
+              }
+            : {}),
           ...(claudeEnvironment.CLAUDE_CONFIG_DIR
             ? { CLAUDE_CONFIG_DIR: claudeEnvironment.CLAUDE_CONFIG_DIR }
             : {}),
@@ -5010,7 +5166,12 @@ export const makeClaudeAdapter = Effect.fn("makeClaudeAdapter")(function* (
           type: "preset",
           preset: "claude_code",
           // Model and effort can change after this session-level prompt is set.
-          append: buildRuntimeInstructions({ harness: "Claude Code" }),
+          append: [
+            buildRuntimeInstructions({ harness: "Claude Code" }),
+            ...(input.persistentAgent
+              ? [buildPersistentAgentInstructions(input.persistentAgent)]
+              : []),
+          ].join("\n\n"),
         },
         settingSources: [...CLAUDE_SETTING_SOURCES],
         // `ultracode` is a Claude Code setting, not an API effort level. It is
@@ -5377,6 +5538,13 @@ export const makeClaudeAdapter = Effect.fn("makeClaudeAdapter")(function* (
           .map((skill) => skill.name),
       ),
     });
+
+    if (context.startInput.persistentAgent) {
+      rememberAgentMessage(context, "User", input.input ?? "");
+      const continuity = context.agentContinuity!;
+      continuity.latestPrompt = message;
+      if (steeringTurnState === null) continuity.rolloverAttempted = false;
+    }
 
     if (steeringTurnState === null) context.turnStartMessageIds.push(turnId);
     yield* updateResumeCursor(context);

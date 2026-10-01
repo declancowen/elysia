@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vite-plus/test";
+import { describe, expect, it, vi } from "vite-plus/test";
 import * as Schema from "effect/Schema";
 
 import { ProviderDriverKind, ProviderInstanceId } from "./providerInstance.ts";
@@ -19,6 +19,12 @@ const decodeServerSettings = Schema.decodeUnknownSync(ServerSettings);
 const decodeServerSettingsPatch = Schema.decodeUnknownSync(ServerSettingsPatch);
 const encodeServerSettings = Schema.encodeSync(ServerSettings);
 const decodeClaudeSettings = Schema.decodeUnknownSync(ClaudeSettings);
+
+// Keep dormant driver settings covered; ElysiaPolicy tests exercise the real runtime restrictions.
+vi.mock("./forkPolicy.ts", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("./forkPolicy.ts")>()),
+  isEnabledProviderDriver: () => true,
+}));
 
 describe("storage cleanup settings", () => {
   it("keeps cleanup disabled for existing installations", () => {
@@ -554,8 +560,8 @@ describe("ClientSettings panel animations", () => {
 });
 
 describe("ClientSettings environment identification", () => {
-  it("defaults to artwork and accepts each presentation mode", () => {
-    expect(decodeClientSettings({}).environmentIdentificationMode).toBe("artwork");
+  it("defaults to pill and accepts each presentation mode", () => {
+    expect(decodeClientSettings({}).environmentIdentificationMode).toBe("pill");
 
     for (const mode of ["artwork", "pill", "none"] as const) {
       expect(

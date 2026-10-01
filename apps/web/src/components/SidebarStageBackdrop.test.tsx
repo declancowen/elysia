@@ -15,9 +15,9 @@ describe("SidebarStageBackdrop", () => {
     expect(resolveSidebarStageBackdropVariant("Alpha")).toBeNull();
   });
 
-  it("resolves supported environment pill labels", () => {
+  it("shows the development pill while hiding disabled prerelease channels", () => {
     expect(resolveEnvironmentIdentificationPillLabel("Dev")).toBe("Dev");
-    expect(resolveEnvironmentIdentificationPillLabel("nightly")).toBe("Nightly");
+    expect(resolveEnvironmentIdentificationPillLabel("nightly")).toBeNull();
     expect(resolveEnvironmentIdentificationPillLabel("Latest")).toBeNull();
     expect(resolveEnvironmentIdentificationPillLabel("Alpha")).toBeNull();
   });

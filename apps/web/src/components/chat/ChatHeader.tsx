@@ -6,7 +6,7 @@ import {
   type ResolvedKeybindingsConfig,
   type ThreadId,
 } from "@t3tools/contracts";
-import { scopeThreadRef } from "@t3tools/client-runtime/environment";
+import { scopeProjectRef, scopeThreadRef } from "@t3tools/client-runtime/environment";
 import type { EnvironmentProject } from "@t3tools/client-runtime/state/shell";
 import {
   isAtomCommandInterrupted,
@@ -43,6 +43,10 @@ import { threadEnvironment } from "../../state/threads";
 import { useAtomCommand } from "../../state/use-atom-command";
 import { observeResponsiveBreakpointFade, usePanelAnimationSettings } from "../../panelAnimations";
 import { ProjectFavicon } from "../ProjectFavicon";
+import { AgentAvatar } from "../agents/AgentAvatar";
+import { AgentDetailsPopover } from "../agents/AgentDetailsPopover";
+import { showAgentContextMenu } from "../agents/agentContextMenu";
+import { openAgentDialog } from "../agents/agentDialogStore";
 import {
   WorkspaceBreadcrumb,
   WorkspaceBreadcrumbItem,
@@ -258,7 +262,7 @@ export const ChatHeader = memo(function ChatHeader({
     [activeThreadEnvironmentId, activeThreadId, activeThreadTitle, updateThreadMetadata],
   );
   const { openMenu, closeMenu } = useThreadActionMenu({
-    threadRef: isServerThread ? activeThreadRef : null,
+    threadRef: isServerThread && activeProject?.agentProfile == null ? activeThreadRef : null,
     projectCwd: activeProjectCwd,
     onStartRename: startRename,
   });
@@ -322,6 +326,14 @@ export const ChatHeader = memo(function ChatHeader({
       // The right-side controls (git, scripts, open-in) keep their own
       // behavior; only the breadcrumb area opens the thread menu.
       if ((event.target as HTMLElement).closest("[data-chat-header-actions]")) return;
+      if (activeProject?.agentProfile) {
+        event.preventDefault();
+        void showAgentContextMenu(scopeProjectRef(activeProject.environmentId, activeProject.id), {
+          x: event.clientX,
+          y: event.clientY,
+        });
+        return;
+      }
       if (!isServerThread && onOpenProjectSettings === undefined) return;
       cancelPendingTitleMenu();
       event.preventDefault();
@@ -340,7 +352,14 @@ export const ChatHeader = memo(function ChatHeader({
       }
       openMenu({ x: event.clientX, y: event.clientY });
     },
-    [cancelPendingTitleMenu, isServerThread, onOpenProjectSettings, openMenu, renamingTitle],
+    [
+      activeProject,
+      cancelPendingTitleMenu,
+      isServerThread,
+      onOpenProjectSettings,
+      openMenu,
+      renamingTitle,
+    ],
   );
   const handleRenameKeyDown = useCallback(
     (event: ReactKeyboardEvent<HTMLInputElement>) => {
@@ -420,18 +439,35 @@ export const ChatHeader = memo(function ChatHeader({
                   render={
                     <button
                       type="button"
-                      aria-label={`New thread in ${activeProjectName}`}
-                      onClick={onNewThreadInProject}
+                      aria-label={
+                        activeProject.agentProfile
+                          ? `Edit ${activeProjectName}`
+                          : `New thread in ${activeProjectName}`
+                      }
+                      onClick={
+                        activeProject.agentProfile
+                          ? () =>
+                              openAgentDialog(
+                                scopeProjectRef(activeProject.environmentId, activeProject.id),
+                              )
+                          : onNewThreadInProject
+                      }
                       className="inline-flex min-w-0 max-w-full cursor-pointer items-center gap-1.5 rounded-sm text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
                     />
                   }
                 >
-                  <ProjectFavicon project={activeProject} className="size-3.5" />
+                  {activeProject.agentProfile ? (
+                    <AgentAvatar avatar={activeProject.agentProfile.avatar} className="size-5" />
+                  ) : (
+                    <ProjectFavicon project={activeProject} className="size-3.5" />
+                  )}
                   <WorkspaceBreadcrumbText className="max-w-40">
                     {activeProjectName}
                   </WorkspaceBreadcrumbText>
                 </TooltipTrigger>
-                <TooltipPopup side="top">New thread in {activeProjectName}</TooltipPopup>
+                <TooltipPopup side="top">
+                  {activeProject.agentProfile ? "Edit agent" : `New thread in ${activeProjectName}`}
+                </TooltipPopup>
               </Tooltip>
             </WorkspaceBreadcrumbItem>
             <WorkspaceBreadcrumbSeparator>
@@ -440,7 +476,11 @@ export const ChatHeader = memo(function ChatHeader({
           </>
         ) : null}
         <WorkspaceBreadcrumbItem current className="min-w-10 flex-1">
-          {renamingTitle !== null ? (
+          {activeProject?.agentProfile ? (
+            <WorkspaceBreadcrumbText>
+              {activeProject.agentProfile.title ?? "Agent"}
+            </WorkspaceBreadcrumbText>
+          ) : renamingTitle !== null ? (
             <input
               autoFocus
               aria-label="Thread title"
@@ -528,7 +568,12 @@ export const ChatHeader = memo(function ChatHeader({
             {createPortal(headerActions, actionsContainer)}
           </MenuPopup>
         </Menu>
-        {overview && <ThreadOverviewPanel {...overview} />}
+        <AgentDetailsPopover
+          projectRef={
+            activeProject ? scopeProjectRef(activeProject.environmentId, activeProject.id) : null
+          }
+        />
+        {overview && <ThreadOverviewPanel {...overview} transient={rightPanelOpen} />}
       </div>
     </div>
   );

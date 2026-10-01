@@ -1,3 +1,5 @@
+import "../testUtils/upstreamForkPolicy.ts";
+
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import * as NodeOS from "node:os";
 import { describe, expect, it } from "@effect/vitest";
@@ -873,9 +875,9 @@ it.layer(NodeServices.layer)("AgentSessionScanner", (it) => {
         const fileSystem = yield* FileSystem.FileSystem;
         const claudeHomePath = yield* makeTempDir("t3code-claude-home-");
         const codexHomePath = yield* makeTempDir("t3code-codex-home-");
-        // The exclusions key off the real home directory, so these fixtures
-        // must live there. Each run owns a uniquely named subtree and removes
-        // only that subtree, never the shared Codex or Downloads parents.
+        // The recorded exclusions key off the real home directory.
+        // Excluded paths must be filtered before filesystem reads, so the
+        // fixture never needs to create directories in the real user home.
         const home = NodeOS.homedir();
         // Borrow a unique suffix from a scoped temp dir instead of reaching for
         // Date.now or Math.random, which the Effect lint rejects.
@@ -884,14 +886,6 @@ it.layer(NodeServices.layer)("AgentSessionScanner", (it) => {
         const scratch = path.join(scratchRoot, "2026-09-01", "some-conversation");
         const downloads = path.join(home, "Downloads", runId);
         const keep = yield* makeTempDir("t3code-workspace-keep-");
-        yield* fileSystem.makeDirectory(scratch, { recursive: true });
-        yield* fileSystem.makeDirectory(downloads, { recursive: true });
-        yield* Effect.addFinalizer(() =>
-          Effect.all([
-            fileSystem.remove(scratchRoot, { recursive: true }).pipe(Effect.ignore),
-            fileSystem.remove(downloads, { recursive: true }).pipe(Effect.ignore),
-          ]),
-        );
 
         for (const [index, cwd] of [scratch, downloads, keep].entries()) {
           yield* writeTranscript({
@@ -908,7 +902,15 @@ it.layer(NodeServices.layer)("AgentSessionScanner", (it) => {
           });
         }
 
-        const result = yield* runScan({ claudeHomePath, codexHomePath });
+        const result = yield* runScan({ claudeHomePath, codexHomePath }).pipe(
+          Effect.provideService(FileSystem.FileSystem, {
+            ...fileSystem,
+            stat: (target) =>
+              target === scratch || target === downloads
+                ? Effect.die("Excluded scratch and Downloads paths must not be read")
+                : fileSystem.stat(target),
+          }),
+        );
 
         expect(result.candidates.map((candidate) => candidate.path)).toEqual([keep]);
       }),

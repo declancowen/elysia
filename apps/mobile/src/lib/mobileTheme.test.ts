@@ -106,9 +106,12 @@ describe("mobile themes", () => {
       expect(variables["--color-thread-selected"]).toBe(
         themeColorToNativeColor(colors.sidebarRowActive),
       );
-      expect(variables["--color-thread-selected-foreground"]).toBe(
-        themeColorToNativeColor(colors.sidebarForeground),
-      );
+      expect(
+        contrastRatio(
+          variables["--color-thread-selected-foreground"],
+          variables["--color-thread-selected"],
+        ),
+      ).toBeGreaterThanOrEqual(4.5);
       expect(variables["--color-primary"]).toBe(themeColorToNativeColor(colors.messageAction));
       if (themeId !== DEFAULT_MOBILE_THEME_ID) {
         expect(variables["--color-user-bubble"]).toBe(

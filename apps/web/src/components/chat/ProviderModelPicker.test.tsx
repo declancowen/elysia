@@ -5,7 +5,7 @@ import {
   type ServerProvider,
 } from "@t3tools/contracts";
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it } from "vite-plus/test";
+import { describe, expect, it, vi } from "vite-plus/test";
 
 import { deriveProviderInstanceEntries } from "../../providerInstances";
 import { ProviderModelPicker } from "./ProviderModelPicker";
@@ -174,3 +174,12 @@ describe("ProviderModelPicker", () => {
     expect(markup).toContain(">CP</span>");
   });
 });
+
+// Exercise retained upstream provider behavior; Elysia policy has separate native-only tests.
+vi.mock("../../../../../packages/contracts/src/forkPolicy.ts", async (importOriginal) => ({
+  ...(await importOriginal<
+    Pick<typeof import("@t3tools/contracts"), "isEnabledProviderDriver" | "SINGLE_PROVIDER_UI">
+  >()),
+  isEnabledProviderDriver: () => true,
+  SINGLE_PROVIDER_UI: false,
+}));

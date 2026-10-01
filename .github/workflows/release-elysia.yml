@@ -85,10 +85,21 @@ jobs:
 
       - name: Setup Vite+
         uses: voidzero-dev/setup-vp@250f29ce396baf5e8f24498e17c0dfdebabc26eb # v1
+        env:
+          pnpm_config_cache_dir: ${{ runner.temp }}/pnpm-metadata
         with:
           node-version-file: package.json
           cache: true
           run-install: true
+
+      - name: Upload dependency verification
+        continue-on-error: true
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: release-dependency-verification
+          path: ${{ runner.temp }}/pnpm-metadata/lockfile-verified.jsonl
+          if-no-files-found: ignore
+          retention-days: 1
 
       - name: Align package versions
         env:
@@ -160,6 +171,25 @@ jobs:
             apps/desktop/src/updates/releaseNotes.test.ts \
             apps/desktop/src/updates/ElysiaUpdates.test.ts \
             apps/desktop/src/electron/ElectronUpdater.test.ts
+
+      - name: Test persistent agents and context continuity
+        run: |
+          vp test run --config vite.config.ts \
+            packages/contracts/src/agentProfile.test.ts \
+            apps/server/src/orchestration/PersistentAgents.test.ts \
+            apps/server/src/provider/ElysiaAgentProtection.test.ts \
+            apps/server/src/provider/RuntimeInstructions.test.ts \
+            apps/server/src/provider/Layers/ProviderService.test.ts \
+            apps/server/src/provider/Layers/ClaudeAdapter.test.ts \
+            apps/server/src/orchestration/Layers/CheckpointReactor.test.ts \
+            apps/web/src/agentPresentation.test.ts \
+            apps/web/src/components/agents/agentProfileSave.test.ts \
+            apps/web/src/components/agents/AgentControls.test.tsx \
+            apps/web/src/components/agents/AgentAvatarPicker.test.tsx \
+            apps/web/src/components/settings/ArchivedAgentsSection.test.tsx \
+            apps/web/src/components/chat/ComposerPrimaryActions.agent.test.tsx \
+            apps/web/src/components/ThreadNotificationCoordinator.test.tsx \
+            apps/web/src/components/ThreadNotificationCoordinator.badge.test.tsx
 
       - uses: ./.github/actions/setup-apt-mirrors
 

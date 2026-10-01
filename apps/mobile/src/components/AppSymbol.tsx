@@ -25,6 +25,7 @@ import IconBellRinging from "@tabler/icons-react-native/IconBellRinging";
 import IconBolt from "@tabler/icons-react-native/IconBolt";
 import IconBox from "@tabler/icons-react-native/IconBox";
 import IconBrain from "@tabler/icons-react-native/IconBrain";
+import IconBriefcase from "@tabler/icons-react-native/IconBriefcase";
 import IconCamera from "@tabler/icons-react-native/IconCamera";
 import IconChartBar from "@tabler/icons-react-native/IconChartBar";
 import IconCheck from "@tabler/icons-react-native/IconCheck";
@@ -134,6 +135,7 @@ const ANDROID_ICON_BY_SF_SYMBOL = {
   "bolt.circle": IconBolt,
   "bolt.horizontal.circle": IconBolt,
   brain: IconBrain,
+  briefcase: IconBriefcase,
   camera: IconCamera,
   "chart.bar.xaxis": IconChartBar,
   checkmark: IconCheck,
@@ -202,6 +204,7 @@ const ANDROID_ICON_BY_SF_SYMBOL = {
   "square.grid.2x2": IconApps,
   "square.split.2x1": IconLayoutColumns,
   star: IconStar,
+  sparkles: IconSparkles,
   "star.fill": IconStarFilled,
   "sun.max": IconSun,
   "stop.fill": IconPlayerStopFilled,

@@ -55,6 +55,7 @@ export function buildArchivedThreadGroups(input: {
     }
 
     for (const rawProject of entry.snapshot.projects) {
+      if (rawProject.agentProfile != null) continue;
       const project = scopeProject(entry.environmentId, rawProject);
       const projectThreads = threadsByProjectId.get(project.id) ?? [];
       const groupMatches =

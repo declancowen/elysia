@@ -8,7 +8,7 @@ import {
   saveRecentThreadShortcuts,
   type RecentThreadShortcut,
 } from "../../persistence/imperative";
-import { useThreadShell } from "../../state/entities";
+import { useProject, useThreadShell } from "../../state/entities";
 import {
   activeThreadRef,
   buildShortcutActions,
@@ -63,6 +63,14 @@ function useRecentThreadShortcutSync(state: NavigationState): void {
     [state],
   );
   const threadShell = useThreadShell(threadRef);
+  const projectEnvironmentId = threadShell?.environmentId;
+  const projectId = threadShell?.projectId;
+  const projectRef = useMemo(
+    () =>
+      projectEnvironmentId && projectId ? { environmentId: projectEnvironmentId, projectId } : null,
+    [projectEnvironmentId, projectId],
+  );
+  const project = useProject(projectRef);
   // null until the persisted list loads; recording waits on it so the first
   // thread opened after a cold start cannot clobber older entries.
   const [recents, setRecents] = useState<ReadonlyArray<RecentThreadShortcut> | null>(null);
@@ -104,7 +112,13 @@ function useRecentThreadShortcutSync(state: NavigationState): void {
   const threadId = threadRef?.threadId ?? null;
   const title = threadShell?.title ?? "";
   useEffect(() => {
-    if (!loaded || environmentId === null || threadId === null) {
+    if (
+      !loaded ||
+      environmentId === null ||
+      threadId === null ||
+      !project ||
+      project.agentProfile != null
+    ) {
       return;
     }
 
@@ -120,7 +134,7 @@ function useRecentThreadShortcutSync(state: NavigationState): void {
       }
       return next;
     });
-  }, [loaded, environmentId, threadId, title]);
+  }, [loaded, environmentId, threadId, title, project]);
 
   useEffect(() => {
     if (recents === null) {

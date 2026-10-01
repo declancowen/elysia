@@ -201,6 +201,9 @@ import {
 } from "../sidebarProjectGrouping";
 import type { Project } from "../types";
 import { PullRequestGlyph } from "~/components/pullRequest/pullRequestIcons";
+import { selectNonAgentProjectItems, selectRegularProjects } from "../agentPresentation";
+import { AgentDialogHost } from "./agents/AgentDialog";
+import { openAgentDialog } from "./agents/agentDialogStore";
 import { readPullRequestListPreferences } from "~/components/pullRequest/pullRequestListPreferences";
 
 const EMPTY_BROWSE_ENTRIES: FilesystemBrowseResult["entries"] = [];
@@ -645,6 +648,7 @@ export function CommandPalette({ children }: { children: ReactNode }) {
           clearOpenIntent={clearOpenIntent}
         />
       </CommandDialog>
+      <AgentDialogHost />
     </ComposerHandleContext>
   );
 }
@@ -741,7 +745,8 @@ function OpenCommandPaletteDialog(props: {
   const availableSettingsSearchItems = useAvailableSettingsSearchItems();
   const { activeDraftThread, activeThread, defaultProjectRef, handleNewThread } =
     useHandleNewThread();
-  const projects = useProjects();
+  const allProjects = useProjects();
+  const projects = useMemo(() => selectRegularProjects(allProjects), [allProjects]);
   const referenceThreadRef =
     pathname === "/pull-requests"
       ? environments.some(
@@ -789,7 +794,11 @@ function OpenCommandPaletteDialog(props: {
     }
   }, [activeThreadReferenceCopyTarget]);
   const projectOrder = useUiStateStore((store) => store.projectOrder);
-  const threads = useThreadShells();
+  const allThreads = useThreadShells();
+  const threads = useMemo(
+    () => selectNonAgentProjectItems(allThreads, allProjects),
+    [allThreads, allProjects],
+  );
   const keybindings = useAtomValue(primaryServerKeybindingsAtom);
   const {
     theme,
@@ -842,13 +851,13 @@ function OpenCommandPaletteDialog(props: {
   const threadContentMatchByKey = useMemo(
     () =>
       new Map(
-        threadSearch.matches.flatMap((match) =>
+        selectNonAgentProjectItems(threadSearch.matches, allProjects).flatMap((match) =>
           match.source === "user" || match.source === "assistant"
             ? [[threadSearchMatchKey(match), match] as const]
             : [],
         ),
       ),
-    [threadSearch.matches],
+    [allProjects, threadSearch.matches],
   );
   const [browseGeneration, setBrowseGeneration] = useState(0);
   const browseNavigationRef = useRef<ReturnType<typeof createBrowseNavigationCoordinator> | null>(
@@ -2184,6 +2193,16 @@ function OpenCommandPaletteDialog(props: {
   }
 
   const codeWorkspace = useCodeWorkspace();
+  actionItems.push({
+    kind: "action",
+    value: "action:create-agent",
+    title: "Create new agent",
+    searchTerms: ["agent", "assistant", "role", "teammate"],
+    icon: <MessageSquareIcon className={ITEM_ICON_CLASS} />,
+    run: async () => {
+      openAgentDialog();
+    },
+  });
   const rootGroups = buildRootGroups({
     actionItems: codeWorkspace
       ? actionItems

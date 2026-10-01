@@ -177,9 +177,11 @@ type DecideOrchestrationCommandResult =
 const decideCommandSequence = Effect.fn("decideCommandSequence")(function* ({
   commands,
   readModel,
+  deletingProjectId,
 }: {
   readonly commands: ReadonlyArray<OrchestrationCommand>;
   readonly readModel: OrchestrationReadModel;
+  readonly deletingProjectId?: OrchestrationReadModel["projects"][number]["id"];
 }): Effect.fn.Return<
   ReadonlyArray<PlannedOrchestrationEvent>,
   OrchestrationCommandRejection | PlatformError.PlatformError,
@@ -193,6 +195,7 @@ const decideCommandSequence = Effect.fn("decideCommandSequence")(function* ({
     const decided = yield* decideOrchestrationCommand({
       command: nextCommand,
       readModel: nextReadModel,
+      ...(deletingProjectId !== undefined ? { deletingProjectId } : {}),
     });
     const nextEvents = Array.isArray(decided) ? decided : [decided];
     for (const nextEvent of nextEvents) {
@@ -212,10 +215,13 @@ export const decideOrchestrationCommand = Effect.fn("decideOrchestrationCommand"
   command,
   readModel,
   userInputActivity,
+  deletingProjectId,
 }: {
   readonly command: OrchestrationCommand;
   readonly readModel: OrchestrationReadModel;
   readonly userInputActivity?: OrchestrationThreadActivity;
+  /** Only the project deletion sequence may dispose of a persistent agent's backing conversation. */
+  readonly deletingProjectId?: OrchestrationReadModel["projects"][number]["id"];
 }): Effect.fn.Return<
   DecideOrchestrationCommandResult,
   OrchestrationCommandRejection | PlatformError.PlatformError,
@@ -251,6 +257,7 @@ export const decideOrchestrationCommand = Effect.fn("decideOrchestrationCommand"
           // automatic seed here, but only a metadata update records an
           // explicit project default.
           defaultModelSelection: null,
+          ...(command.agentProfile ? { agentProfile: command.agentProfile } : {}),
           faviconPath: null,
           projectIcon: null,
           scripts: [],
@@ -266,6 +273,22 @@ export const decideOrchestrationCommand = Effect.fn("decideOrchestrationCommand"
         command,
         projectId: command.projectId,
       });
+      if (!project.agentProfile && command.agentProfile !== undefined) {
+        return yield* new OrchestrationCommandInvariantError({
+          commandType: command.type,
+          detail: "Ordinary projects cannot become persistent agents. Create an agent instead.",
+        });
+      }
+      if (
+        project.agentProfile &&
+        command.workspaceRoot !== undefined &&
+        command.workspaceRoot !== project.workspaceRoot
+      ) {
+        return yield* new OrchestrationCommandInvariantError({
+          commandType: command.type,
+          detail: "Agent workspaces stay attached to their persistent conversation.",
+        });
+      }
       if (
         command.projectIcon?.kind === "monogram" &&
         Array.from(monogramSegmenter.segment(command.projectIcon.text)).length > 2
@@ -307,6 +330,16 @@ export const decideOrchestrationCommand = Effect.fn("decideOrchestrationCommand"
         type: "project.meta-updated",
         payload: {
           projectId: command.projectId,
+          ...(command.agentProfile !== undefined
+            ? {
+                agentProfile: {
+                  ...command.agentProfile,
+                  ...(project.agentProfile?.conversationThreadId
+                    ? { conversationThreadId: project.agentProfile.conversationThreadId }
+                    : {}),
+                },
+              }
+            : {}),
           ...(command.title !== undefined ? { title: command.title } : {}),
           ...(command.workspaceRoot !== undefined ? { workspaceRoot: command.workspaceRoot } : {}),
           ...(command.defaultModelSelection !== undefined
@@ -342,6 +375,7 @@ export const decideOrchestrationCommand = Effect.fn("decideOrchestrationCommand"
       if (activeThreads.length > 0) {
         return yield* decideCommandSequence({
           readModel,
+          deletingProjectId: command.projectId,
           commands: [
             ...activeThreads.map(
               (thread): Extract<OrchestrationCommand, { type: "thread.delete" }> => ({
@@ -376,11 +410,29 @@ export const decideOrchestrationCommand = Effect.fn("decideOrchestrationCommand"
     }
 
     case "thread.create": {
-      yield* requireProject({
+      const project = yield* requireProject({
         readModel,
         command,
         projectId: command.projectId,
       });
+      if (
+        project.agentProfile?.conversationThreadId !== undefined &&
+        project.agentProfile.conversationThreadId !== command.threadId
+      ) {
+        return yield* new OrchestrationCommandInvariantError({
+          commandType: command.type,
+          detail: "Persistent agents use their existing conversation.",
+        });
+      }
+      if (
+        project.agentProfile !== undefined &&
+        (command.worktreePath !== null || command.branch !== null)
+      ) {
+        return yield* new OrchestrationCommandInvariantError({
+          commandType: command.type,
+          detail: "Agent conversations stay in their app-owned workspace.",
+        });
+      }
       yield* requireThreadAbsent({
         readModel,
         command,
@@ -411,11 +463,22 @@ export const decideOrchestrationCommand = Effect.fn("decideOrchestrationCommand"
     }
 
     case "thread.delete": {
-      yield* requireThread({
+      const thread = yield* requireThread({
         readModel,
         command,
         threadId: command.threadId,
       });
+      const project = readModel.projects.find((project) => project.id === thread.projectId);
+      if (
+        project?.agentProfile !== undefined &&
+        project.deletedAt === null &&
+        deletingProjectId !== project.id
+      ) {
+        return yield* new OrchestrationCommandInvariantError({
+          commandType: command.type,
+          detail: "Persistent agents keep their conversation. Archive the agent instead.",
+        });
+      }
       const occurredAt = yield* nowIso;
       return {
         ...(yield* withEventBase({
@@ -433,11 +496,18 @@ export const decideOrchestrationCommand = Effect.fn("decideOrchestrationCommand"
     }
 
     case "thread.archive": {
-      yield* requireThreadNotArchived({
+      const thread = yield* requireThreadNotArchived({
         readModel,
         command,
         threadId: command.threadId,
       });
+      const project = readModel.projects.find((project) => project.id === thread.projectId);
+      if (project?.agentProfile !== undefined && project.deletedAt === null) {
+        return yield* new OrchestrationCommandInvariantError({
+          commandType: command.type,
+          detail: "Persistent agents keep their conversation. Archive the agent instead.",
+        });
+      }
       const occurredAt = yield* nowIso;
       return {
         ...(yield* withEventBase({
@@ -926,6 +996,16 @@ export const decideOrchestrationCommand = Effect.fn("decideOrchestrationCommand"
         command,
         threadId: command.threadId,
       });
+      const project = readModel.projects.find((project) => project.id === thread.projectId);
+      if (
+        project?.agentProfile !== undefined &&
+        (command.worktreePath != null || command.branch != null)
+      ) {
+        return yield* new OrchestrationCommandInvariantError({
+          commandType: command.type,
+          detail: "Agent conversations stay in their app-owned workspace.",
+        });
+      }
       // Old clients only see the derived single link. Unlink that request through
       // the same command path as modern clients, including stack dismissal, while
       // retaining other links they cannot see. Historical metadata events still replay unchanged.
@@ -1399,6 +1479,15 @@ export const decideOrchestrationCommand = Effect.fn("decideOrchestrationCommand"
         command,
         threadId: command.threadId,
       });
+      if (
+        readModel.projects.find((project) => project.id === targetThread.projectId)?.agentProfile
+          ?.archived
+      ) {
+        return yield* new OrchestrationCommandInvariantError({
+          commandType: command.type,
+          detail: "Restore this agent before sending a message.",
+        });
+      }
       const sourceProposedPlan = command.sourceProposedPlan;
       const sourceThread = sourceProposedPlan
         ? yield* requireThread({

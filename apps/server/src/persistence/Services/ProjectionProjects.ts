@@ -7,6 +7,7 @@
  * @module ProjectionProjectRepository
  */
 import {
+  AgentProfile,
   IsoDateTime,
   ModelSelection,
   ProjectIconOverride,
@@ -24,6 +25,7 @@ import type { ProjectionRepositoryError } from "../Errors.ts";
 export const ProjectionProject = Schema.Struct({
   projectId: ProjectId,
   title: Schema.String,
+  agentProfile: Schema.optional(AgentProfile),
   workspaceRoot: Schema.String,
   defaultModelSelection: Schema.NullOr(ModelSelection),
   defaultThreadEnvMode: Schema.NullOr(ThreadEnvMode),

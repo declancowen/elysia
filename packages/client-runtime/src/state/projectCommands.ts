@@ -92,6 +92,12 @@ export function createProjectEnvironmentAtoms<R, E>(
       scheduler: projectScheduler,
       concurrency: projectConcurrency,
     }),
+    createAgent: createEnvironmentRpcCommand(runtime, {
+      label: "environment-data:agents:create",
+      tag: WS_METHODS.agentsCreate,
+      scheduler: projectScheduler,
+      concurrency: { mode: "serial", key: ({ environmentId }) => environmentId },
+    }),
     // Finds or creates the environment's Scratch project and returns its id.
     ensureScratch: createEnvironmentRpcCommand(runtime, {
       label: "environment-data:projects:ensure-scratch",

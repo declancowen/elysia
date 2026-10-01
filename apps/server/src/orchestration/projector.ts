@@ -356,6 +356,7 @@ export function projectEvent(
             title: payload.title,
             workspaceRoot: payload.workspaceRoot,
             defaultModelSelection: payload.defaultModelSelection,
+            ...(payload.agentProfile ? { agentProfile: payload.agentProfile } : {}),
             defaultThreadEnvMode: null,
             autoPull: false,
             faviconPath: payload.faviconPath ?? null,
@@ -385,6 +386,9 @@ export function projectEvent(
             project.id === payload.projectId
               ? {
                   ...project,
+                  ...(payload.agentProfile !== undefined
+                    ? { agentProfile: payload.agentProfile }
+                    : {}),
                   ...(payload.title !== undefined ? { title: payload.title } : {}),
                   ...(payload.workspaceRoot !== undefined
                     ? { workspaceRoot: payload.workspaceRoot }

@@ -538,8 +538,54 @@ export const ProjectIconOverride = Schema.Union([
 );
 export type ProjectIconOverride = typeof ProjectIconOverride.Type;
 
+export const AgentProfile = Schema.Struct({
+  instructions: Schema.String.check(Schema.isMaxLength(32_000)),
+  title: Schema.optional(TrimmedNonEmptyString),
+  avatar: Schema.Struct({
+    preset: Schema.Literals(["robot", "sparkles", "brain", "briefcase", "code", "planet"]),
+    color: Schema.Literals([
+      "#003CB2",
+      "#28B4FF",
+      "#AAE6FF",
+      "#C9FCED",
+      "#33D7C8",
+      "#00786E",
+      "#D8AFFF",
+      "#9423FC",
+      "#551491",
+      "#FFB2C1",
+      "#FF547C",
+      "#BF1B4F",
+      "#F5E669",
+      "#EEAF00",
+      "#B05223",
+      "blue",
+      "violet",
+      "green",
+      "orange",
+      "rose",
+      "cyan",
+    ]),
+  }),
+  notificationsEnabled: Schema.Boolean,
+  archived: Schema.Boolean,
+  conversationThreadId: Schema.optional(ThreadId),
+});
+export type AgentProfile = typeof AgentProfile.Type;
+
+export const AgentCreateInput = Schema.Struct({
+  name: TrimmedNonEmptyString,
+  agentProfile: AgentProfile,
+  defaultModelSelection: ModelSelection,
+});
+export type AgentCreateInput = typeof AgentCreateInput.Type;
+
+export const AgentCreateResult = Schema.Struct({ projectId: ProjectId, threadId: ThreadId });
+export type AgentCreateResult = typeof AgentCreateResult.Type;
+
 export const OrchestrationProject = Schema.Struct({
   id: ProjectId,
+  agentProfile: Schema.optional(AgentProfile),
   title: TrimmedNonEmptyString,
   workspaceRoot: TrimmedNonEmptyString,
   repositoryIdentity: Schema.optional(Schema.NullOr(RepositoryIdentity)),
@@ -866,6 +912,7 @@ export type OrchestrationReadModel = typeof OrchestrationReadModel.Type;
 
 export const OrchestrationProjectShell = Schema.Struct({
   id: ProjectId,
+  agentProfile: Schema.optional(AgentProfile),
   title: TrimmedNonEmptyString,
   workspaceRoot: TrimmedNonEmptyString,
   repositoryIdentity: Schema.optional(Schema.NullOr(RepositoryIdentity)),
@@ -1085,6 +1132,7 @@ export const ProjectCreateCommand = Schema.Struct({
   type: Schema.Literal("project.create"),
   commandId: CommandId,
   projectId: ProjectId,
+  agentProfile: Schema.optional(AgentProfile),
   title: TrimmedNonEmptyString,
   workspaceRoot: TrimmedNonEmptyString,
   createWorkspaceRootIfMissing: Schema.optional(Schema.Boolean),
@@ -1098,6 +1146,7 @@ const ProjectMetaUpdateCommand = Schema.Struct({
   type: Schema.Literal("project.meta.update"),
   commandId: CommandId,
   projectId: ProjectId,
+  agentProfile: Schema.optional(AgentProfile),
   title: Schema.optional(TrimmedNonEmptyString),
   workspaceRoot: Schema.optional(TrimmedNonEmptyString),
   defaultModelSelection: Schema.optional(Schema.NullOr(ModelSelection)),
@@ -1730,6 +1779,7 @@ export const OrchestrationActorKind = Schema.Literals(["client", "server", "prov
 
 export const ProjectCreatedPayload = Schema.Struct({
   projectId: ProjectId,
+  agentProfile: Schema.optional(AgentProfile),
   title: TrimmedNonEmptyString,
   workspaceRoot: TrimmedNonEmptyString,
   repositoryIdentity: Schema.optional(Schema.NullOr(RepositoryIdentity)),
@@ -1744,6 +1794,7 @@ export const ProjectCreatedPayload = Schema.Struct({
 
 export const ProjectMetaUpdatedPayload = Schema.Struct({
   projectId: ProjectId,
+  agentProfile: Schema.optional(AgentProfile),
   title: Schema.optional(TrimmedNonEmptyString),
   workspaceRoot: Schema.optional(TrimmedNonEmptyString),
   repositoryIdentity: Schema.optional(Schema.NullOr(RepositoryIdentity)),

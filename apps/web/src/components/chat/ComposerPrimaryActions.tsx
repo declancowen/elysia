@@ -33,6 +33,7 @@ interface ComposerPrimaryActionsProps {
   onPreviousPendingQuestion: () => void;
   onInterrupt: () => void;
   onImplementPlanInNewThread: () => void;
+  allowImplementPlanInNewThread?: boolean;
 }
 
 const formatPendingPrimaryActionLabel = (input: {
@@ -78,6 +79,7 @@ export const ComposerPrimaryActions = memo(function ComposerPrimaryActions({
   onPreviousPendingQuestion,
   onInterrupt,
   onImplementPlanInNewThread,
+  allowImplementPlanInNewThread = true,
 }: ComposerPrimaryActionsProps) {
   const pointerFocusProps = preserveComposerFocusOnPointerDown
     ? { onPointerDown: preventPointerFocus }
@@ -174,38 +176,46 @@ export const ComposerPrimaryActions = memo(function ComposerPrimaryActions({
       <div data-chat-composer-implement-actions="true" className="flex items-center justify-end">
         <button
           type="submit"
-          className={cn(messageActionPillClassName, "h-9 rounded-r-none px-4 sm:h-8")}
+          className={cn(
+            messageActionPillClassName,
+            "h-9 px-4 sm:h-8",
+            allowImplementPlanInNewThread && "rounded-r-none",
+          )}
           {...pointerFocusProps}
           disabled={isSendBusy || isSendDisabled || isConnecting || isEnvironmentUnavailable}
         >
           {isConnecting || isSendBusy ? "Sending..." : "Implement"}
         </button>
-        <Menu>
-          <MenuTrigger
-            render={
-              <button
-                type="button"
-                className={cn(
-                  messageActionPillClassName,
-                  "h-9 rounded-l-none border-l border-message-action-foreground/20 px-2 sm:h-8",
-                )}
-                aria-label="Implementation actions"
-                {...pointerFocusProps}
-                disabled={isSendBusy || isSendDisabled || isConnecting || isEnvironmentUnavailable}
-              />
-            }
-          >
-            <ChevronDownIcon className="size-3.5" />
-          </MenuTrigger>
-          <MenuPopup align="end" side="top" {...composerFloatingLayerProps}>
-            <MenuItem
-              disabled={isSendBusy || isSendDisabled || isConnecting || isEnvironmentUnavailable}
-              onClick={() => void onImplementPlanInNewThread()}
+        {allowImplementPlanInNewThread ? (
+          <Menu>
+            <MenuTrigger
+              render={
+                <button
+                  type="button"
+                  className={cn(
+                    messageActionPillClassName,
+                    "h-9 rounded-l-none border-l border-message-action-foreground/20 px-2 sm:h-8",
+                  )}
+                  aria-label="Implementation actions"
+                  {...pointerFocusProps}
+                  disabled={
+                    isSendBusy || isSendDisabled || isConnecting || isEnvironmentUnavailable
+                  }
+                />
+              }
             >
-              Implement in a new thread
-            </MenuItem>
-          </MenuPopup>
-        </Menu>
+              <ChevronDownIcon className="size-3.5" />
+            </MenuTrigger>
+            <MenuPopup align="end" side="top" {...composerFloatingLayerProps}>
+              <MenuItem
+                disabled={isSendBusy || isSendDisabled || isConnecting || isEnvironmentUnavailable}
+                onClick={() => void onImplementPlanInNewThread()}
+              >
+                Implement in a new thread
+              </MenuItem>
+            </MenuPopup>
+          </Menu>
+        ) : null}
       </div>
     );
   }

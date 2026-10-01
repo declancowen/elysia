@@ -24,7 +24,8 @@ import { SymbolView, type AppSymbolName } from "../../components/AppSymbol";
 import { cn } from "../../lib/cn";
 import { scopedProjectKey, scopedThreadKey } from "../../lib/scopedEntities";
 import { T3KeyboardCommands } from "../../native/T3KeyboardCommands";
-import { useProjects, useThreadShell, useThreadShells } from "../../state/entities";
+import { useThreadShell } from "../../state/entities";
+import { useAgentCatalog } from "../agents/use-agent-catalog";
 import { useThreadSearch } from "../../state/queries";
 import { useWorkspaceState } from "../../state/workspace";
 import { useSavedRemoteConnections } from "../../state/use-remote-environment-registry";
@@ -141,8 +142,7 @@ export function CommandPalette(props: {
   const { themeVariables } = useAppearancePreferences();
   const { selectThread } = useAdaptiveWorkspaceLayout();
   const runCommand = props.onCommand;
-  const projects = useProjects();
-  const threads = useThreadShells();
+  const { projects, threads, agents } = useAgentCatalog();
   const activeThreadRef = useMemo(() => parseActiveThreadPath(props.pathname), [props.pathname]);
   const activeThread = useThreadShell(activeThreadRef);
   const { environments } = useWorkspaceState();
@@ -334,10 +334,25 @@ export function CommandPalette(props: {
           run: () => selectThread(thread),
         };
       });
-    return [...actions, ...projectItems, ...threadItems];
+    const agentItems: CommandPaletteItem[] = agents.flatMap(({ project, conversation }) =>
+      conversation
+        ? [
+            {
+              key: `agent:${scopedProjectKey(project.environmentId, project.id)}`,
+              kind: "action",
+              title: project.title,
+              detail: project.agentProfile.title ?? "Agent",
+              searchTerms: ["agent", project.agentProfile.title ?? ""],
+              run: () => selectThread(conversation),
+            },
+          ]
+        : [],
+    );
+    return [...actions, ...agentItems, ...projectItems, ...threadItems];
   }, [
     activeThread,
     activeThreadRef,
+    agents,
     navigation,
     projects,
     runCommand,

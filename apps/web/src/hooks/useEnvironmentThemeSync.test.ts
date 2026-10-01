@@ -23,6 +23,7 @@ async function setupThemeSync(mode: "dark" | "system" = "dark") {
     dataset: {} as Record<string, string>,
     style: {
       setProperty: (name: string, value: string) => styles.set(name, value),
+      getPropertyValue: (name: string) => styles.get(name) ?? "",
       removeProperty: (name: string) => styles.delete(name),
     },
     classList: {
@@ -141,7 +142,7 @@ describe("published theme refresh", () => {
     expectPreview();
     publish([LIGHT_THEME, { ...NIGHTFALL_THEME, id: "unused-theme" }]);
     expectPreview();
-    expect(publish([]).theme).toBe("system");
+    expect(publish([]).theme).toBe("default");
     expectPreview();
 
     const current = publish([{ ...NIGHTFALL_THEME, canvas: "#112233" }]);

@@ -76,6 +76,11 @@ const removeClaimedAttachmentPaths = Effect.fn("Normalizer.removeClaimedAttachme
 
 export const normalizeDispatchCommand = (command: ClientOrchestrationCommand) =>
   Effect.gen(function* () {
+    if (command.type === "project.create" && command.agentProfile !== undefined) {
+      return yield* new OrchestrationDispatchCommandError({
+        message: "Create persistent agents with agents.create so their workspace is app-owned.",
+      });
+    }
     const receivedAt = DateTime.formatIso(yield* DateTime.now);
     const canonicalCommand = canonicalizeClientCommandTimestamps(command, receivedAt);
     const fileSystem = yield* FileSystem.FileSystem;

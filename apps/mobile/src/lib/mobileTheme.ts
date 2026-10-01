@@ -253,7 +253,10 @@ export function createMobileThemeVariables(
     "--color-card-translucent": withAlpha(c.surface, 0.8),
     "--color-thread-canvas": c.canvas,
     "--color-thread-selected": c.sidebarRowActive,
-    "--color-thread-selected-foreground": c.sidebarForeground,
+    "--color-thread-selected-foreground": readableTextColor(
+      c.sidebarRowActive === c.accent ? c.accentForeground : c.sidebarForeground,
+      c.sidebarRowActive,
+    ),
     "--color-thread-selected-foreground-muted": readableTextColor(
       c.sidebarMutedForeground,
       c.sidebarRowActive,
@@ -373,17 +376,14 @@ export function getMobileThemeVariables(
     themeId === DEFAULT_MOBILE_THEME_ID
       ? appearance === "light"
         ? colors.toolbarControlHover
-        : colors.sidebarRowActive
+        : colors.surfaceRaised
       : colors.surface;
   const mobileColors =
     themeId === DEFAULT_MOBILE_THEME_ID
       ? {
           ...colors,
           messageSurface: flattenThemeColor(
-            themeColorWithAlpha(
-              appearance === "dark" ? colors.sidebarRowActive : colors.border,
-              0.3,
-            ),
+            themeColorWithAlpha(colors.border, appearance === "dark" ? 0.1 : 0.3),
             colors.messageSurface,
           ),
         }

@@ -5,7 +5,7 @@ import {
   type ServerProvider,
 } from "@t3tools/contracts";
 import { DEFAULT_UNIFIED_SETTINGS, type UnifiedSettings } from "@t3tools/contracts/settings";
-import { describe, expect, it } from "vite-plus/test";
+import { describe, expect, it, vi } from "vite-plus/test";
 import { createModelSelection } from "@t3tools/shared/model";
 import { deriveEffectiveComposerModelState } from "./composerDraftStore";
 import { getComposerProviderState } from "./components/chat/composerProviderState";
@@ -26,7 +26,7 @@ function provider(input: {
 }): ServerProvider {
   const driver =
     input.provider ??
-    (input.instanceId.startsWith("claude_")
+    (input.instanceId === "claudeAgent" || input.instanceId.startsWith("claude_")
       ? ProviderDriverKind.make("claudeAgent")
       : ProviderDriverKind.make("codex"));
   return {
@@ -65,6 +65,23 @@ function settingsWithProviderInstances(): UnifiedSettings {
   };
 }
 
+// Custom models remain supported by dormant upstream drivers. Native Elysia catalogs are authoritative.
+function settingsWithRetainedCustomInstances(): UnifiedSettings {
+  return {
+    ...DEFAULT_UNIFIED_SETTINGS,
+    providerInstances: {
+      [ProviderInstanceId.make("codex")]: {
+        driver: ProviderDriverKind.make("codex"),
+        config: { customModels: [] },
+      },
+      [ProviderInstanceId.make("codex_custom")]: {
+        driver: ProviderDriverKind.make("codex"),
+        config: { customModels: ["openai/gpt-5.5"] },
+      },
+    },
+  };
+}
+
 describe("instance-scoped model selection", () => {
   it("preserves server-provided legacy model metadata", () => {
     const baseProvider = provider({
@@ -87,25 +104,25 @@ describe("instance-scoped model selection", () => {
   it("keeps custom models on the provider instance that declared them", () => {
     const providers = [
       provider({
-        instanceId: "claudeAgent",
-        models: ["claude-sonnet-4-6"],
+        instanceId: "codex",
+        models: ["gpt-5.4"],
       }),
       provider({
-        instanceId: "claude_openrouter",
-        models: ["claude-sonnet-4-6"],
+        instanceId: "codex_custom",
+        models: ["gpt-5.4"],
       }),
     ];
     const entries = deriveProviderInstanceEntries(providers);
-    const stock = entries.find((entry) => entry.instanceId === "claudeAgent")!;
-    const openrouter = entries.find((entry) => entry.instanceId === "claude_openrouter")!;
+    const stock = entries.find((entry) => entry.instanceId === "codex")!;
+    const openrouter = entries.find((entry) => entry.instanceId === "codex_custom")!;
 
     expect(
-      getAppModelOptionsForInstance(settingsWithProviderInstances(), stock).map(
+      getAppModelOptionsForInstance(settingsWithRetainedCustomInstances(), stock).map(
         (option) => option.slug,
       ),
     ).not.toContain("openai/gpt-5.5");
     expect(
-      getAppModelOptionsForInstance(settingsWithProviderInstances(), openrouter).map(
+      getAppModelOptionsForInstance(settingsWithRetainedCustomInstances(), openrouter).map(
         (option) => option.slug,
       ),
     ).toContain("openai/gpt-5.5");
@@ -113,17 +130,17 @@ describe("instance-scoped model selection", () => {
 
   it("resolves a custom slug against the selected custom instance", () => {
     const providers = [
-      provider({ provider: ProviderDriverKind.make("claudeAgent"), instanceId: "claudeAgent" }),
+      provider({ provider: ProviderDriverKind.make("codex"), instanceId: "codex" }),
       provider({
-        provider: ProviderDriverKind.make("claudeAgent"),
-        instanceId: "claude_openrouter",
+        provider: ProviderDriverKind.make("codex"),
+        instanceId: "codex_custom",
       }),
     ];
 
     expect(
       resolveAppModelSelectionForInstance(
-        ProviderInstanceId.make("claude_openrouter"),
-        settingsWithProviderInstances(),
+        ProviderInstanceId.make("codex_custom"),
+        settingsWithRetainedCustomInstances(),
         providers,
         "openai/gpt-5.5",
       ),
@@ -133,18 +150,18 @@ describe("instance-scoped model selection", () => {
   it("preserves a custom slug that collides with a provider alias", () => {
     const providers = [
       provider({
-        provider: ProviderDriverKind.make("claudeAgent"),
-        instanceId: "claude_openrouter",
-        models: ["claude-opus-4-8"],
+        provider: ProviderDriverKind.make("codex"),
+        instanceId: "codex_custom",
+        models: ["gpt-5.4"],
       }),
     ];
     const settings: UnifiedSettings = {
-      ...settingsWithProviderInstances(),
+      ...settingsWithRetainedCustomInstances(),
       providerInstances: {
-        ...settingsWithProviderInstances().providerInstances,
-        [ProviderInstanceId.make("claude_openrouter")]: {
-          driver: ProviderDriverKind.make("claudeAgent"),
-          config: { customModels: ["opus"] },
+        ...settingsWithRetainedCustomInstances().providerInstances,
+        [ProviderInstanceId.make("codex_custom")]: {
+          driver: ProviderDriverKind.make("codex"),
+          config: { customModels: ["5.4"] },
         },
       },
     };
@@ -152,15 +169,15 @@ describe("instance-scoped model selection", () => {
 
     expect(
       getAppModelOptionsForInstance(settings, openrouter).map((option) => option.slug),
-    ).toEqual(["claude-opus-4-8", "opus"]);
+    ).toEqual(["gpt-5.4", "5.4"]);
     expect(
       resolveAppModelSelectionForInstance(
-        ProviderInstanceId.make("claude_openrouter"),
+        ProviderInstanceId.make("codex_custom"),
         settings,
         providers,
-        "opus",
+        "5.4",
       ),
-    ).toBe("opus");
+    ).toBe("5.4");
   });
 
   it("includes Grok custom models from the selected provider instance", () => {
@@ -233,8 +250,8 @@ describe("instance-scoped model selection", () => {
 
   it("drops server-reported custom rows that are no longer in settings", () => {
     const baseProvider = provider({
-      instanceId: "claude_openrouter",
-      models: ["claude-sonnet-4-6"],
+      instanceId: "codex_custom",
+      models: ["gpt-5.4"],
     });
     const providers = [
       {
@@ -248,10 +265,10 @@ describe("instance-scoped model selection", () => {
     const openrouter = deriveProviderInstanceEntries(providers)[0]!;
 
     expect(
-      getAppModelOptionsForInstance(settingsWithProviderInstances(), openrouter).map(
+      getAppModelOptionsForInstance(settingsWithRetainedCustomInstances(), openrouter).map(
         (option) => option.slug,
       ),
-    ).toEqual(["claude-sonnet-4-6", "openai/gpt-5.5"]);
+    ).toEqual(["gpt-5.4", "openai/gpt-5.5"]);
   });
 
   it("applies persisted per-instance model ordering", () => {
@@ -749,13 +766,13 @@ describe("instance-scoped model selection", () => {
   });
 
   it("keeps a custom-instance draft model while dropping unsupported options", () => {
-    const instanceId = ProviderInstanceId.make("claude_openrouter");
-    const driver = ProviderDriverKind.make("claudeAgent");
+    const instanceId = ProviderInstanceId.make("codex_custom");
+    const driver = ProviderDriverKind.make("codex");
     const providers = [
-      provider({ provider: driver, instanceId: "claudeAgent", models: ["claude-opus-5"] }),
-      provider({ provider: driver, instanceId, models: ["claude-opus-5"] }),
+      provider({ provider: driver, instanceId: "codex", models: ["gpt-5.4"] }),
+      provider({ provider: driver, instanceId, models: ["gpt-5.4"] }),
     ];
-    const threadSelection = createModelSelection(instanceId, "claude-opus-5", [
+    const threadSelection = createModelSelection(instanceId, "gpt-5.4", [
       { id: "effort", value: "high" },
     ]);
     const draftSelection = createModelSelection(instanceId, "openai/gpt-5.5", [
@@ -771,7 +788,7 @@ describe("instance-scoped model selection", () => {
       selectedInstanceId: instanceId,
       threadModelSelection: threadSelection,
       projectModelSelection: null,
-      settings: settingsWithProviderInstances(),
+      settings: settingsWithRetainedCustomInstances(),
     });
     const dispatch = getComposerProviderState({
       provider: driver,
@@ -789,24 +806,24 @@ describe("instance-scoped model selection", () => {
   it("preserves custom provider instances in settings model selection", () => {
     const providers = [
       provider({
-        instanceId: "claudeAgent",
-        models: ["claude-sonnet-4-6"],
+        instanceId: "codex",
+        models: ["gpt-5.4"],
       }),
       provider({
-        instanceId: "claude_openrouter",
-        models: ["claude-sonnet-4-6"],
+        instanceId: "codex_custom",
+        models: ["gpt-5.4"],
       }),
     ];
     const settings: UnifiedSettings = {
-      ...settingsWithProviderInstances(),
+      ...settingsWithRetainedCustomInstances(),
       textGenerationModelSelection: {
-        instanceId: ProviderInstanceId.make("claude_openrouter"),
+        instanceId: ProviderInstanceId.make("codex_custom"),
         model: "openai/gpt-5.5",
       },
     };
 
     expect(resolveAppModelSelectionState(settings, providers)).toEqual({
-      instanceId: ProviderInstanceId.make("claude_openrouter"),
+      instanceId: ProviderInstanceId.make("codex_custom"),
       model: "openai/gpt-5.5",
     });
   });
@@ -914,3 +931,12 @@ describe("resolvePlanAgentHealPatch", () => {
     ).toEqual({ sourceControlWriterModelSelection: healed });
   });
 });
+
+// Exercise retained upstream provider behavior; Elysia policy has separate native-only tests.
+vi.mock("../../../packages/contracts/src/forkPolicy.ts", async (importOriginal) => ({
+  ...(await importOriginal<
+    Pick<typeof import("@t3tools/contracts"), "isEnabledProviderDriver" | "SINGLE_PROVIDER_UI">
+  >()),
+  isEnabledProviderDriver: () => true,
+  SINGLE_PROVIDER_UI: false,
+}));

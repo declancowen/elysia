@@ -1,3 +1,8 @@
+import { useRegularProjects } from "./useRegularProjects";
+import { isAgentProject } from "../agentPresentation";
+import { squashAtomCommandFailure } from "@t3tools/client-runtime/state/runtime";
+import { projectEnvironment } from "../state/projects";
+import { useAtomCommand } from "../state/use-atom-command";
 import { useAtomValue } from "@effect/atom-react";
 import {
   scopedProjectKey,
@@ -23,7 +28,7 @@ import {
   selectProjectGroupingSettings,
 } from "../logicalProject";
 import { resolveProjectSettings } from "@t3tools/shared/projectSettings";
-import { readProjects, readThreadShell, useProjects, useThread } from "../state/entities";
+import { readProjects, readThreadShell, useThread, waitForProject } from "../state/entities";
 import {
   hasExplicitComposerModelSelection,
   resolveNewDraftStartFromOrigin,
@@ -55,6 +60,7 @@ function pickExplicitWorkspaceOptions(options: NewThreadWorkspaceOptions | undef
 }
 
 export function useNewThreadHandler() {
+  const ensureScratch = useAtomCommand(projectEnvironment.ensureScratch, { reportFailure: false });
   const environmentServerConfigs = useAtomValue(environmentServerConfigsAtom);
   const projectGroupingSettings = useClientSettings(selectProjectGroupingSettings);
   const router = useRouter();
@@ -64,8 +70,8 @@ export function useNewThreadHandler() {
   }, [router]);
 
   return useCallback(
-    (
-      projectRef: ScopedProjectRef,
+    async (
+      requestedProjectRef: ScopedProjectRef,
       options?: {
         branch?: string | null;
         worktreePath?: string | null;
@@ -77,6 +83,23 @@ export function useNewThreadHandler() {
       // prepared checkout, a task to write — addresses that one rather than looking the project
       // up again and finding whichever draft it happens to hold.
     ): Promise<{ draftId: DraftId; threadId: ThreadId } | null> => {
+      const requestingRouteHref = router.state.location.href;
+      const routeChangedSinceRequest = () => router.state.location.href !== requestingRouteHref;
+      let projectRef = requestedProjectRef;
+      const requestedProject = readProjects().find(
+        (project) =>
+          project.environmentId === projectRef.environmentId && project.id === projectRef.projectId,
+      );
+      // A persistent agent keeps its one conversation. Generic New thread opens Recent instead.
+      if (requestedProject && isAgentProject(requestedProject)) {
+        const result = await ensureScratch({ environmentId: projectRef.environmentId, input: {} });
+        if (result._tag === "Failure") throw squashAtomCommandFailure(result);
+        const scratch = await waitForProject(
+          scopeProjectRef(projectRef.environmentId, result.value.projectId),
+        );
+        if (!scratch || routeChangedSinceRequest()) return null;
+        projectRef = scopeProjectRef(scratch.environmentId, scratch.id);
+      }
       const projects = readProjects();
       const targetServerSettings =
         environmentServerConfigs.get(projectRef.environmentId)?.settings ?? DEFAULT_SERVER_SETTINGS;
@@ -90,8 +113,6 @@ export function useNewThreadHandler() {
         setLogicalProjectDraftThreadId,
         setModelSelection,
       } = useComposerDraftStore.getState();
-      const requestingRouteHref = router.state.location.href;
-      const routeChangedSinceRequest = () => router.state.location.href !== requestingRouteHref;
       const currentRouteTarget = getCurrentRouteTarget();
       // A new thread carries the user's working mode from the thread being
       // viewed. The target project's configured model still wins; interaction
@@ -430,7 +451,13 @@ export function useNewThreadHandler() {
         return { draftId, threadId };
       })();
     },
-    [environmentServerConfigs, getCurrentRouteTarget, projectGroupingSettings, router],
+    [
+      environmentServerConfigs,
+      ensureScratch,
+      getCurrentRouteTarget,
+      projectGroupingSettings,
+      router,
+    ],
   );
 }
 
@@ -451,7 +478,7 @@ export function useHandleNewThread() {
         : useComposerDraftStore.getState().getDraftSession(routeTarget.draftId)
       : null,
   );
-  const projects = useProjects();
+  const projects = useRegularProjects();
   const orderedProjects = useMemo(() => {
     return orderItemsByPreferredIds({
       items: projects,

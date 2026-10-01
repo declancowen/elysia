@@ -78,6 +78,10 @@ import * as ServerSettings from "../../serverSettings.ts";
 import * as AnalyticsService from "../../telemetry/AnalyticsService.ts";
 import { makeAdapterRegistryMock } from "../testUtils/providerAdapterRegistryMock.ts";
 import * as ProjectionSnapshotQuery from "../../orchestration/Services/ProjectionSnapshotQuery.ts";
+import { OrchestrationProjectionSnapshotQueryLive } from "../../orchestration/Layers/ProjectionSnapshotQuery.ts";
+import * as RepositoryIdentityResolver from "../../project/RepositoryIdentityResolver.ts";
+import * as ThreadBackgroundLiveness from "../../orchestration/ThreadBackgroundLiveness.ts";
+import * as ThreadPlanProgress from "../../orchestration/ThreadPlanProgress.ts";
 
 const encodeJson = Schema.encodeSync(Schema.fromJsonString(Schema.Unknown));
 const defaultServerSettingsLayer = ServerSettings.ServerSettingsService.layerTest();
@@ -5104,7 +5108,7 @@ describe("agent browser access", () => {
         getFirstActiveThreadIdByProjectId: () => Effect.die("unused"),
         getThreadCheckpointContext: () => Effect.die("unused"),
         getFullThreadDiffContext: () => Effect.die("unused"),
-        getThreadRuntimeContext: () => Effect.die("unused"),
+        getThreadRuntimeContext: () => Effect.succeedNone,
         getThreadShellById: (requestedThreadId) =>
           Effect.gen(function* () {
             assert.equal(requestedThreadId, threadId);
@@ -5359,3 +5363,76 @@ chatGptTelemetry.layer("ChatGPT connector turn analytics", (it) => {
     }),
   );
 });
+
+it.effect(
+  "archiving an agent rejects messages on its existing idle native session and restore reuses it",
+  () => {
+    const claude = makeFakeCodexAdapter(CLAUDE_AGENT_DRIVER);
+    const directory = ProviderSessionDirectoryLive.pipe(
+      Layer.provide(ProviderSessionRuntime.layer),
+      Layer.provide(SqlitePersistenceMemory),
+    );
+    const query = OrchestrationProjectionSnapshotQueryLive.pipe(
+      Layer.provide(ThreadBackgroundLiveness.layer),
+      Layer.provide(ThreadPlanProgress.layer),
+      Layer.provide(
+        Layer.succeed(RepositoryIdentityResolver.RepositoryIdentityResolver, {
+          resolve: () => Effect.succeed(null),
+        }),
+      ),
+      Layer.provide(SqlitePersistenceMemory),
+    );
+    const providerLayer = makeProviderServiceLive().pipe(
+      Layer.provide(
+        Layer.succeed(
+          ProviderAdapterRegistry.ProviderAdapterRegistry,
+          makeAdapterRegistryMock({ [CLAUDE_AGENT_DRIVER]: claude.adapter }),
+        ),
+      ),
+      Layer.provide(directory),
+      Layer.provide(query),
+      Layer.provide(defaultServerSettingsLayer),
+      Layer.provide(serverConfigTestLayer),
+      Layer.provide(AnalyticsService.layerTest),
+      Layer.provide(
+        Layer.succeed(
+          ProviderEventLoggers.ProviderEventLoggers,
+          ProviderEventLoggers.NoOpProviderEventLoggers,
+        ),
+      ),
+    );
+    const layer = Layer.mergeAll(providerLayer, SqlitePersistenceMemory).pipe(
+      Layer.provide(NodeServices.layer),
+    );
+    return Effect.gen(function* () {
+      const sql = yield* SqlClient.SqlClient;
+      const provider = yield* ProviderService.ProviderService;
+      const threadId = ThreadId.make("agent-archive-existing-session");
+      const workspace = fixtureCwd("persistent-agent-archive");
+      const agentProfile = {
+        instructions: "Help with work",
+        avatar: { preset: "robot", color: "blue" },
+        notificationsEnabled: true,
+        archived: false,
+      };
+      yield* sql`INSERT INTO projection_projects (project_id, title, workspace_root, agent_profile_json, scripts_json, created_at, updated_at) VALUES ('persistent-agent-archive', 'Edna', ${workspace}, ${encodeJson(agentProfile)}, '[]', '2026-10-01T00:00:00Z', '2026-10-01T00:00:00Z')`;
+      yield* sql`INSERT INTO projection_threads (thread_id, project_id, title, model_selection_json, runtime_mode, interaction_mode, created_at, updated_at) VALUES (${threadId}, 'persistent-agent-archive', 'Edna', ${encodeJson(createModelSelection(claudeAgentInstanceId, "kimi-k3"))}, 'full-access', 'default', '2026-10-01T00:00:00Z', '2026-10-01T00:00:00Z')`;
+      yield* provider.startSession(threadId, {
+        threadId,
+        provider: CLAUDE_AGENT_DRIVER,
+        providerInstanceId: claudeAgentInstanceId,
+        cwd: workspace,
+        runtimeMode: "full-access",
+      });
+      assert.equal(claude.startSession.mock.calls.length, 1);
+      yield* sql`UPDATE projection_projects SET agent_profile_json = ${encodeJson({ ...agentProfile, archived: true })} WHERE project_id = 'persistent-agent-archive'`;
+      const error = yield* provider.sendTurn({ threadId, input: "Keep working" }).pipe(Effect.flip);
+      assert.include(error.message, "Restore this agent");
+      assert.equal(claude.sendTurn.mock.calls.length, 0);
+      yield* sql`UPDATE projection_projects SET agent_profile_json = ${encodeJson(agentProfile)} WHERE project_id = 'persistent-agent-archive'`;
+      yield* provider.sendTurn({ threadId, input: "Continue" });
+      assert.equal(claude.sendTurn.mock.calls.length, 1);
+      assert.equal(claude.startSession.mock.calls.length, 1);
+    }).pipe(Effect.provide(layer));
+  },
+);

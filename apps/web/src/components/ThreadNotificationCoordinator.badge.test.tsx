@@ -59,6 +59,7 @@ class TestNotification extends EventTarget {
 
 const thread = {
   id: "thread",
+  projectId: "project",
   title: "Test thread",
   archivedAt: null as string | null,
   hasPendingApprovals: false,
@@ -71,7 +72,13 @@ let focused = false;
 let visibility = "visible";
 
 function shell(overrides: Partial<typeof thread> = {}) {
-  return { status: "live", snapshot: Option.some({ threads: [{ ...thread, ...overrides }] }) };
+  return {
+    status: "live",
+    snapshot: Option.some({
+      projects: [{ id: "project" }],
+      threads: [{ ...thread, ...overrides }],
+    }),
+  };
 }
 function complete(environment = "one", completedAt = "2026-09-13T08:00:00Z") {
   state.shells.set(

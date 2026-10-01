@@ -1,5 +1,5 @@
 import { ProviderDriverKind, ProviderInstanceId, type ServerProvider } from "@t3tools/contracts";
-import { describe, expect, it } from "vite-plus/test";
+import { describe, expect, it, vi } from "vite-plus/test";
 import {
   applyProviderInstanceSettings,
   deriveProviderEntriesByEnvironment,
@@ -541,3 +541,12 @@ describe("resolveDefaultProviderModelSelection", () => {
     ).toBeNull();
   });
 });
+
+// Exercise retained upstream provider behavior; Elysia policy has separate native-only tests.
+vi.mock("../../../packages/contracts/src/forkPolicy.ts", async (importOriginal) => ({
+  ...(await importOriginal<
+    Pick<typeof import("@t3tools/contracts"), "isEnabledProviderDriver" | "SINGLE_PROVIDER_UI">
+  >()),
+  isEnabledProviderDriver: () => true,
+  SINGLE_PROVIDER_UI: false,
+}));

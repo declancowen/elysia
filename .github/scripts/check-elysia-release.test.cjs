@@ -57,6 +57,23 @@ test("rejects a conflicting tag and accepts an untagged main commit", async () =
     version: "0.0.45",
     tag: "v0.0.45",
   });
+  github.rest.repos.getCommit = async () => {
+    throw Object.assign(new Error("No commit found for SHA: v0.0.45"), {
+      status: 422,
+      response: { data: { message: "No commit found for SHA: v0.0.45" } },
+    });
+  };
+  assert.deepEqual(await resolveElysiaRelease({ github, context, raw: "0.0.45" }), {
+    version: "0.0.45",
+    tag: "v0.0.45",
+  });
+  github.rest.repos.getCommit = async () => {
+    throw Object.assign(new Error("Validation failed"), { status: 422 });
+  };
+  await assert.rejects(
+    resolveElysiaRelease({ github, context, raw: "0.0.45" }),
+    /Validation failed/,
+  );
   github.rest.repos.getCommit = async () => ({ data: { sha: "candidate" } });
   assert.deepEqual(
     await resolveElysiaRelease({

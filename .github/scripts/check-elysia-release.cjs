@@ -37,7 +37,10 @@ async function resolveElysiaRelease({ github, context, raw }) {
       throw new Error(`Tag ${tag} points to ${commit.sha}, not release commit ${context.sha}.`);
     }
   } catch (error) {
-    if (error.status !== 404) throw error;
+    const missingTag =
+      error.status === 404 ||
+      (error.status === 422 && error.response?.data?.message === `No commit found for SHA: ${tag}`);
+    if (!missingTag) throw error;
   }
   return { version, tag };
 }

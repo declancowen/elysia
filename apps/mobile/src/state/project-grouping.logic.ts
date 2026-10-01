@@ -4,17 +4,15 @@ import type { SidebarProjectGroupingMode } from "@t3tools/contracts";
 import type { Preferences } from "../persistence/mobile-preferences";
 
 export const DEFAULT_MOBILE_PROJECT_GROUPING_SETTINGS: ProjectGroupingSettings = {
-  sidebarProjectGroupingMode: "repository",
+  sidebarProjectGroupingMode: "separate",
   sidebarProjectGroupingOverrides: {},
 };
 
 export function resolveMobileProjectGroupingSettings(
-  preferences: Preferences,
+  __preferences: Preferences,
 ): ProjectGroupingSettings {
   return {
-    sidebarProjectGroupingMode:
-      preferences.projectGroupingMode ??
-      (preferences.projectGroupingEnabled === false ? "separate" : "repository"),
+    sidebarProjectGroupingMode: "separate",
     sidebarProjectGroupingOverrides: {},
   };
 }

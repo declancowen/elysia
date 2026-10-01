@@ -6,14 +6,14 @@
       name="viewport"
       content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content"
     />
-    <meta name="theme-color" content="#0a0a0a" />
+    <meta name="theme-color" content="#002244" />
     <link rel="icon" href="/favicon.ico" sizes="48x48" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <link rel="manifest" href="/manifest.webmanifest" />
     <script>
       (() => {
         const LIGHT_BACKGROUND = "#ffffff";
-        const DARK_BACKGROUND = "#0a0a0a";
+        const DARK_BACKGROUND = "#002244";
         const CUSTOM_THEMES_STORAGE_KEY = "t3code:themes:v1";
         const THEME_FOLLOW_SYSTEM_STORAGE_KEY = "t3code:theme-follow-system";
         const THEME_APPEARANCE_MODE_STORAGE_KEY = "t3code:theme-appearance-mode";
@@ -25,9 +25,9 @@
             accent: "#4f46e5",
           },
           dark: {
-            background: "#0a0a0a",
-            foreground: "#f5f5f5",
-            accent: "#818cf8",
+            background: "#002244",
+            foreground: "#FFFFFF",
+            accent: "#28B4FF",
           },
         };
         // These are the runtime defaults used to complete a custom palette
@@ -36,33 +36,33 @@
         // app colors before React mounts.
         const DEFAULT_THEME_PALETTES = {
           light: {
-            background: "oklch(0.982446 0.010114 325.653)",
-            foreground: "oklch(0.325698 0.116116 325.037)",
-            accent: "oklch(0.591646 0.217985 0.584)",
-            chrome: "oklch(0.982446 0.010114 325.653)",
+            background: "oklch(1 0 0)",
+            foreground: "oklch(0.250621 0.074853 251.937)",
+            accent: "oklch(0.413231 0.194396 262.221)",
+            chrome: "oklch(0.982018 0.009238 242.835)",
           },
           dark: {
-            background: "oklch(0.22813 0.020366 307.469)",
-            foreground: "oklch(0.980735 0.004092 301.426)",
-            accent: "oklch(0.460685 0.185347 4.099)",
-            chrome: "oklch(0.22813 0.020366 307.469)",
+            background: "oklch(0.250621 0.074853 251.937)",
+            foreground: "oklch(1 0 0)",
+            accent: "oklch(0.733485 0.155316 239.109)",
+            chrome: "oklch(0.250621 0.074853 251.937)",
           },
         };
         // Keep this small boot-time copy in sync with the built-in palettes so
         // the selected theme is visible before the app has mounted.
         const BUILT_IN_THEME_PALETTES = {
-          "t3-chat": {
+          default: {
             light: {
-              background: "oklch(0.982446 0.010114 325.653)",
-              foreground: "oklch(0.325698 0.116116 325.037)",
-              accent: "oklch(0.591646 0.217985 0.584)",
-              chrome: "oklch(0.982446 0.010114 325.653)",
+              background: "#FFFFFF",
+              foreground: "#002244",
+              accent: "#003CB2",
+              chrome: "#F4FAFF",
             },
             dark: {
-              background: "oklch(0.22813 0.020366 307.469)",
-              foreground: "oklch(0.980735 0.004092 301.426)",
-              accent: "oklch(0.460685 0.185347 4.099)",
-              chrome: "oklch(0.22813 0.020366 307.469)",
+              background: "#002244",
+              foreground: "#FFFFFF",
+              accent: "#28B4FF",
+              chrome: "#002244",
             },
           },
           grove: {
@@ -121,9 +121,65 @@
               chrome: "oklch(0.225975 0.031062 293.741)",
             },
           },
+          midnight: {
+            light: {
+              background: "oklch(0.984152 0.003413 247.858)",
+              foreground: "oklch(0.200479 0.03502 261.357)",
+              accent: "oklch(0.54615 0.215208 262.881)",
+              chrome: "oklch(0.984152 0.003413 247.858)",
+            },
+            dark: {
+              background: "oklch(0.176285 0.014021 258.357)",
+              foreground: "oklch(0.942539 0.01105 243.657)",
+              accent: "oklch(0.56859 0.202266 259.668)",
+              chrome: "oklch(0.176285 0.014021 258.357)",
+            },
+          },
+          graphite: {
+            light: {
+              background: "oklch(0.981639 0.001707 247.839)",
+              foreground: "oklch(0.198769 0.009305 255.625)",
+              accent: "oklch(0.445533 0.037447 257.281)",
+              chrome: "oklch(0.981639 0.001707 247.839)",
+            },
+            dark: {
+              background: "oklch(0.19933 0.006777 258.368)",
+              foreground: "oklch(0.970714 0.002651 286.35)",
+              accent: "oklch(1 0 0)",
+              chrome: "oklch(0.19933 0.006777 258.368)",
+            },
+          },
+          canvas: {
+            light: {
+              background: "oklch(0.975582 0.002643 106.448)",
+              foreground: "oklch(0.328942 0.010678 91.659)",
+              accent: "oklch(0.328942 0.010678 91.659)",
+              chrome: "oklch(0.975582 0.002643 106.448)",
+            },
+            dark: {
+              background: "oklch(0.243535 0 0)",
+              foreground: "oklch(0.958147 0 0)",
+              accent: "oklch(1 0 0)",
+              chrome: "oklch(0.243535 0 0)",
+            },
+          },
+          paper: {
+            light: {
+              background: "oklch(1 0 0)",
+              foreground: "oklch(0.328942 0.010678 91.659)",
+              accent: "oklch(0.328942 0.010678 91.659)",
+              chrome: "oklch(1 0 0)",
+            },
+            dark: {
+              background: "oklch(0.213423 0 0)",
+              foreground: "oklch(0.958147 0 0)",
+              accent: "oklch(1 0 0)",
+              chrome: "oklch(0.213423 0 0)",
+            },
+          },
         };
         // Keep the built-in mode list in sync with the runtime so the selected
-        // T3 Chat palette is visible before React has mounted.
+        // theme palette is visible before React has mounted.
         const BUILT_IN_THEME_MODES = Object.fromEntries(
           Object.entries(BUILT_IN_THEME_PALETTES).map(([id, palettes]) => [
             id,
@@ -139,6 +195,10 @@
           "ocean",
           "ember",
           "iris",
+          "midnight",
+          "graphite",
+          "canvas",
+          "paper",
           "t3-chat-dark",
           "t3-grove",
           "t3-ocean",
@@ -223,15 +283,24 @@
           // and every maintainer theme under a t3- prefix; keep those
           // preferences readable. Mirrors the runtime's legacy alias table.
           const LEGACY_THEME_IDS = {
-            "t3-chat-dark": "t3-chat",
+            "t3-chat": "default",
+            "t3-chat-dark": "default",
             "t3-grove": "grove",
             "t3-ocean": "ocean",
             "t3-ember": "ember",
             "t3-iris": "iris",
           };
           const isLegacyT3ChatDark = storedTheme === "t3-chat-dark";
+          const requestedThemeId =
+            storedTheme === null || ["light", "dark", "system"].includes(storedTheme)
+              ? "default"
+              : (LEGACY_THEME_IDS[storedTheme] ?? storedTheme);
           const themeId =
-            storedTheme === null ? "" : (LEGACY_THEME_IDS[storedTheme] ?? storedTheme);
+            BUILT_IN_THEME_MODES[requestedThemeId] ||
+            findCustomTheme(requestedThemeId) ||
+            ["light", "dark", "system"].includes(requestedThemeId)
+              ? requestedThemeId
+              : "default";
           const legacyMode = isLegacyT3ChatDark ? "dark" : null;
           const builtInModes = BUILT_IN_THEME_MODES[themeId] ?? null;
           const customTheme = builtInModes ? null : findCustomTheme(themeId);
@@ -244,13 +313,18 @@
               : null);
           // Mirrors the runtime's isKnownThemePreference.
           const isKnownTheme =
+            storedTheme === null ||
             storedTheme === "light" ||
             storedTheme === "dark" ||
             storedTheme === "system" ||
             themeModes !== null;
-          const theme = isKnownTheme && storedTheme ? storedTheme : "system";
+          const theme = isKnownTheme && storedTheme ? storedTheme : "default";
           const isThemed = isKnownTheme && themeModes !== null;
-          const baseAppearance = customTheme ? customTheme.appearance : "light";
+          const baseAppearance = customTheme
+            ? customTheme.appearance
+            : ["default", "midnight", "graphite"].includes(themeId)
+              ? "dark"
+              : "light";
           const systemMode = prefersDark ? "dark" : "light";
           const storedAppearanceMode = window.localStorage.getItem(
             THEME_APPEARANCE_MODE_STORAGE_KEY,
@@ -377,7 +451,7 @@
                 ? DARK_BACKGROUND
                 : LIGHT_BACKGROUND;
           document.documentElement.style.backgroundColor = chromeColor;
-          if (hasSelection) {
+          {
             const splashColors = customSplash ?? builtInSplash ?? fallbackSplash;
             for (const [name, value] of Object.entries(splashColors)) {
               document.documentElement.style.setProperty(`--boot-${name}`, value);
@@ -411,14 +485,14 @@
       }
 
       body {
-        background: #ffffff;
-        color: #262626;
+        background: var(--boot-background, #ffffff);
+        color: var(--boot-foreground, #002244);
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
       }
 
       html.dark body {
-        background: #0a0a0a;
-        color: #f5f5f5;
+        background: var(--boot-background, #002244);
+        color: var(--boot-foreground, #ffffff);
       }
 
       #boot-shell {
@@ -447,10 +521,15 @@
         height: 96px;
       }
 
-      #boot-shell-logo {
+      .boot-shell-logo {
         width: 64px;
         height: 64px;
         object-fit: contain;
+      }
+
+      html.dark .boot-logo-light,
+      html:not(.dark) .boot-logo-dark {
+        display: none;
       }
 
       #boot-error {
@@ -477,13 +556,14 @@
         cursor: pointer;
       }
     </style>
-    <title>T3 Code (Alpha)</title>
+    <title>Elysia</title>
   </head>
   <body>
     <div id="root">
       <div id="boot-shell">
-        <div id="boot-shell-card" aria-label="T3 Code splash screen">
-          <img id="boot-shell-logo" src="/apple-touch-icon.png" alt="T3 Code" />
+        <div id="boot-shell-card" aria-label="Elysia splash screen">
+          <img class="boot-shell-logo boot-logo-light" src="/elysia-symbol.svg" alt="Elysia" />
+          <img class="boot-shell-logo boot-logo-dark" src="/elysia-symbol-dark.svg" alt="Elysia" />
         </div>
       </div>
     </div>

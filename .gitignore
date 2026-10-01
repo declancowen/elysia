@@ -44,3 +44,6 @@ node_modules/
 
 # pnpm content-addressable store; never belongs in the repo.
 .pnpm-store/
+
+# Company CLI distribution contains native tracing configuration.
+.elysia-cli-package/

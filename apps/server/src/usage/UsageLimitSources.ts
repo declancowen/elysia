@@ -1,3 +1,4 @@
+import { EXTERNAL_USAGE_SOURCES_ENABLED } from "@t3tools/contracts";
 /**
  * UsageLimitSources — quota from places this environment cannot run turns
  * on, today a CLIProxyAPI hub pooling several subscription accounts.
@@ -105,7 +106,7 @@ export const make = Effect.gen(function* () {
       Effect.orElseSucceed((): ServerSettings | null => null),
     );
     const entries = Object.entries(settings?.usageLimitSources ?? {}).filter(
-      ([, config]) => config.enabled,
+      ([, config]) => EXTERNAL_USAGE_SOURCES_ENABLED && config.enabled,
     );
     const snapshots = yield* Effect.forEach(
       entries,
@@ -124,7 +125,7 @@ export const make = Effect.gen(function* () {
         ),
       );
       const config = settings.usageLimitSources[input.sourceId];
-      if (!config?.enabled || !config.managementKey) {
+      if (!EXTERNAL_USAGE_SOURCES_ENABLED || !config?.enabled || !config.managementKey) {
         return yield* new UsageLimitSourceError({
           detail: "The usage limit source is missing or disabled.",
         });

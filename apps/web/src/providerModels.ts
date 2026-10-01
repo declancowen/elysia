@@ -1,5 +1,6 @@
 import {
   DEFAULT_MODEL,
+  isEnabledProviderDriver,
   DEFAULT_MODEL_BY_PROVIDER,
   defaultInstanceIdForDriver,
   ProviderDriverKind,
@@ -13,7 +14,7 @@ import { createModelCapabilities, resolveSelectableModel } from "@t3tools/shared
 const EMPTY_CAPABILITIES: ModelCapabilities = createModelCapabilities({
   optionDescriptors: [],
 });
-const DEFAULT_DRIVER_KIND = ProviderDriverKind.make("codex");
+const DEFAULT_DRIVER_KIND = ProviderDriverKind.make("claudeAgent");
 
 export function formatProviderDriverKindLabel(provider: ProviderDriverKind): string {
   return provider
@@ -34,6 +35,7 @@ function getProviderSnapshot(
   providers: ReadonlyArray<ServerProvider>,
   provider: ProviderDriverKind,
 ): ServerProvider | undefined {
+  if (!isEnabledProviderDriver(provider)) return undefined;
   const defaultInstanceId = defaultInstanceIdForDriver(provider);
   return providers.find((candidate) => candidate.instanceId === defaultInstanceId);
 }
@@ -46,10 +48,13 @@ export function resolveSelectableProvider(
   provider: ProviderDriverKind | ProviderInstanceId | null | undefined,
 ): ProviderDriverKind {
   const requestedEntry = providers.find((candidate) => candidate.instanceId === provider);
-  if (requestedEntry?.enabled) {
+  if (requestedEntry?.enabled && isEnabledProviderDriver(requestedEntry.driver)) {
     return requestedEntry.driver;
   }
-  return providers.find((candidate) => candidate.enabled)?.driver ?? DEFAULT_DRIVER_KIND;
+  return (
+    providers.find((candidate) => candidate.enabled && isEnabledProviderDriver(candidate.driver))
+      ?.driver ?? DEFAULT_DRIVER_KIND
+  );
 }
 
 export function getProviderModelCapabilities(

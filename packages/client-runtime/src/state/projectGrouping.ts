@@ -16,10 +16,10 @@ export interface ProjectGroupingSettings {
 
 export type ProjectGroupingMode = SidebarProjectGroupingMode;
 
-export function selectProjectGroupingSettings(settings: ClientSettings): ProjectGroupingSettings {
+export function selectProjectGroupingSettings(_settings: ClientSettings): ProjectGroupingSettings {
   return {
-    sidebarProjectGroupingMode: settings.sidebarProjectGroupingMode,
-    sidebarProjectGroupingOverrides: settings.sidebarProjectGroupingOverrides,
+    sidebarProjectGroupingMode: "separate",
+    sidebarProjectGroupingOverrides: {},
   };
 }
 

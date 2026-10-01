@@ -18,6 +18,7 @@ import {
   getProviderUpdateSidebarPillView,
   isTerminalProviderUpdatePhase,
   resolveEnvironmentUpdateRowStatus,
+  projectProviderUpdateTargets,
   type LocalEnvironmentUpdateGroup,
   type LocalProviderUpdateOutcome,
   type ProviderUpdateRowStatus,
@@ -44,6 +45,7 @@ function toProviderUpdateOutcome(input: {
   readonly target: {
     readonly driver: ServerProvider["driver"];
     readonly instanceId: ServerProvider["instanceId"];
+    readonly updateTarget?: "runtime";
   };
   readonly result: ProviderUpdateCommandResult;
 }): PromiseSettledResult<LocalProviderUpdateOutcome> {
@@ -70,8 +72,10 @@ function toProviderUpdateOutcome(input: {
   }
 
   const provider =
-    input.result.value.providers.find(
-      (candidate) => candidate.instanceId === input.target.instanceId,
+    projectProviderUpdateTargets(input.result.value.providers).find(
+      (candidate) =>
+        candidate.instanceId === input.target.instanceId &&
+        candidate.updateTarget === input.target.updateTarget,
     ) ?? null;
   return {
     status: "fulfilled",
@@ -228,6 +232,7 @@ export function ProviderUpdateEnvironmentRows({
       const targets = group.candidates.map((candidate) => ({
         driver: candidate.driver,
         instanceId: candidate.instanceId,
+        ...(candidate.updateTarget ? { updateTarget: candidate.updateTarget } : {}),
       }));
 
       setPendingEnvironments((previous) => new Set(previous).add(environmentId));
@@ -267,27 +272,33 @@ export function ProviderUpdateEnvironmentRows({
       try {
         // Dispatch each candidate's update to this environment's own backend and
         // normalize every settled outcome into the multi-backend reducer shape.
-        const results = await Promise.all(
-          targets.map(async (target): Promise<PromiseSettledResult<LocalProviderUpdateOutcome>> => {
-            try {
-              const result = await updateProvider({
-                environmentId,
-                input: { provider: target.driver, instanceId: target.instanceId },
-              });
-              return toProviderUpdateOutcome({
-                environmentId,
-                isPrimary: group.isPrimary,
-                target,
-                result,
-              });
-            } catch (error) {
-              return {
-                status: "rejected",
-                reason: error instanceof Error ? error : new Error("Provider update failed."),
-              };
-            }
-          }),
-        );
+        const runTarget = async (
+          target: (typeof targets)[number],
+        ): Promise<PromiseSettledResult<LocalProviderUpdateOutcome>> => {
+          try {
+            const result = await updateProvider({
+              environmentId,
+              input: {
+                provider: target.driver,
+                instanceId: target.instanceId,
+                ...(target.updateTarget ? { updateTarget: target.updateTarget } : {}),
+              },
+            });
+            return toProviderUpdateOutcome({
+              environmentId,
+              isPrimary: group.isPrimary,
+              target,
+              result,
+            });
+          } catch (error) {
+            return {
+              status: "rejected",
+              reason: error instanceof Error ? error : new Error("Provider update failed."),
+            };
+          }
+        };
+        const results: Array<PromiseSettledResult<LocalProviderUpdateOutcome>> = [];
+        for (const target of targets) results.push(await runTarget(target));
         if (!isCurrentRequest()) {
           // A newer attempt superseded this one while it was in flight; leave
           // the newer attempt's state intact.

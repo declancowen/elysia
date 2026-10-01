@@ -10,7 +10,21 @@ const mocks = vi.hoisted(() => ({
   complete: vi.fn(),
   refresh: vi.fn(),
   toast: vi.fn(),
+  connectionsEnabled: true,
+  providers: [] as Array<{
+    driver: string;
+    instanceId: string;
+    enabled: boolean;
+    status: string;
+    auth: { status: string };
+  }>,
   projects: [] as Array<{ id: string; environmentId: string; workspaceRoot: string }>,
+}));
+vi.mock("@t3tools/contracts", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@t3tools/contracts")>()),
+  get CONNECTIONS_ENABLED() {
+    return mocks.connectionsEnabled;
+  },
 }));
 vi.mock("../../state/agentSessions", () => ({ agentSessionImport: "import" }));
 vi.mock("../../state/projects", () => ({ projectEnvironment: { create: "create" } }));
@@ -39,13 +53,23 @@ vi.mock("../../state/environments", () => {
   };
 });
 vi.mock("../../state/server", () => ({
+  primaryServerProvidersAtom: "primary-providers",
   serverEnvironment: {
     providersValueAtom: () => [],
-    configValueAtom: () => null,
+    configValueAtom: () => (mocks.connectionsEnabled ? null : {}),
     refreshProviders: "refresh",
   },
 }));
-vi.mock("@effect/atom-react", () => ({ useAtomValue: (value: unknown) => value }));
+vi.mock("@effect/atom-react", () => ({
+  useAtomValue: (value: unknown) => (value === "primary-providers" ? mocks.providers : value),
+}));
+vi.mock("../settings/ElysiaSetupSection", () => ({
+  ElysiaSetupSection: ({ onContinue }: { onContinue: () => void }) => (
+    <div>
+      Installation · Sign in<button onClick={onContinue}>Continue</button>
+    </div>
+  ),
+}));
 vi.mock("../../onboarding/useProjectScans", () => ({
   useProjectScans: () => [
     {
@@ -93,6 +117,8 @@ let container: HTMLDivElement;
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mocks.connectionsEnabled = true;
+  mocks.providers = [];
   vi.stubGlobal(
     "ResizeObserver",
     class {
@@ -129,6 +155,34 @@ async function click(label: string) {
   expect(button, `button ${label}`).toBeDefined();
   await act(async () => button!.click());
 }
+
+it("finishes Elysia authentication without opening project import", async () => {
+  mocks.connectionsEnabled = false;
+  mocks.providers = [
+    {
+      driver: "claudeAgent",
+      instanceId: "claudeAgent",
+      enabled: true,
+      status: "ready",
+      auth: { status: "authenticated" },
+    },
+  ];
+  const onDone = vi.fn();
+  await act(async () => root.render(<WelcomeWizard localAvailable onDone={onDone} />));
+  expect(document.body.textContent).not.toContain("Projects");
+  await click("Continue");
+  expect(onDone).toHaveBeenCalledOnce();
+  expect(mocks.importThreads).not.toHaveBeenCalled();
+});
+
+it("keeps Elysia setup open until company authentication is verified", async () => {
+  mocks.connectionsEnabled = false;
+  const onDone = vi.fn();
+  await act(async () => root.render(<WelcomeWizard localAvailable onDone={onDone} />));
+  await click("Continue");
+  expect(onDone).not.toHaveBeenCalled();
+  expect(mocks.complete).not.toHaveBeenCalled();
+});
 
 it("enters the workspace after a partial import and warns after navigation finishes", async () => {
   let finishNavigation = () => {};

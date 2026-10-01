@@ -1,3 +1,4 @@
+import { useCodeWorkspace } from "~/hooks/useSettings";
 import {
   type EnvironmentId,
   type EditorId,
@@ -52,6 +53,7 @@ import { cn } from "~/lib/utils";
 import { useIsMobile } from "~/hooks/useMediaQuery";
 import { Button } from "../ui/button";
 import { Menu, MenuPopup, MenuSeparator, MenuTrigger } from "../ui/menu";
+import { ThreadOverviewPanel, type ThreadOverviewPanelProps } from "./ThreadOverviewPanel";
 
 interface ChatHeaderProps {
   activeThreadEnvironmentId: EnvironmentId;
@@ -68,6 +70,7 @@ interface ChatHeaderProps {
   availableEditors: ReadonlyArray<EditorId>;
   rightPanelOpen: boolean;
   gitCwd: string | null;
+  overview?: ThreadOverviewPanelProps;
   readonly onOpenPullRequest?: ((number: number) => void) | undefined;
   onNewThreadInProject: () => void;
   onOpenProjectSettings?: (() => void) | undefined;
@@ -137,6 +140,7 @@ export const ChatHeader = memo(function ChatHeader({
   availableEditors,
   rightPanelOpen,
   gitCwd,
+  overview,
   onOpenPullRequest,
   onNewThreadInProject,
   onOpenProjectSettings,
@@ -351,7 +355,8 @@ export const ChatHeader = memo(function ChatHeader({
     },
     [commitRename],
   );
-  const headerActions = (
+  const codeWorkspace = useCodeWorkspace();
+  const headerActions = codeWorkspace && (
     <>
       {activeProjectScripts && (
         <>
@@ -501,6 +506,7 @@ export const ChatHeader = memo(function ChatHeader({
         <Menu open={actionsCollapsed && actionsOpen} onOpenChange={setActionsOpen}>
           <MenuTrigger
             className={
+              codeWorkspace &&
               actionsCollapsed &&
               (activeProjectScripts || showOpenInPicker || (activeProjectName && gitCwd))
                 ? undefined
@@ -522,6 +528,7 @@ export const ChatHeader = memo(function ChatHeader({
             {createPortal(headerActions, actionsContainer)}
           </MenuPopup>
         </Menu>
+        {overview && <ThreadOverviewPanel {...overview} />}
       </div>
     </div>
   );

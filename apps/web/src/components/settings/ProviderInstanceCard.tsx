@@ -1,6 +1,7 @@
 "use client";
 
 import { Spinner } from "~/components/ui/spinner";
+import { RefreshIcon } from "~/components/ui/refresh-icon";
 
 import {
   AlertTriangleIcon,
@@ -40,12 +41,14 @@ import { Button } from "../ui/button";
 import { DraftInput } from "../ui/draft-input";
 import { Popover, PopoverPopup, PopoverTrigger } from "../ui/popover";
 import { Switch } from "../ui/switch";
+import { Select, SelectItem, SelectPopup, SelectTrigger, SelectValue } from "../ui/select";
 import { stackedThreadToast, toastManager } from "../ui/toast";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
 import type { DriverOption } from "./providerDriverMeta";
 import { ProviderSettingsForm } from "./ProviderSettingsForm";
 import { ProviderModelsSection } from "./ProviderModelsSection";
 import { ProviderInstanceIcon, providerInstanceInitials } from "../chat/ProviderInstanceIcon";
+import { ClaudeAI } from "../Icons";
 import { ProviderAccentColorPicker } from "./ProviderAccentColorPicker";
 import { RedactedSensitiveText } from "./RedactedSensitiveText";
 import { SettingsRow, SettingsSection } from "./settingsLayout";
@@ -397,6 +400,9 @@ interface ProviderInstanceCardProps {
   readonly onFavoriteModelsChange: (next: ReadonlyArray<string>) => void;
   readonly onModelOrderChange: (next: ReadonlyArray<string>) => void;
   readonly onRunUpdate?: (() => void) | undefined;
+  readonly onRunRuntimeUpdate?: ((version?: string) => void) | undefined;
+  readonly onCheckUpdates?: (() => void) | undefined;
+  readonly isCheckingUpdates?: boolean | undefined;
   readonly onInstallRecommended?: (() => void) | undefined;
   readonly isUpdating?: boolean | undefined;
 }
@@ -441,6 +447,9 @@ export function ProviderInstanceCard({
   onFavoriteModelsChange,
   onModelOrderChange,
   onRunUpdate,
+  onRunRuntimeUpdate,
+  onCheckUpdates,
+  isCheckingUpdates = false,
   onInstallRecommended,
   isUpdating = false,
 }: ProviderInstanceCardProps) {
@@ -464,11 +473,23 @@ export function ProviderInstanceCard({
   const versionLabel = getProviderVersionLabel(liveProvider?.version);
   const versionAdvisory = getProviderVersionAdvisoryPresentation(
     liveProvider?.versionAdvisory,
-    liveProvider?.compatibilityAdvisory,
+    liveProvider?.runtimeVersion !== undefined ? undefined : liveProvider?.compatibilityAdvisory,
     enabled,
   );
+  const runtimeAdvisory = getProviderVersionAdvisoryPresentation(
+    liveProvider?.runtimeVersionAdvisory,
+    compatibility,
+    enabled,
+  );
+  const canUpdateRuntime =
+    liveProvider?.runtimeVersionAdvisory?.canUpdate &&
+    (runtimeAdvisory?.targetVersion
+      ? liveProvider.runtimeVersionAdvisory.canInstallVersion
+      : compatibility?.latestVersionStatus !== "broken" &&
+        compatibility?.latestVersionStatus !== "unsupported");
   const updateCommand = versionAdvisory?.updateCommand ?? null;
   const hasCompatibilityWarning =
+    liveProvider?.runtimeVersion === undefined &&
     compatibility !== undefined &&
     compatibility.status !== "supported" &&
     compatibility.status !== "unknown";
@@ -476,7 +497,9 @@ export function ProviderInstanceCard({
   const onRunVersionAction = versionAdvisory?.targetVersion ? onInstallRecommended : onRunUpdate;
   const FallbackIconComponent = driverOption?.icon;
   const displayName =
-    instance.displayName?.trim() || driverOption?.label || String(instance.driver);
+    instance.driver === "claudeAgent"
+      ? "Elysia"
+      : instance.displayName?.trim() || driverOption?.label || String(instance.driver);
   const accentColor = normalizeProviderAccentColor(instance.accentColor);
   const { copyToClipboard } = useCopyToClipboard<{ providerName: string }>({
     onCopy: ({ providerName }) => {
@@ -505,7 +528,9 @@ export function ProviderInstanceCard({
     ? instance.driver
     : null;
   const customModels =
-    instance.driver === "antigravity" ? [] : readConfigCustomModels(instance.config);
+    instance.driver === "antigravity" || instance.driver === "claudeAgent"
+      ? []
+      : readConfigCustomModels(instance.config);
   // Server-returned models may lag behind settings writes. Treat probe
   // models as the source for built-ins only; custom rows come directly
   // from the current instance config so add/remove reflects immediately.
@@ -881,18 +906,29 @@ export function ProviderInstanceCard({
 
   return (
     <>
-      <SettingsSection title={displayName} icon={titleIconNode} headerAction={editorHeaderAction}>
+      <SettingsSection
+        title={instance.driver === "claudeAgent" ? "Claude Code" : displayName}
+        icon={instance.driver === "claudeAgent" ? <ClaudeAI className="size-4" /> : titleIconNode}
+        headerAction={instance.driver === "claudeAgent" ? undefined : editorHeaderAction}
+      >
         <SettingsRow
-          title="Display name"
+          title={instance.driver === "claudeAgent" ? "Version" : "Display name"}
+          description={
+            instance.driver === "claudeAgent"
+              ? (liveProvider?.runtimeUpdateState?.message ?? runtimeAdvisory?.detail)
+              : undefined
+          }
           status={
-            <ProviderStatusDiagnostic detail={statusDiagnostic}>
-              <div
-                tabIndex={statusDiagnostic ? 0 : undefined}
-                className="flex min-w-0 flex-wrap items-baseline gap-x-1.5"
-              >
-                {editorStatusNode}
-              </div>
-            </ProviderStatusDiagnostic>
+            instance.driver === "claudeAgent" ? undefined : (
+              <ProviderStatusDiagnostic detail={statusDiagnostic}>
+                <div
+                  tabIndex={statusDiagnostic ? 0 : undefined}
+                  className="flex min-w-0 flex-wrap items-baseline gap-x-1.5"
+                >
+                  {editorStatusNode}
+                </div>
+              </ProviderStatusDiagnostic>
+            )
           }
           control={
             <div
@@ -903,28 +939,119 @@ export function ProviderInstanceCard({
                 readOnly && "opacity-50 select-none",
               )}
             >
-              <ProviderAccentColorPicker
-                layout="inline"
-                displayName={displayName}
-                value={accentColor}
-                onCommit={updateAccentColor}
-                commitDelayMs={120}
-              />
-              <DraftInput
-                id={`provider-instance-${instanceId}-display-name`}
-                size="sm"
-                className="min-w-0 flex-1 @min-[32rem]/settings-row:w-56"
-                value={instance.displayName ?? ""}
-                onCommit={updateDisplayName}
-                placeholder={driverOption?.label ?? "Instance label"}
-                spellCheck={false}
-              />
+              {instance.driver === "claudeAgent" ? (
+                <>
+                  <span className="text-xs text-muted-foreground">
+                    {liveProvider?.runtimeVersion
+                      ? `Claude Code v${liveProvider.runtimeVersion}`
+                      : "Not installed"}
+                  </span>
+                  {onCheckUpdates ? (
+                    <Button
+                      type="button"
+                      size="xs"
+                      variant="outline"
+                      disabled={readOnly || isUpdating || isCheckingUpdates}
+                      aria-label="Check Claude Code for updates"
+                      aria-busy={isCheckingUpdates}
+                      onClick={onCheckUpdates}
+                    >
+                      <RefreshIcon refreshing={isCheckingUpdates} />
+                      {isCheckingUpdates ? "Checking…" : "Check for updates"}
+                    </Button>
+                  ) : null}
+                  {onRunRuntimeUpdate && runtimeAdvisory && canUpdateRuntime ? (
+                    <Button
+                      type="button"
+                      size="xs"
+                      variant="outline"
+                      disabled={readOnly || isUpdating || isCheckingUpdates}
+                      onClick={() => onRunRuntimeUpdate(runtimeAdvisory.targetVersion ?? undefined)}
+                    >
+                      {isUpdating &&
+                      (liveProvider?.runtimeUpdateState?.status === "running" ||
+                        liveProvider?.runtimeUpdateState?.status === "queued") ? (
+                        <Spinner />
+                      ) : (
+                        <DownloadIcon />
+                      )}
+                      {runtimeAdvisory.targetVersion
+                        ? `Install ${getProviderVersionLabel(runtimeAdvisory.targetVersion)}`
+                        : "Update runtime"}
+                    </Button>
+                  ) : null}
+                </>
+              ) : (
+                <>
+                  <ProviderAccentColorPicker
+                    layout="inline"
+                    displayName={displayName}
+                    value={accentColor}
+                    onCommit={updateAccentColor}
+                    commitDelayMs={120}
+                  />
+                  <DraftInput
+                    id={`provider-instance-${instanceId}-display-name`}
+                    size="sm"
+                    className="min-w-0 flex-1 @min-[32rem]/settings-row:w-56"
+                    value={instance.displayName ?? ""}
+                    onCommit={updateDisplayName}
+                    placeholder={driverOption?.label ?? "Instance label"}
+                    spellCheck={false}
+                  />
+                </>
+              )}
             </div>
           }
         />
       </SettingsSection>
+      {instance.driver === "claudeAgent" ? (
+        <SettingsSection title="Elysia CLI" icon={titleIconNode} headerAction={titleTailNode}>
+          <SettingsRow
+            title="Version"
+            description={liveProvider?.updateState?.message ?? versionAdvisory?.detail}
+            status={editorStatusNode}
+            control={
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground">
+                  {versionLabel ?? "Not installed"}
+                </span>
+                {onCheckUpdates ? (
+                  <Button
+                    type="button"
+                    size="xs"
+                    variant="outline"
+                    disabled={readOnly || isUpdating || isCheckingUpdates}
+                    aria-label="Check Elysia CLI for updates"
+                    aria-busy={isCheckingUpdates}
+                    onClick={onCheckUpdates}
+                  >
+                    <RefreshIcon refreshing={isCheckingUpdates} />
+                    {isCheckingUpdates ? "Checking…" : "Check for updates"}
+                  </Button>
+                ) : null}
+                {onRunUpdate ? (
+                  <Button
+                    type="button"
+                    size="xs"
+                    variant="outline"
+                    disabled={readOnly || isUpdating || isCheckingUpdates}
+                    onClick={onRunUpdate}
+                  >
+                    {isUpdating ? <Spinner /> : <DownloadIcon />}
+                    {isUpdating ? "Updating" : "Update CLI"}
+                  </Button>
+                ) : null}
+              </div>
+            }
+          />
+          {setup}
+        </SettingsSection>
+      ) : null}
 
-      {setup ? <SettingsSection title="Setup">{setup}</SettingsSection> : null}
+      {setup && instance.driver !== "claudeAgent" ? (
+        <SettingsSection title="Setup">{setup}</SettingsSection>
+      ) : null}
 
       {instance.driver === "codex" && readCodexSetupMode(instance.config) === "managed" ? (
         <div
@@ -971,10 +1098,40 @@ export function ProviderInstanceCard({
           aria-disabled={readOnly || undefined}
           className={readOnly ? "opacity-50 select-none" : undefined}
         >
+          {instance.driver === "claudeAgent" ? (
+            <SettingsRow
+              title="Default model"
+              description="Used by new Elysia threads and the managed CLI. Existing threads keep their selected model."
+              control={
+                <Select
+                  value={modelsForDisplay.find((model) => model.isDefault)?.slug ?? null}
+                  disabled={!enabled || readOnly || liveProvider?.auth.status !== "authenticated"}
+                  onValueChange={(model) => {
+                    if (typeof model === "string")
+                      updateConfig(
+                        nextConfigBlobWithValue(instance.config, "elysiaDefaultModel", model),
+                      );
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectPopup>
+                    {modelsForDisplay.map((model) => (
+                      <SelectItem key={model.slug} value={model.slug}>
+                        {model.name}
+                      </SelectItem>
+                    ))}
+                  </SelectPopup>
+                </Select>
+              }
+            />
+          ) : null}
           <div className="px-3 py-3 sm:px-4">
             <p className="mb-3 text-xs text-muted-foreground">
-              Favorites, visibility, and ordering are saved on this device. Custom models are saved
-              on the selected environment.
+              {instance.driver === "claudeAgent"
+                ? "Reorder models and choose which appear in the picker. Model names and IDs are managed by Elysia."
+                : "Favorites, visibility, and ordering are saved on this device. Custom models are saved on the selected environment."}
             </p>
             <ProviderModelsSection
               instanceId={instanceId}

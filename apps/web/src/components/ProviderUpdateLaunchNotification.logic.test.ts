@@ -1,5 +1,6 @@
-import { describe, expect, it } from "vite-plus/test";
+import { describe, expect, it, vi } from "vite-plus/test";
 import {
+  isEnabledProviderDriver,
   type EnvironmentId,
   ProviderDriverKind,
   ProviderInstanceId,
@@ -28,6 +29,7 @@ import {
   isTerminalProviderUpdatePhase,
   localEnvironmentUpdateNotificationKey,
   providerUpdateNotificationKey,
+  projectProviderUpdateTargets,
   resolveEnvironmentUpdateRowStatus,
   shouldShowPrimaryProviderUpdateToast,
   type LocalEnvironmentProvidersInput,
@@ -37,6 +39,13 @@ import {
   type ProviderUpdateSidebarPillView,
   type ProviderUpdateToastView,
 } from "./ProviderUpdateLaunchNotification.logic";
+
+// Keep upstream multi-provider reducers covered while those drivers are dormant.
+// The fork's real notification gate is exercised explicitly below.
+vi.mock("@t3tools/contracts", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@t3tools/contracts")>()),
+  isEnabledProviderDriver: vi.fn(() => true),
+}));
 
 const checkedAt = "2026-04-23T10:00:00.000Z";
 const sessionStartedAt = "2026-04-23T09:59:00.000Z";
@@ -517,7 +526,7 @@ describe("provider update launch notification logic", () => {
     expect(view).toMatchObject({
       key: "failed:claudeAgent:2026-04-23T10:00:00.000Z:Update command exited with code 1.",
       tone: "error",
-      title: "Claude v1.1.0 update failed",
+      title: "Elysia v1.1.0 update failed",
       description: "Update command exited with code 1.",
       dismissible: true,
     });
@@ -640,7 +649,7 @@ describe("provider update launch notification logic", () => {
     expect(failureView).toMatchObject({
       key: "failed:claudeAgent:2026-04-23T10:00:00.000Z:Update command exited with code 1.",
       tone: "error",
-      title: "Claude v1.1.0 update failed",
+      title: "Elysia v1.1.0 update failed",
     });
   });
 
@@ -1056,5 +1065,80 @@ it("does not offer incompatible latest versions and restores suggestions after p
     const expected = latestVersionStatus === "supported" || latestVersionStatus === "unknown";
     expect(isProviderUpdateCandidate(snapshot)).toBe(expected);
     expect(isProviderSettingsUpdateCandidate(snapshot)).toBe(expected);
+  }
+});
+
+it("keeps Elysia and Claude runtime notifications, versions and outcomes independent", () => {
+  const native = provider({
+    driver: driver("claudeAgent"),
+    version: "0.3.8",
+    latestVersion: "0.3.9",
+  });
+  const snapshot: ServerProvider = {
+    ...native,
+    runtimeVersion: "2.1.285",
+    runtimeVersionAdvisory: {
+      ...native.versionAdvisory!,
+      currentVersion: "2.1.285",
+      latestVersion: "2.1.286",
+      updateCommand: "claude update",
+    },
+  };
+  const candidates = collectProviderUpdateCandidates([snapshot]);
+  expect(
+    candidates.map((candidate) => [
+      candidate.updateTarget,
+      candidate.version,
+      candidate.versionAdvisory.latestVersion,
+    ]),
+  ).toEqual([
+    [undefined, "0.3.8", "0.3.9"],
+    ["runtime", "2.1.285", "2.1.286"],
+  ]);
+  expect(providerUpdateNotificationKey(candidates)).toBe(
+    "claudeAgent:0.3.9|claudeAgent:runtime:2.1.286",
+  );
+  expect(
+    candidates.every((candidate) => canOneClickUpdateProviderCandidate(candidate, [snapshot])),
+  ).toBe(true);
+  const finished: ServerProvider = {
+    ...snapshot,
+    runtimeVersion: "2.1.286",
+    runtimeUpdateState: {
+      status: "succeeded",
+      startedAt: checkedAt,
+      finishedAt: laterCheckedAt,
+      message: "Claude Code runtime updated.",
+      output: null,
+    },
+  };
+  expect(getProviderUpdateSidebarPillView([finished])?.title).toBe(
+    "Claude Code runtime updated: v2.1.286",
+  );
+  expect(projectProviderUpdateTargets(projectProviderUpdateTargets([finished]))).toEqual(
+    projectProviderUpdateTargets([finished]),
+  );
+});
+
+it("excludes disabled provider updates and notifications under the Elysia fork policy", () => {
+  vi.mocked(isEnabledProviderDriver).mockImplementation((kind) => kind === "claudeAgent");
+  try {
+    const disabled = ["codex", "cursor", "grok", "opencode", "antigravity"].map((kind) =>
+      provider({
+        driver: driver(kind),
+        updateState: {
+          status: "failed",
+          startedAt: checkedAt,
+          finishedAt: laterCheckedAt,
+          message: "Update failed",
+          output: null,
+        },
+      }),
+    );
+    expect(collectProviderUpdateCandidates(disabled)).toEqual([]);
+    expect(getProviderUpdateSidebarPillView(disabled)).toBeNull();
+    expect(disabled.some(isProviderSettingsUpdateCandidate)).toBe(false);
+  } finally {
+    vi.mocked(isEnabledProviderDriver).mockImplementation(() => true);
   }
 });

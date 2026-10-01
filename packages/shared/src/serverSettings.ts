@@ -1,5 +1,6 @@
 import {
   isProviderDriverKind,
+  isEnabledProviderDriver,
   isProviderAvailable,
   resolveProviderInstanceEnabled,
   type ModelSelection,
@@ -77,6 +78,7 @@ export function isModelSelectionProviderEnabled(
 
   return (
     isProviderDriverKind(selection.instanceId) &&
+    isEnabledProviderDriver(selection.instanceId) &&
     getLegacyProviderSettings(settings, selection.instanceId)?.enabled === true
   );
 }

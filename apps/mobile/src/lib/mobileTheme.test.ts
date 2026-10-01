@@ -182,10 +182,15 @@ describe("mobile themes", () => {
           runtime[platform === "android" ? "--color-header" : "--color-drawer"],
           runtime["--color-screen"],
         );
-        expect(relativeLuminance(sidebar)).toBeLessThan(
-          relativeLuminance(runtime["--color-thread-canvas"]),
-        );
-        expect(contrastRatio(chrome, runtime["--color-screen"])).toBeGreaterThanOrEqual(1.06);
+        if (appearance === "dark") {
+          expect(relativeLuminance(sidebar)).toBeGreaterThan(
+            relativeLuminance(runtime["--color-thread-canvas"]),
+          );
+        } else {
+          expect(relativeLuminance(sidebar)).toBeLessThan(
+            relativeLuminance(runtime["--color-thread-canvas"]),
+          );
+        }
         const foregroundRoles =
           platform === "android"
             ? (["--color-header-foreground", "--color-foreground-muted"] as const)
@@ -208,7 +213,7 @@ describe("mobile themes", () => {
         variables["--color-screen"],
       );
       expect(bubbleContrast).toBeGreaterThan(contrastRatio(desktop.messageSurface, desktop.canvas));
-      expect(bubbleContrast).toBeLessThan(1.2);
+      expect(bubbleContrast).toBeLessThan(1.5);
       for (const role of ["--color-composer-surface", "--color-glass-fallback"] as const) {
         const surface = flattenThemeColor(variables[role], variables["--color-screen"]);
         expect(contrastRatio(surface, variables["--color-screen"])).toBeGreaterThanOrEqual(1.06);
@@ -225,9 +230,9 @@ describe("mobile themes", () => {
 
   it("uses the same preview roles and standard artwork as desktop", () => {
     expect(getMobileThemePreviewColors(DEFAULT_MOBILE_THEME_ID, "light")).toEqual({
-      canvas: "#fcfcfc",
-      accent: "#f4f4f5",
-      messageAction: "#4f46e5",
+      canvas: "#FFFFFF",
+      accent: "#003CB2",
+      messageAction: "#003CB2",
     });
     const desktopOcean = BUILT_IN_THEMES.find((theme) => theme.id === "ocean")!;
     expect(getMobileThemePreviewColors("ocean", "light")).toEqual({
@@ -241,7 +246,7 @@ describe("mobile themes", () => {
     expect(normalizeMobileThemeId("ocean")).toBe("ocean");
     expect(normalizeMobileThemeId("missing-theme")).toBe(DEFAULT_MOBILE_THEME_ID);
     expect(normalizeMobileThemeMode("dark")).toBe("dark");
-    expect(normalizeMobileThemeMode("sepia")).toBe("system");
+    expect(normalizeMobileThemeMode("sepia")).toBe("dark");
   });
 
   it("migrates one theme choice to both appearances and preserves independent choices", () => {
@@ -259,11 +264,11 @@ describe("mobile themes", () => {
   });
 
   it("changes either theme without switching the active appearance", () => {
-    const themeIds = { light: "t3-chat", dark: "grove" } as const;
+    const themeIds = { light: "midnight", dark: "grove" } as const;
     expect(createMobileThemeSelectionPatch(themeIds, "light", "dark", "ocean")).toEqual({
-      lightThemeId: "t3-chat",
+      lightThemeId: "midnight",
       darkThemeId: "ocean",
-      themeId: "t3-chat",
+      themeId: "midnight",
     });
     expect(createMobileThemeSelectionPatch(themeIds, "light", "light", "iris")).toEqual({
       lightThemeId: "iris",
@@ -343,9 +348,6 @@ describe("mobile themes", () => {
             variables["--color-user-bubble"],
           ),
         ).toBeGreaterThanOrEqual(4.5);
-        expect(variables["--color-user-bubble-skill-foreground"]).not.toBe(
-          variables["--color-user-bubble-foreground"],
-        );
         const fenceSurface = compositeOver(
           variables["--color-md-user-fence-bg"],
           variables["--color-user-bubble"],

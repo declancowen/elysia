@@ -1,5 +1,6 @@
 import {
   ContextMenuItemSchema,
+  CONNECTIONS_ENABLED,
   DesktopAppBrandingSchema,
   DesktopEnvironmentBootstrapSchema,
   DesktopThemeSchema,
@@ -203,6 +204,7 @@ export const pickFolder = DesktopIpc.makeIpcMethod({
         ? extractWslDistroFromEnvironmentId(targetId)
         : null;
     const useWsl =
+      CONNECTIONS_ENABLED &&
       targetId !== undefined &&
       targetId !== PRIMARY_LOCAL_ENVIRONMENT_ID &&
       targetId.startsWith(DesktopWslBackend.WSL_INSTANCE_ID_PREFIX);
@@ -272,11 +274,22 @@ export const pickProjectFavicon = DesktopIpc.makeIpcMethod({
 
 export const setTheme = DesktopIpc.makeIpcMethod({
   channel: IpcChannels.SET_THEME_CHANNEL,
-  payload: DesktopThemeSchema,
+  payload: Schema.Union([
+    DesktopThemeSchema,
+    Schema.Struct({
+      theme: DesktopThemeSchema,
+      backgroundColor: Schema.String.check(Schema.isPattern(/^#[a-fA-F0-9]{6}$/)),
+    }),
+  ]),
   result: Schema.Void,
   handler: Effect.fn("desktop.ipc.window.setTheme")(function* (theme) {
     const electronTheme = yield* ElectronTheme.ElectronTheme;
-    yield* electronTheme.setSource(theme);
+    yield* electronTheme.setSource(typeof theme === "string" ? theme : theme.theme);
+    if (typeof theme !== "string") {
+      const window = yield* (yield* ElectronWindow.ElectronWindow).currentMainOrFirst;
+      if (Option.isSome(window))
+        yield* Effect.sync(() => window.value.setBackgroundColor(theme.backgroundColor));
+    }
   }),
 });
 

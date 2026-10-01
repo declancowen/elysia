@@ -56,6 +56,7 @@ export interface ProviderMaintenanceRunnerShape {
           readonly provider: ProviderDriverKind;
           readonly instanceId?: ProviderInstanceId | undefined;
           readonly targetVersion?: string | undefined;
+          readonly updateTarget?: "runtime" | undefined;
         },
   ) => Effect.Effect<ServerProviderUpdatedPayload, ServerProviderUpdateError>;
 }
@@ -242,6 +243,7 @@ export const make = Effect.fn("ProviderMaintenanceRunner.make")(function* () {
     provider: ProviderDriverKind,
     maintenanceCapabilities: ProviderMaintenanceCapabilities,
     instanceId: ProviderInstanceId,
+    updateTarget?: "runtime",
   ): Effect.Effect<VerifiedProviderRefresh> =>
     providerRegistry.getProviders.pipe(
       Effect.map((providers) => {
@@ -266,9 +268,22 @@ export const make = Effect.fn("ProviderMaintenanceRunner.make")(function* () {
             ).pipe(Effect.andThen(providerRegistry.getProviders)),
       ),
       Effect.flatMap((providers) => {
-        const refreshedProviders = providers.filter(
-          (candidate) => candidate.driver === provider && candidate.instanceId === instanceId,
-        );
+        const refreshedProviders = providers
+          .filter(
+            (candidate) => candidate.driver === provider && candidate.instanceId === instanceId,
+          )
+          .map((snapshot) =>
+            updateTarget === "runtime"
+              ? {
+                  ...snapshot,
+                  version: snapshot.runtimeVersion ?? null,
+                  ...(snapshot.runtimeVersionAdvisory
+                    ? { versionAdvisory: snapshot.runtimeVersionAdvisory }
+                    : {}),
+                  installed: snapshot.runtimeVersion != null,
+                }
+              : snapshot,
+          );
         if (refreshedProviders.length === 0) {
           return Effect.succeed<VerifiedProviderRefresh>({
             providers,
@@ -317,10 +332,18 @@ export const make = Effect.fn("ProviderMaintenanceRunner.make")(function* () {
         ? defaultInstanceIdForDriver(provider)
         : (target.instanceId ?? defaultInstanceIdForDriver(provider));
     const targetVersion = typeof target === "string" ? undefined : target.targetVersion;
+    const updateTarget = typeof target === "string" ? undefined : target.updateTarget;
+    if (updateTarget === "runtime" && provider !== "claudeAgent") {
+      return yield* new ServerProviderUpdateError({
+        provider,
+        reason: "This provider has no separate runtime updater.",
+      });
+    }
     const targetKey = `instance:${instanceId}`;
     const capabilities = yield* providerRegistry.getProviderMaintenanceCapabilitiesForInstance(
       instanceId,
       provider,
+      updateTarget ? { updateTarget } : {},
     );
     const update = capabilities.update;
     if (!update) {
@@ -333,7 +356,7 @@ export const make = Effect.fn("ProviderMaintenanceRunner.make")(function* () {
     const setUpdateState = (state: ServerProviderUpdateState | null) =>
       providerRegistry.setProviderMaintenanceActionState({
         instanceId,
-        action: "update",
+        action: updateTarget === "runtime" ? "runtimeUpdate" : "update",
         state,
       });
     const setQueuedState = setUpdateState(
@@ -360,7 +383,10 @@ export const make = Effect.fn("ProviderMaintenanceRunner.make")(function* () {
                 status: "running",
                 startedAt,
                 finishedAt: null,
-                message: "Updating provider.",
+                message:
+                  updateTarget === "runtime"
+                    ? "Updating Claude Code runtime."
+                    : "Updating provider.",
               }),
             );
 
@@ -370,7 +396,7 @@ export const make = Effect.fn("ProviderMaintenanceRunner.make")(function* () {
             const fresh = yield* providerRegistry.getProviderMaintenanceCapabilitiesForInstance(
               instanceId,
               provider,
-              { fresh: true },
+              { fresh: true, ...(updateTarget ? { updateTarget } : {}) },
             );
             if (!fresh.update || fresh.update.lockKey !== update.lockKey) {
               return yield* finish(
@@ -390,13 +416,20 @@ export const make = Effect.fn("ProviderMaintenanceRunner.make")(function* () {
                 Effect.provideService(HttpClient.HttpClient, httpClient),
                 Effect.provideService(ProviderVersionCache, versionCache),
               ));
+            // Elysia's 0.x package version is independent of Claude's 2.x compatibility policy.
             const advisory =
-              resolveProviderCompatibility(manifest.compatibility, provider, candidateVersion) ??
-              resolveProviderCompatibility(
-                ModelManifest.BUNDLED_MODEL_MANIFEST.compatibility,
-                provider,
-                candidateVersion,
-              );
+              provider === "claudeAgent" && fresh.packageName === null
+                ? undefined
+                : (resolveProviderCompatibility(
+                    manifest.compatibility,
+                    provider,
+                    candidateVersion,
+                  ) ??
+                  resolveProviderCompatibility(
+                    ModelManifest.BUNDLED_MODEL_MANIFEST.compatibility,
+                    provider,
+                    candidateVersion,
+                  ));
             const command =
               targetVersion !== undefined
                 ? makeTargetedProviderUpdateAction(fresh, targetVersion)
@@ -416,7 +449,7 @@ export const make = Effect.fn("ProviderMaintenanceRunner.make")(function* () {
                   message:
                     targetVersion !== undefined
                       ? "This version is no longer recommended or this installer cannot install a specific version. Refresh provider settings."
-                      : "The latest provider version is incompatible with this T3 Code release. Review provider settings.",
+                      : "The latest provider version is incompatible with this Elysia release. Review provider settings.",
                 }),
               );
             }
@@ -438,12 +471,13 @@ export const make = Effect.fn("ProviderMaintenanceRunner.make")(function* () {
             const verified = yield* providerRegistry.getProviderMaintenanceCapabilitiesForInstance(
               instanceId,
               provider,
-              { fresh: true },
+              { fresh: true, ...(updateTarget ? { updateTarget } : {}) },
             );
             const { verifiedProviders } = yield* verifyRefreshedProvider(
               provider,
               verified,
               instanceId,
+              updateTarget,
             );
             // "Succeeded" needs the provider to still be installed: an
             // installer that exits 0 and leaves the binary missing is not a
@@ -466,10 +500,12 @@ export const make = Effect.fn("ProviderMaintenanceRunner.make")(function* () {
                 startedAt,
                 finishedAt,
                 message: couldNotVerify
-                  ? "Update command completed, but T3 Code could not verify the provider version."
+                  ? "Update command completed, but Elysia could not verify the provider version."
                   : stillOutdated
-                    ? "Update command completed, but T3 Code still detects an outdated provider version."
-                    : "Provider updated.",
+                    ? "Update command completed, but Elysia still detects an outdated provider version."
+                    : updateTarget === "runtime"
+                      ? "Claude Code runtime updated."
+                      : "Provider updated.",
                 output: commandOutput(result),
               }),
             );

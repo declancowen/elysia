@@ -1,12 +1,13 @@
 import Constants from "expo-constants";
 import type { NativeStackNavigationOptions } from "@react-navigation/native-stack";
 import { Platform, View } from "react-native";
+import { Image } from "expo-image";
 
 import { AppText as Text } from "./AppText";
-import { T3Wordmark } from "./T3Wordmark";
 import { IPAD_HOME_TITLE_OFFSET } from "../lib/layoutMetrics";
 import { resolveMobileStageLabel } from "../lib/mobileBranding";
 import { useAndroidControlSizing } from "./useAndroidControlSizing";
+import { useAppearancePreferences } from "../features/settings/appearance/AppearancePreferencesProvider";
 
 /**
  * Horizontal correction applied to content rendered in the brand title slot,
@@ -28,40 +29,45 @@ export function CompactBrandTitle(
   const stageLabel = resolveMobileStageLabel(Constants.expoConfig?.extra?.appVariant);
   const titleOffset = brandTitleOffset();
   const { scale } = useAndroidControlSizing();
+  const { themeAppearance } = useAppearancePreferences();
 
   return (
     <View
       aria-level={1}
-      accessibilityLabel="T3 Code, Threads"
+      accessibilityLabel="Elysia, Threads"
       accessible
       role="heading"
       className="flex-row items-center gap-1.5"
       style={[{ marginLeft: titleOffset }, Platform.OS === "android" && { gap: 5.25 * scale }]}
     >
-      <T3Wordmark colorClassName="accent-icon" height={Math.round(15 * scale)} />
-      <Text
-        allowFontScaling={props.allowFontScaling}
-        className="font-t3-medium text-foreground-muted"
-        style={{ fontSize: 21 * scale, letterSpacing: -0.5 * scale }}
-      >
-        Code
-      </Text>
-      <View
-        className="rounded-full bg-subtle px-1.5 py-0.5"
-        style={
-          Platform.OS === "android"
-            ? { paddingHorizontal: 5.25 * scale, paddingVertical: 1.75 * scale }
-            : undefined
+      <Image
+        source={
+          themeAppearance === "dark"
+            ? require("../../assets/elysia-wordmark-dark.svg")
+            : require("../../assets/elysia-wordmark.svg")
         }
-      >
-        <Text
-          allowFontScaling={props.allowFontScaling}
-          className="font-t3-bold text-foreground-muted uppercase"
-          style={{ fontSize: 9 * scale, letterSpacing: 0.9 * scale }}
+        accessibilityLabel="Elysia"
+        style={{ height: Math.round(24 * scale), width: Math.round(72 * scale) }}
+        contentFit="contain"
+      />
+      {stageLabel ? (
+        <View
+          className="rounded-full bg-subtle px-1.5 py-0.5"
+          style={
+            Platform.OS === "android"
+              ? { paddingHorizontal: 5.25 * scale, paddingVertical: 1.75 * scale }
+              : undefined
+          }
         >
-          {stageLabel}
-        </Text>
-      </View>
+          <Text
+            allowFontScaling={props.allowFontScaling}
+            className="font-t3-bold text-foreground-muted uppercase"
+            style={{ fontSize: 9 * scale, letterSpacing: 0.9 * scale }}
+          >
+            {stageLabel}
+          </Text>
+        </View>
+      ) : null}
     </View>
   );
 }

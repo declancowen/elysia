@@ -1,3 +1,4 @@
+import { useCodeWorkspace } from "~/hooks/useSettings";
 import { useAtomValue } from "@effect/atom-react";
 import { type ScopedThreadRef } from "@t3tools/contracts";
 import {
@@ -949,6 +950,7 @@ export default function GitActionsControl({
   draftId,
   onOpenPullRequest,
 }: GitActionsControlProps) {
+  const codeWorkspace = useCodeWorkspace();
   const updateThreadMetadata = useAtomCommand(
     threadEnvironment.updateMetadata,
     "thread branch metadata update",
@@ -1735,7 +1737,7 @@ export default function GitActionsControl({
     </>
   );
 
-  if (!gitCwd) return null;
+  if (!codeWorkspace || !gitCwd) return null;
 
   return (
     <>

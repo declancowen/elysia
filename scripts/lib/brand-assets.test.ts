@@ -84,7 +84,7 @@ describe("brand-assets", () => {
     expect(resolveWebAssetBrandForPackageVersion("0.0.29-preview.20260723.882")).toBe("nightly");
   });
 
-  it("keeps development, nightly, and production icon families separate", () => {
+  it("uses the Elysia desktop artwork in every build", () => {
     expect([
       BRAND_ASSET_PATHS.developmentIconComposerProject,
       BRAND_ASSET_PATHS.nightlyIconComposerProject,
@@ -94,8 +94,8 @@ describe("brand-assets", () => {
       "assets/nightly/app-icon.icon",
       "assets/prod/app-icon.icon",
     ]);
-    expect(BRAND_ASSET_PATHS.developmentDesktopIconPng).toMatch(/^assets\/dev\/blueprint-/);
-    expect(BRAND_ASSET_PATHS.nightlyMacIconPng).toMatch(/^assets\/nightly\/nightly-/);
-    expect(BRAND_ASSET_PATHS.productionMacIconPng).toMatch(/^assets\/prod\/black-/);
+    expect(BRAND_ASSET_PATHS.developmentDesktopIconPng).toBe("assets/elysia/icon.png");
+    expect(BRAND_ASSET_PATHS.nightlyMacIconPng).toBe("assets/elysia/icon-mac.png");
+    expect(BRAND_ASSET_PATHS.productionMacIconPng).toBe("assets/elysia/icon-mac.png");
   });
 });

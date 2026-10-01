@@ -1,3 +1,4 @@
+import { isEnabledProviderDriver } from "@t3tools/contracts";
 import {
   AntigravitySettings,
   ClaudeSettings,
@@ -10,7 +11,7 @@ import {
 import type * as Schema from "effect/Schema";
 import {
   AntigravityIcon,
-  ClaudeAI,
+  ElysiaIcon,
   CursorIcon,
   GrokIcon,
   type Icon,
@@ -52,8 +53,8 @@ const PROVIDER_CLIENT_DEFINITIONS: readonly ProviderClientDefinition[] = [
   },
   {
     value: ProviderDriverKind.make("claudeAgent"),
-    label: "Claude",
-    icon: ClaudeAI,
+    label: "Elysia",
+    icon: ElysiaIcon,
     settingsSchema: ClaudeSettings,
   },
   {
@@ -90,7 +91,9 @@ const PROVIDER_CLIENT_DEFINITION_BY_VALUE: Partial<
   PROVIDER_CLIENT_DEFINITIONS.map((definition) => [definition.value, definition]),
 );
 
-export const DRIVER_OPTIONS = PROVIDER_CLIENT_DEFINITIONS;
+export const DRIVER_OPTIONS = PROVIDER_CLIENT_DEFINITIONS.filter((definition) =>
+  isEnabledProviderDriver(definition.value),
+);
 export const DRIVER_OPTION_BY_VALUE = PROVIDER_CLIENT_DEFINITION_BY_VALUE;
 export type DriverOption = ProviderClientDefinition;
 

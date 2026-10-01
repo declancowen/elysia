@@ -1,6 +1,7 @@
 import type { DesktopUpdateChannel } from "@t3tools/contracts";
 
 const NIGHTLY_VERSION_PATTERN = /^[^-+]+-nightly\.\d{8}\.\d+$/;
+const STABLE_VERSION_PATTERN = /^\d+\.\d+\.\d+(?:\+[0-9A-Za-z.-]+)?$/;
 // Preview builds are the maintainers' test train, cut by hand from unreleased
 // branches to exercise the release flow. They share nightly's branding but
 // are packaged without an update feed (see
@@ -13,6 +14,12 @@ export function isNightlyDesktopVersion(version: string): boolean {
   return PRERELEASE_VERSION_PATTERN.test(version);
 }
 
-export function resolveDefaultDesktopUpdateChannel(appVersion: string): DesktopUpdateChannel {
-  return NIGHTLY_VERSION_PATTERN.test(appVersion) ? "nightly" : "latest";
+// Feed versions keep their release train even when the fork forces latest.
+export function resolveDesktopReleaseChannel(version: string): DesktopUpdateChannel | null {
+  if (NIGHTLY_VERSION_PATTERN.test(version)) return "nightly";
+  return STABLE_VERSION_PATTERN.test(version) ? "latest" : null;
+}
+
+export function resolveDefaultDesktopUpdateChannel(_appVersion: string): DesktopUpdateChannel {
+  return "latest";
 }

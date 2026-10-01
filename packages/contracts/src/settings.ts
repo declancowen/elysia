@@ -1,3 +1,4 @@
+import { isEnabledProviderDriver } from "./forkPolicy.ts";
 import { SshDeviceHostConfigs } from "./device.ts";
 import * as Effect from "effect/Effect";
 import * as Duration from "effect/Duration";
@@ -156,7 +157,7 @@ const DEFAULT_TERMINAL_FONT_SIZE: TerminalFontSize = 12;
 
 export const EnvironmentIdentificationMode = Schema.Literals(["artwork", "pill", "none"]);
 export type EnvironmentIdentificationMode = typeof EnvironmentIdentificationMode.Type;
-export const DEFAULT_ENVIRONMENT_IDENTIFICATION_MODE: EnvironmentIdentificationMode = "artwork";
+export const DEFAULT_ENVIRONMENT_IDENTIFICATION_MODE: EnvironmentIdentificationMode = "pill";
 
 export const SnapShotKeyChord = KeybindingShortcut.check(
   Schema.makeFilter(
@@ -459,6 +460,9 @@ export const ClientSettingsSchema = Schema.Struct({
   // (was `sidebarV2Enabled` + `sidebarV2ConfiguredByUser`): decoding drops the
   // old keys, so everyone, including prior beta opt-outs, resets to the new
   // default sidebar.
+  workspaceMode: Schema.Literals(["work", "code"]).pipe(
+    Schema.withDecodingDefault(Effect.succeed("code")),
+  ),
   legacySidebarEnabled: Schema.Boolean.pipe(Schema.withDecodingDefault(Effect.succeed(false))),
   sidebarProjectGroupingMode: SidebarProjectGroupingMode.pipe(
     Schema.withDecodingDefault(Effect.succeed(DEFAULT_SIDEBAR_PROJECT_GROUPING_MODE)),
@@ -649,13 +653,33 @@ export const ClaudeSettings = makeProviderSettingsSchema(
         providerSettingsForm: { placeholder: "claude", clearWhenEmpty: "omit" },
       }),
     ),
+    elysiaDefaultModel: Schema.optionalKey(TrimmedString).pipe(
+      Schema.annotateKey({ providerSettingsForm: { hidden: true } }),
+    ),
+    elysiaScriptPath: Schema.optionalKey(TrimmedString).pipe(
+      Schema.annotateKey({
+        title: "Elysia CLI script",
+        description: "Installed or extracted elysia-code.py on this environment.",
+        providerSettingsForm: {
+          placeholder: "~/.local/bin/elysia-code.py",
+          clearWhenEmpty: "omit",
+        },
+      }),
+    ),
+    elysiaPythonPath: Schema.optionalKey(TrimmedString).pipe(
+      Schema.annotateKey({
+        title: "Python executable",
+        description: "Python 3.11 or newer used by Elysia setup and updates.",
+        providerSettingsForm: { placeholder: "python3", clearWhenEmpty: "omit" },
+      }),
+    ),
     homePath: TrimmedString.pipe(
       Schema.withDecodingDefault(Effect.succeed("")),
       Schema.annotateKey({
         title: "CLAUDE_CONFIG_DIR path",
         description:
           "Custom Claude home and config directory. Keeps .claude.json and .claude separate.",
-        providerSettingsForm: { placeholder: "~/.claude", clearWhenEmpty: "omit" },
+        providerSettingsForm: { hidden: true },
       }),
     ),
     customModels: Schema.Array(CustomModelSetting).pipe(
@@ -689,7 +713,13 @@ export const ClaudeSettings = makeProviderSettingsSchema(
     ),
   },
   {
-    order: ["binaryPath", "homePath", "autoCompactWindow", "launchArgs"],
+    order: [
+      "elysiaScriptPath",
+      "elysiaPythonPath",
+      "binaryPath",
+      "autoCompactWindow",
+      "launchArgs",
+    ],
   },
 );
 export type ClaudeSettings = typeof ClaudeSettings.Type;
@@ -859,7 +889,7 @@ export const OpenCodeSettings = makeProviderSettingsSchema(
       Schema.withDecodingDefault(Effect.succeed("")),
       Schema.annotateKey({
         title: "Server URL",
-        description: "Leave blank to let T3 Code spawn the server when needed.",
+        description: "Leave blank to let Elysia spawn the server when needed.",
         providerSettingsForm: {
           placeholder: "http://127.0.0.1:4096",
           clearWhenEmpty: "omit",
@@ -1349,6 +1379,7 @@ const defaultEnabledForDriver = (driver: ProviderDriverKind): boolean => {
 export const resolveProviderInstanceEnabled = (
   instance: Pick<ProviderInstanceConfig, "driver" | "enabled" | "config">,
 ): boolean => {
+  if (!isEnabledProviderDriver(instance.driver)) return false;
   const configEnabled = providerInstanceConfigEnabledFlag(instance.config);
   if (instance.enabled === false || configEnabled === false) {
     return false;
@@ -1419,6 +1450,9 @@ const CodexSettingsPatch = Schema.Struct({
 
 const ClaudeSettingsPatch = Schema.Struct({
   enabled: Schema.optionalKey(Schema.Boolean),
+  elysiaDefaultModel: Schema.optionalKey(TrimmedString),
+  elysiaScriptPath: Schema.optionalKey(TrimmedString),
+  elysiaPythonPath: Schema.optionalKey(TrimmedString),
   binaryPath: Schema.optionalKey(TrimmedString),
   homePath: Schema.optionalKey(TrimmedString),
   customModels: Schema.optionalKey(Schema.Array(CustomModelSetting)),
@@ -1662,6 +1696,7 @@ export const ClientSettingsPatch = Schema.Struct({
   followUpBehavior: Schema.optionalKey(Schema.Literals(["queue", "steer"])),
   proactivePanelsEnabled: Schema.optionalKey(Schema.Boolean),
   showSkillsInSlashMenu: Schema.optionalKey(Schema.Boolean),
+  workspaceMode: Schema.optionalKey(Schema.Literals(["work", "code"])),
   legacySidebarEnabled: Schema.optionalKey(Schema.Boolean),
   sidebarProjectGroupingMode: Schema.optionalKey(SidebarProjectGroupingMode),
   sidebarProjectGroupingOverrides: Schema.optionalKey(

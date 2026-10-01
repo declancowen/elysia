@@ -1,3 +1,4 @@
+import { CONNECTIONS_ENABLED } from "@t3tools/contracts";
 import { ClerkProvider, useAuth } from "@clerk/expo";
 import { tokenCache } from "@clerk/expo/token-cache";
 import { ManagedRelay, setManagedRelaySession } from "@t3tools/client-runtime/relay";
@@ -75,7 +76,7 @@ function CloudAuthBridge(props: { readonly children: ReactNode }) {
 
     // Every sign-in or account switch that completes during this session (a
     // cold start observes undefined → account and must not re-prompt) requests
-    // the T3 Connect onboarding sheet — account transitions clear the
+    // the Connections onboarding sheet — account transitions clear the
     // connected environments, so each new session starts with no devices to
     // reach. The request itself is issued after the cleanup transition inside
     // activateSession, so the sheet never lists the previous account's
@@ -197,8 +198,8 @@ function CloudAuthBridge(props: { readonly children: ReactNode }) {
 
 export function CloudAuthProvider(props: { readonly children: ReactNode }) {
   const config = resolveCloudPublicConfig();
-  const publishableKey = config.clerk.publishableKey;
-  const relayUrl = config.relay.url;
+  const publishableKey = CONNECTIONS_ENABLED ? config.clerk.publishableKey : null;
+  const relayUrl = CONNECTIONS_ENABLED ? config.relay.url : null;
 
   useEffect(() => {
     if (!publishableKey || !relayUrl) {

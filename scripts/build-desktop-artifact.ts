@@ -21,6 +21,7 @@ import rootPackageJson from "../package.json" with { type: "json" };
 import desktopPackageJson from "../apps/desktop/package.json" with { type: "json" };
 import gnomeCaptureBundle from "../apps/desktop/gnome-extension/bundle.json" with { type: "json" };
 import serverPackageJson from "../apps/server/package.json" with { type: "json" };
+import { CONNECTIONS_ENABLED } from "../packages/contracts/src/forkPolicy.ts";
 
 import { applyWebBrandAssets } from "./apply-web-brand-assets.ts";
 import {
@@ -54,7 +55,7 @@ import { Command, Flag } from "effect/unstable/cli";
 import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process";
 
 const LINUX_ICON_SIZES = [16, 22, 24, 32, 48, 64, 128, 256, 512] as const;
-const DESKTOP_APP_ID = "com.t3tools.t3code";
+const DESKTOP_APP_ID = "com.informa.elysia";
 const APPLE_TEAM_ID_PATTERN = /^[A-Z0-9]{10}$/u;
 
 const BuildPlatform = Schema.Literals(["mac", "linux", "win"]);
@@ -942,7 +943,7 @@ interface StagePackageJson {
 export const STAGE_INSTALL_ARGS = ["install", "--prod"] as const;
 export const DESKTOP_ELECTRON_LANGUAGES = ["en-US"] as const;
 export const DESKTOP_FILE_EXCLUSIONS = [
-  // T3 Code always passes the user's installed Claude executable to the SDK,
+  // Elysia always passes the user's installed Claude executable to the SDK,
   // so the SDK's optional platform packages (each a ~200MB bundled executable)
   // are dead weight. The trailing dash keeps the SDK's own JS package.
   "!**/node_modules/@anthropic-ai/claude-agent-sdk-*/**/*",
@@ -2545,7 +2546,7 @@ export const resolveGitHubPublishConfig = Effect.fn("resolveGitHubPublishConfig"
   const rawRepo = (
     Option.getOrUndefined(env.updateRepository)?.trim() ||
     Option.getOrUndefined(env.githubRepository)?.trim() ||
-    ""
+    "declancowen/elysia"
   ).trim();
   if (!rawRepo) return undefined;
 
@@ -2561,8 +2562,8 @@ export const resolveGitHubPublishConfig = Effect.fn("resolveGitHubPublishConfig"
   };
 });
 
-export function resolveDesktopUpdateChannel(version: string): "latest" | "nightly" {
-  return /-nightly\.\d{8}\.\d+$/.test(version) ? "nightly" : "latest";
+export function resolveDesktopUpdateChannel(_version: string): "latest" | "nightly" {
+  return "latest";
 }
 
 // Pull request builds (`-pr.<n>.`) and the maintainers' preview train
@@ -2613,10 +2614,8 @@ export function resolvePackageManagerUserAgent(packageManager: string): string {
   return `${trimmed.slice(0, versionSeparator)}/${trimmed.slice(versionSeparator + 1)}`;
 }
 
-export function resolveDesktopProductName(version: string): string {
-  return resolveDesktopUpdateChannel(version) === "nightly"
-    ? "T3 Code (Nightly)"
-    : (desktopPackageJson.productName ?? "T3 Code");
+export function resolveDesktopProductName(_version: string): string {
+  return "Elysia";
 }
 
 export const createBuildConfig = Effect.fn("createBuildConfig")(function* (
@@ -2641,7 +2640,7 @@ export const createBuildConfig = Effect.fn("createBuildConfig")(function* (
   const buildConfig: Record<string, unknown> = {
     appId: DESKTOP_APP_ID,
     productName: resolveDesktopProductName(version),
-    artifactName: "T3-Code-${version}-${arch}.${ext}",
+    artifactName: "Elysia-${version}-${arch}.${ext}",
     electronLanguages: [...DESKTOP_ELECTRON_LANGUAGES],
     files: [
       ...DESKTOP_FILE_EXCLUSIONS,
@@ -2692,15 +2691,17 @@ export const createBuildConfig = Effect.fn("createBuildConfig")(function* (
       category: "public.app-category.developer-tools",
       extendInfo: {
         NSScreenCaptureUsageDescription:
-          "T3 Code captures the active window when you use the window capture shortcut.",
+          "Elysia captures the active window when you use the window capture shortcut.",
       },
       protocols: [
         {
-          name: "T3 Code",
+          name: "Elysia",
           schemes: ["t3code", "t3code-dev"],
         },
       ],
-      ...(signed ? { sign: path.join(repoRoot, "scripts/sign-macos.ts") } : {}),
+      ...(signed
+        ? { sign: path.join(repoRoot, "scripts/sign-macos.ts") }
+        : { identity: "-", hardenedRuntime: false }),
       ...(macPasskeySigning
         ? {
             entitlements: macPasskeySigning.entitlementsPath,
@@ -2716,6 +2717,7 @@ export const createBuildConfig = Effect.fn("createBuildConfig")(function* (
       // DMG window backgrounds by volume name, so reusing a generic name can
       // make a newly built background look unchanged during testing.
       title: `${resolveDesktopProductName(version)} ${version} Installer`,
+      icon: "icon.icns",
       background: `dmg/dmg-background-${updateChannel}.png`,
       window: {
         width: 640,
@@ -2744,13 +2746,13 @@ export const createBuildConfig = Effect.fn("createBuildConfig")(function* (
       category: "Development",
       synopsis: "Desktop GUI for coding agents",
       // Required by the .deb control file.
-      maintainer: "T3 Tools <hello@t3.codes>",
+      maintainer: "Informa",
       // electron-builder turns these into MimeType=x-scheme-handler/<scheme>;
       // in the .desktop entry (Exec already gets %U), so browsers can hand
       // t3code:// OAuth callbacks to the app.
       protocols: [
         {
-          name: "T3 Code",
+          name: "Elysia",
           schemes: ["t3code", "t3code-dev"],
         },
       ],
@@ -3613,7 +3615,7 @@ const buildDesktopArtifact = Effect.fn("buildDesktopArtifact")(function* (
   yield* fs.copy(stageResourcesDir, stageProdResourcesDir);
 
   const configuredMacPasskeySigning =
-    options.platform === "mac" && options.signed
+    CONNECTIONS_ENABLED && options.platform === "mac" && options.signed
       ? yield* Effect.try({
           try: () => resolveMacPasskeySigningConfiguration(loadRepoEnv({ repoRoot })),
           catch: MacPasskeySigningConfigurationResolutionError.fromCause,
@@ -3669,9 +3671,9 @@ const buildDesktopArtifact = Effect.fn("buildDesktopArtifact")(function* (
     t3codeCommitHash: commitHash,
     private: true,
     packageManager: rootPackageJson.packageManager,
-    description: "T3 Code desktop build",
+    description: "Elysia desktop build",
     // Required by the .deb control file.
-    homepage: "https://t3.codes",
+    homepage: "https://github.com/declancowen/elysia",
     author: "T3 Tools",
     main: "apps/desktop/dist-electron/boot.cjs",
     build: yield* createBuildConfig(
@@ -3780,6 +3782,11 @@ const buildDesktopArtifact = Effect.fn("buildDesktopArtifact")(function* (
     delete buildEnv.APPLE_API_KEY;
     delete buildEnv.APPLE_API_KEY_ID;
     delete buildEnv.APPLE_API_ISSUER;
+    delete buildEnv.APPLE_ID;
+    delete buildEnv.APPLE_APP_SPECIFIC_PASSWORD;
+    delete buildEnv.APPLE_TEAM_ID;
+    delete buildEnv.APPLE_KEYCHAIN_PROFILE;
+    delete buildEnv.APPLE_KEYCHAIN;
   }
 
   if (hostPlatform === "win32") {
@@ -3876,6 +3883,35 @@ const buildDesktopArtifact = Effect.fn("buildDesktopArtifact")(function* (
     const to = path.join(options.outputDir, entry);
     yield* fs.copyFile(from, to);
     copiedArtifacts.push(to);
+    if (options.platform === "mac" && entry.endsWith(".dmg")) {
+      yield* runCommand(
+        ChildProcess.make("swift", [
+          "-module-cache-path",
+          path.join(stageRoot, "swift-cache"),
+          "-e",
+          "import AppKit; guard let icon = NSImage(contentsOfFile: CommandLine.arguments[1]), NSWorkspace.shared.setIcon(icon, forFile: CommandLine.arguments[2], options: []) else { exit(1) }",
+          path.join(stageResourcesDir, "icon.icns"),
+          to,
+        ]),
+        { label: "Apply Elysia Finder icon to installer", verbose: options.verbose },
+      );
+      const installerZip = to.replace(/\.dmg$/, "-installer.zip");
+      yield* runCommand(
+        ChildProcess.make("ditto", [
+          "-c",
+          "-k",
+          "--sequesterRsrc",
+          "--keepParent",
+          to,
+          installerZip,
+        ]),
+        {
+          label: "Zip installer with Finder icon",
+          verbose: options.verbose,
+        },
+      );
+      copiedArtifacts.push(installerZip);
+    }
   }
 
   if (copiedArtifacts.length === 0) {
@@ -3950,7 +3986,7 @@ const buildDesktopArtifactCli = Command.make("build-desktop-artifact", {
     Flag.optional,
   ),
 }).pipe(
-  Command.withDescription("Build a desktop artifact for T3 Code."),
+  Command.withDescription("Build a desktop artifact for Elysia."),
   Command.withHandler((input) => Effect.flatMap(resolveBuildOptions(input), buildDesktopArtifact)),
 );
 

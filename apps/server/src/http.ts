@@ -1,3 +1,4 @@
+import { CONNECTIONS_ENABLED, isConnectionsHttpPath } from "@t3tools/contracts";
 import * as Mime from "effect/unstable/http/Mime";
 import {
   AuthOrchestrationOperateScope,
@@ -665,4 +666,16 @@ export const staticAndDevRouteLayer = Layer.unwrap(
   loadImmutableBuildAssets.pipe(
     Effect.map((assets) => HttpRouter.add("GET", "*", handleStaticAndDevRequest(assets))),
   ),
+);
+
+export const elysiaConnectionsPolicyLayer = HttpRouter.middleware(
+  (httpEffect) =>
+    Effect.gen(function* () {
+      const request = yield* HttpServerRequest.HttpServerRequest;
+      const pathname = request.url.split("?")[0]!;
+      if (!CONNECTIONS_ENABLED && isConnectionsHttpPath(pathname))
+        return HttpServerResponse.text("Connections are disabled in Elysia.", { status: 403 });
+      return yield* httpEffect;
+    }),
+  { global: true },
 );

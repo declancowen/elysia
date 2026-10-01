@@ -81,7 +81,7 @@ function isClaudeNativeCommandPath(commandPath: string): boolean {
   );
 }
 
-const UPDATE = makePackageManagedProviderMaintenanceResolver({
+export const CLAUDE_RUNTIME_UPDATE = makePackageManagedProviderMaintenanceResolver({
   provider: DRIVER_KIND,
   npmPackageName: "@anthropic-ai/claude-code",
   nativeUpdate: {
@@ -134,7 +134,7 @@ export const ClaudeDriver: ProviderDriver<ClaudeSettings, ClaudeDriverEnv> = {
         binaryPath: expandHomePath(config.binaryPath),
       } satisfies ClaudeSettings;
       const resolveMaintenance = yield* makeCachedProviderMaintenanceResolution(
-        resolveProviderMaintenanceCapabilitiesEffect(UPDATE, {
+        resolveProviderMaintenanceCapabilitiesEffect(CLAUDE_RUNTIME_UPDATE, {
           binaryPath: effectiveConfig.binaryPath,
           env: processEnv,
         }).pipe(

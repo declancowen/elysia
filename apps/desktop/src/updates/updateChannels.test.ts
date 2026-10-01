@@ -3,10 +3,10 @@ import { describe, expect, it } from "vite-plus/test";
 import { isNightlyDesktopVersion, resolveDefaultDesktopUpdateChannel } from "./updateChannels.ts";
 
 describe("updateChannels", () => {
-  it("keeps preview builds branded as nightly but on the latest update channel", () => {
+  it("uses only the latest update channel for prerelease installations", () => {
     expect(isNightlyDesktopVersion("0.0.41-preview.20260911.7")).toBe(true);
     expect(resolveDefaultDesktopUpdateChannel("0.0.41-preview.20260911.7")).toBe("latest");
-    expect(resolveDefaultDesktopUpdateChannel("0.0.41-nightly.20260911.7")).toBe("nightly");
+    expect(resolveDefaultDesktopUpdateChannel("0.0.41-nightly.20260911.7")).toBe("latest");
   });
 
   it("only matches the first prerelease identifier", () => {

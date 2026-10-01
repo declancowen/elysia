@@ -9,6 +9,7 @@
  */
 
 import * as NodeUtil from "node:util";
+import { elysiaAgentProtection } from "../ElysiaAgentProtection.ts";
 import {
   type CanUseTool,
   query,
@@ -93,6 +94,7 @@ import { resolveClaudeSdkExecutablePath } from "../Drivers/ClaudeExecutable.ts";
 import { claudeSignedOutMessage, makeClaudeEnvironment } from "../Drivers/ClaudeHome.ts";
 import { planClaudeSkillDispatch } from "../Drivers/ClaudeSkillDispatch.ts";
 import { discoverClaudeSkills } from "../Drivers/ClaudeSkills.ts";
+import { elysiaModelEnvironment } from "../ElysiaModelCatalog.ts";
 import { buildRuntimeInstructions } from "../RuntimeInstructions.ts";
 import {
   BUNDLED_CLAUDE_MODEL_CATALOG,
@@ -479,6 +481,7 @@ interface ClaudeQueryRuntime extends AsyncIterable<SDKMessage> {
 export interface ClaudeAdapterLiveOptions {
   readonly instanceId?: ProviderInstanceId;
   readonly environment?: NodeJS.ProcessEnv;
+  readonly onElysiaDefaultModelChange?: (model: string) => Effect.Effect<void, Error>;
   readonly createQuery?: (input: {
     readonly prompt: AsyncIterable<SDKUserMessage>;
     readonly options: ClaudeQueryOptions;
@@ -4983,6 +4986,22 @@ export const makeClaudeAdapter = Effect.fn("makeClaudeAdapter")(function* (
         ...(input.cwd ? [input.cwd] : []),
         serverConfig.attachmentsDir,
       ];
+      const queryEnvironment = elysiaModelEnvironment(
+        {
+          ...claudeEnvironment,
+          ...options?.environment,
+          ...(claudeEnvironment.CLAUDE_CONFIG_DIR
+            ? { CLAUDE_CONFIG_DIR: claudeEnvironment.CLAUDE_CONFIG_DIR }
+            : {}),
+        },
+        apiModelId,
+      );
+      const protection = elysiaAgentProtection(
+        queryEnvironment,
+        options?.onElysiaDefaultModelChange
+          ? (model) => runPromise(options.onElysiaDefaultModelChange!(model))
+          : undefined,
+      );
       const queryOptions: ClaudeQueryOptions = {
         ...(input.cwd ? { cwd: input.cwd } : {}),
         ...(apiModelId ? { model: apiModelId } : {}),
@@ -5013,14 +5032,32 @@ export const makeClaudeAdapter = Effect.fn("makeClaudeAdapter")(function* (
         ...(permissionMode === "bypassPermissions"
           ? { allowDangerouslySkipPermissions: true }
           : {}),
-        ...(Object.keys(settings).length > 0 ? { settings } : {}),
+        ...protection,
+        ...(claudeEnvironment.ELYSIA_PROFILE_ROOT
+          ? {
+              managedSettings: {
+                ...(typeof protection.settings === "object" ? protection.settings : {}),
+                ...(protection.sandbox ? { sandbox: protection.sandbox } : {}),
+                availableModels: modelCatalog.models.map((entry) => entry.model.slug),
+                enforceAvailableModels: true,
+              },
+            }
+          : {}),
+        ...(Object.keys(settings).length > 0 || protection.settings
+          ? {
+              settings: {
+                ...settings,
+                ...(typeof protection.settings === "object" ? protection.settings : {}),
+              },
+            }
+          : {}),
         ...(existingResumeSessionId ? { resume: existingResumeSessionId } : {}),
         ...(newSessionId ? { sessionId: newSessionId } : {}),
         includePartialMessages: true,
         canUseTool,
         onUserDialog,
         supportedDialogKinds: ["resume_return"],
-        env: McpProviderSession.withAgentDeviceEnvironment(claudeEnvironment, mcpSession),
+        env: McpProviderSession.withAgentDeviceEnvironment(queryEnvironment, mcpSession),
         additionalDirectories,
         ...(Object.keys(extraArgs).length > 0 ? { extraArgs } : {}),
         ...(mcpSession

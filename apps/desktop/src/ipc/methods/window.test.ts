@@ -23,14 +23,20 @@ import * as DesktopBackendManager from "../../backend/DesktopBackendManager.ts";
 import * as DesktopBackendPool from "../../backend/DesktopBackendPool.ts";
 import * as ElectronDialog from "../../electron/ElectronDialog.ts";
 import * as ElectronWindow from "../../electron/ElectronWindow.ts";
+import * as ElectronTheme from "../../electron/ElectronTheme.ts";
 import * as DesktopAppSettings from "../../settings/DesktopAppSettings.ts";
+import * as DesktopEnvironment from "../../app/DesktopEnvironment.ts";
+import * as DesktopConfig from "../../app/DesktopConfig.ts";
+import * as DesktopWslEnvironment from "../../wsl/DesktopWslEnvironment.ts";
 import type { DesktopSettings } from "../../settings/DesktopAppSettings.ts";
 import {
   getLocalEnvironmentBootstraps,
   getWindowFullscreenState,
   pasteAsText,
+  pickFolder,
   pickProjectFavicon,
   probeRemoteEditors,
+  setTheme,
 } from "./window.ts";
 
 const readyWslConfig: DesktopBackendManager.DesktopBackendStartConfig = {
@@ -167,6 +173,105 @@ describe("getWindowFullscreenState", () => {
     );
   });
 });
+
+describe("setTheme", () => {
+  it.effect("keeps the selected palette behind the renderer across appearance changes", () =>
+    Effect.gen(function* () {
+      let source = "system";
+      let background = "#ffffff";
+      const window = {
+        setBackgroundColor: (value: string) => {
+          background = value;
+        },
+      } as Electron.BrowserWindow;
+      const layer = Layer.mergeAll(
+        Layer.mock(ElectronTheme.ElectronTheme)({
+          setSource: (value) =>
+            Effect.sync(() => {
+              source = value;
+            }),
+        }),
+        Layer.mock(ElectronWindow.ElectronWindow)({
+          currentMainOrFirst: Effect.succeedSome(window),
+        }),
+      );
+
+      yield* setTheme
+        .handler({ theme: "dark", backgroundColor: "#002244" })
+        .pipe(Effect.provide(layer));
+      assert.equal(source, "dark");
+      assert.equal(background, "#002244");
+      yield* setTheme
+        .handler({ theme: "light", backgroundColor: "#ffffff" })
+        .pipe(Effect.provide(layer));
+      assert.equal(source, "light");
+      assert.equal(background, "#ffffff");
+
+      // Old clients can still update native appearance without erasing a palette.
+      yield* setTheme.handler("system").pipe(Effect.provide(layer));
+      assert.equal(source, "system");
+      assert.equal(background, "#ffffff");
+    }),
+  );
+
+  it.effect("rejects invalid canvas colours before changing window appearance", () =>
+    Effect.gen(function* () {
+      let updates = 0;
+      const layer = Layer.mergeAll(
+        Layer.mock(ElectronTheme.ElectronTheme)({
+          setSource: () =>
+            Effect.sync(() => {
+              updates += 1;
+            }),
+        }),
+        Layer.mock(ElectronWindow.ElectronWindow)({
+          currentMainOrFirst: Effect.die("invalid input must not access the window"),
+        }),
+      );
+      const result = yield* setTheme
+        .handler({ theme: "dark", backgroundColor: "red" })
+        .pipe(Effect.provide(layer), Effect.exit);
+      assert.equal(result._tag, "Failure");
+      assert.equal(updates, 0);
+    }),
+  );
+});
+
+it.effect("Elysia uses the native folder picker even with an old WSL target", () =>
+  Effect.gen(function* () {
+    const result = yield* pickFolder
+      .handler({ targetEnvironmentId: "wsl:Ubuntu", initialPath: "/Projects" })
+      .pipe(
+        Effect.provide(
+          Layer.mergeAll(
+            DesktopAppSettings.layerTest(),
+            DesktopEnvironment.layer({
+              dirname: "/repo/apps/desktop/src",
+              homeDirectory: "/Users/alice",
+              platform: "win32",
+              processArch: "x64",
+              appVersion: "1.2.3",
+              appPath: "/repo",
+              isPackaged: true,
+              resourcesPath: "/resources",
+              runningUnderArm64Translation: false,
+            }).pipe(Layer.provide(Layer.mergeAll(NodeServices.layer, DesktopConfig.layerTest({})))),
+            Layer.mock(ElectronWindow.ElectronWindow)({ focusedMainOrFirst: Effect.succeedNone }),
+            Layer.mock(ElectronDialog.ElectronDialog)({
+              pickFolder: ({ defaultPath }) => {
+                assert.deepEqual(defaultPath, Option.some("/Projects"));
+                return Effect.succeedSome("C:\\Projects\\Work");
+              },
+            }),
+            Layer.mock(DesktopWslEnvironment.DesktopWslEnvironment)({
+              listDistros: Effect.die("Elysia must not discover WSL for folder picking"),
+            }),
+          ),
+        ),
+      );
+    assert.equal(result, "C:\\Projects\\Work");
+  }),
+);
 
 describe("pasteAsText", () => {
   it.effect(

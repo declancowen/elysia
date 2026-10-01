@@ -1,3 +1,4 @@
+import { isEnabledProviderDriver } from "@t3tools/contracts";
 /**
  * Instance-aware view over the wire `ServerProvider[]`.
  *
@@ -94,26 +95,28 @@ export function isProviderInstancePickerVisible(entry: ProviderInstanceEntry): b
 export function deriveProviderInstanceEntries(
   providers: ReadonlyArray<ServerProvider>,
 ): ReadonlyArray<ProviderInstanceEntry> {
-  return providers.map((snapshot) => {
-    const instanceId = snapshot.instanceId;
-    const driverKind = snapshot.driver;
-    const defaultId = defaultInstanceIdForDriver(driverKind);
-    const isDefault = instanceId === defaultId;
-    return {
-      instanceId,
-      driverKind,
-      displayName: resolveProviderInstanceDisplayName(snapshot),
-      accentColor: normalizeProviderAccentColor(snapshot.accentColor),
-      continuationGroupKey: snapshot.continuation?.groupKey,
-      enabled: snapshot.enabled,
-      installed: snapshot.installed,
-      status: snapshot.status,
-      isDefault,
-      isAvailable: snapshot.availability !== "unavailable",
-      snapshot,
-      models: snapshot.models,
-    } satisfies ProviderInstanceEntry;
-  });
+  return providers
+    .filter((snapshot) => isEnabledProviderDriver(snapshot.driver))
+    .map((snapshot) => {
+      const instanceId = snapshot.instanceId;
+      const driverKind = snapshot.driver;
+      const defaultId = defaultInstanceIdForDriver(driverKind);
+      const isDefault = instanceId === defaultId;
+      return {
+        instanceId,
+        driverKind,
+        displayName: resolveProviderInstanceDisplayName(snapshot),
+        accentColor: normalizeProviderAccentColor(snapshot.accentColor),
+        continuationGroupKey: snapshot.continuation?.groupKey,
+        enabled: snapshot.enabled,
+        installed: snapshot.installed,
+        status: snapshot.status,
+        isDefault,
+        isAvailable: snapshot.availability !== "unavailable",
+        snapshot,
+        models: snapshot.models,
+      } satisfies ProviderInstanceEntry;
+    });
 }
 
 /**

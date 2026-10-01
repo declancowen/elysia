@@ -1,3 +1,4 @@
+import { SINGLE_PROVIDER_UI } from "@t3tools/contracts";
 import {
   ANTIGRAVITY_DEFAULT_MODEL,
   type ProviderInstanceId,
@@ -248,6 +249,7 @@ export const ModelPickerContent = memo(function ModelPickerContent(props: {
   const [selectedInstanceId, setSelectedInstanceId] = useState<ProviderInstanceId | "favorites">(
     () => {
       if (
+        SINGLE_PROVIDER_UI ||
         props.lockedProvider !== null ||
         activeInstanceHasSelectableUnavailableModel ||
         activeInstanceNeedsSetup
@@ -278,6 +280,7 @@ export const ModelPickerContent = memo(function ModelPickerContent(props: {
 
   const handleSelectInstance = useCallback(
     (instanceId: ProviderInstanceId | "favorites") => {
+      if (SINGLE_PROVIDER_UI) return;
       setSelectedInstanceId(instanceId);
       window.requestAnimationFrame(() => {
         focusSearchInput();
@@ -426,7 +429,7 @@ export const ModelPickerContent = memo(function ModelPickerContent(props: {
     }
     return [...available, ...disabled];
   }, [instanceEntries, isLocked, matchesLockedProvider]);
-  const showSidebar = !isSearching && sidebarInstanceEntries.length > 0;
+  const showSidebar = !SINGLE_PROVIDER_UI && !isSearching && sidebarInstanceEntries.length > 0;
   const instanceOrder = useMemo(
     () => instanceEntries.map((entry) => entry.instanceId),
     [instanceEntries],
@@ -510,7 +513,9 @@ export const ModelPickerContent = memo(function ModelPickerContent(props: {
         .map((rankedModel) => rankedModel.model);
     }
 
-    if (props.lockedProvider !== null) {
+    if (SINGLE_PROVIDER_UI) {
+      result = result.filter((model) => matchesLockedProvider(model));
+    } else if (props.lockedProvider !== null) {
       result = result.filter((m) => matchesLockedProvider(m));
       if (selectedInstanceId === "favorites") {
         result = result.filter((m) => favoritesSet.has(providerModelKey(m.instanceId, m.slug)));
@@ -525,7 +530,7 @@ export const ModelPickerContent = memo(function ModelPickerContent(props: {
 
     return sortProviderModelItems(result, {
       favoriteModelKeys: favoritesSet,
-      groupFavorites: selectedInstanceId !== "favorites",
+      groupFavorites: SINGLE_PROVIDER_UI || selectedInstanceId !== "favorites",
       instanceOrder: selectedInstanceId === "favorites" ? instanceOrder : [],
     });
   }, [
@@ -539,7 +544,7 @@ export const ModelPickerContent = memo(function ModelPickerContent(props: {
   ]);
 
   const legacySection = useMemo(() => {
-    if (isSearching || selectedInstanceId === "favorites") {
+    if (SINGLE_PROVIDER_UI || isSearching || selectedInstanceId === "favorites") {
       return null;
     }
     const currentModels = filteredModels.filter((model) => !model.isLegacy);
@@ -979,32 +984,51 @@ export const ModelPickerContent = memo(function ModelPickerContent(props: {
                     const disabledReason =
                       getModelDisabledReason?.(model.instanceId, model.slug) ?? null;
                     return (
-                      <ModelListRow
-                        key={modelKey}
-                        index={index}
-                        model={model}
-                        instanceId={model.instanceId}
-                        driverKind={model.driverKind}
-                        providerDisplayName={model.instanceDisplayName}
-                        providerAccentColor={model.instanceAccentColor}
-                        isFavorite={favoritesSet.has(
-                          providerModelKey(model.instanceId, model.slug),
-                        )}
-                        isSelected={
-                          selectedModelKeys !== undefined
-                            ? selectedModelKeySet.has(modelKey)
-                            : modelKey === activeModelKey
-                        }
-                        showSelection={selectedModelKeys !== undefined}
-                        showProvider
-                        preferShortName={!isLocked}
-                        useTriggerLabel={false}
-                        showNewBadge={model.badge === "new"}
-                        unavailable={model.isUnavailable === true}
-                        jumpLabel={modelJumpLabelByKey.get(modelKey) ?? null}
-                        disabledReason={disabledReason}
-                        onToggleFavorite={() => toggleFavorite(model.instanceId, model.slug)}
-                      />
+                      <div>
+                        {SINGLE_PROVIDER_UI &&
+                        !isSearching &&
+                        (index === 0 ||
+                          favoritesSet.has(providerModelKey(model.instanceId, model.slug)) !==
+                            favoritesSet.has(
+                              providerModelKey(
+                                visibleModels[index - 1]!.instanceId,
+                                visibleModels[index - 1]!.slug,
+                              ),
+                            )) ? (
+                          <div className="px-2 pt-3 pb-1 text-xs text-muted-foreground">
+                            {favoritesSet.has(providerModelKey(model.instanceId, model.slug))
+                              ? "Favourites"
+                              : "All models"}
+                          </div>
+                        ) : null}
+                        <ModelListRow
+                          key={modelKey}
+                          index={index}
+                          model={model}
+                          instanceId={model.instanceId}
+                          driverKind={model.driverKind}
+                          providerDisplayName={model.instanceDisplayName}
+                          providerAccentColor={model.instanceAccentColor}
+                          isFavorite={favoritesSet.has(
+                            providerModelKey(model.instanceId, model.slug),
+                          )}
+                          isSelected={
+                            selectedModelKeys !== undefined
+                              ? selectedModelKeySet.has(modelKey)
+                              : modelKey === activeModelKey
+                          }
+                          showSelection={SINGLE_PROVIDER_UI || selectedModelKeys !== undefined}
+                          showProvider={!SINGLE_PROVIDER_UI}
+                          readOnlyFavorites={SINGLE_PROVIDER_UI}
+                          preferShortName={!isLocked}
+                          useTriggerLabel={false}
+                          showNewBadge={model.badge === "new"}
+                          unavailable={model.isUnavailable === true}
+                          jumpLabel={modelJumpLabelByKey.get(modelKey) ?? null}
+                          disabledReason={disabledReason}
+                          onToggleFavorite={() => toggleFavorite(model.instanceId, model.slug)}
+                        />
+                      </div>
                     );
                   }}
                   estimatedItemSize={52}

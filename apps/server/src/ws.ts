@@ -1,4 +1,9 @@
 import {
+  CONNECTIONS_ENABLED,
+  SINGLE_PROVIDER_UI,
+  isConnectionsRpcMethod,
+} from "@t3tools/contracts";
+import {
   sameUsageLimitCommandCoverage,
   withUsageLimitsCommands,
 } from "@t3tools/shared/usageLimits";
@@ -699,7 +704,14 @@ const makeWsRpcLayer = (
       ) =>
         instrumentRpcEffect(
           method,
-          authorizeEffect(requiredScopeForRpcMethod(method), effect),
+          !CONNECTIONS_ENABLED && isConnectionsRpcMethod(method)
+            ? Effect.fail(
+                new EnvironmentAuthorizationError({
+                  requiredScope: requiredScopeForRpcMethod(method),
+                  message: "Connections are disabled in Elysia.",
+                }),
+              )
+            : authorizeEffect(requiredScopeForRpcMethod(method), effect),
           traceAttributes,
         );
       const observeRpcStream = <A, E, R>(
@@ -709,7 +721,14 @@ const makeWsRpcLayer = (
       ) =>
         instrumentRpcStream(
           method,
-          authorizeStream(requiredScopeForRpcMethod(method), stream),
+          !CONNECTIONS_ENABLED && isConnectionsRpcMethod(method)
+            ? Stream.fail(
+                new EnvironmentAuthorizationError({
+                  requiredScope: requiredScopeForRpcMethod(method),
+                  message: "Connections are disabled in Elysia.",
+                }),
+              )
+            : authorizeStream(requiredScopeForRpcMethod(method), stream),
           traceAttributes,
         );
       const observeRpcStreamEffect = <A, StreamError, StreamContext, EffectError, EffectContext>(
@@ -723,7 +742,14 @@ const makeWsRpcLayer = (
       ) =>
         instrumentRpcStreamEffect(
           method,
-          authorizeEffect(requiredScopeForRpcMethod(method), effect),
+          !CONNECTIONS_ENABLED && isConnectionsRpcMethod(method)
+            ? Effect.fail(
+                new EnvironmentAuthorizationError({
+                  requiredScope: requiredScopeForRpcMethod(method),
+                  message: "Connections are disabled in Elysia.",
+                }),
+              )
+            : authorizeEffect(requiredScopeForRpcMethod(method), effect),
           traceAttributes,
         );
       const toDispatchCommandError = (cause: unknown, fallbackMessage: string) =>
@@ -2597,6 +2623,13 @@ const makeWsRpcLayer = (
                       });
                       if (maintenance.packageName)
                         providerVersionCache.delete(maintenance.packageName);
+                      if (SINGLE_PROVIDER_UI && instance.driverKind === "claudeAgent") {
+                        const runtime = yield* instance.snapshot.resolveMaintenance({
+                          fresh: true,
+                          updateTarget: "runtime",
+                        });
+                        if (runtime.packageName) providerVersionCache.delete(runtime.packageName);
+                      }
                     }),
                   { concurrency: "unbounded", discard: true },
                 );

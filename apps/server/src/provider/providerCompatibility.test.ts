@@ -52,6 +52,30 @@ const provider: ServerProvider = {
 };
 
 describe("provider compatibility", () => {
+  it("checks the harness version separately from the Elysia wrapper update", () => {
+    const snapshot = applyProviderCompatibility(
+      {
+        ...provider,
+        version: "0.3.8",
+        runtimeVersion: "2.1.285",
+        versionAdvisory: {
+          status: "behind_latest",
+          currentVersion: "0.3.8",
+          latestVersion: "0.3.9",
+          updateCommand: "elysia-code --update",
+          canUpdate: true,
+          checkedAt: null,
+          message: null,
+        },
+      },
+      [policy],
+      [],
+    );
+    assert.strictEqual(snapshot.compatibilityAdvisory?.status, "supported");
+    assert.isUndefined(snapshot.compatibilityAdvisory?.latestVersionStatus);
+    assert.strictEqual(snapshot.versionAdvisory?.latestVersion, "0.3.9");
+  });
+
   it("bundles a compatibility policy for every built-in harness", () => {
     for (const builtIn of BUILT_IN_DRIVERS) {
       assert.isDefined(

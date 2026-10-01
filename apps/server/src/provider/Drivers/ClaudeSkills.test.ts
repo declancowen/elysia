@@ -6,6 +6,7 @@ import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 
 import { discoverClaudeSkills, skillOverrideSettingsPaths } from "./ClaudeSkills.ts";
+import { planClaudeSkillDispatch } from "./ClaudeSkillDispatch.ts";
 
 const writeSkill = Effect.fn(function* (
   skillsDir: string,
@@ -20,6 +21,142 @@ const writeSkill = Effect.fn(function* (
 });
 
 it.layer(NodeServices.layer)("discoverClaudeSkills", (it) => {
+  it.effect("discovers legacy native commands and dispatches their real slash names", () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+      const tempDir = yield* fs.makeTempDirectoryScoped({ prefix: "elysia-claude-skills-" });
+      const configDir = path.join(tempDir, "claude-home");
+      const workspace = path.join(tempDir, "workspace");
+      const userCommands = path.join(configDir, "commands");
+      const projectCommands = path.join(workspace, ".claude", "commands");
+      yield* fs.makeDirectory(userCommands, { recursive: true });
+      yield* fs.makeDirectory(path.join(projectCommands, "frontend"), { recursive: true });
+      yield* fs.writeFileString(
+        path.join(userCommands, "elysia-compression.md"),
+        "---\ndescription: Show native compression savings.\n---\nRun the native CLI.",
+      );
+      yield* fs.writeFileString(
+        path.join(projectCommands, "frontend", "component.md"),
+        "---\ndescription: Build a component.\ndisable-model-invocation: true\n---\n$ARGUMENTS",
+      );
+      yield* fs.writeFileString(path.join(projectCommands, "notes.txt"), "Not a command");
+      yield* fs.writeFileString(path.join(projectCommands, "broken.md"), "---\nname: [\n---\n");
+
+      const skills = yield* discoverClaudeSkills({ homePath: configDir }, workspace);
+      assert.deepEqual(skills, [
+        {
+          name: "elysia-compression",
+          path: path.join(userCommands, "elysia-compression.md"),
+          enabled: true,
+          scope: "user",
+          description: "Show native compression savings.",
+        },
+        {
+          name: "frontend:component",
+          path: path.join(projectCommands, "frontend", "component.md"),
+          enabled: true,
+          scope: "project",
+          description: "Build a component.",
+          userInvocationOnly: true,
+        },
+      ]);
+      const names = new Set(skills.map((skill) => skill.name));
+      assert.deepEqual(planClaudeSkillDispatch("$elysia-compression stats", names), {
+        leadingText: undefined,
+        commandText: "/elysia-compression stats",
+        skillName: "elysia-compression",
+      });
+      assert.deepEqual(planClaudeSkillDispatch("$frontend:component a button", names), {
+        leadingText: undefined,
+        commandText: "/frontend:component a button",
+        skillName: "frontend:component",
+      });
+    }),
+  );
+
+  it.effect("prefers SKILL.md over legacy commands and applies command visibility overrides", () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+      const tempDir = yield* fs.makeTempDirectoryScoped({ prefix: "elysia-claude-skills-" });
+      const configDir = path.join(tempDir, "claude-home");
+      const workspace = path.join(tempDir, "workspace");
+      const userCommands = path.join(configDir, "commands");
+      const projectCommands = path.join(workspace, ".claude", "commands");
+      yield* fs.makeDirectory(userCommands, { recursive: true });
+      yield* fs.makeDirectory(projectCommands, { recursive: true });
+      yield* fs.writeFileString(path.join(userCommands, "deploy.md"), "User legacy command");
+      yield* fs.writeFileString(path.join(userCommands, "review.md"), "User review");
+      yield* fs.writeFileString(path.join(projectCommands, "review.md"), "Project review");
+      yield* fs.writeFileString(
+        path.join(userCommands, "internal.md"),
+        "---\nuser-invocable: false\n---\nInternal command",
+      );
+      yield* fs.writeFileString(
+        path.join(configDir, "settings.json"),
+        '{"skillOverrides":{"review":"off"}}',
+      );
+      yield* writeSkill(path.join(workspace, ".claude", "skills"), "deploy", "Project skill");
+
+      const skills = yield* discoverClaudeSkills({ homePath: configDir }, workspace);
+      assert.deepEqual(skills, [
+        {
+          name: "deploy",
+          path: path.join(workspace, ".claude", "skills", "deploy", "SKILL.md"),
+          enabled: true,
+          scope: "project",
+        },
+        {
+          name: "internal",
+          path: path.join(userCommands, "internal.md"),
+          enabled: true,
+          scope: "user",
+          userInvocable: false,
+        },
+        {
+          name: "review",
+          path: path.join(userCommands, "review.md"),
+          enabled: false,
+          scope: "user",
+        },
+      ]);
+    }),
+  );
+
+  it.effect("finds ancestor project skills only within the native repository boundary", () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+      const tempDir = yield* fs.makeTempDirectoryScoped({ prefix: "elysia-claude-skills-" });
+      const configDir = path.join(tempDir, "claude-home");
+      const repository = path.join(tempDir, "repository");
+      const workspace = path.join(repository, "apps", "web");
+      yield* fs.makeDirectory(path.join(repository, ".git"), { recursive: true });
+      yield* writeSkill(path.join(tempDir, ".claude", "skills"), "outside", "Outside repository");
+      yield* writeSkill(path.join(repository, ".claude", "skills"), "review", "Repository review");
+      yield* writeSkill(path.join(repository, ".claude", "skills"), "deploy", "Repository deploy");
+      yield* writeSkill(path.join(workspace, ".claude", "skills"), "review", "Workspace review");
+
+      const skills = yield* discoverClaudeSkills({ homePath: configDir }, workspace);
+      assert.deepEqual(
+        skills.map((skill) => skill.name),
+        ["deploy", "review"],
+      );
+      assert.equal(
+        skills.find((skill) => skill.name === "review")?.path,
+        path.join(workspace, ".claude", "skills", "review", "SKILL.md"),
+      );
+
+      yield* fs.remove(path.join(repository, ".git"), { recursive: true });
+      const outsideRepository = yield* discoverClaudeSkills({ homePath: configDir }, workspace);
+      assert.deepEqual(
+        outsideRepository.map((skill) => skill.name),
+        ["review"],
+      );
+    }),
+  );
+
   it.effect("discovers user and project skills with frontmatter metadata", () =>
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;

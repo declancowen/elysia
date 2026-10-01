@@ -29,18 +29,25 @@ export function supportsEnvironmentUpdate(
   );
 }
 
-export function canUpdateEnvironmentProvider(provider: ServerProvider) {
-  const compatibility = provider.compatibilityAdvisory?.latestVersionStatus;
+export function canUpdateEnvironmentProvider(provider: ServerProvider, updateTarget?: "runtime") {
+  const advisory =
+    updateTarget === "runtime" ? provider.runtimeVersionAdvisory : provider.versionAdvisory;
+  const compatibility =
+    updateTarget === "runtime" || provider.runtimeVersion === undefined
+      ? provider.compatibilityAdvisory?.latestVersionStatus
+      : undefined;
   return (
     provider.installed &&
     provider.availability !== "unavailable" &&
-    provider.versionAdvisory?.status === "behind_latest" &&
-    provider.versionAdvisory.canUpdate &&
-    provider.versionAdvisory.latestVersion !== null &&
+    advisory?.status === "behind_latest" &&
+    advisory.canUpdate &&
+    advisory.latestVersion !== null &&
     compatibility !== "broken" &&
     compatibility !== "unsupported" &&
     provider.updateState?.status !== "running" &&
-    provider.updateState?.status !== "queued"
+    provider.updateState?.status !== "queued" &&
+    provider.runtimeUpdateState?.status !== "running" &&
+    provider.runtimeUpdateState?.status !== "queued"
   );
 }
 

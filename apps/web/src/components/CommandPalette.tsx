@@ -1,4 +1,5 @@
-"use client";
+import { CONNECTIONS_ENABLED } from "@t3tools/contracts";
+("use client");
 
 import { threadPullRequestLinkMode } from "@t3tools/client-runtime/thread-pull-request-compatibility";
 import { visibleThreadPullRequests } from "@t3tools/shared/threadPullRequests";
@@ -78,7 +79,7 @@ import { useDesktopLocalBootstraps } from "../connection/useDesktopLocalBootstra
 import { useHandleNewThread } from "../hooks/useHandleNewThread";
 import { useOpenPanelPullRequestUrl } from "../hooks/useOpenPanelPullRequestUrl";
 import { writeTextToClipboard } from "../hooks/useCopyToClipboard";
-import { useClientSettings } from "../hooks/useSettings";
+import { useClientSettings, useCodeWorkspace, getClientSettings } from "../hooks/useSettings";
 import { useTheme } from "../hooks/useTheme";
 import { useCustomThemes } from "../hooks/useCustomThemes";
 import { useEnvironmentThemeDefinitions } from "../hooks/useEnvironmentTheme";
@@ -1561,7 +1562,7 @@ function OpenCommandPaletteDialog(props: {
         ...sortAddProjectProviderSources(readinessBySource),
       ];
 
-      for (const source of orderedSources) {
+      for (const source of getClientSettings().workspaceMode === "code" ? orderedSources : []) {
         const label = remoteProjectSourceLabel(source);
         const title = source === "url" ? "Git URL" : `${label} repository`;
         const description =
@@ -1701,7 +1702,7 @@ function OpenCommandPaletteDialog(props: {
     // useful next step is connecting one.
     if (addProjectEnvironmentOptions.length === 0) {
       setOpen(false);
-      void navigate({ to: "/settings/connections" });
+      void navigate({ to: CONNECTIONS_ENABLED ? "/settings/connections" : "/settings/providers" });
       return;
     }
 
@@ -2124,8 +2125,8 @@ function OpenCommandPaletteDialog(props: {
   actionItems.push({
     kind: "action",
     value: "action:usage",
-    searchTerms: ["usage", "use", "tokens", "cost", "spend", "limits", "stats", "analytics"],
-    title: "Open usage",
+    searchTerms: ["elysia", "compression", "savings", "usage", "tokens", "stats", "dashboard"],
+    title: "Open stats",
     icon: <ChartNoAxesColumnIcon className={ITEM_ICON_CLASS} />,
     shortcutCommand: "usage.open",
     run: async () => {
@@ -2182,10 +2183,30 @@ function OpenCommandPaletteDialog(props: {
     });
   }
 
-  const rootGroups = buildRootGroups({ actionItems, recentThreadItems });
+  const codeWorkspace = useCodeWorkspace();
+  const rootGroups = buildRootGroups({
+    actionItems: codeWorkspace
+      ? actionItems
+      : actionItems.filter(
+          (item) =>
+            ![
+              "action:link-pull-request",
+              "action:open-thread-pull-requests",
+              "action:pull-requests",
+              "action:project-settings",
+            ].includes(item.value),
+        ),
+    recentThreadItems,
+  });
   const settingsSearchItems: CommandPaletteActionItem[] = searchSettings(
     deferredQuery,
-    availableSettingsSearchItems,
+    availableSettingsSearchItems.filter(
+      (item) =>
+        codeWorkspace ||
+        !["/settings/source-control", "/settings/integrations", "/settings/projects"].includes(
+          item.to,
+        ),
+    ),
   ).map((item) => ({
     kind: "action",
     value: `setting:${item.id}`,

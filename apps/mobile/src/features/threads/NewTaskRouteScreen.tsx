@@ -1,3 +1,4 @@
+import { CONNECTIONS_ENABLED } from "@t3tools/contracts";
 import { MaterialListRow } from "../../components/MaterialListRow";
 import { ScreenHeader } from "../../components/ScreenHeader";
 import {
@@ -338,7 +339,8 @@ export function NewTaskRouteScreen({ route }: StaticScreenProps<NewTaskRoutePara
               <Text className="text-center text-sm leading-normal text-foreground-muted">
                 {projectEmptyState.detail}
               </Text>
-              {Platform.OS === "android" ? (
+              {Platform.OS === "android" &&
+              (CONNECTIONS_ENABLED || catalogState.hasReadyEnvironment) ? (
                 <>
                   <MaterialButton
                     label={catalogState.hasReadyEnvironment ? "Add new project" : "Add environment"}
@@ -358,14 +360,16 @@ export function NewTaskRouteScreen({ route }: StaticScreenProps<NewTaskRoutePara
                   ) : null}
                 </>
               ) : !catalogState.hasReadyEnvironment ? (
-                <Pressable
-                  className="mt-1 rounded-full bg-primary px-4 py-2.5 active:opacity-70"
-                  onPress={() => navigation.navigate("ConnectionsNew")}
-                >
-                  <Text className="text-sm font-t3-bold text-primary-foreground">
-                    Add environment
-                  </Text>
-                </Pressable>
+                CONNECTIONS_ENABLED ? (
+                  <Pressable
+                    className="mt-1 rounded-full bg-primary px-4 py-2.5 active:opacity-70"
+                    onPress={() => navigation.navigate("ConnectionsNew")}
+                  >
+                    <Text className="text-sm font-t3-bold text-primary-foreground">
+                      Add environment
+                    </Text>
+                  </Pressable>
+                ) : null
               ) : (
                 <>
                   <Pressable

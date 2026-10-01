@@ -33,6 +33,34 @@ const provider = Schema.decodeUnknownSync(ServerProvider)({
 afterEach(() => vi.unstubAllGlobals());
 
 describe("environment maintenance access", () => {
+  it("offers each Elysia updater separately and blocks both during an update", () => {
+    const elysia: ServerProvider = {
+      ...provider,
+      runtimeVersion: "2.1.285",
+      runtimeVersionAdvisory: {
+        ...provider.versionAdvisory!,
+        currentVersion: "2.1.285",
+        latestVersion: "2.1.286",
+      },
+    };
+    expect(canUpdateEnvironmentProvider(elysia)).toBe(true);
+    expect(canUpdateEnvironmentProvider(elysia, "runtime")).toBe(true);
+    expect(
+      canUpdateEnvironmentProvider({ ...elysia, runtimeVersionAdvisory: undefined }, "runtime"),
+    ).toBe(false);
+    const running: ServerProvider = {
+      ...elysia,
+      runtimeUpdateState: {
+        status: "running",
+        startedAt: null,
+        finishedAt: null,
+        message: null,
+        output: null,
+      },
+    };
+    expect(canUpdateEnvironmentProvider(running)).toBe(false);
+    expect(canUpdateEnvironmentProvider(running, "runtime")).toBe(false);
+  });
   it("requires a connected authenticated session with operate permission", () => {
     const session = {
       authenticated: true,

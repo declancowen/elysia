@@ -1,3 +1,5 @@
+import { ElysiaSetupSection } from "./ElysiaSetupSection";
+import { isEnabledProviderDriver } from "@t3tools/contracts";
 import { SettingsGroup } from "./SettingsGroup";
 import { RefreshIcon } from "~/components/ui/refresh-icon";
 import { useAtomValue } from "@effect/atom-react";
@@ -26,7 +28,6 @@ import * as Arr from "effect/Array";
 import * as Duration from "effect/Duration";
 import * as Equal from "effect/Equal";
 import * as Result from "effect/Result";
-import { PlusIcon } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
 import { isDesktopLocalConnectionTarget } from "../../connection/desktopLocal";
@@ -57,6 +58,7 @@ import {
 import {
   isProviderSettingsUpdateCandidate,
   isProviderUpdateActive,
+  projectProviderUpdateTargets,
   type ProviderSettingsUpdateCandidate,
 } from "../ProviderUpdateLaunchNotification.logic";
 import { Button } from "../ui/button";
@@ -82,7 +84,6 @@ import { stackedThreadToast, toastManager } from "../ui/toast";
 import { AddProviderInstanceDialog } from "./AddProviderInstanceDialog";
 import { ExpandableText } from "./ExpandableText";
 import { ProviderInstanceCard } from "./ProviderInstanceCard";
-import { UsageProviderSettings } from "./UsageProviderSettings";
 import { ProviderSetupSection, readAntigravityAuthMethod } from "./ProviderSetupSection";
 import { CodexSetupSection, CodexManagedRuntimeFields } from "./CodexSetupSection";
 import { readCodexSetupMode } from "./CodexSetupSection.logic";
@@ -168,7 +169,7 @@ function ProviderLastChecked({ lastCheckedAt }: { lastCheckedAt: string | null }
 
 function providerEnvironmentDetail(environment: EnvironmentPresentation): string {
   if (environment.entry.target._tag === "PrimaryConnectionTarget") return "Primary device";
-  if (environment.relayManaged) return "T3 Connect";
+  if (environment.relayManaged) return "Connections";
   if (environment.entry.target._tag === "SshConnectionTarget") return "SSH";
   if (isDesktopLocalConnectionTarget(environment.entry.target)) return "Local device";
   return environment.displayUrl ?? "Remote device";
@@ -619,7 +620,8 @@ export function EnvironmentProviderSettings({
   const providerUpdateCandidateByInstanceId = useMemo(
     () =>
       new Map(
-        serverProviders
+        projectProviderUpdateTargets(serverProviders)
+          .filter((provider) => provider.updateTarget !== "runtime")
           .filter(isProviderSettingsUpdateCandidate)
           .map((candidate) => [candidate.instanceId, candidate]),
       ),
@@ -651,31 +653,47 @@ export function EnvironmentProviderSettings({
         )
       : null;
 
-  const refreshProviders = useCallback(() => {
-    if (refreshingRef.current) return;
-    refreshingRef.current = true;
-    setIsRefreshingProviders(true);
-    void (async () => {
-      const result = await refreshServerProviders({
-        environmentId,
-        input: { refreshModels: true },
-      });
-      refreshingRef.current = false;
-      setIsRefreshingProviders(false);
-      if (result._tag === "Failure" && !isAtomCommandInterrupted(result)) {
-        console.warn("Failed to refresh providers", {
-          operation: "refresh-providers",
+  const refreshProviders = useCallback(
+    (instanceId?: ProviderInstanceId) => {
+      if (refreshingRef.current) return;
+      refreshingRef.current = true;
+      setIsRefreshingProviders(true);
+      void (async () => {
+        const result = await refreshServerProviders({
           environmentId,
-          ...safeErrorLogAttributes(squashAtomCommandFailure(result)),
+          input: { refreshModels: true, ...(instanceId ? { instanceId, fresh: true } : {}) },
         });
-      }
-    })();
-  }, [environmentId, refreshServerProviders]);
+        refreshingRef.current = false;
+        setIsRefreshingProviders(false);
+        if (result._tag === "Failure" && !isAtomCommandInterrupted(result)) {
+          const error = squashAtomCommandFailure(result);
+          toastManager.add({
+            type: "error",
+            title: "Could not check for updates",
+            description: error instanceof Error ? error.message : "Try checking again.",
+          });
+          console.warn("Failed to refresh providers", {
+            operation: "refresh-providers",
+            environmentId,
+            ...safeErrorLogAttributes(squashAtomCommandFailure(result)),
+          });
+        } else if (result._tag === "Success" && instanceId) {
+          toastManager.add({
+            type: "success",
+            title: "Update check complete",
+            description: "Claude Code and Elysia CLI status has been refreshed.",
+          });
+        }
+      })();
+    },
+    [environmentId, refreshServerProviders],
+  );
 
   const runProviderUpdate = useCallback(
     async (
       candidate: Pick<ProviderSettingsUpdateCandidate, "driver" | "instanceId">,
       targetVersion?: string,
+      updateTarget?: "runtime",
     ) => {
       // Ref-based re-entry guard, mirroring refreshProviders: a state updater
       // may run after this function returns, so it cannot gate the dispatch.
@@ -691,6 +709,7 @@ export function EnvironmentProviderSettings({
           provider: candidate.driver,
           instanceId: candidate.instanceId,
           ...(targetVersion ? { targetVersion } : {}),
+          ...(updateTarget ? { updateTarget } : {}),
         },
       });
       if (result._tag === "Failure" && !isAtomCommandInterrupted(result)) {
@@ -800,7 +819,7 @@ export function EnvironmentProviderSettings({
     }
   }
   for (const [driver, list] of instancesByDriver) {
-    if (visibleDriverKinds.has(driver)) continue;
+    if (visibleDriverKinds.has(driver) || !isEnabledProviderDriver(driver)) continue;
     for (const [id, instance] of list) {
       rows.push({
         instanceId: id,
@@ -828,16 +847,28 @@ export function EnvironmentProviderSettings({
       >[0]["textGenerationModelSelection"];
     },
   ) => {
-    updateSettings(
-      buildProviderInstanceUpdatePatch({
-        settings,
-        instanceId: row.instanceId,
-        instance: next,
-        driver: row.driver,
-        isDefault: row.isDefault,
-        textGenerationModelSelection: options?.textGenerationModelSelection,
-      }),
-    );
+    const patch = buildProviderInstanceUpdatePatch({
+      settings,
+      instanceId: row.instanceId,
+      instance: next,
+      driver: row.driver,
+      isDefault: row.isDefault,
+      textGenerationModelSelection: options?.textGenerationModelSelection,
+    });
+    const defaultModel =
+      row.driver === "claudeAgent" &&
+      next.config !== null &&
+      typeof next.config === "object" &&
+      "elysiaDefaultModel" in next.config &&
+      typeof next.config.elysiaDefaultModel === "string"
+        ? next.config.elysiaDefaultModel
+        : undefined;
+    updateSettings({
+      ...patch,
+      ...(defaultModel
+        ? { defaultModelSelection: { instanceId: row.instanceId, model: defaultModel } }
+        : {}),
+    });
   };
 
   const deleteProviderInstance = (id: ProviderInstanceId) => {
@@ -916,7 +947,10 @@ export function EnvironmentProviderSettings({
     const updateCandidate = providerUpdateCandidateByInstanceId.get(row.instanceId);
     const isInstanceUpdateRunning =
       updatingProviderInstanceIds.has(row.instanceId) ||
-      (liveProvider !== undefined && isProviderUpdateActive(liveProvider));
+      (liveProvider !== undefined &&
+        (isProviderUpdateActive(liveProvider) ||
+          liveProvider.runtimeUpdateState?.status === "running" ||
+          liveProvider.runtimeUpdateState?.status === "queued"));
     const showInlineUpdateButton = updateCandidate !== undefined;
     const canRunInlineUpdate = updateCandidate !== undefined && !isInstanceUpdateRunning;
     const modelPreferences = settings.providerModelPreferences?.[row.instanceId] ?? {
@@ -951,7 +985,15 @@ export function EnvironmentProviderSettings({
           ) : undefined
         }
         setup={
-          mode === "editor" && row.driver === "antigravity" ? (
+          mode === "editor" && row.driver === "claudeAgent" ? (
+            <ElysiaSetupSection
+              environmentId={environmentId}
+              instanceId={row.instanceId}
+              provider={liveProvider}
+              readOnly={readOnly}
+              enabled={resolveProviderInstanceEnabled(row.instance)}
+            />
+          ) : mode === "editor" && row.driver === "antigravity" ? (
             <ProviderSetupSection
               environmentId={environmentId}
               environmentLabel={environmentLabel}
@@ -1053,6 +1095,20 @@ export function EnvironmentProviderSettings({
               }
             : undefined
         }
+        onRunRuntimeUpdate={
+          mode === "editor" && liveProvider
+            ? (version) => {
+                if (!isInstanceUpdateRunning)
+                  void runProviderUpdate(liveProvider, version, "runtime");
+              }
+            : undefined
+        }
+        onCheckUpdates={
+          mode === "editor" && row.driver === "claudeAgent"
+            ? () => refreshProviders(row.instanceId)
+            : undefined
+        }
+        isCheckingUpdates={isRefreshingProviders}
         isUpdating={mode === "editor" ? isInstanceUpdateRunning : undefined}
       />
     );
@@ -1095,21 +1151,6 @@ export function EnvironmentProviderSettings({
                   />
                   <TooltipPopup side="top">Refresh provider status</TooltipPopup>
                 </Tooltip>
-                <Tooltip>
-                  <TooltipTrigger
-                    render={
-                      <Button
-                        size="icon-xs"
-                        variant="ghost-muted"
-                        onClick={() => setIsAddInstanceDialogOpen(true)}
-                        aria-label="Add provider"
-                      >
-                        <PlusIcon />
-                      </Button>
-                    }
-                  />
-                  <TooltipPopup side="top">Add provider</TooltipPopup>
-                </Tooltip>
               </>
             )}
           </div>
@@ -1126,49 +1167,20 @@ export function EnvironmentProviderSettings({
             />
           </SettingsGroup>
         ) : null}
-        <SettingsGroup
-          divided={false}
-          className={cn(
-            providerCardHeightClassName,
-            "overflow-hidden @min-[48rem]/providers:grid @min-[48rem]/providers:grid-cols-[17rem_minmax(0,1fr)]",
-          )}
-        >
-          <div className="border-b border-border/60 bg-muted/10 @min-[48rem]/providers:flex @min-[48rem]/providers:min-h-0 @min-[48rem]/providers:flex-col @min-[48rem]/providers:border-r @min-[48rem]/providers:border-b-0">
-            <ScrollArea
-              scrollFade
-              chainVerticalScroll
-              className="@min-[48rem]/providers:min-h-0 @min-[48rem]/providers:flex-1"
-            >
-              <div className="divide-y divide-border/50">
-                {rows.map((row) => renderProviderInstance(row, "list"))}
+        <div className="space-y-6">
+          {rows.map((row) =>
+            row.driver === "claudeAgent" ? (
+              <div key={row.instanceId} className="space-y-6">
+                {renderProviderInstance(row, "editor")}
               </div>
-            </ScrollArea>
-          </div>
-
-          <div className="min-w-0 @min-[48rem]/providers:min-h-0">
-            {selectedRow ? (
-              <ScrollArea scrollFade chainVerticalScroll className="@min-[48rem]/providers:h-full">
-                <div className="space-y-6 p-4">{renderProviderInstance(selectedRow, "editor")}</div>
-              </ScrollArea>
             ) : (
-              <div className="p-6 text-sm text-muted-foreground">
-                {targetInstanceMissing
-                  ? "This provider instance is no longer available on this device."
-                  : "No providers configured."}
-              </div>
-            )}
-          </div>
-        </SettingsGroup>
+              <SettingsGroup key={row.instanceId} divided={false} className="overflow-hidden">
+                <div className="space-y-6 p-4">{renderProviderInstance(row, "editor")}</div>
+              </SettingsGroup>
+            ),
+          )}
+        </div>
       </SettingsSection>
-
-      <UsageProviderSettings
-        key={environmentId}
-        environmentId={environmentId}
-        environmentLabel={environmentLabel}
-        sources={settings.usageLimitSources}
-        cursorKeychainUsageEnabled={settings.cursorKeychainUsageEnabled}
-        readOnly={readOnly}
-      />
 
       <SettingsSection title="Advanced">
         <SettingsRow

@@ -166,7 +166,7 @@ function makeRegistry(
       "providerMaintenanceRunner.test.setProviderMaintenanceActionState",
     )(function* (input: {
       readonly instanceId: ProviderInstanceId;
-      readonly action: "update";
+      readonly action: "update" | "runtimeUpdate";
       readonly state: ServerProviderUpdateState | null;
     }) {
       const updateState = input.state;
@@ -178,13 +178,18 @@ function makeRegistry(
           if (candidate.instanceId !== input.instanceId) {
             return candidate;
           }
+          const field = input.action === "runtimeUpdate" ? "runtimeUpdateState" : "updateState";
           if (!updateState) {
+            if (field === "runtimeUpdateState") {
+              const { runtimeUpdateState: _runtimeUpdateState, ...snapshot } = candidate;
+              return snapshot;
+            }
             const { updateState: _updateState, ...providerWithoutUpdateState } = candidate;
             return providerWithoutUpdateState;
           }
           return {
             ...candidate,
-            updateState,
+            [field]: updateState,
           };
         }),
       );
@@ -244,6 +249,93 @@ const makeTestRunner = (
   );
 
 describe("providerMaintenanceRunner", () => {
+  it.effect(
+    "updates Elysia and its Claude runtime independently and verifies the selected version",
+    () => {
+      const calls: string[] = [];
+      const targets: Array<string | undefined> = [];
+      const elysia = ProviderDriverKind.make("claudeAgent");
+      return Effect.gen(function* () {
+        const { registry, providersRef } = yield* makeRegistry({
+          ...baseProvider,
+          driver: elysia,
+          instanceId: ProviderInstanceId.make("claudeAgent"),
+          version: "0.3.8",
+          runtimeVersion: "2.1.285",
+        });
+        const updater = yield* makeTestRunner({
+          ...registry,
+          getProviderMaintenanceCapabilitiesForInstance: (_id, _driver, options) => {
+            targets.push(options?.updateTarget);
+            const runtime = options?.updateTarget === "runtime";
+            return Effect.succeed(
+              makeProviderMaintenanceCapabilities({
+                provider: elysia,
+                packageName: runtime ? "@anthropic-ai/claude-code" : null,
+                updateExecutable: runtime ? "npm" : "python3",
+                updateArgs: runtime
+                  ? ["install", "--prefix", "/owned/runtime", "@anthropic-ai/claude-code@latest"]
+                  : ["elysia-code.py", "--update"],
+                updateLockKey: runtime ? "npm-local:/owned/runtime" : "/owned/elysia",
+                latestVersion: runtime ? "2.1.286" : "0.3.9",
+              }),
+            );
+          },
+          refreshInstance: () =>
+            Ref.updateAndGet(providersRef, (snapshots) =>
+              snapshots.map((snapshot) => ({
+                ...snapshot,
+                version: calls.includes("python3") ? "0.3.9" : snapshot.version,
+                runtimeVersion:
+                  calls.filter((command) => command === "npm").length > 1
+                    ? "2.1.286"
+                    : snapshot.runtimeVersion,
+              })),
+            ),
+        });
+        const native = yield* updater.updateProvider({ provider: elysia });
+        assert.strictEqual(native.providers[0]?.version, "0.3.9");
+        assert.strictEqual(native.providers[0]?.runtimeVersion, "2.1.285");
+        assert.strictEqual(native.providers[0]?.updateState?.status, "succeeded");
+        assert.strictEqual(native.providers[0]?.runtimeUpdateState, undefined);
+        const unchanged = yield* updater.updateProvider({
+          provider: elysia,
+          updateTarget: "runtime",
+        });
+        assert.strictEqual(unchanged.providers[0]?.runtimeUpdateState?.status, "unchanged");
+        const runtime = yield* updater.updateProvider({
+          provider: elysia,
+          updateTarget: "runtime",
+        });
+        assert.strictEqual(runtime.providers[0]?.runtimeVersion, "2.1.286");
+        assert.strictEqual(runtime.providers[0]?.updateState?.status, "succeeded");
+        assert.strictEqual(runtime.providers[0]?.runtimeUpdateState?.status, "succeeded");
+        assert.deepStrictEqual(calls, ["python3", "npm", "npm"]);
+        assert.deepStrictEqual(targets, [
+          undefined,
+          undefined,
+          undefined,
+          "runtime",
+          "runtime",
+          "runtime",
+          "runtime",
+          "runtime",
+          "runtime",
+        ]);
+      }).pipe(
+        Effect.provide(
+          Layer.mergeAll(
+            NonWindowsPlatform,
+            latestVersionHttpClient("2.1.286"),
+            mockSpawnerLayer((command) => {
+              calls.push(command);
+              return { stdout: "updated" };
+            }),
+          ),
+        ),
+      );
+    },
+  );
   it.effect("runs the allowlisted provider update command and records success", () => {
     const calls: Array<{ command: string; args: ReadonlyArray<string> }> = [];
     return Effect.gen(function* () {

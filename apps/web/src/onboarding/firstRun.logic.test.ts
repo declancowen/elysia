@@ -24,6 +24,15 @@ const freshWorkspace = {
 } as const;
 
 describe("resolveFirstRunDecision", () => {
+  it("requires verified Elysia credentials even with completed onboarding and cached projects", () => {
+    const existing = { ...freshWorkspace, completed: true, enabled: false, projectCount: 5 };
+    expect(resolveFirstRunDecision({ ...existing, elysiaReady: null }).decision).toBe("pending");
+    expect(resolveFirstRunDecision({ ...existing, elysiaReady: false }).decision).toBe("wizard");
+    expect(resolveFirstRunDecision({ ...freshWorkspace, elysiaReady: true })).toEqual({
+      decision: "app",
+      persistCompletion: true,
+    });
+  });
   it("opens the wizard for an authoritative fresh workspace", () => {
     expect(resolveFirstRunDecision(freshWorkspace)).toEqual({
       decision: "wizard",

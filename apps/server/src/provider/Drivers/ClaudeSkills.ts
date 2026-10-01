@@ -2,8 +2,9 @@
  * ClaudeSkills — filesystem discovery of Claude Code skills for the `$` picker.
  *
  * Claude Code loads skills from `<config dir>/skills` (user scope) and
- * `<cwd>/.claude/skills` (project scope), one directory per skill with a
- * `SKILL.md` carrying YAML frontmatter. The user root wins on name collisions,
+ * project `.claude/skills`, one directory per skill with a `SKILL.md` carrying
+ * YAML frontmatter. Legacy `.claude/commands/*.md` are native skills too. The
+ * user root wins on name collisions,
  * matching the CLI. `.agents/skills` is a Codex location: verified against the
  * CLI, a skill that lives only there is answered with `Unknown command`, so it
  * is not scanned here.
@@ -296,8 +297,8 @@ const resolveClaudeConfigDirPath = Effect.fn("resolveClaudeConfigDirPath")(funct
 });
 
 /**
- * Enumerate Claude Code skills from the user config dir and the workspace
- * `.claude/skills`. Discovery is best-effort: unreadable roots and malformed
+ * Enumerate Claude Code skills and legacy commands from the user config dir
+ * and workspace. Discovery is best-effort: unreadable roots and malformed
  * skill entries are skipped so a broken skill never degrades the provider
  * snapshot. Roots are listed highest precedence first and the first hit for a
  * name wins, matching Claude Code: verified against the CLI with the same
@@ -315,19 +316,35 @@ export const discoverClaudeSkills = Effect.fn("discoverClaudeSkills")(function* 
   const configDirPath = yield* resolveClaudeConfigDirPath(config, environment ?? process.env, cwd);
   const skillOverrides = yield* readSkillOverrides(configDirPath, cwd, environment ?? process.env);
 
-  const roots: ReadonlyArray<{ directory: string; scope: ClaudeSkillScope }> = [
-    { directory: path.join(configDirPath, "skills"), scope: "user" },
-    ...(cwd ? [{ directory: path.join(cwd, ".claude", "skills"), scope: "project" as const }] : []),
+  const configRoots: Array<{ directory: string; scope: ClaudeSkillScope }> = [
+    { directory: configDirPath, scope: "user" },
   ];
+  if (cwd) {
+    const repositoryRoot = yield* findRepositoryRoot(cwd);
+    let current = path.resolve(cwd);
+    while (true) {
+      configRoots.push({ directory: path.join(current, ".claude"), scope: "project" as const });
+      if (repositoryRoot === undefined || current === repositoryRoot) break;
+      current = path.dirname(current);
+    }
+  }
+  // Claude resolves a SKILL.md before a legacy command with the same name.
+  const roots = (["skills", "commands"] as const).flatMap((kind) =>
+    configRoots.map((root) => ({ ...root, kind, directory: path.join(root.directory, kind) })),
+  );
 
   const skillsByName = new Map<string, ServerProviderSkill>();
   for (const root of roots) {
     const entries = yield* fileSystem
-      .readDirectory(root.directory)
+      .readDirectory(root.directory, { recursive: root.kind === "commands" })
       .pipe(Effect.orElseSucceed((): ReadonlyArray<string> => []));
 
     for (const entry of [...entries].sort()) {
-      const skillPath = path.join(root.directory, entry, "SKILL.md");
+      if (root.kind === "commands" && !entry.endsWith(".md")) continue;
+      const skillPath =
+        root.kind === "skills"
+          ? path.join(root.directory, entry, "SKILL.md")
+          : path.join(root.directory, entry);
       const contents = yield* fileSystem
         .readFileString(skillPath)
         .pipe(Effect.orElseSucceed(() => undefined));
@@ -349,7 +366,8 @@ export const discoverClaudeSkills = Effect.fn("discoverClaudeSkills")(function* 
       // `probe-alias`, and only `skillOverrides["probe-alias"]` switches it
       // off. Keying off the frontmatter name would report a command that does
       // not exist and miss the override that disables it.
-      const name = entry.trim();
+      const name =
+        root.kind === "skills" ? entry.trim() : entry.slice(0, -3).split(path.sep).join(":").trim();
       if (!name) {
         continue;
       }

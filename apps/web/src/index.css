@@ -1429,9 +1429,18 @@ html[data-theme-id="t3-chat"] {
   }
 }
 
+html[data-theme-id="default"] [data-sidebar="menu-button"][data-active="true"] {
+  @variant dark {
+    --sidebar-foreground: var(--app-theme-accent-foreground);
+    --contrast-sidebar-foreground: var(--app-theme-accent-foreground);
+    --sidebar-muted-foreground: var(--app-theme-accent-foreground);
+    --contrast-sidebar-muted-foreground: var(--app-theme-accent-foreground);
+  }
+}
+
 html[data-theme-id] [data-app-sidebar] {
-  --background: var(--app-theme-canvas);
-  --foreground: var(--app-theme-text);
+  --background: var(--app-theme-sidebar);
+  --foreground: var(--app-theme-sidebar-foreground);
   --card: var(--app-theme-surface);
   --card-foreground: var(--app-theme-text);
   --accent: var(--app-theme-accent-surface);

@@ -8,7 +8,6 @@ import {
 } from "@t3tools/shared/hostProcess";
 import {
   CLI_RELEASE_BASE_URL_ENV,
-  CLI_RELEASE_CHANNELS,
   cliReleaseIndexPageUrl,
   cliReleaseChannelOf,
   newestCliReleaseVersion,
@@ -225,10 +224,8 @@ export const findWindowsShim = Effect.fn("cli.update.find_windows_shim")(functio
 
 const updateFlags = {
   ...projectLocationFlags,
-  channel: Flag.Literals("channel", CLI_RELEASE_CHANNELS).pipe(
-    Flag.withDescription(
-      "Release channel to follow. Defaults to the channel this t3 was published on.",
-    ),
+  channel: Flag.Literals("channel", ["stable"] as const).pipe(
+    Flag.withDescription("Elysia follows stable releases."),
     Flag.optional,
   ),
   allowDowngrade: Flag.Boolean("allow-downgrade").pipe(
@@ -352,10 +349,12 @@ const runUpdate = Effect.fn("cli.update.run")(function* (input: {
   const service = yield* BootService.BootService;
 
   const currentVersion = packageJson.version;
-  const channel = input.channel ?? cliReleaseChannelOf(currentVersion);
+  const channel = "stable" as const;
+  if (input.channel && input.channel !== "stable")
+    return yield* new CliUpdateError({ reason: "Elysia uses stable releases." });
   if (input.requestedVersion !== undefined && !isExactServiceVersion(input.requestedVersion)) {
     return yield* new CliUpdateError({
-      reason: `'${input.requestedVersion}' is not an exact t3 version.`,
+      reason: `'${input.requestedVersion}' is not an exact Elysia version.`,
     });
   }
   const progress = createUpdateProgress();
@@ -367,34 +366,8 @@ const runUpdate = Effect.fn("cli.update.run")(function* (input: {
   ).pipe(Effect.ensuring(Effect.sync(progress.finish)));
   const targetChannel = cliReleaseChannelOf(targetVersion);
 
-  // Preview is a maintainers' dogfooding train: it is cut by hand from
-  // unmerged branches, receives no fixes, and is never offered to anyone.
-  // Reaching it from stable or nightly takes an explicit ask and an explicit
-  // acknowledgement; the flag alone is not enough from a script.
-  const currentChannel = cliReleaseChannelOf(currentVersion);
-  if (targetChannel === "preview" && currentChannel !== "preview") {
-    yield* Console.log(
-      [
-        `t3@${targetVersion} is a preview build.`,
-        "  Preview builds are cut by maintainers from unreleased branches to exercise the release",
-        "  pipeline. They can be broken, receive no fixes, and are never offered as updates; you",
-        `  will have to switch back to ${currentChannel} yourself with \`t3 update --channel ${currentChannel} --allow-downgrade\`.`,
-      ].join("\n"),
-    );
-    if (!(process.stdin.isTTY && process.stdout.isTTY)) {
-      return yield* new CliUpdateError({
-        reason:
-          "Refusing to install a preview build without confirmation. Run this from a terminal to confirm, or pass --channel preview from an interactive shell.",
-      });
-    }
-    const confirmed = yield* Prompt.run(
-      Prompt.Confirm({ message: "Install the preview build anyway?", initial: false }),
-    ).pipe(Effect.catchTag("QuitError", () => Effect.succeed(false)));
-    if (!confirmed) {
-      yield* Console.log("Left as is.");
-      return;
-    }
-  }
+  if (targetChannel !== "stable")
+    return yield* new CliUpdateError({ reason: "Elysia uses stable releases." });
 
   // Work out everything that will be touched before touching anything, so the
   // user sees one plan and one question rather than a surprise restart.
@@ -459,8 +432,8 @@ const runUpdate = Effect.fn("cli.update.run")(function* (input: {
       : executableCurrent
         ? `Updating the background service ${serviceVersion ?? "(unknown version)"} -> ${targetVersion} (${targetChannel}).`
         : alreadyOnDisk
-          ? "Switching T3 Code"
-          : "Updating T3 Code",
+          ? "Switching Elysia"
+          : "Updating Elysia",
     executableCurrent
       ? ""
       : `${currentVersion} → ${targetVersion}${targetChannel === "stable" ? "" : ` (${targetChannel})`}`,
@@ -577,7 +550,7 @@ const runUpdate = Effect.fn("cli.update.run")(function* (input: {
     serviceUpdated = restartService;
   }
 
-  progress.success(`Installed T3 Code ${targetVersion}`);
+  progress.success(`Installed Elysia ${targetVersion}`);
   if (Option.isSome(repointed)) {
     yield* Console.log("  Run t3 to get started.\n");
   } else {

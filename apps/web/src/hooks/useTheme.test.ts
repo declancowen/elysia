@@ -79,7 +79,7 @@ describe("theme failure handling", () => {
 
     const { readThemePreference } = await import("./useTheme");
 
-    expect(readThemePreference()).toBe("t3-chat");
+    expect(readThemePreference()).toBe("default");
   });
 
   it("falls back during initial theme application and logs only safe attributes", async () => {

@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-import { UsagePage } from "../components/usage/UsagePage";
+import { ElysiaUsagePage } from "../components/usage/ElysiaUsagePage";
 
 export const Route = createFileRoute("/usage")({
-  component: UsagePage,
+  component: ElysiaUsagePage,
 });

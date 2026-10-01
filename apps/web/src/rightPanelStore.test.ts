@@ -11,6 +11,7 @@ import {
   selectSelectedRightPanelSurface,
   selectThreadRightPanelState,
   useRightPanelStore,
+  workspaceRightPanelState,
 } from "./rightPanelStore";
 
 const refA = scopeThreadRef("env-1" as EnvironmentId, ThreadId.make("thread-A"));
@@ -21,6 +22,32 @@ beforeEach(() => {
 });
 
 describe("rightPanelStore", () => {
+  it("Work filters developer tabs while Code restores the selected tab and all stored surfaces", () => {
+    const store = useRightPanelStore.getState();
+    store.open(refA, "files");
+    store.open(refA, "sources");
+    store.open(refA, "sources");
+    store.open(refA, "diff");
+    store.open(refA, "device");
+    const state = selectThreadRightPanelState(useRightPanelStore.getState().byThreadKey, refA);
+    expect(workspaceRightPanelState(state, false)).toMatchObject({
+      surfaces: [{ id: "sources", kind: "sources" }],
+      activeSurfaceId: "sources",
+      isOpen: true,
+    });
+    expect(workspaceRightPanelState(state, true)).toBe(state);
+    expect(state.surfaces.map((surface) => surface.kind)).toEqual([
+      "files",
+      "sources",
+      "diff",
+      "device",
+    ]);
+    expect(state.activeSurfaceId).toBe("device");
+    store.closeSurface(refA, "sources");
+    const hidden = selectThreadRightPanelState(useRightPanelStore.getState().byThreadKey, refA);
+    expect(workspaceRightPanelState(hidden, false).isOpen).toBe(false);
+    expect(workspaceRightPanelState(hidden, true).surfaces).toHaveLength(3);
+  });
   it("gives each host/device its own tab and preserves renamed tabs", () => {
     const store = useRightPanelStore.getState();
     const android = {

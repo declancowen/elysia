@@ -1,5 +1,7 @@
 {
   "id": "/",
+  "name": "Elysia",
+  "short_name": "Elysia",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

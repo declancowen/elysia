@@ -1,3 +1,4 @@
+import { ElysiaDriver, type ElysiaDriverEnv } from "./Drivers/ElysiaDriver.ts";
 /**
  * BUILT_IN_DRIVERS — the static set of `ProviderDriver`s this build ships
  * with.
@@ -20,20 +21,17 @@
  *
  * @module provider/builtInDrivers
  */
-import { ClaudeDriver, type ClaudeDriverEnv } from "./Drivers/ClaudeDriver.ts";
-import { CodexDriver, type CodexDriverEnv } from "./Drivers/CodexDriver.ts";
-import { CursorDriver, type CursorDriverEnv } from "./Drivers/CursorDriver.ts";
-import { GrokDriver, type GrokDriverEnv } from "./Drivers/GrokDriver.ts";
-import { OpenCodeDriver, type OpenCodeDriverEnv } from "./Drivers/OpenCodeDriver.ts";
-import { AntigravityDriver, type AntigravityDriverEnv } from "./Drivers/AntigravityDriver.ts";
+import type { ClaudeDriverEnv } from "./Drivers/ClaudeDriver.ts";
 import type { AnyProviderDriver } from "./ProviderDriver.ts";
 
-/**
- * Union of infrastructure services required to construct any built-in
- * driver. The registry layer declares `R = BuiltInDriversEnv`; the runtime
- * layer must provide every service in this union.
- */
+import type { CodexDriverEnv } from "./Drivers/CodexDriver.ts";
+import type { CursorDriverEnv } from "./Drivers/CursorDriver.ts";
+import type { GrokDriverEnv } from "./Drivers/GrokDriver.ts";
+import type { OpenCodeDriverEnv } from "./Drivers/OpenCodeDriver.ts";
+import type { AntigravityDriverEnv } from "./Drivers/AntigravityDriver.ts";
+
 export type BuiltInDriversEnv =
+  | ElysiaDriverEnv
   | ClaudeDriverEnv
   | CodexDriverEnv
   | CursorDriverEnv
@@ -41,16 +39,5 @@ export type BuiltInDriversEnv =
   | OpenCodeDriverEnv
   | AntigravityDriverEnv;
 
-/**
- * Ordered list of built-in drivers. Order matters only for tie-breaking in
- * UI presentation — the registry itself is keyed by `driverKind`, so
- * iteration order has no functional effect on instance lookup.
- */
-export const BUILT_IN_DRIVERS: ReadonlyArray<AnyProviderDriver<BuiltInDriversEnv>> = [
-  CodexDriver,
-  ClaudeDriver,
-  CursorDriver,
-  GrokDriver,
-  OpenCodeDriver,
-  AntigravityDriver,
-];
+// Elysia uses Claude Code's native protocol. Other upstream drivers stay dormant.
+export const BUILT_IN_DRIVERS: ReadonlyArray<AnyProviderDriver<BuiltInDriversEnv>> = [ElysiaDriver];

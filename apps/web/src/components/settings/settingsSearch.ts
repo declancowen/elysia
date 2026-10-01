@@ -4,6 +4,7 @@ import { STATIC_KEYBINDING_COMMANDS, type KeybindingCommand } from "@t3tools/con
 import type { EnvironmentId } from "@t3tools/contracts";
 import type { EnvironmentConnectionPhase } from "@t3tools/client-runtime/connection";
 import { DEFAULT_KEYBINDINGS } from "@t3tools/shared/keybindings";
+import { BUILT_IN_THEMES } from "@t3tools/shared/themePalettes";
 import { commandLabel } from "./KeybindingsSettings.logic";
 import {
   validateSettingsScopeSearch,
@@ -186,7 +187,10 @@ export const SETTINGS_SEARCH_ITEMS = [
     id: "theme",
     title: "Themes",
     to: "/settings/appearance",
-    searchTerms: ["appearance colors palette custom import"],
+    searchTerms: [
+      "appearance colors palette custom import informa",
+      ...BUILT_IN_THEMES.map((theme) => theme.label),
+    ],
     // Theme cards live directly under the scheme tiles; the section is the
     // stable scroll destination for both.
     targetId: "appearance",
@@ -381,7 +385,7 @@ export const SETTINGS_SEARCH_ITEMS = [
     id: "provider-update-checks",
     title: "Provider update checks",
     to: "/settings/general",
-    searchTerms: ["installed cli versions newer available codex claude cursor grok opencode"],
+    searchTerms: ["elysia installed cli versions newer available updates"],
     scope: "environment-defaults",
   },
   {
@@ -475,19 +479,19 @@ export const SETTINGS_SEARCH_ITEMS = [
   },
   {
     id: "legacy-plan-mode",
-    title: "Plan mode (legacy)",
+    title: "Plan mode",
     to: "/settings/general",
     searchTerms: ["build plan composer old"],
   },
   {
     id: "legacy-context-window-indicator",
-    title: "Context window indicator (legacy)",
+    title: "Context window indicator",
     to: "/settings/general",
     searchTerms: ["composer meter usage tokens circle old"],
   },
   {
     id: "legacy-sidebar",
-    title: "Sidebar (legacy)",
+    title: "Sidebar",
     to: "/settings/general",
     searchTerms: ["project thread tree old flat list"],
   },
@@ -542,7 +546,7 @@ export const SETTINGS_SEARCH_ITEMS = [
     title: "Providers",
     to: "/settings/providers",
     searchTerms: [
-      "agents cli codex claude cursor grok opencode antigravity google sign in sign out install subscription instances authentication api key models configuration binary path config directory endpoint arguments environment variables display name accent color custom favorite hidden auto compact",
+      "elysia claude code cli company credentials workspace config user api key models intelligence authentication compression binary python path configuration instances favorite hidden auto compact",
     ],
   },
   {
@@ -783,7 +787,7 @@ export const SETTINGS_SEARCH_ITEMS = [
   {
     id: "t3-connect",
     localEnvironmentOnly: true,
-    title: "T3 Connect",
+    title: "Connections",
     to: "/settings/connections",
     targetId: "connections-environment",
     searchTerms: ["managed tunnel cloud other devices remote"],
@@ -964,6 +968,10 @@ export function filterAvailableSettingsSearchItems(
   const items: ReadonlyArray<SettingsSearchItem> = SETTINGS_SEARCH_ITEMS;
   return items.filter(
     (item) =>
+      !["project-grouping", "environment-identification", "update-track"].includes(item.id) &&
+      item.to !== "/settings/connections" &&
+      item.id !== "cursor-keychain-usage" &&
+      item.id !== "usage-providers" &&
       (!item.cloudOnly || availability.hasCloudPublicConfig) &&
       (!item.environmentOnly || availability.hasEnvironment) &&
       (!item.providerSettingsOnly || availability.hasProviderSettingsEnvironment) &&

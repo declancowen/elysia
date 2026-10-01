@@ -12,6 +12,7 @@ import {
   canOneClickUpdateProviderCandidate,
   collectProviderUpdateCandidates,
   collectUpdatedProviderSnapshots,
+  projectProviderUpdateTargets,
   firstFailedProviderUpdateMessage,
   getProviderUpdateInitialToastView,
   getProviderUpdateProgressToastView,
@@ -32,6 +33,10 @@ type ActiveProviderUpdateToast =
       readonly kind: "update";
       readonly key: string;
       readonly providerInstanceIds: ReadonlySet<ProviderInstanceId>;
+      readonly targets: ReadonlyArray<{
+        readonly instanceId: ProviderInstanceId;
+        readonly updateTarget?: "runtime";
+      }>;
       readonly providerCount: number;
     };
 
@@ -161,8 +166,12 @@ export function ProviderUpdatePrimaryNotification() {
       return;
     }
 
-    const activeProviders = providers.filter((provider) =>
-      activeToast.providerInstanceIds.has(provider.instanceId),
+    const activeProviders = projectProviderUpdateTargets(providers).filter((provider) =>
+      activeToast.targets.some(
+        (target) =>
+          target.instanceId === provider.instanceId &&
+          target.updateTarget === provider.updateTarget,
+      ),
     );
     const view = getProviderUpdateProgressToastView({
       providers: activeProviders,
@@ -215,6 +224,7 @@ export function ProviderUpdatePrimaryNotification() {
         kind: "update",
         key: notificationKey,
         providerInstanceIds,
+        targets: oneClickProviders,
         providerCount,
       };
       activeToastRef.current = activeUpdate;
@@ -230,6 +240,7 @@ export function ProviderUpdatePrimaryNotification() {
               input: {
                 provider: provider.driver,
                 instanceId: provider.instanceId,
+                ...(provider.updateTarget ? { updateTarget: provider.updateTarget } : {}),
               },
             }),
           );
@@ -253,7 +264,13 @@ export function ProviderUpdatePrimaryNotification() {
         const updatedProviderSnapshots = collectUpdatedProviderSnapshots({
           results,
           providerInstanceIds,
-        });
+        }).filter((provider) =>
+          activeUpdate.targets.some(
+            (target) =>
+              target.instanceId === provider.instanceId &&
+              target.updateTarget === provider.updateTarget,
+          ),
+        );
         const view = getProviderUpdateProgressToastView({
           providers: updatedProviderSnapshots,
           providerCount,
@@ -284,7 +301,8 @@ export function ProviderUpdatePrimaryNotification() {
         actionVariant: "outline",
         data: {
           leadingIcon:
-            updateProviders.length === 1 ? (
+            updateProviders.length > 0 &&
+            updateProviders.every((provider) => provider.driver === updateProviders[0]!.driver) ? (
               <ProviderUpdateToastIcon provider={updateProviders[0]!.driver} />
             ) : undefined,
           hideCopyButton: true,

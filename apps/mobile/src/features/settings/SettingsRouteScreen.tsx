@@ -1,3 +1,4 @@
+import { CONNECTIONS_ENABLED } from "@t3tools/contracts";
 import { ScreenScrollView as ScrollView } from "../../components/ScreenScrollView";
 import { useAuth, useUser } from "@clerk/expo";
 import { useNavigation } from "@react-navigation/native";
@@ -71,23 +72,25 @@ function ConfiguredSettingsRouteScreen() {
         contentContainerClassName="gap-4 px-5 pt-4"
         contentContainerStyle={{ paddingBottom: Math.max(insets.bottom, 18) + 18 }}
       >
-        <SettingsSection title="Connections">
-          <SettingsRow
-            icon="person.crop.circle"
-            label="T3 Account"
-            value={accountLabel}
-            disabled={!isLoaded}
-            onPress={() => navigation.navigate("SettingsSheet", { screen: "SettingsAuth" })}
-          />
-          <SettingsRow
-            icon="desktopcomputer"
-            label="Environments"
-            value={`${Object.keys(savedConnectionsById).length}`}
-            valuePosition="trailing"
-            target="SettingsEnvironments"
-          />
-          <SettingsRow icon="bell.badge" label="Notifications" target="SettingsNotifications" />
-        </SettingsSection>
+        {CONNECTIONS_ENABLED ? (
+          <SettingsSection title="Connections">
+            <SettingsRow
+              icon="person.crop.circle"
+              label="T3 Account"
+              value={accountLabel}
+              disabled={!isLoaded}
+              onPress={() => navigation.navigate("SettingsSheet", { screen: "SettingsAuth" })}
+            />
+            <SettingsRow
+              icon="desktopcomputer"
+              label="Environments"
+              value={`${Object.keys(savedConnectionsById).length}`}
+              valuePosition="trailing"
+              target="SettingsEnvironments"
+            />
+            <SettingsRow icon="bell.badge" label="Notifications" target="SettingsNotifications" />
+          </SettingsSection>
+        ) : null}
 
         <SettingsIndexSections />
       </ScrollView>
@@ -111,15 +114,17 @@ function LocalSettingsRouteScreen() {
           paddingBottom: Math.max(insets.bottom, 18) + 18,
         }}
       >
-        <SettingsSection title="Connections">
-          <SettingsRow
-            icon="desktopcomputer"
-            label="Environments"
-            value={`${environmentCount}`}
-            valuePosition="trailing"
-            target="SettingsEnvironments"
-          />
-        </SettingsSection>
+        {CONNECTIONS_ENABLED ? (
+          <SettingsSection title="Connections">
+            <SettingsRow
+              icon="desktopcomputer"
+              label="Environments"
+              value={`${environmentCount}`}
+              valuePosition="trailing"
+              target="SettingsEnvironments"
+            />
+          </SettingsSection>
+        ) : null}
 
         <SettingsIndexSections />
       </ScrollView>
@@ -195,8 +200,8 @@ function SettingsIndexSections() {
       </SettingsSection>
 
       <SettingsSection title="App">
-        <SettingsRow icon="chart.bar.xaxis" label="Usage" target="SettingsUsage" />
-        <SettingsRow icon="info.circle" label="About T3 Code" target="SettingsAbout" />
+        <SettingsRow icon="chart.bar.xaxis" label="Savings" target="SettingsUsage" />
+        <SettingsRow icon="info.circle" label="About Elysia" target="SettingsAbout" />
       </SettingsSection>
     </>
   );

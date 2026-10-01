@@ -1,3 +1,4 @@
+import { CONNECTIONS_ENABLED } from "@t3tools/contracts";
 import { useNavigation } from "@react-navigation/native";
 import type { EnvironmentThreadSearchMatch } from "@t3tools/client-runtime/state/thread-search";
 import { THREAD_JUMP_KEYBINDING_COMMANDS } from "@t3tools/contracts";
@@ -228,7 +229,7 @@ export function CommandPalette(props: {
       {
         key: "usage",
         kind: "action",
-        title: "Usage",
+        title: "Compression savings",
         searchTerms: ["limits", "accounts", "quota"],
         run: () =>
           navigation.navigate("SettingsSheet", {
@@ -248,6 +249,10 @@ export function CommandPalette(props: {
           }),
       },
     ];
+    if (!CONNECTIONS_ENABLED) {
+      const connectionAction = actions.findIndex((action) => action.key === "environments");
+      if (connectionAction !== -1) actions.splice(connectionAction, 1);
+    }
     const projectByKey = new Map(
       projects.map((project) => [scopedProjectKey(project.environmentId, project.id), project]),
     );

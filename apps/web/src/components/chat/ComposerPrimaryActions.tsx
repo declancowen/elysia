@@ -1,3 +1,4 @@
+import { Square } from "lucide-react";
 import { memo, type PointerEventHandler } from "react";
 import { ChevronDownIcon, ChevronLeftIcon } from "lucide-react";
 import { useEnvironmentIdentificationMode } from "~/hooks/useSettings";
@@ -102,9 +103,7 @@ export const ComposerPrimaryActions = memo(function ComposerPrimaryActions({
       onClick={onInterrupt}
       aria-label="Stop generation"
     >
-      <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor" aria-hidden="true">
-        <rect x="2" y="2" width="8" height="8" rx="1.5" />
-      </svg>
+      <Square size={12} fill="currentColor" aria-hidden="true" />
     </button>
   );
 

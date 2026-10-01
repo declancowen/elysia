@@ -1,3 +1,4 @@
+import { CONNECTIONS_ENABLED } from "@t3tools/contracts";
 import * as NodeOS from "node:os";
 
 import { parsePersistedServerObservabilitySettings } from "@t3tools/shared/serverSettings";
@@ -907,7 +908,8 @@ export const make = Effect.gen(function* () {
   // created once at layer init, but configResolve fires on each restart).
   const describePrimary = Effect.gen(function* () {
     const persistedSettings = yield* settings.get;
-    const wslRequested = persistedSettings.wslOnly && persistedSettings.wslBackendEnabled;
+    const wslRequested =
+      CONNECTIONS_ENABLED && persistedSettings.wslOnly && persistedSettings.wslBackendEnabled;
     // Only honor wsl-only when WSL is actually usable. If the user
     // persisted wsl-only but WSL has since become unavailable (wsl.exe
     // removed, no distro), fall back to the Windows primary instead of

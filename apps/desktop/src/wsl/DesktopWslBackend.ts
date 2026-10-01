@@ -29,6 +29,7 @@ import * as Ref from "effect/Ref";
 import * as Semaphore from "effect/Semaphore";
 
 import * as NetService from "@t3tools/shared/Net";
+import { CONNECTIONS_ENABLED } from "@t3tools/contracts";
 
 import * as DesktopObservability from "../app/DesktopObservability.ts";
 import * as DesktopBackendConfiguration from "../backend/DesktopBackendConfiguration.ts";
@@ -187,6 +188,7 @@ export const layer = Layer.effect(
     });
 
     const reconcileBody = Effect.gen(function* () {
+      if (!CONNECTIONS_ENABLED) return;
       const settings = yield* appSettings.get;
       if (!settings.localEnvironmentEnabled) return;
       const available = yield* wslEnvironment.isAvailable;

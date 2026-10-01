@@ -1,3 +1,4 @@
+import { CONNECTIONS_ENABLED } from "@t3tools/contracts";
 import {
   createPathConfigForStaticNavigation,
   getPathFromState,
@@ -85,10 +86,9 @@ import {
   SettingsOpenSourceLicenseRouteScreen,
   SettingsOpenSourceLicensesRouteScreen,
 } from "./features/settings/SettingsOpenSourceLicensesRouteScreen";
-import { SettingsProjectGroupingRouteScreen } from "./features/settings/SettingsProjectGroupingRouteScreen";
 import { SettingsProjectOverviewRouteScreen } from "./features/settings/SettingsProjectOverviewRouteScreen";
 import { UsageLimitAccountScreen } from "./features/usage/UsageLimitsPooled";
-import { UsageRouteScreen } from "./features/usage/UsageRouteScreen";
+import { ElysiaUsageRouteScreen } from "./features/usage/ElysiaUsageRouteScreen";
 import { SettingsAboutRouteScreen } from "./features/settings/SettingsAboutRouteScreen";
 import { SettingsNotificationsRouteScreen } from "./features/settings/SettingsNotificationsRouteScreen";
 import { SettingsRouteScreen } from "./features/settings/SettingsRouteScreen";
@@ -188,7 +188,7 @@ const SettingsContentStack = createNativeStackNavigator({
       },
     }),
     SettingsEnvironments: createNativeStackScreen({
-      screen: SettingsEnvironmentsRouteScreen,
+      screen: CONNECTIONS_ENABLED ? SettingsEnvironmentsRouteScreen : SettingsRouteScreen,
       linking: "environments",
       options: {
         title: "Environments",
@@ -232,10 +232,10 @@ const SettingsContentStack = createNativeStackNavigator({
     SettingsAbout: createNativeStackScreen({
       screen: SettingsAboutRouteScreen,
       linking: "about",
-      options: { title: "About T3 Code" },
+      options: { title: "About Elysia" },
     }),
     SettingsEnvironmentNew: createNativeStackScreen({
-      screen: ConnectionsNewRouteScreen,
+      screen: CONNECTIONS_ENABLED ? ConnectionsNewRouteScreen : SettingsRouteScreen,
       linking: "environment-new",
       options: {
         title: "Add Environment",
@@ -256,14 +256,14 @@ const SettingsContentStack = createNativeStackNavigator({
       },
     }),
     SettingsProjectGrouping: createNativeStackScreen({
-      screen: SettingsProjectGroupingRouteScreen,
+      screen: SettingsRouteScreen,
       linking: "project-grouping",
       options: {
         title: "Organization",
       },
     }),
     SettingsOrganization: createNativeStackScreen({
-      screen: SettingsProjectGroupingRouteScreen,
+      screen: SettingsRouteScreen,
       linking: "organization",
       options: {
         title: "Organization",
@@ -323,10 +323,10 @@ const SettingsContentStack = createNativeStackNavigator({
       },
     }),
     SettingsUsage: createNativeStackScreen({
-      screen: UsageRouteScreen,
+      screen: ElysiaUsageRouteScreen,
       linking: "usage",
       options: {
-        title: "Usage",
+        title: "Savings",
       },
     }),
   },
@@ -516,7 +516,7 @@ function RootStackLayout(props: {
   const { pendingShare } = useIncomingShare();
   const sharePresentationRef = useRef(EMPTY_INCOMING_SHARE_PRESENTATION_STATE);
   useAgentNotificationNavigation();
-  // Presents the T3 Connect onboarding sheet after an in-session sign-in.
+  // Presents the Connections onboarding sheet after an in-session sign-in.
   useConnectOnboardingNavigation();
   // Launcher app shortcuts: routes shortcut taps and tracks opened threads.
   useAppShortcuts(props.state);
@@ -736,7 +736,9 @@ const RootStackConfig = createNativeStackNavigator({
       },
     }),
     SettingsLegal: createNativeStackScreen({
-      screen: SettingsLegalRouteScreen,
+      screen: process.env.EXPO_PUBLIC_MARKETING_SITE_URL
+        ? SettingsLegalRouteScreen
+        : SettingsAboutRouteScreen,
       linking: "settings/legal",
       options: {
         ...LEGAL_DOCUMENT_HEADER_OPTIONS,
@@ -744,13 +746,13 @@ const RootStackConfig = createNativeStackNavigator({
       },
     }),
     ConnectOnboarding: createNativeStackScreen({
-      screen: ConnectOnboardingRouteScreen,
+      screen: CONNECTIONS_ENABLED ? ConnectOnboardingRouteScreen : SettingsRouteScreen,
       linking: "connect-onboarding",
       options: {
         // A root-level Android formSheet does not host the native stack bar;
         // the route renders an embedded AndroidSheetHeader instead.
         ...(Platform.OS === "android" ? { headerShown: false } : SHEET_SOLID_HEADER_OPTIONS),
-        title: "Set up T3 Connect",
+        title: "Set up Connections",
         gestureEnabled: true,
         ...FORM_SHEET_PRESENTATION_OPTIONS,
         sheetAllowedDetents: [0.6, 0.95],
@@ -758,7 +760,7 @@ const RootStackConfig = createNativeStackNavigator({
       },
     }),
     Connections: createNativeStackScreen({
-      screen: ConnectionsRouteScreen,
+      screen: CONNECTIONS_ENABLED ? ConnectionsRouteScreen : SettingsRouteScreen,
       linking: "connections",
       options: {
         title: "Environments",
@@ -774,7 +776,7 @@ const RootStackConfig = createNativeStackNavigator({
       },
     }),
     ConnectionsNew: createNativeStackScreen({
-      screen: ConnectionsNewRouteScreen,
+      screen: CONNECTIONS_ENABLED ? ConnectionsNewRouteScreen : SettingsRouteScreen,
       linking: "connections/new",
       options: {
         ...FORM_SHEET_PRESENTATION_OPTIONS,

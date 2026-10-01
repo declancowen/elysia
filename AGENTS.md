@@ -1,3 +1,9 @@
+# Elysia
+
+This is the company Elysia fork. Call the app **Elysia** in UI text and agent responses. It wraps the native Elysia CLI through Claude Code. Other providers, connection management, upstream analytics, and prerelease update channels are disabled by this fork's runtime policy; retain their dormant implementations for upstream merges. Credential protection must preserve native routing, compression, slash commands, and LangSmith tracing.
+
+The upstream development guidance follows below. Its product history and remote/multiple-provider defaults describe T3 Code; the Elysia fork policy takes precedence for this app.
+
 # T3 Code
 
 T3 Code is a minimal GUI for coding agents. A Node WebSocket server wraps provider CLIs and agents (Codex, Claude Code, Cursor, Grok, OpenCode, Antigravity) and serves web, desktop, and mobile clients.

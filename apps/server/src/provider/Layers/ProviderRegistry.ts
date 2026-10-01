@@ -386,7 +386,13 @@ export const ProviderRegistryLive = Layer.effect(
       ReadonlyMap<ProviderInstance, ReadonlySet<string>>
     >(new Map());
     const maintenanceActionStatesRef = yield* Ref.make<
-      ReadonlyMap<ProviderInstanceId, { readonly update?: ServerProviderUpdateState | undefined }>
+      ReadonlyMap<
+        ProviderInstanceId,
+        {
+          readonly update?: ServerProviderUpdateState | undefined;
+          readonly runtimeUpdate?: ServerProviderUpdateState | undefined;
+        }
+      >
     >(new Map());
 
     // Live-source registry — the dynamic counterpart to the boot-time
@@ -430,14 +436,16 @@ export const ProviderRegistryLive = Layer.effect(
       provider: ServerProvider,
     ) {
       const maintenanceActionStates = yield* Ref.get(maintenanceActionStatesRef);
-      const updateState = maintenanceActionStates.get(provider.instanceId)?.update;
-      if (!updateState) {
-        const { updateState: _updateState, ...providerWithoutUpdateState } = provider;
-        return providerWithoutUpdateState;
-      }
+      const actions = maintenanceActionStates.get(provider.instanceId);
+      const {
+        updateState: _updateState,
+        runtimeUpdateState: _runtimeUpdateState,
+        ...snapshot
+      } = provider;
       return {
-        ...provider,
-        updateState,
+        ...snapshot,
+        ...(actions?.update ? { updateState: actions.update } : {}),
+        ...(actions?.runtimeUpdate ? { runtimeUpdateState: actions.runtimeUpdate } : {}),
       };
     });
 
@@ -526,7 +534,7 @@ export const ProviderRegistryLive = Layer.effect(
     const setProviderMaintenanceActionState = Effect.fn("setProviderMaintenanceActionState")(
       function* (input: {
         readonly instanceId: ProviderInstanceId;
-        readonly action: "update";
+        readonly action: "update" | "runtimeUpdate";
         readonly state: ServerProviderUpdateState | null;
       }) {
         yield* Ref.update(maintenanceActionStatesRef, (previous) => {
@@ -614,7 +622,7 @@ export const ProviderRegistryLive = Layer.effect(
     )(function* (
       instanceId: ProviderInstanceId,
       provider: ProviderDriverKind,
-      options?: { readonly fresh?: boolean },
+      options?: { readonly fresh?: boolean; readonly updateTarget?: "runtime" },
     ) {
       // Read the instance registry, not `liveSubsRef`: the latter trails
       // reconciliation, and an update must never run a retired instance's

@@ -1,12 +1,25 @@
-import { ArrowLeftIcon, ChartNoAxesColumnIcon, SettingsIcon } from "lucide-react";
+import {
+  ArrowLeftIcon,
+  BriefcaseIcon,
+  Code2,
+  ChartNoAxesColumnIcon,
+  SettingsIcon,
+  Columns2Icon,
+  PanelLeftIcon,
+} from "lucide-react";
 import type { ReactNode } from "react";
 import { memo, useCallback } from "react";
 import { Link, useLocation, useNavigate } from "@tanstack/react-router";
 
-import { useEnvironmentIdentificationMode } from "../../hooks/useSettings";
+import {
+  useClientSettings,
+  useCodeWorkspace,
+  useUpdateClientSettings,
+  useEnvironmentIdentificationMode,
+} from "../../hooks/useSettings";
 import { cn } from "../../lib/utils";
 import { useEnvironments } from "../../state/environments";
-import { T3Wordmark } from "../T3Wordmark";
+import { ElysiaWordmark } from "../Icons";
 import {
   resolveEnvironmentIdentificationPillLabel,
   resolveSidebarStageBackdropVariant,
@@ -85,18 +98,7 @@ function SidebarBrand({ onBackdrop }: { onBackdrop: boolean }) {
       )}
       to="/"
     >
-      {/* Center the visible capitals, without the font's ascender/descender space. */}
-      <span className="inline-flex min-w-0 items-baseline gap-1 text-sm font-medium tracking-tight">
-        <T3Wordmark aria-label="T3" className="h-[1cap] w-auto shrink-0" />
-        <span
-          className={cn(
-            "truncate [text-box:trim-both_cap_alphabetic]",
-            onBackdrop ? "text-white/70" : "text-muted-foreground",
-          )}
-        >
-          Code
-        </span>
-      </span>
+      <ElysiaWordmark aria-label="Elysia" className="h-6 w-18 shrink-0" />
     </Link>
   );
 }
@@ -127,12 +129,18 @@ function SidebarUtilityItem({
 }
 
 export const SidebarUtilityMenu = memo(function SidebarUtilityMenu() {
+  const codeWorkspace = useCodeWorkspace();
   const navigate = useNavigate();
+  const projectSidebar = useClientSettings((settings) => settings.legacySidebarEnabled);
+  const updateClientSettings = useUpdateClientSettings();
   const navigateToMainApp = useNavigateToMainApp();
   const { isMobile, setOpenMobile } = useSidebar();
-  const isOnUtilityPage = useLocation({
-    select: (location) => isSidebarUtilityPage(location.pathname),
-  });
+  const pathname = useLocation({ select: (location) => location.pathname });
+  const isOnUtilityPage = isSidebarUtilityPage(pathname);
+  const isOnSettingsPage =
+    pathname === "/settings" ||
+    pathname.startsWith("/settings/") ||
+    pathname.startsWith("/projects/");
   const { environments } = useEnvironments();
   // The page reads every connected server, so one of them offering pull requests is enough for
   // the link to lead somewhere.
@@ -178,13 +186,26 @@ export const SidebarUtilityMenu = memo(function SidebarUtilityMenu() {
           </SidebarMenuButton>
         </SidebarMenuItem>
       ) : (
+        <SidebarUtilityItem
+          icon={<SettingsIcon />}
+          label="Settings"
+          onClick={handleSettingsClick}
+        />
+      )}
+      {!isOnSettingsPage ? (
+        <SidebarUtilityItem
+          icon={codeWorkspace ? <Code2 /> : <BriefcaseIcon />}
+          label={
+            codeWorkspace ? "Code workspace · Switch to Work" : "Work workspace · Switch to Code"
+          }
+          onClick={() => {
+            void updateClientSettings({ workspaceMode: codeWorkspace ? "work" : "code" });
+          }}
+        />
+      ) : null}
+      {!isOnUtilityPage ? (
         <>
-          <SidebarUtilityItem
-            icon={<SettingsIcon />}
-            label="Settings"
-            onClick={handleSettingsClick}
-          />
-          {pullRequestsSupported ? (
+          {codeWorkspace && pullRequestsSupported ? (
             <SidebarUtilityItem
               icon={<PullRequestGlyph.pullRequest />}
               label="Pull Requests"
@@ -193,11 +214,20 @@ export const SidebarUtilityMenu = memo(function SidebarUtilityMenu() {
           ) : null}
           <SidebarUtilityItem
             icon={<ChartNoAxesColumnIcon />}
-            label="Usage"
+            label="Stats"
             onClick={handleUsageClick}
           />
         </>
-      )}
+      ) : null}
+      {!isOnSettingsPage ? (
+        <SidebarUtilityItem
+          icon={projectSidebar ? <Columns2Icon /> : <PanelLeftIcon />}
+          label={projectSidebar ? "Switch to flat sidebar" : "Switch to project sidebar"}
+          onClick={() => {
+            void updateClientSettings({ legacySidebarEnabled: !projectSidebar });
+          }}
+        />
+      ) : null}
       <SidebarUpdatePill />
     </SidebarMenu>
   );

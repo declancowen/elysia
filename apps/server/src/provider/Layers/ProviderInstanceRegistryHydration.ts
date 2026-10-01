@@ -1,3 +1,4 @@
+import { isEnabledProviderDriver } from "@t3tools/contracts";
 /**
  * ProviderInstanceRegistryHydration — derive a `ProviderInstanceConfigMap`
  * from `ServerSettings` and keep `ProviderInstanceRegistry` in sync with it.
@@ -73,7 +74,11 @@ import { ProviderInstanceRegistryMutableLayer } from "./ProviderInstanceRegistry
 export const deriveProviderInstanceConfigMap = (
   settings: ServerSettings,
 ): ProviderInstanceConfigMap => {
-  const merged: Record<string, ProviderInstanceConfig> = { ...settings.providerInstances };
+  const merged: Record<string, ProviderInstanceConfig> = Object.fromEntries(
+    Object.entries(settings.providerInstances).filter(([, instance]) =>
+      isEnabledProviderDriver(instance.driver),
+    ),
+  );
 
   for (const driver of BUILT_IN_DRIVERS) {
     const instanceId = defaultInstanceIdForDriver(driver.driverKind);
@@ -100,6 +105,17 @@ export const deriveProviderInstanceConfigMap = (
     };
   }
 
+  const selection = settings.defaultModelSelection;
+  if (selection && merged[selection.instanceId]?.driver === "claudeAgent") {
+    const instance = merged[selection.instanceId]!;
+    merged[selection.instanceId] = {
+      ...instance,
+      config: {
+        ...(typeof instance.config === "object" && instance.config !== null ? instance.config : {}),
+        elysiaDefaultModel: selection.model,
+      },
+    };
+  }
   return merged as ProviderInstanceConfigMap;
 };
 

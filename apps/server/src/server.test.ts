@@ -7004,9 +7004,9 @@ it.layer(NodeServices.layer)("server router seam", (it) => {
     }).pipe(Effect.provide(NodeHttpServer.layerTest)),
   );
 
-  for (const mode of ["all", "targeted", "background"] as const) {
+  for (const mode of ["all", "targeted", "background", "elysia"] as const) {
     it.effect(`provider refresh invalidates T3 caches before probing (${mode})`, () => {
-      const driver = ProviderDriverKind.make("codex");
+      const driver = ProviderDriverKind.make(mode === "elysia" ? "claudeAgent" : "codex");
       const instanceIds = [ProviderInstanceId.make("codex"), ProviderInstanceId.make("codex_work")];
       const packageNames = ["@example/personal", "@example/work"];
       const versionCache = new Map(
@@ -7018,6 +7018,10 @@ it.layer(NodeServices.layer)("server router seam", (it) => {
           },
         ]),
       );
+      versionCache.set("@anthropic-ai/claude-code", {
+        expiresAt: Number.MAX_SAFE_INTEGER,
+        version: "1.0.0",
+      });
       const invalidated: string[] = [];
       const freshMaintenance: string[] = [];
       let manifestRefreshed = false;
@@ -7037,10 +7041,12 @@ it.layer(NodeServices.layer)("server router seam", (it) => {
               resolveMaintenance: (options) =>
                 Effect.sync(() => {
                   assert.isTrue(options?.fresh);
-                  freshMaintenance.push(instanceId);
+                  freshMaintenance.push(instanceId + (options?.updateTarget ? ":runtime" : ""));
                   return makeManualOnlyProviderMaintenanceCapabilities({
                     provider: driver,
-                    packageName: packageNames[index]!,
+                    packageName: options?.updateTarget
+                      ? "@anthropic-ai/claude-code"
+                      : packageNames[index]!,
                   });
                 }),
               getSnapshot: Effect.never,
@@ -7058,7 +7064,14 @@ it.layer(NodeServices.layer)("server router seam", (it) => {
         probed = true;
         assert.equal(manifestRefreshed, mode !== "background");
         assert.deepEqual(invalidated.toSorted(), expected.toSorted());
-        assert.deepEqual(freshMaintenance.toSorted(), expected.toSorted());
+        assert.deepEqual(
+          freshMaintenance.toSorted(),
+          [
+            ...expected,
+            ...(mode === "elysia" ? instanceIds.map((id) => id + ":runtime") : []),
+          ].toSorted(),
+        );
+        assert.equal(versionCache.has("@anthropic-ai/claude-code"), mode !== "elysia");
         for (let index = 0; index < instanceIds.length; index++) {
           assert.equal(
             versionCache.has(packageNames[index]!),

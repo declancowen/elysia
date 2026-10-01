@@ -4,6 +4,7 @@ import { buildRuntimeInstructions } from "./RuntimeInstructions.ts";
 describe("buildRuntimeInstructions", () => {
   it("requires explicit registration of every PR and stack layer", () => {
     const instructions = buildRuntimeInstructions({ harness: "Codex" });
+    expect(instructions).toContain("you are running in Elysia");
     expect(instructions).toContain("When the t3-code MCP server exposes link_pull_request");
     expect(instructions).toContain("with the full PR URL immediately after creating a PR");
     expect(instructions).toContain("For a stack, call it for every layer");

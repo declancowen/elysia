@@ -34,9 +34,9 @@ describe("branding", () => {
 
     const branding = await import("./branding");
 
-    expect(branding.APP_BASE_NAME).toBe("T3 Code");
-    expect(branding.APP_STAGE_LABEL).toBe("Nightly");
-    expect(branding.APP_DISPLAY_NAME).toBe("T3 Code (Nightly)");
+    expect(branding.APP_BASE_NAME).toBe("Elysia");
+    expect(branding.APP_STAGE_LABEL).toBe("Dev");
+    expect(branding.APP_DISPLAY_NAME).toBe("Elysia");
   });
 
   it("normalizes hosted app channel metadata", async () => {
@@ -44,10 +44,10 @@ describe("branding", () => {
 
     const branding = await import("./branding");
 
-    expect(branding.HOSTED_APP_CHANNEL).toBe("nightly");
-    expect(branding.HOSTED_APP_CHANNEL_LABEL).toBe("Nightly");
-    expect(branding.APP_STAGE_LABEL).toBe("Nightly");
-    expect(branding.APP_DISPLAY_NAME).toBe("T3 Code (Nightly)");
+    expect(branding.HOSTED_APP_CHANNEL).toBeNull();
+    expect(branding.HOSTED_APP_CHANNEL_LABEL).toBeNull();
+    expect(branding.APP_STAGE_LABEL).toBe("Dev");
+    expect(branding.APP_DISPLAY_NAME).toBe("Elysia");
   });
 
   it("does not label the latest hosted app channel", async () => {
@@ -57,8 +57,8 @@ describe("branding", () => {
 
     expect(branding.HOSTED_APP_CHANNEL).toBe("latest");
     expect(branding.HOSTED_APP_CHANNEL_LABEL).toBe("Latest");
-    expect(branding.APP_STAGE_LABEL).toBe("Latest");
-    expect(branding.APP_DISPLAY_NAME).toBe("T3 Code");
+    expect(branding.APP_STAGE_LABEL).toBe("Dev");
+    expect(branding.APP_DISPLAY_NAME).toBe("Elysia");
   });
 
   it("ignores unknown hosted app channels", async () => {
@@ -72,16 +72,16 @@ describe("branding", () => {
 });
 
 describe("branding logic", () => {
-  it("returns Nightly for nightly primary server versions", () => {
+  it("ignores nightly branding for primary server versions", () => {
     expect(
       resolveServerBackedAppStageLabel({
         primaryServerVersion: "0.0.28-nightly.20260616.12",
         fallbackStageLabel: "Alpha",
       }),
-    ).toBe("Nightly");
+    ).toBe("");
   });
 
-  it("updates the display name for nightly primary server versions", () => {
+  it("keeps the base display name for nightly primary server versions", () => {
     expect(
       resolveServerBackedAppDisplayName({
         baseName: "T3 Code",
@@ -89,10 +89,10 @@ describe("branding logic", () => {
         fallbackStageLabel: "Alpha",
         primaryServerVersion: "0.0.28-nightly.20260616.12",
       }),
-    ).toBe("T3 Code (Nightly)");
+    ).toBe("T3 Code");
   });
 
-  it("keeps the fallback display name for stable primary server versions", () => {
+  it("keeps the base display name for stable primary server versions", () => {
     expect(
       resolveServerBackedAppDisplayName({
         baseName: "T3 Code",
@@ -100,10 +100,10 @@ describe("branding logic", () => {
         fallbackStageLabel: "Alpha",
         primaryServerVersion: "0.0.27",
       }),
-    ).toBe("T3 Code (Alpha)");
+    ).toBe("T3 Code");
   });
 
-  it("keeps the fallback display name for malformed nightly primary server versions", () => {
+  it("keeps the base display name for malformed nightly primary server versions", () => {
     expect(
       resolveServerBackedAppDisplayName({
         baseName: "T3 Code",
@@ -111,6 +111,6 @@ describe("branding logic", () => {
         fallbackStageLabel: "Alpha",
         primaryServerVersion: "0.0.28-nightly.20260616",
       }),
-    ).toBe("T3 Code (Alpha)");
+    ).toBe("T3 Code");
   });
 });

@@ -1,3 +1,4 @@
+import { isEnabledProviderDriver } from "@t3tools/contracts";
 import type {
   ModelCapabilities,
   ModelSelection,
@@ -35,7 +36,7 @@ function providerDisplayLabel(provider: {
 }): string {
   if (provider.displayName) return provider.displayName;
   if (provider.driver === "codex") return "Codex";
-  if (provider.driver === "claudeAgent") return "Claude";
+  if (provider.driver === "claudeAgent") return "Elysia";
   return provider.instanceId;
 }
 
@@ -77,6 +78,7 @@ export function isModelSelectionUnavailable(
   return (
     driver === "antigravity" &&
     (!provider ||
+      !isEnabledProviderDriver(provider.driver) ||
       !provider.enabled ||
       !provider.installed ||
       provider.auth.status === "unauthenticated" ||
@@ -155,6 +157,7 @@ export function buildModelOptions(
 
   for (const provider of config?.providers ?? []) {
     if (
+      !isEnabledProviderDriver(provider.driver) ||
       !provider.enabled ||
       !provider.installed ||
       provider.auth.status === "unauthenticated" ||
@@ -187,7 +190,14 @@ export function buildModelOptions(
     }
   }
 
-  if (fallbackModelSelection) {
+  if (
+    fallbackModelSelection &&
+    config?.providers.some(
+      (provider) =>
+        provider.instanceId === fallbackModelSelection.instanceId &&
+        isEnabledProviderDriver(provider.driver),
+    )
+  ) {
     const key = `${fallbackModelSelection.instanceId}:${fallbackModelSelection.model}`;
     const existing = options.get(key);
     if (existing) {

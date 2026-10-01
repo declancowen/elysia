@@ -10,6 +10,19 @@ import * as Path from "effect/Path";
 import * as PlatformError from "effect/PlatformError";
 import * as Schema from "effect/Schema";
 import { ChildProcessSpawner } from "effect/unstable/process";
+import { beforeEach, vi } from "vite-plus/test";
+
+const forkPolicy = vi.hoisted(() => ({ connectionsEnabled: true }));
+vi.mock("@t3tools/contracts", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@t3tools/contracts")>()),
+  get CONNECTIONS_ENABLED() {
+    return forkPolicy.connectionsEnabled;
+  },
+}));
+
+beforeEach(() => {
+  forkPolicy.connectionsEnabled = true;
+});
 
 import * as DesktopEnvironment from "../app/DesktopEnvironment.ts";
 import * as DesktopBackendConfiguration from "./DesktopBackendConfiguration.ts";
@@ -225,6 +238,45 @@ const withPackagedWslHarness = <A, E, R>(
   }).pipe(Effect.scoped, Effect.provide(NodeServices.layer));
 
 describe("DesktopBackendConfiguration", () => {
+  it.effect("Elysia keeps Windows native when old settings request a WSL-only backend", () =>
+    Effect.gen(function* () {
+      forkPolicy.connectionsEnabled = false;
+      const fileSystem = yield* FileSystem.FileSystem;
+      const baseDir = yield* fileSystem.makeTempDirectoryScoped({
+        prefix: "elysia-desktop-native-test-",
+      });
+
+      yield* Effect.gen(function* () {
+        const configuration = yield* DesktopBackendConfiguration.DesktopBackendConfiguration;
+        const config = yield* configuration.resolvePrimary;
+        assert.equal(config.executablePath, process.execPath);
+        assert.isTrue(Option.isNone(config.preflightFailure));
+        assert.equal(yield* configuration.resolvePrimaryLabel, "Windows");
+      }).pipe(
+        Effect.provide(
+          DesktopBackendConfiguration.layer.pipe(
+            Layer.provideMerge(serverExposureLayer),
+            Layer.provideMerge(
+              DesktopAppSettings.layerTest({
+                ...DesktopAppSettings.DEFAULT_DESKTOP_SETTINGS,
+                wslBackendEnabled: true,
+                wslOnly: true,
+                wslDistro: "Ubuntu",
+              }),
+            ),
+            Layer.provideMerge(DesktopWslServerTree.layerTest()),
+            Layer.provideMerge(
+              Layer.mock(DesktopWslEnvironment.DesktopWslEnvironment)({
+                isAvailable: Effect.die("Elysia should not probe WSL"),
+              }),
+            ),
+            Layer.provideMerge(makeEnvironmentLayer(baseDir, { platform: "win32" })),
+          ),
+        ),
+      );
+    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+  );
+
   it.effect("resolvePrimary produces a stable scoped bootstrap token", () =>
     withHarness(
       Effect.gen(function* () {

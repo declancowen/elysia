@@ -4,7 +4,7 @@ import {
   isProjectFaviconFallbackUrl,
 } from "@t3tools/shared/projectFavicon";
 import { FolderCodeIcon } from "lucide-react";
-import type { IconName } from "lucide-react/dynamic";
+import type { IconName } from "../projectIcons";
 import type { ComponentType } from "react";
 import { lazy, Suspense, useState } from "react";
 import { useAtomValue } from "@effect/atom-react";
@@ -15,7 +15,7 @@ import { ProjectMonogram } from "./ProjectMonogram";
 import { cn } from "~/lib/utils";
 
 const DynamicIcon = lazy(() =>
-  import("lucide-react/dynamic").then((module) => ({ default: module.DynamicIcon })),
+  import("../projectIcons").then((module) => ({ default: module.DynamicIcon })),
 );
 
 function DynamicProjectIconFallback() {

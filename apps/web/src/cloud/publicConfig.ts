@@ -1,3 +1,4 @@
+import { CONNECTIONS_ENABLED } from "@t3tools/contracts";
 import { relayClerkTokenOptions } from "@t3tools/shared/relayAuth";
 import { normalizeSecureRelayUrl } from "@t3tools/shared/relayUrl";
 import * as Schema from "effect/Schema";
@@ -71,7 +72,10 @@ export function resolveRelayTracingConfig() {
 
 export function hasCloudPublicConfig(): boolean {
   const config = resolveCloudPublicConfig();
-  return Boolean(config.clerkPublishableKey && config.clerkJwtTemplate && config.relayUrl);
+  return (
+    CONNECTIONS_ENABLED &&
+    Boolean(config.clerkPublishableKey && config.clerkJwtTemplate && config.relayUrl)
+  );
 }
 
 export function resolveRelayClerkTokenOptions() {

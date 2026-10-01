@@ -1,3 +1,4 @@
+import { useCodeWorkspace } from "~/hooks/useSettings";
 import { pullRequestHostOf, type SourceControlProviderKind } from "@t3tools/contracts";
 import type { EnvironmentThreadShell } from "@t3tools/client-runtime/state/shell";
 import { useProjects, useServerConfigs, useThreadShells } from "~/state/entities";
@@ -21,6 +22,7 @@ import {
   ChevronRight,
   FileDiff,
   Files,
+  GitBranchIcon,
   Globe2,
   Plus,
   TerminalSquare,
@@ -119,6 +121,7 @@ interface RightPanelTabsProps {
   onAddTerminal: () => void;
   onAddDiff: () => void;
   onAddFiles: () => void;
+  onAddSources?: (() => void) | undefined;
   onAddPullRequest: () => void;
   onAddPullRequests: () => void;
   onAddAgents: () => void;
@@ -127,6 +130,7 @@ interface RightPanelTabsProps {
   terminalAvailable: boolean;
   diffAvailable: boolean;
   filesAvailable: boolean;
+  sourcesAvailable?: boolean | undefined;
   pullRequestAvailable: boolean;
   pullRequestsAvailable: boolean;
   agentsAvailable: boolean;
@@ -154,9 +158,10 @@ export function shouldOpenDefaultBrowserProfileFromMenuClick(
 }
 
 const SURFACE_DISABLED_REASONS = {
-  browser: "Browser previews are only available in the T3 Code desktop app.",
+  browser: "Browser previews are only available in the Elysia desktop app.",
   terminal: "Terminal surfaces are only available from a project thread.",
-  files: "Files are only available when a project is open.",
+  files: "Repo is only available when a project is open.",
+  sources: "Sources are only available from a thread.",
   diff: "Diff is only available for server threads in Git repositories.",
   pullRequest: "This thread's branch has no pull request yet.",
   pullRequests: "No linked pull requests are available for this thread.",
@@ -181,6 +186,7 @@ const SURFACE_UNAVAILABLE_HINTS = {
   browser: "Only available in the desktop app.",
   terminal: "Available when a project is open.",
   files: "Available when a project is open.",
+  sources: "Available from a thread.",
   diff: "Available for Git repositories.",
   pullRequest: "No pull request on this branch yet.",
   pullRequests: "No linked pull requests available.",
@@ -322,6 +328,7 @@ function RightPanelEmptyState(props: {
   onAddTerminal: () => void;
   onAddDiff: () => void;
   onAddFiles: () => void;
+  onAddSources?: (() => void) | undefined;
   onAddPullRequest: () => void;
   onAddPullRequests: () => void;
   onAddAgents: () => void;
@@ -330,6 +337,7 @@ function RightPanelEmptyState(props: {
   terminalAvailable: boolean;
   diffAvailable: boolean;
   filesAvailable: boolean;
+  sourcesAvailable?: boolean | undefined;
   pullRequestAvailable: boolean;
   pullRequestsAvailable: boolean;
   agentsAvailable: boolean;
@@ -339,6 +347,7 @@ function RightPanelEmptyState(props: {
   // -1 means no highlight: it only appears on hover or arrow use.
   const [highlight, setHighlight] = useState(-1);
 
+  const codeWorkspace = useCodeWorkspace();
   const actions = [
     {
       label: "Browser",
@@ -359,12 +368,21 @@ function RightPanelEmptyState(props: {
       badgeCount: 0,
     },
     {
-      label: "Files",
-      icon: Files,
-      shortcut: "F",
+      label: "Repo",
+      icon: GitBranchIcon,
+      shortcut: "R",
       available: props.filesAvailable,
       disabledReason: SURFACE_UNAVAILABLE_HINTS.files,
       onClick: props.onAddFiles,
+      badgeCount: 0,
+    },
+    {
+      label: "Sources",
+      icon: Files,
+      shortcut: "S",
+      available: props.sourcesAvailable ?? false,
+      disabledReason: SURFACE_UNAVAILABLE_HINTS.sources,
+      onClick: () => props.onAddSources?.(),
       badgeCount: 0,
     },
     {
@@ -413,7 +431,7 @@ function RightPanelEmptyState(props: {
       onClick: props.onAddDevice,
       badgeCount: 0,
     },
-  ] as const;
+  ].filter((action) => codeWorkspace || ["Browser", "Sources", "Agents"].includes(action.label));
 
   type SurfaceAction = (typeof actions)[number];
 
@@ -614,7 +632,9 @@ function surfaceTitle(
     case "diff":
       return "Diff";
     case "files":
-      return "Files";
+      return "Repo";
+    case "sources":
+      return "Sources";
     case "file":
       return surface.relativePath.slice(
         Math.max(surface.relativePath.lastIndexOf("/"), surface.relativePath.lastIndexOf("\\")) + 1,
@@ -691,6 +711,8 @@ function SurfaceIcon({
     case "diff":
       return <FileDiff className="size-3 shrink-0" />;
     case "files":
+      return <GitBranchIcon className="size-3 shrink-0" />;
+    case "sources":
       return <Files className="size-3 shrink-0" />;
     case "file":
       return (
@@ -868,6 +890,7 @@ export function RightPanelTabs(props: RightPanelTabsProps) {
     });
   }, []);
 
+  const codeWorkspace = useCodeWorkspace();
   const addSurfaceActions = [
     {
       label: "Browser",
@@ -886,12 +909,20 @@ export function RightPanelTabs(props: RightPanelTabsProps) {
       onClick: props.onAddTerminal,
     },
     {
-      label: "Files",
-      icon: Files,
-      shortcut: "F",
+      label: "Repo",
+      icon: GitBranchIcon,
+      shortcut: "R",
       available: props.filesAvailable,
       disabledReason: SURFACE_DISABLED_REASONS.files,
       onClick: props.onAddFiles,
+    },
+    {
+      label: "Sources",
+      icon: Files,
+      shortcut: "S",
+      available: props.sourcesAvailable ?? false,
+      disabledReason: SURFACE_DISABLED_REASONS.sources,
+      onClick: () => props.onAddSources?.(),
     },
     {
       label: "Diff",
@@ -933,7 +964,7 @@ export function RightPanelTabs(props: RightPanelTabsProps) {
       disabledReason: SURFACE_DISABLED_REASONS.device,
       onClick: props.onAddDevice,
     },
-  ] as const;
+  ].filter((action) => codeWorkspace || ["Browser", "Sources", "Agents"].includes(action.label));
 
   const handleAddSurfaceMenuKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
     const action = surfaceShortcutActionForKey(addSurfaceActions, event.nativeEvent);
@@ -1412,6 +1443,7 @@ export function RightPanelTabs(props: RightPanelTabsProps) {
             onAddTerminal={props.onAddTerminal}
             onAddDiff={props.onAddDiff}
             onAddFiles={props.onAddFiles}
+            onAddSources={props.onAddSources}
             onAddPullRequest={props.onAddPullRequest}
             onAddPullRequests={props.onAddPullRequests}
             onAddAgents={props.onAddAgents}
@@ -1420,6 +1452,7 @@ export function RightPanelTabs(props: RightPanelTabsProps) {
             terminalAvailable={props.terminalAvailable}
             diffAvailable={props.diffAvailable}
             filesAvailable={props.filesAvailable}
+            sourcesAvailable={props.sourcesAvailable}
             pullRequestAvailable={props.pullRequestAvailable}
             pullRequestsAvailable={props.pullRequestsAvailable}
             agentsAvailable={props.agentsAvailable}

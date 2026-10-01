@@ -1,3 +1,4 @@
+import { CONNECTIONS_ENABLED } from "@t3tools/contracts";
 import { useAndroidControlSizing } from "../../components/useAndroidControlSizing";
 import type { ThreadMoveDestination } from "../threads/threadOrder";
 import { computeThreadMoveAvailability } from "../threads/threadOrder";
@@ -919,10 +920,20 @@ export function HomeScreen(props: HomeScreenProps) {
             <EmptyState
               title={emptyState.title}
               detail={emptyState.detail}
-              actionLabel={!props.catalogState.hasReadyEnvironment ? "Add environment" : undefined}
-              onAction={!props.catalogState.hasReadyEnvironment ? props.onAddConnection : undefined}
+              actionLabel={
+                CONNECTIONS_ENABLED && !props.catalogState.hasReadyEnvironment
+                  ? "Add environment"
+                  : undefined
+              }
+              onAction={
+                CONNECTIONS_ENABLED && !props.catalogState.hasReadyEnvironment
+                  ? props.onAddConnection
+                  : undefined
+              }
               action={
-                Platform.OS === "android" && !props.catalogState.hasReadyEnvironment ? (
+                CONNECTIONS_ENABLED &&
+                Platform.OS === "android" &&
+                !props.catalogState.hasReadyEnvironment ? (
                   <MaterialFloatingActionButton
                     label="Add environment"
                     icon="plus"

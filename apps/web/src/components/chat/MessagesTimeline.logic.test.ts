@@ -20,6 +20,7 @@ import {
 import * as Option from "effect/Option";
 import { AsyncResult, Atom, AtomRegistry } from "effect/unstable/reactivity";
 import {
+  isWorkWorkspaceEntry,
   computeStableMessagesTimelineRows,
   computeMessageDurationStart,
   deriveMessagesTimelineRows,
@@ -123,6 +124,21 @@ describe("streaming row projection", () => {
     } satisfies Parameters<typeof deriveMessagesTimelineRows>[0];
     return { messages, work, timeline, input, time, turnId, historyTurnId };
   }
+
+  it("Work hides tool calls without deleting message history or critical failures", () => {
+    const { timeline, work } = fixture("Assistant answer");
+    const original = [...timeline.entries];
+    const messages = timeline.entries.filter((entry) => entry.kind === "message");
+    expect(timeline.entries.filter(isWorkWorkspaceEntry)).toEqual(messages);
+    expect(timeline.entries).toEqual(original);
+    const error = {
+      ...work[0]!,
+      sourceActivityKind: "provider.turn.start.failed",
+      tone: "error" as const,
+    };
+    const entry = deriveTimelineEntries([], [], [error])[0]!;
+    expect(isWorkWorkspaceEntry(entry)).toBe(true);
+  });
 
   it.each([
     ["", "Now visible"],

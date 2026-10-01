@@ -371,6 +371,42 @@ const sendCompletedClaudeTurn = (
   });
 
 describe("ClaudeAdapterLive", () => {
+  it.effect(
+    "enforces Elysia model and credential restrictions while loading native tracing settings",
+    () => {
+      const harness = makeHarness({
+        environment: {
+          ELYSIA_PROFILE_ROOT: "/tmp/elysia-adapter-profile",
+          ANTHROPIC_AUTH_TOKEN: "fixture-key",
+          TRACE_TO_LANGSMITH: "true",
+        },
+      });
+      return Effect.gen(function* () {
+        const adapter = yield* ClaudeAdapter;
+        yield* adapter.startSession({
+          threadId: THREAD_ID,
+          provider: ProviderDriverKind.make("claudeAgent"),
+          runtimeMode: "full-access",
+        });
+        const options = harness.getLastCreateQueryInput()!.options;
+        assert.deepEqual(options.settingSources, ["user", "project", "local"]);
+        assert.deepEqual(
+          options.managedSettings?.availableModels,
+          SYNTHETIC_CLAUDE_MODEL_CATALOG.models.map((entry) => entry.model.slug),
+        );
+        assert.equal(options.managedSettings?.enforceAvailableModels, true);
+        assert.equal(options.managedSettings?.sandbox?.failIfUnavailable, true);
+        assert.include(options.env!, {
+          TRACE_TO_LANGSMITH: "true",
+          ANTHROPIC_AUTH_TOKEN: "fixture-key",
+        });
+      }).pipe(
+        Effect.provideService(Random.Random, makeDeterministicRandomService()),
+        Effect.provide(harness.layer),
+      );
+    },
+  );
+
   it.effect("returns validation error for non-claude provider on startSession", () => {
     const harness = makeHarness();
     return Effect.gen(function* () {

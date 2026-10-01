@@ -1,3 +1,5 @@
+import { useCodeWorkspace } from "~/hooks/useSettings";
+import { CONNECTIONS_ENABLED } from "@t3tools/contracts";
 import {
   lazy,
   Suspense,
@@ -13,7 +15,7 @@ import {
   ArchiveIcon,
   BlocksIcon,
   BotIcon,
-  createLucideIcon,
+  ScanIcon,
   GitBranchIcon,
   HardDriveIcon,
   PanelsTopLeftIcon,
@@ -50,17 +52,7 @@ import {
 import { useAvailableSettingsSearchItems } from "./useAvailableSettingsSearchItems";
 import { validateSettingsScopeSearch } from "./settingsScope";
 
-const SnapShotIcon = createLucideIcon("snap-shot", [
-  [
-    "path",
-    {
-      d: "M8 3H6a3 3 0 0 0-3 3v2M16 3h2a3 3 0 0 1 3 3v2M21 16v2a3 3 0 0 1-3 3h-2M8 21H6a3 3 0 0 1-3-3v-2",
-      key: "capture-frame",
-    },
-  ],
-  ["rect", { width: "10", height: "8", x: "7", y: "8", rx: "2", key: "window" }],
-  ["circle", { cx: "12", cy: "12", r: "1.5", key: "lens" }],
-]);
+const SnapShotIcon = ScanIcon;
 
 const T3ConnectSidebarSignIn = lazy(() =>
   import("../clerk/T3ConnectSidebarSignIn").then((module) => ({
@@ -105,19 +97,39 @@ function SettingsSectionIcon({ to }: { to: SettingsPath }) {
 }
 
 export function SettingsSidebarNav({ pathname }: { pathname: string }) {
+  const codeWorkspace = useCodeWorkspace();
   const navigate = useNavigate();
   const currentHash = useLocation({ select: (location) => location.hash });
   const currentSearch = useLocation({ select: (location) => location.search });
   const scopeSearch = useMemo(() => validateSettingsScopeSearch(currentSearch), [currentSearch]);
   const navItems = SETTINGS_NAV_ITEMS.filter(
-    (item) => item.to !== "/settings/projects" || isSettingsOverviewVisible(scopeSearch),
+    (item) =>
+      item.to !== "/settings/connections" &&
+      (codeWorkspace ||
+        !["/settings/source-control", "/settings/integrations", "/settings/projects"].includes(
+          item.to,
+        )) &&
+      (item.to !== "/settings/projects" || isSettingsOverviewVisible(scopeSearch)),
   );
   const { isMobile, setOpenMobile, open, setOpen } = useSidebar();
   const searchInputRef = useRef<HTMLInputElement>(null);
   const [query, setQuery] = useState("");
   const [activeResultIndex, setActiveResultIndex] = useState(0);
   const searchableItems = useAvailableSettingsSearchItems(scopeSearch);
-  const results = useMemo(() => searchSettings(query, searchableItems), [query, searchableItems]);
+  const results = useMemo(
+    () =>
+      searchSettings(
+        query,
+        searchableItems.filter(
+          (item) =>
+            codeWorkspace ||
+            !["/settings/source-control", "/settings/integrations", "/settings/projects"].includes(
+              item.to,
+            ),
+        ),
+      ),
+    [query, searchableItems, codeWorkspace],
+  );
   const isSearching = query.trim().length > 0;
   const hasResults = results.length > 0;
 
@@ -348,16 +360,20 @@ export function SettingsSidebarNav({ pathname }: { pathname: string }) {
         </SidebarGroup>
       </SidebarContent>
       <SidebarFooter>
-        <Suspense fallback={null}>
-          <T3ConnectSidebarSignIn />
-        </Suspense>
+        {CONNECTIONS_ENABLED ? (
+          <Suspense fallback={null}>
+            <T3ConnectSidebarSignIn />
+          </Suspense>
+        ) : null}
         <div className="flex items-center gap-1">
           <div className="min-w-0 flex-1">
             <SidebarUtilityMenu />
           </div>
-          <Suspense fallback={null}>
-            <T3ConnectSidebarAvatar />
-          </Suspense>
+          {CONNECTIONS_ENABLED ? (
+            <Suspense fallback={null}>
+              <T3ConnectSidebarAvatar />
+            </Suspense>
+          ) : null}
         </div>
       </SidebarFooter>
     </>

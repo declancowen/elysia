@@ -1,3 +1,4 @@
+import { CONNECTIONS_ENABLED, isEnabledProviderDriver } from "@t3tools/contracts";
 /**
  * ServerSettings - Server-authoritative settings service.
  *
@@ -121,7 +122,23 @@ const normalizeServerSettings = (
   encodeServerSettings(settings).pipe(
     Effect.flatMap(decodeServerSettings),
     Effect.map(foldProviderInstanceEnabledFlags),
-    Effect.map((next) => ({ ...next, ...deriveLegacyProjectOverrides(next) })),
+    Effect.map((next) => ({
+      ...next,
+      ...deriveLegacyProjectOverrides(next),
+      providers: Object.fromEntries(
+        Object.entries(next.providers).map(([driver, config]) => [
+          driver,
+          { ...config, enabled: isEnabledProviderDriver(driver) && config.enabled },
+        ]),
+      ) as ServerSettings["providers"],
+      providerInstances: Object.fromEntries(
+        Object.entries(next.providerInstances).map(([id, instance]) => [
+          id,
+          isEnabledProviderDriver(instance.driver) ? instance : { ...instance, enabled: false },
+        ]),
+      ),
+      ...(!CONNECTIONS_ENABLED ? { deviceHosts: [] } : {}),
+    })),
     Effect.mapError(
       (cause) =>
         new ServerSettingsError({
@@ -343,6 +360,7 @@ function fallbackTextGenerationProvider(settings: ServerSettings): ServerSetting
   // instance wins over the legacy providers map, which decodes to defaults
   // (codex enabled) when the Providers UI has only written providerInstances.
   const fallbackEntry = Object.entries(settings.providers).find(([driver, provider]) => {
+    if (!isEnabledProviderDriver(driver)) return false;
     const instance = settings.providerInstances[ProviderInstanceId.make(driver)];
     return instance === undefined ? provider.enabled : resolveProviderInstanceEnabled(instance);
   });
@@ -1022,6 +1040,12 @@ const make = Effect.gen(function* () {
   ): Effect.Effect<ServerSettings, ServerSettingsError> =>
     writeSemaphore.withPermits(1)(
       Effect.gen(function* () {
+        if (!CONNECTIONS_ENABLED && patch.deviceHosts?.length)
+          return yield* new ServerSettingsError({
+            settingsPath,
+            operation: "normalize",
+            cause: new Error("Connections are disabled in Elysia."),
+          });
         const current = yield* getSettingsFromCache;
         const updated = applyServerSettingsPatch(current, patch);
         const persisted = yield* persistProviderEnvironmentSecrets(current, updated);

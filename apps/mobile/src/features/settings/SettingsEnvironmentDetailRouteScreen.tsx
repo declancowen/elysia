@@ -71,7 +71,10 @@ function EnvironmentDetail({ environmentId }: { readonly environmentId: Environm
   const providerBusy =
     config?.providers.some(
       (provider) =>
-        provider.updateState?.status === "running" || provider.updateState?.status === "queued",
+        provider.updateState?.status === "running" ||
+        provider.updateState?.status === "queued" ||
+        provider.runtimeUpdateState?.status === "running" ||
+        provider.runtimeUpdateState?.status === "queued",
     ) ?? false;
   const disabled = !allowed || pending !== null || running || providerBusy;
   const version = config?.environment.serverVersion;
@@ -102,7 +105,7 @@ function EnvironmentDetail({ environmentId }: { readonly environmentId: Environm
       return;
     Alert.alert(
       `Update ${environment?.environmentLabel ?? "environment"}?`,
-      `Install T3 Code ${targetVersion}. ${capabilities.serverSelfUpdate === "desktop-managed" ? "The desktop app will close and relaunch." : "The server will restart and reconnect."} Running threads may be interrupted.`,
+      `Install Elysia ${targetVersion}. ${capabilities.serverSelfUpdate === "desktop-managed" ? "The desktop app will close and relaunch." : "The server will restart and reconnect."} Running threads may be interrupted.`,
       [
         { text: "Cancel", style: "cancel" },
         {
@@ -128,14 +131,15 @@ function EnvironmentDetail({ environmentId }: { readonly environmentId: Environm
     );
   }
 
-  function requestProviderUpdate(provider: ServerProvider) {
-    if (disabled || !canUpdateEnvironmentProvider(provider)) return;
+  function requestProviderUpdate(provider: ServerProvider, updateTarget?: "runtime") {
+    if (disabled || !canUpdateEnvironmentProvider(provider, updateTarget)) return;
     void run(provider.instanceId, async () => {
       const result = await updateProvider({
         environmentId,
         input: {
           provider: provider.driver,
           instanceId: provider.instanceId,
+          ...(updateTarget ? { updateTarget } : {}),
         },
       });
       if (AsyncResult.isFailure(result)) throw squashAtomCommandFailure(result);
@@ -188,7 +192,7 @@ function EnvironmentDetail({ environmentId }: { readonly environmentId: Environm
             {notice ? <Text className="px-2 text-sm text-foreground-muted">{notice}</Text> : null}
             {config ? (
               <>
-                <SettingsSection title="T3 Code">
+                <SettingsSection title="Elysia">
                   <View className="gap-1 p-4">
                     <Text className="text-base text-foreground">Version {version}</Text>
                     {running ? (
@@ -213,7 +217,7 @@ function EnvironmentDetail({ environmentId }: { readonly environmentId: Environm
                       <Text className="text-sm text-foreground-muted">
                         {capabilities?.serverSelfUpdate === "desktop-managed"
                           ? "Update the desktop app on this machine."
-                          : "Update and restart T3 Code on this machine."}
+                          : "Update and restart Elysia on this machine."}
                       </Text>
                     ) : null}
                   </View>
@@ -302,6 +306,17 @@ function EnvironmentDetail({ environmentId }: { readonly environmentId: Environm
                                 `Update ${provider.updateState.status}`}
                             </Text>
                           ) : null}
+                          {provider.runtimeVersion !== undefined ? (
+                            <Text selectable className="text-sm text-foreground-muted">
+                              Claude Code runtime · {provider.runtimeVersion ?? "Version unknown"}
+                              {provider.runtimeVersionAdvisory?.latestVersion
+                                ? ` · Latest ${provider.runtimeVersionAdvisory.latestVersion}`
+                                : ""}
+                              {provider.runtimeUpdateState?.message
+                                ? ` · ${provider.runtimeUpdateState.message}`
+                                : ""}
+                            </Text>
+                          ) : null}
                           {provider.compatibilityAdvisory?.message ? (
                             <Text selectable className="text-sm text-foreground-muted">
                               {provider.compatibilityAdvisory.message}
@@ -326,6 +341,18 @@ function EnvironmentDetail({ environmentId }: { readonly environmentId: Environm
                             disabled={disabled}
                             loading={pending === provider.instanceId}
                             onPress={() => requestProviderUpdate(provider)}
+                          />
+                        ) : null}
+                        {canUpdateEnvironmentProvider(provider, "runtime") ? (
+                          <SettingsActionRow
+                            icon="arrow.up.circle"
+                            label="Update Claude Code runtime"
+                            disabled={disabled}
+                            loading={
+                              pending === provider.instanceId &&
+                              provider.runtimeUpdateState?.status === "running"
+                            }
+                            onPress={() => requestProviderUpdate(provider, "runtime")}
                           />
                         ) : null}
                       </View>

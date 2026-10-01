@@ -35,6 +35,7 @@ export interface ProviderAuthFlowContext {
     complete?: (callbackUrl: string) => Effect.Effect<void, ProviderSetupError>,
   ) => Effect.Effect<void>;
   readonly verifying: Effect.Effect<void>;
+  readonly setMessage: (message: string) => Effect.Effect<void>;
 }
 
 const isSetupError = Schema.is(ProviderSetupError);
@@ -301,6 +302,7 @@ export const make = Effect.fn("ProviderAuthFlow.make")(function* (options: {
                     message: "Complete sign-in to continue.",
                   });
                 }),
+              setMessage: (message) => publish(flow, { message }),
               verifying: Effect.gen(function* () {
                 flow.respond = undefined;
                 flow.complete = undefined;

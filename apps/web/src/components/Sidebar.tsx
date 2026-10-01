@@ -124,9 +124,10 @@ import {
 } from "../threadSelectionStore";
 import { useThreadActions } from "../hooks/useThreadActions";
 import { useHandleNewThread } from "../hooks/useHandleNewThread";
+import { RecentThreadsHeader } from "./sidebar/RecentThreadsHeader";
 import { isCommandPaletteOpen, openCommandPalette } from "../commandPaletteBus";
 import { startNewThreadFromContext } from "../lib/chatThreadActions";
-import { useClientSettings } from "../hooks/useSettings";
+import { useClientSettings, useCodeWorkspace, getClientSettings } from "../hooks/useSettings";
 import { useCopyToClipboard } from "../hooks/useCopyToClipboard";
 import { useLocalStorage } from "../hooks/useLocalStorage";
 import { useNowMinute } from "../hooks/useNowMinute";
@@ -348,6 +349,7 @@ function SidebarThreadTooltip({
 }) {
   const driverKind = providerEntry?.driverKind ?? null;
   const supportsMultiplePullRequests = useSupportsMultiplePullRequests(thread.environmentId);
+  const codeWorkspace = useCodeWorkspace();
   return (
     <TooltipPopup side="right" align="start" sideOffset={4} variant="glass">
       {/* The viewport's own inset (py-1 px-2) plus this one make the floating inset. */}
@@ -371,13 +373,13 @@ function SidebarThreadTooltip({
               <div className="min-w-0 truncate text-foreground/75">{environmentLabel}</div>
             </div>
           ) : null}
-          {thread.branch ? (
+          {codeWorkspace && thread.branch ? (
             <div className="flex min-w-0 items-center gap-2 text-foreground/75">
               <GitBranchIcon className="size-3 shrink-0 stroke-muted-foreground" />
               <MiddleTruncate value={thread.branch} className="flex" />
             </div>
           ) : null}
-          {branchMismatch ? (
+          {codeWorkspace && branchMismatch ? (
             <div className="flex min-w-0 items-start gap-2 text-warning">
               <CircleAlertIcon aria-hidden className="mt-0.5 size-3 shrink-0 stroke-current" />
               <div className="min-w-0 flex-1 wrap-break-word leading-5">
@@ -406,7 +408,7 @@ function SidebarThreadTooltip({
               </div>
             </div>
           ) : null}
-          {terminalStatus ? (
+          {codeWorkspace && terminalStatus ? (
             <div className="flex min-w-0 items-center gap-2">
               <TerminalIcon
                 aria-hidden
@@ -424,7 +426,7 @@ function SidebarThreadTooltip({
             </div>
           ) : null}
         </div>
-        {supportsMultiplePullRequests && thread.pullRequests.length > 0 ? (
+        {codeWorkspace && supportsMultiplePullRequests && thread.pullRequests.length > 0 ? (
           <div className="border-t border-border/60 pt-2 pl-0.5 text-xs text-muted-foreground">
             <ThreadPullRequestsMiniList pullRequests={thread.pullRequests} />
           </div>
@@ -1029,6 +1031,7 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: {
    */
   onFileDropThreads?: ((threadRef: ScopedThreadRef, files: File[]) => void) | undefined;
 }) {
+  const codeWorkspace = useCodeWorkspace();
   const {
     isRenaming,
     onCancelRename,
@@ -1642,7 +1645,7 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: {
             {draftIndicator}
             {title}
             {pinIndicator}
-            {terminalStatusIcon}
+            {codeWorkspace ? terminalStatusIcon : null}
             {isRegeneratingTitle ? (
               <span role="status" className="sr-only">
                 Regenerating title
@@ -1651,7 +1654,7 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: {
             {/* The PR badge stays outside the hover-fading slot: it must
               remain visible AND clickable while the row is hovered. Only
               the time/jump label yields to the settle affordance. */}
-            {prBadge}
+            {codeWorkspace ? prBadge : null}
             {sortable?.isDragging ? (
               dragDestination
             ) : (
@@ -1951,7 +1954,7 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: {
               {/* Always the branch. The plan step used to take this slot while
                   working, but it truncated to a half-sentence and dropped the
                   branch, so the row lost its most stable identifier. */}
-              {thread.branch ? (
+              {codeWorkspace && thread.branch ? (
                 <>
                   <ThreadWorktreeIndicator thread={thread} />
                   <span className="flex min-w-0 flex-1 text-muted-foreground/40">
@@ -1961,9 +1964,9 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: {
               ) : (
                 <span className="flex-1" />
               )}
-              {terminalStatusIcon}
-              {prBadge}
-              {diff ? (
+              {codeWorkspace ? terminalStatusIcon : null}
+              {codeWorkspace ? prBadge : null}
+              {codeWorkspace && diff ? (
                 <span className="shrink-0 font-mono">
                   <span className="text-diff-addition-foreground">+{diff.insertions}</span>{" "}
                   <span className="text-diff-deletion-foreground">−{diff.deletions}</span>
@@ -2353,7 +2356,7 @@ export default function Sidebar() {
   const projectGroupsRef = useRef(projectGroups);
   projectGroupsRef.current = projectGroups;
   const serverConfigs = useAtomValue(environmentServerConfigsAtom);
-  // Threads on non-primary environments (T3 Connect, hosted) resolve their
+  // Threads on non-primary environments (Connections, hosted) resolve their
   // provider entry from their own environment's config: default instance ids
   // are driver slugs, so a flat map would collide across environments.
   const providerEntriesByEnvironment = useMemo(
@@ -4085,7 +4088,7 @@ export default function Sidebar() {
         const clicked = await settlePromise(() =>
           api.contextMenu.show(
             buildThreadActionMenuItems({
-              branch: thread.branch ?? null,
+              branch: getClientSettings().workspaceMode === "code" ? (thread.branch ?? null) : null,
               projectFilter: threadProjectGroup
                 ? {
                     label: threadProjectGroup.displayName,
@@ -4599,6 +4602,9 @@ export default function Sidebar() {
               searchResultCount={threadSearchResults.length}
               activeSearchResultIndex={activeSearchResultIndex}
               onClearSearch={clearThreadSearch}
+            />
+            <RecentThreadsHeader
+              environmentId={routeThreadRef?.environmentId ?? primaryEnvironmentId}
             />
           </SidebarGroup>
         }

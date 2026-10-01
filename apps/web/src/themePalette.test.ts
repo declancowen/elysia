@@ -1,5 +1,5 @@
+import { DEFAULT_THEME, ELYSIA_THEMES, BUILT_IN_THEMES } from "@t3tools/shared/themePalettes";
 import { describe, expect, it, vi } from "vite-plus/test";
-import { BUILT_IN_THEMES } from "@t3tools/shared/themePalettes";
 
 import {
   applyThemeColorPreview,
@@ -90,32 +90,43 @@ describe("theme files", () => {
     }
   });
 
-  it("keeps stock dark controls in the neutral-black surface hierarchy", () => {
+  it("uses the Informa indigo palette for default dark controls", () => {
     expectThemeColors(getStandardThemeColors("dark"), {
-      canvas: "#0a0a0a",
-      surface: "#111111",
-      surfaceRaised: "#111111",
-      surfaceOverlay: "#111111",
-      toolbarControl: "#111111",
-      secondary: "#111111",
-      muted: "#111111",
-      accentSurface: "#141414",
+      canvas: "#002244",
+      surface: "#062d52",
+      surfaceRaised: "#10375c",
+      surfaceOverlay: "#10375c",
+      toolbarControl: "#062d52",
+      secondary: "#10375c",
+      muted: "#10375c",
+      accentSurface: "#10375c",
     });
   });
 
-  it("keeps the stock sidebar and chat on distinct surfaces in both appearances", () => {
-    expectThemeColors(getStandardThemeColors("light"), {
-      canvas: "#fcfcfc",
-      sidebar: "#fafafa",
-      sidebarRowActive: "#ffffff",
-      messageSurface: "#f4f4f5",
+  it("uses Informa surfaces and accents for both default appearances", () => {
+    const light = getStandardThemeColors("light");
+    expectThemeColors(light, {
+      canvas: "#ffffff",
+      sidebar: "#f4f8fc",
+      sidebarRowActive: "#aae6ff",
+      messageSurface: "#ddf3ff",
     });
-    expectThemeColors(getStandardThemeColors("dark"), {
-      canvas: "#0a0a0a",
-      sidebar: "#000000",
-      sidebarRowActive: "#1a1b1b",
-      messageSurface: "#141414",
+    expect(contrastRatio(light.sidebar, light.canvas)).toBeGreaterThan(1.05);
+    expect(contrastRatio(light.sidebar, light.canvas)).toBeLessThan(1.12);
+    expect(contrastRatio(light.sidebarForeground, light.sidebar)).toBeGreaterThanOrEqual(4.5);
+    expect(contrastRatio(light.sidebarMutedForeground, light.sidebar)).toBeGreaterThanOrEqual(4.5);
+    const dark = getStandardThemeColors("dark");
+    expectThemeColors(dark, {
+      canvas: "#002244",
+      sidebar: "#062d52",
+      sidebarRowActive: "#003cb2",
+      sidebarRowSelected: "#28b4ff",
+      accentForeground: "#002244",
+      messageSurface: "#10375c",
     });
+    expect(contrastRatio(dark.accentForeground, dark.sidebarRowSelected)).toBeGreaterThanOrEqual(
+      4.5,
+    );
   });
 
   it("derives readable, distinctive vivid palettes from exact seeds", () => {
@@ -220,7 +231,7 @@ describe("theme files", () => {
       colors: {
         canvas: canonical("#07152f"),
         accent: canonical("#67c2ff"),
-        placeholder: canonical("#968d9f"),
+        placeholder: getDefaultThemeColors("dark").placeholder,
       },
     });
   });
@@ -443,10 +454,10 @@ describe("theme files", () => {
 
   it("includes the dual-mode maintainer themes", () => {
     for (const theme of [T3_CHAT_THEME, GROVE_THEME, OCEAN_THEME, EMBER_THEME, IRIS_THEME]) {
-      expect(getThemeDefinition(theme.id)).toBe(theme);
+      expect(getThemeDefinition(theme.id)).toBe(theme === T3_CHAT_THEME ? DEFAULT_THEME : theme);
       expect(getThemeModes(theme)).toEqual(["light", "dark"]);
       expect(theme.sidebarArtwork).toBe(true);
-      expect(themeAllowsSidebarArtwork(theme.id)).toBe(true);
+      expect(themeAllowsSidebarArtwork(theme.id)).toBe(theme !== T3_CHAT_THEME);
       expect(theme.colors.accent).toMatch(/^oklch\(/);
       expect(theme.variants?.dark?.accent).toMatch(/^oklch\(/);
 
@@ -980,8 +991,8 @@ describe("stored theme preferences", () => {
     // Light-only base: without halves, dark requests fall back to light.
     const lightOnly = parseThemeFile({
       version: THEME_FILE_VERSION,
-      id: "paper",
-      name: "Paper",
+      id: "paper-test",
+      name: "Paper test",
       appearance: "light",
       colors: { canvas: "#f8fbff" },
     });
@@ -993,19 +1004,19 @@ describe("stored theme preferences", () => {
     });
     invalidateCustomThemes();
     try {
-      expect(resolveThemeAppearance("paper", true, true)).toBe("light");
+      expect(resolveThemeAppearance("paper-test", true, true)).toBe("light");
       const halves = { dark: GROVE_THEME.id };
-      expect(resolveThemeAppearance("paper", true, true, undefined, halves)).toBe("dark");
-      expect(resolveThemeAppearance("paper", false, false, "dark", halves)).toBe("dark");
-      expect(resolveDesktopTheme("paper", true, undefined, halves)).toBe("system");
+      expect(resolveThemeAppearance("paper-test", true, true, undefined, halves)).toBe("dark");
+      expect(resolveThemeAppearance("paper-test", false, false, "dark", halves)).toBe("dark");
+      expect(resolveDesktopTheme("paper-test", true, undefined, halves)).toBe("system");
     } finally {
       vi.unstubAllGlobals();
       invalidateCustomThemes();
     }
   });
 
-  it("resolves the legacy t3-chat-dark preference to dark T3 Chat", () => {
-    expect(getThemeDefinition("t3-chat-dark")).toBe(T3_CHAT_THEME);
+  it("resolves the legacy t3-chat-dark preference to dark Default", () => {
+    expect(getThemeDefinition("t3-chat-dark")).toBe(DEFAULT_THEME);
     expect(getThemePreferenceMode("t3-chat-dark")).toBe("dark");
     expect(resolveThemeAppearance("t3-chat-dark", true, false)).toBe("dark");
     expect(resolveDesktopTheme("t3-chat-dark", false)).toBe("dark");
@@ -1087,4 +1098,15 @@ describe("singleAppearanceOf", () => {
     expect(singleAppearanceOf({ ...base, id: "x", appearance: "dark" })).toBe("dark");
     expect(singleAppearanceOf(T3_CHAT_THEME)).toBe(null);
   });
+});
+
+it("ships Elysia themes in both appearances without T3 Chat in the library", () => {
+  expect(BUILT_IN_THEMES.some((theme) => theme.id === "t3-chat")).toBe(false);
+  expect(ELYSIA_THEMES.map((theme) => theme.label)).toEqual([
+    "Midnight",
+    "Graphite",
+    "Canvas",
+    "Paper",
+  ]);
+  for (const theme of ELYSIA_THEMES) expect(getThemeModes(theme)).toEqual(["light", "dark"]);
 });

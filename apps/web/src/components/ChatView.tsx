@@ -170,6 +170,8 @@ import {
   DEFAULT_THREAD_TERMINAL_ID,
   MAX_TERMINALS_PER_GROUP,
   type ChatMessage,
+  type ChatAttachment,
+  isFileAttachment,
   isImageAttachment,
   type SessionPhase,
   type Thread,
@@ -188,6 +190,7 @@ import {
   selectThreadRightPanelState,
   type RightPanelSurface,
   useRightPanelStore,
+  workspaceRightPanelState,
 } from "../rightPanelStore";
 import {
   isPreviewSupportedInRuntime,
@@ -217,6 +220,8 @@ import { PullRequestDetailPanel } from "./pullRequest/PullRequestDetailPanel";
 import { PullRequestDetailGhost } from "./pullRequest/PullRequestGhosts";
 import { PullRequestsUnavailableState } from "./pullRequest/PullRequestsUnavailableState";
 import { RightPanelTabs } from "./RightPanelTabs";
+import { UploadedSourcesPanel } from "./UploadedSourcesPanel";
+import { uploadedSources } from "./uploadedSources";
 import { AgentsPanel } from "./AgentsPanel";
 import { LinkPullRequestDialogHost } from "./pullRequest/LinkPullRequestDialog";
 import { ThreadPullRequestsPanel } from "./pullRequest/ThreadPullRequestsPanel";
@@ -264,6 +269,7 @@ import {
 } from "../providerInstances";
 import {
   useClientSettings,
+  useCodeWorkspace,
   useClientSettingsHydrated,
   useEnvironmentSettings,
 } from "../hooks/useSettings";
@@ -377,7 +383,12 @@ import { resolveTimelineIsAtEnd, worktreeSetupAgentStarted } from "./chat/Messag
 import { resolveComposerTimelineInset, resolveScrollToEndClearance } from "./composerFooterLayout";
 import { ChatHeader } from "./chat/ChatHeader";
 import { PanelLayoutControls, RightPanelMaximizeControl } from "./chat/PanelLayoutControls";
-import { expandedImageKey, type ExpandedImagePreview } from "./chat/ExpandedImagePreview";
+import {
+  buildAttachmentVideoPreview,
+  buildExpandedImagePreview,
+  expandedImageKey,
+  type ExpandedImagePreview,
+} from "./chat/ExpandedImagePreview";
 import { NoActiveThreadState } from "./NoActiveThreadState";
 import { WorkspacePageHeader } from "./WorkspacePageHeader";
 import {
@@ -2022,6 +2033,7 @@ export default function ChatView(props: ChatViewProps) {
       useDiffPanelStore.getState().selectGitScope(activeThreadRef, "unstaged");
     }
   }, [activeThreadRef, diffOpen]);
+  const codeWorkspace = useCodeWorkspace();
   const rightPanelState = useRightPanelStore((state) =>
     selectThreadRightPanelState(state.byThreadKey, activeThreadRef),
   );
@@ -2054,11 +2066,20 @@ export default function ChatView(props: ChatViewProps) {
     [activeKnownTerminalIds, panelTerminalIds],
   );
   const previewPanelOpen = activeRightPanelKind === "preview" && isPreviewSupportedInRuntime();
-  const rightPanelOpen = rightPanelState.isOpen;
+  const visibleRightPanelState = useMemo(
+    () => workspaceRightPanelState(rightPanelState, codeWorkspace),
+    [rightPanelState, codeWorkspace],
+  );
+  const visibleRightPanelSurfaces = visibleRightPanelState.surfaces;
+  const visibleRightPanelSurface =
+    visibleRightPanelSurfaces.find(
+      (surface) => surface.id === visibleRightPanelState.activeSurfaceId,
+    ) ?? null;
+  const rightPanelOpen = visibleRightPanelState.isOpen;
   const { active: panelAnimationsActive, durationMs: panelAnimationDurationMs } =
     usePanelAnimationSettings();
   const activeTerminalDrawerPresence = usePanelPresence(
-    Boolean(activeThreadKey && terminalUiState.terminalOpen),
+    Boolean(codeWorkspace && activeThreadKey && terminalUiState.terminalOpen),
     true,
     panelAnimationsActive,
     activeThreadKey,
@@ -2066,10 +2087,10 @@ export default function ChatView(props: ChatViewProps) {
   );
   const rightPanelPresenceValue = useMemo(
     () => ({
-      activeSurface: activeRightPanelSurface,
-      surfaces: rightPanelState.surfaces,
+      activeSurface: visibleRightPanelSurface,
+      surfaces: visibleRightPanelSurfaces,
     }),
-    [activeRightPanelSurface, rightPanelState.surfaces],
+    [visibleRightPanelSurface, visibleRightPanelSurfaces],
   );
   const rightPanelPresence = usePanelPresence(
     rightPanelOpen && activeThreadRef !== null,
@@ -3502,6 +3523,43 @@ export default function ChatView(props: ChatViewProps) {
     optimisticUserMessages,
     projectHandoffMessagePreviews,
   ]);
+  const threadSources = useMemo(() => uploadedSources(timelineMessages), [timelineMessages]);
+  const openUploadedSource = useCallback(
+    (attachment: ChatAttachment) => {
+      if (isImageAttachment(attachment)) {
+        setExpandedImage(
+          buildExpandedImagePreview(threadSources.filter(isImageAttachment), attachment.id) ?? {
+            images: [
+              {
+                src: null,
+                name: attachment.name,
+                actionsSource: {
+                  kind: "image",
+                  name: attachment.name,
+                  src: null,
+                  asset: {
+                    environmentId,
+                    resource: {
+                      _tag: "attachment",
+                      attachmentId: attachment.id,
+                      fileName: attachment.name,
+                      mimeType: attachment.mimeType,
+                    },
+                  },
+                },
+              },
+            ],
+            index: 0,
+          },
+        );
+      } else if (isFileAttachment(attachment)) {
+        const video = buildAttachmentVideoPreview(environmentId, attachment);
+        if (video) setExpandedImage(video);
+        else if (attachment.downloadable !== false) openFileAttachment(attachment);
+      }
+    },
+    [environmentId, openFileAttachment, threadSources],
+  );
   const timelineProjectionRef = useRef<{
     threadKey: string | null;
     projection: TimelineEntriesProjection;
@@ -4558,10 +4616,22 @@ export default function ChatView(props: ChatViewProps) {
     useRightPanelStore.getState().open(activeThreadRef, "diff");
     onDiffPanelOpen?.();
   }, [activeThreadRef, isGitRepo, isServerThread, onDiffPanelOpen]);
+  const toggleChangesSurface = useCallback(() => {
+    if (!codeWorkspace || !activeThreadRef || !isServerThread || !isGitRepo) return;
+    useDiffPanelStore.getState().selectGitScope(activeThreadRef, "unstaged");
+    useRightPanelStore.getState().toggle(activeThreadRef, "diff");
+    onDiffPanelOpen?.();
+  }, [activeThreadRef, codeWorkspace, isGitRepo, isServerThread, onDiffPanelOpen]);
   const addFilesSurface = useCallback(() => {
-    if (!activeThreadRef || !activeProject) return;
+    if (!codeWorkspace || !activeThreadRef || !activeProject) return;
     useRightPanelStore.getState().open(activeThreadRef, "files");
-  }, [activeProject, activeThreadRef]);
+  }, [activeProject, activeThreadRef, codeWorkspace]);
+  const addSourcesSurface = useCallback(() => {
+    if (activeThreadRef) useRightPanelStore.getState().open(activeThreadRef, "sources");
+  }, [activeThreadRef]);
+  const addUploadedSources = useCallback(() => {
+    composerRef.current?.openAttachmentPicker();
+  }, [composerRef]);
   const addAgentsSurface = useCallback(() => {
     if (!activeThreadRef) return;
     useRightPanelStore.getState().open(activeThreadRef, "agents");
@@ -5139,7 +5209,7 @@ export default function ChatView(props: ChatViewProps) {
   const closeOtherRightPanelSurfaces = useCallback(
     (surface: RightPanelSurface) => {
       if (!activeThreadRef) return;
-      const surfaces = rightPanelState.surfaces.filter((entry) => entry.id !== surface.id);
+      const surfaces = visibleRightPanelSurfaces.filter((entry) => entry.id !== surface.id);
       const finishClose = () => finishRightPanelSurfaceClose(surfaces);
       closeAfterAgentBrowserConfirmation(surfaces, finishClose);
     },
@@ -5147,15 +5217,15 @@ export default function ChatView(props: ChatViewProps) {
       activeThreadRef,
       closeAfterAgentBrowserConfirmation,
       finishRightPanelSurfaceClose,
-      rightPanelState.surfaces,
+      visibleRightPanelSurfaces,
     ],
   );
   const closeRightPanelSurfacesToRight = useCallback(
     (surface: RightPanelSurface) => {
       if (!activeThreadRef) return;
-      const surfaceIndex = rightPanelState.surfaces.findIndex((entry) => entry.id === surface.id);
+      const surfaceIndex = visibleRightPanelSurfaces.findIndex((entry) => entry.id === surface.id);
       if (surfaceIndex < 0) return;
-      const surfaces = rightPanelState.surfaces.slice(surfaceIndex + 1);
+      const surfaces = visibleRightPanelSurfaces.slice(surfaceIndex + 1);
       const finishClose = () => finishRightPanelSurfaceClose(surfaces);
       closeAfterAgentBrowserConfirmation(surfaces, finishClose);
     },
@@ -5163,18 +5233,18 @@ export default function ChatView(props: ChatViewProps) {
       activeThreadRef,
       closeAfterAgentBrowserConfirmation,
       finishRightPanelSurfaceClose,
-      rightPanelState.surfaces,
+      visibleRightPanelSurfaces,
     ],
   );
   const closeAllRightPanelSurfaces = useCallback(() => {
     if (!activeThreadRef) return;
-    const finishClose = () => finishRightPanelSurfaceClose(rightPanelState.surfaces);
-    closeAfterAgentBrowserConfirmation(rightPanelState.surfaces, finishClose);
+    const finishClose = () => finishRightPanelSurfaceClose(visibleRightPanelSurfaces);
+    closeAfterAgentBrowserConfirmation(visibleRightPanelSurfaces, finishClose);
   }, [
     activeThreadRef,
     closeAfterAgentBrowserConfirmation,
     finishRightPanelSurfaceClose,
-    rightPanelState.surfaces,
+    visibleRightPanelSurfaces,
   ]);
   const copyRightPanelFilePath = useCallback((relativePath: string) => {
     if (typeof window === "undefined" || !navigator.clipboard?.writeText) {
@@ -6775,6 +6845,16 @@ export default function ChatView(props: ChatViewProps) {
         return;
       }
 
+      if (
+        !codeWorkspace &&
+        (command?.startsWith("terminal.") ||
+          command === "diff.toggle" ||
+          command === "composer.branch" ||
+          command === "composer.previousWorktree" ||
+          command === "composer.workspace")
+      )
+        return;
+
       if (command === "terminal.toggle") {
         event.preventDefault();
         event.stopPropagation();
@@ -6799,10 +6879,10 @@ export default function ChatView(props: ChatViewProps) {
       if (command === "rightPanel.close") {
         // Nothing open: leave the event alone so the shortcut keeps its
         // native meaning (close window on desktop, close tab in a browser).
-        if (!activeRightPanelSurface) return;
+        if (!rightPanelOpen || !visibleRightPanelSurface) return;
         event.preventDefault();
         event.stopPropagation();
-        if (!event.repeat) closeRightPanelSurface(activeRightPanelSurface);
+        if (!event.repeat) closeRightPanelSurface(visibleRightPanelSurface);
         return;
       }
 
@@ -6922,7 +7002,7 @@ export default function ChatView(props: ChatViewProps) {
       }
 
       const scriptId = projectScriptIdFromCommand(command);
-      if (!scriptId || !activeProject) return;
+      if (!codeWorkspace || !scriptId || !activeProject) return;
       const script = activeProjectScripts.find((entry) => entry.id === scriptId);
       if (!script) return;
       event.preventDefault();
@@ -6934,6 +7014,8 @@ export default function ChatView(props: ChatViewProps) {
   }, [
     activeProject,
     activeRightPanelSurface,
+    visibleRightPanelSurface,
+    rightPanelOpen,
     activeProjectScripts,
     addTerminalSurface,
     activeThreadRef,
@@ -6941,6 +7023,7 @@ export default function ChatView(props: ChatViewProps) {
     activeThreadSettled,
     canInterruptRunningThread,
     activeThreadKey,
+    codeWorkspace,
     terminalUiState.terminalOpen,
     terminalUiState.activeTerminalId,
     activeThreadId,
@@ -9485,7 +9568,8 @@ export default function ChatView(props: ChatViewProps) {
 
   const panelToggleControls = (
     <PanelLayoutControls
-      terminalAvailable={activeProject !== null}
+      showTerminalControl={codeWorkspace}
+      terminalAvailable={codeWorkspace && activeProject !== null}
       terminalOpen={terminalUiState.terminalOpen}
       terminalShortcutLabel={shortcutLabelForCommand(keybindings, "terminal.toggle")}
       rightPanelAvailable={activeProject !== null}
@@ -9576,7 +9660,7 @@ export default function ChatView(props: ChatViewProps) {
     ) : renderedRightPanelSurface?.kind === "pull-request" && !supportsPullRequests ? (
       <PullRequestsUnavailableState
         title="Pull requests unavailable"
-        error="Update this environment's T3 Code server to browse pull requests."
+        error="Update this environment's Elysia server to browse pull requests."
       />
     ) : renderedRightPanelSurface?.kind === "pull-request" ? (
       // No onClose: the surface tab's own X owns closing here, and a second X in the header
@@ -9625,6 +9709,12 @@ export default function ChatView(props: ChatViewProps) {
       />
     ) : renderedRightPanelSurface?.kind === "pull-requests" && activeThreadRef ? (
       <ThreadPullRequestsPanel threadRef={activeThreadRef} />
+    ) : renderedRightPanelSurface?.kind === "sources" ? (
+      <UploadedSourcesPanel
+        messages={timelineMessages}
+        onOpenAttachment={openUploadedSource}
+        onUpload={addUploadedSources}
+      />
     ) : renderedRightPanelSurface?.kind === "agents" ? (
       <AgentsPanel
         model={agentPanelModel}
@@ -9754,6 +9844,27 @@ export default function ChatView(props: ChatViewProps) {
             activeThreadId={activeThread.id}
             {...(routeKind === "draft" && draftId ? { draftId } : {})}
             activeThreadTitle={activeThread.title}
+            overview={{
+              threadKey: activeThreadKey ?? routeThreadKey,
+              label: activeProject?.title ?? activeThread.title,
+              changes:
+                isServerThread && isGitRepo && gitStatusQuery.data
+                  ? {
+                      additions: gitStatusQuery.data.workingTree.insertions,
+                      deletions: gitStatusQuery.data.workingTree.deletions,
+                    }
+                  : null,
+              agents: { working: agentPanelModel.liveCount, done: agentPanelModel.settledCount },
+              sources: threadSources,
+              onToggleChanges: toggleChangesSurface,
+              onOpenAgents: addAgentsSurface,
+              onOpenSources: addSourcesSurface,
+              onAddSources: addUploadedSources,
+              onOpenSource: (id) => {
+                const source = threadSources.find((attachment) => attachment.id === id);
+                if (source) openUploadedSource(source);
+              },
+            }}
             isServerThread={isServerThread}
             activeProject={activeProject}
             openInCwd={gitCwd}
@@ -10063,16 +10174,18 @@ export default function ChatView(props: ChatViewProps) {
                             settings={settings}
                             keybindings={keybindings}
                             terminalOpen={Boolean(terminalUiState.terminalOpen)}
-                            gitCwd={gitCwd}
+                            gitCwd={codeWorkspace ? gitCwd : null}
                             pullRequestProjectId={
-                              supportsPullRequests ? (activeProject?.id ?? null) : null
+                              codeWorkspace && supportsPullRequests
+                                ? (activeProject?.id ?? null)
+                                : null
                             }
                             pullRequestRepository={
-                              supportsPullRequests ? activeProjectRepository : null
+                              codeWorkspace && supportsPullRequests ? activeProjectRepository : null
                             }
                             restingControlsHost={restingComposerControlsHost}
                             restingControlsHaveLeadingContext={
-                              isGitRepo || showComposerEnvironmentIndicator
+                              (codeWorkspace && isGitRepo) || showComposerEnvironmentIndicator
                             }
                             onRestingControlsVisibilityChange={setRestingComposerControlsVisible}
                             getTimelineScrollableNode={getTimelineScrollableNode}
@@ -10129,7 +10242,7 @@ export default function ChatView(props: ChatViewProps) {
                                 ref={branchToolbarRef}
                                 environmentId={activeThread.environmentId}
                                 threadId={activeThread.id}
-                                showGitControls={isGitRepo}
+                                showGitControls={codeWorkspace && isGitRepo}
                                 {...(routeKind === "draft" && draftId ? { draftId } : {})}
                                 onEnvModeChange={onEnvModeChange}
                                 startFromOrigin={startFromOrigin}
@@ -10240,7 +10353,7 @@ export default function ChatView(props: ChatViewProps) {
             key={mountedThreadKey}
             threadRef={mountedThreadRef}
             threadId={mountedThreadRef.threadId}
-            active={mountedThreadKey === activeThreadKey}
+            active={codeWorkspace && mountedThreadKey === activeThreadKey}
             launchContext={
               mountedThreadKey === activeThreadKey ? (activeTerminalLaunchContext ?? null) : null
             }
@@ -10284,18 +10397,20 @@ export default function ChatView(props: ChatViewProps) {
           onAddTerminal={addTerminalSurface}
           onAddDiff={addDiffSurface}
           onAddFiles={addFilesSurface}
+          onAddSources={addSourcesSurface}
           onAddPullRequest={addPullRequestSurface}
           onAddPullRequests={addPullRequestsSurface}
           onAddAgents={addAgentsSurface}
           onAddDevice={addDeviceSurface}
           browserAvailable={isPreviewSupportedInRuntime()}
-          terminalAvailable={activeProject !== null}
-          diffAvailable={isServerThread && isGitRepo}
-          filesAvailable={activeProject !== null}
-          pullRequestAvailable={pullRequestSurfaceAvailable}
-          pullRequestsAvailable={pullRequestsSurfaceAvailable}
+          terminalAvailable={codeWorkspace && activeProject !== null}
+          diffAvailable={codeWorkspace && isServerThread && isGitRepo}
+          filesAvailable={codeWorkspace && activeProject !== null}
+          sourcesAvailable
+          pullRequestAvailable={codeWorkspace && pullRequestSurfaceAvailable}
+          pullRequestsAvailable={codeWorkspace && pullRequestsSurfaceAvailable}
           agentsAvailable
-          deviceAvailable={activeThreadRef !== null}
+          deviceAvailable={codeWorkspace && activeThreadRef !== null}
           liveAgentCount={agentPanelModel.liveCount}
         >
           {rightPanelContent}
@@ -10341,18 +10456,20 @@ export default function ChatView(props: ChatViewProps) {
             onAddTerminal={addTerminalSurface}
             onAddDiff={addDiffSurface}
             onAddFiles={addFilesSurface}
+            onAddSources={addSourcesSurface}
             onAddPullRequest={addPullRequestSurface}
             onAddPullRequests={addPullRequestsSurface}
             onAddAgents={addAgentsSurface}
             onAddDevice={addDeviceSurface}
             browserAvailable={isPreviewSupportedInRuntime()}
-            terminalAvailable={activeProject !== null}
-            diffAvailable={isServerThread && isGitRepo}
-            filesAvailable={activeProject !== null}
-            pullRequestAvailable={pullRequestSurfaceAvailable}
-            pullRequestsAvailable={pullRequestsSurfaceAvailable}
+            terminalAvailable={codeWorkspace && activeProject !== null}
+            diffAvailable={codeWorkspace && isServerThread && isGitRepo}
+            filesAvailable={codeWorkspace && activeProject !== null}
+            sourcesAvailable
+            pullRequestAvailable={codeWorkspace && pullRequestSurfaceAvailable}
+            pullRequestsAvailable={codeWorkspace && pullRequestsSurfaceAvailable}
             agentsAvailable
-            deviceAvailable={activeThreadRef !== null}
+            deviceAvailable={codeWorkspace && activeThreadRef !== null}
             liveAgentCount={agentPanelModel.liveCount}
           >
             {rightPanelContent}

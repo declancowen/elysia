@@ -11,6 +11,7 @@ export interface ServerProviderShape {
    */
   readonly resolveMaintenance: (options?: {
     readonly fresh?: boolean;
+    readonly updateTarget?: "runtime";
   }) => Effect.Effect<ProviderMaintenanceCapabilities>;
   readonly getSnapshot: Effect.Effect<ServerProvider>;
   readonly refresh: Effect.Effect<ServerProvider>;

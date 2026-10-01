@@ -212,9 +212,8 @@ export function normalizeMainWindowBounds(value: unknown): DesktopWindowBounds |
 
 function normalizeDesktopSettingsDocument(
   parsed: DesktopSettingsDocument,
-  appVersion: string,
+  _appVersion: string,
 ): DesktopSettings {
-  const defaultSettings = resolveDefaultDesktopSettings(appVersion);
   const mainWindowBounds = normalizeMainWindowBounds(parsed.mainWindowBounds);
   const parsedUpdateChannel = Option.fromNullishOr(parsed.updateChannel);
   const isLegacySettings = parsed.updateChannelConfiguredByUser === undefined;
@@ -238,9 +237,7 @@ function normalizeDesktopSettingsDocument(
       parsed.serverExposureMode === "network-accessible" ? "network-accessible" : "local-only",
     tailscaleServeEnabled: parsed.tailscaleServeEnabled === true,
     tailscaleServePort: normalizeTailscaleServePort(parsed.tailscaleServePort),
-    updateChannel: updateChannelConfiguredByUser
-      ? Option.getOrElse(parsedUpdateChannel, () => defaultSettings.updateChannel)
-      : defaultSettings.updateChannel,
+    updateChannel: "latest",
     updateChannelConfiguredByUser,
     wslBackendEnabled,
     wslDistro: normalizeWslDistro(parsed.wslDistro),
@@ -397,7 +394,6 @@ function readSettings(
   appVersion: string,
 ): Effect.Effect<DesktopSettings> {
   const defaultSettings = resolveDefaultDesktopSettings(appVersion);
-
   return fileSystem.readFileString(settingsPath).pipe(
     Effect.option,
     Effect.flatMap(
@@ -544,9 +540,9 @@ export const make = Effect.gen(function* () {
       persist((settings) => setTailscaleServe(settings, input)).pipe(
         Effect.withSpan("desktop.settings.setTailscaleServe", { attributes: input }),
       ),
-    setUpdateChannel: (channel) =>
-      persist((settings) => setUpdateChannel(settings, channel)).pipe(
-        Effect.withSpan("desktop.settings.setUpdateChannel", { attributes: { channel } }),
+    setUpdateChannel: (_channel) =>
+      persist((settings) => setUpdateChannel(settings, "latest")).pipe(
+        Effect.withSpan("desktop.settings.setUpdateChannel", { attributes: { channel: "latest" } }),
       ),
     setWslBackendEnabled: (enabled) =>
       persist((settings) => setWslBackendEnabled(settings, enabled)).pipe(
@@ -602,7 +598,7 @@ export const layerTest = (initialSettings: DesktopSettings = DEFAULT_DESKTOP_SET
         setServerExposureMode: (mode) =>
           update((settings) => setServerExposureMode(settings, mode)),
         setTailscaleServe: (input) => update((settings) => setTailscaleServe(settings, input)),
-        setUpdateChannel: (channel) => update((settings) => setUpdateChannel(settings, channel)),
+        setUpdateChannel: (_channel) => update((settings) => setUpdateChannel(settings, "latest")),
         setWslBackendEnabled: (enabled) =>
           update((settings) => setWslBackendEnabled(settings, enabled)),
         setWslDistro: (distro) => update((settings) => setWslDistro(settings, distro)),

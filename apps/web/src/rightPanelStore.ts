@@ -22,6 +22,7 @@ import { resolveStorage } from "./lib/storage";
 const RIGHT_PANEL_KINDS = [
   "diff",
   "files",
+  "sources",
   "file",
   "preview",
   "device",
@@ -53,6 +54,7 @@ export type RightPanelSurface =
     }
   | { id: "diff"; kind: "diff" }
   | { id: "files"; kind: "files" }
+  | { id: "sources"; kind: "sources" }
   | {
       id: `file:${string}` | `attachment:${string}`;
       kind: "file";
@@ -111,6 +113,25 @@ export interface ThreadRightPanelState {
   activeSurfaceId: string | null;
   surfaces: RightPanelSurface[];
   dismissedDeviceSurfaceIds?: string[];
+}
+
+export function workspaceRightPanelState(
+  state: ThreadRightPanelState,
+  codeWorkspace: boolean,
+): ThreadRightPanelState {
+  if (codeWorkspace) return state;
+  const surfaces = state.surfaces.filter((surface) =>
+    ["preview", "sources", "file", "agents"].includes(surface.kind),
+  );
+  return {
+    ...state,
+    surfaces,
+    activeSurfaceId:
+      surfaces.find((surface) => surface.id === state.activeSurfaceId)?.id ??
+      surfaces[0]?.id ??
+      null,
+    isOpen: state.isOpen && surfaces.length > 0,
+  };
 }
 
 interface RightPanelStoreState {
@@ -187,6 +208,8 @@ const singletonSurface = (
       return { id: "diff", kind };
     case "files":
       return { id: "files", kind };
+    case "sources":
+      return { id: "sources", kind };
     case "pull-requests":
       return { id: "pull-requests", kind };
     case "agents":

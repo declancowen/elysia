@@ -1,3 +1,4 @@
+import { PencilIcon as EditComposerIcon } from "lucide-react";
 import { DESKTOP_PASTE_AS_TEXT_EVENT } from "../../lib/desktopPasteAsText";
 import { isLocalEnvironmentDisabled } from "../../localEnvironment";
 import { usePrimaryEnvironmentId } from "../../state/environments";
@@ -1263,6 +1264,7 @@ export interface ChatComposerHandle {
   restoreAfterTimelineReachedEnd: () => void;
   collapseForTimelineScrollKey: (key: string) => void;
   addDroppedFiles: (files: File[]) => void;
+  openAttachmentPicker: () => void;
   addDroppedFolders: (folders: File[]) => void;
   hasPendingAttachments: () => boolean;
   insertTextAtEnd: (
@@ -5910,6 +5912,7 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
       },
       hasPendingAttachments: () =>
         (pendingImageCompressionsRef.current.get(attachmentTargetKey) ?? 0) > 0,
+      openAttachmentPicker: () => attachmentInputRef.current?.click(),
       insertTextAtEnd: insertComposerTextAtEnd,
       pasteTextAtEnd: (text: string, options) => {
         const bypassAutoAttachment =
@@ -6422,15 +6425,7 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
                     submitComposer();
                   }}
                 >
-                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-                    <path
-                      d="M8 3L8 13M8 3L4 7M8 3L12 7"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </svg>
+                  <EditComposerIcon size={16} aria-hidden="true" />
                 </button>
               </div>
             ) : null}

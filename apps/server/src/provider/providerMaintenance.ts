@@ -195,7 +195,9 @@ export function makeTargetedProviderUpdateAction(
   const update = capabilities.update;
   const packageName = capabilities.packageName;
   if (!update || !packageName) return null;
-  if (!/^(?:npm-global:|bun-global$|pnpm-global$|vite-plus-global$)/.test(update.lockKey))
+  if (
+    !/^(?:npm-global:|npm-local:|bun-global$|pnpm-global$|vite-plus-global$)/.test(update.lockKey)
+  )
     return null;
   const packageIndex = update.args.findIndex(
     (arg) => arg === `${packageName}@latest` || arg === packageName,
@@ -372,7 +374,7 @@ const runHomebrew = Effect.fn("runHomebrew")(function* (
 /**
  * Derive update capabilities from where the executable actually lives. Every
  * branch that yields a one-click command has evidence that the named tool
- * owns that path; anything unproven stays manual-only so T3 Code never runs
+ * owns that path; anything unproven stays manual-only so Elysia never runs
  * a package manager against an install it did not create.
  */
 export const resolvePackageManagedProviderMaintenance = Effect.fn(

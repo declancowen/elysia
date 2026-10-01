@@ -32,7 +32,7 @@ import { ThreadNotificationCoordinator } from "../components/ThreadNotificationC
 import { QueuedMessageSender } from "../components/QueuedMessageSender";
 import { ProjectCloneToastCoordinator } from "../components/ProjectCloneToastCoordinator";
 import { SlowRpcRequestToastCoordinator } from "../components/SlowRpcRequestToastCoordinator";
-import { ChatGptWelcomeCoordinator } from "../components/settings/ChatGptWelcomeCoordinator";
+import { CONNECTIONS_ENABLED } from "@t3tools/contracts";
 import { ProviderAuthCallbackCoordinator } from "../components/settings/ProviderAuthCallbackCoordinator";
 import { ThemeEditorHost } from "../components/settings/ThemeEditorHost";
 import { useCopyToClipboard } from "../hooks/useCopyToClipboard";
@@ -220,7 +220,7 @@ function RootRouteView() {
         <GlassAppearanceSync />
         <FontAppearanceSync />
         <ProviderAuthCallbackCoordinator />
-        <ChatGptWelcomeCoordinator />
+
         <FirstRunGate
           enabled={primaryEnvironmentAuthenticated}
           hostedStatic={authGateState.status === "hosted-static"}
@@ -228,9 +228,13 @@ function RootRouteView() {
           {primaryEnvironmentAuthenticated ? <AuthenticatedTracingBootstrap /> : null}
           {primaryEnvironmentAuthenticated ? <DesktopAppActivationCoordinator /> : null}
           {isElectron ? <RunningThreadKeepAlive /> : null}
-          <RelayClientInstallDialog />
-          <ConnectOnboardingDialog />
-          <SshPasswordPromptDialog />
+          {CONNECTIONS_ENABLED ? (
+            <>
+              <RelayClientInstallDialog />
+              <ConnectOnboardingDialog />
+              <SshPasswordPromptDialog />
+            </>
+          ) : null}
           <SnapShotCoordinator />
           <ThreadNotificationCoordinator />
           <QueuedMessageSender />

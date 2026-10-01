@@ -1,3 +1,4 @@
+import { isEnabledProviderDriver } from "@t3tools/contracts";
 import { createClerkBridge } from "@clerk/electron";
 import { storage } from "@clerk/electron/storage";
 import * as Context from "effect/Context";
@@ -98,7 +99,7 @@ export const make = Effect.gen(function* () {
   // creates that directory when the lock is acquired. The SDK bridge takes
   // the lock at creation, so userData must already point at the real
   // directory here — under the default productName-derived path, acquiring
-  // the lock would create "T3 Code (Alpha)" and make the legacy-install
+  // the lock would create "Elysia (Alpha)" and make the legacy-install
   // detection in resolveUserDataPath match on fresh installs.
   const userDataPath = yield* DesktopAppIdentity.resolveUserDataPath;
   yield* electronApp.setPath("userData", userDataPath);
@@ -143,7 +144,7 @@ export const make = Effect.gen(function* () {
       }
 
       const startProviderAuthHandoff = (value: string | undefined) => {
-        if (!value) return false;
+        if (!value || !isEnabledProviderDriver("codex")) return false;
         const request = readCodexAuthHandoff(value, environment.isDevelopment);
         if (!request) return false;
         void runPromise(

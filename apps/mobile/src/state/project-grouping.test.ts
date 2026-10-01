@@ -6,8 +6,8 @@ import {
 } from "./project-grouping.logic";
 
 describe("mobile project grouping preferences", () => {
-  it("maps the legacy boolean while preferring the new mode", () => {
-    expect(resolveMobileProjectGroupingSettings({}).sidebarProjectGroupingMode).toBe("repository");
+  it("ignores saved grouping modes in the single environment app", () => {
+    expect(resolveMobileProjectGroupingSettings({}).sidebarProjectGroupingMode).toBe("separate");
     expect(
       resolveMobileProjectGroupingSettings({ projectGroupingEnabled: false })
         .sidebarProjectGroupingMode,
@@ -17,7 +17,7 @@ describe("mobile project grouping preferences", () => {
         projectGroupingEnabled: false,
         projectGroupingMode: "repository_path",
       }).sidebarProjectGroupingMode,
-    ).toBe("repository_path");
+    ).toBe("separate");
   });
 
   it("dual-writes the legacy boolean for rollback compatibility", () => {

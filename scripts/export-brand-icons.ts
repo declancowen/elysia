@@ -2,6 +2,7 @@
 
 import * as NodeRuntime from "@effect/platform-node/NodeRuntime";
 import * as NodeServices from "@effect/platform-node/NodeServices";
+import { APP_NAME } from "../packages/contracts/src/forkPolicy.ts";
 import { HostProcessEnvironment } from "@t3tools/shared/hostProcess";
 import * as Console from "effect/Console";
 import * as Effect from "effect/Effect";
@@ -9,6 +10,7 @@ import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
+import sharp from "sharp";
 import * as Stream from "effect/Stream";
 import { Command, Flag } from "effect/unstable/cli";
 import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process";
@@ -715,7 +717,111 @@ const isCurrent = Effect.fn("iconExport.isCurrent")(function* (
   return Buffer.from(actual).equals(expected);
 });
 
+const exportElysiaIcons = Effect.fn("exportElysiaIcons")(function* (checkOnly: boolean) {
+  const fs = yield* FileSystem.FileSystem;
+  const path = yield* Path.Path;
+  const repositoryRoot = yield* RepositoryRoot;
+  const source = Buffer.from(
+    yield* fs.readFile(path.join(repositoryRoot, "assets/elysia/symbol.svg")),
+  );
+  const darkSource = Buffer.from(source.toString().replace('fill="#002244"', 'fill="#FFFFFF"'));
+  const render = (size: number) =>
+    Effect.tryPromise({
+      try: () => {
+        const inset = Math.round(size * 0.1);
+        return sharp(darkSource, { density: 1536 })
+          .resize(size - inset * 2, size - inset * 2)
+          .extend({ top: inset, bottom: inset, left: inset, right: inset, background: "#002244" })
+          .flatten({ background: "#002244" })
+          .png()
+          .toBuffer();
+      },
+      catch: (cause) => new IconExportEncodingError({ variant: "Elysia", cause }),
+    });
+  const stale: string[] = [];
+  const save = (output: string, contents: Buffer) =>
+    checkOnly
+      ? isCurrent(repositoryRoot, output, contents).pipe(
+          Effect.tap((current) =>
+            Effect.sync(() => {
+              if (!current) stale.push(output);
+            }),
+          ),
+        )
+      : writeAtomically(repositoryRoot, output, contents);
+  for (const [size, output] of [
+    [1024, "assets/elysia/icon.png"],
+    [180, "assets/elysia/apple-touch-icon.png"],
+    [16, "assets/elysia/favicon-16.png"],
+    [32, "assets/elysia/favicon-32.png"],
+    [192, "apps/mobile/assets/elysia.png"],
+  ] as const)
+    yield* save(output, yield* render(size));
+  const macIcon = yield* render(824).pipe(
+    Effect.flatMap((contents) =>
+      Effect.tryPromise({
+        try: () =>
+          sharp(contents)
+            .ensureAlpha()
+            .extend({
+              top: 100,
+              bottom: 100,
+              left: 100,
+              right: 100,
+              background: { r: 0, g: 0, b: 0, alpha: 0 },
+            })
+            .composite([
+              {
+                input: Buffer.from(
+                  '<svg width="1024" height="1024"><rect x="100" y="100" width="824" height="824" rx="185" fill="white"/></svg>',
+                ),
+                blend: "dest-in",
+              },
+            ])
+            .png()
+            .toBuffer(),
+        catch: (cause) => new IconExportEncodingError({ variant: "Elysia macOS", cause }),
+      }),
+    ),
+  );
+  yield* save("assets/elysia/icon-mac.png", macIcon);
+  const images = yield* Effect.forEach(
+    WINDOWS_ICON_SIZES,
+    (size) => render(size).pipe(Effect.map((contents) => ({ size, contents }))),
+    { concurrency: 1 },
+  );
+  yield* save("assets/elysia/icon.ico", encodePngIco(images));
+  for (const override of DEVELOPMENT_PUBLIC_ICON_OVERRIDES) {
+    const size = override.targetRelativePath.endsWith("favicon-16x16.png")
+      ? 16
+      : override.targetRelativePath.endsWith("favicon-32x32.png")
+        ? 32
+        : 180;
+    yield* save(
+      override.targetRelativePath,
+      override.targetRelativePath.endsWith(".ico") ? encodePngIco(images) : yield* render(size),
+    );
+  }
+  const wordmark = Buffer.from(
+    yield* fs.readFile(path.join(repositoryRoot, "assets/elysia/wordmark.svg")),
+  );
+  yield* save("apps/web/public/elysia-symbol.svg", source);
+  yield* save("apps/web/public/elysia-symbol-dark.svg", darkSource);
+  yield* save("apps/web/public/elysia.svg", wordmark);
+  const darkWordmark = Buffer.from(wordmark.toString().replace('fill="#002244"', 'fill="#FFFFFF"'));
+  yield* save("apps/web/public/elysia-dark.svg", darkWordmark);
+  yield* save("apps/mobile/assets/elysia-wordmark.svg", wordmark);
+  yield* save("apps/mobile/assets/elysia-wordmark-dark.svg", darkWordmark);
+  if (stale.length) return yield* new IconExportAssetsStaleError({ paths: stale });
+  yield* Console.log(
+    checkOnly
+      ? "Elysia SVG icon exports are current."
+      : "Exported Elysia icons from the SVG source.",
+  );
+});
+
 export const exportBrandIcons = Effect.fn("exportBrandIcons")(function* (checkOnly: boolean) {
+  if (APP_NAME === "Elysia") return yield* exportElysiaIcons(checkOnly);
   const fs = yield* FileSystem.FileSystem;
   const repositoryRoot = yield* RepositoryRoot;
   const tool = yield* resolveIconComposerTool();

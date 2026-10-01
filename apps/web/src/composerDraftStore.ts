@@ -2258,7 +2258,7 @@ function normalizeCurrentPersistedComposerDraftStoreState(
     const normalizedStickyModelSelection = normalizeModelSelection(
       normalizedPersistedState.stickyModelSelection,
       {
-        provider: normalizedPersistedState.stickyProvider ?? "codex",
+        provider: normalizedPersistedState.stickyProvider ?? "claudeAgent",
         model: normalizedPersistedState.stickyModel,
         modelOptions: stickyModelOptions,
       },

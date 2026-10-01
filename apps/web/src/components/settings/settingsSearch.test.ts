@@ -45,6 +45,16 @@ const ITEMS: ReadonlyArray<SettingsSearchItem> = [
 ];
 
 describe("searchSettings", () => {
+  it.each(["Informa", "Midnight", "Graphite", "Canvas", "Paper"])(
+    "finds Appearance themes by %s",
+    (query) => {
+      expect(searchSettings(query)[0]).toMatchObject({
+        id: "theme",
+        to: "/settings/appearance",
+      });
+    },
+  );
+
   it.each(["send shortcut", "multiline", "new line"])("finds Send shortcut for %s", (query) => {
     expect(searchSettings(query).map((item) => item.id)).toContain("send-shortcut");
   });

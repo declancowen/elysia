@@ -82,11 +82,11 @@ export function resolveProviderCompatibility(
       : "unknown";
   const message =
     status === "broken"
-      ? "This provider version is known to be incompatible with this T3 Code release."
+      ? "This provider version is known to be incompatible with this Elysia release."
       : status === "unsupported"
-        ? "This provider version is outside the supported range for this T3 Code release."
+        ? "This provider version is outside the supported range for this Elysia release."
         : status === "graceful"
-          ? "This provider version has limited compatibility with this T3 Code release."
+          ? "This provider version has limited compatibility with this Elysia release."
           : null;
   const recommendedVersion = policy.recommendedVersion ?? null;
   const recommendedRange = policy.recommendedRange ?? null;
@@ -107,10 +107,15 @@ export function applyProviderCompatibility(
 ): ServerProvider {
   const { compatibilityAdvisory: _previous, ...base } = snapshot;
   if (!snapshot.enabled || !snapshot.installed) return base;
+  const runtimeVersion =
+    snapshot.runtimeVersion !== undefined ? snapshot.runtimeVersion : snapshot.version;
   const advisory =
-    resolveProviderCompatibility(policies, snapshot.driver, snapshot.version) ??
-    resolveProviderCompatibility(fallback, snapshot.driver, snapshot.version);
-  const latestVersion = snapshot.versionAdvisory?.latestVersion;
+    resolveProviderCompatibility(policies, snapshot.driver, runtimeVersion) ??
+    resolveProviderCompatibility(fallback, snapshot.driver, runtimeVersion);
+  const latestVersion =
+    snapshot.runtimeVersion !== undefined
+      ? snapshot.runtimeVersionAdvisory?.latestVersion
+      : snapshot.versionAdvisory?.latestVersion;
   const latestAdvisory = latestVersion
     ? (resolveProviderCompatibility(policies, snapshot.driver, latestVersion) ??
       resolveProviderCompatibility(fallback, snapshot.driver, latestVersion))

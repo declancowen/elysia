@@ -1,8 +1,57 @@
 # Release Checklist
 
-> For maintainers. Using T3 Code? See [docs/user](../user/).
+> For maintainers. Using Elysia? See [docs/user](../user/).
 
-This document covers the unified release workflow for stable and nightly desktop releases.
+## Elysia desktop releases
+
+Use `.github/workflows/release-elysia.yml` in `declancowen/elysia`. It reuses the upstream
+desktop packager for macOS and Windows, on GitHub-hosted runners. Both macOS architectures
+must be Developer ID signed, notarized and stapled before publication. Windows uses the existing
+optional Azure Trusted Signing secrets listed below and runs the native Elysia CLI. Linux desktop
+apps, installers and WSL runtime archives are not built or published for Elysia.
+
+1. Commit and push the desired source to `main`.
+2. Run **Release Elysia** from `main` with a new stable `X.Y.Z` version. Leave **publish** unchecked
+   to validate the entire build and download Actions artifacts without creating a release.
+3. After validation, run the same workflow with **publish** checked, or push a `vX.Y.Z` tag on the
+   validated commit. Tag pushes publish immediately; do not use test tags for validation.
+4. Verify the GitHub release contains both macOS DMGs, installer ZIPs and app ZIPs, Windows
+   installers, `latest-mac.yml`, `latest.yml`, blockmaps and `SHA256SUMS`.
+   The app ZIPs remain the macOS updater payloads; installer ZIPs preserve the DMG Finder icon.
+
+The first official Elysia release can use `0.0.1`; later versions must be newer than every
+published stable release. Reinstall the first official release if an earlier development build
+has a higher version, such as `0.0.44`, because the updater does not downgrade. The release publishes
+the stable feed in this repository;
+nightlies, npm publishing, T3 Connect deployment, hosted web deployment and Discord announcements
+are dormant in this fork. Publishing does not commit version bumps back to `main`.
+
+Required macOS Actions secrets:
+
+| Name                          | Value                                                                                               |
+| ----------------------------- | --------------------------------------------------------------------------------------------------- |
+| `CSC_LINK`                    | Base64-encoded `.p12` containing only Elysia's Developer ID Application certificate and private key |
+| `CSC_KEY_PASSWORD`            | Password used when exporting that `.p12`                                                            |
+| `APPLE_ID`                    | Apple ID used for notarization                                                                      |
+| `APPLE_APP_SPECIFIC_PASSWORD` | Apple app-specific password for notarization                                                        |
+| `APPLE_TEAM_ID`               | Apple Developer team ID; an existing repository variable of the same name also works                |
+
+The current signing identity is **Developer ID Application: Declan Cowen (Y4RT2Q3K9R)**,
+certificate SHA-1 `A0EAA44A8B01D58DAE2D630928C60D7D8102EA94`. Export that identity as a password-protected
+`.p12` in Keychain Access. Upload its base64 bytes directly with
+`base64 -i /path/to/Elysia.p12 | gh secret set CSC_LINK --repo declancowen/elysia`, and set the other
+secrets with `gh secret set NAME --repo declancowen/elysia` so their values are entered privately.
+Never commit the `.p12`, password or notarization credentials. The local **Elysia Signing** Keychain
+profile is suitable for local builds; GitHub's temporary runners require the portable secrets above.
+
+Alternatively, use the existing `APPLE_API_KEY` (raw `.p8` contents), `APPLE_API_KEY_ID` and
+`APPLE_API_ISSUER` secrets instead of the Apple ID/password pair. Elysia does not require
+`MACOS_PROVISIONING_PROFILE` or the upstream passkey entitlements.
+
+## Retained upstream release guidance
+
+The remaining guidance describes `.github/workflows/release.yml` and related upstream workflows,
+which run only in `pingdotgg/t3code`.
 
 ## What the workflow does
 

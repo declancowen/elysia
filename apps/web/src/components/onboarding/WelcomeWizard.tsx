@@ -1,3 +1,6 @@
+import { CONNECTIONS_ENABLED, isEnabledProviderDriver } from "@t3tools/contracts";
+import { ElysiaSetupSection } from "../settings/ElysiaSetupSection";
+import { primaryServerProvidersAtom } from "../../state/server";
 import { useAuth } from "@clerk/react";
 import { useAtomValue } from "@effect/atom-react";
 import type {
@@ -72,8 +75,7 @@ import { readCodexSetupMode } from "../settings/CodexSetupSection.logic";
 import { buildProviderInstanceUpdatePatch } from "../settings/SettingsPanels.logic";
 import { TerminalViewport } from "../ThreadTerminalDrawer";
 import { CloudEnvironmentConnectRows } from "../cloud/CloudEnvironmentConnectList";
-import { ClaudeAI, OpenAI } from "../Icons";
-import { T3Wordmark } from "../T3Wordmark";
+import { ClaudeAI, ElysiaWordmark, OpenAI } from "../Icons";
 import { Button } from "../ui/button";
 import { Checkbox } from "../ui/checkbox";
 import { Collapsible, CollapsiblePanel, CollapsibleTrigger } from "../ui/collapsible";
@@ -100,7 +102,9 @@ type WizardStep = "connection" | "agents" | "import";
 const NO_ENVIRONMENTS: readonly EnvironmentId[] = [];
 
 const AGENT_ONBOARDING_THREAD_ID = ThreadId.make("onboarding-agent-setup");
-const ONBOARDING_STAGES = ["Connect", "Agents", "Projects"] as const;
+const ONBOARDING_STAGES = CONNECTIONS_ENABLED
+  ? ["Connect", "Agents", "Projects"]
+  : ["Installation", "Sign in"];
 const SCAN_LIMIT_MESSAGE = "Scan limit reached. Some projects or conversations may be missing.";
 
 export function WelcomeWizard({
@@ -114,7 +118,17 @@ export function WelcomeWizard({
   readonly onDone: (projectRef?: ScopedProjectRef) => void | Promise<void>;
 }) {
   const completeOnboarding = useCompleteOnboarding();
-  const [step, setStep] = useState<WizardStep>(resumeEnvironmentId ? "agents" : "connection");
+  const providers = useAtomValue(primaryServerProvidersAtom);
+  const elysiaReady = providers.some(
+    (provider) =>
+      provider.enabled &&
+      provider.driver === "claudeAgent" &&
+      provider.auth.status === "authenticated" &&
+      provider.status === "ready",
+  );
+  const [step, setStep] = useState<WizardStep>(
+    resumeEnvironmentId || !CONNECTIONS_ENABLED ? "agents" : "connection",
+  );
   const { environments } = useEnvironments();
   const [selection, setSelection] = useState<ReadonlySet<EnvironmentId> | null>(null);
   const autoSelectedComputers = useRef(new Set<EnvironmentId>());
@@ -143,7 +157,11 @@ export function WelcomeWizard({
   }, [environments]);
   const selectedIds =
     selection ?? new Set(primaryEnvironment ? [primaryEnvironment.environmentId] : []);
-  const scans = useProjectScans(step === "import" ? setupIds : NO_ENVIRONMENTS);
+  const effectiveSetupIds =
+    !CONNECTIONS_ENABLED && setupIds.length === 0 && primaryEnvironment
+      ? [primaryEnvironment.environmentId]
+      : setupIds;
+  const scans = useProjectScans(step === "import" ? effectiveSetupIds : NO_ENVIRONMENTS);
   const isLoadingProjects =
     step === "import" &&
     scans.every((scan) => scan.data === null) &&
@@ -153,9 +171,18 @@ export function WelcomeWizard({
     setSetupIds(ids);
     setStep("agents");
   };
-  const stageIndex = step === "agents" ? 1 : step === "import" ? 2 : 0;
+  const stageIndex =
+    (step === "agents" ? 1 : step === "import" ? 2 : 0) - (CONNECTIONS_ENABLED ? 0 : 1);
   const finish = useCallback(
     (projectRef?: ScopedProjectRef, importWarning?: string, importedThreadCount = 0) => {
+      if (!CONNECTIONS_ENABLED && !elysiaReady) {
+        toastManager.add({
+          type: "error",
+          title: "Connect Elysia to continue",
+          description: "Complete company credential and VPN/Zscaler validation first.",
+        });
+        return Promise.resolve(false);
+      }
       if (finishingPromiseRef.current !== null) return finishingPromiseRef.current;
       if (completionErrorToastIdRef.current !== null) {
         toastManager.close(completionErrorToastIdRef.current);
@@ -205,7 +232,7 @@ export function WelcomeWizard({
       finishingPromiseRef.current = completion;
       return completion;
     },
-    [completeOnboarding, onDone],
+    [completeOnboarding, elysiaReady, onDone],
   );
 
   return (
@@ -217,25 +244,24 @@ export function WelcomeWizard({
         initialFocus={() => document.getElementById("onboarding-pairing-url") ?? true}
       >
         <WizardHeader
-          title="Set up T3 Code"
+          title="Set up Elysia"
           identity={
-            <div className="flex items-baseline gap-1.5" role="img" aria-label="T3 Code">
-              <T3Wordmark className="h-4 w-auto shrink-0" aria-hidden />
-              <span className="text-2xl font-medium tracking-tight text-muted-foreground">
-                Code
-              </span>
+            <div role="img" aria-label="Elysia">
+              <ElysiaWordmark className="h-10 w-30 shrink-0" aria-hidden />
             </div>
           }
         >
-          <WizardSteps
-            steps={ONBOARDING_STAGES}
-            currentStep={stageIndex}
-            isStepDisabled={(index) => isImporting || index >= stageIndex}
-            onStepChange={(index) => {
-              if (isImporting || index > stageIndex) return;
-              setStep(index === 0 ? "connection" : "agents");
-            }}
-          />
+          {CONNECTIONS_ENABLED ? (
+            <WizardSteps
+              steps={ONBOARDING_STAGES}
+              currentStep={stageIndex}
+              isStepDisabled={(index) => isImporting || index >= stageIndex}
+              onStepChange={(index) => {
+                if (isImporting || index > stageIndex) return;
+                setStep(index === 0 && CONNECTIONS_ENABLED ? "connection" : "agents");
+              }}
+            />
+          ) : null}
         </WizardHeader>
 
         <WizardPanel holdHeight={isLoadingProjects}>
@@ -265,7 +291,14 @@ export function WelcomeWizard({
               }}
             />
           ) : step === "agents" ? (
-            <AgentsStep environmentIds={setupIds} onContinue={() => setStep("import")} />
+            <AgentsStep
+              environmentIds={effectiveSetupIds}
+              ready={CONNECTIONS_ENABLED || elysiaReady}
+              onContinue={() => {
+                if (CONNECTIONS_ENABLED) setStep("import");
+                else void finish();
+              }}
+            />
           ) : (
             <ImportStep
               scans={scans}
@@ -463,7 +496,7 @@ function ConnectAccountOption({
           }
         >
           <CloudIcon className="size-4 text-muted-foreground" />
-          <span className="flex-1 text-left">T3 Connect</span>
+          <span className="flex-1 text-left">Connections</span>
           <span className="text-xs text-muted-foreground">
             {!isLoaded
               ? "Loading sign-in…"
@@ -499,7 +532,7 @@ function ConnectAccountOption({
             </p>
             <CommandBlock command="npx t3 connect" className="mt-3" />
             <p className="mt-3 text-xs text-muted-foreground">
-              Keep T3 Code running. Select the computers you want to set up above.
+              Keep Elysia running. Select the computers you want to set up above.
             </p>
           </div>
         </CollapsiblePanel>
@@ -617,7 +650,7 @@ function PairingForm({
             </p>
             <CommandBlock command="npx t3 pair" className="mt-2" />
             <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
-              Start T3 Code first, or run <code className="font-mono">npx t3 serve</code>. Add{" "}
+              Start Elysia first, or run <code className="font-mono">npx t3 serve</code>. Add{" "}
               <code className="font-mono">--tailscale</code> to use your tailnet.
             </p>
           </CollapsiblePanel>
@@ -629,7 +662,7 @@ function PairingForm({
 
 // ── Step 3: agents ───────────────────────────────────────────
 
-const PRIMARY_AGENT_DRIVERS = ["codex", "claudeAgent"] as const;
+const PRIMARY_AGENT_DRIVERS = (["codex", "claudeAgent"] as const).filter(isEnabledProviderDriver);
 type OnboardingAgentDriver = (typeof PRIMARY_AGENT_DRIVERS)[number];
 
 /** Setup values stay fixed while provider probes refresh the surrounding cards. */
@@ -645,16 +678,34 @@ interface AgentTerminalSession {
 /** Codex uses managed setup; existing CLI installs retain the terminal path. */
 function AgentsStep({
   environmentIds,
+  ready,
   onContinue,
 }: {
   readonly environmentIds: readonly EnvironmentId[];
+  readonly ready: boolean;
   readonly onContinue: () => void;
 }) {
   const { environments } = useEnvironments();
+  if (!CONNECTIONS_ENABLED) {
+    return (
+      <ScrollArea className="h-auto max-h-[min(40rem,65dvh)]">
+        <div className="p-1">
+          {environmentIds.map((environmentId) => (
+            <ConnectedAgentsStep
+              key={environmentId}
+              environmentId={environmentId}
+              machineLabel=""
+              onContinue={onContinue}
+            />
+          ))}
+        </div>
+      </ScrollArea>
+    );
+  }
   return (
     <StepShell
-      title="Connect your agents"
-      description="Choose an agent to start coding. You can add more later."
+      title="Set up Elysia"
+      description="Install the prerequisites, then connect with your company credentials. You can change these later in Settings → Providers."
     >
       <ScrollArea scrollFade className="mt-5 h-auto max-h-[min(32rem,55dvh)]">
         <div className="space-y-5 pr-3">
@@ -671,7 +722,7 @@ function AgentsStep({
         </div>
       </ScrollArea>
       <div className="mt-6 flex justify-end">
-        <Button autoFocus onClick={onContinue}>
+        <Button autoFocus disabled={!ready} onClick={onContinue}>
           Continue
           <ArrowRightIcon className="size-3.5" />
         </Button>
@@ -683,9 +734,11 @@ function AgentsStep({
 function ConnectedAgentsStep({
   environmentId,
   machineLabel,
+  onContinue,
 }: {
   readonly environmentId: EnvironmentId;
   readonly machineLabel: string;
+  readonly onContinue?: () => void;
 }) {
   const providers = useAtomValue(serverEnvironment.providersValueAtom(environmentId));
   const refreshProviders = useAtomCommand(serverEnvironment.refreshProviders, {
@@ -731,10 +784,22 @@ function ConnectedAgentsStep({
   }
   return (
     <section>
-      <h2 className="mb-2 text-sm font-medium">{machineLabel}</h2>
+      {machineLabel ? <h2 className="mb-2 text-sm font-medium">{machineLabel}</h2> : null}
       <div className="space-y-1.5">
         {primaryAgents.map(({ driver, provider, instanceId }) =>
-          driver === "codex" && serverConfig !== null ? (
+          driver === "claudeAgent" && serverConfig !== null ? (
+            <ElysiaSetupSection
+              key={instanceId ?? driver}
+              environmentId={environmentId}
+              instanceId={
+                instanceId ?? defaultInstanceIdForDriver(ProviderDriverKind.make("claudeAgent"))
+              }
+              provider={provider}
+              readOnly={false}
+              enabled={provider?.enabled ?? true}
+              onContinue={onContinue}
+            />
+          ) : driver === "codex" && serverConfig !== null ? (
             <OnboardingCodexSetup
               key={instanceId ?? driver}
               environmentId={environmentId}
@@ -933,7 +998,7 @@ function AgentCard({
   const meta = getDriverOption(ProviderDriverKind.make(driver));
   const Icon = meta?.icon;
   const displayName =
-    provider?.displayName || (driver === "claudeAgent" ? "Claude Code" : (meta?.label ?? driver));
+    provider?.displayName || (driver === "claudeAgent" ? "Elysia" : (meta?.label ?? driver));
   const summary = getProviderSummary(provider);
   const providerState = getOnboardingProviderState(provider);
 
@@ -1350,7 +1415,7 @@ function ImportStep({
         <div className="flex flex-1 flex-col items-center justify-center gap-3 py-6">
           <Spinner size="lg" tone="muted" />
           <p className="text-center text-sm text-muted-foreground">
-            Looking for projects from Claude Code and Codex…
+            Looking for existing projects…
           </p>
         </div>
         <div className="flex justify-end">
@@ -1426,9 +1491,7 @@ function ImportStep({
                     </Button>
                   </div>
                 ) : scanCandidates.length === 0 ? (
-                  <p className="py-2 text-sm text-muted-foreground">
-                    No existing Claude Code or Codex projects found.
-                  </p>
+                  <p className="py-2 text-sm text-muted-foreground">No existing projects found.</p>
                 ) : null}
                 {scan.data?.truncated ? (
                   <p className="text-xs text-muted-foreground" role="status">

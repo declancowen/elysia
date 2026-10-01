@@ -1,4 +1,5 @@
 import { RefreshIcon } from "~/components/ui/refresh-icon";
+import { CONNECTIONS_ENABLED } from "@t3tools/contracts";
 import { useAtomValue } from "@effect/atom-react";
 import { useLocation, useNavigate } from "@tanstack/react-router";
 import { Atom } from "effect/unstable/reactivity";
@@ -37,12 +38,8 @@ import { Button } from "../ui/button";
  * Nothing renders while pending — no shell, no EventRouter (whose welcome
  * payload would otherwise navigate into a thread), no dialogs.
  *
- * Decision order: a set `onboardingCompletedAt` resolves to the app as soon as
- * settings hydrate (the common case, no server round-trip). A `null` flag also
- * covers installs that predate the field, so it alone is not enough — the gate
- * waits for environment shells to bootstrap and inspects the workspace.
- * Hosted mode instead checks its saved environment catalog. A timeout shows
- * recovery for an unreachable primary server without mounting the app tree.
+ * Elysia requires a live, authenticated native provider. Saved completion
+ * flags and workspace history cannot bypass company credential setup.
  */
 
 const FIRST_RUN_DECISION_TIMEOUT_MS = 4_000;
@@ -97,7 +94,8 @@ export function FirstRunGate({
   // the wizard) resolve synchronously instead of blanking a frame.
   const [gateState, setGateState] = useState<FirstRunGateState>(() => ({
     decision:
-      (!enabled && !hostedStatic) || (hydrated && onboardingCompletedAt !== null)
+      CONNECTIONS_ENABLED &&
+      ((!enabled && !hostedStatic) || (hydrated && onboardingCompletedAt !== null))
         ? "app"
         : "pending",
     stalled: false,
@@ -125,41 +123,60 @@ export function FirstRunGate({
     threads,
   });
 
-  const { decision: nextDecision, persistCompletion } = hostedStatic
-    ? resolveHostedFirstRunDecision({
-        localEnvironmentDisabled: isLocalEnvironmentDisabled(),
-        hydrated,
-        completed: onboardingCompletedAt !== null,
-        catalogReady: environmentCatalogReady,
-        environmentCount: environments.length,
-      })
-    : resolveFirstRunDecision({
-        enabled,
-        hydrated,
-        completed: onboardingCompletedAt !== null,
-        bootstrapped,
-        authoritative: primaryShellLive,
-        workspaceAuthoritative: workspaceEvidenceLive,
-        workspaceProvenanceAuthoritative: isFirstRunWorkspaceProvenanceAuthoritative({
-          welcomeReceived: serverWelcome !== null,
-          bootstrapStatus: serverWelcome?.bootstrapStatus ?? null,
-        }),
-        catalogReady: environmentCatalogReady,
-        serverConfigAvailable: serverConfig !== null,
-        workspaceFresh,
-        projectCount: projects.length,
-        threadCount: threads.length,
-      });
+  const { decision: nextDecision, persistCompletion } =
+    hostedStatic && CONNECTIONS_ENABLED
+      ? resolveHostedFirstRunDecision({
+          localEnvironmentDisabled: isLocalEnvironmentDisabled(),
+          hydrated,
+          completed: onboardingCompletedAt !== null,
+          catalogReady: environmentCatalogReady,
+          environmentCount: environments.length,
+        })
+      : resolveFirstRunDecision({
+          ...(!CONNECTIONS_ENABLED
+            ? {
+                elysiaReady:
+                  serverConfig !== null && primaryShellLive
+                    ? serverConfig.providers.some(
+                        (provider) =>
+                          provider.enabled &&
+                          provider.driver === "claudeAgent" &&
+                          provider.auth.status === "authenticated" &&
+                          provider.status === "ready",
+                      )
+                    : null,
+              }
+            : {}),
+          enabled,
+          hydrated,
+          completed: onboardingCompletedAt !== null,
+          bootstrapped,
+          authoritative: primaryShellLive,
+          workspaceAuthoritative: workspaceEvidenceLive,
+          workspaceProvenanceAuthoritative: isFirstRunWorkspaceProvenanceAuthoritative({
+            welcomeReceived: serverWelcome !== null,
+            bootstrapStatus: serverWelcome?.bootstrapStatus ?? null,
+          }),
+          catalogReady: environmentCatalogReady,
+          serverConfigAvailable: serverConfig !== null,
+          workspaceFresh,
+          projectCount: projects.length,
+          threadCount: threads.length,
+        });
 
   useEffect(() => {
-    if (decision === "wizard" || !hydrated) return;
+    if ((CONNECTIONS_ENABLED && decision === "wizard") || !hydrated) return;
 
     if (persistCompletion && onboardingCompletedAt === null) {
       void completeOnboarding().catch(() => undefined);
     }
 
     setGateState((state) =>
-      transitionFirstRunGateState(state, { type: "evidence", decision: nextDecision }),
+      CONNECTIONS_ENABLED
+        ? transitionFirstRunGateState(state, { type: "evidence", decision: nextDecision })
+        : state.decision === nextDecision
+          ? state
+          : { decision: nextDecision, stalled: false },
     );
   }, [
     completeOnboarding,
@@ -214,7 +231,7 @@ function FirstRunRecovery({
         <p className="mt-2 text-sm text-muted-foreground">
           {settingsReadFailed
             ? "Your saved settings could not be loaded."
-            : "T3 Code could not confirm this workspace."}
+            : "Elysia could not confirm this workspace."}
         </p>
         <Button
           className="mt-5"

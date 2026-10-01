@@ -184,12 +184,14 @@ export function ProviderModelsSection({
   const favoriteModelSet = useMemo(() => new Set(favoriteModels), [favoriteModels]);
   const displayModels = useMemo(
     () =>
-      groupModelsForDisplay(models, {
-        favoriteModels: favoriteModelSet,
-        hiddenModels: hiddenModelSet,
-        modelOrder,
-      }),
-    [favoriteModelSet, hiddenModelSet, modelOrder, models],
+      driverKind === "claudeAgent"
+        ? sortModelsForProviderInstance(models, { modelOrder, favoriteModels: new Set() })
+        : groupModelsForDisplay(models, {
+            favoriteModels: favoriteModelSet,
+            hiddenModels: hiddenModelSet,
+            modelOrder,
+          }),
+    [driverKind, favoriteModelSet, hiddenModelSet, modelOrder, models],
   );
   const favoriteCount = displayModels.filter((model) => favoriteModelSet.has(model.slug)).length;
   const hiddenCount = displayModels.filter(
@@ -298,7 +300,11 @@ export function ProviderModelsSection({
     const index = displayModels.findIndex((model) => model.slug === slug);
     const nextIndex = index + direction;
     if (index < 0 || nextIndex < 0 || nextIndex >= displayModels.length) return;
-    if (groupOf(displayModels[index]!) !== groupOf(displayModels[nextIndex]!)) return;
+    if (
+      driverKind !== "claudeAgent" &&
+      groupOf(displayModels[index]!) !== groupOf(displayModels[nextIndex]!)
+    )
+      return;
     const next = displayModels.map((model) => model.slug);
     [next[index], next[nextIndex]] = [next[nextIndex]!, next[index]!];
     onModelOrderChange(next);
@@ -339,7 +345,7 @@ export function ProviderModelsSection({
     },
   ) => (
     <span className="flex shrink-0 items-center justify-end gap-0.5">
-      {!options.isHidden && !isFiltering ? (
+      {(driverKind === "claudeAgent" || !options.isHidden) && !isFiltering ? (
         <>
           <Tooltip>
             <TooltipTrigger
@@ -451,8 +457,13 @@ export function ProviderModelsSection({
     // Reordering a filtered view would be ambiguous, so arrows only show on
     // the full list.
     const canMoveUp =
-      !isFiltering && previousModel !== undefined && groupOf(previousModel) === group;
-    const canMoveDown = !isFiltering && nextModel !== undefined && groupOf(nextModel) === group;
+      !isFiltering &&
+      previousModel !== undefined &&
+      (driverKind === "claudeAgent" || groupOf(previousModel) === group);
+    const canMoveDown =
+      !isFiltering &&
+      nextModel !== undefined &&
+      (driverKind === "claudeAgent" || groupOf(nextModel) === group);
     const nameClassName = cn("text-xs", isHidden ? "text-muted-foreground" : "text-foreground/90");
 
     return (
@@ -469,7 +480,7 @@ export function ProviderModelsSection({
         {starButton(model, isFavorite)}
         <span className="flex min-w-0 items-baseline gap-2">
           <span className={cn(nameClassName, "truncate")}>{model.name}</span>
-          {model.name !== model.slug ? (
+          {driverKind !== "claudeAgent" && model.name !== model.slug ? (
             <code className="truncate font-mono text-2xs text-muted-foreground/70">
               {model.slug}
             </code>
@@ -534,7 +545,7 @@ export function ProviderModelsSection({
             {hiddenCount > 0 ? ` · ${hiddenCount} hidden` : ""}
           </span>
         </div>
-        {driverKind !== "antigravity" && !isAdding ? (
+        {driverKind !== "antigravity" && driverKind !== "claudeAgent" && !isAdding ? (
           <Button
             type="button"
             size="xs"
@@ -559,7 +570,8 @@ export function ProviderModelsSection({
         {visibleModels.map((model, index) => {
           const group = groupOf(model);
           const previous = visibleModels[index - 1];
-          const startsGroup = previous === undefined || groupOf(previous) !== group;
+          const startsGroup =
+            driverKind !== "claudeAgent" && (previous === undefined || groupOf(previous) !== group);
           const editingEntry =
             model.isCustom && editingSlug === model.slug
               ? customModels.find((entry) => entry.slug === model.slug)

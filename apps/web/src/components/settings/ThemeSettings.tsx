@@ -10,6 +10,7 @@ import {
   UploadIcon,
 } from "lucide-react";
 import { useCallback, useEffect, useState, type ReactElement } from "react";
+import { ELYSIA_THEMES } from "@t3tools/shared/themePalettes";
 import { useEnvironmentThemeDefinitions } from "../../hooks/useEnvironmentTheme";
 import { readThemeHalvesRaw } from "../../hooks/useTheme";
 import { cn } from "../../lib/utils";
@@ -22,11 +23,7 @@ import {
   type ThemeAppearance,
   type ThemeDefinition,
   type ThemeHalves,
-  T3_CHAT_THEME,
-  EMBER_THEME,
-  GROVE_THEME,
-  IRIS_THEME,
-  OCEAN_THEME,
+  BUILT_IN_THEMES,
 } from "../../themePalette";
 import {
   AlertDialog,
@@ -54,12 +51,9 @@ import {
 } from "./ThemePreviewCircles";
 import { ThemeWireframe } from "./ThemeWireframe";
 
-const MAINTAINER_THEMES: ReadonlyArray<ThemeDefinition> = [
-  T3_CHAT_THEME,
-  GROVE_THEME,
-  OCEAN_THEME,
-  EMBER_THEME,
-  IRIS_THEME,
+const MAINTAINER_THEMES = [
+  ...ELYSIA_THEMES,
+  ...BUILT_IN_THEMES.filter((theme) => !ELYSIA_THEMES.includes(theme)),
 ];
 
 function collectionVariantLabels(themes: ReadonlyArray<ThemeDefinition>): ReadonlyArray<string> {
@@ -692,11 +686,11 @@ export function ThemeLibrary({
 
   // Rings always show the effective owner of each appearance: an unpicked
   // half belongs to the default card (a null owner), so a fresh install
-  // shows T3 Code selected instead of nothing.
+  // shows Elysia selected instead of nothing.
   const pickedModesFor = (cardId: string | null): ThemeMode[] => {
     const rings: ThemeMode[] = [];
-    if (lightOwner === cardId) rings.push("light");
-    if (darkOwner === cardId) rings.push("dark");
+    if ((lightOwner ?? "default") === (cardId ?? "default")) rings.push("light");
+    if ((darkOwner ?? "default") === (cardId ?? "default")) rings.push("dark");
     return rings;
   };
 

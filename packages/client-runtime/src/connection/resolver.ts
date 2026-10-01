@@ -1,3 +1,4 @@
+import { CONNECTIONS_ENABLED } from "@t3tools/contracts";
 import type { AuthClientPresentationMetadata } from "@t3tools/contracts";
 import { withRelayClientTracing } from "@t3tools/shared/relayTracing";
 import * as Context from "effect/Context";
@@ -249,6 +250,11 @@ export const make = Effect.gen(function* () {
     entry: ConnectionCatalogEntry,
   ) {
     const target: ConnectionTarget = entry.target;
+    if (!CONNECTIONS_ENABLED && target._tag !== "PrimaryConnectionTarget")
+      return yield* new ConnectionBlockedError({
+        reason: "unsupported",
+        detail: "Connections are disabled in Elysia.",
+      });
     yield* Effect.annotateCurrentSpan({
       "connection.environment.id": target.environmentId,
       "connection.target.kind": target._tag,

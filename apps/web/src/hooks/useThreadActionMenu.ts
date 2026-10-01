@@ -39,7 +39,7 @@ import { buildPhysicalToLogicalProjectKeyMap } from "../sidebarProjectGrouping";
 import { useUiStateStore } from "../uiStateStore";
 import { useCopyToClipboard } from "./useCopyToClipboard";
 import { useNewThreadHandler } from "./useHandleNewThread";
-import { useClientSettings } from "./useSettings";
+import { useClientSettings, useCodeWorkspace } from "./useSettings";
 import { useThreadActions } from "./useThreadActions";
 
 function failureToast(title: string, error: unknown) {
@@ -69,6 +69,7 @@ export function useThreadActionMenu(input: {
   readonly onStartRename: () => void;
 }) {
   const { threadRef, projectCwd, onStartRename } = input;
+  const codeWorkspace = useCodeWorkspace();
   const router = useRouter();
   const projects = useProjects();
   const primaryEnvironmentId = usePrimaryEnvironmentId();
@@ -142,7 +143,7 @@ export function useThreadActionMenu(input: {
         const isRegeneratingTitle = thread.titleRegeneration != null;
         const snoozePresets = resolveSnoozePresets(now, timestampFormat);
         const items = buildThreadActionMenuItems({
-          branch: thread.branch ?? null,
+          branch: codeWorkspace ? (thread.branch ?? null) : null,
           // The chat header has no project-scoped thread list behind the
           // menu, so the "Filter by project" affordance is sidebar-only.
           projectFilter: null,
@@ -326,6 +327,7 @@ export function useThreadActionMenu(input: {
       })();
     },
     [
+      codeWorkspace,
       archiveThread,
       confirmThreadArchive,
       confirmThreadDelete,

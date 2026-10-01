@@ -25,6 +25,7 @@ import {
   workEntryDisplayIndicatesToolFailure,
   workEntryIndicatesToolSuccess,
   workEntryIndicatesToolNeutralStatus,
+  workEntrySignalsSevereFailure,
   workLogEntryIsToolLike,
   type TimelineEntry,
   type WorkLogEntry,
@@ -336,6 +337,14 @@ export type TimelineLatestTurn = Pick<
 const LIVE_ACTIVITY_ROW_ID = "live-activity-row";
 
 type ActivityEntry = Extract<TimelineEntry, { kind: "message" | "work" }>;
+
+export function isWorkWorkspaceEntry(entry: TimelineEntry): boolean {
+  return (
+    entry.kind !== "work" ||
+    entry.entry.questionAnswer !== undefined ||
+    workEntrySignalsSevereFailure(entry.entry)
+  );
+}
 
 function isActivityEntry(entry: TimelineEntry): entry is ActivityEntry {
   return entry.kind === "message"

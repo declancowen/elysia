@@ -1,13 +1,11 @@
+import { CONNECTIONS_ENABLED } from "@t3tools/contracts";
+import { elysiaConnectionsPolicyLayer } from "./http.ts";
 // @effect-diagnostics nodeBuiltinImport:off
 import * as NodeHttp from "node:http";
 
 import * as NodeHttpServer from "@effect/platform-node/NodeHttpServer";
 import * as NodeServices from "@effect/platform-node/NodeServices";
-import {
-  EnvironmentHttpApi,
-  ProviderDriverKind,
-  type RepositoryIdentity,
-} from "@t3tools/contracts";
+import { EnvironmentHttpApi, type RepositoryIdentity } from "@t3tools/contracts";
 import type { RelayManagedEndpointRuntimeConfig } from "@t3tools/contracts/relay";
 import * as Cause from "effect/Cause";
 import * as Clock from "effect/Clock";
@@ -604,6 +602,7 @@ export const makeRoutesLayer = Layer.mergeAll(
       Layer.provide(serverEnvironmentHttpApiLayer),
       Layer.provide(environmentAuthenticatedAuthLayer),
     ),
+    elysiaConnectionsPolicyLayer,
     otlpTracesProxyRouteLayer,
     assetRouteLayer,
     attachmentUploadRouteLayer,
@@ -680,59 +679,60 @@ const makeServerLayer = Layer.unwrap(
           ),
       ),
     );
-    const tailscaleServeLayer = config.tailscaleServeEnabled
-      ? Layer.effectDiscard(
-          Effect.acquireRelease(
-            Effect.gen(function* () {
-              yield* Deferred.succeed(tailscaleParked, undefined).pipe(Effect.orDie);
-              yield* awaitActivation;
-              const server = yield* HttpServer.HttpServer;
-              const address = server.address;
-              if (typeof address === "string" || !("port" in address)) {
-                return null;
-              }
+    const tailscaleServeLayer =
+      CONNECTIONS_ENABLED && config.tailscaleServeEnabled
+        ? Layer.effectDiscard(
+            Effect.acquireRelease(
+              Effect.gen(function* () {
+                yield* Deferred.succeed(tailscaleParked, undefined).pipe(Effect.orDie);
+                yield* awaitActivation;
+                const server = yield* HttpServer.HttpServer;
+                const address = server.address;
+                if (typeof address === "string" || !("port" in address)) {
+                  return null;
+                }
 
-              const localPort = address.port;
-              return yield* ensureTailscaleServe({
-                localPort,
-                servePort: config.tailscaleServePort,
-                localHost: "127.0.0.1",
-              }).pipe(
-                Effect.as({ localPort, servePort: config.tailscaleServePort }),
-                Effect.tap(() =>
-                  Effect.logInfo("Tailscale Serve configured", {
-                    localPort,
-                    servePort: config.tailscaleServePort,
-                  }),
-                ),
-                Effect.catch((cause) =>
-                  Effect.logWarning("Failed to configure Tailscale Serve", {
-                    cause,
-                    localPort,
-                    servePort: config.tailscaleServePort,
-                  }).pipe(Effect.as(null)),
-                ),
-              );
-            }),
-            (configured) =>
-              configured
-                ? disableTailscaleServe({ servePort: configured.servePort }).pipe(
-                    Effect.tap(() =>
-                      Effect.logInfo("Tailscale Serve disabled", {
-                        servePort: configured.servePort,
-                      }),
-                    ),
-                    Effect.catch((cause) =>
-                      Effect.logWarning("Failed to disable Tailscale Serve", {
-                        cause,
-                        servePort: configured.servePort,
-                      }),
-                    ),
-                  )
-                : Effect.void,
-          ),
-        )
-      : Layer.empty;
+                const localPort = address.port;
+                return yield* ensureTailscaleServe({
+                  localPort,
+                  servePort: config.tailscaleServePort,
+                  localHost: "127.0.0.1",
+                }).pipe(
+                  Effect.as({ localPort, servePort: config.tailscaleServePort }),
+                  Effect.tap(() =>
+                    Effect.logInfo("Tailscale Serve configured", {
+                      localPort,
+                      servePort: config.tailscaleServePort,
+                    }),
+                  ),
+                  Effect.catch((cause) =>
+                    Effect.logWarning("Failed to configure Tailscale Serve", {
+                      cause,
+                      localPort,
+                      servePort: config.tailscaleServePort,
+                    }).pipe(Effect.as(null)),
+                  ),
+                );
+              }),
+              (configured) =>
+                configured
+                  ? disableTailscaleServe({ servePort: configured.servePort }).pipe(
+                      Effect.tap(() =>
+                        Effect.logInfo("Tailscale Serve disabled", {
+                          servePort: configured.servePort,
+                        }),
+                      ),
+                      Effect.catch((cause) =>
+                        Effect.logWarning("Failed to disable Tailscale Serve", {
+                          cause,
+                          servePort: configured.servePort,
+                        }),
+                      ),
+                    )
+                  : Effect.void,
+            ),
+          )
+        : Layer.empty;
     const cloudDesiredLinkReconcileLayer = Layer.effectDiscard(
       Effect.gen(function* () {
         const releaseManagedTunnel = releaseManagedTunnelOnShutdown().pipe(
@@ -795,12 +795,14 @@ const makeServerLayer = Layer.unwrap(
                     ),
                   }),
                   Effect.tap((recovered) =>
-                    recovered ? Effect.logInfo("T3 Connect managed tunnel recovered") : Effect.void,
+                    recovered
+                      ? Effect.logInfo("Connections managed tunnel recovered")
+                      : Effect.void,
                   ),
                   Effect.catchCause((cause) =>
                     Cause.hasInterrupts(cause)
                       ? Effect.interrupt
-                      : Effect.logWarning("Failed to recover the T3 Connect managed tunnel", {
+                      : Effect.logWarning("Failed to recover the Connections managed tunnel", {
                           cause,
                         }),
                   ),
@@ -819,9 +821,9 @@ const makeServerLayer = Layer.unwrap(
             const wantsCliLink = hasCloudPublicConfig
               ? yield* CloudCliState.readCliDesiredCloudLink.pipe(
                   Effect.catch((cause) =>
-                    Effect.logWarning("Failed to read the desired T3 Connect link", { cause }).pipe(
-                      Effect.as(false),
-                    ),
+                    Effect.logWarning("Failed to read the desired Connections link", {
+                      cause,
+                    }).pipe(Effect.as(false)),
                   ),
                 )
               : false;
@@ -831,7 +833,7 @@ const makeServerLayer = Layer.unwrap(
             const desiredCliLinkMode = wantsCliLink
               ? yield* CloudCliState.readCliDesiredLinkMode.pipe(
                   Effect.catch((cause) =>
-                    Effect.logWarning("Failed to read the desired T3 Connect link mode", {
+                    Effect.logWarning("Failed to read the desired Connections link mode", {
                       cause,
                     }).pipe(Effect.as("managed" as const)),
                   ),
@@ -844,7 +846,7 @@ const makeServerLayer = Layer.unwrap(
                 ? false
                 : yield* startManagedCloudTunnelIfOriginConfirmed(localOrigin).pipe(
                     Effect.catch((cause) =>
-                      Effect.logWarning("Failed to start the confirmed T3 Connect tunnel", {
+                      Effect.logWarning("Failed to start the confirmed Connections tunnel", {
                         cause,
                       }).pipe(Effect.as(false)),
                     ),
@@ -855,12 +857,12 @@ const makeServerLayer = Layer.unwrap(
               Effect.tap((started) =>
                 started
                   ? Effect.logWarning(
-                      "T3 Connect started the stored tunnel without relay confirmation",
+                      "Connections started the stored tunnel without relay confirmation",
                     )
                   : Effect.void,
               ),
               Effect.catch((cause) =>
-                Effect.logWarning("Failed to start the stored T3 Connect tunnel", { cause }),
+                Effect.logWarning("Failed to start the stored Connections tunnel", { cause }),
               ),
               Effect.asVoid,
             );
@@ -875,13 +877,13 @@ const makeServerLayer = Layer.unwrap(
             ).pipe(
               Effect.tap((result) =>
                 result.status === "ready"
-                  ? Effect.logInfo("T3 Connect managed tunnel recovery registered")
+                  ? Effect.logInfo("Connections managed tunnel recovery registered")
                   : Effect.void,
               ),
               Effect.catchCause((cause) =>
                 Cause.hasInterrupts(cause)
                   ? Effect.interrupt
-                  : Effect.logWarning("Failed to register T3 Connect managed tunnel recovery", {
+                  : Effect.logWarning("Failed to register Connections managed tunnel recovery", {
                       cause,
                     }).pipe(Effect.as({ status: "unavailable" as const })),
               ),
@@ -926,10 +928,10 @@ const makeServerLayer = Layer.unwrap(
                 Effect.tap((mode) =>
                   mode === null
                     ? Effect.void
-                    : Effect.logInfo("T3 Connect desired link reconciled on startup"),
+                    : Effect.logInfo("Connections desired link reconciled on startup"),
                 ),
                 Effect.catch((cause) =>
-                  Effect.logWarning("Failed to reconcile T3 Connect desired link on startup", {
+                  Effect.logWarning("Failed to reconcile Connections desired link on startup", {
                     cause,
                   }).pipe(Effect.as(null)),
                 ),
@@ -953,9 +955,11 @@ const makeServerLayer = Layer.unwrap(
       awaitAuxiliaryParked: Effect.all(
         [
           Deferred.await(runtimeStateParked),
-          Deferred.await(cloudLinkParked),
+          ...(CONNECTIONS_ENABLED ? [Deferred.await(cloudLinkParked)] : []),
           Deferred.await(routesReady),
-          ...(config.tailscaleServeEnabled ? [Deferred.await(tailscaleParked)] : []),
+          ...(CONNECTIONS_ENABLED && config.tailscaleServeEnabled
+            ? [Deferred.await(tailscaleParked)]
+            : []),
         ],
         { concurrency: "unbounded" },
       ).pipe(Effect.asVoid),
@@ -970,7 +974,7 @@ const makeServerLayer = Layer.unwrap(
       httpListeningLayer,
       runtimeStateLayer.pipe(Layer.provide(launcherLayer)),
       tailscaleServeLayer,
-      cloudDesiredLinkReconcileLayer,
+      CONNECTIONS_ENABLED ? cloudDesiredLinkReconcileLayer : Layer.empty,
       HeapSnapshot.layer,
     );
 

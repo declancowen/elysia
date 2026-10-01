@@ -1,6 +1,9 @@
 import React, { type SVGProps, useId } from "react";
 import { cn } from "~/lib/utils";
-export type Icon = React.FC<SVGProps<SVGSVGElement>>;
+export type Icon = React.FC<{
+  className?: string | undefined;
+  "aria-hidden"?: boolean | "true" | "false" | undefined;
+}>;
 
 export const UltrafastIcon: Icon = (props) => (
   <svg viewBox="0 0 24 24" fill="currentColor" {...props}>
@@ -877,3 +880,17 @@ export const ComputerUseAppIcon: Icon = (props) => {
     </svg>
   );
 };
+
+export const ElysiaIcon: Icon = (props) => (
+  <svg {...props} viewBox="0 0 48 48" fill="none">
+    <image href="/elysia-symbol.svg" width="48" height="48" className="dark:hidden" />
+    <image href="/elysia-symbol-dark.svg" width="48" height="48" className="hidden dark:block" />
+  </svg>
+);
+
+export const ElysiaWordmark: Icon = (props) => (
+  <svg {...props} viewBox="0 0 144 48" fill="none">
+    <image href="/elysia.svg" width="144" height="48" className="dark:hidden" />
+    <image href="/elysia-dark.svg" width="144" height="48" className="hidden dark:block" />
+  </svg>
+);

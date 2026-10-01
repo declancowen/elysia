@@ -1,3 +1,4 @@
+import { AlertTriangleIcon as WarningIcon } from "lucide-react";
 import { useState } from "react";
 
 import { Button } from "~/components/ui/button";
@@ -65,21 +66,7 @@ export function PreviewUnreachable({ url, code, description, onReload }: Props) 
   );
 }
 
-function ErrorIcon({ className }: { className?: string }) {
-  return (
-    <svg
-      viewBox="0 0 64 64"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2.5"
-      className={className}
-    >
-      <path d="M16 12 L48 12 L48 52 L16 52 Z" />
-      <path d="M22 22 L42 22 M22 30 L36 30 M22 38 L40 38" strokeLinecap="round" />
-      <path d="M52 8 L12 56" strokeLinecap="round" />
-    </svg>
-  );
-}
+const ErrorIcon = WarningIcon;
 
 function safeHost(url: string): string | null {
   try {

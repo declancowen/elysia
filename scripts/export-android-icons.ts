@@ -21,6 +21,7 @@ import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 import sharp from "sharp";
+import { APP_NAME } from "../packages/contracts/src/forkPolicy.ts";
 
 type IconVariant = "dev" | "nightly" | "prod";
 
@@ -210,6 +211,32 @@ const exportAndroidIcons = Effect.gen(function* () {
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
   const repositoryRoot = path.resolve(import.meta.dirname, "..");
+  if (APP_NAME === "Elysia") {
+    const source = (yield* fs.readFileString(
+      path.join(repositoryRoot, "assets/elysia/symbol.svg"),
+    )).replace('fill="#002244"', 'fill="#FFFFFF"');
+    for (const [name, size] of [
+      ["elysia-adaptive.png", ADAPTIVE_CANVAS],
+      ["elysia-splash.png", SPLASH_CANVAS],
+    ] as const) {
+      const symbolSize = Math.round(size * 0.6);
+      const inset = Math.floor((size - symbolSize) / 2);
+      const contents = yield* composite(
+        "Elysia",
+        yield* solidCanvas("Elysia", size, "transparent"),
+        [
+          {
+            input: yield* rasterize("Elysia", source, symbolSize),
+            left: inset,
+            top: inset,
+          },
+        ],
+      );
+      yield* fs.writeFile(path.join(repositoryRoot, OUTPUT_DIRECTORY, name), contents);
+      yield* Console.log(`wrote ${OUTPUT_DIRECTORY}/${name}`);
+    }
+    return;
+  }
   const outputs = [
     ["android-icon-foreground.png", yield* renderForeground(repositoryRoot, ADAPTIVE_CANVAS)],
     [

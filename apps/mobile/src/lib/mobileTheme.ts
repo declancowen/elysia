@@ -1,6 +1,6 @@
 import {
   BUILT_IN_THEMES,
-  T3_CHAT_THEME,
+  DEFAULT_THEME,
   T3_CODE_LIGHT_THEME_COLORS,
   T3_CODE_DARK_THEME_COLORS,
   getThemeColorsForAppearance,
@@ -26,7 +26,7 @@ export const MOBILE_THEME_OPTIONS: ReadonlyArray<{
   readonly id: MobileThemeId;
   readonly label: string;
 }> = [
-  { id: DEFAULT_MOBILE_THEME_ID, label: "T3 Code" },
+  { id: DEFAULT_MOBILE_THEME_ID, label: "Default" },
   { id: "material-you", label: "Material You" },
   ...BUILT_IN_THEMES.map((theme) => ({ id: theme.id as MobileThemeId, label: theme.label })),
 ];
@@ -43,7 +43,7 @@ export function normalizeMobileThemeId(value: unknown): MobileThemeId {
 }
 
 export function normalizeMobileThemeMode(value: unknown): MobileThemeMode {
-  return value === "light" || value === "dark" || value === "system" ? value : "system";
+  return value === "light" || value === "dark" || value === "system" ? value : "dark";
 }
 
 export function resolveMobileThemeIds(preferences: {
@@ -295,12 +295,12 @@ export function createMobileThemeVariables(
     "--color-switch-inactive-thumb": c.mutedForeground,
     "--color-warning": c.warningSurface,
     "--color-warning-border": withAlpha(c.warning, 0.32),
-    "--color-warning-foreground": c.warningForeground,
+    "--color-warning-foreground": readableTextColor(c.warningForeground, c.warningSurface),
     "--color-danger": c.errorSurface,
     "--color-danger-border": withAlpha(c.error, 0.32),
-    "--color-danger-foreground": c.errorForeground,
+    "--color-danger-foreground": readableTextColor(c.errorForeground, c.errorSurface),
     "--color-update": c.updateSurface,
-    "--color-update-foreground": c.updateForeground,
+    "--color-update-foreground": readableTextColor(c.updateForeground, c.updateSurface),
     "--color-input": c.surface,
     "--color-input-border": c.input,
     "--color-sidebar-search": c.sidebarControlSurface,
@@ -347,7 +347,7 @@ export function createMobileThemeVariables(
 }
 
 export const MOBILE_THEME_VARIABLE_NAMES = Object.keys(
-  createMobileThemeVariables(T3_CHAT_THEME.colors, "light"),
+  createMobileThemeVariables(T3_CODE_LIGHT_THEME_COLORS, "light"),
 ) as ReadonlyArray<MobileThemeVariable>;
 
 export function getMobileThemeColors(
@@ -357,7 +357,7 @@ export function getMobileThemeColors(
   if (themeId === DEFAULT_MOBILE_THEME_ID) {
     return appearance === "dark" ? T3_CODE_DARK_THEME_COLORS : T3_CODE_LIGHT_THEME_COLORS;
   }
-  const theme = BUILT_IN_THEMES.find((candidate) => candidate.id === themeId) ?? T3_CHAT_THEME;
+  const theme = BUILT_IN_THEMES.find((candidate) => candidate.id === themeId) ?? DEFAULT_THEME;
   return getThemeColorsForAppearance(theme, appearance) ?? theme.colors;
 }
 
@@ -400,7 +400,7 @@ export function getMobileThemePreviewColors(
 ): ThemePreviewColors {
   if (themeId === DEFAULT_MOBILE_THEME_ID || themeId === "material-you")
     return STANDARD_THEME_PREVIEW_COLORS[appearance];
-  const theme = BUILT_IN_THEMES.find((candidate) => candidate.id === themeId) ?? T3_CHAT_THEME;
+  const theme = BUILT_IN_THEMES.find((candidate) => candidate.id === themeId) ?? DEFAULT_THEME;
   const colors = getThemeColorsForAppearance(theme, appearance) ?? theme.colors;
   return {
     canvas: themeColorToNativeColor(colors.canvas),

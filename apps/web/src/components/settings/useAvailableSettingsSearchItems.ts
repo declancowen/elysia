@@ -59,7 +59,13 @@ export function useAvailableSettingsSearchItems(scopeSearch: SettingsScopeSearch
         }),
         hasThreadAutoSettlement:
           getThreadAutoSettlementSearchAvailability(environments).eligibleEnvironmentIds.length > 0,
-      }),
+      }).filter(
+        (item) =>
+          item.id !== "project-grouping" &&
+          item.to !== "/settings/connections" &&
+          !item.id.includes("environment-identification") &&
+          !item.id.includes("update-track"),
+      ),
     [
       canManageLocalBackend,
       desktopWsl.data,

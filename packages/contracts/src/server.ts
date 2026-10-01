@@ -220,6 +220,15 @@ export const ServerProvider = Schema.Struct({
   // meter once its activities load. Clients reserve the meter's space on it.
   reportsContextWindow: Schema.optional(Schema.Boolean),
   requiresNewThreadForModelChange: Schema.optional(Schema.Boolean),
+  elysiaCompression: Schema.optional(
+    Schema.Struct({
+      enabled: Schema.Boolean,
+      port: Schema.Number.check(
+        Schema.isInt(),
+        Schema.isBetween({ minimum: 1024, maximum: 65535 }),
+      ),
+    }),
+  ),
   supportsConversationRollback: Schema.optional(Schema.Boolean),
   supportsTextGeneration: Schema.optional(Schema.Boolean),
   setup: Schema.optional(
@@ -237,6 +246,10 @@ export const ServerProvider = Schema.Struct({
   enabled: Schema.Boolean,
   installed: Schema.Boolean,
   version: Schema.NullOr(TrimmedNonEmptyString),
+  /** Harness version when a provider wrapper has its own update version. */
+  runtimeVersion: Schema.optional(Schema.NullOr(TrimmedNonEmptyString)),
+  runtimeVersionAdvisory: Schema.optionalKey(ServerProviderVersionAdvisory),
+  runtimeUpdateState: Schema.optionalKey(ServerProviderUpdateState),
   status: ServerProviderState,
   auth: ServerProviderAuth,
   checkedAt: IsoDateTime,
@@ -489,11 +502,11 @@ export const ServerSignalProcessResult = Schema.Struct({
 export type ServerSignalProcessResult = typeof ServerSignalProcessResult.Type;
 
 /**
- * A palette the environment's machine publishes for T3 Code to follow, read
+ * A palette the environment's machine publishes for Elysia to follow, read
  * from a theme file next to the rest of the environment's state. Two seed
  * colors rather than a full palette: clients derive the remaining roles with
  * the same generator the guided theme editor uses, so a desktop theme carries
- * over as a coherent T3 Code palette instead of a foreign one.
+ * over as a coherent Elysia palette instead of a foreign one.
  */
 export const EnvironmentThemeColor = Schema.String.check(
   Schema.isPattern(/^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/),
@@ -831,6 +844,7 @@ export type ServerProviderUpdatedPayload = typeof ServerProviderUpdatedPayload.T
 
 export const ServerProviderUpdateInput = Schema.Struct({
   provider: ProviderDriverKind,
+  updateTarget: Schema.optionalKey(Schema.Literal("runtime")),
   targetVersion: Schema.optionalKey(TrimmedNonEmptyString),
   instanceId: Schema.optionalKey(ProviderInstanceId),
 });

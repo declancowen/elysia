@@ -32,6 +32,7 @@ export const ModelListRow = memo(function ModelListRow(props: {
   isFavorite: boolean;
   isSelected: boolean;
   showSelection?: boolean;
+  readOnlyFavorites?: boolean;
   showProvider: boolean;
   preferShortName?: boolean;
   useTriggerLabel?: boolean;
@@ -97,36 +98,42 @@ export const ModelListRow = memo(function ModelListRow(props: {
           <CheckIcon className="size-3.5" aria-hidden="true" />
         ) : null}
         {props.jumpLabel ? <Kbd>{props.jumpLabel}</Kbd> : null}
-        <Tooltip>
-          <TooltipTrigger
-            render={
-              <Button
-                size="icon-xs"
-                variant="ghost-muted"
-                className="-mr-1 shrink-0"
-                onClick={(event) => {
-                  event.stopPropagation();
-                  props.onToggleFavorite();
-                }}
-                onKeyDown={(event) => {
-                  event.stopPropagation();
-                }}
-                disabled={Boolean(props.disabledReason)}
-                aria-label={props.isFavorite ? "Remove from favorites" : "Add to favorites"}
-              >
-                <StarIcon
-                  className={cn(
-                    "size-3.5 sm:size-3",
-                    props.isFavorite && "fill-current text-warning",
-                  )}
-                />
-              </Button>
-            }
-          />
-          <TooltipPopup side="top" align="center">
-            {props.isFavorite ? "Remove from favorites" : "Add to favorites"}
-          </TooltipPopup>
-        </Tooltip>
+        {props.readOnlyFavorites ? (
+          props.isFavorite ? (
+            <StarIcon className="size-3.5 fill-current text-warning" aria-label="Favourite" />
+          ) : null
+        ) : (
+          <Tooltip>
+            <TooltipTrigger
+              render={
+                <Button
+                  size="icon-xs"
+                  variant="ghost-muted"
+                  className="-mr-1 shrink-0"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    props.onToggleFavorite();
+                  }}
+                  onKeyDown={(event) => {
+                    event.stopPropagation();
+                  }}
+                  disabled={Boolean(props.disabledReason)}
+                  aria-label={props.isFavorite ? "Remove from favorites" : "Add to favorites"}
+                >
+                  <StarIcon
+                    className={cn(
+                      "size-3.5 sm:size-3",
+                      props.isFavorite && "fill-current text-warning",
+                    )}
+                  />
+                </Button>
+              }
+            />
+            <TooltipPopup side="top" align="center">
+              {props.isFavorite ? "Remove from favorites" : "Add to favorites"}
+            </TooltipPopup>
+          </Tooltip>
+        )}
       </div>
     </ComboboxItem>
   );

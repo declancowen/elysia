@@ -1,3 +1,4 @@
+import { CONNECTIONS_ENABLED } from "@t3tools/contracts";
 import { useAtomValue } from "@effect/atom-react";
 import { useNavigation } from "@react-navigation/native";
 import { useEffect } from "react";
@@ -21,7 +22,7 @@ export function useConnectOnboardingNavigation(): void {
   const requestedAccountId = useAtomValue(connectOnboardingRequestAtom);
 
   useEffect(() => {
-    if (requestedAccountId === null) {
+    if (!CONNECTIONS_ENABLED || requestedAccountId === null) {
       return;
     }
     let cancelled = false;

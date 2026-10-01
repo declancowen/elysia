@@ -1,3 +1,4 @@
+import { useCodeWorkspace } from "~/hooks/useSettings";
 import { ArrowUpIcon, ClockIcon } from "lucide-react";
 import { ReadOnlySourcePreview } from "../files/AttachmentFilePreview";
 import { useRightPanelStore } from "~/rightPanelStore";
@@ -178,6 +179,7 @@ import { useAssistantCitationTarget, type CitationHistoryPage } from "./useAssis
 import {
   computeStableMessagesTimelineRows,
   deriveMessagesTimelineRowsWithState,
+  isWorkWorkspaceEntry,
   deriveUnsettledTurnId,
   type MessagesTimelineRowsProjection,
   liveWorkEntryLabel,
@@ -770,21 +772,24 @@ export const MessagesTimeline = memo(function MessagesTimeline({
         : new Set(liveAgentTaskKey.length > 0 ? liveAgentTaskKey.split("\n") : []),
     [liveAgentTaskKey],
   );
+  const codeWorkspace = useCodeWorkspace();
   const rawRows = useMemo(() => {
     const previous = rowsProjectionRef.current;
     const projection = deriveMessagesTimelineRowsWithState(
       {
-        timelineEntries,
+        timelineEntries: codeWorkspace
+          ? timelineEntries
+          : timelineEntries.filter(isWorkWorkspaceEntry),
         latestTurn,
         runningTurnId,
         expandedTurnIds: paintedExpandedTurnIds,
         expandedWorkGroupIds: paintedExpandedWorkGroupIds,
         isWorking,
         activeTurnStartedAt,
-        turnDiffSummaries,
+        turnDiffSummaries: codeWorkspace ? turnDiffSummaries : [],
         supportsConversationRollback,
         liveAgentTaskIds,
-        worktreeSetup,
+        worktreeSetup: codeWorkspace ? worktreeSetup : null,
         queuedMessages,
       },
       previous?.threadKey === listIdentityKey && previous.workspaceRoot === workspaceRoot
@@ -794,6 +799,7 @@ export const MessagesTimeline = memo(function MessagesTimeline({
     rowsProjectionRef.current = { threadKey: listIdentityKey, workspaceRoot, projection };
     return projection.rows;
   }, [
+    codeWorkspace,
     rowsProjectionRef,
     listIdentityKey,
     workspaceRoot,
@@ -1215,6 +1221,7 @@ export const MessagesTimeline = memo(function MessagesTimeline({
     ],
   );
   const backgroundWorktreeSetup =
+    codeWorkspace &&
     worktreeSetup !== null &&
     worktreeSetup.phase === "running" &&
     worktreeSetupAgentStarted(worktreeSetup) &&
@@ -2385,7 +2392,7 @@ function AssistantTimelineRow({ row }: { row: Extract<TimelineRow, { kind: "mess
   return (
     <>
       <div className="relative min-w-0 px-1 py-0.5">
-        <MessageAuthorHeading>T3 Code</MessageAuthorHeading>
+        <MessageAuthorHeading>Elysia</MessageAuthorHeading>
         <AssistantCitationSource
           messageId={row.message.id}
           {...(ctx.threadRef ? { threadRef: ctx.threadRef } : {})}

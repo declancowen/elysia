@@ -15,10 +15,10 @@ import {
 } from "./ModelPickerContent";
 
 function entry(status: ServerProvider["status"], driver = "opencode") {
-  return deriveProviderInstanceEntries([
+  const template = deriveProviderInstanceEntries([
     {
       instanceId: ProviderInstanceId.make(`${driver}_work`),
-      driver: ProviderDriverKind.make(driver),
+      driver: ProviderDriverKind.make("claudeAgent"),
       enabled: true,
       installed: true,
       version: null,
@@ -30,6 +30,8 @@ function entry(status: ServerProvider["status"], driver = "opencode") {
       skills: [],
     },
   ])[0]!;
+  const driverKind = ProviderDriverKind.make(driver);
+  return { ...template, driverKind, snapshot: { ...template.snapshot, driver: driverKind } };
 }
 
 describe("shouldIncludeModelPickerOption", () => {

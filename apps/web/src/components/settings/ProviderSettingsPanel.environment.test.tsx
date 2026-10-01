@@ -102,13 +102,13 @@ vi.mock("../../state/session", () => ({
 import { EnvironmentProviderSettings } from "./ProviderSettingsPanel";
 
 const environmentId = EnvironmentId.make("remote-device");
-const codexId = ProviderInstanceId.make("codex");
-const customId = ProviderInstanceId.make("codex_work");
+const elysiaId = ProviderInstanceId.make("claudeAgent");
+const customId = ProviderInstanceId.make("elysia_work");
 
 function provider(): ServerProvider {
   return {
-    instanceId: codexId,
-    driver: ProviderDriverKind.make("codex"),
+    instanceId: elysiaId,
+    driver: ProviderDriverKind.make("claudeAgent"),
     enabled: true,
     installed: true,
     version: "1.0.0",
@@ -122,7 +122,7 @@ function provider(): ServerProvider {
       status: "behind_latest",
       currentVersion: "1.0.0",
       latestVersion: "1.1.0",
-      updateCommand: "pnpm add -g @openai/codex@latest",
+      updateCommand: "elysia-code --update",
       canUpdate: true,
       checkedAt: "2026-07-24T12:00:00.000Z",
       message: "Update available.",
@@ -205,7 +205,7 @@ describe("EnvironmentProviderSettings routing", () => {
     const providerCard = visitElements(
       panel,
       (element) =>
-        element.props.instanceId === codexId && typeof element.props.onRunUpdate === "function",
+        element.props.instanceId === elysiaId && typeof element.props.onRunUpdate === "function",
     );
     expect(providerCard).not.toBeNull();
     (providerCard?.props.onRunUpdate as (() => void) | undefined)?.();
@@ -213,39 +213,70 @@ describe("EnvironmentProviderSettings routing", () => {
 
     expect(commands.updateProvider).toHaveBeenCalledWith({
       environmentId,
-      input: { provider: ProviderDriverKind.make("codex"), instanceId: codexId },
+      input: { provider: ProviderDriverKind.make("claudeAgent"), instanceId: elysiaId },
     });
   });
 
-  it("opens the requested provider instance instead of the first provider", () => {
+  it("coalesces explicit native update checks until the current request completes", async () => {
+    let finish!: (value: { _tag: "Success" }) => void;
+    commands.refresh.mockReturnValue(
+      new Promise((resolve) => {
+        finish = resolve;
+      }),
+    );
+    atoms.providers = [provider()];
+    const panel = renderPanel();
+    const editor = visitElements(
+      panel,
+      (element) => element.props.instanceId === elysiaId && element.props.mode === "editor",
+    );
+    const check = editor?.props.onCheckUpdates as () => void;
+    check();
+    check();
+    expect(commands.refresh).toHaveBeenCalledExactlyOnceWith({
+      environmentId,
+      input: { instanceId: elysiaId, fresh: true, refreshModels: true },
+    });
+    finish({ _tag: "Success" });
+    await flushPromises();
+    commands.refresh.mockResolvedValue({ _tag: "Success" });
+    check();
+    await flushPromises();
+    expect(commands.refresh).toHaveBeenCalledTimes(2);
+  });
+
+  it("shows configured Elysia instances in the single-column editor", () => {
     settingsState.value = {
       ...DEFAULT_UNIFIED_SETTINGS,
       providerInstances: {
-        [customId]: { driver: ProviderDriverKind.make("codex"), enabled: true },
+        [customId]: { driver: ProviderDriverKind.make("claudeAgent"), enabled: true },
       },
     };
     atoms.providers = [provider()];
     const panel = renderPanel({ targetInstanceId: customId });
-    const editor = visitElements(panel, (element) => element.props.mode === "editor");
+    const editor = visitElements(
+      panel,
+      (element) => element.props.mode === "editor" && element.props.instanceId === customId,
+    );
     expect(editor?.props.instanceId).toBe(customId);
   });
 
   it.each([
-    ["onFavoriteModelsChange", { favorites: [{ provider: codexId, model: "chosen" }] }],
+    ["onFavoriteModelsChange", { favorites: [{ provider: elysiaId, model: "chosen" }] }],
     [
       "onHiddenModelsChange",
-      { providerModelPreferences: { [codexId]: { hiddenModels: ["chosen"], modelOrder: [] } } },
+      { providerModelPreferences: { [elysiaId]: { hiddenModels: ["chosen"], modelOrder: [] } } },
     ],
     [
       "onModelOrderChange",
-      { providerModelPreferences: { [codexId]: { hiddenModels: [], modelOrder: ["chosen"] } } },
+      { providerModelPreferences: { [elysiaId]: { hiddenModels: [], modelOrder: ["chosen"] } } },
     ],
   ])("saves %s on this device without changing the selected server", (action, expected) => {
     atoms.providers = [provider()];
     const panel = renderPanel();
     const editor = visitElements(
       panel,
-      (element) => element.props.instanceId === codexId && element.props.mode === "editor",
+      (element) => element.props.instanceId === elysiaId && element.props.mode === "editor",
     );
     expect(editor).not.toBeNull();
     if (!editor) throw new Error("Provider editor was not rendered");
@@ -254,43 +285,35 @@ describe("EnvironmentProviderSettings routing", () => {
     expect(settingsState.updateSettings).not.toHaveBeenCalled();
   });
 
-  it("does not substitute another account when the requested instance was removed", () => {
+  it("does not recreate a removed instance while rendering remaining Elysia settings", () => {
     atoms.providers = [provider()];
     const panel = renderPanel({ targetInstanceId: customId });
-    expect(visitElements(panel, (element) => element.props.mode === "editor")).toBeNull();
+    expect(visitElements(panel, (element) => element.props.instanceId === customId)).toBeNull();
     expect(settingsState.updateSettings).not.toHaveBeenCalled();
   });
 
-  it("keeps provider selection available while write controls are read only", () => {
+  it("shows configured Elysia instances while write controls are read only", () => {
     settingsState.value = {
       ...DEFAULT_UNIFIED_SETTINGS,
       providerInstances: {
         [customId]: {
-          driver: ProviderDriverKind.make("codex"),
+          driver: ProviderDriverKind.make("claudeAgent"),
           enabled: true,
         },
       },
     };
     atoms.providers = [provider()];
-    let panel = renderPanel({ readOnly: true });
+    const panel = renderPanel({ readOnly: true });
 
     const inertWrapper = visitElements(panel, (element) => element.props.inert === true);
     expect(inertWrapper).not.toBeNull();
 
-    const customRow = visitElements(
-      panel,
-      (element) => element.props.instanceId === customId && element.props.mode === "list",
-    );
-    expect(customRow?.props.readOnly).toBe(true);
-    expect(customRow?.props.onSelect).toBeTypeOf("function");
-    (customRow?.props.onSelect as (() => void) | undefined)?.();
-
-    panel = renderPanel({ readOnly: true });
     const customEditor = visitElements(
       panel,
       (element) => element.props.instanceId === customId && element.props.mode === "editor",
     );
-    expect(customEditor).not.toBeNull();
+    expect(customEditor?.props.readOnly).toBe(true);
+    expect(customEditor?.props.onSelect).toBeUndefined();
 
     const notice = visitElements(panel, (element) => element.props.title === "Limited permissions");
     expect(notice).not.toBeNull();
@@ -307,7 +330,7 @@ describe("EnvironmentProviderSettings routing", () => {
       visitElements(panel, (element) => element.props.title === "Limited permissions"),
     ).toBeNull();
     expect(visitElements(panel, isRefreshButton)).not.toBeNull();
-    expect(visitElements(panel, isAddProviderButton)).not.toBeNull();
+    expect(visitElements(panel, isAddProviderButton)).toBeNull();
   });
 
   it("keeps Advanced visible when search targets the provider health interval", () => {
@@ -329,12 +352,12 @@ describe("EnvironmentProviderSettings routing", () => {
     settingsState.value = {
       ...DEFAULT_UNIFIED_SETTINGS,
       providerInstances: {
-        [codexId]: {
-          driver: ProviderDriverKind.make("codex"),
+        [elysiaId]: {
+          driver: ProviderDriverKind.make("claudeAgent"),
           enabled: false,
         },
         [customId]: {
-          driver: ProviderDriverKind.make("codex"),
+          driver: ProviderDriverKind.make("claudeAgent"),
           enabled: true,
         },
       },
@@ -343,13 +366,7 @@ describe("EnvironmentProviderSettings routing", () => {
       },
       favorites: [{ provider: customId, model: "favorite" }],
     };
-    let panel = renderPanel();
-    const customRow = visitElements(
-      panel,
-      (element) => element.props.instanceId === customId && element.props.mode === "list",
-    );
-    (customRow?.props.onSelect as (() => void) | undefined)?.();
-    panel = renderPanel();
+    const panel = renderPanel();
     const customCard = visitElements(
       panel,
       (element) => element.props.instanceId === customId && element.props.mode === "editor",
@@ -359,20 +376,14 @@ describe("EnvironmentProviderSettings routing", () => {
 
     expect(settingsState.updateSettings).toHaveBeenLastCalledWith({
       providerInstances: {
-        [codexId]: settingsState.value.providerInstances?.[codexId],
+        [elysiaId]: settingsState.value.providerInstances?.[elysiaId],
       },
     });
 
     settingsState.updateSettings.mockClear();
-    const defaultRow = visitElements(
-      panel,
-      (element) => element.props.instanceId === codexId && element.props.mode === "list",
-    );
-    (defaultRow?.props.onSelect as (() => void) | undefined)?.();
-    panel = renderPanel();
     const defaultCard = visitElements(
       panel,
-      (element) => element.props.instanceId === codexId && element.props.mode === "editor",
+      (element) => element.props.instanceId === elysiaId && element.props.mode === "editor",
     );
     const resetAction = defaultCard?.props.headerAction;
     const resetButton = visitElements(

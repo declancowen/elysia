@@ -145,6 +145,7 @@ jobs:
           vp test run --config vite.config.ts \
             apps/web/src/elysiaModelSelection.test.ts \
             apps/web/src/themePalette.test.ts \
+            apps/web/src/themeBoot.test.ts \
             apps/web/src/components/Sidebar.logic.test.ts \
             apps/web/src/rightPanelStore.test.ts \
             apps/web/src/components/chat/ThreadOverviewPanel.test.tsx \

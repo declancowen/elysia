@@ -356,7 +356,8 @@ describe("index.html boot script", () => {
       ...ELYSIA_THEMES,
     ]) {
       for (const mode of ["light", "dark"] as const) {
-        const colors = getThemeColorsForMode(theme, mode);
+        const appearance = resolveThemeAppearance(theme.id, mode === "dark", undefined, mode);
+        const colors = getThemeColorsForMode(theme, appearance);
         expect(colors).not.toBeNull();
         const boot = runBootScript({
           storage: {
@@ -366,7 +367,7 @@ describe("index.html boot script", () => {
           prefersDark: mode === "dark",
         });
         expect(boot.themeId).toBe(theme.id);
-        expect(boot.isDark).toBe(mode === "dark");
+        expect(boot.isDark).toBe(appearance === "dark");
         expect(boot.bootVariables["--boot-background"]).toBe(colors!.canvas);
         expect(boot.bootVariables["--boot-foreground"]).toBe(colors!.text);
         expect(boot.bootVariables["--boot-accent"]).toBe(colors!.accent);

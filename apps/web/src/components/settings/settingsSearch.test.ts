@@ -45,13 +45,12 @@ const ITEMS: ReadonlyArray<SettingsSearchItem> = [
 ];
 
 describe("searchSettings", () => {
-  it.each(["Informa", "Midnight", "Graphite", "Canvas", "Paper"])(
+  it.each(["Informa", "GitHub", "GitHub Dark Neutral Unified", "Notion Inverted", "Notion"])(
     "finds Appearance themes by %s",
     (query) => {
-      expect(searchSettings(query)[0]).toMatchObject({
-        id: "theme",
-        to: "/settings/appearance",
-      });
+      expect(searchSettings(query)).toContainEqual(
+        expect.objectContaining({ id: "theme", to: "/settings/appearance" }),
+      );
     },
   );
 

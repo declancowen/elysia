@@ -91,7 +91,10 @@ describe("resolveProjectSettings", () => {
   });
 
   it("honours the aggregate's own fields only until the server has folded them", () => {
-    const aggregateModel = createModelSelection(ProviderInstanceId.make("codex"), "gpt-5.5");
+    const aggregateModel = createModelSelection(
+      ProviderInstanceId.make("claudeAgent"),
+      "native-model",
+    );
     const project = {
       defaultModelSelection: aggregateModel,
       defaultThreadEnvMode: "local" as const,
@@ -124,6 +127,29 @@ describe("resolveProjectSettings", () => {
     expect(folded.settings.defaultModelSelection).toBeNull();
     expect(folded.sources.defaultModelSelection).toBe("environment");
   });
+
+  it.each(["aggregate", "stored"] as const)(
+    "ignores a disabled upstream provider in an Elysia %s model override",
+    (source) => {
+      const disabledModel = createModelSelection(ProviderInstanceId.make("codex"), "gpt-5.5");
+      // Even stale imported settings claiming the provider is enabled cannot bypass fork policy.
+      const settings = {
+        ...DEFAULT_SERVER_SETTINGS,
+        providers: {
+          ...DEFAULT_SERVER_SETTINGS.providers,
+          codex: { ...DEFAULT_SERVER_SETTINGS.providers.codex, enabled: true },
+        },
+        projectSettingsFolded: source === "stored",
+        projectSettingsOverrides:
+          source === "stored" ? { [projectId]: { defaultModelSelection: disabledModel } } : {},
+      };
+      const resolved = resolveProjectSettings(settings, projectId, {
+        defaultModelSelection: disabledModel,
+      });
+      expect(resolved.settings.defaultModelSelection).toBeNull();
+      expect(resolved.sources.defaultModelSelection).toBe("environment");
+    },
+  );
 
   it("keeps the environment default model when the override's provider is disabled", () => {
     const disabledSelection = createModelSelection(ProviderInstanceId.make("claudeAgent"), "opus");

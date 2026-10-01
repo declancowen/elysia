@@ -1,4 +1,4 @@
-import type { DesktopUpdateChannel } from "@t3tools/contracts";
+import { APP_NAME, type DesktopUpdateChannel } from "@t3tools/contracts";
 
 const NIGHTLY_VERSION_PATTERN = /^[^-+]+-nightly\.\d{8}\.\d+$/;
 const STABLE_VERSION_PATTERN = /^\d+\.\d+\.\d+(?:\+[0-9A-Za-z.-]+)?$/;
@@ -20,6 +20,7 @@ export function resolveDesktopReleaseChannel(version: string): DesktopUpdateChan
   return STABLE_VERSION_PATTERN.test(version) ? "latest" : null;
 }
 
-export function resolveDefaultDesktopUpdateChannel(_appVersion: string): DesktopUpdateChannel {
-  return "latest";
+export function resolveDefaultDesktopUpdateChannel(appVersion: string): DesktopUpdateChannel {
+  if (APP_NAME === "Elysia") return "latest";
+  return NIGHTLY_VERSION_PATTERN.test(appVersion) ? "nightly" : "latest";
 }

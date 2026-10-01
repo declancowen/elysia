@@ -1,4 +1,5 @@
 import {
+  APP_NAME,
   DESKTOP_UPDATE_RESTART_MARKER_FILE,
   DesktopUpdateChannelSchema,
   type DesktopRuntimeInfo,
@@ -984,7 +985,7 @@ export const make = Effect.gen(function* () {
     setChannel: Effect.fn("desktop.updates.setChannel")(function* (
       nextChannel: DesktopUpdateChannel,
     ) {
-      nextChannel = "latest";
+      if (APP_NAME === "Elysia") nextChannel = "latest";
       yield* Effect.annotateCurrentSpan({ channel: nextChannel });
       const activeAction = yield* tryStartChannelChange;
       if (Option.isSome(activeAction)) {

@@ -2,12 +2,12 @@ import Constants from "expo-constants";
 import type { NativeStackNavigationOptions } from "@react-navigation/native-stack";
 import { Platform, View } from "react-native";
 import { Image } from "expo-image";
+import { useUniwind } from "uniwind";
 
 import { AppText as Text } from "./AppText";
 import { IPAD_HOME_TITLE_OFFSET } from "../lib/layoutMetrics";
 import { resolveMobileStageLabel } from "../lib/mobileBranding";
 import { useAndroidControlSizing } from "./useAndroidControlSizing";
-import { useAppearancePreferences } from "../features/settings/appearance/AppearancePreferencesProvider";
 
 /**
  * Horizontal correction applied to content rendered in the brand title slot,
@@ -29,7 +29,7 @@ export function CompactBrandTitle(
   const stageLabel = resolveMobileStageLabel(Constants.expoConfig?.extra?.appVariant);
   const titleOffset = brandTitleOffset();
   const { scale } = useAndroidControlSizing();
-  const { themeAppearance } = useAppearancePreferences();
+  const { theme } = useUniwind();
 
   return (
     <View
@@ -42,7 +42,7 @@ export function CompactBrandTitle(
     >
       <Image
         source={
-          themeAppearance === "dark"
+          theme === "dark" || theme.endsWith("-dark")
             ? require("../../assets/elysia-wordmark-dark.svg")
             : require("../../assets/elysia-wordmark.svg")
         }

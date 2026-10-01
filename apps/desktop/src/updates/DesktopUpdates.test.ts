@@ -12,6 +12,13 @@ import * as References from "effect/References";
 import * as Ref from "effect/Ref";
 import * as Stream from "effect/Stream";
 import * as TestClock from "effect/testing/TestClock";
+import { vi } from "vite-plus/test";
+
+// Keep the dormant upstream channel lifecycle covered; ElysiaUpdates tests the real fork policy.
+vi.mock("@t3tools/contracts", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@t3tools/contracts")>()),
+  APP_NAME: "T3 Code",
+}));
 
 import * as ElectronUpdater from "../electron/ElectronUpdater.ts";
 import * as DesktopAppSettings from "../settings/DesktopAppSettings.ts";
@@ -21,6 +28,16 @@ import * as DesktopUpdates from "./DesktopUpdates.ts";
 import { flushCallbacks, makeHarness } from "./updatesTestHarness.ts";
 
 describe("DesktopUpdates", () => {
+  it("retains the upstream nightly default while preview installations use latest", () => {
+    assert.equal(
+      DesktopAppSettings.resolveDefaultDesktopSettings("1.2.4-nightly.20261001.1").updateChannel,
+      "nightly",
+    );
+    assert.equal(
+      DesktopAppSettings.resolveDefaultDesktopSettings("1.2.4-preview.20261001.1").updateChannel,
+      "latest",
+    );
+  });
   it("preserves complete causes for update poller and event failures", () => {
     const cause = Cause.combine(
       Cause.fail(new Error("updater failed")),

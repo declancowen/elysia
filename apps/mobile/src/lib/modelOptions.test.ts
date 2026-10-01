@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vite-plus/test";
+import { describe, expect, it, vi } from "vite-plus/test";
 
 import { ProviderInstanceId, type ModelSelection, type ServerConfig } from "@t3tools/contracts";
 
@@ -305,7 +305,7 @@ describe("mobile model options", () => {
       expect(buildModelOptions(config, null)[0]?.selection.options).toBeUndefined();
     });
 
-    it("uses configured instance metadata when provider status is missing", () => {
+    it("retains configured selections without offering models when provider status is missing", () => {
       const missingStatusConfig = {
         providers: [],
         settings: {
@@ -317,14 +317,7 @@ describe("mobile model options", () => {
 
       expect(resolveDefaultableModelSelection(missingStatusConfig, selection)).toBe(selection);
       expect(isModelSelectionUnavailable(missingStatusConfig, selection)).toBe(true);
-      expect(buildModelOptions(missingStatusConfig, selection)).toMatchObject([
-        {
-          providerDriver: "antigravity",
-          providerLabel: "Google Work",
-          isUnavailable: true,
-          selection,
-        },
-      ]);
+      expect(buildModelOptions(missingStatusConfig, selection)).toEqual([]);
     });
 
     it("keeps offline selections without assuming that an unknown instance is Antigravity", () => {
@@ -332,10 +325,10 @@ describe("mobile model options", () => {
 
       expect(resolveDefaultableModelSelection(null, selection)).toBe(selection);
       expect(isModelSelectionUnavailable(null, selection)).toBe(false);
-      expect(buildModelOptions(null, selection)[0]?.selection).toBe(selection);
-      expect(buildModelOptions(null, selection)[0]?.isUnavailable).not.toBe(true);
+      expect(buildModelOptions(null, selection)).toEqual([]);
       expect(isModelSelectionUnavailable(unknownConfig, selection)).toBe(false);
       expect(resolveSelectableModelSelection(unknownConfig, selection)).toBeNull();
+      expect(buildModelOptions(unknownConfig, selection)).toEqual([]);
     });
   });
 
@@ -409,3 +402,9 @@ describe("mobile model options", () => {
     ).toBeNull();
   });
 });
+
+// Exercise retained upstream provider behavior; Elysia's runtime policy stays native-only.
+vi.mock("../../../../packages/contracts/src/forkPolicy.ts", async (importOriginal) => ({
+  ...(await importOriginal<Pick<typeof import("@t3tools/contracts"), "isEnabledProviderDriver">>()),
+  isEnabledProviderDriver: () => true,
+}));

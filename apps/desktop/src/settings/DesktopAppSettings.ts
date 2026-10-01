@@ -1,4 +1,5 @@
 import {
+  APP_NAME,
   DesktopServerExposureModeSchema,
   DesktopUpdateChannelSchema,
   type DesktopServerExposureMode,
@@ -212,8 +213,9 @@ export function normalizeMainWindowBounds(value: unknown): DesktopWindowBounds |
 
 function normalizeDesktopSettingsDocument(
   parsed: DesktopSettingsDocument,
-  _appVersion: string,
+  appVersion: string,
 ): DesktopSettings {
+  const defaultSettings = resolveDefaultDesktopSettings(appVersion);
   const mainWindowBounds = normalizeMainWindowBounds(parsed.mainWindowBounds);
   const parsedUpdateChannel = Option.fromNullishOr(parsed.updateChannel);
   const isLegacySettings = parsed.updateChannelConfiguredByUser === undefined;
@@ -237,7 +239,12 @@ function normalizeDesktopSettingsDocument(
       parsed.serverExposureMode === "network-accessible" ? "network-accessible" : "local-only",
     tailscaleServeEnabled: parsed.tailscaleServeEnabled === true,
     tailscaleServePort: normalizeTailscaleServePort(parsed.tailscaleServePort),
-    updateChannel: "latest",
+    updateChannel:
+      APP_NAME === "Elysia"
+        ? "latest"
+        : updateChannelConfiguredByUser
+          ? Option.getOrElse(parsedUpdateChannel, () => defaultSettings.updateChannel)
+          : defaultSettings.updateChannel,
     updateChannelConfiguredByUser,
     wslBackendEnabled,
     wslDistro: normalizeWslDistro(parsed.wslDistro),
@@ -540,10 +547,12 @@ export const make = Effect.gen(function* () {
       persist((settings) => setTailscaleServe(settings, input)).pipe(
         Effect.withSpan("desktop.settings.setTailscaleServe", { attributes: input }),
       ),
-    setUpdateChannel: (_channel) =>
-      persist((settings) => setUpdateChannel(settings, "latest")).pipe(
-        Effect.withSpan("desktop.settings.setUpdateChannel", { attributes: { channel: "latest" } }),
-      ),
+    setUpdateChannel: (requestedChannel) => {
+      const channel = APP_NAME === "Elysia" ? "latest" : requestedChannel;
+      return persist((settings) => setUpdateChannel(settings, channel)).pipe(
+        Effect.withSpan("desktop.settings.setUpdateChannel", { attributes: { channel } }),
+      );
+    },
     setWslBackendEnabled: (enabled) =>
       persist((settings) => setWslBackendEnabled(settings, enabled)).pipe(
         Effect.withSpan("desktop.settings.setWslBackendEnabled", { attributes: { enabled } }),

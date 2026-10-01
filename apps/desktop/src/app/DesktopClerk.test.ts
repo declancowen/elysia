@@ -19,6 +19,22 @@ const { createClerkBridgeMock, storageAdapter, storageMock } = vi.hoisted(() => 
   storageMock: vi.fn(),
 }));
 
+const hostedAuthPolicy = vi.hoisted(() => ({ upstreamEnabled: false }));
+
+// Only retained upstream handoff fixtures enable Codex; Elysia's default policy
+// remains active for the rest of this suite and in the shipped desktop app.
+vi.mock("../../../../packages/contracts/src/forkPolicy.ts", async (importOriginal) => {
+  const policy =
+    await importOriginal<Pick<typeof import("@t3tools/contracts"), "isEnabledProviderDriver">>();
+  return {
+    ...policy,
+    isEnabledProviderDriver: (driver: string) =>
+      driver === "codex" && hostedAuthPolicy.upstreamEnabled
+        ? true
+        : policy.isEnabledProviderDriver(driver),
+  };
+});
+
 vi.mock("@clerk/electron", () => ({
   createClerkBridge: createClerkBridgeMock,
 }));
@@ -264,6 +280,7 @@ it.effect(
 for (const entry of ["startup", "open-url"] as const) {
   it.effect(`receives hosted web sign-in through the desktop ${entry} handler`, () =>
     Effect.gen(function* () {
+      hostedAuthPolicy.upstreamEnabled = true;
       storageMock.mockReturnValue(storageAdapter);
       createClerkBridgeMock.mockReturnValue({ cleanup: vi.fn(), isPrimaryInstance: true });
       const port = yield* Effect.promise(async () => {
@@ -339,6 +356,13 @@ for (const entry of ["startup", "open-url"] as const) {
           {} as ElectronWindow.ElectronWindow["Service"],
         ),
       );
-    }).pipe(Effect.scoped),
+    }).pipe(
+      Effect.scoped,
+      Effect.ensuring(
+        Effect.sync(() => {
+          hostedAuthPolicy.upstreamEnabled = false;
+        }),
+      ),
+    ),
   );
 }

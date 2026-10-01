@@ -14,9 +14,9 @@ const defaultInput = {
   platform: "darwin",
   processArch: "arm64",
   appVersion: "0.0.22",
-  appPath: "/Applications/T3 Code.app/Contents/Resources/app.asar",
+  appPath: "/Applications/Elysia.app/Contents/Resources/app.asar",
   isPackaged: false,
-  resourcesPath: "/Applications/T3 Code.app/Contents/Resources",
+  resourcesPath: "/Applications/Elysia.app/Contents/Resources",
   runningUnderArm64Translation: false,
 } satisfies DesktopEnvironment.MakeDesktopEnvironmentInput;
 
@@ -77,7 +77,7 @@ describe("DesktopEnvironment", () => {
       assert.equal(environment.serverRoot, "/repo");
       assert.equal(environment.backendEntryPath, "/repo/apps/server/dist/bin.mjs");
       assert.equal(environment.backendCwd, "/repo");
-      assert.equal(environment.appUserModelId, "com.t3tools.t3code.dev");
+      assert.equal(environment.appUserModelId, "com.informa.elysia.dev");
       assert.equal(environment.linuxWmClass, "t3code-dev");
       assert.equal(environment.linuxDesktopEntryName, "com.t3tools.T3Code.Development.desktop");
       assert.deepEqual(

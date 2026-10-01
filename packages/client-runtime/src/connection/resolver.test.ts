@@ -10,6 +10,19 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Ref from "effect/Ref";
 import * as Tracer from "effect/Tracer";
+import { beforeEach, vi } from "vite-plus/test";
+
+// Exercise the retained upstream broker paths; the fork guard has its own regression below.
+const forkPolicy = vi.hoisted(() => ({ connectionsEnabled: true }));
+vi.mock("@t3tools/contracts", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@t3tools/contracts")>()),
+  get CONNECTIONS_ENABLED() {
+    return forkPolicy.connectionsEnabled;
+  },
+}));
+beforeEach(() => {
+  forkPolicy.connectionsEnabled = true;
+});
 
 import * as ConnectionResolver from "./resolver.ts";
 import * as ClientCapabilities from "../platform/capabilities.ts";
@@ -187,6 +200,39 @@ const makeDependencies = Effect.fn("TestConnectionResolver.makeDependencies")((o
 });
 
 describe("ConnectionResolver", () => {
+  it.effect("blocks bearer, SSH and relay targets before authorization or launch in Elysia", () =>
+    Effect.gen(function* () {
+      forkPolicy.connectionsEnabled = false;
+      const brokerLayer = yield* makeDependencies({
+        authorizeBearer: () => Effect.die("must not authorize a disabled connection"),
+        authorizeDpop: () => Effect.die("must not authorize a disabled relay"),
+        prepareSsh: () => Effect.die("must not launch a disabled SSH connection"),
+      });
+      const broker = yield* ConnectionResolver.ConnectionResolver.pipe(Effect.provide(brokerLayer));
+      const identity = { environmentId: ENVIRONMENT_ID, label: "Disabled" };
+      for (const target of [
+        new BearerConnectionTarget({ ...identity, connectionId: "saved-1" }),
+        new SshConnectionTarget({ ...identity, connectionId: "ssh-1" }),
+        new RelayConnectionTarget(identity),
+      ]) {
+        const error = yield* Effect.flip(broker.prepare(catalogEntry(target)));
+        expect(error).toMatchObject({
+          _tag: "ConnectionBlockedError",
+          reason: "unsupported",
+          detail: "Connections are disabled in Elysia.",
+        });
+      }
+      const primary = new PrimaryConnectionTarget({
+        ...identity,
+        httpBaseUrl: "http://127.0.0.1:3777",
+        wsBaseUrl: "ws://127.0.0.1:3777",
+      });
+      expect(yield* broker.prepare(catalogEntry(primary))).toMatchObject({
+        target: primary,
+        httpAuthorization: null,
+      });
+    }),
+  );
   it.effect("blocks an incompatible host during discovery before opening orchestration RPC", () =>
     Effect.gen(function* () {
       const brokerLayer = yield* makeDependencies({

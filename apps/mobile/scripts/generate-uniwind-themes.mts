@@ -196,7 +196,10 @@ const clerkVariablesFor = (appearance: MobileThemeAppearance) => {
 
 const renderVariant = (name: string, variables: Readonly<Record<string, string>>) => {
   const declarations = Object.entries(variables)
-    .map(([variable, value]) => `      ${variable}: ${value};`)
+    .map(
+      ([variable, value]) =>
+        `      ${variable}: ${value.startsWith("#") ? value.toLowerCase() : value};`,
+    )
     .join("\n");
   return `    @variant ${name} {\n${declarations}\n    }`;
 };

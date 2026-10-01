@@ -35,7 +35,7 @@ afterEach(async () => {
   vi.unstubAllGlobals();
 });
 
-it("offers the 15 supplied swatches and applies icon/color changes to the avatar", async () => {
+it("offers the 15 supplied swatches and applies shape/color changes to the avatar", async () => {
   await act(async () => root.render(<Editor initial={{ preset: "robot", color: "#28B4FF" }} />));
   const swatches = [...host.querySelectorAll<HTMLButtonElement>('[aria-label^="Color "]')];
   expect(swatches.map((button) => button.getAttribute("aria-label")!.slice(6))).toEqual([
@@ -55,34 +55,51 @@ it("offers the 15 supplied swatches and applies icon/color changes to the avatar
     "#EEAF00",
     "#B05223",
   ]);
-  await act(async () => host.querySelector<HTMLButtonElement>('[aria-label="Brain"]')!.click());
+  await act(async () => host.querySelector<HTMLButtonElement>('[aria-label="Triangle"]')!.click());
   await act(async () =>
     host.querySelector<HTMLButtonElement>('[aria-label="Color #C9FCED"]')!.click(),
   );
-  expect(host.querySelector('[aria-label="Brain"]')!.getAttribute("aria-pressed")).toBe("true");
+  expect(host.querySelector('[aria-label="Triangle"]')!.getAttribute("aria-pressed")).toBe("true");
   expect(host.querySelector('[aria-label="Color #C9FCED"]')!.getAttribute("aria-pressed")).toBe(
     "true",
   );
-  expect(host.querySelector<HTMLElement>("[data-preview] > span")!.style.backgroundColor).toBe(
-    "rgb(201, 252, 237)",
-  );
-  expect(host.querySelector<SVGElement>("[data-preview] svg")!.style.color).toBe("rgb(0, 0, 0)");
+  expect(
+    host
+      .querySelector<HTMLElement>("[data-preview] > span")!
+      .querySelector("path")!
+      .getAttribute("fill"),
+  ).toBe("#C9FCED");
+  expect(host.querySelector("[data-preview] g")!.getAttribute("fill")).toBe("#000000");
   await act(async () =>
     host.querySelector<HTMLButtonElement>('[aria-label="Color #003CB2"]')!.click(),
   );
-  expect(host.querySelector<SVGElement>("[data-preview] svg")!.style.color).toBe(
-    "rgb(255, 255, 255)",
-  );
+  expect(host.querySelector("[data-preview] g")!.getAttribute("fill")).toBe("#FFFFFF");
 });
 
-it("keeps a legacy named avatar unchanged until a supplied color is selected", async () => {
+it("maps legacy records to characters without rewriting their stored named color", async () => {
   await act(async () => root.render(<Editor initial={{ preset: "brain", color: "violet" }} />));
-  const preview = host.querySelector<HTMLElement>("[data-preview] > span")!;
-  expect(preview.className).toContain("text-violet-600");
-  expect(preview.style.backgroundColor).toBe("");
+  expect(host.querySelector("[data-preview] path")!.getAttribute("fill")).toBe("#9423FC");
+  expect(host.querySelector('[aria-label="Bean"]')!.getAttribute("aria-pressed")).toBe("true");
   expect(host.querySelector('[aria-label="Avatar color"] [aria-pressed="true"]')).toBeNull();
-  await act(async () => host.querySelector<HTMLButtonElement>('[aria-label="Planet"]')!.click());
-  expect(preview.className).toContain("text-violet-600");
+  await act(async () => host.querySelector<HTMLButtonElement>('[aria-label="Circle"]')!.click());
+  expect(host.querySelector("[data-preview] path")!.getAttribute("fill")).toBe("#9423FC");
+  expect(host.querySelector('[aria-label="Circle"]')!.getAttribute("aria-pressed")).toBe("true");
+  expect(host.querySelector('[aria-label="Avatar color"] [aria-pressed="true"]')).toBeNull();
+});
+
+it("offers twelve characters and changes eye variants", async () => {
+  await act(async () => root.render(<Editor initial={{ preset: "square", color: "#28B4FF" }} />));
+  expect(host.querySelectorAll('[aria-label="Avatar shape"] button')).toHaveLength(12);
+  const body = host.querySelector("[data-preview] path")!.getAttribute("d");
+  const eyeHeight = host.querySelector("[data-preview] rect")!.getAttribute("height");
+  await act(async () =>
+    host.querySelector<HTMLButtonElement>('[aria-label="Square with round eyes"]')!.click(),
+  );
+  expect(host.querySelector("[data-preview] path")!.getAttribute("d")).toBe(body);
+  expect(host.querySelector("[data-preview] rect")!.getAttribute("height")).not.toBe(eyeHeight);
+  expect(
+    host.querySelector('[aria-label="Square with round eyes"]')!.getAttribute("aria-pressed"),
+  ).toBe("true");
 });
 
 it("maintains accessible glyph contrast across every supplied background", () => {

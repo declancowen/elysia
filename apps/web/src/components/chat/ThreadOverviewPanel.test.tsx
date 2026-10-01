@@ -24,9 +24,9 @@ const props: ThreadOverviewPanelProps = {
     mimeType: "text/plain",
     sizeBytes: 1,
   })),
-  onToggleChanges: () => {},
-  onOpenAgents: () => {},
-  onOpenSources: () => {},
+  onToggleChanges: vi.fn(),
+  onOpenAgents: vi.fn(),
+  onOpenSources: vi.fn(),
   onAddSources: () => {},
   onOpenSource: () => {},
 };
@@ -55,6 +55,7 @@ async function outsidePress() {
 beforeEach(() => {
   state.wide = false;
   state.code = true;
+  vi.clearAllMocks();
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   vi.stubGlobal(
     "ResizeObserver",
@@ -129,5 +130,16 @@ it("opens the full Sources view and dismisses the narrow overlay", async () => {
   await render();
   await click("Thread overview");
   await click("View all");
+  expect(document.querySelector('[role="dialog"]')).toBeNull();
+});
+
+it("opens only the floating overview until a full-panel action is chosen", async () => {
+  await render();
+  await click("Thread overview");
+  expect(props.onToggleChanges).not.toHaveBeenCalled();
+  expect(props.onOpenAgents).not.toHaveBeenCalled();
+  expect(props.onOpenSources).not.toHaveBeenCalled();
+  await click("1 working2 done");
+  expect(props.onOpenAgents).toHaveBeenCalledOnce();
   expect(document.querySelector('[role="dialog"]')).toBeNull();
 });

@@ -1,6 +1,13 @@
 {
   "customNotices": [
     {
+      "bundles": ["desktop", "mobile", "web"],
+      "license": "MIT",
+      "name": "Akeru Bot avatar geometry",
+      "sourceUrl": "https://github.com/opencoredev/akeru-bot",
+      "noticeFile": "legal/licenses/MIT-Akeru.txt"
+    },
+    {
       "bundles": ["assets", "desktop", "web"],
       "license": "CC0-1.0",
       "name": "Notification Sound 1 by deadrobotmusic",

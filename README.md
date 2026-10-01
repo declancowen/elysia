@@ -42,6 +42,6 @@ Internal package names remain compatible with the upstream repository. Developme
 
 Elysia is derived from [T3 Code](https://github.com/pingdotgg/t3code), an open-source coding-agent app created by **T3 Tools Inc. and its contributors**. Its client interfaces, server architecture and provider integration framework form the foundation of this fork. We acknowledge their work and the wider open-source projects Elysia depends on.
 
-Persistent agents were inspired by [Akeru](https://github.com/opencoredev/akeru-bot), available under the MIT licence, and the behavior of [OpenBot](https://github.com/nightly-labs/openbot). Elysia implements these features independently on its native runtime; no OpenBot source code or artwork is included.
+Persistent agents were inspired by [Akeru](https://github.com/opencoredev/akeru-bot), available under the MIT licence, and the behavior of [OpenBot](https://github.com/nightly-labs/openbot). Elysia implements these features on its native runtime and adapts Akeru's static avatar geometry under [its MIT licence](legal/licenses/MIT-Akeru.txt); no OpenBot source code or artwork is included.
 
 The original **MIT licence and copyright notice** are preserved in [LICENSE](./LICENSE). Third-party licence notices are retained with the application. Elysia's branding and company-specific integration are maintained in [this fork](https://github.com/declancowen/elysia).

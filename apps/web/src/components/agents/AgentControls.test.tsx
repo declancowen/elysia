@@ -14,6 +14,7 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, expect, it, vi } from "vite-plus/test";
 import type { Project, SidebarThreadSummary } from "../../types";
+import { useUiStateStore } from "../../uiStateStore";
 
 type UpdateInput = {
   environmentId: EnvironmentId;
@@ -28,6 +29,7 @@ const state = vi.hoisted(() => ({
   contextMenu: vi.fn(),
   toast: vi.fn(),
   mobile: false,
+  sidebarOpen: false,
   setOpenMobile: vi.fn(),
 }));
 vi.mock("../../state/entities", () => ({
@@ -102,6 +104,7 @@ const thread: SidebarThreadSummary = {
   hasPendingUserInput: false,
   hasActionableProposedPlan: false,
 };
+const initialExpansion = useUiStateStore.getState().projectExpandedById;
 let host: HTMLDivElement;
 let root: Root;
 async function render(current = true, roster = false) {
@@ -136,6 +139,7 @@ beforeEach(() => {
       disconnect() {}
     },
   );
+  useUiStateStore.setState({ projectExpandedById: {} });
   state.projects = [
     project,
     {
@@ -152,7 +156,10 @@ beforeEach(() => {
   state.contextMenu.mockReset().mockResolvedValue("edit-agent");
   state.toast.mockReset();
   state.mobile = false;
-  state.setOpenMobile.mockReset();
+  state.sidebarOpen = false;
+  state.setOpenMobile.mockReset().mockImplementation((open: boolean) => {
+    state.sidebarOpen = open;
+  });
   closeAgentDialog();
   host = document.createElement("div");
   document.body.append(host);
@@ -161,6 +168,7 @@ beforeEach(() => {
 afterEach(async () => {
   await act(async () => root.unmount());
   host.remove();
+  useUiStateStore.setState({ projectExpandedById: initialExpansion });
   closeAgentDialog();
   vi.unstubAllGlobals();
 });
@@ -178,10 +186,9 @@ it("opens current-agent details and edits through the global dialog without chan
   expect(state.navigate).not.toHaveBeenCalled();
 });
 
-it("lists active agents for an ordinary chat and recovers the linked legacy archived conversation", async () => {
+it("opens from the roster and recovers the linked legacy archived conversation", async () => {
   state.threads = [{ ...thread, archivedAt: "2026-10-01T10:00:00Z" }];
-  await render(false);
-  await click("Agents");
+  await render(false, true);
   expect(document.body.textContent).toContain("Alex");
   expect(document.body.textContent).not.toContain("Archived person");
   await click("AlexResearcher");
@@ -196,30 +203,48 @@ it("lists active agents for an ordinary chat and recovers the linked legacy arch
   expect(document.querySelector('[data-slot="popover-popup"]')).toBeNull();
 });
 
-it("creates from the header and routes archived-agent management to Settings", async () => {
+it("shows agent management only for the current agent and keeps create/archive access in the right places", async () => {
   await render(false);
-  await click("Agents");
-  await click("Create agent");
+  expect(host.querySelector("button")).toBeNull();
+  await render(false, true);
+  await click("Create new agent");
   expect(useAgentDialogStore.getState().target).toEqual({ projectRef: null });
   closeAgentDialog();
-  await click("Agents");
+  await render();
+  await click("Manage Alex");
   await click("Archived agents");
   expect(state.navigate).toHaveBeenCalledWith({ to: "/settings/archived" });
 });
 
-it("right-click edits a header agent row without navigating or retaining the popover", async () => {
-  await render(false);
+it("collapses Agents even when empty, persists across remounts, and expands when creating", async () => {
+  state.projects = [];
+  await render(false, true);
+  expect(host.textContent).toContain("Create your first agent");
   await click("Agents");
-  await act(async () =>
-    button("AlexResearcher").dispatchEvent(
-      new MouseEvent("contextmenu", { bubbles: true, clientX: 24, clientY: 36 }),
-    ),
-  );
-  expect(useAgentDialogStore.getState().target?.projectRef).toEqual(
-    scopeProjectRef(environmentId, projectId),
-  );
-  expect(document.querySelector('[data-slot="popover-popup"]')).toBeNull();
+  expect(host.textContent).not.toContain("Create your first agent");
+  expect(button("Agents").getAttribute("aria-expanded")).toBe("false");
+  await act(async () => root.render(null));
+  await render(false, true);
+  expect(button("Agents").getAttribute("aria-expanded")).toBe("false");
+  await click("Create new agent");
+  expect(button("Agents").getAttribute("aria-expanded")).toBe("true");
+  expect(host.textContent).toContain("Create your first agent");
+  expect(useAgentDialogStore.getState().target).toEqual({ projectRef: null });
+});
+
+it("archives directly from the roster without opening the chat and blocks the action while working", async () => {
+  await render(false, true);
+  await click("Archive Alex");
+  expect(state.update).toHaveBeenCalledWith({
+    environmentId,
+    input: { projectId, agentProfile: { ...profile, archived: true } },
+  });
   expect(state.navigate).not.toHaveBeenCalled();
+  state.threads = [{ ...thread, backgroundLiveness: "monitoring" }];
+  await render(false, true);
+  expect(button("Archive Alex").disabled).toBe(true);
+  await click("Archive Alex");
+  expect(state.update).toHaveBeenCalledOnce();
 });
 
 it("archives only the profile once while pending, preserving the linked conversation and retrying failures", async () => {
@@ -301,4 +326,60 @@ it("closes the narrow sidebar only after its linked agent conversation opens suc
   await click("AlexResearcher");
   expect(state.navigate).toHaveBeenCalledOnce();
   expect(state.setOpenMobile).toHaveBeenCalledWith(false);
+});
+
+it("dismisses the narrow sidebar when creating from either entry point or editing from the row menu", async () => {
+  state.mobile = true;
+  state.sidebarOpen = true;
+  await render(false, true);
+  await click("Create new agent");
+  expect(useAgentDialogStore.getState().target).toEqual({ projectRef: null });
+  expect(state.sidebarOpen).toBe(false);
+
+  closeAgentDialog();
+  state.sidebarOpen = true;
+  state.projects = [];
+  await render(false, true);
+  await click("Create your first agent");
+  expect(useAgentDialogStore.getState().target).toEqual({ projectRef: null });
+  expect(state.sidebarOpen).toBe(false);
+
+  closeAgentDialog();
+  state.sidebarOpen = true;
+  state.projects = [project];
+  await render(false, true);
+  await click("Actions for Alex");
+  const editAction = [...document.querySelectorAll<HTMLElement>('[role="menuitem"]')].find(
+    (item) => item.textContent?.trim() === "Edit agent",
+  );
+  expect(editAction).toBeDefined();
+  await act(async () => editAction!.click());
+  expect(useAgentDialogStore.getState().target?.projectRef).toEqual(
+    scopeProjectRef(environmentId, projectId),
+  );
+  expect(state.sidebarOpen).toBe(false);
+  expect(state.navigate).not.toHaveBeenCalled();
+});
+
+it("keeps the narrow sidebar open on context-menu cancellation and dismisses it only when editing", async () => {
+  state.mobile = true;
+  state.sidebarOpen = true;
+  state.contextMenu.mockResolvedValue(null);
+  await render(false, true);
+  const rightClickAgent = async () => {
+    await act(async () =>
+      button("AlexResearcher").dispatchEvent(new MouseEvent("contextmenu", { bubbles: true })),
+    );
+  };
+  await rightClickAgent();
+  expect(useAgentDialogStore.getState().target).toBeNull();
+  expect(state.sidebarOpen).toBe(true);
+
+  state.contextMenu.mockResolvedValue("edit-agent");
+  await rightClickAgent();
+  expect(useAgentDialogStore.getState().target?.projectRef).toEqual(
+    scopeProjectRef(environmentId, projectId),
+  );
+  expect(state.sidebarOpen).toBe(false);
+  expect(state.navigate).not.toHaveBeenCalled();
 });

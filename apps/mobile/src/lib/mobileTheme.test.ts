@@ -18,6 +18,7 @@ import {
   DEFAULT_MOBILE_THEME_ID,
   flattenThemeColor,
   getMobileThemePreviewColors,
+  getMobileThemeModes,
   getMobileThemeVariables,
   normalizeMobileThemeId,
   normalizeMobileThemeMode,
@@ -76,11 +77,25 @@ describe("mobile themes", () => {
     }
   });
 
+  it("keeps dark-only GitHub palettes out of saved light appearance selections", () => {
+    expect(getMobileThemeModes("midnight")).toEqual(["dark"]);
+    expect(getMobileThemeModes("graphite")).toEqual(["dark"]);
+    expect(getMobileThemeModes("paper")).toEqual(["light", "dark"]);
+    expect(resolveMobileThemeIds({ lightThemeId: "midnight", darkThemeId: "graphite" })).toEqual({
+      light: DEFAULT_MOBILE_THEME_ID,
+      dark: "graphite",
+    });
+    expect(resolveMobileThemeIds({ themeId: "midnight" })).toEqual({
+      light: DEFAULT_MOBILE_THEME_ID,
+      dark: "midnight",
+    });
+  });
+
   it.each(MOBILE_THEME_IDS)("uses the web color roles for %s in both appearances", (themeId) => {
     for (const appearance of ["light", "dark"] as const) {
       const theme = BUILT_IN_THEMES.find((candidate) => candidate.id === themeId);
       const colors = theme
-        ? getThemeColorsForAppearance(theme, appearance)!
+        ? (getThemeColorsForAppearance(theme, appearance) ?? theme.colors)
         : appearance === "dark"
           ? T3_CODE_DARK_THEME_COLORS
           : T3_CODE_LIGHT_THEME_COLORS;

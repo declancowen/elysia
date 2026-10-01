@@ -30,6 +30,7 @@ import * as DesktopEnvironment from "../app/DesktopEnvironment.ts";
 import * as DesktopObservability from "../app/DesktopObservability.ts";
 import * as DesktopState from "../app/DesktopState.ts";
 import * as ElectronUpdater from "../electron/ElectronUpdater.ts";
+import { updaterFailureMessage } from "../electron/updaterFailureMessage.ts";
 import * as ElectronWindow from "../electron/ElectronWindow.ts";
 import * as IpcChannels from "../ipc/channels.ts";
 import * as DesktopAppSettings from "../settings/DesktopAppSettings.ts";
@@ -134,7 +135,10 @@ export class DesktopUpdaterReportedError extends Schema.TaggedError<DesktopUpdat
   },
 ) {
   override get message(): string {
-    return `Desktop updater ${this.operation} operation reported an error.`;
+    return updaterFailureMessage(
+      `Desktop updater ${this.operation} operation reported an error.`,
+      this.cause,
+    );
   }
 }
 

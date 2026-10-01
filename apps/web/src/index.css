@@ -153,6 +153,8 @@ html[data-mobile-composer-route-transition="true"]::view-transition-old(t3-mobil
    the variables and Settings -> Appearance can override them at runtime. The
    default stacks are mirrored in `appearanceFonts.ts`. */
 @theme {
+  --text-sidebar-section: 0.8125rem;
+  --text-sidebar-section--line-height: 1.25rem;
   --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
   --font-mono:
     ui-monospace, "SF Mono", "SFMono-Regular", Menlo, Consolas, "Liberation Mono", monospace;
@@ -1448,12 +1450,10 @@ html[data-theme-id="default"]
     [data-thread-overview-trigger][data-overview-docked="true"][aria-expanded="true"]
   )
   [data-chat-content] {
-  padding-inline-end: 22rem;
+  padding-inline-end: calc(20rem + var(--workspace-gutter));
 }
 
-html[data-theme-id] [data-chat-header] [data-thread-overview-trigger],
-html[data-theme-id] [data-chat-header] [data-thread-overview-trigger]:hover,
-html[data-theme-id] [data-chat-header] [data-thread-overview-trigger][data-pressed] {
+html[data-theme-id] [data-chat-header] [data-thread-overview-trigger][aria-expanded="true"] {
   background-color: var(--sidebar);
   color: var(--contrast-sidebar-foreground);
   --control-icon-color: var(--contrast-sidebar-foreground);

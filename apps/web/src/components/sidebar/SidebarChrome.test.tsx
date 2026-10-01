@@ -58,7 +58,7 @@ vi.mock("./SidebarUpdatePill", () => ({
   SidebarUpdateArchitectureWarning: () => null,
 }));
 
-it("keeps Work/Code beside Settings, preserves sidebar layout, and hides both switches in Settings", async () => {
+it("keeps Work/Code beside Settings, preserves sidebar layout, and hides both switches in Settings and Stats", async () => {
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   vi.stubGlobal("matchMedia", () => ({
     matches: false,
@@ -106,23 +106,23 @@ it("keeps Work/Code beside Settings, preserves sidebar layout, and hides both sw
     await act(async () => render());
     expect(button("Pull Requests")).not.toBeNull();
 
-    await act(async () => button("Recent threads")!.click());
+    await act(async () => button("Chats")!.click());
     expect(useUiStateStore.getState().projectExpandedById[RECENT_THREADS_EXPANSION_KEY]).toBe(
       false,
     );
     state.settings = { ...state.settings, legacySidebarEnabled: false };
     await act(async () => render());
-    expect(button("Recent threads")!.getAttribute("aria-expanded")).toBe("false");
+    expect(button("Chats")!.getAttribute("aria-expanded")).toBe("false");
     state.settings = { ...state.settings, legacySidebarEnabled: true };
     await act(async () => render());
 
-    await act(async () => button("New thread without a project")!.click());
+    await act(async () => button("New chat")!.click());
     expect(state.startScratchThread).toHaveBeenCalledWith(environmentId);
     expect(useUiStateStore.getState().projectExpandedById[RECENT_THREADS_EXPANSION_KEY]).toBe(true);
     state.connected = false;
     await act(async () => render());
-    expect(button("New thread without a project")!.disabled).toBe(true);
-    await act(async () => button("New thread without a project")!.click());
+    expect(button("New chat")!.disabled).toBe(true);
+    await act(async () => button("New chat")!.click());
     expect(state.startScratchThread).toHaveBeenCalledTimes(1);
 
     for (const pathname of ["/settings", "/settings/appearance", "/projects/project-key"]) {
@@ -132,6 +132,11 @@ it("keeps Work/Code beside Settings, preserves sidebar layout, and hides both sw
       expect(button("Code workspace · Switch to Work")).toBeNull();
       expect(button("Switch to flat sidebar")).toBeNull();
     }
+    state.pathname = "/usage";
+    await act(async () => render());
+    expect(button("Settings")).not.toBeNull();
+    expect(button("Code workspace · Switch to Work")).toBeNull();
+    expect(button("Switch to flat sidebar")).toBeNull();
     state.pathname = "/";
     await act(async () => render());
     expect(button("Code workspace · Switch to Work")).not.toBeNull();

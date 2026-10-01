@@ -94,6 +94,7 @@ import { RpcSerialization, RpcServer } from "effect/unstable/rpc";
 
 import * as CheckpointDiffQuery from "./checkpointing/CheckpointDiffQuery.ts";
 import * as ServerConfig from "./config.ts";
+import { readElysiaStats } from "./provider/ElysiaStats.ts";
 import * as EnvironmentTheme from "./environmentTheme.ts";
 import * as Keybindings from "./keybindings.ts";
 import * as ExternalLauncher from "./process/externalLauncher.ts";
@@ -2601,6 +2602,14 @@ const makeWsRpcLayer = (
             {
               "rpc.aggregate": "server",
             },
+          ),
+        [WS_METHODS.serverGetElysiaStats]: (input) =>
+          observeRpcEffect(
+            WS_METHODS.serverGetElysiaStats,
+            Effect.flatMap(providerRegistry.getProviders, (providers) =>
+              readElysiaStats(providers, input.instanceId),
+            ),
+            { "rpc.aggregate": "server" },
           ),
         [WS_METHODS.serverRefreshProviders]: (input) =>
           observeRpcEffect(

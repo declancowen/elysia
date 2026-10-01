@@ -45,3 +45,35 @@ it("rejects arbitrary hex and unrecognised agent avatar colours", () => {
     assert.throws(() => decodeProfile(profileWithColor(color)));
   }
 });
+
+it("accepts character shapes and preserves saved icon presets", () => {
+  for (const preset of [
+    "square",
+    "triangle",
+    "squircle",
+    "circle",
+    "hex",
+    "cloud",
+    "pill",
+    "drop",
+    "square-round-eyes",
+    "triangle-round-eyes",
+    "pill-round-eyes",
+    "squircle-wide-eyes",
+    "robot",
+    "sparkles",
+    "brain",
+    "briefcase",
+    "code",
+    "planet",
+  ]) {
+    const profile = { ...profileWithColor("#28B4FF"), avatar: { preset, color: "#28B4FF" } };
+    assert.strictEqual(decodeProfile(profile).avatar.preset, preset);
+  }
+  assert.throws(() =>
+    decodeProfile({
+      ...profileWithColor("#28B4FF"),
+      avatar: { preset: "unknown", color: "#28B4FF" },
+    }),
+  );
+});

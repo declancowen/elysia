@@ -8,13 +8,16 @@ export async function showAgentContextMenu(
   position: { x: number; y: number },
 ) {
   const api = readLocalApi();
-  if (!api) return;
+  if (!api) return false;
   try {
     const action = await api.contextMenu.show(
       [{ id: "edit-agent", label: "Edit agent" }],
       position,
     );
-    if (action === "edit-agent") openAgentDialog(projectRef);
+    if (action === "edit-agent") {
+      openAgentDialog(projectRef);
+      return true;
+    }
   } catch {
     toastManager.add({
       type: "error",
@@ -22,4 +25,5 @@ export async function showAgentContextMenu(
       description: "Try again.",
     });
   }
+  return false;
 }

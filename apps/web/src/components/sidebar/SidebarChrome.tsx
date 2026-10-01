@@ -98,7 +98,7 @@ function SidebarBrand({ onBackdrop }: { onBackdrop: boolean }) {
       )}
       to="/"
     >
-      <ElysiaWordmark aria-label="Elysia" className="h-6 w-18 shrink-0" />
+      <ElysiaWordmark aria-label="Elysia" className="h-5 w-auto shrink-0" />
     </Link>
   );
 }
@@ -141,6 +141,7 @@ export const SidebarUtilityMenu = memo(function SidebarUtilityMenu() {
     pathname === "/settings" ||
     pathname.startsWith("/settings/") ||
     pathname.startsWith("/projects/");
+  const hideWorkspaceControls = isOnSettingsPage || pathname === "/usage";
   const { environments } = useEnvironments();
   // The page reads every connected server, so one of them offering pull requests is enough for
   // the link to lead somewhere.
@@ -185,14 +186,15 @@ export const SidebarUtilityMenu = memo(function SidebarUtilityMenu() {
             <span>Back</span>
           </SidebarMenuButton>
         </SidebarMenuItem>
-      ) : (
+      ) : null}
+      {!isOnSettingsPage ? (
         <SidebarUtilityItem
           icon={<SettingsIcon />}
           label="Settings"
           onClick={handleSettingsClick}
         />
-      )}
-      {!isOnSettingsPage ? (
+      ) : null}
+      {!hideWorkspaceControls ? (
         <SidebarUtilityItem
           icon={codeWorkspace ? <Code2 /> : <BriefcaseIcon />}
           label={
@@ -219,7 +221,7 @@ export const SidebarUtilityMenu = memo(function SidebarUtilityMenu() {
           />
         </>
       ) : null}
-      {!isOnSettingsPage ? (
+      {!hideWorkspaceControls ? (
         <SidebarUtilityItem
           icon={projectSidebar ? <Columns2Icon /> : <PanelLeftIcon />}
           label={projectSidebar ? "Switch to flat sidebar" : "Switch to project sidebar"}

@@ -9,6 +9,7 @@ import { SymbolView } from "../../../../components/AppSymbol";
 import { AppText as Text } from "../../../../components/AppText";
 import {
   getMobileThemePreviewColors,
+  getMobileThemeModes,
   MOBILE_THEME_OPTIONS,
   type MobileThemeAppearance,
   type MobileThemeId,
@@ -122,8 +123,10 @@ function ThemeCard(props: {
   readonly onSelect: (appearance: MobileThemeAppearance) => void;
   readonly themeId: MobileThemeId;
 }) {
+  const modes = getMobileThemeModes(props.themeId);
   const choice = (appearance: MobileThemeAppearance, selected: boolean) => (
     <Pressable
+      key={appearance}
       accessibilityHint={`Sets the ${appearance} appearance only`}
       accessibilityLabel={`${props.label} ${appearance} theme`}
       accessibilityRole="button"
@@ -153,20 +156,27 @@ function ThemeCard(props: {
   return (
     <View className="min-w-36 flex-1 basis-[47%] gap-3 rounded-[24px] border border-border bg-grouped-card px-2 py-4">
       <Pressable
-        accessibilityHint="Sets both light and dark appearances"
+        accessibilityHint={
+          modes.length === 2
+            ? "Sets both light and dark appearances"
+            : `Sets the ${modes[0]} appearance only`
+        }
         accessibilityLabel={`${props.label} theme`}
         accessibilityRole="button"
         accessibilityState={{
           disabled: props.disabled,
-          selected: props.lightSelected && props.darkSelected,
+          selected: modes.every((mode) =>
+            mode === "light" ? props.lightSelected : props.darkSelected,
+          ),
         }}
         className="absolute inset-0 rounded-[24px] active:bg-subtle"
         disabled={props.disabled}
-        onPress={props.onSelectBoth}
+        onPress={() => (modes.length === 2 ? props.onSelectBoth() : props.onSelect(modes[0]!))}
       />
       <View className="flex-row items-center justify-center gap-2 py-1" pointerEvents="box-none">
-        {choice("light", props.lightSelected)}
-        {choice("dark", props.darkSelected)}
+        {modes.map((mode) =>
+          choice(mode, mode === "light" ? props.lightSelected : props.darkSelected),
+        )}
       </View>
       <Text
         className="min-w-0 flex-1 px-1 text-lg font-t3-medium"

@@ -118,6 +118,7 @@ import {
   ProviderUploadFeedbackResult,
 } from "./provider.ts";
 import { ProviderInstanceId } from "./providerInstance.ts";
+import { ElysiaStatsSnapshot } from "./elysiaStats.ts";
 import {
   PullRequestActionInput,
   PullRequestActivity,
@@ -381,6 +382,7 @@ export const WS_METHODS = {
   // Server meta
   serverProbe: "server.probe",
   serverGetConfig: "server.getConfig",
+  serverGetElysiaStats: "server.getElysiaStats",
   serverRefreshProviders: "server.refreshProviders",
   serverUpdateProvider: "server.updateProvider",
   serverUpdateServer: "server.updateServer",
@@ -485,6 +487,12 @@ const WsServerGetConfigRpc = Rpc.make(WS_METHODS.serverGetConfig, {
   payload: Schema.Struct({}),
   success: ServerConfig,
   error: Schema.Union([KeybindingsConfigError, ServerSettingsError, EnvironmentAuthorizationError]),
+});
+
+const WsServerGetElysiaStatsRpc = Rpc.make(WS_METHODS.serverGetElysiaStats, {
+  payload: Schema.Struct({ instanceId: Schema.optional(ProviderInstanceId) }),
+  success: ElysiaStatsSnapshot,
+  error: EnvironmentAuthorizationError,
 });
 
 const WsServerRefreshProvidersRpc = Rpc.make(WS_METHODS.serverRefreshProviders, {
@@ -1451,6 +1459,7 @@ const WsSubscribeResourceTelemetryRpc = Rpc.make(WS_METHODS.subscribeResourceTel
 export const WsRpcGroup = RpcGroup.make(
   WsServerProbeRpc,
   WsServerGetConfigRpc,
+  WsServerGetElysiaStatsRpc,
   WsServerRefreshProvidersRpc,
   WsServerUpdateProviderRpc,
   WsProviderConsumeResetCreditRpc,

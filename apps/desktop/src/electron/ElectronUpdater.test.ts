@@ -98,6 +98,61 @@ describe("ElectronUpdater", () => {
     }).pipe(Effect.provide(ElectronUpdater.layer)),
   );
 
+  it.effect(
+    "reports safe connection and release diagnostics without copying response secrets",
+    () =>
+      Effect.gen(function* () {
+        const updater = yield* ElectronUpdater.ElectronUpdater;
+        for (const [cause, detail] of [
+          [
+            new Error(
+              "net::ERR_CERT_AUTHORITY_INVALID https://user:secret@example.com/?token=secret",
+            ),
+            "ERR_CERT_AUTHORITY_INVALID",
+          ],
+          [Object.assign(new Error("private proxy response"), { code: "ENOTFOUND" }), "ENOTFOUND"],
+          [Object.assign(new Error("private HTTP body"), { statusCode: 403 }), "HTTP 403"],
+          [
+            Object.assign(new Error("private release XML"), {
+              code: "ERR_UPDATER_CHANNEL_FILE_NOT_FOUND",
+            }),
+            "missing its update manifest",
+          ],
+        ] as const) {
+          autoUpdaterMock.checkForUpdates.mockImplementationOnce(() => Promise.reject(cause));
+          const error = yield* updater.checkForUpdates.pipe(Effect.flip);
+          assert.include(error.message, detail);
+          assert.notInclude(error.message, "private");
+          assert.notInclude(error.message, "secret");
+          assert.notInclude(error.message, "https://");
+          assert.strictEqual(error.cause, cause);
+        }
+      }).pipe(Effect.provide(ElectronUpdater.layer)),
+  );
+
+  it.effect("keeps actionable download and install failure codes", () =>
+    Effect.gen(function* () {
+      const updater = yield* ElectronUpdater.ElectronUpdater;
+      autoUpdaterMock.downloadUpdate.mockImplementationOnce(() =>
+        Promise.reject(
+          Object.assign(new Error("private response"), { code: "ERR_CHECKSUM_MISMATCH" }),
+        ),
+      );
+      const downloadError = yield* updater.downloadUpdate.pipe(Effect.flip);
+      assert.include(downloadError.message, "published checksum (ERR_CHECKSUM_MISMATCH)");
+      assert.notInclude(downloadError.message, "private");
+
+      autoUpdaterMock.quitAndInstall.mockImplementationOnce(() => {
+        throw Object.assign(new Error("private path"), { code: "EACCES" });
+      });
+      const installError = yield* updater
+        .quitAndInstall({ isSilent: true, isForceRunAfter: true })
+        .pipe(Effect.flip);
+      assert.include(installError.message, "denied (EACCES)");
+      assert.notInclude(installError.message, "private");
+    }).pipe(Effect.provide(ElectronUpdater.layer)),
+  );
+
   it.effect("sets full changelog mode", () =>
     Effect.gen(function* () {
       const updater = yield* ElectronUpdater.ElectronUpdater;

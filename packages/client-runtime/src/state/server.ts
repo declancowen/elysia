@@ -1082,6 +1082,11 @@ export function createServerEnvironmentAtoms<R, E>(
       staleTimeMs: 60_000,
       refreshTrigger: ({ environmentId }) => usageScanSettingsAtom(environmentId),
     }),
+    elysiaStats: createEnvironmentRpcQueryAtomFamily(runtime, {
+      label: "environment-data:server:elysia-stats",
+      tag: WS_METHODS.serverGetElysiaStats,
+      staleTimeMs: 0,
+    }),
     configProjection,
     welcome,
     consumeResetCredit: createEnvironmentRpcCommand(runtime, {

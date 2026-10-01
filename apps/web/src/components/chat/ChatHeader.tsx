@@ -457,7 +457,7 @@ export const ChatHeader = memo(function ChatHeader({
                   }
                 >
                   {activeProject.agentProfile ? (
-                    <AgentAvatar avatar={activeProject.agentProfile.avatar} className="size-5" />
+                    <AgentAvatar avatar={activeProject.agentProfile.avatar} className="size-4" />
                   ) : (
                     <ProjectFavicon project={activeProject} className="size-3.5" />
                   )}
@@ -537,9 +537,9 @@ export const ChatHeader = memo(function ChatHeader({
         data-chat-header-actions
         className={cn(
           "flex shrink-0 items-center justify-end gap-2 @3xl/header-actions:gap-3",
-          // Reserve two panel toggles plus their 4px gaps and 1px edge inset.
+          // Work has one panel toggle; Code also has the terminal toggle.
           // The page header adds 8px more right padding at sm.
-          rightPanelOpen ? "pr-0" : "pr-18.25 sm:pr-14.25",
+          rightPanelOpen ? "pr-0" : codeWorkspace ? "pr-18.25 sm:pr-14.25" : "pr-9.25 sm:pr-6.25",
           "[[data-panel-animations=true]_&]:motion-safe:transition-[padding-right] [[data-panel-animations=true]_&]:motion-safe:duration-(--panel-animation-duration) [[data-panel-animations=true]_&]:motion-safe:ease-out",
         )}
       >
@@ -568,11 +568,12 @@ export const ChatHeader = memo(function ChatHeader({
             {createPortal(headerActions, actionsContainer)}
           </MenuPopup>
         </Menu>
-        <AgentDetailsPopover
-          projectRef={
-            activeProject ? scopeProjectRef(activeProject.environmentId, activeProject.id) : null
-          }
-        />
+        {activeProject?.agentProfile ? (
+          <AgentDetailsPopover
+            key={`${activeProject.environmentId}:${activeProject.id}`}
+            projectRef={scopeProjectRef(activeProject.environmentId, activeProject.id)}
+          />
+        ) : null}
         {overview && <ThreadOverviewPanel {...overview} transient={rightPanelOpen} />}
       </div>
     </div>

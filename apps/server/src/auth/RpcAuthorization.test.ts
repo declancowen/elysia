@@ -19,6 +19,12 @@ describe("RPC authorization scopes", () => {
     expect(new Set(Object.keys(RPC_REQUIRED_SCOPES))).toEqual(new Set(WsRpcGroup.requests.keys()));
   });
 
+  it("reads native Elysia savings without granting provider or settings write access", () => {
+    expect(requiredScopeForRpcMethod(WS_METHODS.serverGetElysiaStats)).toBe(
+      AuthOrchestrationReadScope,
+    );
+  });
+
   it("authorizes background policy reporting and observation deliberately", () => {
     expect(requiredScopeForRpcMethod(WS_METHODS.serverReportClientActivity)).toBe(
       AuthOrchestrationReadScope,

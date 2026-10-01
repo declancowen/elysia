@@ -136,6 +136,8 @@ jobs:
             apps/server/src/elysiaConnections.test.ts \
             apps/server/src/provider/ProviderCredentialStore.test.ts \
             apps/server/src/provider/ProviderAuthFlow.test.ts \
+            apps/server/src/provider/ElysiaStats.test.ts \
+            apps/server/src/auth/RpcAuthorization.test.ts \
             apps/server/src/provider/Drivers/ClaudeSkillDispatch.test.ts
 
       - name: Test Elysia client and onboarding
@@ -146,6 +148,9 @@ jobs:
             apps/web/src/components/Sidebar.logic.test.ts \
             apps/web/src/rightPanelStore.test.ts \
             apps/web/src/components/chat/ThreadOverviewPanel.test.tsx \
+            apps/web/src/components/chat/PanelLayoutControls.test.tsx \
+            apps/web/src/components/sidebar/SidebarChrome.test.tsx \
+            apps/web/src/components/usage/ElysiaUsagePage.test.tsx \
             apps/web/src/components/uploadedSources.test.ts \
             apps/web/src/components/chat/ModelPickerContent.test.ts \
             apps/web/src/components/chat/modelPickerKeys.test.ts \
@@ -170,12 +175,14 @@ jobs:
             apps/desktop/src/updates/updateMachine.test.ts \
             apps/desktop/src/updates/releaseNotes.test.ts \
             apps/desktop/src/updates/ElysiaUpdates.test.ts \
+            apps/desktop/src/updates/DesktopUpdates.test.ts \
             apps/desktop/src/electron/ElectronUpdater.test.ts
 
       - name: Test persistent agents and context continuity
         run: |
           vp test run --config vite.config.ts \
             packages/contracts/src/agentProfile.test.ts \
+            packages/shared/src/agentAvatar.test.ts \
             apps/server/src/orchestration/PersistentAgents.test.ts \
             apps/server/src/provider/ElysiaAgentProtection.test.ts \
             apps/server/src/provider/RuntimeInstructions.test.ts \
@@ -184,6 +191,8 @@ jobs:
             apps/server/src/orchestration/Layers/CheckpointReactor.test.ts \
             apps/web/src/agentPresentation.test.ts \
             apps/web/src/components/agents/agentProfileSave.test.ts \
+            apps/web/src/components/agents/agentDialogStore.test.ts \
+            apps/web/src/components/agents/AgentEditorPage.test.tsx \
             apps/web/src/components/agents/AgentControls.test.tsx \
             apps/web/src/components/agents/AgentAvatarPicker.test.tsx \
             apps/web/src/components/settings/ArchivedAgentsSection.test.tsx \

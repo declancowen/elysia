@@ -447,6 +447,63 @@ describe("DesktopUpdates", () => {
     ).pipe(Effect.provide(Layer.merge(TestClock.layer(), harness.layer)));
   });
 
+  it.effect("shows a bounded connection failure and allows a later update check to recover", () => {
+    let failed = false;
+    const harness = makeHarness({
+      checkForUpdates: Effect.suspend(() => {
+        if (failed) return Effect.void;
+        failed = true;
+        return Effect.fail(
+          new ElectronUpdater.ElectronUpdaterCheckForUpdatesError({
+            channel: "latest",
+            cause: new Error(
+              "net::ERR_PROXY_CONNECTION_FAILED https://user:secret@example.com/?token=secret",
+            ),
+          }),
+        );
+      }),
+    });
+    return Effect.scoped(
+      Effect.gen(function* () {
+        const updates = yield* DesktopUpdates.DesktopUpdates;
+        yield* updates.configure;
+        yield* updates.check("manual");
+        const failedState = yield* updates.getState;
+        assert.equal(failedState.status, "error");
+        assert.equal(failedState.errorContext, "check");
+        assert.include(failedState.message ?? "", "ERR_PROXY_CONNECTION_FAILED");
+        assert.notInclude(failedState.message ?? "", "secret");
+
+        assert.isTrue((yield* updates.check("manual")).checked);
+        harness.emit("update-not-available");
+        yield* flushCallbacks;
+        const recovered = yield* updates.getState;
+        assert.equal(harness.checkCount(), 2);
+        assert.equal(recovered.status, "up-to-date");
+        assert.isNull(recovered.message);
+      }),
+    ).pipe(Effect.provide(Layer.merge(TestClock.layer(), harness.layer)));
+  });
+
+  it.effect("retains safe certificate diagnostics from native updater events", () => {
+    const harness = makeHarness();
+    return Effect.scoped(
+      Effect.gen(function* () {
+        const updates = yield* DesktopUpdates.DesktopUpdates;
+        yield* updates.configure;
+        harness.emit(
+          "error",
+          new Error("net::ERR_CERT_AUTHORITY_INVALID private certificate response"),
+        );
+        yield* flushCallbacks;
+        const state = yield* updates.getState;
+        assert.equal(state.status, "error");
+        assert.include(state.message ?? "", "ERR_CERT_AUTHORITY_INVALID");
+        assert.notInclude(state.message ?? "", "private");
+      }),
+    ).pipe(Effect.provide(Layer.merge(TestClock.layer(), harness.layer)));
+  });
+
   it.effect("logs bounded updater failure context without exposing the cause", () => {
     const cause = new Error(
       "request failed for https://user:secret@example.com/update?token=secret",

@@ -46,21 +46,26 @@ export function normalizeMobileThemeMode(value: unknown): MobileThemeMode {
   return value === "light" || value === "dark" || value === "system" ? value : "dark";
 }
 
+export function getMobileThemeModes(themeId: MobileThemeId) {
+  const theme = BUILT_IN_THEMES.find((candidate) => candidate.id === themeId);
+  return (["light", "dark"] as const).filter(
+    (mode) => !theme || getThemeColorsForAppearance(theme, mode) !== null,
+  );
+}
+
 export function resolveMobileThemeIds(preferences: {
   readonly themeId?: unknown;
   readonly lightThemeId?: unknown;
   readonly darkThemeId?: unknown;
 }): MobileThemeIds {
   const legacyThemeId = normalizeMobileThemeId(preferences.themeId);
+  const resolve = (value: unknown, appearance: MobileThemeAppearance) => {
+    const themeId = value === undefined ? legacyThemeId : normalizeMobileThemeId(value);
+    return getMobileThemeModes(themeId).includes(appearance) ? themeId : DEFAULT_MOBILE_THEME_ID;
+  };
   return {
-    light:
-      preferences.lightThemeId === undefined
-        ? legacyThemeId
-        : normalizeMobileThemeId(preferences.lightThemeId),
-    dark:
-      preferences.darkThemeId === undefined
-        ? legacyThemeId
-        : normalizeMobileThemeId(preferences.darkThemeId),
+    light: resolve(preferences.lightThemeId, "light"),
+    dark: resolve(preferences.darkThemeId, "dark"),
   };
 }
 

@@ -1,5 +1,5 @@
 import { Popover as PopoverPrimitive } from "@base-ui/react/popover";
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 import { useMediaQuery } from "~/hooks/useMediaQuery";
 import { useCodeWorkspace } from "~/hooks/useSettings";
@@ -54,6 +54,7 @@ function OverviewPopover({
 }: ThreadOverviewPanelProps & { wide: boolean }) {
   const codeWorkspace = useCodeWorkspace();
   const [open, setOpen] = useState(false);
+  const anchorRef = useRef<HTMLSpanElement>(null);
   const [sourcesExpanded, setSourcesExpanded] = useState(false);
   const visibleSources = sourcesExpanded ? sources : sources.slice(0, 3);
   const openView = (action: () => void) => {
@@ -80,16 +81,23 @@ function OverviewPopover({
             aria-label="Thread overview"
             data-thread-overview-trigger
             data-overview-docked={wide}
+            data-pressed={open ? "" : undefined}
           />
         }
       >
         <ListIcon className="size-4" />
       </PopoverTrigger>
+      <span
+        ref={anchorRef}
+        aria-hidden
+        className="pointer-events-none absolute top-full right-(--workspace-gutter-end) size-0"
+      />
       <PopoverPrimitive.Portal>
         <PopoverPrimitive.Positioner
           side="bottom"
           align="end"
-          sideOffset={16}
+          anchor={anchorRef}
+          sideOffset={12}
           className="z-40 max-w-[calc(100vw-2rem)]"
         >
           {/* This feature frame follows the composer surface rather than a menu surface. */}

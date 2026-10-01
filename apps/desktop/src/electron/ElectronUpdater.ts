@@ -5,6 +5,7 @@ import * as Schema from "effect/Schema";
 import * as Scope from "effect/Scope";
 
 import { autoUpdater } from "electron-updater";
+import { updaterFailureMessage } from "./updaterFailureMessage.ts";
 
 type AutoUpdater = typeof autoUpdater;
 
@@ -18,7 +19,10 @@ export class ElectronUpdaterCheckForUpdatesError extends Schema.TaggedError<Elec
   },
 ) {
   override get message(): string {
-    return `Electron updater failed to check for updates on channel ${this.channel ?? "default"}.`;
+    return updaterFailureMessage(
+      `Electron updater failed to check for updates on channel ${this.channel ?? "default"}.`,
+      this.cause,
+    );
   }
 }
 
@@ -30,7 +34,10 @@ export class ElectronUpdaterDownloadUpdateError extends Schema.TaggedError<Elect
   },
 ) {
   override get message(): string {
-    return `Electron updater failed to download the update on channel ${this.channel ?? "default"}.`;
+    return updaterFailureMessage(
+      `Electron updater failed to download the update on channel ${this.channel ?? "default"}.`,
+      this.cause,
+    );
   }
 }
 
@@ -44,7 +51,10 @@ export class ElectronUpdaterQuitAndInstallError extends Schema.TaggedError<Elect
   },
 ) {
   override get message(): string {
-    return `Electron updater failed to quit and install the update on channel ${this.channel ?? "default"} (silent: ${this.isSilent}, force run after: ${this.isForceRunAfter}).`;
+    return updaterFailureMessage(
+      `Electron updater failed to quit and install the update on channel ${this.channel ?? "default"} (silent: ${this.isSilent}, force run after: ${this.isForceRunAfter}).`,
+      this.cause,
+    );
   }
 }
 

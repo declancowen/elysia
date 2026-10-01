@@ -190,7 +190,18 @@ function makeHarness(config?: {
     ...(config?.instanceId ? { instanceId: config.instanceId } : {}),
     ...(config?.scopedLimitNames ? { scopedLimitNames: config.scopedLimitNames } : {}),
     modelCatalog: Effect.succeed(SYNTHETIC_CLAUDE_MODEL_CATALOG),
-    ...(config?.getSessionMessages ? { getSessionMessages: config.getSessionMessages } : {}),
+    getSessionMessages:
+      config?.getSessionMessages ??
+      (async (sessionId) => [
+        {
+          type: "user",
+          uuid: "existing-message",
+          session_id: sessionId,
+          parent_tool_use_id: null,
+          parent_agent_id: null,
+          message: { content: "Existing native context" },
+        },
+      ]),
     ...(config?.forkSession ? { forkSession: config.forkSession } : {}),
     createQuery: (input) => {
       if (createInput && config?.getSessionMessages) queries.push(new FakeClaudeQuery());
@@ -4614,6 +4625,16 @@ describe("ClaudeAdapterLive", () => {
       Effect.gen(function* () {
         const claudeConfig = decodeClaudeSettings({});
         return yield* makeClaudeAdapter(claudeConfig, {
+          getSessionMessages: async (sessionId) => [
+            {
+              type: "user",
+              uuid: "existing-message",
+              session_id: sessionId,
+              parent_tool_use_id: null,
+              parent_agent_id: null,
+              message: { content: "Existing native context" },
+            },
+          ],
           createQuery: () => {
             const query = new FakeClaudeQuery();
             queries.push(query);
@@ -6837,6 +6858,76 @@ describe("ClaudeAdapterLive", () => {
       Effect.provideService(Random.Random, makeDeterministicRandomService()),
       Effect.provide(harness.layer),
     );
+  });
+
+  it.effect(
+    "continues a chat with fresh native context when Claude cannot find its saved session",
+    () => {
+      const missingId = "550e8400-e29b-41d4-a716-446655440000";
+      const harness = makeHarness({
+        getSessionMessages: async (sessionId, readOptions) => {
+          assert.equal(sessionId, missingId);
+          assert.deepEqual(readOptions, {
+            dir: "/tmp/claude-adapter-test",
+            includeSystemMessages: true,
+          });
+          return [];
+        },
+      });
+      return Effect.gen(function* () {
+        const adapter = yield* ClaudeAdapter;
+        const events = yield* Stream.take(adapter.streamEvents, 4).pipe(
+          Stream.runCollect,
+          Effect.forkChild,
+        );
+        const session = yield* adapter.startSession({
+          threadId: RESUME_THREAD_ID,
+          provider: ProviderDriverKind.make("claudeAgent"),
+          cwd: "/tmp/claude-adapter-test",
+          resumeCursor: { resume: missingId, turnCount: 3, resumeSessionAt: "old-checkpoint" },
+          runtimeMode: "full-access",
+        });
+        const input = harness.getLastCreateQueryInput();
+        assert.equal(input?.options.resume, undefined);
+        assert.ok(input?.options.sessionId);
+        assert.notEqual(input?.options.sessionId, missingId);
+        assert.equal(session.threadId, RESUME_THREAD_ID);
+        assert.deepEqual(session.resumeCursor, {
+          threadId: RESUME_THREAD_ID,
+          resume: input?.options.sessionId,
+          turnCount: 0,
+        });
+        const runtimeEvents = yield* Fiber.join(events);
+        const started = runtimeEvents.find((event) => event.type === "session.started");
+        assert.deepEqual(started?.payload, {});
+        const warnings = runtimeEvents.filter((event) => event.type === "runtime.warning");
+        assert.equal(warnings.length, 1);
+        assert.match(warnings[0]!.payload.message, /saved context is no longer available/);
+        yield* adapter.sendTurn({ threadId: session.threadId, input: "Continue working" });
+        assert.equal(yield* Effect.promise(() => readFirstPromptText(input)), "Continue working");
+      }).pipe(Effect.provide(harness.layer));
+    },
+  );
+
+  it.effect("propagates SDK history errors instead of discarding saved Claude context", () => {
+    const harness = makeHarness({
+      getSessionMessages: async () => {
+        throw new Error("History access denied");
+      },
+    });
+    return Effect.gen(function* () {
+      const adapter = yield* ClaudeAdapter;
+      const result = yield* adapter
+        .startSession({
+          threadId: RESUME_THREAD_ID,
+          provider: ProviderDriverKind.make("claudeAgent"),
+          resumeCursor: { resume: "550e8400-e29b-41d4-a716-446655440000" },
+          runtimeMode: "full-access",
+        })
+        .pipe(Effect.result);
+      assert.equal(result._tag, "Failure");
+      assert.equal(harness.getLastCreateQueryInput(), undefined);
+    }).pipe(Effect.provide(harness.layer));
   });
 
   it.effect("preserves durable resume ids across Claude resume hooks", () => {

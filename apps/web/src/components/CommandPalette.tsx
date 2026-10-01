@@ -49,6 +49,7 @@ import {
   FolderIcon,
   FolderPlusIcon,
   MessageSquareDashedIcon,
+  MessageCircleIcon,
   LinkIcon,
   MessageSquareIcon,
   MonitorIcon,
@@ -1795,6 +1796,18 @@ function OpenCommandPaletteDialog(props: {
 
   const actionItems: Array<CommandPaletteActionItem | CommandPaletteSubmenuItem> = [];
 
+  if (scratchTargetEnvironmentId !== null) {
+    actionItems.push({
+      kind: "action",
+      value: "action:new-thread-without-project",
+      searchTerms: ["new chat", "new thread", "no project", "without project", "none", "chat"],
+      title: "New Chat",
+      icon: <MessageCircleIcon className={ITEM_ICON_CLASS} />,
+      shortcutCommand: "chat.newWithoutProject",
+      run: () => startScratchThread(scratchTargetEnvironmentId),
+    });
+  }
+
   if (projects.length > 0) {
     const activeProjectTitle =
       projectPickerEntries.find((entry) => entry.isPreferred)?.group.displayName ??
@@ -1831,18 +1844,6 @@ function OpenCommandPaletteDialog(props: {
       icon: <SquarePenIcon className={ITEM_ICON_CLASS} />,
       addonIcon: <SquarePenIcon className={ADDON_ICON_CLASS} />,
       groups: [{ value: "projects", label: "Projects", items: projectThreadItems }],
-    });
-  }
-
-  if (scratchTargetEnvironmentId !== null) {
-    actionItems.push({
-      kind: "action",
-      value: "action:new-thread-without-project",
-      searchTerms: ["new thread", "no project", "without project", "none", "chat"],
-      title: "New thread without a project",
-      icon: <MessageSquareDashedIcon className={ITEM_ICON_CLASS} />,
-      shortcutCommand: "chat.newWithoutProject",
-      run: () => startScratchThread(scratchTargetEnvironmentId),
     });
   }
 

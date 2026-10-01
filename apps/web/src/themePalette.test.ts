@@ -1100,13 +1100,24 @@ describe("singleAppearanceOf", () => {
   });
 });
 
-it("ships Elysia themes in both appearances without T3 Chat in the library", () => {
+it("ships the supplied GitHub and Notion palettes with their original appearances", () => {
   expect(BUILT_IN_THEMES.some((theme) => theme.id === "t3-chat")).toBe(false);
   expect(ELYSIA_THEMES.map((theme) => theme.label)).toEqual([
-    "Midnight",
-    "Graphite",
-    "Canvas",
-    "Paper",
+    "GitHub",
+    "GitHub Dark Neutral Unified",
+    "Notion Inverted",
+    "Notion",
   ]);
-  for (const theme of ELYSIA_THEMES) expect(getThemeModes(theme)).toEqual(["light", "dark"]);
+  expect(ELYSIA_THEMES.map(getThemeModes)).toEqual([
+    ["dark"],
+    ["dark"],
+    ["light", "dark"],
+    ["light", "dark"],
+  ]);
+  const [github, neutral, inverted, notion] = ELYSIA_THEMES;
+  expect(github?.colors.canvas).toBe(canonical("#0d1117"));
+  expect(neutral?.colors.canvas).toBe(canonical("#0d0d0d"));
+  expect(neutral?.colors.sidebar).toBe(canonical("#151515"));
+  expect(inverted?.colors.canvas).toBe(canonical("#f7f7f5"));
+  expect(notion?.variants?.dark?.canvas).toBe(canonical("#191919"));
 });

@@ -198,6 +198,7 @@ import { sortThreads } from "../lib/threadSort";
 import { SidebarChromeFooter, SidebarChromeHeader } from "./sidebar/SidebarChrome";
 import { RecentThreadsHeader, useRecentThreadsExpansion } from "./sidebar/RecentThreadsHeader";
 import { AgentRoster } from "./agents/AgentRoster";
+import { SidebarSectionHeader, useSidebarSectionExpansion } from "./sidebar/SidebarSectionHeader";
 import { selectNonAgentProjectItems, selectRegularProjects } from "../agentPresentation";
 import { useCopyToClipboard } from "~/hooks/useCopyToClipboard";
 import { useIsMobile } from "~/hooks/useMediaQuery";
@@ -321,6 +322,7 @@ function buildThreadJumpLabelMap(input: {
 
 interface SidebarThreadRowProps {
   thread: SidebarThreadSummary;
+  indented: boolean;
   orderedProjectThreadKeys: readonly string[];
   isActive: boolean;
   openPullRequestsInRightPanel: boolean;
@@ -728,6 +730,7 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: SidebarThreadRowP
         data-testid={`thread-row-${thread.id}`}
         className={cn(
           "relative isolate flex h-8 w-full min-w-0 cursor-pointer select-none items-center gap-2 overflow-hidden rounded-md px-2.5 text-left text-xs outline-hidden focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring group-data-[collapsible=icon]:hidden [&>span:last-child]:truncate [&>svg:not([class*='size-'])]:size-4 [&>svg]:shrink-0 [&>svg]:text-sidebar-muted-foreground",
+          props.indented && "pl-8.5",
           isActive
             ? "bg-sidebar-row-active font-medium text-sidebar-foreground hover:bg-sidebar-row-active"
             : isSelected
@@ -1058,7 +1061,7 @@ const SidebarProjectThreadList = memo(function SidebarProjectThreadList(
   const showLessButtonRender = useMemo(() => <button type="button" />, []);
 
   return (
-    <div className={indented ? "ml-6" : undefined}>
+    <div>
       <SidebarMenu ref={attachThreadListAutoAnimateRef}>
         {shouldShowThreadPanel && showEmptyThreadState ? (
           <SidebarMenuSubItem className="w-full" data-thread-selection-safe>
@@ -1066,7 +1069,7 @@ const SidebarProjectThreadList = memo(function SidebarProjectThreadList(
               data-thread-selection-safe
               className="flex h-8 w-full translate-x-0 items-center px-2.5 text-left text-xs text-sidebar-muted-foreground/75"
             >
-              <span>No threads yet</span>
+              <span className={indented ? "pl-6" : undefined}>No threads yet</span>
             </div>
           </SidebarMenuSubItem>
         ) : null}
@@ -1077,6 +1080,7 @@ const SidebarProjectThreadList = memo(function SidebarProjectThreadList(
               <SidebarThreadRow
                 key={threadKey}
                 thread={thread}
+                indented={indented}
                 orderedProjectThreadKeys={orderedProjectThreadKeys}
                 isActive={activeRouteThreadKey === threadKey}
                 openPullRequestsInRightPanel={openPullRequestsInRightPanel}
@@ -1115,7 +1119,7 @@ const SidebarProjectThreadList = memo(function SidebarProjectThreadList(
                 expandThreadListForProject(projectKey);
               }}
             >
-              <span className="flex min-w-0 flex-1 items-center gap-2">
+              <span className={cn("flex min-w-0 flex-1 items-center gap-2", indented && "pl-6")}>
                 {hiddenThreadStatus && <ThreadStatusLabel status={hiddenThreadStatus} compact />}
                 <span>Show more</span>
               </span>
@@ -1132,7 +1136,7 @@ const SidebarProjectThreadList = memo(function SidebarProjectThreadList(
                 collapseThreadListForProject(projectKey);
               }}
             >
-              <span>Show less</span>
+              <span className={indented ? "pl-6" : undefined}>Show less</span>
             </SidebarMenuSubButton>
           </SidebarMenuSubItem>
         )}
@@ -2903,6 +2907,8 @@ const SidebarProjectsContent = memo(function SidebarProjectsContent(
 
   const { scratchWorkspaceRootFor } = useScratchProject();
   const { expanded: recentExpanded } = useRecentThreadsExpansion();
+  const { expanded: projectsExpanded, setExpanded: setProjectsExpanded } =
+    useSidebarSectionExpansion("sidebar-projects");
   const primaryEnvironmentId = usePrimaryEnvironmentId();
   const recentProjects = sortedProjects.filter((project) =>
     isScratchProject(project, scratchWorkspaceRootFor(project.environmentId)),
@@ -3002,14 +3008,22 @@ const SidebarProjectsContent = memo(function SidebarProjectsContent(
       <AgentRoster />
       <SidebarGroup>
         <RecentThreadsHeader environmentId={primaryEnvironmentId} />
-        <SidebarMenu>
-          {recentProjects.map((project) => (
-            <SidebarProjectListRow key={project.projectKey} {...projectItemProps(project, null)} />
-          ))}
-        </SidebarMenu>
-        <div className="mb-1 flex items-center justify-between pl-2 pr-1.5">
-          <span className="text-xs font-medium text-sidebar-muted-foreground/80">Projects</span>
-          <div className="flex items-center gap-1">
+        {recentExpanded && (
+          <SidebarMenu>
+            {recentProjects.map((project) => (
+              <SidebarProjectListRow
+                key={project.projectKey}
+                {...projectItemProps(project, null)}
+              />
+            ))}
+          </SidebarMenu>
+        )}
+        <div className="mt-4">
+          <SidebarSectionHeader
+            label="Projects"
+            expanded={projectsExpanded}
+            onToggle={() => setProjectsExpanded(!projectsExpanded)}
+          >
             <ProjectSortMenu
               projectSortOrder={projectSortOrder}
               threadSortOrder={threadSortOrder}
@@ -3026,7 +3040,10 @@ const SidebarProjectsContent = memo(function SidebarProjectsContent(
                     variant="ghost-muted"
                     aria-label="Add project"
                     data-testid="sidebar-add-project-trigger"
-                    onClick={openAddProject}
+                    onClick={() => {
+                      setProjectsExpanded(true);
+                      openAddProject();
+                    }}
                   />
                 }
               >
@@ -3034,45 +3051,46 @@ const SidebarProjectsContent = memo(function SidebarProjectsContent(
               </TooltipTrigger>
               <TooltipPopup side="right">Add project</TooltipPopup>
             </Tooltip>
-          </div>
+          </SidebarSectionHeader>
         </div>
 
-        {isManualProjectSorting ? (
-          <DndContext
-            sensors={projectDnDSensors}
-            collisionDetection={projectCollisionDetection}
-            modifiers={[restrictToVerticalAxis, restrictToFirstScrollableAncestor]}
-            onDragStart={handleProjectDragStart}
-            onDragEnd={handleProjectDragEnd}
-            onDragCancel={handleProjectDragCancel}
-          >
-            <SidebarMenu>
-              <SortableContext
-                items={folderProjects.map((project) => project.projectKey)}
-                strategy={verticalListSortingStrategy}
-              >
-                {folderProjects.map((project) => (
-                  <SortableProjectItem key={project.projectKey} projectId={project.projectKey}>
-                    {(dragHandleProps) => (
-                      <SidebarProjectItem {...projectItemProps(project, dragHandleProps)} />
-                    )}
-                  </SortableProjectItem>
-                ))}
-              </SortableContext>
+        {projectsExpanded &&
+          (isManualProjectSorting ? (
+            <DndContext
+              sensors={projectDnDSensors}
+              collisionDetection={projectCollisionDetection}
+              modifiers={[restrictToVerticalAxis, restrictToFirstScrollableAncestor]}
+              onDragStart={handleProjectDragStart}
+              onDragEnd={handleProjectDragEnd}
+              onDragCancel={handleProjectDragCancel}
+            >
+              <SidebarMenu>
+                <SortableContext
+                  items={folderProjects.map((project) => project.projectKey)}
+                  strategy={verticalListSortingStrategy}
+                >
+                  {folderProjects.map((project) => (
+                    <SortableProjectItem key={project.projectKey} projectId={project.projectKey}>
+                      {(dragHandleProps) => (
+                        <SidebarProjectItem {...projectItemProps(project, dragHandleProps)} />
+                      )}
+                    </SortableProjectItem>
+                  ))}
+                </SortableContext>
+              </SidebarMenu>
+            </DndContext>
+          ) : (
+            <SidebarMenu ref={attachProjectListAutoAnimateRef}>
+              {folderProjects.map((project) => (
+                <SidebarProjectListRow
+                  key={project.projectKey}
+                  {...projectItemProps(project, null)}
+                />
+              ))}
             </SidebarMenu>
-          </DndContext>
-        ) : (
-          <SidebarMenu ref={attachProjectListAutoAnimateRef}>
-            {folderProjects.map((project) => (
-              <SidebarProjectListRow
-                key={project.projectKey}
-                {...projectItemProps(project, null)}
-              />
-            ))}
-          </SidebarMenu>
-        )}
+          ))}
 
-        {folderProjects.length === 0 && (
+        {projectsExpanded && folderProjects.length === 0 && (
           <div className="px-2 pt-4 text-center text-secondary-label text-xs">No projects yet</div>
         )}
       </SidebarGroup>
@@ -3090,6 +3108,7 @@ export default function LegacySidebar() {
   );
   const projectExpandedById = useUiStateStore((store) => store.projectExpandedById);
   const { expanded: recentExpanded } = useRecentThreadsExpansion();
+  const { expanded: projectsExpanded } = useSidebarSectionExpansion("sidebar-projects");
   const projectOrder = useUiStateStore((store) => store.projectOrder);
   const reorderProjects = useUiStateStore((store) => store.reorderProjects);
   const navigate = useNavigate();
@@ -3415,6 +3434,8 @@ export default function LegacySidebar() {
   const visibleSidebarThreadKeys = useMemo(
     () =>
       sortedProjects.flatMap((project) => {
+        const recent = isScratchProject(project, scratchWorkspaceRootFor(project.environmentId));
+        if (recent ? !recentExpanded : !projectsExpanded) return [];
         const projectThreads = sortThreads(
           (threadsByProjectKey.get(project.projectKey) ?? []).filter(
             (thread) => thread.archivedAt === null,
@@ -3455,6 +3476,7 @@ export default function LegacySidebar() {
       expandedThreadListsByProject,
       projectExpandedById,
       recentExpanded,
+      projectsExpanded,
       routeThreadKey,
       scratchWorkspaceRootFor,
       sortedProjects,

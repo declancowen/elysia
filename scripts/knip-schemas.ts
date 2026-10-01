@@ -1,5 +1,6 @@
 // @effect-diagnostics nodeBuiltinImport:off - Knip and the TypeScript compiler host use synchronous Node paths.
 import * as NodePath from "node:path";
+import { APP_NAME, CONNECTIONS_ENABLED } from "../packages/contracts/src/forkPolicy.ts";
 import type { Preprocessor } from "knip";
 // Knip needs the legacy compiler API, which TypeScript 7 no longer exports.
 import ts from "typescript-legacy";
@@ -8,7 +9,67 @@ import ts from "typescript-legacy";
 // Checking the type avoids evaluating application modules or exempting schema factories/decoders.
 const schemaTypeId = "~effect/Schema/Schema";
 
+// Elysia retains upstream APIs whose callers are dormant under its fork policy.
+// Match both the source file and symbol so new unused exports remain visible.
+const retainedForkExports: Readonly<Record<string, ReadonlyArray<string>>> = {
+  // Upstream triage imports the boot-service log path.
+  "apps/server/src/cloud/bootService.ts": ["BOOT_SERVICE_LOG_FILE"],
+  // Stable branding uses this helper internally; retain its upstream public API.
+  "apps/web/src/branding.logic.ts": ["formatAppDisplayName"],
+  // Retained Connections and T3 Connect screens consume these APIs.
+  "apps/web/src/components/clerk/T3ConnectAccountPages.tsx": ["useT3ConnectAccountPage"],
+  "apps/web/src/components/settings/EnvironmentIconPicker.tsx": ["EnvironmentIconMenu"],
+  "apps/web/src/components/settings/EnvironmentRow.tsx": ["formatDesktopSshTarget"],
+  "apps/web/src/components/settings/GitHubRoutingSettings.tsx": ["GitHubRoutingSettings"],
+  "apps/web/src/components/settings/LoadBalancingSettings.tsx": ["LoadBalancingSettings"],
+  "apps/web/src/connection/onboarding.ts": ["connectSshEnvironment"],
+  "apps/web/src/environments/primary/auth.ts": [
+    "revokeServerPairingLink",
+    "revokeServerClientSession",
+    "revokeOtherServerClientSessions",
+  ],
+  "apps/web/src/environments/primary/index.ts": [
+    "revokeServerPairingLink",
+    "revokeServerClientSession",
+    "revokeOtherServerClientSessions",
+    "isLoopbackHostname",
+  ],
+  "apps/web/src/state/desktopNetworkAccess.ts": [
+    "desktopNetworkAccessStateAtom",
+    "refreshDesktopNetworkAccessState",
+  ],
+  "apps/web/src/state/desktopSshHosts.ts": ["desktopSshHostsStateAtom"],
+  "apps/web/src/state/desktopWslState.ts": ["refreshDesktopWslState"],
+  "packages/client-runtime/src/state/auth.ts": ["createAuthEnvironmentAtoms"],
+  // The fork fixes grouping, environment identification and releases to its defaults.
+  "apps/web/src/components/settings/SettingsPanels.logic.ts": [
+    "readLastEnabledProjectGroupingMode",
+    "rememberEnabledProjectGroupingMode",
+  ],
+  "packages/contracts/src/settings.ts": ["DEFAULT_ENVIRONMENT_IDENTIFICATION_MODE"],
+  "packages/shared/src/cliRelease.ts": ["CLI_RELEASE_CHANNELS"],
+};
+
 const preprocess: Preprocessor = (options) => {
+  if (APP_NAME === "Elysia" && !CONNECTIONS_ENABLED) {
+    for (const category of ["exports", "nsExports"] as const) {
+      for (const [filePath, issues] of Object.entries(options.issues[category])) {
+        const relativePath = NodePath.relative(options.cwd, NodePath.resolve(options.cwd, filePath))
+          .split(NodePath.sep)
+          .join("/");
+        const allowed = retainedForkExports[relativePath];
+        if (!allowed) continue;
+        for (const [key, issue] of Object.entries(issues)) {
+          const symbols = issue.symbols ?? [{ symbol: issue.symbol }];
+          if (symbols.length > 0 && symbols.every(({ symbol }) => allowed.includes(symbol))) {
+            delete issues[key];
+            options.counters[category]--;
+          }
+        }
+        if (Object.keys(issues).length === 0) delete options.issues[category][filePath];
+      }
+    }
+  }
   const categories = ["exports", "nsExports", "duplicates"] as const;
   const projects = new Map<string | undefined, Set<string>>();
   for (const category of categories) {

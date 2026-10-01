@@ -1447,6 +1447,7 @@ describe("CheckpointReactor", () => {
         const harness = yield* Effect.promise(() =>
           createHarness({
             seedFilesystemCheckpoints: false,
+            threadWorktreePath: null,
             agentProfile: {
               instructions: "Help with work.",
               avatar: { preset: "robot", color: "blue" },

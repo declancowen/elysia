@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vite-plus/test";
-import type { RuntimeMode } from "@t3tools/contracts";
+import type { AgentProfile, RuntimeMode } from "@t3tools/contracts";
 
 const testState = vi.hoisted(() => {
   let completeProjectFileRead: (value: null) => void = () => undefined;
@@ -16,6 +16,23 @@ const testState = vi.hoisted(() => {
     readonly promotedTo: null;
     readonly threadId: string;
   } | null = null;
+  const ordinaryProject = {
+    id: "project-remote",
+    environmentId: "environment-ssh",
+    title: "Project",
+    workspaceRoot: "/remote/project",
+    defaultThreadEnvMode: null,
+    defaultModelSelection: null,
+    agentProfile: undefined as AgentProfile | undefined,
+  };
+  let projects = [ordinaryProject];
+  const ensureScratch = vi.fn(async () => {
+    projects = [
+      ...projects,
+      { ...ordinaryProject, id: "project-scratch", title: "Recent", workspaceRoot: "/scratch" },
+    ];
+    return { _tag: "Success", value: { projectId: "project-scratch" } };
+  });
   const router = {
     state: {
       location: { href: "/" },
@@ -39,6 +56,10 @@ const testState = vi.hoisted(() => {
   return {
     completeProjectFileRead: (value: null) => completeProjectFileRead(value),
     draftStore,
+    ensureScratch,
+    get projects() {
+      return projects;
+    },
     get projectFileRead() {
       return projectFileRead;
     },
@@ -53,6 +74,8 @@ const testState = vi.hoisted(() => {
       },
     ) {
       storedDraft = nextStoredDraft;
+      projects = [{ ...ordinaryProject }];
+      ensureScratch.mockClear();
       targetSettings = {
         defaultThreadEnvMode: workspaceDefaults.envMode,
         newWorktreesStartFromOrigin: workspaceDefaults.startFromOrigin,
@@ -88,12 +111,14 @@ vi.mock("@effect/atom-react", () => ({
           ["environment-ssh", { settings: testState.targetSettings }],
         ]),
 }));
-vi.mock("@t3tools/client-runtime/environment", () => ({
+vi.mock("@t3tools/client-runtime/environment", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@t3tools/client-runtime/environment")>()),
   scopedProjectKey: () => "remote-project",
   scopeProjectRef: (environmentId: string, projectId: string) => ({ environmentId, projectId }),
   scopeThreadRef: (environmentId: string, threadId: string) => ({ environmentId, threadId }),
 }));
-vi.mock("@t3tools/contracts", () => ({
+vi.mock("@t3tools/contracts", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@t3tools/contracts")>()),
   DEFAULT_RUNTIME_MODE: "default",
   DEFAULT_SERVER_SETTINGS: {},
 }));
@@ -151,24 +176,23 @@ vi.mock("../lib/utils", () => ({
   newThreadId: () => "thread-delayed",
 }));
 vi.mock("../logicalProject", () => ({
-  deriveLogicalProjectKeyFromSettings: () => "remote-project",
+  deriveLogicalProjectKeyFromSettings: (project: { id: string }) =>
+    project.id === "project-scratch" ? "recent-project" : "remote-project",
   getProjectOrderKey: () => "remote-project",
   selectProjectGroupingSettings: () => ({}),
 }));
 vi.mock("../state/entities", () => ({
-  readProjects: () => [
-    {
-      id: "project-remote",
-      environmentId: "environment-ssh",
-      workspaceRoot: "/remote/project",
-      defaultThreadEnvMode: null,
-      defaultModelSelection: null,
-    },
-  ],
+  readProjects: () => testState.projects,
+  waitForProject: async (ref: { environmentId: string; projectId: string }) =>
+    testState.projects.find(
+      (project) => project.environmentId === ref.environmentId && project.id === ref.projectId,
+    ),
   readThreadShell: () => null,
   useProjects: () => [],
   useThread: () => null,
 }));
+vi.mock("../state/projects", () => ({ projectEnvironment: { ensureScratch: "ensure-scratch" } }));
+vi.mock("../state/use-atom-command", () => ({ useAtomCommand: () => testState.ensureScratch }));
 vi.mock("../state/server", () => ({
   environmentServerConfigsAtom: {},
   primaryServerSettingsAtom: "primary-settings",
@@ -181,6 +205,52 @@ vi.mock("../uiStateStore", () => ({
 vi.mock("./useSettings", () => ({ useClientSettings: () => ({}) }));
 
 import { useNewThreadHandler } from "./useHandleNewThread";
+
+describe("new threads from a persistent agent", () => {
+  it("opens Recent instead of adding a second conversation to the agent", async () => {
+    testState.reset(null);
+    testState.projects[0]!.agentProfile = {
+      instructions: "Help with research.",
+      avatar: { preset: "brain", color: "blue" },
+      archived: false,
+      notificationsEnabled: true,
+    };
+    const opened = await useNewThreadHandler()(
+      { environmentId: "environment-ssh", projectId: "project-remote" } as never,
+      { envMode: "local" },
+    );
+    expect(testState.ensureScratch).toHaveBeenCalledOnce();
+    expect(testState.ensureScratch).toHaveBeenCalledWith({
+      environmentId: "environment-ssh",
+      input: {},
+    });
+    expect(testState.draftStore.setLogicalProjectDraftThreadId).toHaveBeenCalledWith(
+      "recent-project",
+      { environmentId: "environment-ssh", projectId: "project-scratch" },
+      opened!.draftId,
+      expect.objectContaining({ envMode: "local" }),
+    );
+    expect(testState.router.navigate).toHaveBeenCalledWith(
+      expect.objectContaining({ to: "/draft/$draftId", params: { draftId: opened!.draftId } }),
+    );
+  });
+
+  it("keeps an ordinary project's new chat in that project", async () => {
+    testState.reset(null);
+    const projectRef = {
+      environmentId: "environment-ssh",
+      projectId: "project-remote",
+    } as never;
+    const opened = await useNewThreadHandler()(projectRef, { envMode: "local" });
+    expect(testState.ensureScratch).not.toHaveBeenCalled();
+    expect(testState.draftStore.setLogicalProjectDraftThreadId).toHaveBeenCalledWith(
+      "remote-project",
+      projectRef,
+      opened!.draftId,
+      expect.objectContaining({ envMode: "local" }),
+    );
+  });
+});
 
 describe.each([
   ["new", null],

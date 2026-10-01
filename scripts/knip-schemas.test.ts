@@ -10,6 +10,61 @@ const require = NodeModule.createRequire(import.meta.url);
 const cli = NodePath.join(NodePath.dirname(require.resolve("knip")), "cli.js");
 const preprocessor = NodePath.join(import.meta.dirname, "knip-schemas.ts");
 
+it("allows a retained fork export only in its exact source file", () => {
+  const cwd = NodeFS.mkdtempSync(NodePath.join(import.meta.dirname, ".knip-test-"));
+  const write = (file: string, content: string) => {
+    const path = NodePath.join(cwd, file);
+    NodeFS.mkdirSync(NodePath.dirname(path), { recursive: true });
+    NodeFS.writeFileSync(path, content);
+  };
+  try {
+    write("package.json", JSON.stringify({ private: true, type: "module" }));
+    write(
+      "tsconfig.json",
+      JSON.stringify({ compilerOptions: { module: "NodeNext", strict: true } }),
+    );
+    write(
+      "knip.json",
+      JSON.stringify({ entry: ["entry.ts"], project: ["**/*.ts"], includeEntryExports: true }),
+    );
+    write("entry.ts", `import "./apps/web/src/branding.logic.ts"; import "./other.ts";`);
+    write(
+      "apps/web/src/branding.logic.ts",
+      `export const formatAppDisplayName = () => "Elysia"; export const unexpected = () => "unused";`,
+    );
+    write("other.ts", `export const formatAppDisplayName = () => "unrelated";`);
+    const result = NodeChildProcess.spawnSync(
+      NodeProcess.execPath,
+      [
+        cli,
+        "--directory",
+        cwd,
+        "--config",
+        NodePath.join(cwd, "knip.json"),
+        "--include",
+        "exports",
+        "--no-config-hints",
+        "--reporter",
+        "json",
+        "--preprocessor",
+        preprocessor,
+      ],
+      { encoding: "utf8" },
+    );
+    expect(result.status, result.stderr).toBe(1);
+    const issues = JSON.parse(result.stdout).issues;
+    expect(
+      issues.find((issue: { file: string }) => issue.file === "apps/web/src/branding.logic.ts")
+        .exports,
+    ).toEqual([expect.objectContaining({ name: "unexpected" })]);
+    expect(issues.find((issue: { file: string }) => issue.file === "other.ts").exports).toEqual([
+      expect.objectContaining({ name: "formatAppDisplayName" }),
+    ]);
+  } finally {
+    NodeFS.rmSync(cwd, { recursive: true, force: true });
+  }
+});
+
 it("allows types and schemas through the real Knip CLI without hiding runtime or file findings", () => {
   // Keeping the disposable project here gives it the same Effect installation as the scripts.
   const cwd = NodeFS.mkdtempSync(NodePath.join(import.meta.dirname, ".knip-test-"));

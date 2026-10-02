@@ -1,4 +1,4 @@
-import { DEFAULT_THEME, ELYSIA_THEMES } from "@t3tools/shared/themePalettes";
+import { DEFAULT_THEME, ELYSIA_THEMES, INITIAL_THEME_ID } from "@t3tools/shared/themePalettes";
 import { describe, expect, it, vi } from "vite-plus/test";
 
 import indexHtml from "../index.html?raw";
@@ -6,6 +6,7 @@ import {
   CUSTOM_THEMES_STORAGE_KEY,
   getDefaultThemeColors,
   getThemeColorsForMode,
+  getThemeDefinition,
   invalidateCustomThemes,
   isKnownThemePreference,
   resolveThemeAppearance,
@@ -113,7 +114,7 @@ function runtimeResolvedAppearance(
   invalidateCustomThemes();
   try {
     const raw = storage[THEME_STORAGE_KEY] ?? null;
-    const theme = raw !== null && isKnownThemePreference(raw) ? raw : "default";
+    const theme = raw !== null && isKnownThemePreference(raw) ? raw : INITIAL_THEME_ID;
     const followRaw = storage[THEME_FOLLOW_SYSTEM_STORAGE_KEY] ?? null;
     const appearanceRaw = storage[THEME_APPEARANCE_MODE_STORAGE_KEY] ?? null;
     const appearanceMode =
@@ -502,28 +503,32 @@ describe("index.html boot script", () => {
       prefersDark: false,
     });
 
-    expect(boot.themeId).toBe("default");
+    const midnight = getThemeColorsForMode(getThemeDefinition(INITIAL_THEME_ID)!, "dark")!;
+    expect(boot.themeId).toBe(INITIAL_THEME_ID);
     expect(boot.themeSelected).toBe("true");
-    expect(boot.backgroundColor).toBe("#002244");
-    expect(boot.metaContent).toBe("#002244");
+    expect(boot.backgroundColor).toBe(midnight.chrome);
+    expect(boot.metaContent).toBe(midnight.chrome);
   });
 
-  it("uses Informa dark for unknown preferences", () => {
+  it("uses Midnight dark for unknown preferences", () => {
     const boot = runBootScript({
       storage: { [THEME_STORAGE_KEY]: "gone-theme" },
       prefersDark: true,
     });
-    expect(boot.themeId).toBe("default");
+    expect(boot.themeId).toBe(INITIAL_THEME_ID);
     expect(boot.themeSelected).toBe("true");
     expect(boot.isDark).toBe(true);
   });
 
-  it("follows the OS appearance when storage is unavailable", () => {
-    const light = runBootScript({ storageThrows: true, prefersDark: false });
-    expect(light.isDark).toBe(false);
-    expect(light.themeId).toBeUndefined();
-
-    const dark = runBootScript({ storageThrows: true, prefersDark: true });
-    expect(dark.isDark).toBe(true);
+  it.each([false, true])("starts Midnight dark on either OS appearance (%s)", (prefersDark) => {
+    const midnight = getThemeColorsForMode(getThemeDefinition(INITIAL_THEME_ID)!, "dark")!;
+    for (const storageThrows of [false, true]) {
+      const boot = runBootScript({ storageThrows, prefersDark });
+      expect(boot.isDark).toBe(true);
+      expect(boot.themeId).toBe(INITIAL_THEME_ID);
+      expect(boot.themeSelected).toBeUndefined();
+      expect(boot.bootVariables["--boot-foreground"]).toBe(midnight.text);
+      expect(boot.backgroundColor).toBe(midnight.chrome);
+    }
   });
 });

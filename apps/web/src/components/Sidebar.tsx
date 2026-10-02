@@ -4728,7 +4728,9 @@ export default function Sidebar() {
               newThreadInProjectShortcutLabel={newThreadInProjectShortcutLabel}
               showNewThreadInProjectHint={projectGroups.length > 1}
             />
-            <AgentRoster inset={false} />
+            <div className="mt-(--sidebar-content-inset)">
+              <AgentRoster inset={false} />
+            </div>
             <div
               aria-hidden
               className="-mx-(--sidebar-content-inset) mt-1.5 h-px bg-sidebar-border/60"

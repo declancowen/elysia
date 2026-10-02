@@ -167,7 +167,9 @@ export function FirstRunGate({
     if ((CONNECTIONS_ENABLED && decision === "wizard") || !hydrated) return;
 
     if (persistCompletion && onboardingCompletedAt === null) {
-      void completeOnboarding().catch(() => undefined);
+      void completeOnboarding().catch(() => {
+        if (!CONNECTIONS_ENABLED) void navigate({ to: "/welcome", replace: true });
+      });
     }
 
     setGateState((state) =>
@@ -181,6 +183,7 @@ export function FirstRunGate({
     completeOnboarding,
     decision,
     hydrated,
+    navigate,
     nextDecision,
     onboardingCompletedAt,
     persistCompletion,

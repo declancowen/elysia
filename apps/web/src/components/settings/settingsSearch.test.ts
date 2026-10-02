@@ -50,7 +50,7 @@ describe("searchSettings", () => {
     expect(target).toMatchObject({ title: "Project view", to: "/settings/general" });
   });
 
-  it.each(["Informa", "Midnight", "Space Grey", "Canvas", "Paper"])(
+  it.each(["Sky", "Midnight", "Space", "Canvas", "Paper"])(
     "finds Appearance themes by %s",
     (query) => {
       expect(searchSettings(query)).toContainEqual(

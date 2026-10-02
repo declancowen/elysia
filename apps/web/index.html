@@ -14,6 +14,7 @@
       (() => {
         const LIGHT_BACKGROUND = "#ffffff";
         const DARK_BACKGROUND = "#002244";
+        const INITIAL_THEME_ID = "midnight";
         const CUSTOM_THEMES_STORAGE_KEY = "t3code:themes:v1";
         const THEME_FOLLOW_SYSTEM_STORAGE_KEY = "t3code:theme-follow-system";
         const THEME_APPEARANCE_MODE_STORAGE_KEY = "t3code:theme-appearance-mode";
@@ -292,15 +293,17 @@
           };
           const isLegacyT3ChatDark = storedTheme === "t3-chat-dark";
           const requestedThemeId =
-            storedTheme === null || ["light", "dark", "system"].includes(storedTheme)
-              ? "default"
-              : (LEGACY_THEME_IDS[storedTheme] ?? storedTheme);
+            storedTheme === null
+              ? INITIAL_THEME_ID
+              : ["light", "dark", "system"].includes(storedTheme)
+                ? "default"
+                : (LEGACY_THEME_IDS[storedTheme] ?? storedTheme);
           const themeId =
             BUILT_IN_THEME_MODES[requestedThemeId] ||
             findCustomTheme(requestedThemeId) ||
             ["light", "dark", "system"].includes(requestedThemeId)
               ? requestedThemeId
-              : "default";
+              : INITIAL_THEME_ID;
           const legacyMode = isLegacyT3ChatDark ? "dark" : null;
           const builtInModes = BUILT_IN_THEME_MODES[themeId] ?? null;
           const customTheme = builtInModes ? null : findCustomTheme(themeId);
@@ -318,7 +321,7 @@
             storedTheme === "dark" ||
             storedTheme === "system" ||
             themeModes !== null;
-          const theme = isKnownTheme && storedTheme ? storedTheme : "default";
+          const theme = isKnownTheme && storedTheme ? storedTheme : INITIAL_THEME_ID;
           const isThemed = isKnownTheme && themeModes !== null;
           const baseAppearance = customTheme
             ? customTheme.appearance
@@ -459,19 +462,16 @@
           }
           setThemeColor(chromeColor);
         } catch {
-          // Mirror the runtime's storage-failure fallback: follow the OS.
-          let prefersDark = true;
-          try {
-            prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-          } catch {
-            // Keep the dark default when even matchMedia is unavailable.
-          }
-          delete document.documentElement.dataset.themeId;
+          // Storage failure uses the same first-run palette as the runtime.
+          const splash = BUILT_IN_THEME_PALETTES[INITIAL_THEME_ID].dark;
+          document.documentElement.dataset.themeId = INITIAL_THEME_ID;
           delete document.documentElement.dataset.themeSelected;
-          document.documentElement.classList.toggle("dark", prefersDark);
-          const fallbackColor = prefersDark ? DARK_BACKGROUND : LIGHT_BACKGROUND;
-          document.documentElement.style.backgroundColor = fallbackColor;
-          setThemeColor(fallbackColor);
+          document.documentElement.classList.add("dark");
+          for (const [name, value] of Object.entries(splash)) {
+            document.documentElement.style.setProperty(`--boot-${name}`, value);
+          }
+          document.documentElement.style.backgroundColor = splash.chrome;
+          setThemeColor(splash.chrome);
         }
       })();
     </script>
@@ -486,13 +486,13 @@
 
       body {
         background: var(--boot-background, #ffffff);
-        color: var(--boot-foreground, #002244);
+        color: var(--contrast-foreground, var(--boot-foreground, #002244));
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
       }
 
       html.dark body {
         background: var(--boot-background, #002244);
-        color: var(--boot-foreground, #ffffff);
+        color: var(--contrast-foreground, var(--boot-foreground, #ffffff));
       }
 
       #boot-shell {

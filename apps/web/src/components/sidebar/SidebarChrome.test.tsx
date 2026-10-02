@@ -100,10 +100,23 @@ it("keeps Work/Code beside Settings, preserves sidebar layout, and hides both sw
   try {
     await act(async () => render());
     expect(labels().slice(0, 2)).toEqual(["Settings", "Code workspace · Switch to Work"]);
+    expect(labels().slice(0, 5)).toEqual([
+      "Settings",
+      "Code workspace · Switch to Work",
+      "Stats",
+      "Switch to Thread view",
+      "Pull Requests",
+    ]);
     await act(async () => button("Code workspace · Switch to Work")!.click());
     await act(async () => render());
     expect(state.settings).toEqual({ workspaceMode: "work", legacySidebarEnabled: true });
     expect(button("Pull Requests")).toBeNull();
+    expect(labels().slice(0, 4)).toEqual([
+      "Settings",
+      "Work workspace · Switch to Code",
+      "Stats",
+      "Switch to Thread view",
+    ]);
     expect(button("Work workspace · Switch to Code")).not.toBeNull();
     await act(async () => button("Work workspace · Switch to Code")!.click());
     await act(async () => render());

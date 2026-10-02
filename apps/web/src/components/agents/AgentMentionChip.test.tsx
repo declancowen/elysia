@@ -138,7 +138,7 @@ it("shows plain clickable agent names and task-specific status in sent messages"
     );
   try {
     await act(async () => render());
-    expect(host.textContent).toBe("Friday");
+    expect(host.textContent).toBe("FridayWorking");
     expect(host.querySelector('[data-bubble] [role="status"]')).toBeNull();
     expect(host.querySelector('[aria-label="Agents working"]')).not.toBeNull();
     await act(async () => host.querySelector<HTMLButtonElement>("button")!.click());
@@ -150,6 +150,13 @@ it("shows plain clickable agent names and task-specific status in sent messages"
     await act(async () => render());
     expect(host.querySelector('[aria-label="Agents working"]')).toBeNull();
     expect(host.querySelector('[aria-label="Agents finished"]')).not.toBeNull();
+    expect(host.textContent).toBe("Friday");
+    state.status = "error";
+    await act(async () => render());
+    expect(host.querySelector('[aria-label="Agents need attention"]')).not.toBeNull();
+    state.status = "interrupted";
+    await act(async () => render());
+    expect(host.querySelector('[aria-label="Agents stopped"]')).not.toBeNull();
     state.activities = [activity("older", "friday"), activity("another-request", "other")];
     await act(async () => render());
     expect(host.querySelector('[aria-label="Agents finished"]')).toBeNull();

@@ -8,7 +8,11 @@ import * as Ref from "effect/Ref";
 
 import * as Electron from "electron";
 
-import { type DesktopSnapShotEvent, DEFAULT_CLIENT_SETTINGS } from "@t3tools/contracts";
+import {
+  type DesktopSnapShotEvent,
+  DEFAULT_CLIENT_SETTINGS,
+  SINGLE_PROVIDER_UI,
+} from "@t3tools/contracts";
 
 import * as DesktopAssets from "../app/DesktopAssets.ts";
 import * as DesktopEnvironment from "../app/DesktopEnvironment.ts";
@@ -155,6 +159,7 @@ function getIconOption(
 }
 
 function getInitialWindowBackgroundColor(shouldUseDarkColors: boolean): string {
+  if (SINGLE_PROVIDER_UI) return "#0d1117";
   return shouldUseDarkColors ? "#002244" : "#ffffff";
 }
 

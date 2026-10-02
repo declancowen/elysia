@@ -215,7 +215,7 @@ export function WelcomeWizard({
           const errorToast = {
             type: "error",
             title: "Could not finish setup",
-            description: "Your settings could not be saved. Try again.",
+            description: "Setup could not be completed. Try again.",
           } as const;
           if (completionErrorToastIdRef.current === null) {
             completionErrorToastIdRef.current = toastManager.add(errorToast);

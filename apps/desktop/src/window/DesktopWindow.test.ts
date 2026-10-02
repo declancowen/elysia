@@ -1,7 +1,7 @@
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { assert, describe, it } from "@effect/vitest";
 import * as Deferred from "effect/Deferred";
-import { DesktopSnapShotId } from "@t3tools/contracts";
+import { DesktopSnapShotId, SINGLE_PROVIDER_UI } from "@t3tools/contracts";
 import * as Effect from "effect/Effect";
 import * as Fiber from "effect/Fiber";
 import * as Layer from "effect/Layer";
@@ -623,6 +623,10 @@ describe("DesktopWindow", () => {
         assert.equal(yield* Ref.get(createCount), 1);
         assert.equal(createdWindowOptions[0]?.width, 1100);
         assert.equal(createdWindowOptions[0]?.height, 780);
+        assert.equal(
+          createdWindowOptions[0]?.backgroundColor,
+          SINGLE_PROVIDER_UI ? "#0d1117" : "#ffffff",
+        );
         assert.isUndefined(createdWindowOptions[0]?.x);
         assert.isUndefined(createdWindowOptions[0]?.y);
         assert.isTrue(createdWindowOptions[0]?.disableAutoHideCursor);

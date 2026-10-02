@@ -1,6 +1,7 @@
 import { mergeProps } from "@base-ui/react/merge-props";
 import { useRender } from "@base-ui/react/use-render";
 import { cva, type VariantProps } from "class-variance-authority";
+import { SINGLE_PROVIDER_UI } from "@t3tools/contracts";
 import { PanelLeftCloseIcon, PanelLeftIcon } from "~/icons";
 import * as React from "react";
 import { cn } from "~/lib/utils";
@@ -155,9 +156,9 @@ function SidebarProvider({
   return (
     <SidebarContext value={contextValue}>
       <div
-        // Inset layouts opt into bg-sidebar through className.
         className={cn(
           "group/sidebar-wrapper flex min-h-svh w-full max-sm:[--workspace-titlebar-control-size:--spacing(8)]",
+          SINGLE_PROVIDER_UI && "bg-sidebar",
           className,
         )}
         data-sidebar-state={state}
@@ -302,7 +303,10 @@ function Sidebar({
             // Adjust the padding for floating and inset variants.
             variant === "floating" || variant === "inset"
               ? "p-2 group-data-[collapsible=icon]:w-[calc(var(--sidebar-width-icon)+(--spacing(4))+2px)]"
-              : "group-data-[collapsible=icon]:w-(--sidebar-width-icon) group-data-[side=left]:border-r group-data-[side=right]:border-l",
+              : "group-data-[collapsible=icon]:w-(--sidebar-width-icon)",
+            !SINGLE_PROVIDER_UI &&
+              variant === "sidebar" &&
+              "group-data-[side=left]:border-r group-data-[side=right]:border-l",
             className,
           )}
           data-slot="sidebar-container"
@@ -488,11 +492,13 @@ function SidebarRail({
             aria-label={railLabel}
             className={cn(
               /* disable pointer events only when offcanvas sidebar is collapsed, that's when the rail sits over the native scrollbar on windows and linux. icon mode stays fully clickable. */
-              "-translate-x-1/2 group-data-[side=left]:-right-4 absolute inset-y-0 z-20 hidden w-4 after:absolute after:inset-y-0 after:left-1/2 after:w-[2px] hover:after:bg-sidebar-border group-data-[side=right]:left-0 sm:flex [[data-collapsible=offcanvas][data-state=collapsed]_&]:pointer-events-none",
+              "-translate-x-1/2 group-data-[side=left]:-right-4 absolute inset-y-0 z-20 hidden w-4 after:absolute after:inset-y-0 after:left-1/2 after:w-[2px] group-data-[side=right]:left-0 sm:flex [[data-collapsible=offcanvas][data-state=collapsed]_&]:pointer-events-none",
               "[[data-panel-animations=true]_&]:transition-all [[data-panel-animations=true]_&]:[transition-duration:var(--panel-animation-duration)] [[data-panel-animations=true]_&]:ease-out",
               "in-data-[side=left]:cursor-w-resize in-data-[side=right]:cursor-e-resize",
               "[[data-side=left][data-state=collapsed]_&]:cursor-e-resize [[data-side=right][data-state=collapsed]_&]:cursor-w-resize",
-              "group-data-[collapsible=offcanvas]:translate-x-0 hover:group-data-[collapsible=offcanvas]:bg-sidebar group-data-[collapsible=offcanvas]:after:left-full",
+              "group-data-[collapsible=offcanvas]:translate-x-0 group-data-[collapsible=offcanvas]:after:left-full",
+              !SINGLE_PROVIDER_UI &&
+                "hover:after:bg-sidebar-border hover:group-data-[collapsible=offcanvas]:bg-sidebar",
               "[[data-side=left][data-collapsible=offcanvas]_&]:-right-2",
               "[[data-side=right][data-collapsible=offcanvas]_&]:-left-2",
               className,
@@ -551,7 +557,9 @@ function SidebarInset({ className, ...props }: React.ComponentProps<"main">) {
     <main
       className={cn(
         "relative flex min-w-0 w-full flex-1 flex-col bg-background surface-grain",
-        "md:peer-data-[variant=inset]:peer-data-[state=collapsed]:ms-2 md:peer-data-[variant=inset]:m-2 md:peer-data-[variant=inset]:ms-0 md:peer-data-[variant=inset]:rounded-xl md:peer-data-[variant=inset]:shadow-sm/5",
+        SINGLE_PROVIDER_UI
+          ? "md:[--workspace-fixed-controls-top:calc(var(--workspace-controls-top)+0.5rem)] md:my-2 md:me-2 md:w-auto md:max-h-[calc(100dvh-1rem)] md:overflow-hidden md:rounded-xl md:peer-data-[state=collapsed]:ms-2"
+          : "md:peer-data-[variant=inset]:peer-data-[state=collapsed]:ms-2 md:peer-data-[variant=inset]:m-2 md:peer-data-[variant=inset]:ms-0 md:peer-data-[variant=inset]:rounded-xl md:peer-data-[variant=inset]:shadow-sm/5",
         className,
       )}
       data-slot="sidebar-inset"

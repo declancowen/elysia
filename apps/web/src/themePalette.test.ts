@@ -1103,10 +1103,11 @@ describe("singleAppearanceOf", () => {
 });
 
 it("keeps the distinct GitHub and Notion palettes available in both appearances", () => {
+  expect(DEFAULT_THEME.label).toBe("Sky");
   expect(BUILT_IN_THEMES.some((theme) => theme.id === "t3-chat")).toBe(false);
   expect(ELYSIA_THEMES.map((theme) => theme.label)).toEqual([
     "Midnight",
-    "Space Grey",
+    "Space",
     "Canvas",
     "Paper",
   ]);
@@ -1122,14 +1123,22 @@ it("keeps the distinct GitHub and Notion palettes available in both appearances"
   expect(neutral?.colors.sidebar).toBe(canonical("#151515"));
   expect(inverted?.colors.canvas).toBe(canonical("#f7f7f5"));
   expect(notion?.variants?.dark?.canvas).toBe(canonical("#191919"));
-  for (const theme of [github!, neutral!]) {
+  for (const theme of [DEFAULT_THEME, ...ELYSIA_THEMES]) {
     const colors = getThemeColorsForMode(theme, "light")!;
     for (const [foreground, background] of [
-      [colors.text, colors.canvas],
-      [colors.sidebarForeground, colors.sidebar],
-      [colors.sidebarMutedForeground, colors.sidebar],
-      [colors.messageActionForeground, colors.messageAction],
-    ])
-      expect(contrastRatio(foreground!, background!)).toBeGreaterThanOrEqual(4.5);
+      ["text", "canvas"],
+      ["text", "surface"],
+      ["text", "surfaceOverlay"],
+      ["textMuted", "canvas"],
+      ["mutedForeground", "muted"],
+      ["secondaryLabel", "canvas"],
+      ["sidebarForeground", "sidebar"],
+      ["sidebarMutedForeground", "sidebar"],
+      ["messageActionForeground", "messageAction"],
+    ] as const)
+      expect(
+        contrastRatio(colors[foreground], colors[background]),
+        `${theme.label}: ${foreground} on ${background}`,
+      ).toBeGreaterThanOrEqual(4.5);
   }
 });

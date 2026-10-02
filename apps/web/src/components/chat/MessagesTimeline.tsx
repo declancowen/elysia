@@ -2202,20 +2202,7 @@ function UserTimelineRow({ row }: { row: Extract<TimelineRow, { kind: "message" 
 
   return (
     <div className={cn("group flex flex-col gap-1", handoff ? "items-start px-1" : "items-end")}>
-      <div className="relative max-w-[80%] rounded-2xl bg-message p-3 text-message-foreground">
-        {handoff && ctx.agentAvatar ? (
-          <AgentAvatar
-            avatar={ctx.agentAvatar}
-            className="absolute right-full top-3 mr-1 size-3 sm:mr-2 sm:size-5"
-          />
-        ) : null}
-        {collectComposerContextReferences(resolvedContext.text).some(
-          (reference) => reference.kind === "agent",
-        ) ? (
-          <div className="absolute right-full top-3 mr-3">
-            <AgentMessageStatus sourceThreadRef={ctx.threadRef} sourceMessageId={row.message.id} />
-          </div>
-        ) : null}
+      <div className="relative max-w-[80%] rounded-2xl bg-message p-3 text-sm leading-relaxed text-message-foreground">
         {handoff ? (
           <AgentTaskReceivedHeading
             handoff={handoff}
@@ -2332,6 +2319,26 @@ function UserTimelineRow({ row }: { row: Extract<TimelineRow, { kind: "message" 
             renderContextReference={renderContextReference}
             skills={ctx.skills}
             markdownCwd={ctx.markdownCwd}
+            gutter={
+              <>
+                {handoff && ctx.agentAvatar ? (
+                  <AgentAvatar
+                    avatar={ctx.agentAvatar}
+                    className="absolute right-full bottom-[0.5lh] mr-4 size-3 translate-y-1/2 sm:mr-5 sm:size-5"
+                  />
+                ) : null}
+                {collectComposerContextReferences(resolvedContext.text).some(
+                  (reference) => reference.kind === "agent",
+                ) ? (
+                  <div className="absolute right-full bottom-[0.5lh] mr-6 flex translate-y-1/2">
+                    <AgentMessageStatus
+                      sourceThreadRef={ctx.threadRef}
+                      sourceMessageId={row.message.id}
+                    />
+                  </div>
+                ) : null}
+              </>
+            }
           />
         </div>
       </div>
@@ -4084,6 +4091,7 @@ const CollapsibleUserMessageBody = memo(function CollapsibleUserMessageBody(prop
   skills: ReadonlyArray<Pick<ServerProviderSkill, "name" | "displayName">>;
   markdownCwd: string | undefined;
   footer?: ReactNode;
+  gutter?: ReactNode;
 }) {
   const [expanded, setExpanded] = useState(false);
   const hasVisibleBody = props.text.trim().length > 0;
@@ -4092,30 +4100,33 @@ const CollapsibleUserMessageBody = memo(function CollapsibleUserMessageBody(prop
 
   return (
     <div>
-      {hasVisibleBody ? (
-        <div
-          className={cn("relative", isCollapsed && "max-h-44 overflow-hidden")}
-          data-user-message-body="true"
-          data-user-message-collapsed={isCollapsed ? "true" : "false"}
-          data-user-message-collapsible={canCollapse ? "true" : "false"}
-          data-user-message-fade={isCollapsed ? "true" : "false"}
-          style={
-            isCollapsed
-              ? {
-                  WebkitMaskImage: COLLAPSED_USER_MESSAGE_FADE_MASK,
-                  maskImage: COLLAPSED_USER_MESSAGE_FADE_MASK,
-                }
-              : undefined
-          }
-        >
-          <UserMessageBody
-            text={props.text}
-            renderContextReference={props.renderContextReference}
-            skills={props.skills}
-            markdownCwd={props.markdownCwd}
-          />
-        </div>
-      ) : null}
+      <div className="relative">
+        {hasVisibleBody ? (
+          <div
+            className={cn("relative", isCollapsed && "max-h-44 overflow-hidden")}
+            data-user-message-body="true"
+            data-user-message-collapsed={isCollapsed ? "true" : "false"}
+            data-user-message-collapsible={canCollapse ? "true" : "false"}
+            data-user-message-fade={isCollapsed ? "true" : "false"}
+            style={
+              isCollapsed
+                ? {
+                    WebkitMaskImage: COLLAPSED_USER_MESSAGE_FADE_MASK,
+                    maskImage: COLLAPSED_USER_MESSAGE_FADE_MASK,
+                  }
+                : undefined
+            }
+          >
+            <UserMessageBody
+              text={props.text}
+              renderContextReference={props.renderContextReference}
+              skills={props.skills}
+              markdownCwd={props.markdownCwd}
+            />
+          </div>
+        ) : null}
+        {props.gutter}
+      </div>
       {canCollapse || props.footer ? (
         <div
           className={cn(
@@ -4875,7 +4886,7 @@ function AgentDelegationRow({
 }) {
   const { threadRef } = use(TimelineRowCtx);
   return (
-    <div className="py-1 text-sm text-muted-foreground">
+    <div className="flex items-start py-1 text-sm text-muted-foreground">
       <SentAgentMentionChip
         environmentId={threadRef?.environmentId ?? null}
         contextId={delegation.agentProjectId}
@@ -4884,7 +4895,7 @@ function AgentDelegationRow({
         sourceMessageId={delegation.sourceMessageId}
         allowArchived
       />
-      {": I got it. I’ll continue in my chat."}
+      <span>{": I got it. I’ll continue in my chat."}</span>
     </div>
   );
 }

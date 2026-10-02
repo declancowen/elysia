@@ -87,6 +87,7 @@ beforeEach(() => {
 afterEach(async () => {
   await act(async () => root.unmount());
   host.remove();
+  vi.restoreAllMocks();
   vi.unstubAllGlobals();
 });
 
@@ -97,7 +98,7 @@ it("shows only three uploads, collapses with a count, and opens all sources", as
   expect(document.body.textContent).toContain("recent.pdf");
   expect(document.body.textContent).not.toContain("older.txt");
   await click("Collapse sources");
-  expect(document.body.textContent).toContain("Sources (4)");
+  expect(document.body.textContent).toContain("Sources · 4");
   expect(document.body.textContent).not.toContain("recent.pdf");
   expect(document.body.textContent).not.toContain("View all");
   await click("Expand sources");
@@ -342,6 +343,77 @@ it("opens the clicked agent's responses only in the originating chat", async () 
   expect(document.querySelector('[aria-label="View Friday responses"]')).toBeNull();
   expect(document.body.textContent).not.toContain("recent.pdf");
   expect(useThreadOverviewStore.getState().target).toBeNull();
+});
+
+it("lands on the latest loaded response, reserves space for short replies, and preserves manual scrolling", async () => {
+  const first = workingAgent("Friday");
+  const latest = {
+    ...first,
+    job: { ...first.job, activityId: EventId.make("latest-task") },
+    data: null,
+  };
+  const response = (id: string, text: string) => ({
+    id: MessageId.make(id),
+    role: "assistant" as const,
+    text,
+    turnId: TurnId.make("task"),
+    streaming: false,
+    createdAt: "2026-10-02T00:00:00.000Z",
+    updatedAt: "2026-10-02T00:00:00.000Z",
+  });
+  vi.spyOn(HTMLElement.prototype, "clientHeight", "get").mockImplementation(function (
+    this: HTMLElement,
+  ) {
+    return this.hasAttribute("data-agent-panel-scroll") ? 180 : 0;
+  });
+  vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function (
+    this: HTMLElement,
+  ) {
+    if (this.hasAttribute("data-agent-panel-scroll")) return new DOMRect(0, 10, 320, 180);
+    const id = this.getAttribute("data-agent-panel-message");
+    if (id) {
+      const body = document.querySelector<HTMLElement>("[data-agent-panel-scroll]");
+      return new DOMRect(0, 10 + (id === "latest" ? 450 : 100) - (body?.scrollTop ?? 0), 200, 40);
+    }
+    return new DOMRect();
+  });
+  state.delegated = [
+    {
+      ...first,
+      working: false,
+      data: { ...first.data!, status: "completed", messages: [response("old", "Earlier reply")] },
+    },
+    latest,
+  ];
+  await render({ delegatedAgents: state.delegated.map(({ job }) => job) });
+  const body = document.querySelector<HTMLElement>("[data-agent-panel-scroll]")!;
+  expect(body.scrollTop).toBe(0);
+  state.delegated[1] = {
+    ...latest,
+    data: {
+      ...first.data!,
+      messages: [
+        response("summary", "**Task:** Check it."),
+        response("progress", "Earlier progress"),
+        response("latest", "Latest reply"),
+      ],
+    },
+  };
+  await render({ delegatedAgents: state.delegated.map(({ job }) => job) });
+  expect(body.scrollTop).toBe(450);
+  expect(body.style.paddingBottom).toBe("140px");
+  expect(document.querySelector('[data-agent-panel-message="latest"]')?.textContent).toBe(
+    "Latest reply",
+  );
+  body.scrollTop = 125;
+  await render({ delegatedAgents: state.delegated.map(({ job }) => job) });
+  await click("Expand agent responses");
+  expect(body.scrollTop).toBe(125);
+  await click("Back to thread overview");
+  expect(body.style.paddingBottom).toBe("");
+  await click("View Friday responses");
+  expect(body.scrollTop).toBe(450);
+  expect(window.scrollY).toBe(0);
 });
 
 it("keeps a streaming task summary separate from the result", async () => {

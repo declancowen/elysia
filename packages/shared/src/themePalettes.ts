@@ -9,6 +9,8 @@ export const BUILT_IN_THEME_IDS = [
   "paper",
 ] as const;
 
+export const INITIAL_THEME_ID = "midnight" as const;
+
 /** The standard Elysia palette, kept separate from the optional built-in theme library. */
 export const MOBILE_DEFAULT_THEME_ID = "t3-code";
 
@@ -895,7 +897,7 @@ export const IRIS_THEME: ThemeDefinition = {
 
 export const DEFAULT_THEME: ThemeDefinition = {
   id: "default",
-  label: "Default",
+  label: "Sky",
   appearance: "dark",
   colors: T3_CODE_DARK_THEME_COLORS,
   variants: { light: T3_CODE_LIGHT_THEME_COLORS },
@@ -1119,7 +1121,7 @@ export const ELYSIA_THEMES: ReadonlyArray<ThemeDefinition> = [
     },
     variants: { light: SPACE_GREY_LIGHT_COLORS },
     id: "graphite",
-    label: "Space Grey",
+    label: "Space",
   },
   {
     appearance: "light",
@@ -1136,7 +1138,7 @@ export const ELYSIA_THEMES: ReadonlyArray<ThemeDefinition> = [
       surfaceRaised: "oklch(1 0 0)",
       surfaceOverlay: "oklch(1 0 0)",
       text: "oklch(0.328942 0.010678 91.659)",
-      textMuted: "oklch(0.569193 0.004703 91.481)",
+      textMuted: "oklch(0.53 0.004703 91.481)",
       border: "oklch(0.933463 0.002672 106.451)",
       input: "oklch(0.86629 0.002723 106.456)",
       focus: "oklch(0.328942 0.010678 91.659)",
@@ -1145,10 +1147,10 @@ export const ELYSIA_THEMES: ReadonlyArray<ThemeDefinition> = [
       secondary: "oklch(1 0 0)",
       secondaryForeground: "oklch(0.328942 0.010678 91.659)",
       muted: "oklch(0.951571 0.00266 106.45)",
-      mutedForeground: "oklch(0.569193 0.004703 91.481)",
+      mutedForeground: "oklch(0.53 0.004703 91.481)",
       placeholder: "oklch(0.686153 0.004491 91.466)",
-      secondaryLabel: "oklch(0.569193 0.004703 91.481)",
-      iconMuted: "oklch(0.569193 0.004703 91.481)",
+      secondaryLabel: "oklch(0.53 0.004703 91.481)",
+      iconMuted: "oklch(0.53 0.004703 91.481)",
       error: "oklch(0.653372 0.183481 23.679)",
       errorForeground: "oklch(0.562847 0.179079 25.014)",
       errorSurface: "oklch(0.937436 0.025269 17.612)",
@@ -1169,7 +1171,7 @@ export const ELYSIA_THEMES: ReadonlyArray<ThemeDefinition> = [
       codeForeground: "oklch(0.328942 0.010678 91.659)",
       sidebar: "oklch(1 0 0)",
       sidebarForeground: "oklch(0.328942 0.010678 91.659)",
-      sidebarMutedForeground: "oklch(0.569193 0.004703 91.481)",
+      sidebarMutedForeground: "oklch(0.53 0.004703 91.481)",
       sidebarControlSurface: "oklch(0.975582 0.002643 106.448)",
       sidebarRowHover: "oklch(0.951571 0.00266 106.45)",
       sidebarRowActive: "oklch(0.927407 0.002677 106.452)",
@@ -1261,7 +1263,7 @@ export const ELYSIA_THEMES: ReadonlyArray<ThemeDefinition> = [
       surfaceRaised: "oklch(0.987809 0.001318 106.424)",
       surfaceOverlay: "oklch(1 0 0)",
       text: "oklch(0.328942 0.010678 91.659)",
-      textMuted: "oklch(0.569193 0.004703 91.481)",
+      textMuted: "oklch(0.53 0.004703 91.481)",
       border: "oklch(0.933463 0.002672 106.451)",
       input: "oklch(0.86629 0.002723 106.456)",
       focus: "oklch(0.328942 0.010678 91.659)",
@@ -1270,10 +1272,10 @@ export const ELYSIA_THEMES: ReadonlyArray<ThemeDefinition> = [
       secondary: "oklch(0.975582 0.002643 106.448)",
       secondaryForeground: "oklch(0.328942 0.010678 91.659)",
       muted: "oklch(0.951571 0.00266 106.45)",
-      mutedForeground: "oklch(0.569193 0.004703 91.481)",
+      mutedForeground: "oklch(0.53 0.004703 91.481)",
       placeholder: "oklch(0.686153 0.004491 91.466)",
-      secondaryLabel: "oklch(0.569193 0.004703 91.481)",
-      iconMuted: "oklch(0.569193 0.004703 91.481)",
+      secondaryLabel: "oklch(0.53 0.004703 91.481)",
+      iconMuted: "oklch(0.53 0.004703 91.481)",
       error: "oklch(0.653372 0.183481 23.679)",
       errorForeground: "oklch(0.562847 0.179079 25.014)",
       errorSurface: "oklch(0.937436 0.025269 17.612)",
@@ -1294,7 +1296,7 @@ export const ELYSIA_THEMES: ReadonlyArray<ThemeDefinition> = [
       codeForeground: "oklch(0.328942 0.010678 91.659)",
       sidebar: "oklch(0.975582 0.002643 106.448)",
       sidebarForeground: "oklch(0.328942 0.010678 91.659)",
-      sidebarMutedForeground: "oklch(0.569193 0.004703 91.481)",
+      sidebarMutedForeground: "oklch(0.53 0.004703 91.481)",
       sidebarControlSurface: "oklch(1 0 0)",
       sidebarRowHover: "oklch(0.951571 0.00266 106.45)",
       sidebarRowActive: "oklch(0.927407 0.002677 106.452)",

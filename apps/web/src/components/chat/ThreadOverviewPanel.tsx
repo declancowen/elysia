@@ -17,7 +17,7 @@ import {
   FileDiffIcon,
   FileIcon,
   LinkIcon,
-  ListIcon,
+  LeftToRightListTriangleIcon,
   PlusIcon,
 } from "~/icons";
 import { cn } from "~/lib/utils";
@@ -94,12 +94,33 @@ function OverviewPopover({
     { kind: "agent" | "subagent"; id: string } | { kind: "subagents" } | null
   >(null);
   const [expanded, setExpanded] = useState(false);
+  const bodyRef = useRef<HTMLDivElement>(null);
+  const landedView = useRef<typeof view>(null);
   const [availableSize, setAvailableSize] = useState({ height: 320, width: 320 });
   const showChanges = codeWorkspace && showGit;
   const selectedAgent =
     view?.kind === "agent" ? grouped.find(({ job }) => job.agentProjectId === view.id) : null;
   const selectedSubagent =
     view?.kind === "subagent" ? subagents.find(({ id }) => id === view.id) : null;
+  useLayoutEffect(() => {
+    const body = bodyRef.current;
+    if (!open || !selectedAgent) {
+      landedView.current = null;
+      if (body) body.style.paddingBottom = "";
+      return;
+    }
+    if (!body || !selectedAgent.jobs.at(-1)?.data?.messages.length) return;
+    const messages = body.querySelectorAll<HTMLElement>("[data-agent-panel-message]");
+    const message = messages.item(messages.length - 1);
+    if (!message) return;
+    const rect = message.getBoundingClientRect();
+    const top = body.scrollTop + rect.top - body.getBoundingClientRect().top;
+    // Short last messages need trailing space to land at the top without earlier replies.
+    body.style.paddingBottom = `${Math.max(20, body.clientHeight - rect.height)}px`;
+    if (landedView.current === view) return;
+    body.scrollTop = top;
+    landedView.current = view;
+  }, [open, view, selectedAgent, expanded, availableSize]);
   useLayoutEffect(() => {
     if (!open) return;
     const measure = () => {
@@ -171,7 +192,7 @@ function OverviewPopover({
           />
         }
       >
-        <ListIcon className="size-4" />
+        <LeftToRightListTriangleIcon className="size-4" />
       </PopoverTrigger>
       <span
         ref={anchorRef}
@@ -210,7 +231,7 @@ function OverviewPopover({
             }}
             className="flex max-h-(--available-height) w-80 max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-3xl border border-(--app-theme-toolbar-border,var(--border)) text-foreground outline-none [--overview-surface:var(--app-theme-surface-raised,var(--card))] dark:[--overview-surface:var(--app-theme-surface-raised,var(--surface-raised))] bg-(--overview-surface)/(--glass-opacity) backdrop-blur-(--glass-blur) backdrop-saturate-(--glass-saturation) not-supports-[((backdrop-filter:blur(1px))_or_(-webkit-backdrop-filter:blur(1px)))]:bg-(--overview-surface)"
           >
-            <header className="flex shrink-0 items-center gap-2 px-5 pt-3 pb-2">
+            <header className="flex shrink-0 items-center gap-2 px-5 pt-5 pb-2">
               {view ? (
                 <Button
                   variant="ghost"
@@ -289,7 +310,11 @@ function OverviewPopover({
                 </Button>
               ) : null}
             </header>
-            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 pt-1 pb-5">
+            <div
+              ref={bodyRef}
+              data-agent-panel-scroll
+              className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 pt-1 pb-5 [overflow-anchor:none]"
+            >
               {view === null ? (
                 <div className="flex flex-col gap-2.5 [&>section:not(:first-child)]:border-t [&>section:not(:first-child)]:border-border/50 [&>section:not(:first-child)]:pt-2.5">
                   {showChanges && gitExpanded && (
@@ -366,7 +391,12 @@ function OverviewPopover({
                     </button>
                   </section>
                   <section>
-                    <div className="mb-1 flex items-center justify-between gap-2">
+                    <div
+                      className={cn(
+                        "flex items-center justify-between gap-2",
+                        sourcesExpanded && "mb-1",
+                      )}
+                    >
                       <button
                         type="button"
                         aria-expanded={sourcesExpanded}
@@ -374,7 +404,10 @@ function OverviewPopover({
                         className="flex cursor-pointer items-center gap-1.5 rounded-sm text-xs text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
                         onClick={() => setSourcesExpanded((expanded) => !expanded)}
                       >
-                        Sources{!sourcesExpanded ? ` (${sources.length})` : ""}
+                        Sources
+                        {!sourcesExpanded ? (
+                          <span className="text-muted-foreground">{` · ${sources.length}`}</span>
+                        ) : null}
                         <ChevronDownIcon
                           aria-hidden
                           className={cn(
@@ -453,12 +486,15 @@ function OverviewPopover({
                     const pendingSummary =
                       first?.streaming && "**task:**".startsWith(first.text.trim().toLowerCase());
                     const ask = hasSummary ? first!.text.replace(/^\*\*Task:\*\*\s*/i, "") : null;
-                    const result = (hasSummary || pendingSummary ? messages.slice(1) : messages)
-                      .map(({ text }) => text)
-                      .filter(Boolean)
-                      .join("\n\n");
+                    const results = (
+                      hasSummary || pendingSummary ? messages.slice(1) : messages
+                    ).filter(({ text }) => text.trim());
                     return (
-                      <section key={job.activityId} className="flex flex-col gap-3">
+                      <section
+                        key={job.activityId}
+                        className="flex flex-col gap-3"
+                        data-agent-panel-message={first?.id}
+                      >
                         <AgentMessageBubble
                           avatar={project?.agentProfile?.avatar}
                           working={working}
@@ -479,49 +515,51 @@ function OverviewPopover({
                             )}
                           </div>
                         </AgentMessageBubble>
-                        <AgentMessageBubble
-                          avatar={project?.agentProfile?.avatar}
-                          working={working}
-                          bubble={false}
-                        >
-                          <div className="min-w-0" aria-label="Result">
-                            {result ? (
-                              <ChatMarkdown
-                                text={result}
-                                cwd={project?.workspaceRoot}
-                                environmentId={sourceThreadRef?.environmentId}
-                                {...(sourceThreadRef
-                                  ? {
-                                      threadRef: scopeThreadRef(
-                                        sourceThreadRef.environmentId,
-                                        job.agentThreadId,
-                                      ),
-                                    }
-                                  : {})}
-                                isStreaming={
-                                  data?.messages.some(({ streaming }) => streaming) ?? false
-                                }
-                              />
-                            ) : (
-                              <p className="text-sm text-muted-foreground">
-                                {working
-                                  ? data?.status === "waiting"
-                                    ? "Needs input in the agent chat."
-                                    : "Working…"
-                                  : data?.status === "error"
-                                    ? "This task failed."
-                                    : data?.status === "completed"
-                                      ? "Task finished."
-                                      : "Response unavailable."}
-                              </p>
-                            )}
-                            {data?.truncated ? (
-                              <p className="mt-2 text-xs text-muted-foreground">
-                                Showing the latest 32 response messages for this task.
-                              </p>
-                            ) : null}
-                          </div>
-                        </AgentMessageBubble>
+                        {results.length ? (
+                          results.map((message) => (
+                            <div key={message.id} data-agent-panel-message={message.id}>
+                              <AgentMessageBubble
+                                avatar={project?.agentProfile?.avatar}
+                                working={working}
+                                bubble={false}
+                              >
+                                <div className="min-w-0" aria-label="Result">
+                                  <ChatMarkdown
+                                    text={message.text}
+                                    cwd={project?.workspaceRoot}
+                                    environmentId={sourceThreadRef?.environmentId}
+                                    {...(sourceThreadRef
+                                      ? {
+                                          threadRef: scopeThreadRef(
+                                            sourceThreadRef.environmentId,
+                                            job.agentThreadId,
+                                          ),
+                                        }
+                                      : {})}
+                                    isStreaming={message.streaming}
+                                  />
+                                </div>
+                              </AgentMessageBubble>
+                            </div>
+                          ))
+                        ) : (
+                          <p className="text-sm text-muted-foreground" aria-label="Result">
+                            {working
+                              ? data?.status === "waiting"
+                                ? "Needs input in the agent chat."
+                                : "Working…"
+                              : data?.status === "error"
+                                ? "This task failed."
+                                : data?.status === "completed"
+                                  ? "Task finished."
+                                  : "Response unavailable."}
+                          </p>
+                        )}
+                        {data?.truncated ? (
+                          <p className="mt-2 text-xs text-muted-foreground">
+                            Showing the latest 32 response messages for this task.
+                          </p>
+                        ) : null}
                       </section>
                     );
                   })}

@@ -15,14 +15,14 @@ export function AgentMessageBubble({
   bubble?: boolean;
 }) {
   return (
-    <div className="relative min-w-0">
+    <div className="relative min-w-0 text-sm leading-relaxed">
       {avatar ? (
         <AgentAvatar
           avatar={avatar}
           working={working}
           className={cn(
             "absolute right-full mr-1 size-3 sm:mr-2 sm:size-5",
-            bubble ? "top-3" : "top-0.5",
+            bubble ? "bottom-[calc(0.75rem+0.5lh)] translate-y-1/2" : "top-0.5",
           )}
         />
       ) : null}

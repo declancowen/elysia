@@ -27,6 +27,28 @@ afterEach(() => {
 });
 
 describe("theme failure handling", () => {
+  it("starts a fresh install in Midnight dark without writing over saved preferences", async () => {
+    const storage = createStorage();
+    vi.stubGlobal("window", { localStorage: storage, matchMedia: () => ({ matches: false }) });
+    const { readThemePreference, readAppearanceModePreference } = await import("./useTheme");
+    expect(readThemePreference()).toBe("midnight");
+    expect(readAppearanceModePreference(readThemePreference())).toBe("dark");
+    expect(storage.length).toBe(0);
+  });
+
+  it.each(["default", "graphite", "paper", "light", "dark", "system"])(
+    "preserves the saved %s theme on startup",
+    async (theme) => {
+      const storage = createStorage();
+      storage.setItem("t3code:theme", theme);
+      storage.setItem("t3code:theme-appearance-mode", "light");
+      vi.stubGlobal("window", { localStorage: storage });
+      const { readThemePreference, readAppearanceModePreference } = await import("./useTheme");
+      expect(readThemePreference()).toBe(theme);
+      expect(readAppearanceModePreference(theme)).toBe("light");
+    },
+  );
+
   it("preserves exact storage causes and operation context", async () => {
     const readCause = new Error("storage read blocked");
     const writeCause = new Error("storage quota exceeded");

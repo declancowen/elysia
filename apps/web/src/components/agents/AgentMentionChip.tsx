@@ -7,10 +7,9 @@ import {
 } from "@t3tools/contracts";
 import { scopeProjectRef } from "@t3tools/client-runtime/environment";
 import { useMemo } from "react";
-import { CheckIcon, CircleAlertIcon, SquareIcon } from "~/icons";
+import { CircleCheckIcon, CircleAlertIcon, SquareIcon } from "~/icons";
 import { delegatedAgentsFromActivities } from "@t3tools/shared/agentMentions";
 import { useDelegatedAgents } from "./useDelegatedAgents";
-import { Spinner } from "../ui/spinner";
 import { useProject, useThreadDetail } from "~/state/entities";
 import { ContextChipShell, UnresolvedChip } from "../contextChipParts";
 import { openThreadOverviewAgent } from "../chat/threadOverviewStore";
@@ -131,7 +130,7 @@ export function AgentMessageStatus({
   return (
     <span
       role="status"
-      className="flex size-4 items-center justify-center text-muted-foreground [&>svg]:size-4"
+      className={`inline-flex h-5 items-center justify-center gap-1.5 whitespace-nowrap text-xs [&>svg]:size-4 ${working ? "text-info-foreground" : "text-muted-foreground"}`}
       aria-label={
         working
           ? "Agents working"
@@ -143,9 +142,12 @@ export function AgentMessageStatus({
       }
     >
       {working ? (
-        <Spinner size="md" />
+        <>
+          <span aria-hidden className="size-1.5 rounded-full bg-current" />
+          Working
+        </>
       ) : completed ? (
-        <CheckIcon aria-hidden />
+        <CircleCheckIcon aria-hidden />
       ) : failed ? (
         <CircleAlertIcon aria-hidden />
       ) : (

@@ -269,13 +269,6 @@ export const SidebarUtilityMenu = memo(function SidebarUtilityMenu() {
       ) : null}
       {!isOnUtilityPage ? (
         <>
-          {codeWorkspace && pullRequestsSupported ? (
-            <SidebarUtilityItem
-              icon={<PullRequestGlyph.pullRequest />}
-              label="Pull Requests"
-              onClick={handlePullRequestsClick}
-            />
-          ) : null}
           <SidebarUtilityItem
             icon={<ChartNoAxesColumnIcon />}
             label="Stats"
@@ -290,6 +283,13 @@ export const SidebarUtilityMenu = memo(function SidebarUtilityMenu() {
           onClick={() => {
             void updateClientSettings({ legacySidebarEnabled: !projectSidebar });
           }}
+        />
+      ) : null}
+      {!isOnUtilityPage && codeWorkspace && pullRequestsSupported ? (
+        <SidebarUtilityItem
+          icon={<PullRequestGlyph.pullRequest />}
+          label="Pull Requests"
+          onClick={handlePullRequestsClick}
         />
       ) : null}
       <SidebarUpdatePill />

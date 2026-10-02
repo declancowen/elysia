@@ -1,6 +1,6 @@
 import { scopeProjectRef } from "@t3tools/client-runtime/environment";
 import { useParams } from "@tanstack/react-router";
-import { ArchiveIcon, MoreHorizontalIcon, PencilIcon, PlusIcon } from "~/icons";
+import { ArchiveIcon, Edit03Icon, MoreHorizontalIcon, PlusIcon } from "~/icons";
 import { cn } from "../../lib/utils";
 import { resolveSidebarThreadStatus } from "../Sidebar.logic";
 import { Button } from "../ui/button";
@@ -161,7 +161,7 @@ function AgentRow(agent: AgentRosterEntry) {
                 if (isMobile) setOpenMobile(false);
               }}
             >
-              <PencilIcon />
+              <Edit03Icon />
               Edit agent
             </MenuItem>
             <MenuItem

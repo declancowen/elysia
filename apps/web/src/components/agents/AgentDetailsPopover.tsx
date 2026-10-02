@@ -1,7 +1,7 @@
 import { scopeProjectRef } from "@t3tools/client-runtime/environment";
 import type { ScopedProjectRef } from "@t3tools/contracts";
 import { useNavigate } from "@tanstack/react-router";
-import { ArchiveIcon, BotIcon, PencilIcon } from "~/icons";
+import { ArchiveIcon, ArchiveX, BotIcon, Edit03Icon } from "~/icons";
 import { useLayoutEffect, useRef, useState } from "react";
 import { Button } from "../ui/button";
 import { Popover, PopoverPopup, PopoverTitle, PopoverTrigger } from "../ui/popover";
@@ -47,6 +47,7 @@ export function AgentDetailsPopover({ projectRef }: { projectRef: ScopedProjectR
                 void navigate({ to: "/settings/archived" });
               }}
             >
+              <ArchiveX />
               Archived agents
             </Button>
           </div>
@@ -77,7 +78,7 @@ function AgentDetails({ agent, onClose }: { agent: AgentRosterEntry; onClose: ()
   return (
     <>
       <div className="flex items-center gap-3" data-agent-avatar-hover>
-        <div className="flex w-10 shrink-0 items-center justify-center">
+        <div className="flex shrink-0 items-center justify-center">
           <AgentAvatar
             avatar={profile.avatar}
             style={{ width: avatarSize, height: avatarSize }}
@@ -86,7 +87,11 @@ function AgentDetails({ agent, onClose }: { agent: AgentRosterEntry; onClose: ()
         </div>
         <div ref={labelRef} className="min-w-0 flex-1 space-y-1 break-words">
           <PopoverTitle>{project.title}</PopoverTitle>
-          {profile.title ? <p className="text-xs text-muted-foreground">{profile.title}</p> : null}
+          {profile.title ? (
+            <p className="w-fit rounded-md bg-secondary px-2 py-1 text-xs text-secondary-foreground">
+              {profile.title}
+            </p>
+          ) : null}
         </div>
       </div>
       {project.defaultModelSelection ? (
@@ -111,7 +116,7 @@ function AgentDetails({ agent, onClose }: { agent: AgentRosterEntry; onClose: ()
             openAgentDialog(scopeProjectRef(project.environmentId, project.id));
           }}
         >
-          <PencilIcon />
+          <Edit03Icon />
           Edit agent
         </Button>
         <Button

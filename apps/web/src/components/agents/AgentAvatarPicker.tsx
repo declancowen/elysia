@@ -16,9 +16,15 @@ export function AgentAvatarPicker({
 }) {
   return (
     <fieldset className="min-w-0 space-y-4">
-      <legend className="mb-1.5 text-sm font-medium">Avatar</legend>
-      <AgentAvatar avatar={avatar} className="size-24" />
-      <div className="flex gap-2 overflow-x-auto py-1" role="group" aria-label="Avatar color">
+      <legend className="sr-only">Avatar</legend>
+      <div className="flex justify-center">
+        <AgentAvatar avatar={avatar} className="size-24" />
+      </div>
+      <div
+        className="flex justify-center-safe gap-2 overflow-x-auto py-1"
+        role="group"
+        aria-label="Avatar color"
+      >
         {AGENT_AVATAR_COLORS.map((color) => (
           <button
             key={color}
@@ -35,7 +41,11 @@ export function AgentAvatarPicker({
           </button>
         ))}
       </div>
-      <div className="flex gap-2 overflow-x-auto py-1" role="group" aria-label="Avatar shape">
+      <div
+        className="flex justify-center-safe gap-2 overflow-x-auto py-1"
+        role="group"
+        aria-label="Avatar shape"
+      >
         {AGENT_AVATAR_PRESETS.map((preset) => (
           <button
             key={preset.value}

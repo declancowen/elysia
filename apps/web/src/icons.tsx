@@ -61,6 +61,7 @@ import CornerLeftUpIconAsset from "@hugeicons/core-free-icons/CornerLeftUpIcon";
 import CpuIconAsset from "@hugeicons/core-free-icons/CpuIcon";
 import DatabaseIconAsset from "@hugeicons/core-free-icons/DatabaseIcon";
 import DownloadIconAsset from "@hugeicons/core-free-icons/Download01Icon";
+import Edit03IconAsset from "@hugeicons/core-free-icons/Edit03Icon";
 import EllipsisIconAsset from "@hugeicons/core-free-icons/EllipsisIcon";
 import ExpandIconAsset from "@hugeicons/core-free-icons/ExpandIcon";
 import ExternalLinkAsset from "@hugeicons/core-free-icons/ArrowUpRight01Icon";
@@ -109,6 +110,7 @@ import KeyboardAsset from "@hugeicons/core-free-icons/KeyboardIcon";
 import KeyboardIconAsset from "@hugeicons/core-free-icons/KeyboardIcon";
 import LaptopIconAsset from "@hugeicons/core-free-icons/LaptopIcon";
 import LayersIconAsset from "@hugeicons/core-free-icons/Layers01Icon";
+import LeftToRightListTriangleIconAsset from "@hugeicons/core-free-icons/LeftToRightListTriangleIcon";
 import LayoutTwoColumnIconAsset from "@hugeicons/core-free-icons/Layout2ColumnIcon";
 import LightbulbIconAsset from "@hugeicons/core-free-icons/LightbulbIcon";
 import Link02IconAsset from "@hugeicons/core-free-icons/Link02Icon";
@@ -356,6 +358,7 @@ export const CornerLeftUpIcon = /* @__PURE__ */ createIcon(CornerLeftUpIconAsset
 export const CpuIcon = /* @__PURE__ */ createIcon(CpuIconAsset, "cpu");
 export const DatabaseIcon = /* @__PURE__ */ createIcon(DatabaseIconAsset, "database");
 export const DownloadIcon = /* @__PURE__ */ createIcon(DownloadIconAsset, "download");
+export const Edit03Icon = /* @__PURE__ */ createIcon(Edit03IconAsset, "edit-03");
 export const EllipsisIcon = /* @__PURE__ */ createIcon(EllipsisIconAsset, "ellipsis");
 export const ExternalLink = /* @__PURE__ */ createIcon(ExternalLinkAsset, "external-link");
 export const ExternalLinkIcon = /* @__PURE__ */ createIcon(ExternalLinkIconAsset, "external-link");
@@ -431,6 +434,10 @@ export const LinkIcon = /* @__PURE__ */ createIcon(LinkIconAsset, "link");
 export const ListChecksIcon = /* @__PURE__ */ createIcon(ListChecksIconAsset, "list-checks");
 export const ListFilterIcon = /* @__PURE__ */ createIcon(ListFilterIconAsset, "list-filter");
 export const ListIcon = /* @__PURE__ */ createIcon(ListIconAsset, "list");
+export const LeftToRightListTriangleIcon = /* @__PURE__ */ createIcon(
+  LeftToRightListTriangleIconAsset,
+  "left-to-right-list-triangle",
+);
 export const ListTodoIcon = /* @__PURE__ */ createIcon(ListTodoIconAsset, "list-todo");
 export const LoaderCircleIcon = /* @__PURE__ */ createIcon(LoaderCircleIconAsset, "loader-circle");
 export const LockIcon = /* @__PURE__ */ createIcon(LockIconAsset, "lock");

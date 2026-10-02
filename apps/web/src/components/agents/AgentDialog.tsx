@@ -372,6 +372,7 @@ function AgentEditor({ project }: { project: Project | null }) {
         </div>
         <div className="min-w-0 space-y-4">
           <fieldset disabled={pending || busy} className="space-y-4">
+            <AgentAvatarPicker avatar={avatar} onChange={setAvatar} />
             <div className="grid gap-4 sm:grid-cols-2">
               <label className="grid gap-1.5">
                 <span className="text-sm font-medium">Name</span>
@@ -427,7 +428,6 @@ function AgentEditor({ project }: { project: Project | null }) {
                 </p>
               )}
             </div>
-            <AgentAvatarPicker avatar={avatar} onChange={setAvatar} />
             <label className="flex items-center justify-between gap-4 text-sm">
               <span>Notifications</span>
               <Switch checked={notificationsEnabled} onCheckedChange={setNotificationsEnabled} />

@@ -13,8 +13,11 @@ import { AsyncResult } from "effect/unstable/reactivity";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, expect, it, vi } from "vite-plus/test";
+import Edit03Icon from "@hugeicons/core-free-icons/Edit03Icon";
+import ArchiveOff03Icon from "@hugeicons/core-free-icons/ArchiveOff03Icon";
 import type { Project, SidebarThreadSummary } from "../../types";
 import { useUiStateStore } from "../../uiStateStore";
+import { dismissContextMenu } from "../../contextMenuFallback";
 
 type UpdateInput = {
   environmentId: EnvironmentId;
@@ -32,6 +35,13 @@ const state = vi.hoisted(() => ({
   activeThreadId: "ordinary-chat",
   sidebarOpen: false,
   setOpenMobile: vi.fn(),
+  elysia: true,
+}));
+vi.mock("@t3tools/contracts", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@t3tools/contracts")>()),
+  get SINGLE_PROVIDER_UI() {
+    return state.elysia;
+  },
 }));
 vi.mock("../../state/entities", () => ({
   useProjects: () => state.projects,
@@ -158,9 +168,14 @@ beforeEach(() => {
   state.contextMenu.mockReset().mockResolvedValue("edit-agent");
   state.toast.mockReset();
   state.mobile = false;
+  state.elysia = true;
   state.sidebarOpen = false;
   state.setOpenMobile.mockReset().mockImplementation((open: boolean) => {
     state.sidebarOpen = open;
+  });
+  vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => {
+    callback(0);
+    return 0;
   });
   closeAgentDialog();
   host = document.createElement("div");
@@ -168,6 +183,7 @@ beforeEach(() => {
   root = createRoot(host);
 });
 afterEach(async () => {
+  await act(async () => dismissContextMenu());
   await act(async () => root.unmount());
   host.remove();
   useUiStateStore.setState({ projectExpandedById: initialExpansion });
@@ -180,6 +196,8 @@ it("opens current-agent details and edits through the global dialog without chan
   await click("Manage Alex");
   expect(document.body.textContent).toContain(profile.instructions);
   expect(document.body.textContent).toContain(modelSelection.model);
+  expect(button("Edit agent").querySelector("path")?.getAttribute("d")).toBe(Edit03Icon[0]![1].d);
+  expect(button("Edit agent").querySelector("path")?.getAttribute("stroke-width")).toBe("2");
   await click("Edit agent");
   expect(useAgentDialogStore.getState().target?.projectRef).toEqual(
     scopeProjectRef(environmentId, projectId),
@@ -257,6 +275,10 @@ it("shows agent management only for the current agent and keeps create/archive a
   closeAgentDialog();
   await render();
   await click("Manage Alex");
+  expect(button("Archived agents").querySelector("path")?.getAttribute("d")).toBe(
+    ArchiveOff03Icon[0]![1].d,
+  );
+  expect(button("Archived agents").querySelector("path")?.getAttribute("stroke-width")).toBe("2");
   await click("Archived agents");
   expect(state.navigate).toHaveBeenCalledWith({ to: "/settings/archived" });
 });
@@ -334,30 +356,47 @@ it("blocks archiving during native work", async () => {
   expect(state.update).not.toHaveBeenCalled();
 });
 
-it("right-click edits from another chat through the existing context menu and hides archived agents in the roster", async () => {
-  await render(false, true);
-  expect(host.textContent).not.toContain("Archived person");
-  expect(host.textContent).not.toContain("Archived agents");
-  await act(async () =>
-    button("Alex").dispatchEvent(
-      new MouseEvent("contextmenu", { bubbles: true, clientX: 20, clientY: 30 }),
-    ),
-  );
-  expect(state.contextMenu).toHaveBeenCalledWith([{ id: "edit-agent", label: "Edit agent" }], {
-    x: 20,
-    y: 30,
-  });
-  expect(useAgentDialogStore.getState().target?.projectRef).toEqual(
-    scopeProjectRef(environmentId, projectId),
-  );
-  expect(state.navigate).not.toHaveBeenCalled();
-  closeAgentDialog();
-  state.contextMenu.mockResolvedValue(null);
-  await act(async () =>
-    button("Alex").dispatchEvent(new MouseEvent("contextmenu", { bubbles: true })),
-  );
-  expect(useAgentDialogStore.getState().target).toBeNull();
-});
+it.each([true, false])(
+  "right-click edits from another chat and hides archived agents (Elysia: %s)",
+  async (elysia) => {
+    state.elysia = elysia;
+    await render(false, true);
+    expect(host.textContent).not.toContain("Archived person");
+    expect(host.textContent).not.toContain("Archived agents");
+    await act(async () =>
+      button("Alex").dispatchEvent(
+        new MouseEvent("contextmenu", { bubbles: true, clientX: 20, clientY: 30 }),
+      ),
+    );
+    if (elysia) {
+      expect(state.contextMenu).not.toHaveBeenCalled();
+      expect(button("Edit agent").querySelector("path")?.getAttribute("d")).toBe(
+        Edit03Icon[0]![1].d,
+      );
+      expect(button("Edit agent").querySelector("svg")?.getAttribute("stroke-width")).toBe("2");
+      await click("Edit agent");
+    } else {
+      expect(state.contextMenu).toHaveBeenCalledWith(
+        [{ id: "edit-agent", label: "Edit agent", icon: "edit-03" }],
+        { x: 20, y: 30 },
+      );
+    }
+    expect(useAgentDialogStore.getState().target?.projectRef).toEqual(
+      scopeProjectRef(environmentId, projectId),
+    );
+    expect(state.navigate).not.toHaveBeenCalled();
+    closeAgentDialog();
+    state.contextMenu.mockResolvedValue(null);
+    await act(async () =>
+      button("Alex").dispatchEvent(new MouseEvent("contextmenu", { bubbles: true })),
+    );
+    if (elysia)
+      await act(async () =>
+        document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" })),
+      );
+    expect(useAgentDialogStore.getState().target).toBeNull();
+  },
+);
 
 it("closes the narrow sidebar only after its linked agent conversation opens successfully", async () => {
   state.mobile = true;
@@ -398,6 +437,8 @@ it("dismisses the narrow sidebar when creating from either entry point or editin
     (item) => item.textContent?.trim() === "Edit agent",
   );
   expect(editAction).toBeDefined();
+  expect(editAction!.querySelector("path")?.getAttribute("d")).toBe(Edit03Icon[0]![1].d);
+  expect(editAction!.querySelector("path")?.getAttribute("stroke-width")).toBe("2");
   await act(async () => editAction!.click());
   expect(useAgentDialogStore.getState().target?.projectRef).toEqual(
     scopeProjectRef(environmentId, projectId),
@@ -417,11 +458,13 @@ it("keeps the narrow sidebar open on context-menu cancellation and dismisses it 
     );
   };
   await rightClickAgent();
+  await act(async () => document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" })));
   expect(useAgentDialogStore.getState().target).toBeNull();
   expect(state.sidebarOpen).toBe(true);
 
   state.contextMenu.mockResolvedValue("edit-agent");
   await rightClickAgent();
+  await click("Edit agent");
   expect(useAgentDialogStore.getState().target?.projectRef).toEqual(
     scopeProjectRef(environmentId, projectId),
   );

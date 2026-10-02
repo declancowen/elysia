@@ -303,6 +303,7 @@ it("opens creation as a main-panel page and Cancel returns to the exact prior sc
 it("creates through the native command and opens only the returned durable conversation", async () => {
   await render();
   await act(async () => openAgentDialog());
+  expect(host.querySelector("form button")?.getAttribute("aria-label")).toBe("Color #003CB2");
   await fill('input[placeholder="Alex"]', "Sam");
   await fill("textarea", "Help with research.");
   await act(async () =>
@@ -354,6 +355,7 @@ it("edits an existing profile and returns to its saved conversation, preserving 
   await render();
   await act(async () => openAgentDialog(scopeProjectRef(environmentId, projectId)));
   expect(router.state.location.search).toEqual({ environmentId, projectId });
+  expect(host.querySelector("form button")?.getAttribute("aria-label")).toBe("Color #003CB2");
   await fill('input[placeholder="Research assistant"]', "Analyst");
   await submit();
   expect(state.update).toHaveBeenCalledWith({

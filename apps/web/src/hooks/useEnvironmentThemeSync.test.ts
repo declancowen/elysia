@@ -142,7 +142,7 @@ describe("published theme refresh", () => {
     expectPreview();
     publish([LIGHT_THEME, { ...NIGHTFALL_THEME, id: "unused-theme" }]);
     expectPreview();
-    expect(publish([]).theme).toBe("default");
+    expect(publish([]).theme).toBe("midnight");
     expectPreview();
 
     const current = publish([{ ...NIGHTFALL_THEME, canvas: "#112233" }]);

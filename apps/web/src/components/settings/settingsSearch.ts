@@ -4,7 +4,7 @@ import { STATIC_KEYBINDING_COMMANDS, type KeybindingCommand } from "@t3tools/con
 import type { EnvironmentId } from "@t3tools/contracts";
 import type { EnvironmentConnectionPhase } from "@t3tools/client-runtime/connection";
 import { DEFAULT_KEYBINDINGS } from "@t3tools/shared/keybindings";
-import { BUILT_IN_THEMES } from "@t3tools/shared/themePalettes";
+import { BUILT_IN_THEMES, DEFAULT_THEME } from "@t3tools/shared/themePalettes";
 import { commandLabel } from "./KeybindingsSettings.logic";
 import {
   validateSettingsScopeSearch,
@@ -189,6 +189,7 @@ export const SETTINGS_SEARCH_ITEMS = [
     to: "/settings/appearance",
     searchTerms: [
       "appearance colors palette custom import informa",
+      DEFAULT_THEME.label,
       ...BUILT_IN_THEMES.map((theme) => theme.label),
     ],
     // Theme cards live directly under the scheme tiles; the section is the

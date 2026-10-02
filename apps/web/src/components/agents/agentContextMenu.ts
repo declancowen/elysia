@@ -1,4 +1,5 @@
-import type { ScopedProjectRef } from "@t3tools/contracts";
+import { SINGLE_PROVIDER_UI, type ScopedProjectRef } from "@t3tools/contracts";
+import { showContextMenuFallback } from "../../contextMenuFallback";
 import { readLocalApi } from "../../localApi";
 import { toastManager } from "../ui/toast";
 import { openAgentDialog } from "./agentDialogStore";
@@ -10,8 +11,9 @@ export async function showAgentContextMenu(
   const api = readLocalApi();
   if (!api) return false;
   try {
-    const action = await api.contextMenu.show(
-      [{ id: "edit-agent", label: "Edit agent" }],
+    const show = SINGLE_PROVIDER_UI ? showContextMenuFallback : api.contextMenu.show;
+    const action = await show(
+      [{ id: "edit-agent", label: "Edit agent", icon: "edit-03" }],
       position,
     );
     if (action === "edit-agent") {

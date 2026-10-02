@@ -23,7 +23,11 @@ import { ServerSettingsService } from "../../serverSettings.ts";
 import { ProviderAdapterRequestError, ProviderDriverError } from "../Errors.ts";
 import { makeClaudeAdapter } from "../Layers/ClaudeAdapter.ts";
 import { makeClaudeScopedLimitNames } from "../Layers/claudeUsageLimits.ts";
-import { checkClaudeProviderStatus, probeClaudeCapabilities } from "../Layers/ClaudeProvider.ts";
+import {
+  checkClaudeProviderStatus,
+  makePendingClaudeProvider,
+  probeClaudeCapabilities,
+} from "../Layers/ClaudeProvider.ts";
 import { ProviderEventLoggers } from "../Layers/ProviderEventLoggers.ts";
 import { makeManagedServerProvider } from "../makeManagedServerProvider.ts";
 import { type ProviderDriver, type ProviderInstance } from "../ProviderDriver.ts";
@@ -46,6 +50,7 @@ import { makeElysiaCli } from "../ElysiaCli.ts";
 import { ELYSIA_MODELS, elysiaModelCatalog } from "../ElysiaModelCatalog.ts";
 import * as ProviderAuthFlow from "../ProviderAuthFlow.ts";
 import { elysiaChatSlashCommands } from "./ElysiaSlashCommands.ts";
+import { discoverClaudeSkills } from "./ClaudeSkills.ts";
 
 const DRIVER_KIND = ProviderDriverKind.make("claudeAgent");
 const Identifier = Schema.String.check(
@@ -116,6 +121,12 @@ export const ElysiaDriver: ProviderDriver<ClaudeSettings, ElysiaDriverEnv> = {
         ),
       );
       const processEnv = elysia.environment;
+      if (yield* elysia.ready) {
+        yield* elysia.restoreCompression.pipe(
+          Effect.catch((error) => Effect.logWarning(error.detail)),
+          Effect.forkScoped,
+        );
+      }
       if (!appDefaultModel && !config.elysiaDefaultModel && (yield* elysia.ready)) {
         const settings = yield* elysia.readSettings;
         if (settings._tag === "Some")
@@ -260,7 +271,7 @@ export const ElysiaDriver: ProviderDriver<ClaudeSettings, ElysiaDriverEnv> = {
         capacity: 1,
         timeToLive: Duration.minutes(5),
         lookup: () =>
-          probeClaudeCapabilities(effectiveConfig, processEnv, cwd).pipe(
+          probeClaudeCapabilities(effectiveConfig, processEnv, cwd, { includeUsage: false }).pipe(
             Effect.provideService(Path.Path, path),
           ),
       });
@@ -354,8 +365,9 @@ export const ElysiaDriver: ProviderDriver<ClaudeSettings, ElysiaDriverEnv> = {
           requiresNewThreadForModelChange: true,
           runtimeVersion: draft.version,
           version: yield* elysia.version,
+          // Native Elysia validates the sign-in; optional SDK discovery cannot revoke it.
           ...(ready
-            ? {}
+            ? { auth: { status: "authenticated" as const } }
             : {
                 status: enabled ? ("warning" as const) : ("disabled" as const),
                 auth: { status: "unauthenticated" as const },
@@ -375,7 +387,27 @@ export const ElysiaDriver: ProviderDriver<ClaudeSettings, ElysiaDriverEnv> = {
         getSettings: source.getSettings,
         streamSettings: source.streamSettings,
         haveSettingsChanged: haveProviderSnapshotSettingsChanged,
-        initialSnapshot: () => checkProvider,
+        // Publish the native validated profile immediately; managed snapshots probe Claude in the background.
+        initialSnapshot: () =>
+          Effect.gen(function* () {
+            const pending = yield* makePendingClaudeProvider(effectiveConfig, yield* modelCatalog);
+            const ready = yield* elysia.ready;
+            const compression = yield* elysia.compression;
+            return stampIdentity({
+              ...pending,
+              installed: ready,
+              status: ready ? "ready" : enabled ? "warning" : "disabled",
+              auth: { status: ready ? "authenticated" : "unauthenticated" },
+              message: ready
+                ? "Checking Claude Code…"
+                : ((yield* elysia.connectionError) ??
+                  "Connect Elysia in Settings → Providers to begin."),
+              version: yield* elysia.version,
+              runtimeVersion: null,
+              ...(compression._tag === "Some" ? { elysiaCompression: compression.value } : {}),
+              requiresNewThreadForModelChange: true,
+            });
+          }),
         checkProvider,
         enrichSnapshot: ({ settings, snapshot, publishSnapshot }) =>
           Effect.gen(function* () {
@@ -493,6 +525,17 @@ export const ElysiaDriver: ProviderDriver<ClaudeSettings, ElysiaDriverEnv> = {
         accentColor,
         enabled,
         snapshot,
+        snapshotForCwd: (workspaceCwd) =>
+          !enabled
+            ? snapshot.getSnapshot
+            : Effect.all([
+                snapshot.getSnapshot,
+                discoverClaudeSkills(effectiveConfig, workspaceCwd, processEnv),
+              ]).pipe(
+                Effect.map(([machineSnapshot, skills]) => ({ ...machineSnapshot, skills })),
+                Effect.provideService(FileSystem.FileSystem, fs),
+                Effect.provideService(Path.Path, path),
+              ),
         adapter,
         textGeneration,
         auth,

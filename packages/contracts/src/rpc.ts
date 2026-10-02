@@ -99,6 +99,10 @@ import { KeybindingsConfigError } from "./keybindings.ts";
 import {
   AgentCreateInput,
   AgentCreateResult,
+  AgentDelegateInput,
+  AgentDelegateResult,
+  AgentGetDelegationInput,
+  AgentGetDelegationResult,
   ClientOrchestrationCommand,
   ORCHESTRATION_WS_METHODS,
   OrchestrationDispatchCommandError,
@@ -299,6 +303,8 @@ export const WS_METHODS = {
   projectsWriteFile: "projects.writeFile",
   projectsEnsureScratch: "projects.ensureScratch",
   agentsCreate: "agents.create",
+  agentsDelegate: "agents.delegate",
+  agentsGetDelegation: "agents.getDelegation",
 
   // Shell methods
   shellOpenInEditor: "shell.openInEditor",
@@ -1020,6 +1026,18 @@ const WsAgentsCreateRpc = Rpc.make(WS_METHODS.agentsCreate, {
   error: Schema.Union([OrchestrationDispatchCommandError, EnvironmentAuthorizationError]),
 });
 
+const WsAgentsDelegateRpc = Rpc.make(WS_METHODS.agentsDelegate, {
+  payload: AgentDelegateInput,
+  success: AgentDelegateResult,
+  error: Schema.Union([OrchestrationDispatchCommandError, EnvironmentAuthorizationError]),
+});
+
+const WsAgentsGetDelegationRpc = Rpc.make(WS_METHODS.agentsGetDelegation, {
+  payload: AgentGetDelegationInput,
+  success: AgentGetDelegationResult,
+  error: Schema.Union([OrchestrationDispatchCommandError, EnvironmentAuthorizationError]),
+});
+
 const WsShellOpenInEditorRpc = Rpc.make(WS_METHODS.shellOpenInEditor, {
   payload: LaunchEditorInput,
   error: Schema.Union([ExternalLauncherError, EnvironmentAuthorizationError]),
@@ -1540,6 +1558,8 @@ export const WsRpcGroup = RpcGroup.make(
   WsProjectsSearchEntriesRpc,
   WsProjectsEnsureScratchRpc,
   WsAgentsCreateRpc,
+  WsAgentsDelegateRpc,
+  WsAgentsGetDelegationRpc,
   WsProjectsWriteFileRpc,
   WsShellOpenInEditorRpc,
   WsFilesystemBrowseRpc,

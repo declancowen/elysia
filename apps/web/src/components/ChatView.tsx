@@ -1,6 +1,12 @@
 import { isChatGptUsageLimitError } from "@t3tools/shared/usageLimits";
 import { useLoadBalancedEnvironment } from "../hooks/useLoadBalancedEnvironment";
 import { visibleThreadPullRequests } from "@t3tools/shared/threadPullRequests";
+import {
+  delegatedAgentsFromActivities,
+  mentionedAgentProjectIds,
+} from "@t3tools/shared/agentMentions";
+import { projectEnvironment } from "../state/projects";
+import { isScratchProject } from "@t3tools/client-runtime/state/projects";
 import type { UsageLimitSourceSnapshots } from "@t3tools/contracts";
 import {
   collectProviderUsageLimits,
@@ -24,9 +30,10 @@ import {
   DEFAULT_MODEL,
   type EnvironmentId,
   type MessageId,
+  CommandId,
+  type ProjectId,
   type ModelSelection,
   type ProjectScript,
-  type ProjectId,
   type ProviderApprovalDecision,
   type PreviewAnnotationPayload,
   ProviderInstanceId,
@@ -428,6 +435,7 @@ import {
 import {
   MAX_HIDDEN_MOUNTED_TERMINAL_THREADS,
   agentControlledBrowserCloseConfirmation,
+  agentDelegationDraftKey,
   branchMismatchKey,
   buildExpiredTerminalContextToastCopy,
   buildLocalDraftThread,
@@ -1533,6 +1541,7 @@ export default function ChatView(props: ChatViewProps) {
     reportFailure: false,
   });
   const startThreadTurn = useAtomCommand(threadEnvironment.startTurn, { reportFailure: false });
+  const delegateAgent = useAtomCommand(projectEnvironment.delegateAgent, { reportFailure: false });
   const createAttachmentAssetUrl = useAtomQueryRunner(assetEnvironment.createUrl, {
     reportFailure: false,
     refresh: true,
@@ -1820,6 +1829,11 @@ export default function ChatView(props: ChatViewProps) {
   const fanoutState = useAtomValue(fanoutStateAtom);
   const sendInFlightRef = fanoutState.sendInFlight;
   const composerSendGenerationRef = useRef(0);
+  const agentDelegationRetryRef = useRef<{
+    key: string;
+    commandId: CommandId;
+    messageId: MessageId;
+  } | null>(null);
   const multipleModelSelections = fanoutState.selections;
   const setMultipleModelSelections = useCallback(
     (selections: SetStateAction<ReadonlyArray<ModelSelection> | null>) => {
@@ -3524,6 +3538,10 @@ export default function ChatView(props: ChatViewProps) {
     projectHandoffMessagePreviews,
   ]);
   const threadSources = useMemo(() => uploadedSources(timelineMessages), [timelineMessages]);
+  const delegatedAgents = useMemo(
+    () => delegatedAgentsFromActivities(activeThread?.activities ?? []),
+    [activeThread?.activities],
+  );
   const openUploadedSource = useCallback(
     (attachment: ChatAttachment) => {
       if (isImageAttachment(attachment)) {
@@ -7564,6 +7582,16 @@ export default function ChatView(props: ChatViewProps) {
           previewAnnotationContextReference(directAnnotation.annotation),
         ])
       : promptRef.current;
+    const agentTargets = mentionedAgentProjectIds(promptForSend);
+    if (agentTargets.length > 0 && (!isServerThread || multipleModelSelections !== null)) {
+      setThreadError(
+        activeThread.id,
+        !isServerThread
+          ? "Start this chat before delegating a task to an agent."
+          : "Choose agent mentions or multiple models for this task.",
+      );
+      return;
+    }
     const {
       trimmedPrompt: trimmed,
       sendableTerminalContexts: sendableComposerTerminalContexts,
@@ -7635,6 +7663,7 @@ export default function ChatView(props: ChatViewProps) {
     }
     if (
       !directAnnotation &&
+      agentTargets.length === 0 &&
       sendInteractionModeEnabled &&
       showPlanFollowUpPrompt &&
       activeProposedPlan &&
@@ -7748,6 +7777,7 @@ export default function ChatView(props: ChatViewProps) {
       );
     if (
       !directAnnotation &&
+      agentTargets.length === 0 &&
       activeThreadKey &&
       (queueStillSending ||
         (phase === "running" &&
@@ -7830,6 +7860,13 @@ export default function ChatView(props: ChatViewProps) {
     const outgoingMessageContext = buildOutgoingMessageContext(
       composerAttachmentsSnapshot.map((attachment) => attachment.id),
     );
+    if (agentTargets.length > 0 && messageTextForSend.length > 64_000) {
+      setThreadError(
+        threadIdForSend,
+        "Agent tasks support up to 64,000 characters. Shorten this message before sending.",
+      );
+      return;
+    }
     const outgoingMessageText = formatOutgoingPrompt({
       provider: ctxSelectedProvider,
       model: ctxSelectedModel,
@@ -7904,6 +7941,12 @@ export default function ChatView(props: ChatViewProps) {
 
     sendInFlightRef.current = true;
     const sendGeneration = ++composerSendGenerationRef.current;
+    const submittedAgentDraftKey =
+      agentTargets.length > 0
+        ? agentDelegationDraftKey(
+            useComposerDraftStore.getState().getComposerDraft(composerDraftTarget),
+          )
+        : null;
     const attachmentCapabilitiesBeforeUpload = readLiveAttachmentCapabilities();
     if (attachmentCapabilitiesBeforeUpload.fileBlockReason !== null) {
       sendInFlightRef.current = false;
@@ -8008,6 +8051,73 @@ export default function ChatView(props: ChatViewProps) {
         };
       }),
     );
+    if (agentTargets[0]) {
+      const retryKey = JSON.stringify([
+        environmentId,
+        threadIdForSend,
+        agentTargets,
+        messageTextForSend,
+        composerAttachmentsSnapshot.map((attachment) => attachment.id),
+        outgoingMessageContext,
+      ]);
+      if (agentDelegationRetryRef.current?.key !== retryKey) {
+        agentDelegationRetryRef.current = {
+          key: retryKey,
+          commandId: CommandId.make(randomUUID()),
+          messageId: messageIdForSend,
+        };
+      }
+      const request = agentDelegationRetryRef.current;
+      try {
+        const attachments = await turnAttachmentsPromise;
+        const context = buildOutgoingMessageContext(
+          attachments.map((attachment, index) =>
+            "id" in attachment && attachment.id !== undefined
+              ? attachment.id
+              : composerAttachmentsSnapshot[index]!.id,
+          ),
+        );
+        for (const agentProjectId of agentTargets) {
+          const result = await delegateAgent({
+            environmentId,
+            input: {
+              commandId: request.commandId,
+              sourceThreadId: threadIdForSend,
+              agentProjectId,
+              messageId: request.messageId,
+              text: messageTextForSend,
+              attachments,
+              ...(context ? { context } : {}),
+            },
+          });
+          if (result._tag === "Failure") throw squashAtomCommandFailure(result);
+        }
+        if (
+          currentRouteThreadKeyRef.current === routeThreadKey &&
+          composerSendGenerationRef.current === sendGeneration &&
+          agentDelegationDraftKey(
+            useComposerDraftStore.getState().getComposerDraft(composerDraftTarget),
+          ) === submittedAgentDraftKey
+        ) {
+          promptRef.current = "";
+          clearComposerDraftContent(composerDraftTarget);
+          composerRef.current?.resetCursorState();
+        }
+        agentDelegationRetryRef.current = null;
+        setThreadError(threadIdForSend, null);
+      } catch (error) {
+        setThreadError(
+          threadIdForSend,
+          error instanceof Error
+            ? error.message
+            : "The agent could not accept this task. Your draft has been kept.",
+        );
+      } finally {
+        sendInFlightRef.current = false;
+        resetLocalDispatch();
+      }
+      return;
+    }
     if (multipleModelSelections !== null) {
       const failedSelections: ModelSelection[] = [];
       let clearedDraft = false;
@@ -9857,6 +9967,9 @@ export default function ChatView(props: ChatViewProps) {
                     }
                   : null,
               agents: { working: agentPanelModel.liveCount, done: agentPanelModel.settledCount },
+              sourceThreadRef: isServerThread ? activeThreadRef : null,
+              delegatedAgents,
+              sourceHistoryReady: !threadDetailLoading,
               sources: threadSources,
               onToggleChanges: toggleChangesSurface,
               onOpenAgents: addAgentsSurface,
@@ -10245,7 +10358,16 @@ export default function ChatView(props: ChatViewProps) {
                                 ref={branchToolbarRef}
                                 environmentId={activeThread.environmentId}
                                 threadId={activeThread.id}
-                                showGitControls={codeWorkspace && isGitRepo}
+                                showGitControls={
+                                  codeWorkspace &&
+                                  isGitRepo &&
+                                  activeProject !== null &&
+                                  !activeProject.agentProfile &&
+                                  !isScratchProject(
+                                    activeProject,
+                                    serverConfig?.scratchWorkspaceRoot,
+                                  )
+                                }
                                 {...(routeKind === "draft" && draftId ? { draftId } : {})}
                                 onEnvModeChange={onEnvModeChange}
                                 startFromOrigin={startFromOrigin}

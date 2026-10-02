@@ -280,11 +280,17 @@ export function ElysiaSetupSection({
             Continue <ArrowRightIcon className="size-3.5" />
           </Button>
         ) : enteringCredentials ? (
-          <Button form={credentialsFormId} type="submit" disabled={disabled}>
+          <Button
+            form={credentialsFormId}
+            type="submit"
+            size={onContinue ? "default" : "sm"}
+            disabled={disabled}
+          >
             Connect
           </Button>
         ) : (
           <Button
+            size={onContinue ? "default" : "sm"}
             disabled={disabled || active || !provider}
             onClick={() => {
               setAttemptedSetup(true);

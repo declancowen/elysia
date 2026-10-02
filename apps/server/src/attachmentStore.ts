@@ -172,6 +172,8 @@ export function planAttachmentClaim(input: {
   readonly attachmentsDir: string;
   readonly threadId: string;
   readonly attachmentId: string;
+  /** Internal ownership transfer; clients can only claim pending uploads. */
+  readonly allowClaimedAttachments?: boolean;
 }): AttachmentClaimPlan {
   const uuid = parseAttachmentUuid(input.attachmentId);
   const requestedSegment = parseThreadSegmentFromAttachmentId(input.attachmentId);
@@ -182,7 +184,7 @@ export function planAttachmentClaim(input: {
   if (!toSafeThreadAttachmentSegment(input.threadId)) {
     return { ok: false, reason: "invalid thread id" };
   }
-  if (requestedSegment !== PENDING_ATTACHMENT_THREAD_SEGMENT) {
+  if (requestedSegment !== PENDING_ATTACHMENT_THREAD_SEGMENT && !input.allowClaimedAttachments) {
     return { ok: false, reason: "attachment must be a pending upload" };
   }
 

@@ -16,6 +16,7 @@ import {
 
 import {
   PRIMARY_SETTINGS_UNAVAILABLE_MESSAGE,
+  useCodeWorkspace,
   usePrimarySettingsAvailable,
 } from "../../hooks/useSettings";
 import { cn } from "../../lib/utils";
@@ -36,6 +37,8 @@ import {
   type SettingInheritanceState,
   type SettingOverridingProject,
 } from "./SettingInheritance";
+
+import { isSettingsTargetVisibleInWorkspace } from "./settingsWorkspace";
 
 const EMPTY_SETTING_KEYS: readonly (keyof ServerSettings)[] = [];
 
@@ -186,6 +189,8 @@ export function SettingsSection({
   children: ReactNode;
 }) {
   const targetRef = useSettingsSearchTarget<HTMLElement>(sectionProps.id);
+  const codeWorkspace = useCodeWorkspace();
+  if (!isSettingsTargetVisibleInWorkspace(sectionProps.id, codeWorkspace)) return null;
 
   return (
     <section
@@ -279,6 +284,7 @@ export function SettingsRow({
   children?: ReactNode;
 }) {
   const targetRef = useSettingsSearchTarget<HTMLDivElement>(rowProps.id);
+  const codeWorkspace = useCodeWorkspace();
   const primarySettingsAvailable = usePrimarySettingsAvailable();
   const context = useOptionalSettingsScope();
   const clearOverrides = useClearScopedSettings();
@@ -419,6 +425,8 @@ export function SettingsRow({
       />
     ) : null;
   const renderedStatus = status;
+
+  if (!isSettingsTargetVisibleInWorkspace(rowProps.id, codeWorkspace)) return null;
 
   return (
     <div

@@ -7,6 +7,9 @@ import {
   type ThreadId,
 } from "@t3tools/contracts";
 import { scopeProjectRef, scopeThreadRef } from "@t3tools/client-runtime/environment";
+import { isScratchProject } from "@t3tools/client-runtime/state/projects";
+import { useAtomValue } from "@effect/atom-react";
+import { serverEnvironment } from "../../state/server";
 import type { EnvironmentProject } from "@t3tools/client-runtime/state/shell";
 import {
   isAtomCommandInterrupted,
@@ -375,6 +378,7 @@ export const ChatHeader = memo(function ChatHeader({
     [commitRename],
   );
   const codeWorkspace = useCodeWorkspace();
+  const serverConfig = useAtomValue(serverEnvironment.configValueAtom(activeThreadEnvironmentId));
   const headerActions = codeWorkspace && (
     <>
       {activeProjectScripts && (
@@ -405,18 +409,23 @@ export const ChatHeader = memo(function ChatHeader({
           />
         </>
       )}
-      {activeProjectName && gitCwd && (
-        <>
-          {actionsCollapsed && (activeProjectScripts || showOpenInPicker) && <MenuSeparator />}
-          <GitActionsControl
-            presentation={actionsCollapsed ? "menu" : "toolbar"}
-            gitCwd={gitCwd}
-            activeThreadRef={scopeThreadRef(activeThreadEnvironmentId, activeThreadId)}
-            onOpenPullRequest={onOpenPullRequest}
-            {...(draftId ? { draftId } : {})}
-          />
-        </>
-      )}
+      {activeProjectName &&
+        gitCwd &&
+        activeProject &&
+        serverConfig !== null &&
+        !activeProject.agentProfile &&
+        !isScratchProject(activeProject, serverConfig?.scratchWorkspaceRoot) && (
+          <>
+            {actionsCollapsed && (activeProjectScripts || showOpenInPicker) && <MenuSeparator />}
+            <GitActionsControl
+              presentation={actionsCollapsed ? "menu" : "toolbar"}
+              gitCwd={gitCwd}
+              activeThreadRef={scopeThreadRef(activeThreadEnvironmentId, activeThreadId)}
+              onOpenPullRequest={onOpenPullRequest}
+              {...(draftId ? { draftId } : {})}
+            />
+          </>
+        )}
     </>
   );
   return (

@@ -24,8 +24,17 @@ import {
   type CodexFeedbackSubmission,
 } from "@t3tools/client-runtime/state/threads";
 import { deriveActiveWorkStartedAt } from "@t3tools/shared/orchestrationTiming";
+import { mentionedAgentProjectIds } from "@t3tools/shared/agentMentions";
+import { squashAtomCommandFailure } from "@t3tools/client-runtime/state/runtime";
 import { upgradeLegacyContextMessage } from "@t3tools/shared/composerContextLegacy";
-import { composerContextSendBlockReason, reidentifyComposerContext } from "../lib/composerContext";
+import {
+  composerContextSendBlockReason,
+  reidentifyComposerContext,
+  uploadedComposerContext,
+} from "../lib/composerContext";
+import { prepareTurnAttachments, validateDraftFileAttachments } from "../lib/attachmentUpload";
+import { agentMentionInputError, createAgentMentionHandoff } from "../lib/agentMentionHandoff";
+import { composerAgentMentionItems } from "../features/threads/composerAgentMentions";
 import { uuidv4 } from "../lib/uuid";
 
 import { makeQueuedMessageMetadata } from "../lib/commandMetadata";
@@ -57,6 +66,9 @@ import {
   composerContextImportsAtom,
   ensureComposerDraftsLoaded,
   getComposerDraftSnapshot,
+  flushComposerDrafts,
+  setComposerDraftAttachmentUpload,
+  retainComposerDraftAttachments,
   mergeComposerDraftContent,
   removeComposerDraftAttachment,
   scheduleUnusedComposerAttachmentCleanup,
@@ -70,6 +82,8 @@ import { useThreadSelection } from "../state/use-thread-selection";
 import { enqueueThreadOutboxMessage } from "./thread-outbox";
 import { dispatchingQueuedMessageIdAtom, useThreadOutboxMessages } from "./use-thread-outbox";
 import { threadEnvironment } from "./threads";
+import { useProjects, useThreadShells } from "./entities";
+import { projectEnvironment } from "./projects";
 import { useAtomCommand } from "./use-atom-command";
 import {
   composerAttachmentUploadBlockReason,
@@ -124,6 +138,18 @@ export function useThreadDraftForThread(input: {
 }
 
 export function useThreadComposerState() {
+  const projects = useProjects();
+  const threadShells = useThreadShells();
+  const delegateAgent = useAtomCommand(projectEnvironment.delegateAgent, { reportFailure: false });
+  const [agentHandoff] = useState(() =>
+    createAgentMentionHandoff(() => {
+      const metadata = makeQueuedMessageMetadata();
+      return {
+        commandId: CommandId.make(metadata.commandId),
+        messageId: MessageId.make(metadata.messageId),
+      };
+    }),
+  );
   const {
     selectedThread: selectedThreadShell,
     selectedThreadCreation,
@@ -372,6 +398,102 @@ export function useThreadComposerState() {
       return null;
     }
 
+    const agentIds = mentionedAgentProjectIds(text);
+    if (agentIds.length > 0) {
+      const availableAgents = composerAgentMentionItems({
+        projects,
+        threads: threadShells,
+        environmentId: selectedThreadShell.environmentId,
+        sourceThreadId: selectedThreadShell.id,
+        query: "",
+      });
+      if (agentIds.some((id) => !availableAgents.some((agent) => agent.projectId === id))) {
+        Alert.alert(
+          "Agent unavailable",
+          "Choose an active agent with an existing conversation on this environment.",
+        );
+        return null;
+      }
+      if (selectedEnvironmentRuntime?.connectionState !== "connected") {
+        Alert.alert(
+          "Connect to send",
+          "Agent handoffs require a connection. Your draft has been kept.",
+        );
+        return null;
+      }
+      const agentInputError = agentMentionInputError(text);
+      if (agentInputError) {
+        Alert.alert("Message too long", agentInputError);
+        return null;
+      }
+      const attachmentError = validateDraftFileAttachments({
+        attachments,
+        serverConfig: selectedEnvironmentRuntime.serverConfig,
+      });
+      if (attachmentError) {
+        Alert.alert("Attachment unavailable", attachmentError);
+        return null;
+      }
+      try {
+        return await agentHandoff.send({
+          scopeKey: threadKey,
+          draft,
+          readDraft: () => getComposerDraftSnapshot(threadKey),
+          clearAcceptedDraft: () => clearComposerDraftContent(threadKey),
+          deliver: async (ids) => {
+            const retained = retainComposerDraftAttachments(attachments);
+            try {
+              const prepared = await prepareTurnAttachments({
+                environmentId: selectedThreadShell.environmentId,
+                attachments,
+                supportsImageUploads:
+                  selectedEnvironmentRuntime.serverConfig?.environment.capabilities
+                    .attachmentUploads === true,
+                persistUploadedReferences: async (uploaded) => {
+                  retained.update(uploaded);
+                  for (const attachment of uploaded)
+                    setComposerDraftAttachmentUpload(threadKey, attachment);
+                  await flushComposerDrafts();
+                  return "persisted";
+                },
+              });
+              if (prepared.status !== "ready")
+                throw new Error("Attachment upload cancelled. Your draft has been kept.");
+              retained.update(prepared.draftAttachments);
+              const context = uploadedComposerContext(
+                draft.context,
+                attachments,
+                prepared.attachments,
+              );
+              for (const agentProjectId of agentIds) {
+                const result = await delegateAgent({
+                  environmentId: selectedThreadShell.environmentId,
+                  input: {
+                    ...ids,
+                    sourceThreadId: selectedThreadShell.id,
+                    agentProjectId,
+                    text,
+                    ...(prepared.attachments.length ? { attachments: prepared.attachments } : {}),
+                    ...(context ? { context } : {}),
+                  },
+                });
+                if (result._tag === "Failure") throw squashAtomCommandFailure(result);
+              }
+            } finally {
+              retained.release();
+            }
+          },
+        });
+      } catch (error) {
+        setPendingConnectionError(
+          error instanceof Error
+            ? error.message
+            : "Could not send to the agent. Your draft has been kept.",
+        );
+        return null;
+      }
+    }
+
     const modelSelection = draft.modelSelection ?? thread.modelSelection;
     const serverConfig = selectedEnvironmentRuntime?.serverConfig;
     if (
@@ -484,6 +606,10 @@ export function useThreadComposerState() {
     selectedThreadDetail,
     selectedThreadShell,
     uploadThreadFeedback,
+    delegateAgent,
+    agentHandoff,
+    projects,
+    threadShells,
   ]);
 
   const onChangeDraftMessage = useCallback(

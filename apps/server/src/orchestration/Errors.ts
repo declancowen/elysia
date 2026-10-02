@@ -32,6 +32,16 @@ export const OrchestrationCommandRejection = Schema.Union([
   OrchestrationCommandInvariantError,
   OrchestrationThreadSettleBlockedError,
 ]);
+
+// Admission failed before any mutation, so the same command id can retry later.
+export class OrchestrationThreadBusyError extends Schema.TaggedError<OrchestrationThreadBusyError>()(
+  "OrchestrationThreadBusyError",
+  { threadId: ThreadId },
+) {
+  override get message(): string {
+    return "This agent is busy. Wait for their current task to finish, then try again.";
+  }
+}
 export type OrchestrationCommandRejection = typeof OrchestrationCommandRejection.Type;
 export const isOrchestrationCommandRejection = Schema.is(OrchestrationCommandRejection);
 
@@ -78,6 +88,7 @@ export class OrchestrationProjectorDecodeError extends Schema.TaggedError<Orches
 
 export type OrchestrationDispatchError =
   | ProjectionRepositoryError
+  | OrchestrationThreadBusyError
   | OrchestrationCommandRejection
   | OrchestrationCommandIdConflictError
   | OrchestrationCommandPreviouslyRejectedError

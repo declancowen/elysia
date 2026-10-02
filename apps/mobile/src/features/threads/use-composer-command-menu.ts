@@ -3,10 +3,12 @@ import type {
   ProjectId,
   ProviderInteractionMode,
   ServerProvider,
+  ThreadId,
 } from "@t3tools/contracts";
 import { COMPOSER_CONTEXT_MAX_RECORDS } from "@t3tools/contracts";
 import { Alert } from "react-native";
 import { formatComposerContextReference } from "@t3tools/shared/composerContextReferences";
+import { formatAgentMention } from "@t3tools/shared/agentMentions";
 import { pullRequestComposerContext } from "../../lib/composerContext";
 import { uuidv4 } from "../../lib/uuid";
 import {
@@ -42,6 +44,8 @@ import { useAtomCommand } from "../../state/use-atom-command";
 import { useComposerPathSearch, useComposerPullRequestSearch } from "../../state/queries";
 import type { ComposerCommandItem } from "./ComposerCommandPopover";
 import { matchesSlashSkillQuery } from "./composerSlashSkillSearch";
+import { useProjects, useThreadShells } from "../../state/entities";
+import { composerAgentMentionItems } from "./composerAgentMentions";
 
 const WORKSPACE_SNAPSHOT_RETRY_COOLDOWN_MS = 10_000;
 
@@ -146,6 +150,8 @@ export function resolveComposerCommandSelection(input: {
   let replacement = "";
   if (item.type === "path") {
     replacement = `${serializeComposerFileLink(item.path)} `;
+  } else if (item.type === "agent") {
+    replacement = `${formatAgentMention(item.projectId, item.label)} `;
   } else if (item.type === "skill") {
     replacement = `$${item.skill.name} `;
   } else if (item.type === "slash-command") {
@@ -169,6 +175,7 @@ export function useComposerCommandMenu({
   pullRequestRepository = null,
   selectedProviderStatus,
   hasThread,
+  sourceThreadId = null,
   hasCompactableConversation,
   offersUsageLimits = false,
   enabled = true,
@@ -184,6 +191,7 @@ export function useComposerCommandMenu({
   readonly pullRequestRepository?: string | null;
   readonly selectedProviderStatus: ServerProvider | null;
   readonly hasThread: boolean;
+  readonly sourceThreadId?: ThreadId | null;
   readonly hasCompactableConversation: boolean;
   /** Whether T3 itself offers /usage-limits for the selected provider. */
   readonly offersUsageLimits?: boolean;
@@ -193,6 +201,8 @@ export function useComposerCommandMenu({
   /** Picking /usage-limits is the action itself; the draft keeps nothing of it. */
   readonly onUsageLimits?: () => void;
 }) {
+  const projects = useProjects();
+  const threads = useThreadShells();
   const [selection, setSelection] = useState(() => composerSelectionAtEnd(draftMessage));
   const previousOwnerKeyRef = useRef(ownerKey);
   const onSelectionChange = useCallback((nextSelection: ComposerEditorSelection) => {
@@ -296,6 +306,22 @@ export function useComposerCommandMenu({
     }
     return detectComposerTrigger(draftMessage, selection.end);
   }, [draftMessage, enabled, selection]);
+  const skillMenuRefreshKeyRef = useRef<string | null>(null);
+  const triggerKind = trigger?.kind;
+  useEffect(() => {
+    if (triggerKind !== "skill") {
+      skillMenuRefreshKeyRef.current = null;
+      return;
+    }
+    if (!environmentId || !projectCwd || !selectedProviderInstanceId) return;
+    const key = `${environmentId}:${selectedProviderInstanceId}:${projectCwd}`;
+    if (skillMenuRefreshKeyRef.current === key) return;
+    skillMenuRefreshKeyRef.current = key;
+    void refreshProviders({
+      environmentId,
+      input: { instanceId: selectedProviderInstanceId, cwd: projectCwd, fresh: true },
+    });
+  }, [triggerKind, environmentId, projectCwd, refreshProviders, selectedProviderInstanceId]);
   const pathSearch = useComposerPathSearch({
     environmentId,
     cwd: trigger?.kind === "path" ? projectCwd : null,
@@ -447,17 +473,27 @@ export function useComposerCommandMenu({
     }
 
     if (trigger.kind === "path") {
-      return pathSearch.entries.map((entry) => {
-        const parts = entry.path.split("/");
-        return {
-          id: `path:${entry.path}`,
-          type: "path" as const,
-          path: entry.path,
-          kind: entry.kind,
-          label: parts[parts.length - 1] ?? entry.path,
-          description: parts.length > 1 ? parts.slice(0, -1).join("/") : "",
-        };
+      const agents = composerAgentMentionItems({
+        projects,
+        threads,
+        environmentId,
+        sourceThreadId: hasThread ? sourceThreadId : null,
+        query: trigger.query,
       });
+      return [
+        ...agents,
+        ...pathSearch.entries.map((entry) => {
+          const parts = entry.path.split("/");
+          return {
+            id: `path:${entry.path}`,
+            type: "path" as const,
+            path: entry.path,
+            kind: entry.kind,
+            label: parts[parts.length - 1] ?? entry.path,
+            description: parts.length > 1 ? parts.slice(0, -1).join("/") : "",
+          };
+        }),
+      ];
     }
 
     return [];
@@ -472,6 +508,10 @@ export function useComposerCommandMenu({
     skills,
     trigger,
     offersUsageLimits,
+    environmentId,
+    sourceThreadId,
+    projects,
+    threads,
   ]);
 
   const onSelect = useCallback(

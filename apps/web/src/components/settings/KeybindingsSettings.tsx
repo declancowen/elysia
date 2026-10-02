@@ -1,3 +1,5 @@
+import { useCodeWorkspace } from "~/hooks/useSettings";
+import { isSettingsCommandVisibleInWorkspace } from "./settingsWorkspace";
 import {
   ChevronDownIcon,
   CircleXIcon,
@@ -1325,6 +1327,7 @@ function BrowserKeybindingNotice() {
 }
 
 export function KeybindingsSettingsPanel() {
+  const codeWorkspace = useCodeWorkspace();
   // The representative environment supplies the displayed bindings; edits
   // fan out to every connected environment in the selection, so one
   // shortcut change reaches each machine the user runs Elysia on.
@@ -1351,7 +1354,13 @@ export function KeybindingsSettingsPanel() {
   const searchInputRef = useRef<HTMLInputElement>(null);
   const [savingCommand, setSavingCommand] = useState<KeybindingCommand | null>(null);
   const [isAddingBinding, setIsAddingBinding] = useState(false);
-  const rows = useMemo(() => buildKeybindingRows(keybindings, query), [keybindings, query]);
+  const rows = useMemo(
+    () =>
+      buildKeybindingRows(keybindings, query).filter((row) =>
+        isSettingsCommandVisibleInWorkspace(row.command, codeWorkspace),
+      ),
+    [keybindings, query, codeWorkspace],
+  );
   // The search-target context is provided by this panel's own page container,
   // so the jump target is read from the route hash here.
   const searchTargetId = useLocation({ select: (location) => location.hash.replace(/^#/, "") });
@@ -1362,7 +1371,13 @@ export function KeybindingsSettingsPanel() {
     setHandledSearchTargetId(searchTargetId);
     if (searchTargetId.startsWith("keybinding-")) setQuery("");
   }
-  const commandOptions = useMemo(() => buildKeybindingCommandOptions(keybindings), [keybindings]);
+  const commandOptions = useMemo(
+    () =>
+      buildKeybindingCommandOptions(keybindings).filter((option) =>
+        isSettingsCommandVisibleInWorkspace(option, codeWorkspace),
+      ),
+    [keybindings, codeWorkspace],
+  );
   const whenVariables = useMemo(() => buildWhenVariableOptions(), []);
 
   useEffect(() => {

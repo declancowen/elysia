@@ -13,6 +13,7 @@ import {
   DeleteProjectionTurnsByThreadInput,
   GetProjectionPendingTurnStartInput,
   GetProjectionTurnByTurnIdInput,
+  GetProjectionTurnByPendingMessageIdInput,
   ListProjectionTurnsByThreadInput,
   ProjectionPendingTurnStart,
   ProjectionTurn,
@@ -245,6 +246,30 @@ const makeProjectionTurnRepository = Effect.gen(function* () {
       `,
   });
 
+  const getProjectionTurnByPendingMessageId = SqlSchema.findOneOption({
+    Request: GetProjectionTurnByPendingMessageIdInput,
+    Result: ProjectionTurnDbRowSchema,
+    execute: ({ threadId, messageId }) => sql`
+      SELECT thread_id AS "threadId", turn_id AS "turnId", pending_message_id AS "pendingMessageId",
+        source_proposed_plan_thread_id AS "sourceProposedPlanThreadId", source_proposed_plan_id AS "sourceProposedPlanId",
+        assistant_message_id AS "assistantMessageId", state, requested_at AS "requestedAt", started_at AS "startedAt",
+        completed_at AS "completedAt", checkpoint_turn_count AS "checkpointTurnCount", checkpoint_ref AS "checkpointRef",
+        checkpoint_status AS "checkpointStatus", checkpoint_files_json AS "checkpointFiles"
+      FROM projection_turns WHERE thread_id = ${threadId} AND pending_message_id = ${messageId}
+      ORDER BY requested_at DESC LIMIT 1
+    `,
+  });
+
+  const getByPendingMessageId: ProjectionTurnRepositoryShape["getByPendingMessageId"] = (input) =>
+    getProjectionTurnByPendingMessageId(input).pipe(
+      Effect.mapError(
+        toPersistenceSqlOrDecodeError(
+          "ProjectionTurnRepository.getByPendingMessageId:query",
+          "ProjectionTurnRepository.getByPendingMessageId:decodeRow",
+        ),
+      ),
+    );
+
   const deleteProjectionTurnsByThread = SqlSchema.void({
     Request: DeleteProjectionTurnsByThreadInput,
     execute: ({ threadId }) =>
@@ -343,6 +368,7 @@ const makeProjectionTurnRepository = Effect.gen(function* () {
     deletePendingTurnStartByThreadId,
     listByThreadId,
     getByTurnId,
+    getByPendingMessageId,
     clearCheckpointTurnConflict,
     deleteByThreadId,
   } satisfies ProjectionTurnRepositoryShape;

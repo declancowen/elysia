@@ -30,7 +30,10 @@ import * as DesktopEnvironment from "../app/DesktopEnvironment.ts";
 import * as DesktopObservability from "../app/DesktopObservability.ts";
 import * as DesktopState from "../app/DesktopState.ts";
 import * as ElectronUpdater from "../electron/ElectronUpdater.ts";
-import { updaterFailureMessage } from "../electron/updaterFailureMessage.ts";
+import {
+  UPDATE_INSTALL_LOCATION_MESSAGE,
+  updaterFailureMessage,
+} from "../electron/updaterFailureMessage.ts";
 import * as ElectronWindow from "../electron/ElectronWindow.ts";
 import * as IpcChannels from "../ipc/channels.ts";
 import * as DesktopAppSettings from "../settings/DesktopAppSettings.ts";
@@ -629,6 +632,30 @@ export const make = Effect.gen(function* () {
         }
         if (admission === "refused") {
           return { accepted: false, completed: false, failed: false };
+        }
+
+        if (environment.platform === "darwin" && environment.isPackaged) {
+          // Squirrel replaces the running bundle. Check before stopping its
+          // backend, since a mounted DMG or translocated app cannot be replaced.
+          const canReplaceBundle = yield* fileSystem
+            .access(environment.path.resolve(environment.resourcesPath, "../.."), {
+              writable: true,
+            })
+            .pipe(
+              Effect.as(true),
+              Effect.orElseSucceed(() => false),
+              Effect.onInterrupt(() => finishUpdateAction("install")),
+            );
+          if (!canReplaceBundle) {
+            const message = `The app cannot install an update from its current location. ${UPDATE_INSTALL_LOCATION_MESSAGE}`;
+            return yield* Effect.gen(function* () {
+              yield* updateState((current) =>
+                reduceDesktopUpdateStateOnInstallFailure(current, message),
+              );
+              yield* logUpdaterWarning(message);
+              return { accepted: true, completed: false, failed: true };
+            }).pipe(Effect.ensuring(finishUpdateAction("install")));
+          }
         }
 
         yield* Ref.set(desktopState.quitting, true);

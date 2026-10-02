@@ -1,4 +1,4 @@
-import { Outlet, createFileRoute, redirect, useLocation } from "@tanstack/react-router";
+import { Navigate, Outlet, createFileRoute, redirect, useLocation } from "@tanstack/react-router";
 import { useState, type ReactNode } from "react";
 import { RotateCcwIcon } from "lucide-react";
 import { Button } from "../components/ui/button";
@@ -28,6 +28,12 @@ import {
   isSettingsSearchScopeAvailable,
 } from "../components/settings/settingsSearch";
 
+import { useCodeWorkspace } from "../hooks/useSettings";
+import {
+  isSettingsPathVisibleInWorkspace,
+  isSettingsTargetVisibleInWorkspace,
+} from "../components/settings/settingsWorkspace";
+
 function RestoreDeviceDefaultsButton({ onRestored }: { onRestored: () => void }) {
   const { changedSettingLabels, restoreDefaults } = useSettingsRestore(onRestored);
   return (
@@ -44,10 +50,17 @@ function RestoreDeviceDefaultsButton({ onRestored }: { onRestored: () => void })
 }
 
 function SettingsScopeBoundary({ pathname, children }: { pathname: string; children: ReactNode }) {
+  const codeWorkspace = useCodeWorkspace();
   const { scope, connectedEnvironments } = useSettingsScope();
   const { environments } = useEnvironments();
   const hash = useLocation({ select: (location) => location.hash });
   const searchTarget = getSettingsSearchTargetScope(hash);
+  if (!isSettingsPathVisibleInWorkspace(pathname, codeWorkspace)) {
+    return <Navigate to="/settings/general" hash="" replace />;
+  }
+  if (!isSettingsTargetVisibleInWorkspace(hash, codeWorkspace)) {
+    return <Navigate to={pathname} hash="" replace />;
+  }
   const autoSettlementAvailability = searchTarget?.requiresThreadAutoSettlement
     ? getThreadAutoSettlementSearchAvailability(environments, scope)
     : null;

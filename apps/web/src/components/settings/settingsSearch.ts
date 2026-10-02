@@ -491,9 +491,9 @@ export const SETTINGS_SEARCH_ITEMS = [
   },
   {
     id: "legacy-sidebar",
-    title: "Sidebar",
+    title: "Project view",
     to: "/settings/general",
-    searchTerms: ["project thread tree old flat list"],
+    searchTerms: ["project view thread view tree flat list"],
   },
   {
     id: "keybindings",

@@ -1,3 +1,5 @@
+import { threadHasProjectGitControls } from "../threads/threadGitVisibility";
+import { useEnvironmentServerConfig } from "../../state/entities";
 import { useEnvironmentQuery } from "../../state/query";
 import { useSelectedThreadGitActions } from "../../state/use-selected-thread-git-actions";
 import { useSelectedThreadGitState } from "../../state/use-selected-thread-git-state";
@@ -27,11 +29,15 @@ export function useReviewHeaderPresentation(props: {
   readonly selectedSection: ReviewSectionItem | null;
   readonly onRefresh: () => Promise<void>;
 }): ReviewHeaderPresentation {
-  const { selectedThread } = useThreadSelection();
+  const { selectedThread, selectedThreadProject } = useThreadSelection();
+  const serverConfig = useEnvironmentServerConfig(props.environmentId);
+  const showGitControls =
+    serverConfig !== null &&
+    threadHasProjectGitControls(selectedThreadProject, serverConfig.scratchWorkspaceRoot);
   const gitState = useSelectedThreadGitState();
   const gitActions = useSelectedThreadGitActions();
   const gitStatusQuery = useEnvironmentQuery(
-    selectedThread !== null && props.selectedThreadCwd !== null
+    showGitControls && selectedThread !== null && props.selectedThreadCwd !== null
       ? vcsEnvironment.status({
           environmentId: selectedThread.environmentId,
           input: { cwd: props.selectedThreadCwd },
@@ -41,8 +47,11 @@ export function useReviewHeaderPresentation(props: {
   // The selection-based git hooks only apply when this review belongs to the
   // selected thread (it always does when reached from the thread's toolbar).
   const gitMenuAvailable =
-    selectedThread !== null && String(selectedThread.id) === String(props.threadId);
+    showGitControls &&
+    selectedThread !== null &&
+    String(selectedThread.id) === String(props.threadId);
   const gitMenu = useThreadGitMenuDefinition({
+    showGitControls,
     environmentId: props.environmentId,
     threadId: props.threadId,
     currentBranch: selectedThread?.branch ?? null,

@@ -47,6 +47,9 @@ const encodeThreadLinkedPullRequest = Schema.encodeSync(
 const encodeMessageContext = Schema.encodeEffect(
   Schema.fromJsonString(OrchestrationMessageContext),
 );
+const encodeSourceMessageLink = Schema.encodeSync(
+  Schema.fromJsonString(Schema.Struct({ sourceMessageId: MessageId })),
+);
 
 it.effect("reads project shells without loading threads or resolving excluded projects", () => {
   const resolved: string[] = [];
@@ -3161,7 +3164,7 @@ projectionSnapshotLayer("ProjectionSnapshotQuery windowed thread detail", (it) =
     }),
   );
 
-  it.effect("a thread with no turns returns its content unwindowed on the first page", () =>
+  it.effect("a thread with no turns retains pre-turn content within its message page", () =>
     Effect.gen(function* () {
       const sql = yield* SqlClient.SqlClient;
       const snapshotQuery = yield* ProjectionSnapshotQuery;
@@ -3214,6 +3217,84 @@ projectionSnapshotLayer("ProjectionSnapshotQuery windowed thread detail", (it) =
         assert.equal(snapshot.value.page?.beforeCursor, null);
       }
     }),
+  );
+
+  it.effect(
+    "paginates handoff-only source history and acknowledgments without decoding older messages",
+    () =>
+      Effect.gen(function* () {
+        const sql = yield* SqlClient.SqlClient;
+        const snapshotQuery = yield* ProjectionSnapshotQuery;
+        yield* seedFanOutThread();
+        yield* sql`DELETE FROM projection_turns`;
+        yield* sql`DELETE FROM projection_thread_messages`;
+        yield* sql`DELETE FROM projection_thread_activities`;
+        const expectedIds: string[] = [];
+        for (let index = 0; index < 40; index++) {
+          const id = `handoff-${String(index).padStart(3, "0")}`;
+          // Several messages share each timestamp, including page boundaries.
+          const at = `2026-03-01T00:${String(Math.floor(index / 6)).padStart(2, "0")}:00.000Z`;
+          expectedIds.push(id);
+          yield* sql`
+          INSERT INTO projection_thread_messages (
+            message_id, thread_id, turn_id, role, text, context_json,
+            is_streaming, created_at, updated_at
+          )
+          VALUES (${id}, 'thread-w', NULL, 'user', 'Please investigate',
+            ${index === 0 ? "invalid-old-context" : null}, 0, ${at}, ${at})
+        `;
+          // Acknowledgments can arrive after their source message's time window.
+          yield* sql`
+          INSERT INTO projection_thread_activities (
+            activity_id, thread_id, turn_id, tone, kind, summary,
+            payload_json, sequence, created_at
+          )
+          VALUES (${`ack-${id}`}, 'thread-w', NULL, 'info', 'agent.delegated',
+            'Friday: I got it.', ${encodeSourceMessageLink({ sourceMessageId: asMessageId(id) })}, ${index + 1},
+            '2026-03-01T00:20:00.000Z')
+        `;
+        }
+        const recent = yield* snapshotQuery.getThreadDetailSnapshot(threadW, { turnLimit: 10 });
+        assert.equal(recent._tag, "Some");
+        if (recent._tag === "None") return;
+        assert.deepEqual(messageIds(recent.value), expectedIds.slice(-10));
+        assert.lengthOf(recent.value.thread.activities, 10);
+        assert.isTrue(recent.value.page?.hasMore);
+        // An unbounded read reaches the deliberately corrupt old payload.
+        yield* snapshotQuery.getThreadDetailById(threadW).pipe(Effect.flip);
+        yield* sql`UPDATE projection_thread_messages SET context_json = NULL WHERE message_id = 'handoff-000'`;
+        const seenMessages: string[] = [];
+        const seenActivities: string[] = [];
+        let page = recent.value;
+        for (let pageIndex = 0; pageIndex < 4; pageIndex++) {
+          seenMessages.push(...page.thread.messages.map((message) => message.id));
+          seenActivities.push(...page.thread.activities.map((activity) => activity.id));
+          assert.lengthOf(page.thread.messages, 10);
+          assert.deepEqual(
+            activityIds(page),
+            messageIds(page).map((id) => `ack-${id}`),
+          );
+          const cursor = page.page?.beforeCursor;
+          if (pageIndex === 3) {
+            assert.isFalse(page.page?.hasMore);
+            assert.isNull(cursor);
+            break;
+          }
+          assert.isString(cursor);
+          const next = yield* snapshotQuery.getThreadDetailSnapshot(threadW, {
+            turnLimit: 10,
+            beforeCursor: cursor!,
+          });
+          assert.equal(next._tag, "Some");
+          if (next._tag === "None") return;
+          page = next.value;
+        }
+        assert.deepEqual(seenMessages.toSorted(), expectedIds);
+        assert.deepEqual(
+          seenActivities.toSorted(),
+          expectedIds.map((id) => `ack-${id}`),
+        );
+      }),
   );
 });
 

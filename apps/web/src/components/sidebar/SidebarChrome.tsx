@@ -1,3 +1,4 @@
+import { SINGLE_PROVIDER_UI } from "@t3tools/contracts";
 import {
   ArrowLeftIcon,
   BriefcaseIcon,
@@ -224,7 +225,7 @@ export const SidebarUtilityMenu = memo(function SidebarUtilityMenu() {
       {!hideWorkspaceControls ? (
         <SidebarUtilityItem
           icon={projectSidebar ? <Columns2Icon /> : <PanelLeftIcon />}
-          label={projectSidebar ? "Switch to flat sidebar" : "Switch to project sidebar"}
+          label={projectSidebar ? "Switch to Thread view" : "Switch to Project view"}
           onClick={() => {
             void updateClientSettings({ legacySidebarEnabled: !projectSidebar });
           }}
@@ -239,7 +240,7 @@ export const SidebarChromeFooter = memo(function SidebarChromeFooter() {
   return (
     <SidebarFooter>
       <SidebarThreadUndoNotice />
-      <SidebarProviderUpdatePill />
+      {!SINGLE_PROVIDER_UI ? <SidebarProviderUpdatePill /> : null}
       <SidebarUpdateArchitectureWarning />
       <SidebarUtilityMenu />
     </SidebarFooter>

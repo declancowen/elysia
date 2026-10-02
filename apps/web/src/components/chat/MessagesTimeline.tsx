@@ -25,6 +25,9 @@ import {
   type WorktreeSetupSnapshot,
 } from "@t3tools/contracts";
 import { parseScopedThreadKey } from "@t3tools/client-runtime/environment";
+import { delegatedAgentsFromActivities } from "@t3tools/shared/agentMentions";
+import { DelegatedAgentStatus } from "../agents/DelegatedAgentStatus";
+import { useDelegatedAgents } from "../agents/useDelegatedAgents";
 import { replaceComposerContextReferences } from "@t3tools/shared/composerContextReferences";
 import type { CodexArtifactTemplate } from "@t3tools/client-runtime/codex-artifact-templates";
 import {
@@ -157,7 +160,7 @@ import { ProposedPlanCard } from "./ProposedPlanCard";
 import { ChangedFilesCard } from "./ChangedFilesTree";
 import { useAtomValue } from "@effect/atom-react";
 import { useFileContextMenuHandler } from "../../fileContextMenu";
-import { useProject, useThread } from "../../state/entities";
+import { useProject, useThread, useThreadDetail } from "../../state/entities";
 import { serverEnvironment } from "../../state/server";
 import {
   CHAT_TIMELINE_ANCHOR_OFFSET,
@@ -3262,6 +3265,8 @@ function LiveActivityContent({
 
 function LiveWorkEntryTimelineRow({ row }: { row: Extract<TimelineRow, { kind: "work-live" }> }) {
   const ctx = use(TimelineRowCtx);
+  if (row.entry.agentDelegation)
+    return <AgentDelegationRow delegation={row.entry.agentDelegation} />;
   if (row.entry.agentSpawn) {
     return (
       <AgentSpawnRow
@@ -4708,6 +4713,8 @@ const SimpleWorkEntryRow = memo(function SimpleWorkEntryRow(props: {
   onToggleEntry?: ((collapsed: boolean) => void) | undefined;
 }) {
   const { workEntry, workspaceRoot, isExpandedToolGroupEntry, displayLabel } = props;
+  if (workEntry.agentDelegation)
+    return <AgentDelegationRow delegation={workEntry.agentDelegation} />;
   // Before any hooks: spawn rows render their own component.
   if (workEntry.agentSpawn) {
     return (
@@ -4728,6 +4735,28 @@ const SimpleWorkEntryRow = memo(function SimpleWorkEntryRow(props: {
     />
   );
 });
+
+function AgentDelegationRow({
+  delegation,
+}: {
+  delegation: NonNullable<TimelineWorkEntry["agentDelegation"]>;
+}) {
+  const { threadRef } = use(TimelineRowCtx);
+  const source = useThreadDetail(threadRef);
+  const jobs = useMemo(
+    () =>
+      delegatedAgentsFromActivities(source?.activities ?? []).filter(
+        (job) => job.sourceMessageId === delegation.sourceMessageId,
+      ),
+    [source?.activities, delegation.sourceMessageId],
+  );
+  const agents = useDelegatedAgents(threadRef, jobs);
+  return (
+    <div className="py-1">
+      <DelegatedAgentStatus agents={agents} />
+    </div>
+  );
+}
 
 const PlainWorkEntryRow = memo(function PlainWorkEntryRow(props: {
   workEntry: TimelineWorkEntry;

@@ -141,8 +141,7 @@ export function FirstRunGate({
                         (provider) =>
                           provider.enabled &&
                           provider.driver === "claudeAgent" &&
-                          provider.auth.status === "authenticated" &&
-                          provider.status === "ready",
+                          provider.auth.status === "authenticated",
                       )
                     : null,
               }

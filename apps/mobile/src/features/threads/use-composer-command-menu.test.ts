@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vite-plus/test";
-import { ProviderDriverKind } from "@t3tools/contracts";
+import { ProjectId, ProviderDriverKind } from "@t3tools/contracts";
+import { mentionedAgentProjectIds } from "@t3tools/shared/agentMentions";
 vi.mock("react-native", () => ({ Alert: { alert: vi.fn() } }));
 
 vi.mock("../../state/queries", () => ({
@@ -17,6 +18,7 @@ vi.mock("../../state/server", () => ({
 vi.mock("../../state/use-atom-command", () => ({
   useAtomCommand: () => vi.fn(),
 }));
+vi.mock("../../state/entities", () => ({ useProjects: () => [], useThreadShells: () => [] }));
 
 import {
   buildComposerSlashCommandItems,
@@ -24,6 +26,26 @@ import {
 } from "./use-composer-command-menu";
 
 describe("mobile slash commands", () => {
+  it("inserts an atomic agent identity rather than routing by an editable display name", () => {
+    const id = ProjectId.make("11111111-1111-4111-8111-111111111111");
+    const result = resolveComposerCommandSelection({
+      draftMessage: "Ask @Res about this",
+      trigger: { rangeStart: 4, rangeEnd: 8 },
+      item: {
+        id: `agent:${id}`,
+        type: "agent",
+        projectId: id,
+        avatar: { preset: "brain", color: "blue" },
+        label: "Research",
+        description: "Assistant",
+      },
+      allowInteractionMode: true,
+    });
+    expect(mentionedAgentProjectIds(result.text)).toEqual([id]);
+    expect(result.text).toContain("[@Research](t3-context://v1/agent/");
+    expect(result.text).toMatch(/^Ask .* about this$/);
+    expect(result.interactionMode).toBeNull();
+  });
   const antigravity = {
     driver: ProviderDriverKind.make("antigravity"),
     showInteractionModeToggle: false,

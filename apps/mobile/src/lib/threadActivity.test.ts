@@ -291,6 +291,64 @@ function makeThread(
 }
 
 describe("buildThreadFeed", () => {
+  it("keeps delegated tasks visible and groups only targets from the same source message", () => {
+    const sourceMessageId = MessageId.make("source-message");
+    const delegate = (id: string, source: MessageId, name: string) =>
+      makeActivity({
+        id: EventId.make(id),
+        sequence: id === "ack1" ? 1 : id === "ack2" ? 3 : 4,
+        kind: "agent.delegated",
+        summary: `${name}: I got it.`,
+        createdAt: "2026-04-01T00:00:01.000Z",
+        payload: {
+          agentProjectId: ProjectId.make(name),
+          agentThreadId: ThreadId.make(`${name}-thread`),
+          agentName: name,
+          sourceMessageId: source,
+          targetMessageId: MessageId.make(`${id}-target`),
+          targetTurnId: null,
+        },
+      });
+    const feed = buildThreadFeed(
+      makeThread({
+        id: ThreadId.make("source"),
+        projectId: ProjectId.make("project"),
+        title: "Source",
+        activities: [
+          delegate("ack1", sourceMessageId, "Alfred"),
+          delegate("ack3", MessageId.make("other-message"), "Edna"),
+          makeActivity({
+            id: EventId.make("warning"),
+            sequence: 2,
+            kind: "runtime.warning",
+            summary: "Other activity",
+            createdAt: "2026-04-01T00:00:01.000Z",
+          }),
+          delegate("ack2", sourceMessageId, "Rocket"),
+        ],
+      }),
+    );
+    const presented = deriveThreadFeedPresentation(feed, null, new Set());
+    const groups = presented.flatMap((entry) =>
+      entry.type === "activity-group" &&
+      entry.activities.some((activity) => activity.workEntry.agentDelegation)
+        ? [entry]
+        : [],
+    );
+    expect(groups).toHaveLength(2);
+    expect(
+      groups[0]?.activities.map((activity) => activity.workEntry.agentDelegation?.agentName),
+    ).toEqual(["Alfred", "Rocket"]);
+    expect(
+      groups[1]?.activities.map((activity) => activity.workEntry.agentDelegation?.agentName),
+    ).toEqual(["Edna"]);
+    expect(
+      groups
+        .flatMap((entry) => entry.activities)
+        .every((activity) => activity.workEntry.sourceActivityKind === "agent.delegated"),
+    ).toBe(true);
+  });
+
   it("reuses unchanged feed and presentation rows during an assistant text update", () => {
     const completedTurnId = TurnId.make("completed-turn");
     const activeTurnId = TurnId.make("active-turn");

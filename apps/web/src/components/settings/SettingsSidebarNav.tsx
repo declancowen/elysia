@@ -49,6 +49,7 @@ import {
   type SettingsPath,
   type SettingsSearchItem,
 } from "./settingsSearch";
+import { isSettingsPathVisibleInWorkspace } from "./settingsWorkspace";
 import { useAvailableSettingsSearchItems } from "./useAvailableSettingsSearchItems";
 import { validateSettingsScopeSearch } from "./settingsScope";
 
@@ -105,10 +106,7 @@ export function SettingsSidebarNav({ pathname }: { pathname: string }) {
   const navItems = SETTINGS_NAV_ITEMS.filter(
     (item) =>
       item.to !== "/settings/connections" &&
-      (codeWorkspace ||
-        !["/settings/source-control", "/settings/integrations", "/settings/projects"].includes(
-          item.to,
-        )) &&
+      isSettingsPathVisibleInWorkspace(item.to, codeWorkspace) &&
       (item.to !== "/settings/projects" || isSettingsOverviewVisible(scopeSearch)),
   );
   const { isMobile, setOpenMobile, open, setOpen } = useSidebar();
@@ -116,20 +114,7 @@ export function SettingsSidebarNav({ pathname }: { pathname: string }) {
   const [query, setQuery] = useState("");
   const [activeResultIndex, setActiveResultIndex] = useState(0);
   const searchableItems = useAvailableSettingsSearchItems(scopeSearch);
-  const results = useMemo(
-    () =>
-      searchSettings(
-        query,
-        searchableItems.filter(
-          (item) =>
-            codeWorkspace ||
-            !["/settings/source-control", "/settings/integrations", "/settings/projects"].includes(
-              item.to,
-            ),
-        ),
-      ),
-    [query, searchableItems, codeWorkspace],
-  );
+  const results = useMemo(() => searchSettings(query, searchableItems), [query, searchableItems]);
   const isSearching = query.trim().length > 0;
   const hasResults = results.length > 0;
 

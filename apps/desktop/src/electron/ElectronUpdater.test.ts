@@ -165,6 +165,36 @@ describe("ElectronUpdater", () => {
     }).pipe(Effect.provide(ElectronUpdater.layer)),
   );
 
+  it.effect("keeps a safe recovery hint for native read-only installation failures", () =>
+    Effect.gen(function* () {
+      const updater = yield* ElectronUpdater.ElectronUpdater;
+      for (const [cause, hint] of [
+        [
+          new Error(
+            "Cannot update while running on a read-only volume. private-path https://user:secret@example.com/?token=secret",
+          ),
+          "Quit Elysia, move it to Applications",
+        ],
+        [
+          Object.assign(new Error("private path and response"), { code: "EROFS" }),
+          "read-only location (EROFS)",
+        ],
+      ] as const) {
+        autoUpdaterMock.quitAndInstall.mockImplementationOnce(() => {
+          throw cause;
+        });
+        const error = yield* updater
+          .quitAndInstall({ isSilent: true, isForceRunAfter: true })
+          .pipe(Effect.flip);
+        assert.include(error.message, hint);
+        assert.notInclude(error.message, "private");
+        assert.notInclude(error.message, "secret");
+        assert.notInclude(error.message, "https://");
+        assert.strictEqual(error.cause, cause);
+      }
+    }).pipe(Effect.provide(ElectronUpdater.layer)),
+  );
+
   it.effect("preserves quit-and-install flags and the execution-time channel", () =>
     Effect.gen(function* () {
       const cause = new Error("quit and install failed");

@@ -1,7 +1,7 @@
 import { assert, it } from "@effect/vitest";
 import * as Schema from "effect/Schema";
 
-import { AgentProfile } from "./orchestration.ts";
+import { AgentCreateInput, AgentProfile } from "./orchestration.ts";
 
 const decodeProfile = Schema.decodeUnknownSync(AgentProfile);
 
@@ -10,6 +10,23 @@ const profileWithColor = (color: string) => ({
   avatar: { preset: "robot", color },
   notificationsEnabled: true,
   archived: false,
+});
+
+it("accepts optional create-time browser access and keeps older agent requests valid", () => {
+  const decodeCreate = Schema.decodeUnknownSync(AgentCreateInput);
+  const input = {
+    name: "Alex",
+    agentProfile: profileWithColor("#28B4FF"),
+    defaultModelSelection: { instanceId: "elysia", model: "native-model" },
+  };
+  assert.isUndefined(decodeCreate(input).enableAgentBrowserAccess);
+  for (const enableAgentBrowserAccess of [true, false]) {
+    assert.strictEqual(
+      decodeCreate({ ...input, enableAgentBrowserAccess }).enableAgentBrowserAccess,
+      enableAgentBrowserAccess,
+    );
+  }
+  assert.throws(() => decodeCreate({ ...input, enableAgentBrowserAccess: "true" }));
 });
 
 it("accepts each approved agent avatar colour", () => {

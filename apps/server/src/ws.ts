@@ -110,6 +110,11 @@ import {
 } from "./orchestration/Normalizer.ts";
 import * as OrchestrationEngine from "./orchestration/Services/OrchestrationEngine.ts";
 import { createPersistentAgent } from "./orchestration/PersistentAgents.ts";
+import { delegateToPersistentAgent, getAgentDelegation } from "./orchestration/AgentDelegation.ts";
+import { OrchestrationCommandReceiptRepositoryLive } from "./persistence/Layers/OrchestrationCommandReceipts.ts";
+import { ProjectionTurnRepositoryLive } from "./persistence/Layers/ProjectionTurns.ts";
+import { ProjectionThreadMessageRepositoryLive } from "./persistence/Layers/ProjectionThreadMessages.ts";
+import { ProjectionThreadActivityRepositoryLive } from "./persistence/Layers/ProjectionThreadActivities.ts";
 import * as ProjectionSnapshotQuery from "./orchestration/Services/ProjectionSnapshotQuery.ts";
 import { ThreadDeletionReactor } from "./orchestration/Services/ThreadDeletionReactor.ts";
 import {
@@ -3298,6 +3303,36 @@ const makeWsRpcLayer = (
             {
               "rpc.aggregate": "orchestration",
             },
+          ),
+        [WS_METHODS.agentsDelegate]: (input) =>
+          observeRpcEffect(
+            WS_METHODS.agentsDelegate,
+            delegateToPersistentAgent(input, dispatchNormalizedCommand).pipe(
+              Effect.provide(
+                Layer.mergeAll(
+                  OrchestrationCommandReceiptRepositoryLive,
+                  ProjectionTurnRepositoryLive,
+                  ProjectionThreadMessageRepositoryLive,
+                ),
+              ),
+              Effect.provideService(SqlClient.SqlClient, sql),
+            ),
+            { "rpc.aggregate": "orchestration" },
+          ),
+        [WS_METHODS.agentsGetDelegation]: (input) =>
+          observeRpcEffect(
+            WS_METHODS.agentsGetDelegation,
+            getAgentDelegation(input).pipe(
+              Effect.provide(
+                Layer.mergeAll(
+                  ProjectionTurnRepositoryLive,
+                  ProjectionThreadMessageRepositoryLive,
+                  ProjectionThreadActivityRepositoryLive,
+                ),
+              ),
+              Effect.provideService(SqlClient.SqlClient, sql),
+            ),
+            { "rpc.aggregate": "orchestration" },
           ),
         [WS_METHODS.projectsEnsureScratch]: () =>
           observeRpcEffect(WS_METHODS.projectsEnsureScratch, ensureScratchProject, {

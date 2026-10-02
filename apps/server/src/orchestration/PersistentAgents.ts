@@ -17,6 +17,7 @@ import * as Path from "effect/Path";
 
 import { ServerConfig } from "../config.ts";
 import { ProviderRegistry } from "../provider/Services/ProviderRegistry.ts";
+import { ServerSettingsService } from "../serverSettings.ts";
 
 export type PersistentAgentCommand = Extract<
   ClientOrchestrationCommand,
@@ -87,6 +88,24 @@ export const createPersistentAgent = Effect.fn("createPersistentAgent")(function
       projectId,
       defaultModelSelection: input.defaultModelSelection,
     });
+    if (input.enableAgentBrowserAccess !== undefined) {
+      const settings = yield* ServerSettingsService;
+      yield* settings
+        .updateSettings({
+          projectSettingsOverrides: {
+            [projectId]: { enableAgentBrowserAccess: input.enableAgentBrowserAccess },
+          },
+        })
+        .pipe(
+          Effect.mapError(
+            (cause) =>
+              new OrchestrationDispatchCommandError({
+                message: "Could not save the agent's browser access setting.",
+                cause,
+              }),
+          ),
+        );
+    }
     yield* dispatch({
       type: "thread.create",
       commandId: CommandId.make(`agent-thread-${uuid}`),
@@ -103,12 +122,20 @@ export const createPersistentAgent = Effect.fn("createPersistentAgent")(function
     return { projectId, threadId };
   }).pipe(
     Effect.onError(() =>
-      dispatch({
-        type: "project.delete",
-        commandId: CommandId.make(`agent-create-cleanup-${uuid}`),
-        projectId,
-        force: true,
-      }).pipe(Effect.ignoreCause({ log: true })),
+      Effect.gen(function* () {
+        yield* dispatch({
+          type: "project.delete",
+          commandId: CommandId.make(`agent-create-cleanup-${uuid}`),
+          projectId,
+          force: true,
+        }).pipe(Effect.ignoreCause({ log: true }));
+        if (input.enableAgentBrowserAccess !== undefined) {
+          const settings = yield* ServerSettingsService;
+          yield* settings
+            .updateSettings({ projectSettingsOverrides: { [projectId]: null } })
+            .pipe(Effect.ignoreCause({ log: true }));
+        }
+      }),
     ),
   );
 });

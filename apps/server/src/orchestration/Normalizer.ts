@@ -23,6 +23,8 @@ import { ServerConfig } from "../config.ts";
 import { parseBase64DataUrl } from "../imageMime.ts";
 import * as WorkspacePaths from "../workspace/WorkspacePaths.ts";
 
+export const DELEGATION_SOURCE_CONTEXT_KIND = "elysia-agent-delegation-source";
+
 export const canonicalizeClientCommandTimestamps = (
   command: ClientOrchestrationCommand,
   receivedAt: IsoDateTime,
@@ -74,7 +76,13 @@ const removeClaimedAttachmentPaths = Effect.fn("Normalizer.removeClaimedAttachme
   },
 );
 
-export const normalizeDispatchCommand = (command: ClientOrchestrationCommand) =>
+export const normalizeDispatchCommand = (
+  command: ClientOrchestrationCommand,
+  options?: {
+    readonly allowClaimedAttachments?: boolean;
+    readonly preserveDelegationContext?: boolean;
+  },
+) =>
   Effect.gen(function* () {
     if (command.type === "project.create" && command.agentProfile !== undefined) {
       return yield* new OrchestrationDispatchCommandError({
@@ -176,6 +184,7 @@ export const normalizeDispatchCommand = (command: ClientOrchestrationCommand) =>
               attachmentsDir: serverConfig.attachmentsDir,
               threadId: canonicalCommand.threadId,
               attachmentId: attachment.id,
+              ...(options?.allowClaimedAttachments ? { allowClaimedAttachments: true } : {}),
             });
             if (!claim.ok) {
               return yield* new OrchestrationDispatchCommandError({
@@ -213,10 +222,9 @@ export const normalizeDispatchCommand = (command: ClientOrchestrationCommand) =>
               });
             }
 
-            // Keep the pending copy until the turn succeeds. A failed thread
-            // bootstrap can then retry with a fresh thread id. A copy, not a
-            // hard link: an agent editing the delivered file in place must not
-            // mutate the retry source.
+            // Keep the source copy until the turn succeeds. Failed bootstraps
+            // and server-owned handoffs can retry independently. A copy, not a
+            // hard link: editing the delivered file must not mutate its source.
             yield* fileSystem.copyFile(claim.currentPath, claim.finalPath).pipe(
               Effect.mapError(
                 (cause) =>
@@ -328,15 +336,21 @@ export const normalizeDispatchCommand = (command: ClientOrchestrationCommand) =>
         ? undefined
         : {
             ...context,
-            records: context.records.map((record) =>
-              (record.kind === "image" || record.kind === "file") && "attachmentId" in record
-                ? {
-                    ...record,
-                    attachmentId:
-                      finalAttachmentIdByClientId.get(record.attachmentId) ?? record.attachmentId,
-                  }
-                : record,
-            ),
+            records: context.records
+              .filter(
+                (record) =>
+                  options?.preserveDelegationContext ||
+                  record.kind !== DELEGATION_SOURCE_CONTEXT_KIND,
+              )
+              .map((record) =>
+                (record.kind === "image" || record.kind === "file") && "attachmentId" in record
+                  ? {
+                      ...record,
+                      attachmentId:
+                        finalAttachmentIdByClientId.get(record.attachmentId) ?? record.attachmentId,
+                    }
+                  : record,
+              ),
           };
     return {
       ...canonicalCommand,
@@ -350,7 +364,11 @@ export const normalizeDispatchCommand = (command: ClientOrchestrationCommand) =>
 
 export const cleanupFailedUploadedAttachments = Effect.fn(
   "Normalizer.cleanupFailedUploadedAttachments",
-)(function* (command: ClientOrchestrationCommand, normalizedCommand: OrchestrationCommand) {
+)(function* (
+  command: ClientOrchestrationCommand,
+  normalizedCommand: OrchestrationCommand,
+  options?: { readonly allowClaimedAttachments?: boolean },
+) {
   const originalAttachments =
     command.type === "thread.turn.start"
       ? command.message.attachments
@@ -371,8 +389,9 @@ export const cleanupFailedUploadedAttachments = Effect.fn(
     const original = originalAttachments[index];
     if (
       !original ||
-      "dataUrl" in original ||
-      parseThreadSegmentFromAttachmentId(original.id) !== PENDING_ATTACHMENT_THREAD_SEGMENT
+      (!options?.allowClaimedAttachments &&
+        ("dataUrl" in original ||
+          parseThreadSegmentFromAttachmentId(original.id) !== PENDING_ATTACHMENT_THREAD_SEGMENT))
     ) {
       continue;
     }

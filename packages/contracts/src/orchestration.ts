@@ -596,11 +596,30 @@ export const AgentCreateInput = Schema.Struct({
   name: TrimmedNonEmptyString,
   agentProfile: AgentProfile,
   defaultModelSelection: ModelSelection,
+  enableAgentBrowserAccess: Schema.optional(Schema.Boolean),
 });
 export type AgentCreateInput = typeof AgentCreateInput.Type;
 
 export const AgentCreateResult = Schema.Struct({ projectId: ProjectId, threadId: ThreadId });
 export type AgentCreateResult = typeof AgentCreateResult.Type;
+
+export const AgentDelegateInput = Schema.Struct({
+  commandId: CommandId,
+  sourceThreadId: ThreadId,
+  agentProjectId: ProjectId,
+  messageId: MessageId,
+  text: Schema.String.check(Schema.isMaxLength(64_000)),
+  attachments: Schema.optional(
+    Schema.Array(Schema.Union([UploadChatAttachment, ChatAttachment])).check(
+      Schema.isMaxLength(PROVIDER_SEND_TURN_MAX_ATTACHMENTS),
+    ),
+  ),
+  context: Schema.optional(OrchestrationMessageContext),
+});
+export type AgentDelegateInput = typeof AgentDelegateInput.Type;
+
+export const AgentDelegateResult = Schema.Struct({ projectId: ProjectId, threadId: ThreadId });
+export type AgentDelegateResult = typeof AgentDelegateResult.Type;
 
 export const OrchestrationProject = Schema.Struct({
   id: ProjectId,
@@ -734,6 +753,42 @@ export const OrchestrationThreadActivity = Schema.Struct({
   createdAt: IsoDateTime,
 });
 export type OrchestrationThreadActivity = typeof OrchestrationThreadActivity.Type;
+
+export const AgentDelegationActivityPayload = Schema.Struct({
+  agentProjectId: ProjectId,
+  agentThreadId: ThreadId,
+  agentName: Schema.String,
+  sourceMessageId: MessageId,
+  targetMessageId: MessageId,
+  targetTurnId: Schema.NullOr(TurnId),
+});
+export type AgentDelegationActivityPayload = typeof AgentDelegationActivityPayload.Type;
+
+export const AgentGetDelegationInput = Schema.Struct({
+  sourceThreadId: ThreadId,
+  activityId: EventId,
+});
+export type AgentGetDelegationInput = typeof AgentGetDelegationInput.Type;
+
+export const AgentGetDelegationResult = Schema.Struct({
+  agentProjectId: ProjectId,
+  agentThreadId: ThreadId,
+  agentName: Schema.String,
+  targetMessageId: MessageId,
+  targetTurnId: Schema.NullOr(TurnId),
+  status: Schema.Literals([
+    "queued",
+    "working",
+    "waiting",
+    "completed",
+    "interrupted",
+    "error",
+    "unavailable",
+  ]),
+  messages: Schema.Array(OrchestrationMessage).check(Schema.isMaxLength(32)),
+  truncated: Schema.Boolean,
+});
+export type AgentGetDelegationResult = typeof AgentGetDelegationResult.Type;
 
 const OrchestrationLatestTurnState = Schema.Literals([
   "running",
@@ -1388,6 +1443,8 @@ export const ThreadTurnStartCommand = Schema.Struct({
   type: Schema.Literal("thread.turn.start"),
   commandId: CommandId,
   threadId: ThreadId,
+  /** Server-only delegation admission; normal sends keep their existing queue semantics. */
+  requireIdle: Schema.optional(Schema.Boolean),
   message: Schema.Struct({
     messageId: MessageId,
     role: Schema.Literal("user"),

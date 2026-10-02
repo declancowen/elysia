@@ -29,6 +29,16 @@ describe("threadDetailCursor", () => {
     expect(decodeThreadDetailPageCursor(encodeThreadDetailPageCursor(cursor))).toEqual(cursor);
   });
 
+  it("round-trips a turnless message boundary without treating it as a native turn", () => {
+    const cursor = {
+      threadId: ThreadId.make("source-chat"),
+      beforeAnchorAt: "2026-10-02T09:00:00.000Z",
+      beforeTurnId: "",
+      beforeMessageId: "source-message-10",
+    };
+    expect(decodeThreadDetailPageCursor(encodeThreadDetailPageCursor(cursor))).toEqual(cursor);
+  });
+
   it("rejects malformed input", () => {
     expect(decodeThreadDetailPageCursor("not-base64-json")).toBeNull();
     expect(decodeThreadDetailPageCursor(Buffer.from("[]").toString("base64url"))).toBeNull();

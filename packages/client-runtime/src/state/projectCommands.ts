@@ -98,6 +98,21 @@ export function createProjectEnvironmentAtoms<R, E>(
       scheduler: projectScheduler,
       concurrency: { mode: "serial", key: ({ environmentId }) => environmentId },
     }),
+    delegateAgent: createEnvironmentRpcCommand(runtime, {
+      label: "environment-data:agents:delegate",
+      tag: WS_METHODS.agentsDelegate,
+      concurrency: {
+        mode: "singleFlight",
+        key: ({ environmentId, input }) =>
+          JSON.stringify([environmentId, input.commandId, input.agentProjectId]),
+      },
+    }),
+    getAgentDelegation: createEnvironmentRpcQueryAtomFamily(runtime, {
+      label: "environment-data:agents:get-delegation",
+      tag: WS_METHODS.agentsGetDelegation,
+      staleTimeMs: 15_000,
+      idleTtlMs: 30_000,
+    }),
     // Finds or creates the environment's Scratch project and returns its id.
     ensureScratch: createEnvironmentRpcCommand(runtime, {
       label: "environment-data:projects:ensure-scratch",

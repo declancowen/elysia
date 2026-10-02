@@ -804,6 +804,27 @@ export function findLocalComposerClipboardAttachment(
     .find((attachment) => attachment.id === id);
 }
 
+const inFlightAttachmentOwners = new Set<{ attachments: ReadonlyArray<DraftComposerAttachment> }>();
+
+/** A direct handoff keeps its submitted files/uploads owned while the user edits the draft. */
+export function retainComposerDraftAttachments(
+  attachments: ReadonlyArray<DraftComposerAttachment>,
+) {
+  const owner = { attachments };
+  inFlightAttachmentOwners.add(owner);
+  return {
+    update(next: ReadonlyArray<DraftComposerAttachment>) {
+      const previous = owner.attachments;
+      owner.attachments = next;
+      scheduleUnusedComposerAttachmentCleanup(previous);
+    },
+    release() {
+      if (inFlightAttachmentOwners.delete(owner))
+        scheduleUnusedComposerAttachmentCleanup(owner.attachments);
+    },
+  };
+}
+
 function isComposerAttachmentFileReferenced(fileUri: string): boolean {
   if (isComposerAttachmentFileRetained(fileUri)) {
     return true;
@@ -813,7 +834,12 @@ function isComposerAttachmentFileReferenced(fileUri: string): boolean {
   const queuedMessages = Object.values(
     appAtomRegistry.get(threadOutboxManager.queuedMessagesByThreadKeyAtom),
   ).flat();
-  return [...drafts, ...queuedMessages, ...signedOutAttachmentOwners()].some((owner) =>
+  return [
+    ...drafts,
+    ...queuedMessages,
+    ...signedOutAttachmentOwners(),
+    ...inFlightAttachmentOwners,
+  ].some((owner) =>
     owner.attachments.some(
       (attachment) =>
         attachment.fileUri !== undefined &&
@@ -830,7 +856,12 @@ function isComposerAttachmentUploadReferenced(
   const queuedMessages = Object.values(
     appAtomRegistry.get(threadOutboxManager.queuedMessagesByThreadKeyAtom),
   ).flat();
-  return [...drafts, ...queuedMessages, ...signedOutAttachmentOwners()].some((owner) =>
+  return [
+    ...drafts,
+    ...queuedMessages,
+    ...signedOutAttachmentOwners(),
+    ...inFlightAttachmentOwners,
+  ].some((owner) =>
     owner.attachments.some(
       (attachment) =>
         attachment.uploadEnvironmentId === environmentId &&

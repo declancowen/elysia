@@ -294,6 +294,9 @@ export const ThreadListV2PendingRow = memo(function ThreadListV2PendingRow(props
         {props.project ? (
           <ProjectFavicon
             environmentId={pendingTask.environmentId}
+            tintColorClassName={
+              sidebarPane ? "accent-drawer-foreground-muted" : "accent-foreground-muted"
+            }
             faviconPath={props.project.faviconPath}
             projectIcon={props.project.projectIcon}
             size={15}
@@ -894,6 +897,11 @@ export const ThreadListV2Row = memo(function ThreadListV2Row(props: {
         {props.project ? (
           <ProjectFavicon
             environmentId={thread.environmentId}
+            tintColorClassName={
+              selected
+                ? selectedThreadRowColors.mutedIconTintClassName
+                : rowAppearance.mutedIconTintClassName
+            }
             faviconPath={props.project.faviconPath}
             projectIcon={props.project.projectIcon}
             size={15}
@@ -1116,7 +1124,7 @@ export const ThreadListV2Row = memo(function ThreadListV2Row(props: {
         }}
         style={rowAppearance.style}
       >
-        {/* Settled history recedes: dimmed favicon + muted title. */}
+        {/* Settled history uses the same muted foreground for its icon and title. */}
         <View
           className={cn(
             "min-h-[44px] flex-row items-center gap-2.5 py-2",
@@ -1124,16 +1132,19 @@ export const ThreadListV2Row = memo(function ThreadListV2Row(props: {
           )}
         >
           {props.project ? (
-            <View className="opacity-40">
-              <ProjectFavicon
-                environmentId={thread.environmentId}
-                faviconPath={props.project.faviconPath}
-                projectIcon={props.project.projectIcon}
-                size={15}
-                projectTitle={props.project.title}
-                workspaceRoot={props.project.workspaceRoot}
-              />
-            </View>
+            <ProjectFavicon
+              environmentId={thread.environmentId}
+              tintColorClassName={
+                selected
+                  ? selectedThreadRowColors.iconTintClassName
+                  : rowAppearance.mutedIconTintClassName
+              }
+              faviconPath={props.project.faviconPath}
+              projectIcon={props.project.projectIcon}
+              size={15}
+              projectTitle={props.project.title}
+              workspaceRoot={props.project.workspaceRoot}
+            />
           ) : null}
           <View className="min-w-0 flex-1">
             <Text

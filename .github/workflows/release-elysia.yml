@@ -132,12 +132,14 @@ jobs:
         run: |
           vp test run --config vite.config.ts \
             apps/server/src/provider/ElysiaCli.test.ts \
+            apps/server/src/provider/Drivers/ElysiaDriver.test.ts \
             apps/server/src/provider/ElysiaPolicy.test.ts \
             apps/server/src/elysiaConnections.test.ts \
             apps/server/src/provider/ProviderCredentialStore.test.ts \
             apps/server/src/provider/ProviderAuthFlow.test.ts \
             apps/server/src/provider/ElysiaStats.test.ts \
             apps/server/src/auth/RpcAuthorization.test.ts \
+            apps/server/src/mcp/toolkits/repository/handlers.test.ts \
             apps/server/src/provider/Drivers/ClaudeSkillDispatch.test.ts
 
       - name: Test Elysia client and onboarding
@@ -147,6 +149,8 @@ jobs:
             apps/web/src/themePalette.test.ts \
             apps/web/src/themeBoot.test.ts \
             apps/web/src/components/Sidebar.logic.test.ts \
+            apps/web/src/components/ProjectFavicon.test.tsx \
+            packages/shared/src/projectIcon.test.ts \
             apps/web/src/rightPanelStore.test.ts \
             apps/web/src/components/chat/ThreadOverviewPanel.test.tsx \
             apps/web/src/components/chat/PanelLayoutControls.test.tsx \
@@ -160,6 +164,7 @@ jobs:
             apps/web/src/components/settings/ProviderSettingsPanel.logic.test.ts \
             apps/web/src/components/settings/ProviderSettingsPanel.environment.test.tsx \
             apps/web/src/components/settings/ElysiaSetupSection.test.tsx \
+            apps/web/src/components/settings/settingsWorkspace.test.ts \
             apps/web/src/state/desktopUpdate.test.ts \
             apps/web/src/components/desktopUpdate.logic.test.ts \
             apps/web/src/components/sidebar/SidebarUpdatePill.test.tsx
@@ -183,8 +188,13 @@ jobs:
         run: |
           vp test run --config vite.config.ts \
             packages/contracts/src/agentProfile.test.ts \
+            packages/contracts/src/agentDelegation.test.ts \
             packages/shared/src/agentAvatar.test.ts \
+            packages/shared/src/agentMentions.test.ts \
             apps/server/src/orchestration/PersistentAgents.test.ts \
+            apps/server/src/orchestration/AgentDelegation.test.ts \
+            apps/server/src/orchestration/Layers/ProjectionSnapshotQuery.test.ts \
+            apps/server/src/orchestration/threadDetailCursor.test.ts \
             apps/server/src/provider/ElysiaAgentProtection.test.ts \
             apps/server/src/provider/RuntimeInstructions.test.ts \
             apps/server/src/provider/Layers/ProviderService.test.ts \
@@ -195,11 +205,15 @@ jobs:
             apps/web/src/components/agents/agentDialogStore.test.ts \
             apps/web/src/components/agents/AgentEditorPage.test.tsx \
             apps/web/src/components/agents/AgentControls.test.tsx \
+            apps/web/src/components/agents/useDelegatedAgents.test.tsx \
             apps/web/src/components/agents/AgentAvatarPicker.test.tsx \
             apps/web/src/components/settings/ArchivedAgentsSection.test.tsx \
             apps/web/src/components/chat/ComposerPrimaryActions.agent.test.tsx \
             apps/web/src/components/ThreadNotificationCoordinator.test.tsx \
             apps/web/src/components/ThreadNotificationCoordinator.badge.test.tsx
+          vp test run --config vite.config.ts \
+            apps/web/src/components/ChatView.logic.test.ts \
+            --testNamePattern 'preserves a newer handoff draft'
 
       - uses: ./.github/actions/setup-apt-mirrors
 

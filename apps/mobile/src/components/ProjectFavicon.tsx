@@ -1,4 +1,4 @@
-import { SymbolView } from "./AppSymbol";
+import { SymbolView, type AppSymbolName } from "./AppSymbol";
 import { AppText } from "./AppText";
 import { Image } from "expo-image";
 import { useLayoutEffect, useMemo, useState } from "react";
@@ -9,6 +9,10 @@ import {
   getProjectFaviconResourceKey,
   isProjectFaviconFallbackUrl,
 } from "@t3tools/shared/projectFavicon";
+import {
+  resolveAutomaticProjectIcon,
+  type AutomaticProjectIconName,
+} from "@t3tools/shared/projectIcon";
 import { useAtomValue } from "@effect/atom-react";
 import { Atom } from "effect/unstable/reactivity";
 import { projectFaviconUrlAtom } from "../state/assets";
@@ -28,6 +32,20 @@ import {
 } from "../lib/projectFaviconRequests";
 
 const EMPTY_FAVICON_URL = Atom.make<string | null>(null);
+const AUTOMATIC_PROJECT_SYMBOLS: Record<AutomaticProjectIconName, AppSymbolName> = {
+  "chef-hat": "fork.knife",
+  download: "arrow.down.to.line",
+  "book-open": "book",
+  database: "internaldrive",
+  globe: "globe",
+  image: "photo",
+  music: "music.note",
+  bot: "cpu",
+  smartphone: "iphone",
+  server: "server.rack",
+  "code-2": "chevron.left.forwardslash.chevron.right",
+  folder: "folder",
+};
 
 /* ─── Component ──────────────────────────────────────────────────────── */
 export function ProjectFavicon(props: {
@@ -38,6 +56,7 @@ export function ProjectFavicon(props: {
   readonly workspaceRoot?: string | null;
   readonly faviconPath?: string | null;
   readonly projectIcon?: ProjectIconOverride | null;
+  readonly tintColorClassName?: string;
 }) {
   const size = props.size ?? 42;
   const glyph = resolveProjectIconGlyph(props.projectIcon, props.projectTitle);
@@ -72,6 +91,7 @@ export function ProjectFavicon(props: {
       open={props.open}
       projectTitle={props.projectTitle}
       size={size}
+      tintColorClassName={props.tintColorClassName ?? "accent-foreground"}
     />
   );
 }
@@ -132,7 +152,9 @@ function ProjectFaviconImage(props: {
   readonly open?: boolean;
   readonly projectTitle: string;
   readonly size: number;
+  readonly tintColorClassName: string;
 }) {
+  const iconName = resolveAutomaticProjectIcon(props.projectTitle).name;
   const faviconRequest = useMemo(
     () => createProjectFaviconRequest(props.cacheKey, props.faviconUrl),
     [props.cacheKey, props.faviconUrl],
@@ -164,12 +186,15 @@ function ProjectFaviconImage(props: {
         justifyContent: "center",
       }}
     >
-      {/* Folder icon fallback (matches web's FolderIcon) */}
       {!showImage ? (
         <SymbolView
-          name={{ ios: "folder.fill", android: props.open ? "folder_open" : "folder" }}
+          name={
+            iconName === "folder" && props.open
+              ? { ios: "folder", android: "folder_open" }
+              : AUTOMATIC_PROJECT_SYMBOLS[iconName]
+          }
           size={props.size}
-          tintColorClassName={"accent-icon-subtle"}
+          tintColorClassName={props.tintColorClassName}
           type="monochrome"
         />
       ) : null}

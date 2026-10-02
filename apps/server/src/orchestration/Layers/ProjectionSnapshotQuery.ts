@@ -242,6 +242,12 @@ const ProjectionTurnWindowRowSchema = Schema.Struct({
   anchorAt: Schema.String,
   turnKey: Schema.String,
 });
+const ThreadMessageWindowLookupInput = Schema.Struct({
+  threadId: ThreadId,
+  beforeAnchorAt: Schema.String,
+  beforeMessageId: Schema.String,
+  limit: Schema.Number,
+});
 const ThreadTurnRangeLookupInput = Schema.Struct({
   threadId: ThreadId,
   // Turn-linked rows are bounded by the keyset range [min, before) over
@@ -252,6 +258,7 @@ const ThreadTurnRangeLookupInput = Schema.Struct({
   minTurnKey: Schema.String,
   beforeAnchorAt: Schema.String,
   beforeTurnKey: Schema.String,
+  messageWindow: Schema.optional(Schema.Boolean),
 });
 const ProjectionProjectLookupRowSchema = ProjectionProjectDbRowSchema;
 const ProjectionThreadIdLookupRowSchema = Schema.Struct({
@@ -1812,6 +1819,60 @@ const makeProjectionSnapshotQuery = Effect.gen(function* () {
       `,
   });
 
+  // Handoff-only chats have no native turn anchors. Page their messages using
+  // the existing message ordering index before decoding any message payload.
+  const listMessageWindowRows = SqlSchema.findAll({
+    Request: ThreadMessageWindowLookupInput,
+    Result: ProjectionTurnWindowRowSchema,
+    execute: ({ threadId, beforeAnchorAt, beforeMessageId, limit }) => sql`
+      SELECT created_at AS "anchorAt", message_id AS "turnKey"
+      FROM (
+        SELECT created_at, message_id FROM projection_thread_messages
+        WHERE thread_id = ${threadId}
+          AND (
+            created_at < ${beforeAnchorAt}
+            OR (created_at = ${beforeAnchorAt} AND message_id < ${beforeMessageId})
+          )
+        ORDER BY created_at DESC, message_id DESC
+        LIMIT ${limit}
+      )
+      ORDER BY created_at ASC, message_id ASC
+    `,
+  });
+
+  const messageWindowPredicate = ({
+    minAnchorAt,
+    minTurnKey,
+    beforeAnchorAt,
+    beforeTurnKey,
+  }: Schema.Codec.Encoded<typeof ThreadTurnRangeLookupInput>) => sql`
+    (
+      created_at > ${minAnchorAt}
+      OR (created_at = ${minAnchorAt} AND message_id >= ${minTurnKey})
+    )
+    AND (
+      created_at < ${beforeAnchorAt}
+      OR (created_at = ${beforeAnchorAt} AND message_id < ${beforeTurnKey})
+    )
+  `;
+
+  const messageWindowActivityPredicate = (
+    range: Schema.Codec.Encoded<typeof ThreadTurnRangeLookupInput>,
+  ) => sql`
+    (
+      kind = 'agent.delegated'
+      AND json_extract(payload_json, '$.sourceMessageId') IN (
+        SELECT message_id FROM projection_thread_messages
+        WHERE thread_id = ${range.threadId} AND ${messageWindowPredicate(range)}
+      )
+    )
+    OR (
+      kind != 'agent.delegated'
+      AND created_at >= ${range.minAnchorAt}
+      AND created_at < ${range.beforeAnchorAt}
+    )
+  `;
+
   // Windowed variants of the two heavy collections. Turn-linked rows are
   // bounded by the page's (anchor, turn key) keyset range over
   // projection_turns; rows with no turn linkage (user messages always, and
@@ -1822,8 +1883,19 @@ const makeProjectionSnapshotQuery = Effect.gen(function* () {
   const listThreadMessageRowsByThreadWindow = SqlSchema.findAll({
     Request: ThreadTurnRangeLookupInput,
     Result: ProjectionThreadMessageDbRowSchema,
-    execute: ({ threadId, minAnchorAt, minTurnKey, beforeAnchorAt, beforeTurnKey }) =>
-      sql`
+    execute: (range) => {
+      const { threadId, minAnchorAt, minTurnKey, beforeAnchorAt, beforeTurnKey } = range;
+      if (range.messageWindow)
+        return sql`
+        SELECT
+          message_id AS "messageId", thread_id AS "threadId", turn_id AS "turnId",
+          role, text, attachments_json AS "attachments", context_json AS "context",
+          is_streaming AS "isStreaming", created_at AS "createdAt", updated_at AS "updatedAt"
+        FROM projection_thread_messages
+        WHERE thread_id = ${threadId} AND ${messageWindowPredicate(range)}
+        ORDER BY created_at ASC, message_id ASC
+      `;
+      return sql`
         SELECT
           message_id AS "messageId",
           thread_id AS "threadId",
@@ -1864,7 +1936,8 @@ const makeProjectionSnapshotQuery = Effect.gen(function* () {
             )
           )
         ORDER BY created_at ASC, message_id ASC
-      `,
+      `;
+    },
   });
 
   const pinnedThreadActivityIdsCte = (threadId: string) => sql`
@@ -1974,8 +2047,22 @@ pending_approval_requests AS (
   const listThreadActivityRowsByThreadWindow = SqlSchema.findAll({
     Request: ThreadTurnRangeLookupInput,
     Result: ProjectionThreadActivityDbRowSchema,
-    execute: ({ threadId, minAnchorAt, minTurnKey, beforeAnchorAt, beforeTurnKey }) =>
-      sql`
+    execute: (range) => {
+      const { threadId, minAnchorAt, minTurnKey, beforeAnchorAt, beforeTurnKey } = range;
+      if (range.messageWindow)
+        return sql`
+        SELECT
+          activity_id AS "activityId", thread_id AS "threadId", turn_id AS "turnId",
+          tone, kind, summary, payload_json AS "payload", sequence, created_at AS "createdAt"
+        FROM (
+          SELECT * FROM projection_thread_activities
+          WHERE thread_id = ${threadId} AND (${messageWindowActivityPredicate(range)})
+          ORDER BY sequence DESC, created_at DESC, activity_id DESC
+          LIMIT ${THREAD_DETAIL_ACTIVITY_LIMIT}
+        )
+        ORDER BY sequence ASC, created_at ASC, activity_id ASC
+      `;
+      return sql`
         SELECT
           activity_id AS "activityId",
           thread_id AS "threadId",
@@ -2035,14 +2122,24 @@ pending_approval_requests AS (
           sequence ASC,
           created_at ASC,
           activity_id ASC
-      `,
+      `;
+    },
   });
 
   const listThreadActivityIdsByThreadWindow = SqlSchema.findAll({
     Request: ThreadTurnRangeLookupInput,
     Result: ProjectionThreadActivityIdRowSchema,
-    execute: ({ threadId, minAnchorAt, minTurnKey, beforeAnchorAt, beforeTurnKey }) =>
-      sql`
+    execute: (range) => {
+      const { threadId, minAnchorAt, minTurnKey, beforeAnchorAt, beforeTurnKey } = range;
+      if (range.messageWindow)
+        return sql`
+        SELECT activity_id AS "activityId"
+        FROM projection_thread_activities
+        WHERE thread_id = ${threadId} AND (${messageWindowActivityPredicate(range)})
+        ORDER BY sequence DESC, created_at DESC, activity_id DESC
+        LIMIT ${THREAD_DETAIL_ACTIVITY_LIMIT}
+      `;
+      return sql`
         SELECT activity_id AS "activityId"
         FROM projection_thread_activities
         WHERE thread_id = ${threadId}
@@ -2077,7 +2174,8 @@ pending_approval_requests AS (
           created_at DESC,
           activity_id DESC
         LIMIT ${THREAD_DETAIL_ACTIVITY_LIMIT}
-      `,
+      `;
+    },
   });
 
   const getFullThreadDiffContextRow = SqlSchema.findOneOption({
@@ -3417,6 +3515,7 @@ pending_approval_requests AS (
     readonly minTurnKey: string;
     readonly beforeAnchorAt: string;
     readonly beforeTurnKey: string;
+    readonly messageWindow?: boolean;
   }
 
   type ThreadDetailActivityRead =
@@ -3745,7 +3844,7 @@ pending_approval_requests AS (
               : decodeThreadDetailPageCursor(window.beforeCursor);
           const cursor = decodedCursor?.threadId === threadId ? decodedCursor : null;
 
-          const windowRows = yield* listTurnWindowRows({
+          const turnWindowRows = yield* listTurnWindowRows({
             threadId,
             beforeAnchorAt: cursor?.beforeAnchorAt ?? ANCHOR_UNBOUNDED,
             beforeTurnKey: cursor?.beforeTurnId ?? "",
@@ -3760,16 +3859,44 @@ pending_approval_requests AS (
             ),
           );
 
+          const messageWindow =
+            cursor?.beforeMessageId !== undefined ||
+            (cursor === null && turnWindowRows.length === 0);
+          const windowRows = messageWindow
+            ? yield* listMessageWindowRows({
+                threadId,
+                beforeAnchorAt: cursor?.beforeAnchorAt ?? ANCHOR_UNBOUNDED,
+                beforeMessageId: cursor?.beforeMessageId ?? "",
+                limit: window.turnLimit,
+              }).pipe(
+                Effect.mapError(
+                  toPersistenceSqlOrDecodeError(
+                    "ProjectionSnapshotQuery.getThreadDetailSnapshot:listMessageWindow:query",
+                    "ProjectionSnapshotQuery.getThreadDetailSnapshot:listMessageWindow:decodeRows",
+                  ),
+                ),
+              )
+            : turnWindowRows;
+
           const oldest = windowRows[0];
           const hasMore =
             oldest !== undefined &&
-            (yield* listTurnWindowRows({
-              threadId,
-              beforeAnchorAt: oldest.anchorAt,
-              beforeTurnKey: oldest.turnKey,
-              userTurnLimit: 1,
-              maxRawTurns: 1,
-            }).pipe(
+            (yield* (
+              messageWindow
+                ? listMessageWindowRows({
+                    threadId,
+                    beforeAnchorAt: oldest.anchorAt,
+                    beforeMessageId: oldest.turnKey,
+                    limit: 1,
+                  })
+                : listTurnWindowRows({
+                    threadId,
+                    beforeAnchorAt: oldest.anchorAt,
+                    beforeTurnKey: oldest.turnKey,
+                    userTurnLimit: 1,
+                    maxRawTurns: 1,
+                  })
+            ).pipe(
               Effect.mapError(
                 toPersistenceSqlOrDecodeError(
                   "ProjectionSnapshotQuery.getThreadDetailSnapshot:probeOlder:query",
@@ -3777,26 +3904,27 @@ pending_approval_requests AS (
                 ),
               ),
             )).length > 0;
-          // An empty window (no turns before the cursor, or a thread with no
-          // turns at all) still returns thread metadata with empty collections
-          // for turn-linked rows; turnless rows are bounded to the same empty
-          // range. The first page of a turnless thread stays unwindowed so
-          // pre-turn content (e.g. a just-created thread) is not hidden. Once
-          // paging reaches the oldest turn, include turnless messages before
-          // the first turn, such as history imported from a provider session.
-          const bounds: ThreadDetailBounds | undefined =
-            oldest === undefined && cursor === null
-              ? undefined
-              : {
-                  minAnchorAt: hasMore ? (oldest?.anchorAt ?? "") : "",
-                  minTurnKey: hasMore ? (oldest?.turnKey ?? "") : "",
-                  beforeAnchorAt: cursor?.beforeAnchorAt ?? ANCHOR_UNBOUNDED,
-                  beforeTurnKey: cursor?.beforeTurnId ?? "",
-                };
+          // A turnless chat still has bounded message pages. Native turn pages
+          // retain imported history before the first turn on their oldest page.
+          const bounds: ThreadDetailBounds = {
+            minAnchorAt: hasMore ? (oldest?.anchorAt ?? "") : "",
+            minTurnKey: hasMore ? (oldest?.turnKey ?? "") : "",
+            beforeAnchorAt: cursor?.beforeAnchorAt ?? ANCHOR_UNBOUNDED,
+            beforeTurnKey: messageWindow
+              ? (cursor?.beforeMessageId ?? "")
+              : (cursor?.beforeTurnId ?? ""),
+            ...(messageWindow ? { messageWindow: true } : {}),
+          };
           // Empty window behind a cursor: nothing older remains.
           const emptyBounds =
             oldest === undefined && cursor !== null
-              ? { minAnchorAt: "", minTurnKey: "", beforeAnchorAt: "", beforeTurnKey: "" }
+              ? {
+                  minAnchorAt: "",
+                  minTurnKey: "",
+                  beforeAnchorAt: "",
+                  beforeTurnKey: "",
+                  ...(messageWindow ? { messageWindow: true } : {}),
+                }
               : undefined;
 
           const thread = yield* getThreadDetailByIdBounded(threadId, emptyBounds ?? bounds, {
@@ -3831,7 +3959,8 @@ pending_approval_requests AS (
                   ? encodeThreadDetailPageCursor({
                       threadId,
                       beforeAnchorAt: oldest.anchorAt,
-                      beforeTurnId: oldest.turnKey,
+                      beforeTurnId: messageWindow ? "" : oldest.turnKey,
+                      ...(messageWindow ? { beforeMessageId: oldest.turnKey } : {}),
                     })
                   : null,
               hasMore,

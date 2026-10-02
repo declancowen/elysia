@@ -50,6 +50,8 @@ import {
   wouldTextPasteExceedLimit,
 } from "@t3tools/client-runtime/text-paste";
 import { serializeComposerFileLink } from "@t3tools/shared/composerTrigger";
+import { formatAgentMention } from "@t3tools/shared/agentMentions";
+import { useAgents } from "../agents/useAgents";
 import { folderDropTarget, resolveDroppedFolderPath } from "./folderDrop";
 import { createModelSelection, normalizeModelSlug } from "@t3tools/shared/model";
 import { USAGE_LIMITS_COMMAND } from "@t3tools/shared/usageLimits";
@@ -1493,6 +1495,7 @@ export interface ChatComposerProps {
 // --------------------------------------------------------------------------
 
 export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps) {
+  const agents = useAgents();
   const {
     composerDraftTarget,
     environmentId,
@@ -2264,6 +2267,21 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
   // Derived: composer trigger / menu
   // ------------------------------------------------------------------
   const composerTriggerKind = composerTrigger?.kind ?? null;
+  const skillMenuRefreshKeyRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (composerTriggerKind !== "skill") {
+      skillMenuRefreshKeyRef.current = null;
+      return;
+    }
+    if (!gitCwd || !selectedProviderEntry) return;
+    const key = `${environmentId}:${selectedProviderEntry.instanceId}:${gitCwd}`;
+    if (skillMenuRefreshKeyRef.current === key) return;
+    skillMenuRefreshKeyRef.current = key;
+    void refreshProviders({
+      environmentId,
+      input: { instanceId: selectedProviderEntry.instanceId, cwd: gitCwd, fresh: true },
+    });
+  }, [composerTriggerKind, environmentId, gitCwd, refreshProviders, selectedProviderEntry]);
   const pathTriggerQuery = composerTrigger?.kind === "path" ? composerTrigger.query : "";
   const pullRequestTriggerQuery =
     composerTrigger?.kind === "pull-request" ? composerTrigger.query : "";
@@ -2358,14 +2376,39 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
   const composerMenuItems = useMemo<ComposerCommandItem[]>(() => {
     if (!composerTrigger) return [];
     if (composerTrigger.kind === "path") {
-      return workspaceEntries.entries.map((entry) => ({
-        id: `path:${entry.kind}:${entry.path}`,
-        type: "path",
-        path: entry.path,
-        pathKind: entry.kind,
-        label: basenameOfPath(entry.path),
-        description: entry.path.slice(0, Math.max(0, entry.path.lastIndexOf("/"))),
-      }));
+      const query = composerTrigger.query.trim().toLowerCase();
+      const agentItems = props.isServerThread
+        ? agents
+            .filter(
+              ({ project, thread }) =>
+                project.environmentId === environmentId &&
+                !project.agentProfile?.archived &&
+                thread &&
+                thread.id !== activeThreadId &&
+                project.title.toLowerCase().includes(query),
+            )
+            .map(({ project, busy }) => ({
+              id: `agent:${project.id}`,
+              type: "agent" as const,
+              projectId: project.id,
+              avatar: project.agentProfile!.avatar,
+              label: `@${project.title}`,
+              description: busy
+                ? "Working — try again when finished"
+                : "Delegate a task to this agent",
+            }))
+        : [];
+      return [
+        ...agentItems,
+        ...workspaceEntries.entries.map((entry) => ({
+          id: `path:${entry.kind}:${entry.path}`,
+          type: "path" as const,
+          path: entry.path,
+          pathKind: entry.kind,
+          label: basenameOfPath(entry.path),
+          description: entry.path.slice(0, Math.max(0, entry.path.lastIndexOf("/"))),
+        })),
+      ];
     }
     if (composerTrigger.kind === "slash-command") {
       const builtInSlashCommandItems = [
@@ -2497,6 +2540,10 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
     }
     return [];
   }, [
+    agents,
+    environmentId,
+    activeThreadId,
+    props.isServerThread,
     compactSlashCommandAvailable,
     composerTrigger,
     exactPullRequestLookup.data,
@@ -3603,8 +3650,12 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
       });
       const { snapshot, trigger } = resolveActiveComposerTrigger();
       if (!trigger) return;
-      if (item.type === "path") {
-        const replacement = `${serializeComposerFileLink(item.path)} `;
+      if (item.type === "path" || item.type === "agent") {
+        const replacement = `${
+          item.type === "agent"
+            ? formatAgentMention(item.projectId, item.label.slice(1))
+            : serializeComposerFileLink(item.path)
+        } `;
         const replacementRangeEnd = extendReplacementRangeForTrailingSpace(
           snapshot.value,
           trigger.rangeEnd,

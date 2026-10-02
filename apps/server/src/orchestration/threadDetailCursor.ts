@@ -22,11 +22,18 @@ export interface ThreadDetailPageCursor {
   readonly beforeAnchorAt: string;
   /** Boundary turn id; "" for the rare turn row with a null turn_id. */
   readonly beforeTurnId: string;
+  /** A turnless history page uses the stable message key instead of a native turn. */
+  readonly beforeMessageId?: string;
 }
 
 export function encodeThreadDetailPageCursor(cursor: ThreadDetailPageCursor): string {
   return Buffer.from(
-    JSON.stringify({ t: cursor.threadId, a: cursor.beforeAnchorAt, i: cursor.beforeTurnId }),
+    JSON.stringify({
+      t: cursor.threadId,
+      a: cursor.beforeAnchorAt,
+      i: cursor.beforeTurnId,
+      ...(cursor.beforeMessageId !== undefined ? { m: cursor.beforeMessageId } : {}),
+    }),
   ).toString("base64url");
 }
 
@@ -58,5 +65,13 @@ export function decodeThreadDetailPageCursor(encoded: string): ThreadDetailPageC
   if (typeof record.i !== "string") {
     return null;
   }
-  return { threadId: record.t as ThreadId, beforeAnchorAt: record.a, beforeTurnId: record.i };
+  if (record.m !== undefined && typeof record.m !== "string") {
+    return null;
+  }
+  return {
+    threadId: record.t as ThreadId,
+    beforeAnchorAt: record.a,
+    beforeTurnId: record.i,
+    ...(typeof record.m === "string" ? { beforeMessageId: record.m } : {}),
+  };
 }

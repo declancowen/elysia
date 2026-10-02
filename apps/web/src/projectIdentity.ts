@@ -34,7 +34,7 @@ function projectColor(projectName: string): ProjectIconColor {
   return PROJECT_ICON_COLORS[index]?.value ?? "blue";
 }
 
-/** Derives the stable monogram and generated colors used when a project has no icon. */
+/** Suggests the stable monogram and color for the project's explicit badge picker. */
 export function deriveProjectIdentity(projectName: string): ProjectIdentity {
   return {
     monogram: projectMonogram(projectName),

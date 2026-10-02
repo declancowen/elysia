@@ -1,3 +1,7 @@
+import { AgentDelegationResponseSheet, DelegatedAgentWork } from "../agents/DelegatedAgentWork";
+import { delegatedAgentsFromActivities, type DelegatedAgent } from "@t3tools/shared/agentMentions";
+import { appAtomRegistry } from "../../state/atom-registry";
+import { environmentThreadDetails } from "../../state/threads";
 import {
   WorktreeWorkingHeader,
   WorktreeSetupCard,
@@ -1355,6 +1359,7 @@ function renderFeedEntry(
   props: Pick<
     ThreadFeedProps,
     | "environmentId"
+    | "threadId"
     | "onUseArtifactTemplate"
     | "skills"
     | "dispatchingMessageId"
@@ -1457,6 +1462,20 @@ function renderFeedEntry(
         onToggle={() => props.onToggleWorkGroup(entry.groupId, entry.id)}
       />
     );
+  }
+
+  if (entry.type === "activity-group") {
+    const delegations = entry.activities.flatMap((activity) =>
+      activity.workEntry.agentDelegation ? [activity.workEntry.agentDelegation] : [],
+    );
+    if (delegations.length)
+      return (
+        <DelegatedAgentWork
+          environmentId={props.environmentId}
+          sourceThreadId={props.threadId}
+          delegations={delegations}
+        />
+      );
   }
 
   if (entry.type === "activity-group" && isContextCompactionActivityGroup(entry)) {
@@ -1624,6 +1643,8 @@ function renderFeedEntry(
               >
                 <UserMessageContent
                   text={renderedText}
+                  sourceMessageId={message.id}
+                  sourceThreadId={props.threadId}
                   environmentId={props.environmentId}
                   context={message.context}
                   markdownStyles={styles}
@@ -1771,6 +1792,8 @@ function renderFeedEntry(
 }
 
 type UserMessageContentProps = {
+  readonly sourceMessageId: MessageId;
+  readonly sourceThreadId: ThreadId;
   readonly text: string;
   readonly environmentId: EnvironmentId;
   readonly context?: OrchestrationMessageContext;
@@ -1783,15 +1806,34 @@ type UserMessageContentProps = {
 
 function UserMessageContent(props: UserMessageContentProps) {
   const [selected, setSelected] = useState<{ contextId: string; label: string } | null>(null);
+  const [selectedDelegation, setSelectedDelegation] = useState<DelegatedAgent | null>(null);
   const navigation = useNavigation();
   const { selectedThread } = useThreadSelection();
   const text = replaceComposerContextReferences(props.text, (ref) => {
-    const available = props.context?.records.some((record) => record.contextId === ref.contextId);
+    const available =
+      ref.kind === "agent" ||
+      props.context?.records.some((record) => record.contextId === ref.contextId);
     return `[${ref.label}${available ? "" : " (unavailable)"}](t3-context://v1/${ref.kind}/${ref.contextId})`;
   });
   const onLinkPress = (href: string) => {
     const reference = parseComposerContextHref(href);
     if (!reference) return props.linkHandlers.onLinkPress?.(href);
+    if (reference.kind === "agent") {
+      const sourceActivities = appAtomRegistry.get(
+        environmentThreadDetails.activitiesAtom({
+          environmentId: props.environmentId,
+          threadId: props.sourceThreadId,
+        }),
+      );
+      const delegation = delegatedAgentsFromActivities(sourceActivities).find(
+        (task) =>
+          String(task.agentProjectId) === String(reference.contextId) &&
+          task.sourceMessageId === props.sourceMessageId,
+      );
+      if (delegation) setSelectedDelegation(delegation);
+      else Alert.alert("Task unavailable", "No delegated task is available for this message yet.");
+      return;
+    }
     const record = props.context?.records.find(
       (record) => record.contextId === reference.contextId,
     );
@@ -1821,6 +1863,14 @@ function UserMessageContent(props: UserMessageContentProps) {
         text={text}
         linkHandlers={{ ...props.linkHandlers, onLinkPress }}
       />
+      {selectedDelegation ? (
+        <AgentDelegationResponseSheet
+          environmentId={props.environmentId}
+          sourceThreadId={props.sourceThreadId}
+          delegation={selectedDelegation}
+          onClose={() => setSelectedDelegation(null)}
+        />
+      ) : null}
       {selected ? (
         <ComposerContextSheet
           label={selected.label}
@@ -2729,7 +2779,10 @@ export const ThreadFeed = memo(function ThreadFeed(props: ThreadFeedProps) {
         case "thinking":
           return WORK_GROUP_TOGGLE_HEIGHT;
         case "activity-group":
-          if (isContextCompactionActivityGroup(entry)) {
+          if (
+            isContextCompactionActivityGroup(entry) ||
+            entry.activities.some((activity) => activity.workEntry.agentDelegation)
+          ) {
             return undefined;
           }
           // Expanded rows append a variable detail block — fall back to
@@ -2755,6 +2808,7 @@ export const ThreadFeed = memo(function ThreadFeed(props: ThreadFeedProps) {
         <ThreadMediaVisibility>
           {renderFeedEntry(info, {
             environmentId: props.environmentId,
+            threadId: props.threadId,
             dispatchingMessageId: props.dispatchingMessageId,
             onEditPendingMessage: props.onEditPendingMessage,
             copiedRowId,

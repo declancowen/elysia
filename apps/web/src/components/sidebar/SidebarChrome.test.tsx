@@ -105,6 +105,14 @@ it("keeps Work/Code beside Settings, preserves sidebar layout, and hides both sw
     await act(async () => button("Work workspace · Switch to Code")!.click());
     await act(async () => render());
     expect(button("Pull Requests")).not.toBeNull();
+    await act(async () => button("Switch to Thread view")!.click());
+    await act(async () => render());
+    expect(state.settings.legacySidebarEnabled).toBe(false);
+    expect(button("Switch to Project view")).not.toBeNull();
+    expect(button("Switch to Thread view")).toBeNull();
+    await act(async () => button("Switch to Project view")!.click());
+    await act(async () => render());
+    expect(state.settings.legacySidebarEnabled).toBe(true);
 
     await act(async () => button("Chats")!.click());
     expect(useUiStateStore.getState().projectExpandedById[RECENT_THREADS_EXPANSION_KEY]).toBe(
@@ -130,17 +138,17 @@ it("keeps Work/Code beside Settings, preserves sidebar layout, and hides both sw
       await act(async () => render());
       expect(container.textContent).toContain("Back");
       expect(button("Code workspace · Switch to Work")).toBeNull();
-      expect(button("Switch to flat sidebar")).toBeNull();
+      expect(button("Switch to Thread view")).toBeNull();
     }
     state.pathname = "/usage";
     await act(async () => render());
     expect(button("Settings")).not.toBeNull();
     expect(button("Code workspace · Switch to Work")).toBeNull();
-    expect(button("Switch to flat sidebar")).toBeNull();
+    expect(button("Switch to Thread view")).toBeNull();
     state.pathname = "/";
     await act(async () => render());
     expect(button("Code workspace · Switch to Work")).not.toBeNull();
-    expect(button("Switch to flat sidebar")).not.toBeNull();
+    expect(button("Switch to Thread view")).not.toBeNull();
   } finally {
     await act(async () => root.unmount());
     useUiStateStore.setState({ projectExpandedById: originalProjectExpansion });

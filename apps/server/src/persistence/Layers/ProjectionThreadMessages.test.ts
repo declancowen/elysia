@@ -2,6 +2,7 @@ import { MessageId, ThreadId, TurnId } from "@t3tools/contracts";
 import { assert, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
+import * as SqlClient from "effect/unstable/sql/SqlClient";
 
 import { ProjectionThreadMessageRepository } from "../Services/ProjectionThreadMessages.ts";
 import { ProjectionThreadMessageRepositoryLive } from "./ProjectionThreadMessages.ts";
@@ -12,6 +13,35 @@ const layer = it.layer(
 );
 
 layer("ProjectionThreadMessageRepository", (it) => {
+  it.effect("limits recent-message reads in SQLite before decoding older turnless history", () =>
+    Effect.gen(function* () {
+      const repository = yield* ProjectionThreadMessageRepository;
+      const sql = yield* SqlClient.SqlClient;
+      const threadId = ThreadId.make("bounded-handoff-history");
+      for (let index = 0; index < 3; index++) {
+        yield* repository.upsert({
+          messageId: MessageId.make(`bounded-${index}`),
+          threadId,
+          turnId: null,
+          role: "user",
+          text: `Message ${index}`,
+          isStreaming: false,
+          createdAt: `2026-10-02T09:00:0${index}.000Z`,
+          updatedAt: `2026-10-02T09:00:0${index}.000Z`,
+        });
+      }
+      assert.deepEqual(
+        (yield* repository.listByThreadId({ threadId })).map((message) => message.text),
+        ["Message 0", "Message 1", "Message 2"],
+      );
+      yield* sql`UPDATE projection_thread_messages SET context_json = 'invalid older context' WHERE message_id = 'bounded-0'`;
+      assert.deepEqual(
+        (yield* repository.listByThreadId({ threadId, limit: 2 })).map((message) => message.text),
+        ["Message 1", "Message 2"],
+      );
+      yield* repository.listByThreadId({ threadId }).pipe(Effect.flip);
+    }),
+  );
   it.effect("finds the latest live user-message time within one thread", () =>
     Effect.gen(function* () {
       const repository = yield* ProjectionThreadMessageRepository;

@@ -333,6 +333,7 @@ const probeClaudeCapabilities = (
   claudeSettings: ClaudeSettings,
   environment?: NodeJS.ProcessEnv,
   cwd?: string,
+  options?: { readonly includeUsage?: boolean },
 ) => {
   const abort = new AbortController();
   return Effect.gen(function* () {
@@ -364,15 +365,19 @@ const probeClaudeCapabilities = (
     Effect.flatMap(({ q, init }) =>
       Effect.gen(function* () {
         // Usage has its own deadline so a slow optional request cannot discard initialization.
-        const usageResult = yield* Effect.tryPromise(() =>
-          q.usage_EXPERIMENTAL_MAY_CHANGE_DO_NOT_RELY_ON_THIS_API_YET(),
-        ).pipe(Effect.timeout(DEFAULT_TIMEOUT_MS), Effect.result);
-        const usage = Result.isSuccess(usageResult)
-          ? {
-              rate_limits_available: usageResult.success.rate_limits_available,
-              rate_limits: usageResult.success.rate_limits,
-            }
-          : undefined;
+        const usageResult =
+          options?.includeUsage === false
+            ? undefined
+            : yield* Effect.tryPromise(() =>
+                q.usage_EXPERIMENTAL_MAY_CHANGE_DO_NOT_RELY_ON_THIS_API_YET(),
+              ).pipe(Effect.timeout(DEFAULT_TIMEOUT_MS), Effect.result);
+        const usage =
+          usageResult && Result.isSuccess(usageResult)
+            ? {
+                rate_limits_available: usageResult.success.rate_limits_available,
+                rate_limits: usageResult.success.rate_limits,
+              }
+            : undefined;
         const account = init.account as
           | {
               readonly email?: string;

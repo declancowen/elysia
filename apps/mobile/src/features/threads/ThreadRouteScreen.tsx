@@ -1,3 +1,4 @@
+import { threadHasProjectGitControls } from "./threadGitVisibility";
 import { makeTurnCommandMetadata } from "../../lib/commandMetadata";
 import { enqueueThreadOutboxMessage } from "../../state/thread-outbox";
 import {
@@ -132,11 +133,12 @@ function ThreadHeader(
         onPress: () => onOpenTerminal(null),
       });
     }
-    actions.push({
-      accessibilityLabel: "Open git controls",
-      icon: "point.topleft.down.curvedto.point.bottomright.up",
-      onPress: props.onOpenGitInspector,
-    });
+    if (props.gitControls.showGitControls !== false)
+      actions.push({
+        accessibilityLabel: "Open git controls",
+        icon: "point.topleft.down.curvedto.point.bottomright.up",
+        onPress: props.onOpenGitInspector,
+      });
     return actions;
   }, [
     props.inspectorMode,
@@ -148,6 +150,7 @@ function ThreadHeader(
     props.onReturnToThread,
     props.hasThreadCwd,
     props.hasWorkspaceRoot,
+    props.gitControls.showGitControls,
   ]);
 
   return (
@@ -363,6 +366,13 @@ function ThreadRouteContent(
   const threadId = firstRouteParam(params.threadId);
   const routeThreadIdentity =
     environmentIdRaw !== null && threadId !== null ? `${environmentIdRaw}:${threadId}` : null;
+  const routeEnvironmentRuntime = useRemoteEnvironmentRuntime(environmentId);
+  const showGitControls =
+    !!routeEnvironmentRuntime?.serverConfig &&
+    threadHasProjectGitControls(
+      selectedThreadProject,
+      routeEnvironmentRuntime?.serverConfig?.scratchWorkspaceRoot,
+    );
   const [inspectorSelection, setInspectorSelection] = useState<ThreadInspectorSelection | null>(
     () => (props.renderInspector ? { routeThreadIdentity, mode: "route" } : null),
   );
@@ -371,6 +381,7 @@ function ThreadRouteContent(
       if (inspectorSelection.mode === "files" && selectedThreadCwd === null) {
         return null;
       }
+      if (inspectorSelection.mode === "git" && !showGitControls) return null;
       return inspectorSelection.mode;
     }
     return null;
@@ -421,7 +432,6 @@ function ThreadRouteContent(
       };
     }, [props.renderInspector]),
   );
-  const routeEnvironmentRuntime = useRemoteEnvironmentRuntime(environmentId);
   const routeConnectionState =
     routeEnvironmentRuntime?.connectionState ?? (environmentId ? "available" : connectionState);
   const routeConnectionError = routeEnvironmentRuntime?.connectionError ?? null;
@@ -448,7 +458,7 @@ function ThreadRouteContent(
     .join(" · ");
   /* ─── Git status for native header trigger ───────────────────────── */
   const gitStatus = useEnvironmentQuery(
-    selectedThread !== null && selectedThreadCwd !== null
+    showGitControls && selectedThread !== null && selectedThreadCwd !== null
       ? vcsEnvironment.status({
           environmentId: selectedThread.environmentId,
           input: { cwd: selectedThreadCwd },
@@ -486,6 +496,7 @@ function ThreadRouteContent(
   const gitActionProgress = useGitActionProgress(gitActionProgressTarget);
 
   const handleOpenGitInspector = useCallback(() => {
+    if (!showGitControls) return;
     if (!fileInspector.supported) {
       if (selectedThread === null) {
         return;
@@ -498,7 +509,14 @@ function ThreadRouteContent(
     }
     setInspectorSelection({ routeThreadIdentity, mode: "git" });
     showAuxiliaryPane("inspector");
-  }, [fileInspector.supported, navigation, routeThreadIdentity, selectedThread, showAuxiliaryPane]);
+  }, [
+    fileInspector.supported,
+    navigation,
+    routeThreadIdentity,
+    selectedThread,
+    showAuxiliaryPane,
+    showGitControls,
+  ]);
   const handleOpenFilesInspector = useCallback(() => {
     if (selectedThread === null || selectedThreadCwd === null) {
       return;
@@ -566,14 +584,15 @@ function ThreadRouteContent(
   const safeAreaInsets = useSafeAreaInsets();
   const inspectorHeaderInset = Platform.OS === "ios" ? 0 : safeAreaInsets.top;
   const GitInspector = useCallback(
-    () => (
-      <GitOverviewSheet
-        headerInset={inspectorHeaderInset}
-        presentation="inspector"
-        route={{ params: props.route.params }}
-      />
-    ),
-    [inspectorHeaderInset, props.route.params],
+    () =>
+      showGitControls ? (
+        <GitOverviewSheet
+          headerInset={inspectorHeaderInset}
+          presentation="inspector"
+          route={{ params: props.route.params }}
+        />
+      ) : null,
+    [inspectorHeaderInset, props.route.params, showGitControls],
   );
   const FilesInspector = useCallback(
     () =>
@@ -760,6 +779,7 @@ function ThreadRouteContent(
     ],
   );
   const threadGitControlProps = {
+    showGitControls,
     environmentId: environmentIdRaw ?? "",
     threadId: threadId ?? "",
     auxiliaryPaneControl:

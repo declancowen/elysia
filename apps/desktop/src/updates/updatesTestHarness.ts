@@ -33,9 +33,11 @@ export interface UpdatesHarnessOptions {
   readonly quitAndInstall?: Effect.Effect<void, ElectronUpdater.ElectronUpdaterQuitAndInstallError>;
   readonly stopBackend?: Effect.Effect<void>;
   readonly startBackend?: Effect.Effect<void>;
+  readonly accessInstallLocation?: Effect.Effect<void, PlatformError.PlatformError>;
   readonly env?: Record<string, string | undefined>;
   readonly platform?: NodeJS.Platform;
   readonly appVersion?: string;
+  readonly resourcesPath?: string;
   readonly appUpdateYml?: string;
   /** Contents of the resources/package-type marker a Linux package ships. */
   readonly packageType?: string | undefined;
@@ -51,6 +53,7 @@ export function makeHarness(options: UpdatesHarnessOptions = {}) {
   const listeners = new Map<string, Set<(...args: readonly unknown[]) => void>>();
   const sentStates: DesktopUpdateState[] = [];
   const installSteps: string[] = [];
+  const installLocationChecks: string[] = [];
 
   const addListener = (eventName: string, listener: (...args: readonly unknown[]) => void) => {
     const eventListeners = listeners.get(eventName) ?? new Set();
@@ -157,7 +160,7 @@ export function makeHarness(options: UpdatesHarnessOptions = {}) {
     appVersion: options.appVersion ?? "1.2.3",
     appPath: "/repo",
     isPackaged: true,
-    resourcesPath: "/missing/resources",
+    resourcesPath: options.resourcesPath ?? "/missing/resources",
     runningUnderArm64Translation: false,
   }).pipe(
     Layer.provide(
@@ -214,6 +217,10 @@ export function makeHarness(options: UpdatesHarnessOptions = {}) {
   // disk I/O that would outrun the tests' settle loops.
   const updateRestartMarkers = new Set<string>();
   const fileSystemLayer = FileSystem.layerNoop({
+    access: (path) =>
+      Effect.sync(() => {
+        installLocationChecks.push(path);
+      }).pipe(Effect.andThen(options.accessInstallLocation ?? Effect.void)),
     readFileString: (path) =>
       path === "/missing/resources/app-update.yml" && options.appUpdateYml !== undefined
         ? Effect.succeed(options.appUpdateYml)
@@ -262,6 +269,7 @@ export function makeHarness(options: UpdatesHarnessOptions = {}) {
     checkCount: () => checkCount,
     quitAndInstalls: () => quitAndInstallCount,
     installSteps,
+    installLocationChecks,
     updateRestartMarkers,
     downloadCount: () => downloadCount,
     feedUrls: (): ElectronUpdater.ElectronUpdaterFeedUrl[] => feedUrls,

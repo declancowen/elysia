@@ -490,6 +490,7 @@ function rememberAgentMessage(context: ClaudeSessionContext, role: string, text:
 interface ClaudeQueryRuntime extends AsyncIterable<SDKMessage> {
   /** SDK Query.interrupt — present on real queries; optional for test doubles. */
   readonly interrupt?: () => Promise<unknown>;
+  readonly reloadSkills?: () => Promise<unknown>;
   readonly setModel: (model?: string) => Promise<void>;
   readonly setPermissionMode: (mode: PermissionMode) => Promise<void>;
   readonly setMaxThinkingTokens: (maxThinkingTokens: number | null) => Promise<void>;
@@ -5298,7 +5299,7 @@ export const makeClaudeAdapter = Effect.fn("makeClaudeAdapter")(function* (
         ...(mcpSession
           ? {
               mcpServers: {
-                "t3-code": {
+                [queryEnvironment.ELYSIA_PROFILE_ROOT ? "elysia" : "t3-code"]: {
                   type: "http",
                   url: mcpSession.endpoint,
                   headers: {
@@ -5611,16 +5612,24 @@ export const makeClaudeAdapter = Effect.fn("makeClaudeAdapter")(function* (
       Effect.provideService(FileSystem.FileSystem, fileSystem),
       Effect.provideService(Path.Path, path),
     );
+    const skillNames = new Set(
+      skills
+        .filter((skill) => skill.enabled && skill.userInvocable !== false)
+        .map((skill) => skill.name),
+    );
+    // A skill written during this conversation is not in the CLI's startup cache.
+    if (planClaudeSkillDispatch(input.input ?? "", skillNames) && context.query.reloadSkills) {
+      yield* Effect.tryPromise(() => context.query.reloadSkills!()).pipe(
+        Effect.timeout("4 seconds"),
+        Effect.mapError((cause) => toRequestError(input.threadId, "skills/reload", cause)),
+      );
+    }
     const message = yield* buildUserMessageEffect(input, {
       fileSystem,
       attachmentsDir: serverConfig.attachmentsDir,
       boundInstanceId,
       modelCatalog,
-      skillNames: new Set(
-        skills
-          .filter((skill) => skill.enabled && skill.userInvocable !== false)
-          .map((skill) => skill.name),
-      ),
+      skillNames,
     });
 
     if (context.startInput.persistentAgent) {

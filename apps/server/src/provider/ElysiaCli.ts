@@ -24,7 +24,7 @@ import { resolveClaudeHomePath } from "./Drivers/ClaudeHome.ts";
 // ponytail: 0.3.8 has global paths rather than a profile flag. Import the actual
 // package in an isolated home; replace this bridge when the CLI adds --home.
 export const ELYSIA_CLI_BRIDGE = String.raw`
-import hashlib, importlib.util, io, json, os, re, shlex, shutil, socket, ssl, subprocess, sys, tempfile, urllib.error, urllib.request, zipfile
+import hashlib, http.client, importlib.util, io, json, os, re, shlex, shutil, socket, ssl, subprocess, sys, tempfile, urllib.error, urllib.request, zipfile
 from pathlib import Path
 
 source, root = sys.argv[1:3]
@@ -288,6 +288,45 @@ def validate_profile(check_tracing=True):
         if not settings.get("enabledPlugins", {}).get(plugin) or not any(Path(entry["installPath"]).is_dir() for entry in installed.get("plugins", {}).get(plugin, [])):
             raise ValueError("Native tracing plugin unavailable")
 
+def restore_compression():
+    global validation_error
+    validation_error = "compression"
+    state = native._read_compression_state()
+    if state.get("enabled") is not True:
+        return
+    port = state.get("port")
+    if type(port) is not int or not 1024 <= port <= 65535:
+        raise ValueError("Invalid compression port")
+    connection = http.client.HTTPConnection("127.0.0.1", port, timeout=2)
+    try:
+        connection.request("GET", "/health")
+        if connection.getresponse().status != 200:
+            raise RuntimeError("Compression port is occupied")
+        return
+    except ConnectionRefusedError:
+        pass
+    finally:
+        connection.close()
+    # A failed health response or occupied port must never restart another service.
+    with socket.socket() as listener:
+        listener.bind(("127.0.0.1", port))
+    native._init_globals()
+    headroom = native._find_headroom()
+    api_key, config_id = native._load_credentials_from_settings()
+    if not headroom or not api_key or not config_id:
+        raise ValueError("Compression setup unavailable")
+    env = native._headroom_env(api_key, config_id)
+    # --compression-enable reinstalls dependencies and resets a healthy proxy.
+    # Restore its existing service instead, preserving native routing and stats.
+    if native.IS_MAC:
+        native._install_launchd_agent(headroom, env, port, silent=True)
+    elif native.IS_WINDOWS:
+        native._start_proxy_windows(env, port, silent=True)
+    else:
+        raise RuntimeError("Unsupported compression service")
+    if hasattr(native, "LAUNCHER_PY") and native.LAUNCHER_PY.is_file():
+        native.LAUNCHER_PY.chmod(0o600)
+
 def adopt_profile():
     global validation_error
     validation_error = "credentials"
@@ -362,7 +401,7 @@ if native.COMPRESSION_STATE.exists():
 
 # Native setup includes key fragments in diagnostics. Keep credentials and
 # updater output private; read-only CLI commands retain their native output.
-sensitive = operation in ["--init", "--update", "--finish-update", "adopt", "validate"]
+sensitive = operation in ["--init", "--update", "--finish-update", "adopt", "validate", "restore-compression"]
 if sensitive:
     saved_out, saved_err = os.dup(1), os.dup(2)
     failure = None
@@ -374,6 +413,8 @@ if sensitive:
                 adopt_profile()
             elif operation == "validate":
                 validate_profile()
+            elif operation == "restore-compression":
+                restore_compression()
             else:
                 native.main()
                 if operation == "--init":
@@ -393,12 +434,12 @@ else:
 if operation in ["--init", "adopt", "validate"]:
     (root / "ready").touch()
     (root / "disconnected").unlink(missing_ok=True)
-if sensitive:
+if sensitive and operation not in ["validate", "restore-compression"]:
     for file in root.rglob("*"):
         if file.is_file() and not file.is_symlink() and "runtime" not in file.relative_to(root).parts:
             file.chmod(0o700 if file.stat().st_mode & 0o100 else 0o600)
-    if native.PLIST_PATH.exists():
-        native.PLIST_PATH.chmod(0o600)
+if sensitive and native.PLIST_PATH.exists():
+    native.PLIST_PATH.chmod(0o600)
 if sensitive:
     print("Elysia " + native.CLI_VERSION)
 `;
@@ -923,6 +964,10 @@ export const makeElysiaCli = Effect.fn("makeElysiaCli")(function* (input: {
     maintenance,
     bootstrap,
     reuseCredentials,
+    restoreCompression: run("restore-compression").pipe(
+      Effect.timeout("20 seconds"),
+      Effect.mapError(() => failure("restore-compression", "ELYSIA_ERROR:compression")),
+    ),
     logout: run("--compression-disable").pipe(
       Effect.andThen(
         Effect.sync(() => {

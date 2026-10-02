@@ -43,11 +43,13 @@ export function AgentAvatar({
   size = 20,
   working = false,
   active = false,
+  animated = true,
 }: {
   readonly avatar: AgentProfile["avatar"];
   readonly size?: number;
   readonly working?: boolean;
   readonly active?: boolean;
+  readonly animated?: boolean;
 }) {
   const character = resolveAgentAvatar(avatar);
   const blink = useSharedValue(1);
@@ -63,7 +65,7 @@ export function AgentAvatar({
     };
     const start = () => {
       stop();
-      if (reducedMotion) return;
+      if (reducedMotion || !animated) return;
       // Akeru's blink pose, held at rest for most of each cycle. Native delayed
       // work runs on the UI thread; no JavaScript animation clock or timers.
       blink.set(
@@ -102,7 +104,7 @@ export function AgentAvatar({
       subscription.remove();
       stop();
     };
-  }, [blink, tilt, reducedMotion, working, active]);
+  }, [blink, tilt, reducedMotion, working, active, animated]);
   return (
     <Animated.View style={[{ width: size, height: size }, bodyStyle]} accessibilityElementsHidden>
       <Svg width={size} height={size} viewBox="0 0 100 100" accessible={false}>

@@ -24,6 +24,7 @@
  */
 import {
   defaultInstanceIdForDriver,
+  SINGLE_PROVIDER_UI,
   ProviderDriverKind,
   type ProviderInstanceId,
   type ServerProvider,
@@ -903,13 +904,14 @@ export const ProviderRegistryLive = Layer.effect(
       });
       // A fresh scan never joins a running one, which may predate the change.
       if (!claimed && !input.fresh) return yield* Ref.get(providersRef);
-      // Fresh scans also re-read the machine snapshot: Claude's plugin
-      // commands come from it, not from the cwd scan.
-      const refreshMachineSnapshot = input.fresh
-        ? (instance.invalidateCaches ?? Effect.void).pipe(
-            Effect.andThen(refreshInstance(input.instanceId)),
-          )
-        : Effect.void;
+      // Elysia discovers skills on disk. Its optional SDK health probe must
+      // not delay a newly created skill appearing in the composer.
+      const refreshMachineSnapshot =
+        input.fresh && !(SINGLE_PROVIDER_UI && instance.driverKind === "claudeAgent")
+          ? (instance.invalidateCaches ?? Effect.void).pipe(
+              Effect.andThen(refreshInstance(input.instanceId)),
+            )
+          : Effect.void;
       return yield* refreshMachineSnapshot.pipe(
         Effect.andThen(instance.snapshotForCwd(input.cwd)),
         Effect.flatMap((scopedSnapshot) =>

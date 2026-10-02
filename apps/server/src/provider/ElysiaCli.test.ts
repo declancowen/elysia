@@ -1,5 +1,6 @@
 // @effect-diagnostics nodeBuiltinImport:off - exercise the real native Python subprocess and owned profile filesystem.
 import * as NodeChildProcess from "node:child_process";
+import * as NodeEvents from "node:events";
 import * as NodeFS from "node:fs";
 import * as NodeOS from "node:os";
 import * as NodePath from "node:path";
@@ -608,6 +609,105 @@ it("preserves the owned port when native compression is disabled", () => {
     enabled: false,
     port: 49876,
   });
+});
+
+for (const platform of ["mac", "windows"] as const) {
+  it(`${platform}: restores a stopped enabled native compression service without changing routing or tracing`, () => {
+    const { source, profile, run } = fixture();
+    NodeFS.appendFileSync(
+      source,
+      String.raw`
+IS_MAC, IS_WINDOWS = ${platform === "mac" ? "True, False" : "False, True"}
+def _find_headroom():
+    return "fixture-headroom"
+def _load_credentials_from_settings():
+    return "fixture-secret", "config"
+def _headroom_env(api_key, config_id):
+    return {"ANTHROPIC_API_KEY": api_key, "config": config_id}
+def _install_launchd_agent(headroom, env, port, silent=False):
+    assert headroom == "fixture-headroom" and silent
+    _start_proxy_windows(env, port, silent)
+def _start_proxy_windows(env, port, silent=False):
+    assert env == {"ANTHROPIC_API_KEY": "fixture-secret", "config": "config"} and silent
+    (HOME / "restored.json").write_text(json.dumps({"port": port, "home": str(HOME), "service": PLIST_LABEL if IS_MAC else TASK_NAME}))
+def enable_compression():
+    raise AssertionError("Restoring must not reset or reinstall the proxy")
+`,
+    );
+    expect(run("--init").status).toBe(0);
+    const statePath = NodePath.join(profile, ".elysia/compression.json");
+    const state = JSON.parse(NodeFS.readFileSync(statePath, "utf8"));
+    NodeFS.writeFileSync(statePath, JSON.stringify({ ...state, enabled: true }));
+    const settingsPath = NodePath.join(profile, ".claude/settings.json");
+    const settings = NodeFS.readFileSync(settingsPath, "utf8");
+    const restored = run("restore-compression");
+    expect(restored.status, restored.stderr).toBe(0);
+    expect(restored.stdout + restored.stderr).not.toContain("fixture-secret");
+    expect(
+      JSON.parse(NodeFS.readFileSync(NodePath.join(profile, "restored.json"), "utf8")),
+    ).toMatchObject({
+      port: state.port,
+      home: profile,
+    });
+    expect(NodeFS.readFileSync(settingsPath, "utf8")).toBe(settings);
+    expect(JSON.parse(NodeFS.readFileSync(statePath, "utf8"))).toEqual({ ...state, enabled: true });
+  });
+}
+
+for (const status of [200, 503] as const) {
+  it(`leaves a listening compression port untouched when /health returns ${status}`, async () => {
+    const { profile, run } = fixture();
+    expect(run("--init").status).toBe(0);
+    const server = NodeChildProcess.spawn("python3", [
+      "-u",
+      "-c",
+      String.raw`
+from http.server import BaseHTTPRequestHandler, HTTPServer
+class Handler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        assert self.path == "/health" and not self.headers.get("Authorization")
+        self.send_response(${status})
+        self.end_headers()
+    def log_message(self, *args):
+        pass
+server = HTTPServer(("127.0.0.1", 0), Handler)
+print(server.server_port, flush=True)
+server.serve_forever()
+`,
+    ]);
+    try {
+      const [output] = await NodeEvents.once(server.stdout!, "data");
+      const port = Number(String(output).trim());
+      const statePath = NodePath.join(profile, ".elysia/compression.json");
+      const state = JSON.stringify({ enabled: true, port });
+      NodeFS.writeFileSync(statePath, state);
+      const settingsPath = NodePath.join(profile, ".claude/settings.json");
+      const settings = NodeFS.readFileSync(settingsPath, "utf8");
+      const result = run("restore-compression");
+      expect(result.status, result.stderr).toBe(status === 200 ? 0 : 1);
+      if (status === 503) expect(result.stderr).toContain("ELYSIA_ERROR:compression");
+      expect(NodeFS.readFileSync(statePath, "utf8")).toBe(state);
+      expect(NodeFS.readFileSync(settingsPath, "utf8")).toBe(settings);
+      expect(server.exitCode).toBeNull();
+    } finally {
+      const exited = NodeEvents.once(server, "exit");
+      server.kill();
+      await exited;
+    }
+  });
+}
+
+it("keeps disabled compression disabled and rejects invalid ports without starting a proxy", () => {
+  const { profile, run } = fixture();
+  expect(run("--init").status).toBe(0);
+  const statePath = NodePath.join(profile, ".elysia/compression.json");
+  const state = NodeFS.readFileSync(statePath, "utf8");
+  expect(run("restore-compression").status).toBe(0);
+  expect(NodeFS.readFileSync(statePath, "utf8")).toBe(state);
+  NodeFS.writeFileSync(statePath, JSON.stringify({ enabled: true, port: "8787" }));
+  const invalid = run("restore-compression");
+  expect(invalid.status).toBe(1);
+  expect(invalid.stderr).toContain("ELYSIA_ERROR:compression");
 });
 
 it("protects coding tools while preserving native commands and tracing credentials", async () => {

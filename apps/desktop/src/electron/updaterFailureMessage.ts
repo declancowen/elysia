@@ -1,3 +1,7 @@
+import { APP_NAME } from "@t3tools/contracts";
+
+export const UPDATE_INSTALL_LOCATION_MESSAGE = `Quit ${APP_NAME}, move it to Applications, then reopen it there before updating.`;
+
 const hints: ReadonlyArray<readonly [RegExp, string]> = [
   [
     /\b(?:ERR_CERT_AUTHORITY_INVALID|ERR_CERT_DATE_INVALID|ERR_CERT_COMMON_NAME_INVALID|ERR_CERT_REVOKED|ERR_CERT_INVALID|CERT_HAS_EXPIRED|UNABLE_TO_VERIFY_LEAF_SIGNATURE|SELF_SIGNED_CERT_IN_CHAIN|DEPTH_ZERO_SELF_SIGNED_CERT)\b/,
@@ -29,6 +33,7 @@ const hints: ReadonlyArray<readonly [RegExp, string]> = [
   [/\bERR_UPDATER_INVALID_RELEASE_FEED\b/, "The release feed could not be read"],
   [/\bERR_CHECKSUM_MISMATCH\b/, "The downloaded update did not match its published checksum"],
   [/\bERR_UPDATER_INVALID_SIGNATURE\b/, "The downloaded update signature could not be verified"],
+  [/\bEROFS\b/, "The update could not be saved or installed in a read-only location"],
   [/\b(?:EACCES|EPERM)\b/, "Permission to install or save the update was denied"],
 ];
 
@@ -44,6 +49,9 @@ export function updaterFailureMessage(summary: string, cause: unknown): string {
         ? metadata.message
         : "";
   const diagnostic = `${code} ${message.slice(0, 4096)}`;
+  if (/\brunning on a read-only volume\b/i.test(diagnostic)) {
+    return `${summary} ${UPDATE_INSTALL_LOCATION_MESSAGE}`;
+  }
   for (const [pattern, hint] of hints) {
     const match = diagnostic.match(pattern);
     if (match) return `${summary} ${hint} (${match[0]}). Retry when the issue is resolved.`;

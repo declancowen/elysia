@@ -14,6 +14,7 @@ import {
   ThreadId,
   TurnId,
   IsoDateTime,
+  PositiveInt,
 } from "@t3tools/contracts";
 import * as Schema from "effect/Schema";
 import * as Context from "effect/Context";
@@ -45,6 +46,10 @@ export type AppendStreamingProjectionThreadMessage =
 
 export const ListProjectionThreadMessagesInput = Schema.Struct({
   threadId: ThreadId,
+  /** Limit the read to the newest messages; output stays in creation order. */
+  limit: Schema.optional(PositiveInt),
+  turnId: Schema.optional(TurnId),
+  role: Schema.optional(OrchestrationMessageRole),
 });
 export type ListProjectionThreadMessagesInput = typeof ListProjectionThreadMessagesInput.Type;
 

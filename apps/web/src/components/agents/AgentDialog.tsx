@@ -133,6 +133,7 @@ function AgentEditor({ project }: { project: Project | null }) {
   const [notificationsEnabled, setNotificationsEnabled] = useState(
     project?.agentProfile?.notificationsEnabled ?? true,
   );
+  const [newAgentBrowserAccess, setNewAgentBrowserAccess] = useState<boolean | null>(null);
   const [modelOverride, setModel] = useState<ModelSelection | null>(null);
   // Native defaults may arrive after a direct editor route. Explicit picker
   // choices stay local to this edit and survive subsequent catalog refreshes.
@@ -188,7 +189,7 @@ function AgentEditor({ project }: { project: Project | null }) {
   );
   const browserEnabled = project
     ? resolveProjectSettings(settings, project.id, project, null).settings.enableAgentBrowserAccess
-    : false;
+    : (newAgentBrowserAccess ?? settings.enableAgentBrowserAccess);
 
   // Native mutations finish even after navigation. Only their originating
   // editor may apply the result to local fields, editor intent, or navigation.
@@ -228,7 +229,12 @@ function AgentEditor({ project }: { project: Project | null }) {
       if (!project) {
         const result = await createAgent({
           environmentId,
-          input: { name: name.trim(), agentProfile, defaultModelSelection: model },
+          input: {
+            name: name.trim(),
+            agentProfile,
+            defaultModelSelection: model,
+            enableAgentBrowserAccess: browserEnabled,
+          },
         });
         if (result._tag === "Failure") throw squashAtomCommandFailure(result);
         if (!ownsResult()) return;
@@ -318,7 +324,12 @@ function AgentEditor({ project }: { project: Project | null }) {
   }
 
   async function setBrowserAccess(enabled: boolean) {
-    if (!environmentId || !project || pending || busy) return;
+    if (pending || busy) return;
+    if (!project) {
+      setNewAgentBrowserAccess(enabled);
+      return;
+    }
+    if (!environmentId) return;
     const ownsResult = ownEditorResult();
     setPending(true);
     setError(null);
@@ -362,7 +373,7 @@ function AgentEditor({ project }: { project: Project | null }) {
         <div className="min-w-0 space-y-4">
           <fieldset disabled={pending || busy} className="space-y-4">
             <div className="grid gap-4 sm:grid-cols-2">
-              <label className="block space-y-1.5">
+              <label className="grid gap-1.5">
                 <span className="text-sm font-medium">Name</span>
                 <Input
                   autoFocus
@@ -373,7 +384,7 @@ function AgentEditor({ project }: { project: Project | null }) {
                   placeholder="Alex"
                 />
               </label>
-              <label className="block space-y-1.5">
+              <label className="grid gap-1.5">
                 <span className="text-sm font-medium">Role</span>
                 <Input
                   value={title}
@@ -383,7 +394,7 @@ function AgentEditor({ project }: { project: Project | null }) {
                 />
               </label>
             </div>
-            <label className="block space-y-1.5">
+            <label className="grid gap-1.5">
               <span className="text-sm font-medium">Instructions</span>
               <Textarea
                 rows={4}
@@ -421,17 +432,15 @@ function AgentEditor({ project }: { project: Project | null }) {
               <span>Notifications</span>
               <Switch checked={notificationsEnabled} onCheckedChange={setNotificationsEnabled} />
             </label>
-            {project ? (
-              <label className="flex items-center justify-between gap-4 text-sm">
-                <span>Browser access</span>
-                <Switch
-                  checked={browserEnabled}
-                  onCheckedChange={(enabled) => {
-                    void setBrowserAccess(enabled);
-                  }}
-                />
-              </label>
-            ) : null}
+            <label className="flex items-center justify-between gap-4 text-sm">
+              <span>Browser access</span>
+              <Switch
+                checked={browserEnabled}
+                onCheckedChange={(enabled) => {
+                  void setBrowserAccess(enabled);
+                }}
+              />
+            </label>
           </fieldset>
           {busy ? (
             <p className="text-sm text-muted-foreground">

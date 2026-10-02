@@ -1,3 +1,4 @@
+import { delegatedAgentsFromActivities, type DelegatedAgent } from "@t3tools/shared/agentMentions";
 import * as Option from "effect/Option";
 import { foldUserInputActivities } from "@t3tools/client-runtime/work-log/user-input";
 import * as Schema from "effect/Schema";
@@ -82,6 +83,7 @@ export interface ThreadFeedActivity {
 }
 
 export interface WorkLogEntry {
+  readonly agentDelegation?: DelegatedAgent;
   readonly questionAnswer?: UserInputAttachmentAnswerPayload;
   id: string;
   createdAt: string;
@@ -507,6 +509,8 @@ function toDerivedWorkLogEntry(activity: OrchestrationThreadActivity): DerivedWo
     isTaskActivity && typeof payload?.taskId === "string" && payload.taskId.length > 0
       ? payload.taskId
       : undefined;
+  const delegation =
+    activity.kind === "agent.delegated" ? delegatedAgentsFromActivities([activity])[0] : undefined;
   const entry: DerivedWorkLogEntry = {
     id: activity.id,
     createdAt: activity.createdAt,
@@ -520,6 +524,7 @@ function toDerivedWorkLogEntry(activity: OrchestrationThreadActivity): DerivedWo
           ? "info"
           : activity.tone,
     sourceActivityKind: activity.kind,
+    ...(delegation ? { agentDelegation: delegation } : {}),
     ...(() => {
       if (activity.kind !== "user-input.answer-submitted") return {};
       const answer = decodeQuestionAttachmentAnswer(activity.payload);
@@ -1544,6 +1549,7 @@ function isEmptyMessage(entry: RawThreadFeedEntry): boolean {
 
 function groupAdjacentActivities(entries: ReadonlyArray<RawThreadFeedEntry>): ThreadFeedEntry[] {
   const grouped: ThreadFeedEntry[] = [];
+  const delegationGroupIndexes = new Map<string, number>();
   let firstActivityEntry: Extract<RawThreadFeedEntry, { readonly type: "activity" }> | null = null;
   let openGroupActivities: ThreadFeedActivity[] = [];
   const flushGroup = () => {
@@ -1566,6 +1572,8 @@ function groupAdjacentActivities(entries: ReadonlyArray<RawThreadFeedEntry>): Th
       activityGroupsCache.set(firstActivityEntry.activity, group);
       grouped.push(group);
     }
+    const delegatedSource = firstActivityEntry.activity.workEntry.agentDelegation?.sourceMessageId;
+    if (delegatedSource) delegationGroupIndexes.set(delegatedSource, grouped.length - 1);
     firstActivityEntry = null;
     openGroupActivities = [];
   };
@@ -1582,6 +1590,29 @@ function groupAdjacentActivities(entries: ReadonlyArray<RawThreadFeedEntry>): Th
       continue;
     }
 
+    const delegation = entry.activity.workEntry.agentDelegation;
+    const existingDelegationGroup = delegation
+      ? delegationGroupIndexes.get(delegation.sourceMessageId)
+      : undefined;
+    if (existingDelegationGroup !== undefined) {
+      flushGroup();
+      const group = grouped[existingDelegationGroup];
+      if (group?.type === "activity-group") {
+        grouped[existingDelegationGroup] = {
+          ...group,
+          activities: [...group.activities, entry.activity],
+        };
+        continue;
+      }
+    }
+    const previousDelegation = firstActivityEntry?.activity.workEntry.agentDelegation;
+    if (
+      Boolean(delegation) !== Boolean(previousDelegation) ||
+      (delegation &&
+        previousDelegation &&
+        delegation.sourceMessageId !== previousDelegation.sourceMessageId)
+    )
+      flushGroup();
     const isStandalone =
       entry.activity.workEntry.sourceActivityKind === "context-compaction" ||
       entry.activity.workEntry.questionAnswer !== undefined;
@@ -2069,7 +2100,11 @@ function appendPresentedFeedEntry(
     result.push(entry);
     return;
   }
-  if (isContextCompactionActivityGroup(entry) || isUserInputActivityGroup(entry)) {
+  if (
+    isContextCompactionActivityGroup(entry) ||
+    isUserInputActivityGroup(entry) ||
+    entry.activities.some((activity) => activity.workEntry.agentDelegation)
+  ) {
     result.push(entry);
     return;
   }

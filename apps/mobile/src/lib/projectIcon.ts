@@ -12,7 +12,7 @@ export function countGlyphs(text: string): number {
   return Array.from(text.replace(/\p{M}/gu, "")).length;
 }
 
-/** Mirrors the automatic monogram web derives from a project name when it has no favicon. */
+/** Mirrors the web badge picker's monogram for explicit Lucide overrides on mobile. */
 export function projectMonogram(projectName: string): string {
   const words =
     projectName

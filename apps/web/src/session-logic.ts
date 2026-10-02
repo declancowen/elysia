@@ -3,6 +3,7 @@ import {
   type PendingApproval,
 } from "@t3tools/client-runtime/pending-requests";
 import { UserInputAttachmentAnswerPayload } from "@t3tools/contracts";
+import { delegatedAgentsFromActivities, type DelegatedAgent } from "@t3tools/shared/agentMentions";
 import { foldUserInputActivities } from "@t3tools/client-runtime/work-log/user-input";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
@@ -82,6 +83,7 @@ export interface WorkLogEntry {
   taskId?: string;
   /** Agent role (subagent_type) for labeled timeline rows. */
   agentRole?: string;
+  agentDelegation?: DelegatedAgent;
   /**
    * Present on agent-spawn rows: one per workflow run or per-turn batch of
    * direct spawns. The row ("Kicked off N subagents") derives its live
@@ -594,6 +596,12 @@ function toDerivedWorkLogEntry(activity: OrchestrationThreadActivity): DerivedWo
     const answer = decodeQuestionAttachmentAnswer(payload);
     if (Option.isSome(answer)) entry.questionAnswer = answer.value;
   }
+  const delegation =
+    activity.kind === "agent.delegated" ? delegatedAgentsFromActivities([activity])[0] : undefined;
+  if (delegation) {
+    entry.agentDelegation = delegation;
+    entry[workLogCollapseKey] = `agent-delegated:${delegation.sourceMessageId}`;
+  }
   const itemType = extractWorkLogItemType(payload);
   const requestKind = extractWorkLogRequestKind(payload);
   const viewedImagePath = asTrimmedString(asRecord(payload?.data)?.imagePath);
@@ -706,6 +714,7 @@ function agentSpawnGroupKey(entry: DerivedWorkLogEntry): string {
 }
 
 function toolLifecycleCollapseMapKey(entry: DerivedWorkLogEntry): string | undefined {
+  if (entry.agentDelegation) return `delegated:${entry.agentDelegation.sourceMessageId}`;
   if (
     entry.sourceActivityKind !== "tool.updated" &&
     entry.sourceActivityKind !== "tool.completed"
@@ -814,6 +823,9 @@ function shouldCollapseToolLifecycleEntries(
   previous: DerivedWorkLogEntry,
   next: DerivedWorkLogEntry,
 ): boolean {
+  if (previous.agentDelegation && next.agentDelegation) {
+    return previous.agentDelegation.sourceMessageId === next.agentDelegation.sourceMessageId;
+  }
   if (
     previous.sourceActivityKind !== "tool.updated" &&
     previous.sourceActivityKind !== "tool.completed"
@@ -866,6 +878,9 @@ function mergeDerivedWorkLogEntries(
   return {
     ...previous,
     ...next,
+    ...(previous.agentDelegation
+      ? { id: previous.id, createdAt: previous.createdAt, turnId: previous.turnId }
+      : {}),
     ...(detail ? { detail } : {}),
     ...(viewedImagePath ? { viewedImagePath } : {}),
     ...(command ? { command } : {}),

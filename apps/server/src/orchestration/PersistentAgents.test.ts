@@ -4,6 +4,7 @@ import {
   MessageId,
   ProjectId,
   OrchestrationDispatchCommandError,
+  ServerSettingsError,
   ProviderInstanceId,
   ServerProvider,
   ThreadId,
@@ -18,6 +19,7 @@ import * as Schema from "effect/Schema";
 import * as Stream from "effect/Stream";
 
 import { ServerConfig } from "../config.ts";
+import { ServerSettingsService } from "../serverSettings.ts";
 import { ProviderRegistry } from "../provider/Services/ProviderRegistry.ts";
 import { SqlitePersistenceMemory } from "../persistence/Layers/Sqlite.ts";
 import { ProjectionProjectRepositoryLive } from "../persistence/Layers/ProjectionProjects.ts";
@@ -34,6 +36,7 @@ import { normalizeDispatchCommand } from "./Normalizer.ts";
 import { createPersistentAgent, type PersistentAgentCommand } from "./PersistentAgents.ts";
 
 const modelSelection = { instanceId: ProviderInstanceId.make("claude"), model: "kimi-k3" };
+const existingProjectId = ProjectId.make("existing-project");
 const profile = Schema.decodeSync(AgentProfile)({
   instructions: "Help with editorial work.",
   title: "Editorial assistant",
@@ -63,6 +66,9 @@ const registryLayer = Layer.succeed(ProviderRegistry, {
 });
 const testLayer = Layer.mergeAll(
   ServerConfig.layerTest(process.cwd(), { prefix: "elysia-persistent-agents-" }),
+  ServerSettingsService.layerTest({
+    projectSettingsOverrides: { [existingProjectId]: { enableAgentBrowserAccess: false } },
+  }),
   registryLayer,
   WorkspacePaths.layer,
   ProjectionProjectRepositoryLive.pipe(Layer.provideMerge(SqlitePersistenceMemory)),
@@ -79,6 +85,127 @@ const testLayer = Layer.mergeAll(
 ).pipe(Layer.provideMerge(NodeServices.layer));
 
 it.layer(testLayer)("persistent agents", (it) => {
+  for (const enabled of [true, false]) {
+    it.effect(`persists browser access ${enabled} before creating the native conversation`, () =>
+      Effect.gen(function* () {
+        const settings = yield* ServerSettingsService;
+        const result = yield* createPersistentAgent(
+          {
+            name: "Edna",
+            agentProfile: profile,
+            defaultModelSelection: modelSelection,
+            enableAgentBrowserAccess: enabled,
+          },
+          (command) =>
+            Effect.gen(function* () {
+              if (command.type === "thread.create") {
+                const current = yield* settings.getSettings.pipe(Effect.orDie);
+                assert.equal(
+                  current.projectSettingsOverrides[command.projectId]?.enableAgentBrowserAccess,
+                  enabled,
+                );
+              }
+            }),
+        );
+        const current = yield* settings.getSettings;
+        assert.deepEqual(current.projectSettingsOverrides[result.projectId], {
+          enableAgentBrowserAccess: enabled,
+        });
+        assert.deepEqual(current.projectSettingsOverrides[existingProjectId], {
+          enableAgentBrowserAccess: false,
+        });
+      }),
+    );
+  }
+
+  it.effect(
+    "removes browser overrides and the unfinished agent when conversation creation fails",
+    () =>
+      Effect.gen(function* () {
+        const settings = yield* ServerSettingsService;
+        const commands: PersistentAgentCommand[] = [];
+        const error = yield* createPersistentAgent(
+          {
+            name: "Edna",
+            agentProfile: profile,
+            defaultModelSelection: modelSelection,
+            enableAgentBrowserAccess: false,
+          },
+          (command) =>
+            Effect.gen(function* () {
+              commands.push(command);
+              if (command.type === "thread.create") {
+                assert.equal(
+                  (yield* settings.getSettings.pipe(Effect.orDie)).projectSettingsOverrides[
+                    command.projectId
+                  ]?.enableAgentBrowserAccess,
+                  false,
+                );
+                return yield* new OrchestrationDispatchCommandError({
+                  message: "Could not create the native conversation.",
+                });
+              }
+            }),
+        ).pipe(Effect.flip);
+        assert.include(error.message, "native conversation");
+        const create = commands.find((command) => command.type === "project.create")!;
+        assert.deepEqual(commands.at(-1), {
+          type: "project.delete",
+          commandId: CommandId.make(`agent-create-cleanup-${create.projectId}`),
+          projectId: create.projectId,
+          force: true,
+        });
+        const current = yield* settings.getSettings;
+        assert.isUndefined(current.projectSettingsOverrides[create.projectId]);
+        assert.deepEqual(current.projectSettingsOverrides[existingProjectId], {
+          enableAgentBrowserAccess: false,
+        });
+      }),
+  );
+
+  it.effect("does not create a conversation when browser settings cannot be persisted", () =>
+    Effect.gen(function* () {
+      const settings = yield* ServerSettingsService;
+      const commands: PersistentAgentCommand[] = [];
+      let failPersistence = true;
+      const error = yield* createPersistentAgent(
+        {
+          name: "Edna",
+          agentProfile: profile,
+          defaultModelSelection: modelSelection,
+          enableAgentBrowserAccess: false,
+        },
+        (command) =>
+          Effect.sync(() => {
+            commands.push(command);
+          }),
+      ).pipe(
+        Effect.provideService(ServerSettingsService, {
+          ...settings,
+          updateSettings: (patch) => {
+            if (failPersistence) {
+              failPersistence = false;
+              return Effect.fail(
+                new ServerSettingsError({
+                  settingsPath: "/test/settings.json",
+                  operation: "write-file",
+                  cause: new Error("Disk full"),
+                }),
+              );
+            }
+            return settings.updateSettings(patch);
+          },
+        }),
+        Effect.flip,
+      );
+      assert.include(error.message, "browser access setting");
+      assert.isFalse(commands.some((command) => command.type === "thread.create"));
+      const create = commands.find((command) => command.type === "project.create")!;
+      assert.equal(commands.at(-1)?.type, "project.delete");
+      assert.isUndefined((yield* settings.getSettings).projectSettingsOverrides[create.projectId]);
+    }),
+  );
+
   it.effect(
     "creates one durable workspace and conversation, preserves native model and profile across edits",
     () =>

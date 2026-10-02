@@ -36,6 +36,8 @@ export type ProjectionThreadActivity = typeof ProjectionThreadActivity.Type;
 
 export const ListProjectionThreadActivitiesInput = Schema.Struct({
   threadId: ThreadId,
+  activityId: Schema.optional(EventId),
+  requestId: Schema.optional(Schema.String),
   activityKinds: Schema.optional(Schema.Array(Schema.String)),
   limit: Schema.optional(NonNegativeInt),
 });

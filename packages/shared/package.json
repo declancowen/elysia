@@ -3,6 +3,14 @@
   "private": true,
   "type": "module",
   "exports": {
+    "./projectIcon": {
+      "types": "./src/projectIcon.ts",
+      "import": "./src/projectIcon.ts"
+    },
+    "./agentMentions": {
+      "types": "./src/agentMentions.ts",
+      "import": "./src/agentMentions.ts"
+    },
     "./agentAvatar": {
       "types": "./src/agentAvatar.ts",
       "import": "./src/agentAvatar.ts"

@@ -3,13 +3,30 @@ import {
   getProjectFaviconResourceKey,
   isProjectFaviconFallbackUrl,
 } from "@t3tools/shared/projectFavicon";
-import { FolderCodeIcon } from "lucide-react";
+import {
+  resolveAutomaticProjectIcon,
+  type AutomaticProjectIconName,
+} from "@t3tools/shared/projectIcon";
+import {
+  BookOpenIcon,
+  BotIcon,
+  ChefHatIcon,
+  Code2Icon,
+  DatabaseIcon,
+  DownloadIcon,
+  FolderCodeIcon,
+  FolderIcon,
+  GlobeIcon,
+  ImageIcon,
+  MusicIcon,
+  ServerIcon,
+  SmartphoneIcon,
+} from "lucide-react";
 import type { IconName } from "../projectIcons";
 import type { ComponentType } from "react";
 import { lazy, Suspense, useState } from "react";
 import { useAtomValue } from "@effect/atom-react";
 import { projectFaviconUrlAtom } from "../state/assets";
-import { deriveProjectIdentity } from "../projectIdentity";
 import { projectIconColorClassName } from "../projectIconColors";
 import { ProjectMonogram } from "./ProjectMonogram";
 import { cn } from "~/lib/utils";
@@ -17,6 +34,24 @@ import { cn } from "~/lib/utils";
 const DynamicIcon = lazy(() =>
   import("../projectIcons").then((module) => ({ default: module.DynamicIcon })),
 );
+
+const AUTOMATIC_PROJECT_ICONS: Record<
+  AutomaticProjectIconName,
+  ComponentType<{ className?: string }>
+> = {
+  "chef-hat": ChefHatIcon,
+  download: DownloadIcon,
+  "book-open": BookOpenIcon,
+  database: DatabaseIcon,
+  globe: GlobeIcon,
+  image: ImageIcon,
+  music: MusicIcon,
+  bot: BotIcon,
+  smartphone: SmartphoneIcon,
+  server: ServerIcon,
+  "code-2": Code2Icon,
+  folder: FolderIcon,
+};
 
 function DynamicProjectIconFallback() {
   return <FolderCodeIcon className="size-full text-inherit" />;
@@ -80,16 +115,11 @@ export function ProjectFavicon(input: {
       </span>
     );
   }
-  const FallbackIcon = input.fallbackIcon ?? FolderCodeIcon;
+  const FallbackIcon =
+    input.fallbackIcon ?? AUTOMATIC_PROJECT_ICONS[resolveAutomaticProjectIcon(project.title).name];
 
   if (!src || isProjectFaviconFallbackUrl(src)) {
-    return (
-      <ProjectFaviconFallback
-        className={input.className}
-        icon={FallbackIcon}
-        projectName={project.title}
-      />
-    );
+    return <ProjectFaviconFallback className={input.className} icon={FallbackIcon} />;
   }
 
   const cacheKey = getProjectFaviconResourceKey(
@@ -104,7 +134,6 @@ export function ProjectFavicon(input: {
       src={src}
       className={input.className}
       fallbackIcon={FallbackIcon}
-      fallbackProjectName={project.title}
     />
   );
 }
@@ -113,20 +142,11 @@ function ProjectFaviconFallback({
   className,
   icon: Icon,
   emoji,
-  projectName,
 }: {
   readonly className?: string | undefined;
   readonly icon: ComponentType<{ className?: string }>;
   readonly emoji?: string | undefined;
-  readonly projectName?: string | undefined;
 }) {
-  if (projectName && projectName.trim().length > 0) {
-    const identity = deriveProjectIdentity(projectName);
-    return (
-      <ProjectMonogram text={identity.monogram} color={identity.color} className={className} />
-    );
-  }
-
   if (emoji) {
     return (
       <span
@@ -141,19 +161,27 @@ function ProjectFaviconFallback({
     );
   }
 
-  return <Icon className={cn("size-3.5 shrink-0 text-icon-muted", className)} />;
+  return (
+    <span
+      aria-hidden="true"
+      className={cn(
+        "inline-flex size-4 shrink-0 items-center justify-center text-inherit",
+        className,
+      )}
+    >
+      <Icon className="size-full text-inherit" />
+    </span>
+  );
 }
 
 function ProjectFaviconImage({
   src,
   className,
   fallbackIcon: FallbackIcon,
-  fallbackProjectName,
 }: {
   readonly src: string;
   readonly className?: string | undefined;
   readonly fallbackIcon: ComponentType<{ className?: string }>;
-  readonly fallbackProjectName?: string | undefined;
 }) {
   const [displayedSrc, setDisplayedSrc] = useState<string | null>(() =>
     src.startsWith("data:image/") ? src : null,
@@ -166,11 +194,7 @@ function ProjectFaviconImage({
   return (
     <>
       {displayedSrc === null ? (
-        <ProjectFaviconFallback
-          className={className}
-          icon={FallbackIcon}
-          projectName={fallbackProjectName}
-        />
+        <ProjectFaviconFallback className={className} icon={FallbackIcon} />
       ) : null}
       {displayedSrc ? (
         <img

@@ -16,6 +16,7 @@ import type {
 import {
   ApprovalRequestId,
   ClaudeSettings,
+  EnvironmentId,
   ProviderDriverKind,
   ProviderItemId,
   ProviderRuntimeEvent,
@@ -40,6 +41,7 @@ import * as TestClock from "effect/testing/TestClock";
 import { attachmentRelativePath } from "../../attachmentStore.ts";
 import { ServerConfig } from "../../config.ts";
 import { ServerSettingsService } from "../../serverSettings.ts";
+import * as McpProviderSession from "../../mcp/McpProviderSession.ts";
 import {
   SYNTHETIC_CLAUDE_CAPABLE_MODEL,
   SYNTHETIC_CLAUDE_COLLIDING_ALIAS,
@@ -75,6 +77,7 @@ class FakeClaudeQuery implements AsyncIterable<SDKMessage> {
   public closeError: unknown | undefined;
   /** Set by tests that exercise Claude's graceful interrupt. */
   public interrupt?: () => Promise<unknown>;
+  public reloadSkills?: () => Promise<unknown>;
 
   emit(message: SDKMessage): void {
     if (this.done) {
@@ -382,6 +385,48 @@ const sendCompletedClaudeTurn = (
   });
 
 describe("ClaudeAdapterLive", () => {
+  for (const [profileRoot, serverName] of [
+    ["/tmp/elysia-mcp-profile", "elysia"],
+    [undefined, "t3-code"],
+  ] as const) {
+    it.effect(`registers the app MCP endpoint as ${serverName} with its session credential`, () => {
+      const threadId = ThreadId.make(`thread-claude-mcp-${serverName}`);
+      const endpoint = "http://127.0.0.1:43210/mcp";
+      const authorizationHeader = "Bearer fixture-mcp-session-token";
+      const harness = makeHarness({ environment: { ELYSIA_PROFILE_ROOT: profileRoot } });
+      return Effect.gen(function* () {
+        yield* Effect.addFinalizer(() =>
+          Effect.sync(() => McpProviderSession.clearMcpProviderSession(threadId)),
+        );
+        McpProviderSession.setMcpProviderSession({
+          environmentId: EnvironmentId.make("fixture-environment"),
+          threadId,
+          providerSessionId: "fixture-provider-session",
+          providerInstanceId: ProviderInstanceId.make("claudeAgent"),
+          endpoint,
+          authorizationHeader,
+          capabilities: new Set(["preview"]),
+        });
+        const adapter = yield* ClaudeAdapter;
+        yield* adapter.startSession({
+          threadId,
+          provider: ProviderDriverKind.make("claudeAgent"),
+          runtimeMode: "full-access",
+        });
+        assert.deepEqual(harness.getLastCreateQueryInput()!.options.mcpServers, {
+          [serverName]: {
+            type: "http",
+            url: endpoint,
+            headers: { Authorization: authorizationHeader },
+          },
+        });
+      }).pipe(
+        Effect.provideService(Random.Random, makeDeterministicRandomService()),
+        Effect.provide(harness.layer),
+      );
+    });
+  }
+
   it.effect(
     "enforces Elysia model and credential restrictions while loading native tracing settings",
     () => {
@@ -1242,6 +1287,71 @@ describe("ClaudeAdapterLive", () => {
       Effect.provide(harness.layer),
     );
   });
+
+  it.effect(
+    "reloads native skills before dispatching a skill created after session startup",
+    () => {
+      const homeDir = NodeFS.mkdtempSync(NodePath.join(NodeOS.tmpdir(), "claude-late-skill-"));
+      const harness = makeHarness({ claudeConfig: { homePath: homeDir } });
+      return Effect.gen(function* () {
+        yield* Effect.addFinalizer(() =>
+          Effect.sync(() => NodeFS.rmSync(homeDir, { recursive: true, force: true })),
+        );
+        const reloadStarted = yield* Deferred.make<void>();
+        const promptReceived = yield* Deferred.make<void>();
+        const steps: string[] = [];
+        let releaseReload: (() => void) | undefined;
+        harness.query.reloadSkills = () =>
+          new Promise<void>((resolve) => {
+            steps.push("reload-started");
+            releaseReload = () => {
+              steps.push("reload-completed");
+              resolve();
+            };
+            Deferred.doneUnsafe(reloadStarted, Effect.void);
+          });
+        const adapter = yield* ClaudeAdapter;
+        const session = yield* adapter.startSession({
+          threadId: THREAD_ID,
+          provider: ProviderDriverKind.make("claudeAgent"),
+          runtimeMode: "full-access",
+        });
+        NodeFS.mkdirSync(NodePath.join(homeDir, "skills", "new-review"), { recursive: true });
+        NodeFS.writeFileSync(
+          NodePath.join(homeDir, "skills", "new-review", "SKILL.md"),
+          "---\ndescription: Review recent changes.\n---\n# Review\n",
+        );
+        const promptFiber = yield* Effect.promise(async () => {
+          const message = await readFirstPromptMessage(harness.getLastCreateQueryInput());
+          steps.push("prompt-dispatched");
+          Deferred.doneUnsafe(promptReceived, Effect.void);
+          return message;
+        }).pipe(Effect.forkChild);
+        const sendFiber = yield* adapter
+          .sendTurn({
+            threadId: session.threadId,
+            input: "please $new-review these changes",
+            attachments: [],
+          })
+          .pipe(Effect.forkChild);
+        yield* Deferred.await(reloadStarted);
+        assert.isFalse(yield* Deferred.isDone(promptReceived));
+        assert.deepEqual(steps, ["reload-started"]);
+        assert.isDefined(releaseReload);
+        releaseReload();
+        yield* Fiber.join(sendFiber);
+        const prompt = yield* Fiber.join(promptFiber);
+        assert.deepEqual(steps, ["reload-started", "reload-completed", "prompt-dispatched"]);
+        assert.deepEqual(prompt?.message.content, [
+          { type: "text", text: "please" },
+          { type: "text", text: "/new-review these changes" },
+        ]);
+      }).pipe(
+        Effect.provideService(Random.Random, makeDeterministicRandomService()),
+        Effect.provide(harness.layer),
+      );
+    },
+  );
 
   it.effect("keeps the skill command block after image attachments", () => {
     // A command block followed by an image is not expanded by the CLI; the

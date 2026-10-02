@@ -1,5 +1,6 @@
-import { useAtomValue } from "@effect/atom-react";
+import { RegistryContext, useAtomValue } from "@effect/atom-react";
 import { Link } from "@tanstack/react-router";
+import { useContext, useState } from "react";
 import { isEnabledProviderDriver } from "@t3tools/contracts";
 import type { ElysiaStatsTotals } from "@t3tools/contracts";
 
@@ -24,7 +25,7 @@ const unavailableMessages = {
   "not-connected": "Connect Elysia in Providers to view your compression savings.",
   "compression-disabled": "Compression is disabled in your Elysia CLI.",
   "proxy-unavailable":
-    "Compression stats are unavailable. Start a chat to activate the Elysia proxy, then refresh.",
+    "Compression stats are unavailable. Elysia starts the local proxy automatically. Try Refresh, or check setup in Providers.",
   "invalid-data":
     "Your Elysia CLI could not report supported compression stats. Check for a CLI update in Providers, then refresh.",
 };
@@ -67,6 +68,7 @@ function SavingsSummary({
 
 export function ElysiaUsagePage() {
   useEscapeToGoBack();
+  const registry = useContext(RegistryContext);
   const environmentId = usePrimaryEnvironmentId();
   const provider = useAtomValue(primaryServerProvidersAtom).find(
     (candidate) =>
@@ -74,12 +76,29 @@ export function ElysiaUsagePage() {
       isEnabledProviderDriver(candidate.driver) &&
       candidate.enabled,
   );
-  const query = useEnvironmentQuery(
+  const statsAtom =
     environmentId && provider
       ? serverEnvironment.elysiaStats({ environmentId, input: { instanceId: provider.instanceId } })
-      : null,
-  );
+      : null;
+  const targetKey = JSON.stringify([environmentId, provider?.instanceId]);
+  const [requestedTarget, setRequestedTarget] = useState<string | null>(null);
+  const [lastUpdated, setLastUpdated] = useState<{ key: string; time: number } | null>(null);
+  const query = useEnvironmentQuery(requestedTarget === targetKey ? statsAtom : null);
   const snapshot = query.error ? null : query.data;
+  if (
+    !query.isPending &&
+    snapshot?.status === "available" &&
+    query.dataUpdatedAt !== null &&
+    (lastUpdated?.key !== targetKey || lastUpdated.time !== query.dataUpdatedAt)
+  ) {
+    setLastUpdated({ key: targetKey, time: query.dataUpdatedAt });
+  }
+  const refresh = () => {
+    if (statsAtom) {
+      registry.refresh(statsAtom);
+      setRequestedTarget(targetKey);
+    }
+  };
   const unavailableMessage =
     snapshot?.status === "unavailable"
       ? unavailableMessages[snapshot.reason]
@@ -101,13 +120,24 @@ export function ElysiaUsagePage() {
             variant="outline"
             size="sm"
             disabled={!environmentId || !provider || query.isPending}
-            onClick={query.refresh}
+            onClick={refresh}
           >
             {query.isPending ? "Refreshing…" : "Refresh"}
           </Button>
         </div>
         <p className="text-sm text-muted-foreground">
-          Savings reported by your local Elysia CLI. Cost savings are estimates in US dollars.
+          Savings reported by your local Elysia CLI. Cost savings are estimates in US dollars. Reads
+          local usage data without sending a model request.
+        </p>
+        <p className="text-sm text-muted-foreground">
+          Last updated:{" "}
+          {lastUpdated?.key === targetKey ? (
+            <time dateTime={new Date(lastUpdated.time).toISOString()}>
+              {new Date(lastUpdated.time).toLocaleString()}
+            </time>
+          ) : (
+            "Not refreshed yet"
+          )}
         </p>
         {snapshot?.status === "available" ? (
           <div className="space-y-6">
@@ -124,6 +154,10 @@ export function ElysiaUsagePage() {
           <p role="status" className="text-sm text-muted-foreground">
             Reading Elysia stats…
           </p>
+        ) : requestedTarget !== targetKey && statsAtom ? (
+          <p role="status" className="text-sm text-muted-foreground">
+            Click Refresh to view your compression stats.
+          </p>
         ) : (
           <section className="space-y-3">
             <p role="status" className="text-sm text-muted-foreground">
@@ -132,9 +166,6 @@ export function ElysiaUsagePage() {
             <Button render={<Link to="/settings/providers" />}>Open Providers</Button>
           </section>
         )}
-        <p className="text-sm text-muted-foreground">
-          You can also type <code>/elysia-compression stats</code> in a chat.
-        </p>
       </WorkspacePageContainer>
     </SidebarInset>
   );

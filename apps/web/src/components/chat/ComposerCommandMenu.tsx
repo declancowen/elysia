@@ -4,6 +4,8 @@ import {
 } from "@t3tools/client-runtime/providerSkills";
 import {
   type ProjectEntry,
+  type ProjectId,
+  type AgentProfile,
   type ProviderDriverKind,
   type PullRequestContextMetadata,
   type ServerProviderSkill,
@@ -26,8 +28,17 @@ import { Command, CommandGroup, CommandItem, CommandList } from "../ui/command";
 import { PierreEntryIcon } from "./PierreEntryIcon";
 import { ComposerBanner } from "./ComposerBanner";
 import { resolvePullRequestState } from "../pullRequest/pullRequestPresentation";
+import { AgentAvatar } from "../agents/AgentAvatar";
 
 export type ComposerCommandItem =
+  | {
+      id: string;
+      type: "agent";
+      projectId: ProjectId;
+      avatar: AgentProfile["avatar"];
+      label: string;
+      description: string;
+    }
   | {
       id: string;
       type: "path";
@@ -137,7 +148,7 @@ export const ComposerCommandMenu = memo(function ComposerCommandMenu(props: {
                   (props.triggerKind === "skill"
                     ? "No skills found. Try / to browse provider commands."
                     : props.triggerKind === "path"
-                      ? "No matching files or folders."
+                      ? "No matching agents, files or folders."
                       : "No matching command."))}
             </p>
           </div>
@@ -178,6 +189,7 @@ const ComposerCommandMenuItem = memo(function ComposerCommandMenuItem(props: {
         props.onSelect(props.item);
       }}
     >
+      {props.item.type === "agent" ? <AgentAvatar avatar={props.item.avatar} /> : null}
       {props.item.type === "path" ? (
         <PierreEntryIcon
           pathValue={props.item.path}
@@ -216,7 +228,7 @@ export function composerSuggestionOptionId(listId: string, itemId: string): stri
 }
 
 const LISTBOX_LABEL_BY_TRIGGER: Record<ComposerTriggerKind, string> = {
-  path: "Files and folders",
+  path: "Agents, files and folders",
   "pull-request": "Pull requests",
   "slash-command": "Commands",
   skill: "Skills",

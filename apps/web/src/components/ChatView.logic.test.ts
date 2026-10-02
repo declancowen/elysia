@@ -13,6 +13,7 @@ import {
   type WorktreeSetupSnapshot,
 } from "@t3tools/contracts";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
+
 import { Atom, AsyncResult } from "effect/unstable/reactivity";
 import { appAtomRegistry } from "../rpc/atomRegistry";
 import { environmentThreadDetails } from "../state/threads";
@@ -34,6 +35,7 @@ import {
 import {
   MAX_HIDDEN_MOUNTED_TERMINAL_THREADS,
   agentControlledBrowserCloseConfirmation,
+  agentDelegationDraftKey,
   branchMismatchKey,
   buildExpiredTerminalContextToastCopy,
   buildLoadingThreadFromShell,
@@ -90,6 +92,22 @@ import {
   prepareRevertedMessageAttachments,
 } from "./ChatView.logic";
 
+it("preserves a newer handoff draft while ignoring upload bookkeeping", () => {
+  const draft = {
+    prompt: "Original task",
+    images: [],
+    files: [],
+    terminalContexts: [],
+    previewAnnotations: [],
+    reviewComments: [],
+  };
+  const submitted = agentDelegationDraftKey(draft);
+  const uploaded = { ...draft, persistedAttachments: ["upload-completed"] };
+  expect(agentDelegationDraftKey(uploaded)).toBe(submitted);
+  expect(agentDelegationDraftKey({ ...uploaded, prompt: "New task typed during upload" })).not.toBe(
+    submitted,
+  );
+});
 describe("agent browser close confirmation", () => {
   const surfaces = [
     { id: "browser:one", kind: "preview", resourceId: "tab-1" },

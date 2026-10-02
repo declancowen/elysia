@@ -18,6 +18,7 @@ import {
   selectNonAgentProjectItems,
   selectRegularProjects,
 } from "./agentPresentation";
+import { composerAgentMentionItems } from "../threads/composerAgentMentions";
 
 const local = EnvironmentId.make("local");
 const remote = EnvironmentId.make("remote");
@@ -81,6 +82,52 @@ function thread(
 }
 
 describe("mobile agent presentation", () => {
+  it("offers only active linked agents on the source environment, excluding self and unsaved source chats", () => {
+    const sourceOwner = project("source");
+    const source = thread("source-chat", sourceOwner);
+    const agent = project("agent", {
+      ...profile,
+      conversationThreadId: ThreadId.make("agent-chat"),
+    });
+    const self = project("self", { ...profile, conversationThreadId: source.id });
+    const archived = project("archived", {
+      ...profile,
+      archived: true,
+      conversationThreadId: ThreadId.make("archived-chat"),
+    });
+    const missing = project("missing", {
+      ...profile,
+      conversationThreadId: ThreadId.make("gone-chat"),
+    });
+    const remoteAgent = project(
+      "remote-agent",
+      { ...profile, conversationThreadId: ThreadId.make("remote-chat") },
+      remote,
+    );
+    const projects = [sourceOwner, agent, self, archived, missing, remoteAgent];
+    const threads = [
+      source,
+      thread("agent-chat", agent),
+      thread("archived-chat", archived),
+      thread("fallback-chat", missing),
+      thread("remote-chat", remoteAgent),
+    ];
+    const input = {
+      projects,
+      threads,
+      environmentId: local,
+      sourceThreadId: source.id,
+      query: "research",
+    };
+    expect(composerAgentMentionItems(input).map((item) => item.projectId)).toEqual([agent.id]);
+    expect(composerAgentMentionItems({ ...input, sourceThreadId: null })).toEqual([]);
+    expect(
+      composerAgentMentionItems({ ...input, sourceThreadId: ThreadId.make("not-created") }),
+    ).toEqual([]);
+    expect(composerAgentMentionItems({ ...input, query: "unmatched" })).toEqual([]);
+    expect(projects).toHaveLength(6);
+    expect(threads).toHaveLength(5);
+  });
   it("keeps all agent backing projects out of generic project choices, including archived profiles", () => {
     const ordinary = project("work");
     const activeAgent = project("agent", profile);

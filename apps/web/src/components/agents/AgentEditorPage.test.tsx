@@ -315,6 +315,7 @@ it("creates through the native command and opens only the returned durable conve
     input: {
       name: "Sam",
       defaultModelSelection: model,
+      enableAgentBrowserAccess: true,
       agentProfile: {
         instructions: "Help with research.",
         avatar: { preset: "square", color: "#33D7C8" },
@@ -325,6 +326,28 @@ it("creates through the native command and opens only the returned durable conve
   });
   expect(router.state.location.pathname).toBe("/local/durable-agent-chat");
   expect(state.update).not.toHaveBeenCalled();
+});
+
+it("keeps browser access as a create-time draft until the native creation command saves it", async () => {
+  await render();
+  await act(async () => openAgentDialog());
+  const browserSwitch = [...host.querySelectorAll<HTMLButtonElement>('[role="switch"]')].find(
+    (control) => control.closest("label")?.textContent === "Browser access",
+  )!;
+  expect(browserSwitch.getAttribute("aria-checked")).toBe("true");
+  await act(async () => browserSwitch.click());
+  expect(browserSwitch.getAttribute("aria-checked")).toBe("false");
+  expect(state.updateSettings).not.toHaveBeenCalled();
+  await fill('input[placeholder="Alex"]', "Sam");
+  await fill("textarea", "Help with research.");
+  await submit();
+  expect(state.create).toHaveBeenCalledWith(
+    expect.objectContaining({
+      input: expect.objectContaining({ enableAgentBrowserAccess: false }),
+    }),
+  );
+  expect(state.updateSettings).not.toHaveBeenCalled();
+  expect(router.state.location.pathname).toBe("/local/durable-agent-chat");
 });
 
 it("edits an existing profile and returns to its saved conversation, preserving identity and legacy avatar", async () => {

@@ -1,9 +1,14 @@
 import { assert, describe, it } from "@effect/vitest";
+import * as Deferred from "effect/Deferred";
 import * as Effect from "effect/Effect";
+import * as Fiber from "effect/Fiber";
 import * as Layer from "effect/Layer";
+import * as PlatformError from "effect/PlatformError";
+import * as Ref from "effect/Ref";
 import * as TestClock from "effect/testing/TestClock";
 
 import * as ElectronUpdater from "../electron/ElectronUpdater.ts";
+import * as DesktopState from "../app/DesktopState.ts";
 import * as DesktopAppSettings from "../settings/DesktopAppSettings.ts";
 import * as DesktopUpdates from "./DesktopUpdates.ts";
 import { flushCallbacks, makeHarness } from "./updatesTestHarness.ts";
@@ -11,6 +16,148 @@ import { flushCallbacks, makeHarness } from "./updatesTestHarness.ts";
 const prereleaseVersions = ["1.2.5-nightly.20261001.1", "1.2.5-preview.20261001.1", "1.2.5-rc.1"];
 
 describe("Elysia stable updates", () => {
+  it.effect(
+    "keeps the backend running when the macOS app cannot be replaced and permits retry",
+    () => {
+      let locationWritable = false;
+      let backendStops = 0;
+      const harness = makeHarness({
+        resourcesPath: "/Volumes/Elysia Installer/Elysia.app/Contents/Resources",
+        accessInstallLocation: Effect.suspend(() =>
+          locationWritable
+            ? Effect.void
+            : Effect.fail(
+                PlatformError.systemError({
+                  module: "FileSystem",
+                  method: "access",
+                  _tag: "PermissionDenied",
+                }),
+              ),
+        ),
+        stopBackend: Effect.sync(() => {
+          backendStops += 1;
+        }),
+      });
+
+      return Effect.scoped(
+        Effect.gen(function* () {
+          const updates = yield* DesktopUpdates.DesktopUpdates;
+          const desktopState = yield* DesktopState.DesktopState;
+          yield* updates.configure;
+          harness.emit("update-downloaded", { version: "0.0.2" });
+          yield* flushCallbacks;
+
+          const result = yield* updates.installPrepared("0.0.2");
+          assert.isTrue(result.accepted);
+          assert.isTrue(result.failed);
+          assert.equal(result.state.downloadedVersion, "0.0.2");
+          assert.equal(result.state.status, "downloaded");
+          assert.equal(result.state.errorContext, "install");
+          assert.include(result.state.message, "Quit Elysia, move it to Applications");
+          assert.deepEqual(harness.installLocationChecks, ["/Volumes/Elysia Installer/Elysia.app"]);
+          assert.equal(backendStops, 0);
+          assert.deepEqual(harness.installSteps, []);
+          assert.equal(harness.updateRestartMarkers.size, 0);
+          assert.isFalse(yield* Ref.get(desktopState.quitting));
+          assert.isFalse(yield* updates.isActionActive);
+
+          locationWritable = true;
+          assert.isTrue((yield* updates.installPrepared("0.0.2")).accepted);
+          assert.equal(backendStops, 1);
+          assert.equal(harness.quitAndInstalls(), 1);
+        }),
+      ).pipe(Effect.provide(Layer.merge(TestClock.layer(), harness.layer)));
+    },
+  );
+
+  it.effect(
+    "recovers a late native read-only rejection without exposing its raw diagnostic",
+    () => {
+      const harness = makeHarness();
+      return Effect.scoped(
+        Effect.gen(function* () {
+          const updates = yield* DesktopUpdates.DesktopUpdates;
+          const desktopState = yield* DesktopState.DesktopState;
+          yield* updates.configure;
+          harness.emit("update-downloaded", { version: "0.0.2" });
+          yield* flushCallbacks;
+          yield* updates.install;
+          harness.emit(
+            "error",
+            new Error(
+              "Cannot update while running on a read-only volume. private-path https://user:secret@example.com/?token=secret",
+            ),
+          );
+          yield* flushCallbacks;
+          const state = yield* updates.getState;
+          assert.include(state.message, "Quit Elysia, move it to Applications");
+          assert.notInclude(state.message, "private");
+          assert.notInclude(state.message, "secret");
+          assert.notInclude(state.message, "https://");
+          assert.isFalse(yield* Ref.get(desktopState.quitting));
+          assert.deepEqual(harness.installSteps, ["quitAndInstall", "startBackend"]);
+          assert.equal(harness.updateRestartMarkers.size, 0);
+          assert.equal(state.downloadedVersion, "0.0.2");
+        }),
+      ).pipe(Effect.provide(Layer.merge(TestClock.layer(), harness.layer)));
+    },
+  );
+
+  it.effect("releases a cancelled location check without stopping the backend", () =>
+    Effect.gen(function* () {
+      const checkingLocation = yield* Deferred.make<void>();
+      let backendStops = 0;
+      const harness = makeHarness({
+        accessInstallLocation: Deferred.succeed(checkingLocation, undefined).pipe(
+          Effect.andThen(Effect.never),
+        ),
+        stopBackend: Effect.sync(() => {
+          backendStops += 1;
+        }),
+      });
+      yield* Effect.scoped(
+        Effect.gen(function* () {
+          const updates = yield* DesktopUpdates.DesktopUpdates;
+          const desktopState = yield* DesktopState.DesktopState;
+          yield* updates.configure;
+          harness.emit("update-downloaded", { version: "0.0.2" });
+          yield* flushCallbacks;
+          const installFiber = yield* updates.install.pipe(Effect.forkScoped);
+          yield* Deferred.await(checkingLocation);
+          yield* Fiber.interrupt(installFiber);
+          assert.isFalse(yield* updates.isActionActive);
+          assert.isFalse(yield* Ref.get(desktopState.quitting));
+          assert.equal(backendStops, 0);
+          assert.equal(harness.quitAndInstalls(), 0);
+          assert.equal(harness.updateRestartMarkers.size, 0);
+          assert.equal((yield* updates.getState).downloadedVersion, "0.0.2");
+        }),
+      ).pipe(Effect.provide(Layer.merge(TestClock.layer(), harness.layer)));
+    }),
+  );
+
+  for (const bundlePath of [
+    "/Users/test/Downloads/Elysia.app",
+    "/Users/test/Desktop/Elysia.app",
+    "/Volumes/Writable External/Elysia.app",
+  ]) {
+    it.effect(`permits an update from a writable macOS bundle at ${bundlePath}`, () => {
+      const harness = makeHarness({ resourcesPath: `${bundlePath}/Contents/Resources` });
+      return Effect.scoped(
+        Effect.gen(function* () {
+          const updates = yield* DesktopUpdates.DesktopUpdates;
+          yield* updates.configure;
+          harness.emit("update-downloaded", { version: "0.0.2" });
+          yield* flushCallbacks;
+          const result = yield* updates.installPrepared("0.0.2");
+          assert.isFalse(result.failed);
+          assert.deepEqual(harness.installLocationChecks, [bundlePath]);
+          assert.equal(harness.quitAndInstalls(), 1);
+        }),
+      ).pipe(Effect.provide(Layer.merge(TestClock.layer(), harness.layer)));
+    });
+  }
+
   for (const platform of ["darwin", "win32"] as const) {
     it.effect(`checks the fork feed and admits the 0.0.1 → 0.0.2 update on ${platform}`, () => {
       const harness = makeHarness({
@@ -41,6 +188,7 @@ describe("Elysia stable updates", () => {
           assert.equal(ready.downloadedVersion, "0.0.2");
           assert.isTrue((yield* updates.install).accepted);
           assert.equal(harness.quitAndInstalls(), 1);
+          assert.lengthOf(harness.installLocationChecks, platform === "darwin" ? 1 : 0);
         }),
       ).pipe(Effect.provide(Layer.merge(TestClock.layer(), harness.layer)));
     });

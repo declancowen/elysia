@@ -94,6 +94,13 @@ export const GetProjectionPendingTurnStartInput = Schema.Struct({
 });
 export type GetProjectionPendingTurnStartInput = typeof GetProjectionPendingTurnStartInput.Type;
 
+export const GetProjectionTurnByPendingMessageIdInput = Schema.Struct({
+  threadId: ThreadId,
+  messageId: MessageId,
+});
+export type GetProjectionTurnByPendingMessageIdInput =
+  typeof GetProjectionTurnByPendingMessageIdInput.Type;
+
 export const DeleteProjectionTurnsByThreadInput = Schema.Struct({
   threadId: ThreadId,
 });
@@ -148,6 +155,10 @@ export interface ProjectionTurnRepositoryShape {
   readonly getByTurnId: (
     input: GetProjectionTurnByTurnIdInput,
   ) => Effect.Effect<Option.Option<ProjectionTurnById>, ProjectionRepositoryError>;
+
+  readonly getByPendingMessageId: (
+    input: GetProjectionTurnByPendingMessageIdInput,
+  ) => Effect.Effect<Option.Option<ProjectionTurn>, ProjectionRepositoryError>;
 
   /**
    * Clears checkpoint fields on conflicting rows that reuse the same checkpoint turn count in a thread, excluding the provided turn.

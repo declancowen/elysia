@@ -32,10 +32,13 @@ import {
 import { toPersistenceSqlError } from "../../persistence/Errors.ts";
 import { OrchestrationEventStore } from "../../persistence/Services/OrchestrationEventStore.ts";
 import { OrchestrationCommandReceiptRepository } from "../../persistence/Services/OrchestrationCommandReceipts.ts";
+import { ProjectionTurnRepository } from "../../persistence/Services/ProjectionTurns.ts";
+import { ProjectionTurnRepositoryLive } from "../../persistence/Layers/ProjectionTurns.ts";
 import {
   isOrchestrationCommandRejection,
   OrchestrationCommandIdConflictError,
   OrchestrationCommandInvariantError,
+  OrchestrationThreadBusyError,
   OrchestrationCommandPreviouslyRejectedError,
   type OrchestrationDispatchError,
   type OrchestrationProjectorDecodeError,
@@ -85,6 +88,7 @@ const makeOrchestrationEngine = Effect.gen(function* () {
   const sql = yield* SqlClient.SqlClient;
   const eventStore = yield* OrchestrationEventStore;
   const commandReceiptRepository = yield* OrchestrationCommandReceiptRepository;
+  const projectionTurns = yield* ProjectionTurnRepository;
   const projectionPipeline = yield* OrchestrationProjectionPipeline;
   const projectionSnapshotQuery = yield* ProjectionSnapshotQuery;
   const threadBackgroundLiveness = yield* ThreadBackgroundLivenessService;
@@ -236,6 +240,26 @@ const makeOrchestrationEngine = Effect.gen(function* () {
         }
 
         // Command snapshots omit activities at startup and cap them while running.
+        // Check after receipt deduplication, inside the serialized engine queue: a
+        // concurrent normal send must not be replaced by a delegated pending start.
+        if (envelope.command.type === "thread.turn.start" && envelope.command.requireIdle) {
+          const pending = yield* projectionTurns.getPendingTurnStartByThreadId(envelope.command);
+          const target = yield* projectionSnapshotQuery.getThreadShellById(
+            envelope.command.threadId,
+          );
+          if (
+            Option.isSome(pending) ||
+            (Option.isSome(target) &&
+              (target.value.latestTurn?.state === "running" ||
+                target.value.session?.status === "starting" ||
+                target.value.session?.status === "running" ||
+                target.value.hasPendingApprovals ||
+                target.value.hasPendingUserInput ||
+                target.value.backgroundLiveness === "working"))
+          ) {
+            return yield* new OrchestrationThreadBusyError({ threadId: envelope.command.threadId });
+          }
+        }
         // Read this request's durable state before deciding how to send the answer.
         const userInputActivity =
           envelope.command.type === "thread.user-input.respond" ||
@@ -470,4 +494,4 @@ const makeOrchestrationEngine = Effect.gen(function* () {
 export const OrchestrationEngineLive = Layer.effect(
   OrchestrationEngineService,
   makeOrchestrationEngine,
-);
+).pipe(Layer.provide(ProjectionTurnRepositoryLive));

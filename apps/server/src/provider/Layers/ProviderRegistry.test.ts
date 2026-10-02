@@ -1,4 +1,4 @@
-import "../../testUtils/upstreamForkPolicy.ts";
+import { setUpstreamSingleProviderUi } from "../../testUtils/upstreamForkPolicy.ts";
 
 import { CodexInstallation } from "../CodexInstallation.ts";
 import { ServerSecretStore } from "../../auth/ServerSecretStore.ts";
@@ -1451,9 +1451,11 @@ it.layer(Layer.mergeAll(TestNodeServices, ServerSettingsModule.layerTest(), Test
         }),
       );
 
-      it.effect("deduplicates cwd probes and clears snapshots when an instance rebuilds", () =>
+      it.effect.each(["codex", "claudeAgent"] as const)("cwd probes: %s", (kind) =>
         Effect.gen(function* () {
-          const driver = ProviderDriverKind.make("codex");
+          const driver = ProviderDriverKind.make(kind);
+          setUpstreamSingleProviderUi(driver === "claudeAgent");
+          yield* Effect.addFinalizer(() => Effect.sync(() => setUpstreamSingleProviderUi(false)));
           const instanceId = ProviderInstanceId.make("codex");
           const machineProvider = {
             instanceId,
@@ -1619,7 +1621,10 @@ it.layer(Layer.mergeAll(TestNodeServices, ServerSettingsModule.layerTest(), Test
               fresh: true,
             });
             assert.strictEqual(yield* Ref.get(snapshotCalls), 3);
-            assert.strictEqual(yield* Ref.get(cacheInvalidations), 1);
+            assert.strictEqual(
+              yield* Ref.get(cacheInvalidations),
+              driver === "claudeAgent" ? 0 : 1,
+            );
             assert.deepStrictEqual(
               (yield* registry.getProviders)[0]?.workspaceSnapshots?.map((s) => s.skills),
               [newSkills],

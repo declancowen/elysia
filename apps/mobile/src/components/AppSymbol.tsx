@@ -24,6 +24,8 @@ import IconArrowsMinimize from "@tabler/icons-react-native/IconArrowsMinimize";
 import IconBellRinging from "@tabler/icons-react-native/IconBellRinging";
 import IconBolt from "@tabler/icons-react-native/IconBolt";
 import IconBox from "@tabler/icons-react-native/IconBox";
+import IconBook from "@tabler/icons-react-native/IconBook";
+import IconChefHat from "@tabler/icons-react-native/IconChefHat";
 import IconBrain from "@tabler/icons-react-native/IconBrain";
 import IconBriefcase from "@tabler/icons-react-native/IconBriefcase";
 import IconCamera from "@tabler/icons-react-native/IconCamera";
@@ -48,6 +50,7 @@ import IconDeviceMobile from "@tabler/icons-react-native/IconDeviceMobile";
 import IconDots from "@tabler/icons-react-native/IconDots";
 import IconDotsVertical from "@tabler/icons-react-native/IconDotsVertical";
 import IconDotsCircleHorizontal from "@tabler/icons-react-native/IconDotsCircleHorizontal";
+import IconDownload from "@tabler/icons-react-native/IconDownload";
 import IconEdit from "@tabler/icons-react-native/IconEdit";
 import IconExternalLink from "@tabler/icons-react-native/IconExternalLink";
 import IconEye from "@tabler/icons-react-native/IconEye";
@@ -76,6 +79,7 @@ import IconMenu2 from "@tabler/icons-react-native/IconMenu2";
 import IconMessage from "@tabler/icons-react-native/IconMessage";
 import IconMinus from "@tabler/icons-react-native/IconMinus";
 import IconMoon from "@tabler/icons-react-native/IconMoon";
+import IconMusic from "@tabler/icons-react-native/IconMusic";
 import IconNetwork from "@tabler/icons-react-native/IconNetwork";
 import IconPalette from "@tabler/icons-react-native/IconPalette";
 import IconPencil from "@tabler/icons-react-native/IconPencil";
@@ -87,6 +91,7 @@ import IconPlayerStopFilled from "@tabler/icons-react-native/IconPlayerStopFille
 import IconPlus from "@tabler/icons-react-native/IconPlus";
 import IconQrcode from "@tabler/icons-react-native/IconQrcode";
 import IconRefresh from "@tabler/icons-react-native/IconRefresh";
+import IconRobot from "@tabler/icons-react-native/IconRobot";
 import IconSearch from "@tabler/icons-react-native/IconSearch";
 import IconServer from "@tabler/icons-react-native/IconServer";
 import IconSettings from "@tabler/icons-react-native/IconSettings";
@@ -115,6 +120,7 @@ const ANDROID_ICON_BY_SF_SYMBOL = {
   "arrow.left": IconArrowLeft,
   "arrow.clockwise": IconRefresh,
   "arrow.down": IconArrowDown,
+  "arrow.down.to.line": IconDownload,
   "arrow.down.circle": IconArrowDownCircle,
   "arrow.right.circle": IconArrowRightCircle,
   "arrow.triangle.branch": IconGitBranch,
@@ -135,6 +141,7 @@ const ANDROID_ICON_BY_SF_SYMBOL = {
   "bolt.circle": IconBolt,
   "bolt.horizontal.circle": IconBolt,
   brain: IconBrain,
+  book: IconBook,
   briefcase: IconBriefcase,
   camera: IconCamera,
   "chart.bar.xaxis": IconChartBar,
@@ -145,6 +152,7 @@ const ANDROID_ICON_BY_SF_SYMBOL = {
   timer: IconClock,
   ticket: IconTicket,
   cloud: IconCloud,
+  cpu: IconRobot,
   cube: IconBox,
   "chevron.down": IconChevronDown,
   "chevron.left": IconChevronLeft,
@@ -161,6 +169,7 @@ const ANDROID_ICON_BY_SF_SYMBOL = {
   "exclamationmark.circle": IconAlertCircle,
   eye: IconEye,
   folder: IconFolder,
+  "fork.knife": IconChefHat,
   "folder.badge.plus": IconFolderPlus,
   "folder.fill": IconFolder,
   gearshape: IconSettings,
@@ -169,6 +178,7 @@ const ANDROID_ICON_BY_SF_SYMBOL = {
   house: IconHome,
   "info.circle": IconInfoCircle,
   internaldrive: IconDatabase,
+  iphone: IconDeviceMobile,
   keyboard: IconKeyboard,
   laptopcomputer: IconDeviceLaptop,
   link: IconLink,
@@ -181,6 +191,7 @@ const ANDROID_ICON_BY_SF_SYMBOL = {
   macstudio: IconDeviceDesktop,
   magnifyingglass: IconSearch,
   mic: IconMicrophone,
+  "music.note": IconMusic,
   paintbrush: IconPalette,
   pencil: IconPencil,
   "person.crop.circle": IconUserCircle,

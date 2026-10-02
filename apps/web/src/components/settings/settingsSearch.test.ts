@@ -45,6 +45,11 @@ const ITEMS: ReadonlyArray<SettingsSearchItem> = [
 ];
 
 describe("searchSettings", () => {
+  it.each(["Project view", "Thread view"])("finds the saved view preference by %s", (query) => {
+    const target = searchSettings(query).find((item) => item.id === "legacy-sidebar");
+    expect(target).toMatchObject({ title: "Project view", to: "/settings/general" });
+  });
+
   it.each(["Informa", "GitHub", "GitHub Dark Neutral Unified", "Notion Inverted", "Notion"])(
     "finds Appearance themes by %s",
     (query) => {

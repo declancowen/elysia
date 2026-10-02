@@ -150,6 +150,7 @@ function ProjectGroupLabel(props: {
     <View className="flex-row items-center gap-2.5 px-1 pb-2">
       <ProjectFavicon
         environmentId={props.project.environmentId}
+        tintColorClassName="accent-foreground-muted"
         faviconPath={props.project.faviconPath}
         projectIcon={props.project.projectIcon}
         projectTitle={props.project.title}

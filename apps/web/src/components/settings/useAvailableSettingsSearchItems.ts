@@ -1,4 +1,9 @@
 import { useMemo } from "react";
+import { useCodeWorkspace } from "~/hooks/useSettings";
+import {
+  isSettingsPathVisibleInWorkspace,
+  isSettingsTargetVisibleInWorkspace,
+} from "./settingsWorkspace";
 import { AuthAccessWriteScope } from "@t3tools/contracts";
 
 import { hasCloudPublicConfig } from "~/cloud/publicConfig";
@@ -17,6 +22,7 @@ import {
 } from "./settingsSearch";
 
 export function useAvailableSettingsSearchItems(scopeSearch: SettingsScopeSearch = {}) {
+  const codeWorkspace = useCodeWorkspace();
   const { environments } = useEnvironments();
   const primarySessionState = usePrimarySessionState();
   const localEnvironmentDisabled = isLocalEnvironmentDisabled();
@@ -61,12 +67,15 @@ export function useAvailableSettingsSearchItems(scopeSearch: SettingsScopeSearch
           getThreadAutoSettlementSearchAvailability(environments).eligibleEnvironmentIds.length > 0,
       }).filter(
         (item) =>
+          isSettingsPathVisibleInWorkspace(item.to, codeWorkspace) &&
+          isSettingsTargetVisibleInWorkspace(item.targetId ?? item.id, codeWorkspace) &&
           item.id !== "project-grouping" &&
           item.to !== "/settings/connections" &&
           !item.id.includes("environment-identification") &&
           !item.id.includes("update-track"),
       ),
     [
+      codeWorkspace,
       canManageLocalBackend,
       desktopWsl.data,
       desktopWsl.error,

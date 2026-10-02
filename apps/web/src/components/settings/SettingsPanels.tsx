@@ -1,3 +1,4 @@
+import { useCodeWorkspace } from "~/hooks/useSettings";
 import { SettingsGroup } from "./SettingsGroup";
 import { ArchivedAgentsSection } from "./ArchivedAgentsSection";
 import { Spinner } from "~/components/ui/spinner";
@@ -771,6 +772,7 @@ function BackgroundActivityAdvancedDialog({
   readonly open: boolean;
   readonly onOpenChange: (open: boolean) => void;
 }) {
+  const codeWorkspace = useCodeWorkspace();
   const settings = useScopedSettings();
   const updateSettings = useUpdateScopedSettings();
   const resolvedBackgroundActivity = resolveServerBackgroundActivitySettings(settings);
@@ -841,45 +843,47 @@ function BackgroundActivityAdvancedDialog({
               </Select>
             </div>
 
-            <div className="flex flex-col gap-3 border-b px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-              <div className="min-w-0 space-y-1">
-                <div className="text-sm font-medium">
-                  {searchableSetting("git-fetch-interval").title}
+            {codeWorkspace ? (
+              <div className="flex flex-col gap-3 border-b px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="min-w-0 space-y-1">
+                  <div className="text-sm font-medium">
+                    {searchableSetting("git-fetch-interval").title}
+                  </div>
+                  <p className="text-xs leading-relaxed text-muted-foreground">
+                    Refresh remote branch status in the background.
+                  </p>
                 </div>
-                <p className="text-xs leading-relaxed text-muted-foreground">
-                  Refresh remote branch status in the background.
-                </p>
+                <div className="flex shrink-0 items-center gap-2">
+                  <NumberField
+                    value={automaticGitFetchIntervalSeconds}
+                    min={0}
+                    step={5}
+                    size="sm"
+                    className="w-32"
+                    onValueChange={(value) =>
+                      updateSettings(
+                        backgroundActivityOverrideSettings(
+                          settings.backgroundActivity,
+                          resolvedBackgroundActivity,
+                          {
+                            automaticGitFetchInterval: Duration.seconds(
+                              normalizeIntervalSeconds(value),
+                            ),
+                          },
+                        ),
+                      )
+                    }
+                  >
+                    <NumberFieldGroup>
+                      <NumberFieldDecrement aria-label="Decrease Git fetch interval" />
+                      <NumberFieldInput aria-label="Git fetch interval in seconds" />
+                      <NumberFieldIncrement aria-label="Increase Git fetch interval" />
+                    </NumberFieldGroup>
+                  </NumberField>
+                  <span className="text-xs text-muted-foreground">seconds</span>
+                </div>
               </div>
-              <div className="flex shrink-0 items-center gap-2">
-                <NumberField
-                  value={automaticGitFetchIntervalSeconds}
-                  min={0}
-                  step={5}
-                  size="sm"
-                  className="w-32"
-                  onValueChange={(value) =>
-                    updateSettings(
-                      backgroundActivityOverrideSettings(
-                        settings.backgroundActivity,
-                        resolvedBackgroundActivity,
-                        {
-                          automaticGitFetchInterval: Duration.seconds(
-                            normalizeIntervalSeconds(value),
-                          ),
-                        },
-                      ),
-                    )
-                  }
-                >
-                  <NumberFieldGroup>
-                    <NumberFieldDecrement aria-label="Decrease Git fetch interval" />
-                    <NumberFieldInput aria-label="Git fetch interval in seconds" />
-                    <NumberFieldIncrement aria-label="Increase Git fetch interval" />
-                  </NumberFieldGroup>
-                </NumberField>
-                <span className="text-xs text-muted-foreground">seconds</span>
-              </div>
-            </div>
+            ) : null}
 
             <div className="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
               <div className="min-w-0 space-y-1">
@@ -1963,14 +1967,14 @@ function WorkspacePreferencesSection() {
             />
             <SettingsRow
               {...searchableSetting("legacy-sidebar")}
-              description="Group chats beneath each project in the sidebar."
+              description="Group chats beneath each project in Project view, or show them together in Thread view."
               control={
                 <Switch
                   checked={settings.legacySidebarEnabled}
                   onCheckedChange={(checked) =>
                     updateSettings({ legacySidebarEnabled: Boolean(checked) })
                   }
-                  aria-label="Project sidebar"
+                  aria-label="Project view"
                 />
               }
             />

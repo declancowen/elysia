@@ -3,19 +3,30 @@ import {
   type ProviderSkillSourceKind,
 } from "@t3tools/client-runtime/providerSkills";
 import type {
+  AgentProfile,
+  ProjectId,
   PullRequestContextMetadata,
   ServerProviderSkill,
   ServerProviderSlashCommand,
 } from "@t3tools/contracts";
 import type { ComposerTriggerKind } from "@t3tools/shared/composerTrigger";
-import { memo } from "react";
+import { Fragment, memo } from "react";
 import { Pressable, ScrollView, StyleSheet, View, type ViewStyle } from "react-native";
 
 import { SymbolView, type AppSymbolName } from "../../components/AppSymbol";
 import { AppText as Text } from "../../components/AppText";
 import { GlassSurface } from "../../components/GlassSurface";
 import { PierreEntryIcon } from "../../components/PierreEntryIcon";
+import { AgentAvatar } from "../agents/AgentAvatar";
 export type ComposerCommandItem =
+  | {
+      readonly id: string;
+      readonly type: "agent";
+      readonly projectId: ProjectId;
+      readonly avatar: AgentProfile["avatar"];
+      readonly label: string;
+      readonly description: string;
+    }
   | {
       readonly id: string;
       readonly type: "pull-request";
@@ -98,6 +109,7 @@ function itemIcon(item: ComposerCommandItem): AppSymbolName | null {
     case "skill":
       return SKILL_SOURCE_SYMBOL_BY_KIND[resolveProviderSkillSourceKind(item.skill)];
     case "path":
+    case "agent":
       return null;
   }
 }
@@ -111,7 +123,7 @@ function groupLabel(triggerKind: ComposerTriggerKind | null): string | null {
     case "skill":
       return "Skills";
     case "path":
-      return "Files";
+      return null;
     default:
       return null;
   }
@@ -125,7 +137,7 @@ function emptyText(triggerKind: ComposerTriggerKind | null, isLoading: boolean):
     case "pull-request":
       return "No matching pull requests.";
     case "path":
-      return "No matching files or folders.";
+      return "No matching agents, files or folders.";
     case "skill":
       return "No skills found.";
     case "slash-command":
@@ -149,7 +161,9 @@ const CommandRow = memo(function CommandRow(props: {
       className="flex-row items-center gap-2.5 border-border px-3.5 py-2.5 active:opacity-60"
       style={{ borderBottomWidth: props.isLast ? 0 : StyleSheet.hairlineWidth }}
     >
-      {props.item.type === "path" ? (
+      {props.item.type === "agent" ? (
+        <AgentAvatar avatar={props.item.avatar} size={16} animated={false} />
+      ) : props.item.type === "path" ? (
         <PierreEntryIcon path={props.item.path} kind={props.item.kind} size={16} />
       ) : iconName ? (
         <SymbolView
@@ -192,12 +206,20 @@ export const ComposerCommandPopover = memo(function ComposerCommandPopover(
           showsVerticalScrollIndicator={false}
         >
           {props.items.map((item, index) => (
-            <CommandRow
-              key={item.id}
-              item={item}
-              onPress={() => props.onSelect(item)}
-              isLast={index === props.items.length - 1}
-            />
+            <Fragment key={item.id}>
+              {props.triggerKind === "path" && props.items[index - 1]?.type !== item.type ? (
+                <View className="px-3.5 pt-2.5 pb-1">
+                  <Text className="text-3xs font-t3-bold tracking-[0.8px] uppercase text-foreground-muted">
+                    {item.type === "agent" ? "Agents" : "Files"}
+                  </Text>
+                </View>
+              ) : null}
+              <CommandRow
+                item={item}
+                onPress={() => props.onSelect(item)}
+                isLast={index === props.items.length - 1}
+              />
+            </Fragment>
           ))}
         </ScrollView>
       ) : (

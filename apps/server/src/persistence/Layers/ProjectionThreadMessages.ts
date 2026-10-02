@@ -207,7 +207,7 @@ const makeProjectionThreadMessageRepository = Effect.gen(function* () {
   const listProjectionThreadMessageRows = SqlSchema.findAll({
     Request: ListProjectionThreadMessagesInput,
     Result: ProjectionThreadMessageDbRowSchema,
-    execute: ({ threadId }) =>
+    execute: ({ threadId, limit, turnId, role }) =>
       sql`
         SELECT
           message_id AS "messageId",
@@ -222,7 +222,9 @@ const makeProjectionThreadMessageRepository = Effect.gen(function* () {
           updated_at AS "updatedAt"
         FROM projection_thread_messages
         WHERE thread_id = ${threadId}
-        ORDER BY created_at ASC, message_id ASC
+          ${turnId === undefined ? sql`` : sql`AND turn_id = ${turnId}`}
+          ${role === undefined ? sql`` : sql`AND role = ${role}`}
+        ${limit === undefined ? sql`ORDER BY created_at ASC, message_id ASC` : sql`ORDER BY created_at DESC, message_id DESC LIMIT ${limit}`}
       `,
   });
 
@@ -284,7 +286,9 @@ const makeProjectionThreadMessageRepository = Effect.gen(function* () {
       Effect.mapError(
         toPersistenceSqlError("ProjectionThreadMessageRepository.listByThreadId:query"),
       ),
-      Effect.map((rows) => rows.map(toProjectionThreadMessage)),
+      Effect.map((rows) =>
+        (input.limit === undefined ? rows : rows.toReversed()).map(toProjectionThreadMessage),
+      ),
     );
 
   const getLatestUserMessageAt: ProjectionThreadMessageRepositoryShape["getLatestUserMessageAt"] = (

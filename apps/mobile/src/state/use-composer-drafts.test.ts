@@ -176,6 +176,7 @@ import {
   mergeComposerDraftContentState,
   migrateLegacyNewTaskDraft,
   releaseUnusedComposerAttachmentFiles,
+  retainComposerDraftAttachments,
   removeComposerDraftsForEnvironment,
   replaceComposerDraftAttachments,
   resetComposerDraftsLoadState,
@@ -1368,6 +1369,41 @@ describe("mobile composer drafts", () => {
     expect(composerAttachmentCleanupMocks.remove).toHaveBeenCalledWith(file.fileUri);
     expect(composerAttachmentCleanupMocks.releaseUploads).toHaveBeenCalledWith(environmentId, [
       "pending-discarded",
+    ]);
+  });
+
+  it("keeps handoff files and pending uploads owned after their draft reference is removed", async () => {
+    const outboxLoad = vi.spyOn(threadOutboxManager, "load").mockResolvedValue(true);
+    onTestFinished(() => outboxLoad.mockRestore());
+    const environmentId = EnvironmentId.make("environment-1");
+    const file = {
+      id: "handoff-file",
+      type: "file" as const,
+      name: "notes.txt",
+      mimeType: "text/plain",
+      sizeBytes: 42,
+      fileUri: "file:///documents/t3-composer-attachments/handoff.txt",
+    };
+    const uploaded = {
+      ...file,
+      uploadedAttachmentId: "pending-handoff",
+      uploadEnvironmentId: environmentId,
+    };
+    const owner = retainComposerDraftAttachments([file]);
+    onTestFinished(() => owner.release());
+    owner.update([uploaded]);
+    await releaseUnusedComposerAttachmentFiles([uploaded]);
+    expect(composerAttachmentCleanupMocks.remove).not.toHaveBeenCalled();
+    expect(composerAttachmentCleanupMocks.releaseUploads).not.toHaveBeenCalled();
+    const released = Promise.withResolvers<void>();
+    composerAttachmentCleanupMocks.releaseUploads.mockImplementationOnce(async () => {
+      released.resolve();
+    });
+    owner.release();
+    await released.promise;
+    expect(composerAttachmentCleanupMocks.remove).toHaveBeenCalledWith(file.fileUri);
+    expect(composerAttachmentCleanupMocks.releaseUploads).toHaveBeenCalledWith(environmentId, [
+      "pending-handoff",
     ]);
   });
 

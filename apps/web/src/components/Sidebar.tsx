@@ -37,6 +37,7 @@ import {
   scopedThreadKey,
 } from "@t3tools/client-runtime/environment";
 import {
+  SINGLE_PROVIDER_UI,
   resolveEnvironmentMachineKind,
   type EnvironmentMachineKind,
   type ProjectIconOverride,
@@ -56,6 +57,7 @@ import {
   EyeIcon,
   FolderIcon,
   GitBranchIcon,
+  MessageCircleIcon,
   MessageCircleQuestionIcon,
   PinIcon,
   PinOffIcon,
@@ -124,7 +126,8 @@ import {
 } from "../threadSelectionStore";
 import { useThreadActions } from "../hooks/useThreadActions";
 import { useHandleNewThread } from "../hooks/useHandleNewThread";
-import { RecentThreadsHeader, useRecentThreadsExpansion } from "./sidebar/RecentThreadsHeader";
+import { useScratchProject } from "../hooks/useScratchProject";
+import { isScratchProject } from "@t3tools/client-runtime/state/projects";
 import { AgentRoster } from "./agents/AgentRoster";
 import {
   isAgentProject,
@@ -323,10 +326,27 @@ function terminalProcessLabel(count: number): string {
   return `${count} terminal ${count === 1 ? "process" : "processes"} running`;
 }
 
+function SidebarProjectIcon({
+  project,
+  projectless,
+  className,
+}: {
+  project: ProjectFaviconProject;
+  projectless: boolean;
+  className: string;
+}) {
+  return projectless ? (
+    <MessageCircleIcon aria-hidden className={className} />
+  ) : (
+    <ProjectFavicon project={project} className={className} />
+  );
+}
+
 function SidebarThreadTooltip({
   thread,
   project,
   projectDisplayName,
+  projectless,
   environmentLabel,
   environmentMachine,
   providerEntry,
@@ -340,6 +360,7 @@ function SidebarThreadTooltip({
   thread: SidebarThreadSummary;
   project: ProjectFaviconProject | null;
   projectDisplayName: string | null;
+  projectless: boolean;
   environmentLabel: string | null;
   environmentMachine: EnvironmentMachineKind;
   providerEntry: ProviderInstanceEntry | null;
@@ -365,8 +386,14 @@ function SidebarThreadTooltip({
         </div>
         <div className="grid gap-1.5 pl-0.5 text-xs text-muted-foreground">
           {projectDisplayName ? (
-            <div className="flex min-w-0 items-center gap-2">
-              {project ? <ProjectFavicon project={project} className="size-3 shrink-0" /> : null}
+            <div className="flex min-w-0 items-center gap-2 text-foreground/75">
+              {project ? (
+                <SidebarProjectIcon
+                  project={project}
+                  projectless={projectless}
+                  className="size-3 shrink-0"
+                />
+              ) : null}
               <div className="min-w-0 truncate text-foreground/75">{projectDisplayName}</div>
             </div>
           ) : null}
@@ -716,6 +743,7 @@ const SidebarDraftRow = memo(function SidebarDraftRow(props: {
   composer: ComposerThreadDraftState;
   project: ProjectFaviconProject | null;
   projectDisplayName: string | null;
+  projectless: boolean;
   isActive: boolean;
   onNavigate: (draftId: DraftId) => void;
   onDiscard: (draftId: DraftId) => void;
@@ -781,11 +809,20 @@ const SidebarDraftRow = memo(function SidebarDraftRow(props: {
         onKeyDown={handleKeyDown}
       >
         <span className="sr-only">{preview}</span>
-        <div className="relative z-10 h-[4.875rem] px-(--sidebar-row-content-inset) py-(--sidebar-content-inset)">
-          <div className="flex h-5 min-w-0 items-center gap-1.5">
+        <div
+          className={cn(
+            "relative z-10 px-(--sidebar-row-content-inset) py-(--sidebar-content-inset)",
+            SINGLE_PROVIDER_UI ? "h-15" : "h-[4.875rem]",
+          )}
+        >
+          <div className="flex h-5 min-w-0 items-center gap-1.5 text-secondary-label">
             <SquarePenIcon aria-hidden className={draftPenClassName} />
             {props.project ? (
-              <ProjectFavicon project={props.project} className="size-4 shrink-0" />
+              <SidebarProjectIcon
+                project={props.project}
+                projectless={props.projectless}
+                className="size-4 shrink-0"
+              />
             ) : null}
             <span className="min-w-0 flex-1 truncate text-xs font-medium text-secondary-label">
               {props.projectDisplayName}
@@ -831,6 +868,7 @@ const SidebarDraftBlock = memo(function SidebarDraftBlock(props: {
   agentProjectKeys: ReadonlySet<string>;
   projectByKey: ReadonlyMap<string, EnvironmentProject>;
   projectDisplayNameByKey: ReadonlyMap<string, string>;
+  projectlessKeys: ReadonlySet<string>;
   scopedProjectKeys: ReadonlySet<string> | null;
   routeDraftId: string | null;
   onNavigateToDraft: (draftId: DraftId) => void;
@@ -928,6 +966,7 @@ const SidebarDraftBlock = memo(function SidebarDraftBlock(props: {
             composer={composer}
             project={props.projectByKey.get(projectKey) ?? null}
             projectDisplayName={props.projectDisplayNameByKey.get(projectKey) ?? null}
+            projectless={props.projectlessKeys.has(projectKey)}
             isActive={draftId === props.routeDraftId}
             onNavigate={props.onNavigateToDraft}
             onDiscard={handleDiscard}
@@ -1016,6 +1055,7 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: {
   environmentMachine: EnvironmentMachineKind;
   project: EnvironmentProject | null;
   projectDisplayName: string | null;
+  projectless: boolean;
   providerEntryByInstanceId: ReadonlyMap<string, ProviderInstanceEntry>;
   timestampFormat: TimestampFormat;
   onThreadClick: (event: ReactMouseEvent, threadRef: ScopedThreadRef) => void;
@@ -1231,6 +1271,7 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: {
       thread={thread}
       project={props.project}
       projectDisplayName={props.projectDisplayName}
+      projectless={props.projectless}
       environmentLabel={props.environmentLabel}
       environmentMachine={props.environmentMachine}
       providerEntry={providerEntry}
@@ -1771,8 +1812,10 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: {
       {...sortableRootProps}
       {...(fileDropHandlers ?? {})}
       className={cn(
-        // Matches the h-[4.875rem] content box; the py-0.5 padding is added on top.
-        "list-none py-0.5 [content-visibility:auto] [contain-intrinsic-size:auto_78px]",
+        "list-none py-0.5 [content-visibility:auto]",
+        SINGLE_PROVIDER_UI
+          ? "[contain-intrinsic-size:auto_60px]"
+          : "[contain-intrinsic-size:auto_78px]",
         sortable?.isDragging && "relative z-20",
       )}
     >
@@ -1796,11 +1839,20 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: {
           }
         >
           {accessibleTitle}
-          <div className="relative z-10 h-[4.875rem] px-(--sidebar-row-content-inset) py-(--sidebar-content-inset)">
-            <div className="flex h-5 min-w-0 items-center gap-1.5">
+          <div
+            className={cn(
+              "relative z-10 px-(--sidebar-row-content-inset) py-(--sidebar-content-inset)",
+              SINGLE_PROVIDER_UI ? "h-15" : "h-[4.875rem]",
+            )}
+          >
+            <div className="flex h-5 min-w-0 items-center gap-1.5 text-secondary-label">
               {draftIndicator}
               {props.project ? (
-                <ProjectFavicon project={props.project} className="size-4 shrink-0" />
+                <SidebarProjectIcon
+                  project={props.project}
+                  projectless={props.projectless}
+                  className="size-4 shrink-0"
+                />
               ) : null}
               {props.projectDisplayName ? (
                 <span
@@ -1959,60 +2011,62 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: {
                 </span>
               ) : null}
             </div>
-            <div className="mt-0.5 flex min-w-0 items-center gap-1.5 text-secondary-label text-xs">
-              {/* Always the branch. The plan step used to take this slot while
+            {!SINGLE_PROVIDER_UI ? (
+              <div className="mt-0.5 flex min-w-0 items-center gap-1.5 text-secondary-label text-xs">
+                {/* Always the branch. The plan step used to take this slot while
                   working, but it truncated to a half-sentence and dropped the
                   branch, so the row lost its most stable identifier. */}
-              {codeWorkspace && thread.branch ? (
-                <>
-                  <ThreadWorktreeIndicator thread={thread} />
-                  <span className="flex min-w-0 flex-1 text-muted-foreground/40">
-                    <MiddleTruncate value={thread.branch} showTitle={false} />
+                {codeWorkspace && thread.branch ? (
+                  <>
+                    <ThreadWorktreeIndicator thread={thread} />
+                    <span className="flex min-w-0 flex-1 text-muted-foreground/40">
+                      <MiddleTruncate value={thread.branch} showTitle={false} />
+                    </span>
+                  </>
+                ) : (
+                  <span className="flex-1" />
+                )}
+                {codeWorkspace ? terminalStatusIcon : null}
+                {codeWorkspace ? prBadge : null}
+                {codeWorkspace && diff ? (
+                  <span className="shrink-0 font-mono">
+                    <span className="text-diff-addition-foreground">+{diff.insertions}</span>{" "}
+                    <span className="text-diff-deletion-foreground">−{diff.deletions}</span>
                   </span>
-                </>
-              ) : (
-                <span className="flex-1" />
-              )}
-              {codeWorkspace ? terminalStatusIcon : null}
-              {codeWorkspace ? prBadge : null}
-              {codeWorkspace && diff ? (
-                <span className="shrink-0 font-mono">
-                  <span className="text-diff-addition-foreground">+{diff.insertions}</span>{" "}
-                  <span className="text-diff-deletion-foreground">−{diff.deletions}</span>
+                ) : null}
+                <span
+                  aria-hidden
+                  className="pointer-events-none ml-auto inline-flex shrink-0 items-center gap-1"
+                >
+                  {isRemote ? (
+                    <span className="inline-flex shrink-0 items-center text-sidebar-muted-foreground/70">
+                      <EnvironmentMachineIcon
+                        aria-hidden
+                        kind={props.environmentMachine}
+                        className="size-3.5"
+                      />
+                    </span>
+                  ) : null}
+                  {driverKind ? (
+                    <span className="inline-flex shrink-0 items-center">
+                      <ProviderInstanceIcon
+                        driverKind={driverKind}
+                        displayName={
+                          providerEntry?.displayName ??
+                          thread.session?.providerName ??
+                          modelInstanceId
+                        }
+                        accentColor={providerEntry?.accentColor}
+                        showBadge={showInstanceBadge}
+                        // Glyph dims, badge stays saturated; offset matches the composer trigger.
+                        iconClassName="size-3.5 opacity-60"
+                        badgeClassName="right-[-0.1875rem] bottom-[-0.1875rem] h-3 min-w-3 px-0.5 text-5xs"
+                      />
+                    </span>
+                  ) : null}
                 </span>
-              ) : null}
-              <span
-                aria-hidden
-                className="pointer-events-none ml-auto inline-flex shrink-0 items-center gap-1"
-              >
-                {isRemote ? (
-                  <span className="inline-flex shrink-0 items-center text-sidebar-muted-foreground/70">
-                    <EnvironmentMachineIcon
-                      aria-hidden
-                      kind={props.environmentMachine}
-                      className="size-3.5"
-                    />
-                  </span>
-                ) : null}
-                {driverKind ? (
-                  <span className="inline-flex shrink-0 items-center">
-                    <ProviderInstanceIcon
-                      driverKind={driverKind}
-                      displayName={
-                        providerEntry?.displayName ??
-                        thread.session?.providerName ??
-                        modelInstanceId
-                      }
-                      accentColor={providerEntry?.accentColor}
-                      showBadge={showInstanceBadge}
-                      // Glyph dims, badge stays saturated; offset matches the composer trigger.
-                      iconClassName="size-3.5 opacity-60"
-                      badgeClassName="right-[-0.1875rem] bottom-[-0.1875rem] h-3 min-w-3 px-0.5 text-5xs"
-                    />
-                  </span>
-                ) : null}
-              </span>
-            </div>
+              </div>
+            ) : null}
           </div>
           {props.jumpLabel ? <JumpHintBadge label={props.jumpLabel} /> : null}
         </TooltipTrigger>
@@ -2035,6 +2089,7 @@ const SidebarSearchResultRow = memo(function SidebarSearchResultRow(props: {
   thread: SidebarThreadSummary;
   project: EnvironmentProject | null;
   projectDisplayName: string | null;
+  projectless: boolean;
   environmentLabel: string | null;
   environmentMachine: EnvironmentMachineKind;
   providerEntryByInstanceId: ReadonlyMap<string, ProviderInstanceEntry>;
@@ -2146,7 +2201,11 @@ const SidebarSearchResultRow = memo(function SidebarSearchResultRow(props: {
           }
         >
           {props.project ? (
-            <ProjectFavicon project={props.project} className="size-4 shrink-0" />
+            <SidebarProjectIcon
+              project={props.project}
+              projectless={props.projectless}
+              className="size-4 shrink-0"
+            />
           ) : null}
           <span className="flex min-w-0 flex-1 flex-col">
             <span className="flex min-w-0 items-center gap-2.5">
@@ -2170,6 +2229,7 @@ const SidebarSearchResultRow = memo(function SidebarSearchResultRow(props: {
           thread={thread}
           project={props.project}
           projectDisplayName={props.projectDisplayName}
+          projectless={props.projectless}
           environmentLabel={props.environmentLabel}
           environmentMachine={props.environmentMachine}
           providerEntry={providerEntry}
@@ -2197,7 +2257,7 @@ export default function Sidebar() {
       ),
     [allProjects],
   );
-  const { expanded: recentExpanded } = useRecentThreadsExpansion();
+  const { scratchWorkspaceRootFor } = useScratchProject();
   const projectOrder = useUiStateStore((store) => store.projectOrder);
   const allThreads = useThreadShells();
   const threads = useMemo(
@@ -2398,16 +2458,33 @@ export default function Sidebar() {
     () => new Map(projects.map((project) => [`${project.environmentId}:${project.id}`, project])),
     [projects],
   );
+  const projectlessKeys = useMemo(
+    () =>
+      new Set(
+        projects
+          .filter((project) =>
+            isScratchProject(project, scratchWorkspaceRootFor(project.environmentId)),
+          )
+          .map((project) => `${project.environmentId}:${project.id}`),
+      ),
+    [projects, scratchWorkspaceRootFor],
+  );
   const projectDisplayNameByKey = useMemo(
     () =>
       new Map(
         projectGroups.flatMap((group) =>
           group.memberProjects.map(
-            (project) => [`${project.environmentId}:${project.id}`, group.displayName] as const,
+            (project) =>
+              [
+                `${project.environmentId}:${project.id}`,
+                projectlessKeys.has(`${project.environmentId}:${project.id}`)
+                  ? "Chats"
+                  : group.displayName,
+              ] as const,
           ),
         ),
       ),
-    [projectGroups],
+    [projectGroups, projectlessKeys],
   );
 
   const nowMinute = useNowMinute();
@@ -2430,12 +2507,20 @@ export default function Sidebar() {
   const projectScopeItems = useMemo(
     () => [
       { value: "all", label: "All projects" },
-      ...projectGroups.map((project) => ({
-        value: project.projectKey,
-        label: project.displayName,
-      })),
+      ...projectGroups
+        .toSorted(
+          (left, right) =>
+            Number(projectlessKeys.has(`${right.environmentId}:${right.id}`)) -
+            Number(projectlessKeys.has(`${left.environmentId}:${left.id}`)),
+        )
+        .map((project) => ({
+          value: project.projectKey,
+          label: projectlessKeys.has(`${project.environmentId}:${project.id}`)
+            ? "Chats"
+            : project.displayName,
+        })),
     ],
-    [projectGroups],
+    [projectGroups, projectlessKeys],
   );
   // Same-named projects on two machines are only told apart by where they
   // live, so rows on another machine carry its icon once the catalog spans
@@ -2839,12 +2924,10 @@ export default function Sidebar() {
   );
   const orderedThreadKeys = useMemo(
     () =>
-      recentExpanded
-        ? orderedThreads.map((thread) =>
-            scopedThreadKey(scopeThreadRef(thread.environmentId, thread.id)),
-          )
-        : [],
-    [orderedThreads, recentExpanded],
+      orderedThreads.map((thread) =>
+        scopedThreadKey(scopeThreadRef(thread.environmentId, thread.id)),
+      ),
+    [orderedThreads],
   );
   // Rows call back into the click handler without carrying the ordered list as
   // a prop — a fresh array identity per shell update would defeat every row's
@@ -3419,7 +3502,6 @@ export default function Sidebar() {
   // Include every visible row in the measured order. Older servers disable
   // pickup on their rows without changing where those rows render.
   const sidebarListItems = useMemo((): readonly SidebarListItem[] => {
-    if (!recentExpanded) return [];
     const rowsOf = (
       list: readonly EnvironmentThreadShell[],
       section: SidebarSection,
@@ -3457,7 +3539,6 @@ export default function Sidebar() {
     activeThreads,
     pinnedThreads,
     renderedSettledThreads,
-    recentExpanded,
     settledThreads.length,
     snoozedThreads.length,
     visibleSnoozedThreads,
@@ -4479,7 +4560,6 @@ export default function Sidebar() {
           // Lifted above the stage backdrop, whose fade bleeds below the
           // header and would otherwise paint across the search row's outline.
           <SidebarGroup className="z-[1]">
-            <AgentRoster inset={false} />
             <SidebarThreadHeader
               searchFieldRef={headerSearchRef}
               hasProjects={projectGroups.length > 0}
@@ -4513,7 +4593,7 @@ export default function Sidebar() {
                       <SidebarHeaderIconButton
                         label={
                           scopedProjectGroup
-                            ? `Filter threads by project: ${scopedProjectGroup.displayName}`
+                            ? `Filter threads by project: ${selectedProjectScopeItem.label}`
                             : "Filter threads by project"
                         }
                       />
@@ -4523,7 +4603,13 @@ export default function Sidebar() {
                       // Wrapped so the button's direct-child svg color rule cannot override
                       // a project's own icon color.
                       <span className="flex shrink-0">
-                        <ProjectFavicon project={scopedProjectGroup} className="size-4" />
+                        <SidebarProjectIcon
+                          project={scopedProjectGroup}
+                          projectless={projectlessKeys.has(
+                            `${scopedProjectGroup.environmentId}:${scopedProjectGroup.id}`,
+                          )}
+                          className="size-4"
+                        />
                       </span>
                     ) : (
                       <FolderIcon className="size-4" />
@@ -4580,7 +4666,13 @@ export default function Sidebar() {
                             }}
                           >
                             {project ? (
-                              <ProjectFavicon project={project} className="size-4 shrink-0" />
+                              <SidebarProjectIcon
+                                project={project}
+                                projectless={projectlessKeys.has(
+                                  `${project.environmentId}:${project.id}`,
+                                )}
+                                className="size-4 shrink-0"
+                              />
                             ) : (
                               <FolderIcon className="size-4 shrink-0" />
                             )}
@@ -4598,7 +4690,7 @@ export default function Sidebar() {
                                 variant="ghost-muted"
                                 tabIndex={-1}
                                 aria-hidden="true"
-                                title={`Project settings for ${project.displayName}`}
+                                title={`Project settings for ${item.label}`}
                                 className="ml-auto"
                                 onPointerDown={(event) => event.stopPropagation()}
                                 onClick={(event) => {
@@ -4633,16 +4725,15 @@ export default function Sidebar() {
               activeSearchResultIndex={activeSearchResultIndex}
               onClearSearch={clearThreadSearch}
             />
-            <RecentThreadsHeader
-              environmentId={routeThreadRef?.environmentId ?? primaryEnvironmentId}
+            <AgentRoster inset={false} />
+            <div
+              aria-hidden
+              className="-mx-(--sidebar-content-inset) mt-1.5 h-px bg-sidebar-border/60"
             />
           </SidebarGroup>
         }
       >
-        <SidebarGroup
-          className={cn("flex-1", !recentExpanded && !isSearchingThreads && "hidden")}
-          role="presentation"
-        >
+        <SidebarGroup className="flex-1" role="presentation">
           {isSearchingThreads ? (
             threadSearchResults.length > 0 ? (
               <TooltipProvider
@@ -4668,6 +4759,9 @@ export default function Sidebar() {
                         project={
                           projectByKey.get(`${thread.environmentId}:${thread.projectId}`) ?? null
                         }
+                        projectless={projectlessKeys.has(
+                          `${thread.environmentId}:${thread.projectId}`,
+                        )}
                         projectDisplayName={
                           projectDisplayNameByKey.get(
                             `${thread.environmentId}:${thread.projectId}`,
@@ -4823,6 +4917,9 @@ export default function Sidebar() {
                               projectByKey.get(`${thread.environmentId}:${thread.projectId}`) ??
                               null
                             }
+                            projectless={projectlessKeys.has(
+                              `${thread.environmentId}:${thread.projectId}`,
+                            )}
                             projectDisplayName={
                               projectDisplayNameByKey.get(
                                 `${thread.environmentId}:${thread.projectId}`,
@@ -4880,6 +4977,7 @@ export default function Sidebar() {
                           key="draft-sessions"
                           projectByKey={projectByKey}
                           projectDisplayNameByKey={projectDisplayNameByKey}
+                          projectlessKeys={projectlessKeys}
                           scopedProjectKeys={scopedProjectKeys}
                           routeDraftId={routeDraftIdForRows}
                           onNavigateToDraft={navigateToDraft}

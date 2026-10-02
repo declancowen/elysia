@@ -223,3 +223,30 @@ it.effect("preserves initialized capabilities when optional usage times out", ()
     assert.equal(abortSignal?.aborted, true);
   }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
 );
+
+it.effect("discovers Elysia commands without making a subscription usage request", () =>
+  Effect.gen(function* () {
+    const usage = vi.fn(() => new Promise(() => {}));
+    const query = vi.spyOn(ClaudeSdk, "query").mockImplementation(
+      () =>
+        ({
+          initializationResult: async () => ({
+            account: { apiProvider: "custom" },
+            commands: [{ name: "review", description: "Review changes", argumentHint: "" }],
+          }),
+          usage_EXPERIMENTAL_MAY_CHANGE_DO_NOT_RELY_ON_THIS_API_YET: usage,
+        }) as unknown as ReturnType<typeof ClaudeSdk.query>,
+    );
+    yield* Effect.addFinalizer(() => Effect.sync(() => query.mockRestore()));
+    const capabilities = yield* probeClaudeCapabilities(
+      decodeClaudeSettings({ binaryPath: "claude" }),
+      undefined,
+      undefined,
+      { includeUsage: false },
+    );
+    assert.deepEqual(capabilities?.slashCommands, [
+      { name: "review", description: "Review changes" },
+    ]);
+    assert.equal(usage.mock.calls.length, 0);
+  }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+);

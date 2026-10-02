@@ -477,6 +477,55 @@ describe("workEntryIndicatesToolNeutralStatus", () => {
 });
 
 describe("deriveWorkLogEntries", () => {
+  it("keeps the accepted agent task identity for its scoped response", () => {
+    const payload = {
+      agentProjectId: "friday",
+      agentThreadId: "friday-chat",
+      agentName: "Friday",
+      sourceMessageId: "request",
+      targetMessageId: "agent-request",
+      targetTurnId: null,
+    };
+    const [entry] = deriveWorkLogEntries([
+      makeActivity({
+        kind: "agent.delegated",
+        summary: "Friday: I got it. I’ll continue in my chat.",
+        payload,
+      }),
+    ]);
+    expect(entry?.agentDelegation).toEqual({ ...payload, activityId: entry?.id });
+  });
+  it("groups agents assigned from the same message without merging another task", () => {
+    const accepted = (agent: string, request: string, createdAt: string) =>
+      makeActivity({
+        id: `ack-${agent}`,
+        createdAt,
+        kind: "agent.delegated",
+        summary: `${agent} accepted`,
+        payload: {
+          agentProjectId: agent,
+          agentThreadId: `${agent}-chat`,
+          agentName: agent,
+          sourceMessageId: request,
+          targetMessageId: `${agent}-request`,
+          targetTurnId: null,
+        },
+      });
+    const entries = deriveWorkLogEntries([
+      accepted("Friday", "request-one", "2026-10-02T00:00:00.000Z"),
+      makeActivity({ id: "other", summary: "Other work" }),
+      accepted("Edna", "request-one", "2026-10-02T02:00:00.000Z"),
+      accepted("Rocket", "request-two", "2026-10-02T02:01:00.000Z"),
+    ]);
+    expect(
+      entries
+        .filter((entry) => entry.agentDelegation)
+        .map((entry) => entry.agentDelegation!.sourceMessageId),
+    ).toEqual(["request-one", "request-two"]);
+    expect(
+      entries.find((entry) => entry.agentDelegation?.sourceMessageId === "request-one"),
+    ).toMatchObject({ id: "ack-Friday", createdAt: "2026-10-02T00:00:00.000Z" });
+  });
   it("keeps the latest task progress without emitting plan-update log entries", () => {
     const activities = [
       makeActivity({ id: "before", kind: "tool.completed", summary: "Read files", sequence: 0 }),

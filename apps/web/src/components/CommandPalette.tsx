@@ -48,7 +48,6 @@ import {
   FileSearchIcon,
   FolderIcon,
   FolderPlusIcon,
-  MessageSquareDashedIcon,
   MessageCircleIcon,
   LinkIcon,
   MessageSquareIcon,
@@ -969,11 +968,32 @@ function OpenCommandPaletteDialog(props: {
   );
   const pickerProjects = useMemo(
     () =>
-      projectPickerEntries.map(({ group, targetProject }) => ({
-        ...targetProject,
-        displayName: group.displayName,
-      })),
-    [projectPickerEntries],
+      projectPickerEntries
+        .toSorted(
+          (left, right) =>
+            Number(
+              isScratchProject(
+                right.targetProject,
+                scratchWorkspaceRootFor(right.targetProject.environmentId),
+              ),
+            ) -
+            Number(
+              isScratchProject(
+                left.targetProject,
+                scratchWorkspaceRootFor(left.targetProject.environmentId),
+              ),
+            ),
+        )
+        .map(({ group, targetProject }) => ({
+          ...targetProject,
+          displayName: isScratchProject(
+            targetProject,
+            scratchWorkspaceRootFor(targetProject.environmentId),
+          )
+            ? "Chats"
+            : group.displayName,
+        })),
+    [projectPickerEntries, scratchWorkspaceRootFor],
   );
   const projectGroupByTargetKey = useMemo(
     () =>
@@ -1116,8 +1136,16 @@ function OpenCommandPaletteDialog(props: {
     [projects],
   );
   const projectTitleById = useMemo(
-    () => new Map<ProjectId, string>(projects.map((project) => [project.id, project.title])),
-    [projects],
+    () =>
+      new Map<ProjectId, string>(
+        projects.map((project) => [
+          project.id,
+          isScratchProject(project, scratchWorkspaceRootFor(project.environmentId))
+            ? "Chats"
+            : project.title,
+        ]),
+      ),
+    [projects, scratchWorkspaceRootFor],
   );
 
   const activeThreadId = activeThread?.id;
@@ -1252,6 +1280,16 @@ function OpenCommandPaletteDialog(props: {
     ],
   );
 
+  const projectSearchIcon = useCallback(
+    (project: Project) =>
+      isScratchProject(project, scratchWorkspaceRootFor(project.environmentId)) ? (
+        <MessageCircleIcon className={ITEM_ICON_CLASS} />
+      ) : (
+        projectFavicon(project)
+      ),
+    [scratchWorkspaceRootFor],
+  );
+
   const projectSearchItems = useMemo(
     () =>
       buildProjectActionItems({
@@ -1286,11 +1324,12 @@ function OpenCommandPaletteDialog(props: {
             />
           );
         },
-        icon: projectFavicon,
+        icon: projectSearchIcon,
         runProject: openProjectFromSearch,
       }),
     [
       openProjectFromSearch,
+      projectSearchIcon,
       pickerProjects,
       projectEnvironmentLocationById,
       projectGroupByTargetKey,
@@ -1300,8 +1339,21 @@ function OpenCommandPaletteDialog(props: {
   const projectThreadItems = useMemo(
     () =>
       enumerateCommandPaletteItems([
+        ...(scratchTargetEnvironmentId === null
+          ? []
+          : [
+              {
+                kind: "action" as const,
+                value: "new-thread-in:no-project",
+                searchTerms: ["chats", "new chat", "no project", "without project", "none"],
+                title: "Chats",
+                icon: <MessageCircleIcon className={ITEM_ICON_CLASS} />,
+                shortcutCommand: "chat.newWithoutProject" as const,
+                run: () => startScratchThread(scratchTargetEnvironmentId),
+              },
+            ]),
         ...buildProjectActionItems({
-          // The no-project home shows once, as the "No project" item below.
+          // Chats appears once, before the project destinations.
           projects: pickerProjects.filter(
             (project) => !isScratchProject(project, scratchWorkspaceRootFor(project.environmentId)),
           ),
@@ -1355,19 +1407,6 @@ function OpenCommandPaletteDialog(props: {
             );
           },
         }),
-        ...(scratchTargetEnvironmentId === null
-          ? []
-          : [
-              {
-                kind: "action" as const,
-                value: "new-thread-in:no-project",
-                searchTerms: ["no project", "without project", "none"],
-                title: "No project",
-                icon: <MessageSquareDashedIcon className={ITEM_ICON_CLASS} />,
-                shortcutCommand: "chat.newWithoutProject" as const,
-                run: () => startScratchThread(scratchTargetEnvironmentId),
-              },
-            ]),
       ]),
     [
       contextualProjectRef,
@@ -1398,9 +1437,14 @@ function OpenCommandPaletteDialog(props: {
             providerEntryByEnvironmentAndInstanceId.get(
               `${thread.environmentId}:${modelInstanceId}`,
             ) ?? null;
+          const project = projectByKey.get(`${thread.environmentId}:${thread.projectId}`) ?? null;
           return (
             <ThreadCommandSubtitle
-              project={projectByKey.get(`${thread.environmentId}:${thread.projectId}`) ?? null}
+              project={project}
+              projectless={
+                project !== null &&
+                isScratchProject(project, scratchWorkspaceRootFor(project.environmentId))
+              }
               projectTitle={projectTitle ?? null}
               environmentLabel={
                 projectEnvironmentLocationById.get(thread.environmentId)?.label ?? "Remote"
@@ -1442,6 +1486,7 @@ function OpenCommandPaletteDialog(props: {
       clientSettings.sidebarThreadSortOrder,
       navigate,
       projectByKey,
+      scratchWorkspaceRootFor,
       projectEnvironmentLocationById,
       projectTitleById,
       providerEntryByEnvironmentAndInstanceId,
@@ -1809,11 +1854,25 @@ function OpenCommandPaletteDialog(props: {
   }
 
   if (projects.length > 0) {
+    const preferredProject = projectPickerEntries.find((entry) => entry.isPreferred)?.targetProject;
     const activeProjectTitle =
-      projectPickerEntries.find((entry) => entry.isPreferred)?.group.displayName ??
+      pickerProjects.find(
+        (project) =>
+          project.id === preferredProject?.id &&
+          project.environmentId === preferredProject.environmentId,
+      )?.displayName ??
       (currentProjectId ? (projectTitleById.get(currentProjectId) ?? null) : null);
 
-    if (activeProjectTitle) {
+    const contextualProject =
+      preferredProject ??
+      (currentProjectEnvironmentId && currentProjectId
+        ? (projectByKey.get(`${currentProjectEnvironmentId}:${currentProjectId}`) ?? null)
+        : null);
+    const contextualProjectIsScratch =
+      contextualProject !== null &&
+      isScratchProject(contextualProject, scratchWorkspaceRootFor(contextualProject.environmentId));
+
+    if (activeProjectTitle && !contextualProjectIsScratch) {
       actionItems.push({
         kind: "action",
         value: "action:new-thread",

@@ -1,5 +1,5 @@
 import type { ProviderDriverKind } from "@t3tools/contracts";
-import { FolderGit2Icon, FolderIcon, GitBranchIcon } from "lucide-react";
+import { FolderGit2Icon, FolderIcon, GitBranchIcon, MessageCircleIcon } from "lucide-react";
 import { ProjectFavicon, type ProjectFaviconProject } from "./ProjectFavicon";
 import { ProviderInstanceIcon } from "./chat/ProviderInstanceIcon";
 import { cn } from "~/lib/utils";
@@ -38,6 +38,7 @@ function WorkspaceIcon(props: { variant: ThreadCommandSubtitleVariant; isWorktre
 export function ThreadCommandSubtitle(props: {
   project: ProjectFaviconProject | null;
   projectTitle: string | null;
+  projectless?: boolean;
   environmentLabel?: string | null;
   branch: string | null;
   worktreePath: string | null;
@@ -68,7 +69,9 @@ export function ThreadCommandSubtitle(props: {
     >
       {projectLabel ? (
         <span className="inline-flex min-w-0 items-center gap-1">
-          {props.project ? (
+          {props.projectless ? (
+            <MessageCircleIcon aria-hidden className="size-3 shrink-0" />
+          ) : props.project ? (
             <ProjectFavicon project={props.project} className="size-3 shrink-0" />
           ) : null}
           <span className="min-w-0 truncate">{projectLabel}</span>

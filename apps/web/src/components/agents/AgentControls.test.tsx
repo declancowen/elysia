@@ -186,12 +186,55 @@ it("opens current-agent details and edits through the global dialog without chan
   expect(state.navigate).not.toHaveBeenCalled();
 });
 
+it("fits the popover avatar to changing name and role height without unbounded growth", async () => {
+  const name = "A long agent name ".repeat(10);
+  const role = "A long agent role ".repeat(10);
+  state.projects = [{ ...project, title: name, agentProfile: { ...profile, title: role } }];
+  let height = 44;
+  let resizeLabel: (() => void) | undefined;
+  vi.stubGlobal(
+    "ResizeObserver",
+    class {
+      constructor(private readonly resized: () => void) {}
+      observe(element: Element) {
+        if (element.textContent === name + role) resizeLabel = this.resized;
+      }
+      unobserve() {}
+      disconnect() {}
+    },
+  );
+  const measure = vi
+    .spyOn(HTMLElement.prototype, "getBoundingClientRect")
+    .mockImplementation(function (this: HTMLElement) {
+      return new DOMRect(0, 0, 200, this.textContent === name + role ? height : 0);
+    });
+  try {
+    await render();
+    await click(`Manage ${name}`);
+    const avatar = document.querySelector<HTMLElement>(
+      '[data-slot="popover-popup"] .agent-avatar',
+    )!;
+    expect(avatar.style.height).toBe("44px");
+    expect(resizeLabel).toBeDefined();
+    height = 240;
+    await act(async () => resizeLabel!());
+    expect(avatar.style.height).toBe("64px");
+    height = 34;
+    await act(async () => resizeLabel!());
+    expect(avatar.style.height).toBe("34px");
+    expect(document.body.textContent).toContain(name + role);
+  } finally {
+    measure.mockRestore();
+  }
+});
+
 it("opens from the roster and recovers the linked legacy archived conversation", async () => {
   state.threads = [{ ...thread, archivedAt: "2026-10-01T10:00:00Z" }];
   await render(false, true);
   expect(document.body.textContent).toContain("Alex");
+  expect(document.body.textContent).not.toContain(profile.title);
   expect(document.body.textContent).not.toContain("Archived person");
-  await click("AlexResearcher");
+  await click("Alex");
   expect(state.unarchive).toHaveBeenCalledWith({ environmentId, input: { threadId } });
   expect(state.navigate).toHaveBeenCalledWith({
     to: "/$environmentId/$threadId",
@@ -294,7 +337,7 @@ it("right-click edits from another chat through the existing context menu and hi
   expect(host.textContent).not.toContain("Archived person");
   expect(host.textContent).not.toContain("Archived agents");
   await act(async () =>
-    button("AlexResearcher").dispatchEvent(
+    button("Alex").dispatchEvent(
       new MouseEvent("contextmenu", { bubbles: true, clientX: 20, clientY: 30 }),
     ),
   );
@@ -309,7 +352,7 @@ it("right-click edits from another chat through the existing context menu and hi
   closeAgentDialog();
   state.contextMenu.mockResolvedValue(null);
   await act(async () =>
-    button("AlexResearcher").dispatchEvent(new MouseEvent("contextmenu", { bubbles: true })),
+    button("Alex").dispatchEvent(new MouseEvent("contextmenu", { bubbles: true })),
   );
   expect(useAgentDialogStore.getState().target).toBeNull();
 });
@@ -319,11 +362,11 @@ it("closes the narrow sidebar only after its linked agent conversation opens suc
   state.threads = [{ ...thread, archivedAt: "2026-10-01T10:00:00Z" }];
   state.unarchive.mockResolvedValue(AsyncResult.failure(Cause.fail(new Error("Offline"))));
   await render(false, true);
-  await click("AlexResearcher");
+  await click("Alex");
   expect(state.navigate).not.toHaveBeenCalled();
   expect(state.setOpenMobile).not.toHaveBeenCalled();
   state.unarchive.mockResolvedValue(AsyncResult.success(undefined));
-  await click("AlexResearcher");
+  await click("Alex");
   expect(state.navigate).toHaveBeenCalledOnce();
   expect(state.setOpenMobile).toHaveBeenCalledWith(false);
 });
@@ -368,7 +411,7 @@ it("keeps the narrow sidebar open on context-menu cancellation and dismisses it 
   await render(false, true);
   const rightClickAgent = async () => {
     await act(async () =>
-      button("AlexResearcher").dispatchEvent(new MouseEvent("contextmenu", { bubbles: true })),
+      button("Alex").dispatchEvent(new MouseEvent("contextmenu", { bubbles: true })),
     );
   };
   await rightClickAgent();

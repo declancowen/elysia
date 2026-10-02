@@ -1445,12 +1445,108 @@ html[data-theme-id="default"]
   }
 }
 
+/* Blink pose adapted from Akeru Bot (MIT), legal/licenses/MIT-Akeru.txt.
+   Elysia uses discrete low-duty eyes and finite wrapper motion, not its frame engine. */
+@keyframes elysia-agent-blink {
+  0%,
+  94%,
+  100% {
+    transform: scaleY(1);
+  }
+  95%,
+  96% {
+    transform: scaleY(0.08);
+  }
+  97% {
+    transform: scaleY(1.08);
+  }
+  98% {
+    transform: scaleY(1);
+  }
+}
+@keyframes elysia-agent-hello {
+  0%,
+  100% {
+    transform: rotate(0deg) translateY(0);
+  }
+  35% {
+    transform: rotate(-6deg) translateY(-2%);
+  }
+  65% {
+    transform: rotate(3deg) translateY(0);
+  }
+}
+@keyframes elysia-agent-hover {
+  0%,
+  100% {
+    transform: rotate(0deg);
+  }
+  35% {
+    transform: rotate(-6deg);
+  }
+  65% {
+    transform: rotate(3deg);
+  }
+}
+@keyframes elysia-agent-working {
+  0%,
+  100% {
+    transform: rotate(0deg) translateY(0);
+  }
+  30% {
+    transform: rotate(5deg) translateY(-3%);
+  }
+  65% {
+    transform: rotate(-3deg) translateY(1%);
+  }
+}
+.agent-avatar[data-animated="true"] .agent-avatar-figure {
+  transform-origin: center;
+  animation: elysia-agent-hello 420ms ease-out 1;
+  animation-play-state: var(--visible-animation-state, paused);
+}
+.agent-avatar[data-animated="true"] .agent-avatar-eye {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: elysia-agent-blink 6s steps(1, end) infinite;
+  animation-delay: var(--agent-avatar-blink-delay, 0s);
+  animation-play-state: var(--visible-animation-state, paused);
+}
+.agent-avatar[data-animated="true"][data-working="true"] .agent-avatar-figure {
+  animation-name: elysia-agent-working;
+}
+.agent-avatar[data-animated="true"]:hover .agent-avatar-figure,
+[data-agent-avatar-hover]:is(:hover, :focus-within)
+  .agent-avatar[data-animated="true"]
+  .agent-avatar-figure {
+  animation-name: elysia-agent-hover;
+}
+@media (prefers-reduced-motion: reduce) {
+  .agent-avatar .agent-avatar-figure,
+  .agent-avatar .agent-avatar-eye {
+    animation: none !important;
+    transform: none !important;
+  }
+}
+
 /* The overview occupies chat space when docked; narrow windows use a transient overlay. */
+[data-chat-column]:has(
+  [data-thread-overview-trigger][data-overview-docked="true"][aria-expanded="true"]
+) {
+  --thread-overview-inline-inset: calc(20rem + var(--workspace-gutter));
+}
+
+[data-chat-content] {
+  padding-inline-end: var(--thread-overview-inline-inset, 0px);
+}
+
+/* Keep the native scroll owner at the outside edge while its content clears the overview. */
 [data-chat-column]:has(
     [data-thread-overview-trigger][data-overview-docked="true"][aria-expanded="true"]
   )
-  [data-chat-content] {
-  padding-inline-end: calc(20rem + var(--workspace-gutter));
+  [data-chat-timeline-scroll] {
+  width: calc(100% + var(--thread-overview-inline-inset));
+  padding-inline-end: calc(var(--thread-overview-inline-inset) + var(--workspace-gutter));
 }
 
 html[data-theme-id] [data-chat-header] [data-thread-overview-trigger][aria-expanded="true"] {

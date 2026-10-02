@@ -1299,6 +1299,7 @@ export const MessagesTimeline = memo(function MessagesTimeline({
           ) : null}
           <LegendList<MessagesTimelineRow>
             ref={listRef}
+            data-chat-timeline-scroll
             data={rows}
             extraData={`${listIdentityKey}:${rows.length}`}
             keyExtractor={keyExtractor}

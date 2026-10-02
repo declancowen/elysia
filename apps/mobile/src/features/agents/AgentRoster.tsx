@@ -53,7 +53,11 @@ export function AgentRoster(props: {
               selected && "bg-thread-selected",
             )}
           >
-            <AgentAvatar avatar={project.agentProfile.avatar} />
+            <AgentAvatar
+              avatar={project.agentProfile.avatar}
+              working={conversation?.latestTurn?.state === "running"}
+              active={selected}
+            />
             <View className="flex-1">
               <AppText
                 numberOfLines={1}
@@ -64,7 +68,7 @@ export function AgentRoster(props: {
               >
                 {project.title}
               </AppText>
-              {project.agentProfile.title || conversation === null ? (
+              {conversation === null ? (
                 <AppText
                   numberOfLines={1}
                   className={cn(
@@ -72,7 +76,7 @@ export function AgentRoster(props: {
                     selected ? "text-thread-selected-foreground-muted" : "text-muted-foreground",
                   )}
                 >
-                  {conversation === null ? "Conversation unavailable" : project.agentProfile.title}
+                  Conversation unavailable
                 </AppText>
               ) : null}
             </View>

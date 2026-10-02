@@ -67,6 +67,7 @@ function AgentRow(agent: AgentRosterEntry) {
   const status = thread ? resolveSidebarThreadStatus(thread) : "ready";
   return (
     <div
+      data-agent-avatar-hover
       onContextMenu={(event) => {
         event.preventDefault();
         event.stopPropagation();
@@ -97,14 +98,9 @@ function AgentRow(agent: AgentRosterEntry) {
           });
         }}
       >
-        <AgentAvatar avatar={profile.avatar} className="size-4" />
+        <AgentAvatar avatar={profile.avatar} className="size-4" working={status === "working"} />
         <span className="min-w-0 flex-1">
           <span className="block truncate text-sm text-sidebar-foreground">{project.title}</span>
-          {profile.title ? (
-            <span className="block truncate text-xs text-sidebar-muted-foreground">
-              {profile.title}
-            </span>
-          ) : null}
         </span>
         {busy ? (
           <span className="text-xs text-sidebar-muted-foreground">

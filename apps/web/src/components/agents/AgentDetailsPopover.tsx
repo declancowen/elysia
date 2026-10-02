@@ -2,7 +2,7 @@ import { scopeProjectRef } from "@t3tools/client-runtime/environment";
 import type { ScopedProjectRef } from "@t3tools/contracts";
 import { useNavigate } from "@tanstack/react-router";
 import { ArchiveIcon, BotIcon, PencilIcon } from "lucide-react";
-import { useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { Button } from "../ui/button";
 import { Popover, PopoverPopup, PopoverTitle, PopoverTrigger } from "../ui/popover";
 import { AgentAvatar } from "./AgentAvatar";
@@ -60,11 +60,31 @@ function AgentDetails({ agent, onClose }: { agent: AgentRosterEntry; onClose: ()
   const { project, busy } = agent;
   const profile = project.agentProfile!;
   const { pending, archive } = useAgentActions(agent);
+  const labelRef = useRef<HTMLDivElement>(null);
+  const [avatarSize, setAvatarSize] = useState(profile.title ? 34 : 14);
+  useLayoutEffect(() => {
+    const label = labelRef.current;
+    if (!label) return;
+    const measure = () => {
+      const height = Math.ceil(label.getBoundingClientRect().height);
+      if (height > 0) setAvatarSize(Math.min(height, 64));
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(label);
+    return () => observer.disconnect();
+  }, []);
   return (
     <>
-      <div className="flex items-center gap-3">
-        <AgentAvatar avatar={profile.avatar} />
-        <div className="min-w-0 space-y-1 break-words">
+      <div className="flex items-center gap-3" data-agent-avatar-hover>
+        <div className="flex w-10 shrink-0 items-center justify-center">
+          <AgentAvatar
+            avatar={profile.avatar}
+            style={{ width: avatarSize, height: avatarSize }}
+            working={busy}
+          />
+        </div>
+        <div ref={labelRef} className="min-w-0 flex-1 space-y-1 break-words">
           <PopoverTitle>{project.title}</PopoverTitle>
           {profile.title ? <p className="text-xs text-muted-foreground">{profile.title}</p> : null}
         </div>

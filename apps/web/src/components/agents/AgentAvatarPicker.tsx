@@ -48,7 +48,11 @@ export function AgentAvatarPicker({
             )}
             onClick={() => onChange({ ...avatar, preset: preset.value })}
           >
-            <AgentAvatar avatar={{ ...avatar, preset: preset.value }} className="size-8" />
+            <AgentAvatar
+              avatar={{ ...avatar, preset: preset.value }}
+              className="size-8"
+              animated={false}
+            />
           </button>
         ))}
       </div>

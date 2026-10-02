@@ -966,6 +966,7 @@ interface SidebarProjectThreadListProps {
   projectKey: string;
   projectExpanded: boolean;
   indented: boolean;
+  showProjectGuide: boolean;
   hasOverflowingThreads: boolean;
   hiddenThreadStatus: ThreadStatusPill | null;
   orderedProjectThreadKeys: readonly string[];
@@ -1023,6 +1024,7 @@ const SidebarProjectThreadList = memo(function SidebarProjectThreadList(
     projectKey,
     projectExpanded,
     indented,
+    showProjectGuide,
     hasOverflowingThreads,
     hiddenThreadStatus,
     orderedProjectThreadKeys,
@@ -1061,7 +1063,7 @@ const SidebarProjectThreadList = memo(function SidebarProjectThreadList(
   const showLessButtonRender = useMemo(() => <button type="button" />, []);
 
   return (
-    <div>
+    <div className="relative">
       <SidebarMenu ref={attachThreadListAutoAnimateRef}>
         {shouldShowThreadPanel && showEmptyThreadState ? (
           <SidebarMenuSubItem className="w-full" data-thread-selection-safe>
@@ -1141,6 +1143,18 @@ const SidebarProjectThreadList = memo(function SidebarProjectThreadList(
           </SidebarMenuSubItem>
         )}
       </SidebarMenu>
+      {projectExpanded && showProjectGuide && renderedThreads.length > 0 ? (
+        <span
+          aria-hidden
+          className="pointer-events-none absolute -top-2 z-10 w-px -translate-x-1/2 bg-sidebar-border"
+          style={{
+            left: "calc(var(--sidebar-row-content-inset) + 0.5rem)",
+            // Rows are 2rem with a .25rem gap; stop at the last thread's centre,
+            // before any Show more/less control that follows it.
+            height: `calc(${renderedThreads.length} * 2.25rem - 0.75rem)`,
+          }}
+        />
+      ) : null}
     </div>
   );
 });
@@ -2362,8 +2376,8 @@ const SidebarProjectItem = memo(function SidebarProjectItem(props: SidebarProjec
             aria-expanded={projectExpanded}
             onContextMenu={handleProjectButtonContextMenu}
           >
-            <span className="flex shrink-0">
-              <ProjectFavicon project={project} />
+            <span className="flex size-4 shrink-0 items-center justify-center">
+              <ProjectFavicon project={project} className="size-4" />
             </span>
             <span className="flex min-w-0 flex-1 items-center gap-2">
               <span className="truncate text-sm font-medium text-sidebar-foreground/90">
@@ -2432,6 +2446,7 @@ const SidebarProjectItem = memo(function SidebarProjectItem(props: SidebarProjec
         projectKey={project.projectKey}
         projectExpanded={projectExpanded}
         indented
+        showProjectGuide={!hideProjectHeader}
         hasOverflowingThreads={!hideProjectHeader && hasOverflowingThreads}
         hiddenThreadStatus={hiddenThreadStatus}
         orderedProjectThreadKeys={orderedProjectThreadKeys}

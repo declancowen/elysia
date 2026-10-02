@@ -568,13 +568,17 @@ export const ChatHeader = memo(function ChatHeader({
             {createPortal(headerActions, actionsContainer)}
           </MenuPopup>
         </Menu>
-        {activeProject?.agentProfile ? (
-          <AgentDetailsPopover
-            key={`${activeProject.environmentId}:${activeProject.id}`}
-            projectRef={scopeProjectRef(activeProject.environmentId, activeProject.id)}
-          />
+        {activeProject?.agentProfile || overview ? (
+          <div className="flex shrink-0 items-center gap-1">
+            {activeProject?.agentProfile ? (
+              <AgentDetailsPopover
+                key={`${activeProject.environmentId}:${activeProject.id}`}
+                projectRef={scopeProjectRef(activeProject.environmentId, activeProject.id)}
+              />
+            ) : null}
+            {overview && <ThreadOverviewPanel {...overview} transient={rightPanelOpen} />}
+          </div>
         ) : null}
-        {overview && <ThreadOverviewPanel {...overview} transient={rightPanelOpen} />}
       </div>
     </div>
   );

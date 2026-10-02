@@ -1,8 +1,17 @@
-import { ComposerContextId, EventId, ProjectId } from "@t3tools/contracts";
+import * as DateTime from "effect/DateTime";
+import {
+  ComposerContextId,
+  EventId,
+  ProjectId,
+  ThreadId,
+  MessageId,
+  TurnItemId,
+  type OrchestrationV2TurnItem,
+} from "@t3tools/contracts";
 import { describe, expect, it } from "vite-plus/test";
 import {
   agentTaskHandoff,
-  delegatedAgentsFromActivities,
+  delegatedAgentsFromTurnItems,
   formatAgentMention,
   isAgentDelegationActive,
   mentionedAgentProjectIds,
@@ -20,28 +29,35 @@ describe("agent mentions", () => {
     expect(mentionedAgentProjectIds("@Friday check this file")).toEqual([]);
   });
   it("accepts only source task receipts with a validated target identity", () => {
-    const activity = {
-      id: EventId.make("ack"),
-      kind: "agent.delegated",
-      tone: "info" as const,
-      summary: "Accepted",
-      turnId: null,
-      createdAt: "2026-10-02T00:00:00.000Z",
-      payload: {
-        agentProjectId: "Friday",
-        agentThreadId: "agent-chat",
-        agentName: "Friday",
-        sourceMessageId: "source-request",
-        targetMessageId: "target-request",
-        targetTurnId: null,
-      },
+    const payload = {
+      agentProjectId: ProjectId.make("Friday"),
+      agentThreadId: ThreadId.make("agent-chat"),
+      agentName: "Friday",
+      sourceMessageId: MessageId.make("source-request"),
+      targetMessageId: MessageId.make("target-request"),
+      targetTurnId: null,
     };
-    const jobs = delegatedAgentsFromActivities([
-      { ...activity, kind: "task.progress" },
-      { ...activity, payload: { ...activity.payload, targetMessageId: null } },
-      activity,
-    ]);
-    expect(jobs).toEqual([{ ...activity.payload, activityId: activity.id }]);
+    const notice: OrchestrationV2TurnItem = {
+      id: TurnItemId.make("ack"),
+      type: "system_notice",
+      threadId: ThreadId.make("source"),
+      runId: null,
+      nodeId: null,
+      status: "completed",
+      message: "Accepted",
+      providerThreadId: null,
+      providerTurnId: null,
+      nativeItemRef: null,
+      parentItemId: null,
+      ordinal: 0,
+      title: null,
+      completedAt: null,
+      startedAt: DateTime.makeUnsafe("2026-10-02T00:00:00.000Z"),
+      updatedAt: DateTime.makeUnsafe("2026-10-02T00:00:00.000Z"),
+      agentDelegation: payload,
+    };
+    const jobs = delegatedAgentsFromTurnItems([{ ...notice, agentDelegation: undefined }, notice]);
+    expect(jobs).toEqual([{ ...payload, activityId: EventId.make("ack") }]);
     expect(isAgentDelegationActive("waiting")).toBe(true);
     expect(isAgentDelegationActive("completed")).toBe(false);
     expect(isAgentDelegationActive("error")).toBe(false);

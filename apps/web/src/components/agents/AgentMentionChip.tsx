@@ -8,9 +8,9 @@ import {
 import { scopeProjectRef } from "@t3tools/client-runtime/environment";
 import { useMemo } from "react";
 import { CircleCheckIcon, CircleAlertIcon, SquareIcon } from "~/icons";
-import { delegatedAgentsFromActivities } from "@t3tools/shared/agentMentions";
+import { delegatedAgentsFromTurnItems } from "@t3tools/shared/agentMentions";
 import { useDelegatedAgents } from "./useDelegatedAgents";
-import { useProject, useThreadDetail } from "~/state/entities";
+import { useProject, useThreadProjection } from "~/state/entities";
 import { ContextChipShell, UnresolvedChip } from "../contextChipParts";
 import { openThreadOverviewAgent } from "../chat/threadOverviewStore";
 import { AgentAvatar } from "./AgentAvatar";
@@ -81,13 +81,13 @@ export function SentAgentMentionChip(
   },
 ) {
   const { sourceThreadRef, sourceMessageId, ...chip } = props;
-  const source = useThreadDetail(sourceThreadRef);
+  const source = useThreadProjection(sourceThreadRef);
   const jobs = useMemo(
     () =>
-      delegatedAgentsFromActivities(source?.activities ?? []).filter(
+      delegatedAgentsFromTurnItems(source?.projection.turnItems ?? []).filter(
         (job) => job.sourceMessageId === sourceMessageId && job.agentProjectId === chip.contextId,
       ),
-    [source?.activities, sourceMessageId, chip.contextId],
+    [source?.projection.turnItems, sourceMessageId, chip.contextId],
   );
   const agents = useDelegatedAgents(sourceThreadRef, jobs);
   const agent = agents[agents.length - 1];
@@ -112,13 +112,13 @@ export function AgentMessageStatus({
   sourceThreadRef: ScopedThreadRef | null;
   sourceMessageId: MessageId;
 }) {
-  const source = useThreadDetail(sourceThreadRef);
+  const source = useThreadProjection(sourceThreadRef);
   const jobs = useMemo(
     () =>
-      delegatedAgentsFromActivities(source?.activities ?? []).filter(
+      delegatedAgentsFromTurnItems(source?.projection.turnItems ?? []).filter(
         (job) => job.sourceMessageId === sourceMessageId,
       ),
-    [source?.activities, sourceMessageId],
+    [source?.projection.turnItems, sourceMessageId],
   );
   const agents = useDelegatedAgents(sourceThreadRef, jobs);
   if (!agents.length) return null;

@@ -1,3 +1,4 @@
+import "../testUtils/upstreamForkPolicy.ts";
 import { describe, expect, it } from "@effect/vitest";
 import { vi } from "vite-plus/test";
 import * as Deferred from "effect/Deferred";

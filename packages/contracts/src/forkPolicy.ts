@@ -13,6 +13,7 @@ export const isConnectionsRpcMethod = (method: string): boolean =>
 
 export const isConnectionsHttpPath = (path: string): boolean =>
   path.startsWith("/api/connect/") ||
+  path.startsWith("/api/t3-connect/") ||
   path.startsWith("/api/auth/pairing-") ||
   path === "/api/auth/clients" ||
   path.startsWith("/api/auth/clients/");

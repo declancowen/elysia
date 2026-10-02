@@ -1,5 +1,6 @@
+import { resolveThreadLineageWindow } from "@t3tools/client-runtime/state/thread-relationships";
 /**
- * Agents right-panel surface: the fleet view over the native subagent fold.
+ * Agents right-panel surface: the fleet view over V2 projected subagents.
  * The chat carries one expandable row per spawn batch and links here.
  *
  * Visualization rules (from live-test feedback):
@@ -530,6 +531,11 @@ export function AgentsPanel({
   environmentId?: EnvironmentId | null;
   threadId?: ThreadId | null;
 }) {
+  const [visibleCount, setVisibleCount] = useState(6);
+  const { visibleRows: visibleAgents, hiddenCount } = resolveThreadLineageWindow(
+    model.directAgents,
+    visibleCount,
+  );
   if (!model.hasAgents) {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-2 p-6 text-center">
@@ -560,9 +566,18 @@ export function AgentsPanel({
               <div className="px-1.5 pt-1 text-3xs font-medium uppercase tracking-wider text-muted-foreground">
                 Direct spawns
               </div>
-              {model.directAgents.map((agent) => (
+              {visibleAgents.map((agent) => (
                 <AgentRow key={agent.id} agent={agent} />
               ))}
+              {hiddenCount > 0 ? (
+                <Button
+                  variant="ghost-muted"
+                  size="sm"
+                  onClick={() => setVisibleCount((count) => count + 12)}
+                >
+                  Show {Math.min(hiddenCount, 12)} more
+                </Button>
+              ) : null}
             </section>
           ) : null}
         </div>

@@ -13,6 +13,7 @@ import {
   TextInput,
   useWindowDimensions,
   View,
+  type TextInputInstance,
 } from "react-native";
 
 import { GestureHandlerRootView } from "react-native-gesture-handler";
@@ -27,7 +28,7 @@ import { T3KeyboardCommands } from "../../native/T3KeyboardCommands";
 import { useThreadShell } from "../../state/entities";
 import { useAgentCatalog } from "../agents/use-agent-catalog";
 import { useThreadSearch } from "../../state/queries";
-import { useWorkspaceState } from "../../state/workspace";
+import { useWorkspaceEnvironments } from "../../state/workspace";
 import { useSavedRemoteConnections } from "../../state/use-remote-environment-registry";
 import { useAdaptiveWorkspaceLayout } from "../layout/AdaptiveWorkspaceLayout";
 import { useAppearancePreferences } from "../settings/appearance/AppearancePreferencesProvider";
@@ -145,14 +146,14 @@ export function CommandPalette(props: {
   const { projects, threads, agents } = useAgentCatalog();
   const activeThreadRef = useMemo(() => parseActiveThreadPath(props.pathname), [props.pathname]);
   const activeThread = useThreadShell(activeThreadRef);
-  const { environments } = useWorkspaceState();
+  const environments = useWorkspaceEnvironments();
   const { savedConnectionsById } = useSavedRemoteConnections();
   const [query, setQuery] = useState("");
   const [selection, setSelection] = useState<string | null>(null);
   const [visible, setVisible] = useState(true);
   const pendingAction = useRef<(() => void) | null>(null);
   const closing = useRef(false);
-  const inputRef = useRef<TextInput>(null);
+  const inputRef = useRef<TextInputInstance>(null);
   const listRef = useRef<FlatList<CommandPaletteItem>>(null);
   const { width, height } = useWindowDimensions();
   const searchEnvironmentIds = useMemo(
@@ -224,6 +225,17 @@ export function CommandPalette(props: {
           navigation.navigate("SettingsSheet", {
             screen: "SettingsContent",
             params: { screen: "SettingsEnvironments" },
+          }),
+      },
+      {
+        key: "scheduledTasks",
+        kind: "action",
+        title: "Scheduled tasks",
+        searchTerms: ["schedule", "automations", "recurring"],
+        run: () =>
+          navigation.navigate("SettingsSheet", {
+            screen: "SettingsContent",
+            params: { screen: "SettingsScheduledTasks" },
           }),
       },
       {

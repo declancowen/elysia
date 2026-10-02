@@ -1,4 +1,4 @@
-import { ThreadId, TurnId } from "@t3tools/contracts";
+import { ProviderInstanceId, RunId } from "@t3tools/contracts";
 import { describe, expect, it } from "vite-plus/test";
 import {
   delegatedAgentsStatusLabel,
@@ -24,20 +24,20 @@ describe("source delegated work", () => {
   it("refreshes equal-timestamp native lifecycle and approval changes", () => {
     const shell = {
       updatedAt: "2026-10-02T00:00:00.000Z",
-      latestTurn: {
-        turnId: TurnId.make("turn1"),
-        state: "running" as const,
+      latestRun: {
+        runId: RunId.make("turn1"),
+        status: "running" as const,
         requestedAt: "2026-10-02T00:00:00.000Z",
         startedAt: null,
         completedAt: null,
         assistantMessageId: null,
       },
-      session: {
-        threadId: ThreadId.make("agent-thread"),
+      runtime: {
+        providerInstanceId: ProviderInstanceId.make("claudeAgent"),
         status: "running" as const,
         providerName: "claude",
         runtimeMode: "full-access" as const,
-        activeTurnId: TurnId.make("turn1"),
+        activeRunId: RunId.make("turn1"),
         lastError: null,
         updatedAt: "2026-10-02T00:00:00.000Z",
       },
@@ -47,20 +47,20 @@ describe("source delegated work", () => {
     const previousRevision = delegationShellRevision(shell);
     const completed = {
       ...shell,
-      latestTurn: { ...shell.latestTurn, state: "completed" as const },
+      latestRun: { ...shell.latestRun, status: "completed" as const },
     };
     const waiting = { ...shell, hasPendingApprovals: true };
     const input = { ...shell, hasPendingUserInput: true };
     const anotherTurn = {
       ...shell,
-      latestTurn: { ...shell.latestTurn, turnId: TurnId.make("turn2") },
+      latestRun: { ...shell.latestRun, runId: RunId.make("turn2") },
     };
-    const sessionReady = { ...shell, session: { ...shell.session, status: "ready" as const } };
-    const sessionTurn = {
+    const runtimeReady = { ...shell, runtime: { ...shell.runtime, status: "idle" as const } };
+    const runtimeTurn = {
       ...shell,
-      session: { ...shell.session, activeTurnId: TurnId.make("turn2") },
+      runtime: { ...shell.runtime, activeRunId: RunId.make("turn2") },
     };
-    for (const changed of [completed, waiting, input, anotherTurn, sessionReady, sessionTurn]) {
+    for (const changed of [completed, waiting, input, anotherTurn, runtimeReady, runtimeTurn]) {
       expect(changed.updatedAt).toBe(shell.updatedAt);
       expect(
         delegationShellRevisionToRefresh({

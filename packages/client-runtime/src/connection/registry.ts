@@ -1,4 +1,4 @@
-import { EnvironmentId } from "@t3tools/contracts";
+import { CONNECTIONS_ENABLED, EnvironmentId } from "@t3tools/contracts";
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Equal from "effect/Equal";
@@ -74,7 +74,7 @@ export class EnvironmentRegistry extends Context.Service<
     readonly start: Effect.Effect<void>;
     readonly register: (
       registration: ConnectionRegistration,
-    ) => Effect.Effect<void, Persistence.ConnectionPersistenceError>;
+    ) => Effect.Effect<void, Persistence.ConnectionPersistenceError | ConnectionBlockedError>;
     readonly registerPlatform: (registration: PrimaryConnectionRegistration) => Effect.Effect<void>;
     readonly reconcilePlatform: (
       registrations: ReadonlyArray<PlatformConnectionRegistration>,
@@ -162,7 +162,9 @@ export const make = Effect.gen(function* () {
   const driver = yield* ConnectionDriver.ConnectionDriver;
   const wakeups = yield* ConnectionWakeups.ConnectionWakeups;
   const ssh = yield* ClientCapabilities.SshEnvironmentGateway;
-  const persistedTargets = yield* storage.list;
+  const persistedTargets = (yield* storage.list).filter(
+    (target) => CONNECTIONS_ENABLED || target._tag === "PrimaryConnectionTarget",
+  );
   const disabledEnvironmentIds = new Set(yield* storage.listDisabled);
   const initialEntries = new Map(
     yield* Effect.forEach(
@@ -437,6 +439,12 @@ export const make = Effect.gen(function* () {
   const register = Effect.fn("EnvironmentRegistry.register")(function* (
     registration: ConnectionRegistration,
   ) {
+    if (!CONNECTIONS_ENABLED) {
+      return yield* new ConnectionBlockedError({
+        reason: "unsupported",
+        detail: "Connections are disabled in Elysia.",
+      });
+    }
     const registered = connectionRegistrationCatalogEntry(registration);
     const environmentId = registered.target.environmentId;
     yield* withLeaseLock(
@@ -485,6 +493,7 @@ export const make = Effect.gen(function* () {
 
   const installPlatformRegistration = Effect.fn("EnvironmentRegistry.installPlatformRegistration")(
     function* (registration: PlatformConnectionRegistration) {
+      if (!CONNECTIONS_ENABLED && registration.target._tag !== "PrimaryConnectionTarget") return;
       const registered = connectionRegistrationCatalogEntry(registration);
       const target = registered.target;
       yield* withLeaseLock(
@@ -641,8 +650,12 @@ export const make = Effect.gen(function* () {
   const reconcilePlatform = Effect.fn("EnvironmentRegistry.reconcilePlatform")(function* (
     platformRegistrations: ReadonlyArray<PlatformConnectionRegistration>,
   ) {
+    const allowedRegistrations = platformRegistrations.filter(
+      (registration) =>
+        CONNECTIONS_ENABLED || registration.target._tag === "PrimaryConnectionTarget",
+    );
     const desiredIds = new Set(
-      platformRegistrations.map((registration) => registration.target.environmentId),
+      allowedRegistrations.map((registration) => registration.target.environmentId),
     );
     const currentPlatformIds = yield* Ref.get(platformEnvironmentIds);
     yield* Effect.forEach(
@@ -651,7 +664,7 @@ export const make = Effect.gen(function* () {
         desiredIds.has(environmentId) ? Effect.void : removePlatformEnvironment(environmentId),
       { discard: true },
     );
-    yield* Effect.forEach(platformRegistrations, installPlatformRegistration, { discard: true });
+    yield* Effect.forEach(allowedRegistrations, installPlatformRegistration, { discard: true });
   });
 
   const remove = Effect.fn("EnvironmentRegistry.remove")(function* (environmentId: EnvironmentId) {

@@ -47,7 +47,7 @@ export function useDelegatedAgents(
       const key = `${source.environmentId}:${source.threadId}:${job.activityId}`;
       const shell = shells.find((shell) => shell.id === job.agentThreadId);
       const value = shell
-        ? `${shell.updatedAt}:${shell.latestTurn?.turnId}:${shell.latestTurn?.state}:${shell.session?.status}:${shell.session?.activeTurnId}:${shell.hasPendingApprovals}:${shell.hasPendingUserInput}`
+        ? `${shell.updatedAt}:${shell.latestRun?.runId}:${shell.latestRun?.status}:${shell.runtime?.status}:${shell.runtime?.activeRunId}:${shell.hasPendingApprovals}:${shell.hasPendingUserInput}`
         : undefined;
       const previous = revisions.current.get(key);
       const data = Option.getOrNull(AsyncResult.value(result));

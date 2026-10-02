@@ -1,3 +1,4 @@
+import { CONNECTIONS_ENABLED } from "@t3tools/contracts";
 import {
   RelayManagedEndpointOrigin,
   RelayManagedEndpointRuntimeConfig,
@@ -50,6 +51,7 @@ export const readAgentActivityPublishingActive = (
   secrets: ServerSecretStore.ServerSecretStore["Service"],
 ): Effect.Effect<boolean> =>
   Effect.gen(function* () {
+    if (!CONNECTIONS_ENABLED) return false;
     const readSecretString = (name: string) =>
       secrets
         .get(name)

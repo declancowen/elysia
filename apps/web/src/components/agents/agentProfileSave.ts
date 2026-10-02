@@ -1,7 +1,6 @@
 import type { AgentProfile, ModelSelection, ThreadId } from "@t3tools/contracts";
-import { getAgentConversation } from "../../agentPresentation";
+import { agentThreadIsBusy, getAgentConversation } from "../../agentPresentation";
 import type { Project, SidebarThreadSummary } from "../../types";
-import { resolveSidebarThreadStatus } from "../Sidebar.logic";
 
 type AgentProject = Pick<
   Project,
@@ -15,10 +14,12 @@ type AgentThread = Pick<
   | "createdAt"
   | "archivedAt"
   | "modelSelection"
-  | "session"
+  | "runtime"
+  | "activeProviderThreadId"
+  | "latestRun"
   | "hasPendingApprovals"
   | "hasPendingUserInput"
-  | "backgroundLiveness"
+  | "pendingBackgroundTasks"
 >;
 
 function sameModelSelection(a: ModelSelection | null | undefined, b: ModelSelection) {
@@ -44,9 +45,7 @@ export async function saveAgentProfile(input: {
     (thread) =>
       thread.environmentId === input.project.environmentId && thread.projectId === input.project.id,
   );
-  if (
-    ownedThreads.some((thread) => !["ready", "failed"].includes(resolveSidebarThreadStatus(thread)))
-  ) {
+  if (ownedThreads.some((thread) => agentThreadIsBusy(thread))) {
     throw new Error("Wait for the current task to finish before changing instructions.");
   }
   const conversation = getAgentConversation(input.project, ownedThreads);
@@ -61,7 +60,7 @@ export async function saveAgentProfile(input: {
   // A failed stop must leave the old profile authoritative so retry still detects the change.
   if (runtimeChanged) {
     for (const thread of ownedThreads) {
-      if (thread.session && thread.session.status !== "stopped") await input.stopSession(thread.id);
+      if (thread.activeProviderThreadId !== null) await input.stopSession(thread.id);
     }
   }
   await input.updateProject();

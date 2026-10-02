@@ -1,3 +1,4 @@
+import { resolveThreadLineageWindow } from "@t3tools/client-runtime/state/thread-relationships";
 import { Popover as PopoverPrimitive } from "@base-ui/react/popover";
 import { Link } from "@tanstack/react-router";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
@@ -84,6 +85,7 @@ function OverviewPopover({
 }: ThreadOverviewPanelProps & { wide: boolean }) {
   const codeWorkspace = useCodeWorkspace();
   const target = useThreadOverviewStore((state) => state.target);
+  const toggle = useThreadOverviewStore((state) => state.toggle);
   const [open, setOpen] = useState(false);
   const anchorRef = useRef<HTMLSpanElement>(null);
   const [sourcesExpanded, setSourcesExpanded] = useState(true);
@@ -96,6 +98,9 @@ function OverviewPopover({
     { kind: "agent" | "subagent"; id: string } | { kind: "subagents" } | null
   >(null);
   const [expanded, setExpanded] = useState(false);
+  const [visibleSubagentCount, setVisibleSubagentCount] = useState(6);
+  const { visibleRows: visibleSubagents, hiddenCount: hiddenSubagentCount } =
+    resolveThreadLineageWindow(subagents, visibleSubagentCount);
   const bodyRef = useRef<HTMLDivElement>(null);
   const landedView = useRef<typeof view>(null);
   const [availableSize, setAvailableSize] = useState({ x: 0, y: 0, height: 320, width: 320 });
@@ -187,6 +192,17 @@ function OverviewPopover({
     setOpen(true);
     useThreadOverviewStore.setState({ target: null });
   }, [target, sourceThreadRef]);
+  useEffect(() => {
+    if (
+      !toggle ||
+      toggle.environmentId !== sourceThreadRef?.environmentId ||
+      toggle.threadId !== sourceThreadRef?.threadId
+    )
+      return;
+    setView(null);
+    setOpen((current) => !current);
+    useThreadOverviewStore.setState({ toggle: null });
+  }, [toggle, sourceThreadRef]);
   const visibleSources = sourcesExpanded ? sources.slice(0, 3) : [];
   const openView = (action: () => void) => {
     action();
@@ -634,7 +650,7 @@ function OverviewPopover({
               ) : view?.kind === "subagents" ? (
                 <div className="flex flex-col gap-2">
                   {subagents.length ? (
-                    subagents.map((agent) => (
+                    visibleSubagents.map((agent) => (
                       <button
                         key={agent.id}
                         type="button"
@@ -649,6 +665,15 @@ function OverviewPopover({
                   ) : (
                     <p className="text-sm text-muted-foreground">No subagents yet.</p>
                   )}
+                  {hiddenSubagentCount > 0 ? (
+                    <button
+                      type="button"
+                      className={rowClassName}
+                      onClick={() => setVisibleSubagentCount((count) => count + 12)}
+                    >
+                      <span className="text-sm">Show {Math.min(hiddenSubagentCount, 12)} more</span>
+                    </button>
+                  ) : null}
                 </div>
               ) : (
                 <p className="text-sm text-muted-foreground">This agent is unavailable.</p>

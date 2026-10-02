@@ -1,6 +1,6 @@
+import { makeThreadShellFixture } from "../../test-fixtures";
 import {
   scopeProject,
-  scopeThreadShell,
   type EnvironmentProject,
   type EnvironmentThreadShell,
 } from "@t3tools/client-runtime/state/shell";
@@ -53,7 +53,8 @@ function thread(
   owner: EnvironmentProject,
   extra: Partial<EnvironmentThreadShell> = {},
 ): EnvironmentThreadShell {
-  return scopeThreadShell(owner.environmentId, {
+  return makeThreadShellFixture({
+    environmentId: owner.environmentId,
     id: ThreadId.make(id),
     projectId: owner.id,
     title: id,
@@ -71,9 +72,9 @@ function thread(
     archivedAt: null,
     settledAt: null,
     settledOverride: null,
-    session: null,
+    runtime: null,
     latestUserMessageAt: null,
-    latestTurn: null,
+    latestRun: null,
     hasPendingApprovals: false,
     hasPendingUserInput: false,
     hasActionableProposedPlan: false,

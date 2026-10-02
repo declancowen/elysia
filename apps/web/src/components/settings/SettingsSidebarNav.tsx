@@ -1,3 +1,4 @@
+import { CalendarClockIcon } from "~/icons";
 import { useCodeWorkspace } from "~/hooks/useSettings";
 import { CONNECTIONS_ENABLED } from "@t3tools/contracts";
 import {
@@ -76,6 +77,7 @@ const SETTINGS_SECTION_ICONS: Readonly<
   "/settings/snap-shot": SnapShotIcon,
   "/settings/providers": BotIcon,
   "/settings/integrations": BlocksIcon,
+  "/settings/scheduled-tasks": CalendarClockIcon,
   "/settings/source-control": GitBranchIcon,
   "/settings/storage": HardDriveIcon,
   "/settings/connections": Link2Icon,

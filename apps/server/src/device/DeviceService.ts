@@ -11,6 +11,7 @@
  * every connected client the way `preview_open` does.
  */
 import {
+  CONNECTIONS_ENABLED,
   type DeviceActionInput,
   type DeviceCloseInput,
   type DeviceConfigureInput,
@@ -1022,6 +1023,13 @@ export const make = Effect.gen(function* () {
     hosts,
     (host) =>
       Effect.gen(function* () {
+        if (!CONNECTIONS_ENABLED) {
+          return yield* new DeviceOperationError({
+            operation: "probe host",
+            reason: "request_failed",
+            cause: new Error("Remote device connections are disabled in Elysia."),
+          });
+        }
         if (yield* isLocalSshDeviceHost(host).pipe(Effect.provide(localTargetContext))) {
           return yield* localHost.summary;
         }

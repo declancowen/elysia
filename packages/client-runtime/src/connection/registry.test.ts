@@ -1,11 +1,23 @@
 import {
   type DesktopSshEnvironmentTarget,
   EnvironmentId,
+  type OrchestrationV2ShellSnapshot,
   ORCHESTRATION_PROTOCOL_VERSION,
   type ExecutionEnvironmentDescriptor,
-  type OrchestrationShellSnapshot,
 } from "@t3tools/contracts";
 import { describe, expect, it } from "@effect/vitest";
+import { beforeEach, vi } from "vite-plus/test";
+
+const forkPolicy = vi.hoisted(() => ({ connectionsEnabled: true }));
+vi.mock("@t3tools/contracts", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@t3tools/contracts")>()),
+  get CONNECTIONS_ENABLED() {
+    return forkPolicy.connectionsEnabled;
+  },
+}));
+beforeEach(() => {
+  forkPolicy.connectionsEnabled = true;
+});
 import * as Context from "effect/Context";
 import * as Deferred from "effect/Deferred";
 import * as Effect from "effect/Effect";
@@ -61,6 +73,7 @@ import { watchDiscoveredCompatibility } from "./layer.ts";
 import * as RelayEnvironmentDiscovery from "../relay/discovery.ts";
 import type { RelayEnvironmentStatusResponse } from "@t3tools/contracts/relay";
 import { runDesktopCommitWithReconnectObserver } from "../state/server.ts";
+import { v2ShellSnapshot } from "../state/orchestrationV2TestFixtures.ts";
 
 const TARGET = new PrimaryConnectionTarget({
   environmentId: EnvironmentId.make("environment-1"),
@@ -127,11 +140,9 @@ const SSH_PROFILE = new SshConnectionProfile({
   target: SSH_TARGET,
 });
 
-const CACHED_SNAPSHOT: OrchestrationShellSnapshot = {
+const CACHED_SNAPSHOT: OrchestrationV2ShellSnapshot = {
+  ...v2ShellSnapshot,
   snapshotSequence: 1,
-  projects: [],
-  threads: [],
-  updatedAt: "2026-06-06T00:00:00.000Z",
 };
 
 interface SessionControl {
@@ -455,6 +466,86 @@ function awaitConnectionState(
 }
 
 describe("EnvironmentRegistry", () => {
+  it.effect("hides saved remote catalogs without deleting their dormant records in Elysia", () =>
+    Effect.gen(function* () {
+      forkPolicy.connectionsEnabled = false;
+      const targets = [TARGET, BEARER_TARGET, RELAY_TARGET, SSH_CONNECTION];
+      const harness = yield* makeHarness(targets, [BEARER_PROFILE, SSH_PROFILE]);
+      yield* Effect.gen(function* () {
+        const registry = yield* EnvironmentRegistry.EnvironmentRegistry;
+        expect([...(yield* SubscriptionRef.get(registry.entries)).keys()]).toEqual([
+          TARGET.environmentId,
+        ]);
+        expect(yield* Ref.get(harness.profileReadCount)).toBe(0);
+        yield* registry.start;
+        yield* awaitConnectionState(
+          registry,
+          TARGET.environmentId,
+          (state) => state.phase === "connected",
+        );
+        expect(yield* Ref.get(harness.sessions)).toHaveLength(1);
+        expect([...(yield* Ref.get(harness.storedTargets)).values()]).toEqual(targets);
+        expect(yield* Ref.get(harness.cacheClears)).toEqual([]);
+      }).pipe(Effect.provide(harness.layer), Effect.scoped);
+    }),
+  );
+
+  it.effect(
+    "rejects remote registration before writing credentials or installing a runtime in Elysia",
+    () =>
+      Effect.gen(function* () {
+        forkPolicy.connectionsEnabled = false;
+        const harness = yield* makeHarness([]);
+        yield* Effect.gen(function* () {
+          const registry = yield* EnvironmentRegistry.EnvironmentRegistry;
+          const result = yield* registry
+            .register(
+              new BearerConnectionRegistration({
+                target: BEARER_TARGET,
+                profile: BEARER_PROFILE,
+                credential: BEARER_CREDENTIAL,
+              }),
+            )
+            .pipe(Effect.result);
+          expect(Result.isFailure(result)).toBe(true);
+          if (Result.isFailure(result)) expect(result.failure._tag).toBe("ConnectionBlockedError");
+          expect((yield* SubscriptionRef.get(registry.entries)).size).toBe(0);
+          expect((yield* Ref.get(harness.storedTargets)).size).toBe(0);
+          expect((yield* Ref.get(harness.storedProfiles)).size).toBe(0);
+          expect((yield* Ref.get(harness.storedCredentials)).size).toBe(0);
+          expect(yield* Ref.get(harness.sessions)).toHaveLength(0);
+        }).pipe(Effect.provide(harness.layer), Effect.scoped);
+      }),
+  );
+
+  it.effect("admits only primary platform registrations in Elysia", () =>
+    Effect.gen(function* () {
+      forkPolicy.connectionsEnabled = false;
+      const harness = yield* makeHarness([]);
+      yield* Effect.gen(function* () {
+        const registry = yield* EnvironmentRegistry.EnvironmentRegistry;
+        yield* registry.reconcilePlatform([
+          new PrimaryConnectionRegistration({ target: TARGET }),
+          new BearerConnectionRegistration({
+            target: BEARER_TARGET,
+            profile: BEARER_PROFILE,
+            credential: BEARER_CREDENTIAL,
+          }),
+        ]);
+        yield* awaitConnectionState(
+          registry,
+          TARGET.environmentId,
+          (state) => state.phase === "connected",
+        );
+        expect([...(yield* SubscriptionRef.get(registry.entries)).keys()]).toEqual([
+          TARGET.environmentId,
+        ]);
+        expect((yield* Ref.get(harness.storedCredentials)).size).toBe(0);
+        expect(yield* Ref.get(harness.sessions)).toHaveLength(1);
+      }).pipe(Effect.provide(harness.layer), Effect.scoped);
+    }),
+  );
+
   it.effect("replays connected state when arming a desktop commit observer", () =>
     Effect.gen(function* () {
       const harness = yield* makeHarness([TARGET]);

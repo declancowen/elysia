@@ -1,6 +1,5 @@
-import { describe, expect, it, vi } from "vite-plus/test";
+import { describe, expect, it } from "vite-plus/test";
 import {
-  isEnabledProviderDriver,
   type EnvironmentId,
   ProviderDriverKind,
   ProviderInstanceId,
@@ -22,6 +21,7 @@ import {
   getProviderUpdateInitialToastView,
   getProviderUpdateProgressToastView,
   getProviderUpdateRejectedToastView,
+  getProviderUpdateRunToastView,
   getProviderUpdateSidebarPillView,
   hasOneClickUpdateProviderCandidate,
   isProviderUpdateCandidate,
@@ -29,7 +29,6 @@ import {
   isTerminalProviderUpdatePhase,
   localEnvironmentUpdateNotificationKey,
   providerUpdateNotificationKey,
-  projectProviderUpdateTargets,
   resolveEnvironmentUpdateRowStatus,
   shouldShowPrimaryProviderUpdateToast,
   type LocalEnvironmentProvidersInput,
@@ -39,13 +38,6 @@ import {
   type ProviderUpdateSidebarPillView,
   type ProviderUpdateToastView,
 } from "./ProviderUpdateLaunchNotification.logic";
-
-// Keep upstream multi-provider reducers covered while those drivers are dormant.
-// The fork's real notification gate is exercised explicitly below.
-vi.mock("@t3tools/contracts", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@t3tools/contracts")>()),
-  isEnabledProviderDriver: vi.fn(() => true),
-}));
 
 const checkedAt = "2026-04-23T10:00:00.000Z";
 const sessionStartedAt = "2026-04-23T09:59:00.000Z";
@@ -526,7 +518,7 @@ describe("provider update launch notification logic", () => {
     expect(view).toMatchObject({
       key: "failed:claudeAgent:2026-04-23T10:00:00.000Z:Update command exited with code 1.",
       tone: "error",
-      title: "Elysia v1.1.0 update failed",
+      title: "Claude v1.1.0 update failed",
       description: "Update command exited with code 1.",
       dismissible: true,
     });
@@ -649,7 +641,7 @@ describe("provider update launch notification logic", () => {
     expect(failureView).toMatchObject({
       key: "failed:claudeAgent:2026-04-23T10:00:00.000Z:Update command exited with code 1.",
       tone: "error",
-      title: "Elysia v1.1.0 update failed",
+      title: "Claude v1.1.0 update failed",
     });
   });
 
@@ -1068,77 +1060,89 @@ it("does not offer incompatible latest versions and restores suggestions after p
   }
 });
 
-it("keeps Elysia and Claude runtime notifications, versions and outcomes independent", () => {
-  const native = provider({
-    driver: driver("claudeAgent"),
-    version: "0.3.8",
-    latestVersion: "0.3.9",
+describe("getProviderUpdateRunToastView", () => {
+  const updateState = (
+    status: "succeeded" | "failed",
+    message: string,
+  ): ServerProvider["updateState"] => ({
+    status,
+    startedAt: checkedAt,
+    finishedAt: laterCheckedAt,
+    message,
+    output: null,
   });
-  const snapshot: ServerProvider = {
-    ...native,
-    runtimeVersion: "2.1.285",
-    runtimeVersionAdvisory: {
-      ...native.versionAdvisory!,
-      currentVersion: "2.1.285",
-      latestVersion: "2.1.286",
-      updateCommand: "claude update",
-    },
-  };
-  const candidates = collectProviderUpdateCandidates([snapshot]);
-  expect(
-    candidates.map((candidate) => [
-      candidate.updateTarget,
-      candidate.version,
-      candidate.versionAdvisory.latestVersion,
-    ]),
-  ).toEqual([
-    [undefined, "0.3.8", "0.3.9"],
-    ["runtime", "2.1.285", "2.1.286"],
-  ]);
-  expect(providerUpdateNotificationKey(candidates)).toBe(
-    "claudeAgent:0.3.9|claudeAgent:runtime:2.1.286",
-  );
-  expect(
-    candidates.every((candidate) => canOneClickUpdateProviderCandidate(candidate, [snapshot])),
-  ).toBe(true);
-  const finished: ServerProvider = {
-    ...snapshot,
-    runtimeVersion: "2.1.286",
-    runtimeUpdateState: {
-      status: "succeeded",
-      startedAt: checkedAt,
-      finishedAt: laterCheckedAt,
-      message: "Claude Code runtime updated.",
-      output: null,
-    },
-  };
-  expect(getProviderUpdateSidebarPillView([finished])?.title).toBe(
-    "Claude Code runtime updated: v2.1.286",
-  );
-  expect(projectProviderUpdateTargets(projectProviderUpdateTargets([finished]))).toEqual(
-    projectProviderUpdateTargets([finished]),
-  );
-});
+  const run = (
+    machineLabel: string,
+    providerDriver: string,
+    result: Parameters<typeof getProviderUpdateRunToastView>[0][number]["result"],
+  ) => ({
+    machineLabel,
+    driver: driver(providerDriver),
+    instanceId: instanceId(providerDriver),
+    result,
+  });
 
-it("excludes disabled provider updates and notifications under the Elysia fork policy", () => {
-  vi.mocked(isEnabledProviderDriver).mockImplementation((kind) => kind === "claudeAgent");
-  try {
-    const disabled = ["codex", "cursor", "grok", "opencode", "antigravity"].map((kind) =>
-      provider({
-        driver: driver(kind),
-        updateState: {
-          status: "failed",
-          startedAt: checkedAt,
-          finishedAt: laterCheckedAt,
-          message: "Update failed",
-          output: null,
-        },
-      }),
-    );
-    expect(collectProviderUpdateCandidates(disabled)).toEqual([]);
-    expect(getProviderUpdateSidebarPillView(disabled)).toBeNull();
-    expect(disabled.some(isProviderSettingsUpdateCandidate)).toBe(false);
-  } finally {
-    vi.mocked(isEnabledProviderDriver).mockImplementation(() => true);
-  }
+  it("lists every failed update and ignores interrupted ones", () => {
+    const view = getProviderUpdateRunToastView([
+      run(
+        "Mac Studio",
+        "codex",
+        AsyncResult.success({
+          providers: [
+            provider({
+              driver: driver("codex"),
+              updateState: updateState("succeeded", "Provider updated."),
+            }),
+          ],
+        }),
+      ),
+      run(
+        "Mac Studio",
+        "claudeAgent",
+        AsyncResult.success({
+          providers: [
+            provider({
+              driver: driver("claudeAgent"),
+              updateState: updateState("failed", "npm exited with code 1."),
+            }),
+          ],
+        }),
+      ),
+      run("Laptop", "codex", AsyncResult.failure(Cause.die(new Error("WebSocket closed")))),
+      run("Server", "codex", AsyncResult.failure(Cause.interrupt())),
+    ]);
+
+    expect(view).toEqual({
+      type: "error",
+      title: "2 of 3 provider updates failed",
+      description: "Mac Studio · Claude: npm exited with code 1.\nLaptop · Codex: WebSocket closed",
+    });
+  });
+
+  it("reports success when every update succeeded", () => {
+    const succeeded = AsyncResult.success({
+      providers: [
+        provider({
+          driver: driver("codex"),
+          updateState: updateState("succeeded", "Provider updated."),
+        }),
+      ],
+    });
+
+    expect(
+      getProviderUpdateRunToastView([
+        run("Mac Studio", "codex", succeeded),
+        run("Laptop", "codex", succeeded),
+      ]),
+    ).toEqual({
+      type: "success",
+      title: "2 providers updated",
+      description: "New sessions will use the updated providers.",
+    });
+    expect(
+      getProviderUpdateRunToastView([
+        run("Server", "codex", AsyncResult.failure(Cause.interrupt())),
+      ]),
+    ).toBeNull();
+  });
 });

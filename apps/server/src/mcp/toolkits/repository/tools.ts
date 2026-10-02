@@ -2,31 +2,12 @@ import { McpCapabilityUnavailableError } from "@t3tools/contracts";
 import * as Schema from "effect/Schema";
 import * as Tool from "effect/unstable/ai/Tool";
 import * as Toolkit from "effect/unstable/ai/Toolkit";
-import * as Path from "effect/Path";
-
-import { ServerConfig } from "../../../config.ts";
-import * as ProjectionSnapshotQuery from "../../../orchestration/Services/ProjectionSnapshotQuery.ts";
-import * as VcsProvisioningService from "../../../vcs/VcsProvisioningService.ts";
-import * as VcsStatusBroadcaster from "../../../vcs/VcsStatusBroadcaster.ts";
+import * as RepositoryInitialization from "../../../project/RepositoryInitialization.ts";
+import {
+  RepositoryInitializationDeniedError,
+  RepositoryInitializationFailedError,
+} from "../../../project/RepositoryInitialization.ts";
 import * as McpInvocationContext from "../../McpInvocationContext.ts";
-
-export class RepositoryInitializationDeniedError extends Schema.TaggedError<RepositoryInitializationDeniedError>()(
-  "RepositoryInitializationDeniedError",
-  { detail: Schema.String },
-) {
-  override get message(): string {
-    return this.detail;
-  }
-}
-
-export class RepositoryInitializationFailedError extends Schema.TaggedError<RepositoryInitializationFailedError>()(
-  "RepositoryInitializationFailedError",
-  { cause: Schema.Defect() },
-) {
-  override get message(): string {
-    return "Could not initialize Git in this chat's workspace.";
-  }
-}
 
 const InitializeGitTool = Tool.make("initialize_git", {
   description:
@@ -39,11 +20,7 @@ const InitializeGitTool = Tool.make("initialize_git", {
   ]),
   dependencies: [
     McpInvocationContext.McpInvocationContext,
-    ProjectionSnapshotQuery.ProjectionSnapshotQuery,
-    VcsProvisioningService.VcsProvisioningService,
-    VcsStatusBroadcaster.VcsStatusBroadcaster,
-    ServerConfig,
-    Path.Path,
+    RepositoryInitialization.RepositoryInitialization,
   ],
 })
   .annotate(Tool.Title, "Initialize Git in this workspace")

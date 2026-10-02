@@ -20,8 +20,13 @@ import * as BackgroundPolicy from "../../background/BackgroundPolicy.ts";
 import { ServerConfig } from "../../config.ts";
 import { expandHomePath } from "../../pathExpansion.ts";
 import { ServerSettingsService } from "../../serverSettings.ts";
-import { ProviderAdapterRequestError, ProviderDriverError } from "../Errors.ts";
-import { makeClaudeAdapter } from "../Layers/ClaudeAdapter.ts";
+import { ProviderDriverError } from "../Errors.ts";
+import {
+  makeClaudeAdapterV2,
+  ClaudeAgentSdkQueryRunner,
+} from "../../orchestration-v2/Adapters/ClaudeAdapterV2.ts";
+import { IdAllocatorV2 } from "../../orchestration-v2/IdAllocator.ts";
+import { ProviderContinuationRequests } from "../../orchestration-v2/ProviderContinuationRequests.ts";
 import { makeClaudeScopedLimitNames } from "../Layers/claudeUsageLimits.ts";
 import {
   checkClaudeProviderStatus,
@@ -67,6 +72,8 @@ const decodeCredentials = Schema.decodeUnknownEffect(Credentials);
 const decodeClaudeSettings = Schema.decodeSync(ClaudeSettings);
 
 export type ElysiaDriverEnv =
+  | ClaudeAgentSdkQueryRunner
+  | IdAllocatorV2
   | BackgroundPolicy.BackgroundPolicy
   | ChildProcessSpawner.ChildProcessSpawner
   | Crypto.Crypto
@@ -90,7 +97,6 @@ export const ElysiaDriver: ProviderDriver<ClaudeSettings, ElysiaDriverEnv> = {
       const { cwd, stateDir } = yield* ServerConfig;
       const httpClient = yield* HttpClient.HttpClient;
       const serverSettings = yield* ServerSettingsService;
-      const eventLoggers = yield* ProviderEventLoggers;
       const initialSettings = yield* serverSettings.getSettings.pipe(Effect.orDie);
       const appDefaultModel =
         initialSettings.defaultModelSelection?.instanceId === instanceId
@@ -172,20 +178,6 @@ export const ElysiaDriver: ProviderDriver<ClaudeSettings, ElysiaDriverEnv> = {
         continuationGroupKey,
       });
       const scopedLimitNames = yield* makeClaudeScopedLimitNames;
-      const nativeAdapter = yield* makeClaudeAdapter(effectiveConfig, {
-        instanceId,
-        environment: processEnv,
-        modelCatalog,
-        scopedLimitNames,
-        onElysiaDefaultModelChange: (model) =>
-          Effect.gen(function* () {
-            yield* serverSettings.updateSettings({ defaultModelSelection: { instanceId, model } });
-            yield* elysia.refreshEnvironment;
-            yield* Cache.invalidateAll(capabilities);
-            yield* snapshot.refresh;
-          }),
-        ...(eventLoggers.native ? { nativeEventLogger: eventLoggers.native } : {}),
-      });
       const authorize = Effect.fnUntraced(function* (model?: string) {
         yield* elysia.requireReady;
         if (model && !(yield* modelCatalog).models.some((entry) => entry.model.slug === model))
@@ -195,29 +187,28 @@ export const ElysiaDriver: ProviderDriver<ClaudeSettings, ElysiaDriverEnv> = {
             detail: "Select a model from the Elysia gateway catalog.",
           });
       });
-      const adapterAccess = (model?: string) =>
-        authorize(model).pipe(
-          Effect.mapError(
-            (error) =>
-              new ProviderAdapterRequestError({
-                provider: DRIVER_KIND,
-                method: "connect",
-                detail: error.detail,
-              }),
-          ),
-        );
-      const adapter = {
-        ...nativeAdapter,
-        sessionModelSwitch: "unsupported" as const,
-        startSession: (input: Parameters<typeof nativeAdapter.startSession>[0]) =>
-          adapterAccess(input.modelSelection?.model).pipe(
-            Effect.andThen(nativeAdapter.startSession(input)),
-          ),
-        sendTurn: (input: Parameters<typeof nativeAdapter.sendTurn>[0]) =>
-          adapterAccess(input.modelSelection?.model).pipe(
-            Effect.andThen(nativeAdapter.sendTurn(input)),
-          ),
-      };
+      const orchestrationAdapter = makeClaudeAdapterV2({
+        instanceId,
+        settings: effectiveConfig,
+        environment: processEnv,
+        modelCatalog,
+        authorizeModel: authorize,
+        attachmentsDir: (yield* ServerConfig).attachmentsDir,
+        fileSystem: fs,
+        path,
+        idAllocator: yield* IdAllocatorV2,
+        queryRunner: yield* ClaudeAgentSdkQueryRunner,
+        continuationRequests: yield* ProviderContinuationRequests,
+        scopedLimitNames,
+        onElysiaDefaultModelChange: (model) =>
+          Effect.gen(function* () {
+            yield* serverSettings.updateSettings({ defaultModelSelection: { instanceId, model } });
+            yield* elysia.refreshEnvironment;
+            yield* Cache.invalidateAll(capabilities);
+            yield* snapshot.refresh;
+          }),
+        onUsageLimits: (update) => snapshot.applyUsageLimits(update),
+      });
       const nativeTextGeneration = yield* makeClaudeTextGeneration(
         effectiveConfig,
         processEnv,
@@ -536,7 +527,7 @@ export const ElysiaDriver: ProviderDriver<ClaudeSettings, ElysiaDriverEnv> = {
                 Effect.provideService(FileSystem.FileSystem, fs),
                 Effect.provideService(Path.Path, path),
               ),
-        adapter,
+        orchestrationAdapter,
         textGeneration,
         auth,
         invalidateCaches: Cache.invalidateAll(capabilities).pipe(

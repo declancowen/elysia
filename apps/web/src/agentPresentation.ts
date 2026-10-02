@@ -44,3 +44,18 @@ export function getAgentConversation<
     null
   );
 }
+
+/** Idle provider sessions can be edited; work or outstanding requests cannot. */
+export function agentThreadIsBusy(
+  thread: Pick<
+    SidebarThreadSummary,
+    "runtime" | "pendingBackgroundTasks" | "hasPendingApprovals" | "hasPendingUserInput"
+  >,
+): boolean {
+  return (
+    thread.hasPendingApprovals ||
+    thread.hasPendingUserInput ||
+    thread.pendingBackgroundTasks.length > 0 ||
+    ["preparing", "queued", "starting", "running", "waiting"].includes(thread.runtime?.status ?? "")
+  );
+}

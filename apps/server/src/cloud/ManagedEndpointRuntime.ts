@@ -1,3 +1,4 @@
+import { CONNECTIONS_ENABLED } from "@t3tools/contracts";
 import type { RelayManagedEndpointRuntimeConfig } from "@t3tools/contracts/relay";
 import * as RelayClient from "@t3tools/shared/relayClient";
 import * as Clock from "effect/Clock";
@@ -129,6 +130,14 @@ const stopConnector = (connector: ActiveConnector | null) =>
 
 /** @public Service construction is part of the canonical Effect module API. */
 export const make = Effect.gen(function* () {
+  if (!CONNECTIONS_ENABLED) {
+    return CloudManagedEndpointRuntime.of({
+      applyConfig: () => Effect.succeed({ status: "disabled" }),
+      recoveryRequests: Stream.empty,
+      requestRecovery: () => Effect.void,
+      withLinkStateLock: (effect) => effect,
+    });
+  }
   const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
   const relayClient = yield* RelayClient.RelayClient;
   const activeRef = yield* Ref.make<ActiveConnector | null>(null);

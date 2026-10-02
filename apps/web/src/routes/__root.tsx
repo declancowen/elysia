@@ -28,8 +28,8 @@ import { SnapShotCoordinator } from "../components/desktop/SnapShotCoordinator";
 import { DesktopAppActivationCoordinator } from "../components/desktop/DesktopAppActivationCoordinator";
 import { RunningThreadKeepAlive } from "../components/desktop/RunningThreadKeepAlive";
 import { ProviderUpdateLaunchNotification } from "../components/ProviderUpdateLaunchNotification";
+import { LegacyThreadMigrationToast } from "../components/LegacyThreadMigrationToast";
 import { ThreadNotificationCoordinator } from "../components/ThreadNotificationCoordinator";
-import { QueuedMessageSender } from "../components/QueuedMessageSender";
 import { ProjectCloneToastCoordinator } from "../components/ProjectCloneToastCoordinator";
 import { SlowRpcRequestToastCoordinator } from "../components/SlowRpcRequestToastCoordinator";
 import { CONNECTIONS_ENABLED } from "@t3tools/contracts";
@@ -84,7 +84,11 @@ import { shouldResumeSnapShotSetupOnStartup } from "../lib/snapShotSetupResume";
 
 export const Route = createRootRoute({
   beforeLoad: async ({ location }) => {
-    if (location.pathname === "/pair" && hasHostedPairingRequest(new URL(window.location.href))) {
+    if (
+      CONNECTIONS_ENABLED &&
+      location.pathname === "/pair" &&
+      hasHostedPairingRequest(new URL(window.location.href))
+    ) {
       return {
         authGateState: {
           status: "hosted-pairing",
@@ -92,7 +96,10 @@ export const Route = createRootRoute({
       };
     }
 
-    if (isLocalEnvironmentDisabled() || isHostedStaticApp(new URL(window.location.href))) {
+    if (
+      CONNECTIONS_ENABLED &&
+      (isLocalEnvironmentDisabled() || isHostedStaticApp(new URL(window.location.href)))
+    ) {
       return {
         authGateState: {
           status: "hosted-static",
@@ -237,12 +244,12 @@ function RootRouteView() {
           ) : null}
           <SnapShotCoordinator />
           <ThreadNotificationCoordinator />
-          <QueuedMessageSender />
           <ConfirmDialogHost />
           <CustomSnoozeDialogHost />
           <SlowRpcRequestToastCoordinator />
+          {primaryEnvironmentAuthenticated ? <LegacyThreadMigrationToast /> : null}
           <ProjectCloneToastCoordinator />
-          <HostedStaticEnvironmentBootstrap />
+          {CONNECTIONS_ENABLED ? <HostedStaticEnvironmentBootstrap /> : null}
           {primaryEnvironmentAuthenticated ? (
             <EventRouter skipInitialBootstrapNavigation={returningFromWelcomeRef.current} />
           ) : null}

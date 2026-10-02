@@ -7,3 +7,81 @@ To update the native Elysia provider, open **Settings → Providers** and use th
 Connect to the company network or VPN before updating the provider. Finish active work first; updates can restart the agent or compression service. If an update fails, check the network and retry from Providers.
 
 Other provider installers, update checks and notifications are disabled in this company build.
+
+**Settings → General → Continue threads after restarts** is off by default.
+Enable it to resume supported active threads after an update, crash, or machine
+restart. Changes are saved to connected environments that support this setting;
+update older servers first. If a supported environment was offline or has a
+different value, use **Apply to all** in Settings after it connects.
+Elysia must start again on that machine;
+the setting does not enable automatic startup. Terminal commands may still be
+interrupted, and threads without saved provider resume state need a new message.
+If you previously enabled continuation for updates, enable this setting once
+to allow recovery without a connected client.
+
+Updates from the previous orchestration system preserve conversation transcripts but cannot carry
+every kind of runtime history forward. Read [Threads from older Elysia versions](./thread-migration.md)
+before continuing an important older thread.
+
+## When versions don't match
+
+A client and server must speak the same orchestration protocol. If they do not, the connection is
+refused rather than running half-upgraded:
+
+- An app newer than the server is blocked before connecting, with a notice telling you to update
+  Elysia on the machine named in the notice.
+- A server newer than your app refuses the connection with an update message.
+
+Update the side the notice names, then reconnect.
+
+## Update a connected server
+
+The offered action depends on how the server runs:
+
+| Action                     | What to do                                                                                                                                                                                      |
+| -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Update server**          | Keep the client open while it installs and reconnects. Supported background services update remotely. For a desktop-hosted server, this also closes and relaunches the desktop app on the host. |
+| **Update the desktop app** | Update the desktop app on the machine running the server, then reopen it if needed.                                                                                                             |
+| **Copy update command**    | Stop the command-line server on its host and relaunch with the copied command, keeping your usual startup options.                                                                              |
+
+On the host, run:
+
+```sh
+t3 update <client-version>
+```
+
+Replace `<client-version>` with the version shown in the notice. The command
+asks before restarting the background service; if you decline, run
+`t3 service restart` when you are ready. For a server you started by hand,
+stop it and start it again afterwards with your usual options such as `--host`
+or `--tailscale-serve`.
+
+If you run the server with `npx` rather than an installed `t3`, there is
+nothing to update on the host: stop the server and relaunch it as
+`npx t3@<client-version>` with the same subcommand and options.
+
+## If an update fails
+
+Keep the client open until it reconnects or reports a failure. A failed service
+update can roll back to the previous version. If the update still fails:
+
+1. Retry the offered action once.
+2. Check that you updated the server's machine, not only the device you are using.
+3. For a command-line server, stop it and relaunch the exact version shown in the notice.
+
+## Mobile updates
+
+To update an environment from your phone, open **Settings → Environments** and
+select it. **Check for updates** finds the latest release on that environment's
+current release channel. Keep the app open while the environment updates and
+reconnects. Hosts that cannot update remotely show instructions for updating on
+the machine instead.
+
+The Elysia provider update action is available in **Settings → Providers**.
+Restart continuation preferences are in **Settings → Maintenance**.
+
+Install App Store or Google Play releases as usual. The mobile app can also
+download updates in the background and apply them when you next leave the app.
+It saves drafts and queued messages before restarting. If you keep the app open
+for a long time, it may ask to install immediately; choosing **Later** leaves the
+update queued for the next suitable moment.

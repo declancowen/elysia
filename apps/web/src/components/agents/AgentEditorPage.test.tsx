@@ -1,3 +1,4 @@
+import { makeThreadFixture } from "../../test-fixtures";
 // @vitest-environment jsdom
 import {
   DEFAULT_SERVER_SETTINGS,
@@ -156,7 +157,7 @@ const project: Project = {
     conversationThreadId: threadId,
   },
 };
-const thread: SidebarThreadSummary = {
+const thread: SidebarThreadSummary = makeThreadFixture({
   id: threadId,
   environmentId,
   projectId,
@@ -167,18 +168,18 @@ const thread: SidebarThreadSummary = {
   branch: null,
   worktreePath: null,
   pullRequests: [],
-  latestTurn: null,
+  latestRun: null,
   createdAt: project.createdAt,
   updatedAt: project.updatedAt,
   archivedAt: null,
   settledOverride: null,
   settledAt: null,
-  session: null,
+  runtime: null,
   latestUserMessageAt: null,
   hasPendingApprovals: false,
   hasPendingUserInput: false,
   hasActionableProposedPlan: false,
-};
+});
 
 function EditorRoute() {
   const search = useSearch({ strict: false });
@@ -431,7 +432,19 @@ it("settles the original save when the same agent editor is reopened without nav
 });
 
 it("blocks save while native work is active", async () => {
-  state.threads = [{ ...thread, backgroundLiveness: "monitoring" }];
+  state.threads = [
+    {
+      ...thread,
+      runtime: {
+        status: "waiting",
+        activeRunId: null,
+        providerInstanceId: model.instanceId,
+        providerName: "claudeAgent",
+        lastError: null,
+        updatedAt: thread.updatedAt,
+      },
+    },
+  ];
   await render();
   await act(async () => openAgentDialog(scopeProjectRef(environmentId, projectId)));
   expect(button("Save agent").disabled).toBe(true);

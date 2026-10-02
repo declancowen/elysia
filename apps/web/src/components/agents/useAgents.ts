@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { getAgentConversation, isAgentProject } from "../../agentPresentation";
+import { agentThreadIsBusy, getAgentConversation, isAgentProject } from "../../agentPresentation";
 import { useProjects, useThreadShells } from "../../state/entities";
 import type { SidebarThreadSummary } from "../../types";
 import { resolveSidebarThreadStatus } from "../Sidebar.logic";
@@ -23,9 +23,7 @@ export function useAgents() {
         return {
           project,
           thread: getAgentConversation(project, owned),
-          busy: owned.some(
-            (thread) => !["ready", "failed"].includes(resolveSidebarThreadStatus(thread)),
-          ),
+          busy: owned.some((thread) => agentThreadIsBusy(thread)),
         };
       });
   }, [projects, threads]);

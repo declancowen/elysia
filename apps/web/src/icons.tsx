@@ -1,3 +1,15 @@
+import UnplugIconV2Asset from "@hugeicons/core-free-icons/UnplugIcon";
+import CalendarClockIconV2Asset from "@hugeicons/core-free-icons/CalendarClockIcon";
+import ListOrderedIconV2Asset from "@hugeicons/core-free-icons/ListOrderedIcon";
+import GripVerticalIconV2Asset from "@hugeicons/core-free-icons/GripVerticalIcon";
+import CornerUpRightIconV2Asset from "@hugeicons/core-free-icons/CornerUpRightIcon";
+import ListPlusIconV2Asset from "@hugeicons/core-free-icons/ListPlusIcon";
+import Clock3IconV2Asset from "@hugeicons/core-free-icons/Clock01Icon";
+import ArrowUpLeftIconV2Asset from "@hugeicons/core-free-icons/ArrowUpLeft01Icon";
+import ArrowRightLeftIconV2Asset from "@hugeicons/core-free-icons/ArrowLeftRightIcon";
+import GitForkIconAsset from "@hugeicons/core-free-icons/GitForkIcon";
+import MessagesSquareIconAsset from "@hugeicons/core-free-icons/MessagesSquareIcon";
+import Redo02IconAsset from "@hugeicons/core-free-icons/Redo02Icon";
 import { HugeiconsIcon, type HugeiconsIconProps, type IconSvgElement } from "@hugeicons/react";
 import ActivityIconAsset from "@hugeicons/core-free-icons/Activity01Icon";
 import AlarmClockIconAsset from "@hugeicons/core-free-icons/AlarmClockIcon";
@@ -624,3 +636,46 @@ export const ZapIcon = /* @__PURE__ */ createIcon(ZapIconAsset, "zap");
 
 export const ExpandIcon = /* @__PURE__ */ createIcon(ExpandIconAsset, "expand");
 export const CollapseIcon = /* @__PURE__ */ createIcon(CollapseIconAsset, "collapse");
+
+export const GitForkIcon = /* @__PURE__ */ createIcon(GitForkIconAsset, "git-fork");
+export const MessagesSquareIcon = /* @__PURE__ */ createIcon(
+  MessagesSquareIconAsset,
+  "messages-square",
+);
+export const Redo2Icon = /* @__PURE__ */ createIcon(Redo02IconAsset, "redo-2");
+
+export const ArrowRightLeftIcon = /* @__PURE__ */ createIcon(
+  ArrowRightLeftIconV2Asset,
+  "ArrowRightLeftIcon",
+);
+
+export const ArrowUpLeftIcon = /* @__PURE__ */ createIcon(
+  ArrowUpLeftIconV2Asset,
+  "ArrowUpLeftIcon",
+);
+
+export const Clock3Icon = /* @__PURE__ */ createIcon(Clock3IconV2Asset, "Clock3Icon");
+
+export const ListPlusIcon = /* @__PURE__ */ createIcon(ListPlusIconV2Asset, "ListPlusIcon");
+
+export const CornerUpRightIcon = /* @__PURE__ */ createIcon(
+  CornerUpRightIconV2Asset,
+  "CornerUpRightIcon",
+);
+
+export const GripVerticalIcon = /* @__PURE__ */ createIcon(
+  GripVerticalIconV2Asset,
+  "GripVerticalIcon",
+);
+
+export const ListOrderedIcon = /* @__PURE__ */ createIcon(
+  ListOrderedIconV2Asset,
+  "ListOrderedIcon",
+);
+
+export const CalendarClockIcon = /* @__PURE__ */ createIcon(
+  CalendarClockIconV2Asset,
+  "CalendarClockIcon",
+);
+
+export const UnplugIcon = /* @__PURE__ */ createIcon(UnplugIconV2Asset, "UnplugIcon");

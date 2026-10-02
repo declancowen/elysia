@@ -1,3 +1,4 @@
+import { makeThreadFixture } from "../../test-fixtures";
 // @vitest-environment jsdom
 import {
   EnvironmentId,
@@ -92,7 +93,7 @@ const project: Project = {
   createdAt: "2026-10-01T09:00:00Z",
   updatedAt: "2026-10-01T09:00:00Z",
 };
-const thread: SidebarThreadSummary = {
+const thread: SidebarThreadSummary = makeThreadFixture({
   environmentId,
   id: threadId,
   projectId,
@@ -103,18 +104,18 @@ const thread: SidebarThreadSummary = {
   branch: null,
   worktreePath: null,
   pullRequests: [],
-  latestTurn: null,
+  latestRun: null,
   createdAt: project.createdAt,
   updatedAt: project.updatedAt,
   archivedAt: null,
   settledOverride: null,
   settledAt: null,
-  session: null,
+  runtime: null,
   latestUserMessageAt: null,
   hasPendingApprovals: false,
   hasPendingUserInput: false,
   hasActionableProposedPlan: false,
-};
+});
 const initialExpansion = useUiStateStore.getState().projectExpandedById;
 let host: HTMLDivElement;
 let root: Root;
@@ -307,7 +308,19 @@ it("archives directly from the roster without opening the chat and blocks the ac
     input: { projectId, agentProfile: { ...profile, archived: true } },
   });
   expect(state.navigate).not.toHaveBeenCalled();
-  state.threads = [{ ...thread, backgroundLiveness: "monitoring" }];
+  state.threads = [
+    {
+      ...thread,
+      runtime: {
+        status: "waiting",
+        activeRunId: null,
+        providerInstanceId: modelSelection.instanceId,
+        providerName: "claudeAgent",
+        lastError: null,
+        updatedAt: thread.updatedAt,
+      },
+    },
+  ];
   await render(false, true);
   expect(button("Archive Alex").disabled).toBe(true);
   await click("Archive Alex");
@@ -347,7 +360,19 @@ it("archives only the profile once while pending, preserving the linked conversa
 });
 
 it("blocks archiving during native work", async () => {
-  state.threads = [{ ...thread, backgroundLiveness: "monitoring" }];
+  state.threads = [
+    {
+      ...thread,
+      runtime: {
+        status: "waiting",
+        activeRunId: null,
+        providerInstanceId: modelSelection.instanceId,
+        providerName: "claudeAgent",
+        lastError: null,
+        updatedAt: thread.updatedAt,
+      },
+    },
+  ];
   await render();
   await click("Manage Alex");
   expect(button("Archive").disabled).toBe(true);

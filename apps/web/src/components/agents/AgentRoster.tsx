@@ -110,11 +110,7 @@ function AgentRow(agent: AgentRosterEntry) {
         </span>
         {busy ? (
           <span className="text-xs text-sidebar-muted-foreground">
-            {status === "working"
-              ? "Working"
-              : status === "monitoring"
-                ? "Monitoring"
-                : "Needs input"}
+            {status === "working" ? "Working" : status === "waiting" ? "Monitoring" : "Needs input"}
           </span>
         ) : null}
       </button>

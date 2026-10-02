@@ -4,12 +4,10 @@ import {
   ProjectId,
   ThreadId,
   type OrchestrationMessage,
-  type EventId,
-  type OrchestrationThreadActivity,
+  type OrchestrationV2TurnItem,
+  EventId,
   type AgentGetDelegationResult,
 } from "@t3tools/contracts";
-import * as Option from "effect/Option";
-import * as Schema from "effect/Schema";
 import {
   collectComposerContextReferences,
   formatComposerContextReference,
@@ -35,17 +33,16 @@ export function mentionedAgentProjectIds(text: string): ProjectId[] {
 }
 
 export type DelegatedAgent = AgentDelegationActivityPayload & { activityId: EventId };
-const decodeDelegationPayload = Schema.decodeUnknownOption(AgentDelegationActivityPayload);
 
-/** The source activity is the durable link to this task, not the agent's other chats. */
-export function delegatedAgentsFromActivities(
-  activities: ReadonlyArray<OrchestrationThreadActivity>,
+/** Keep each delegation linked to the durable notice in its source chat. */
+export function delegatedAgentsFromTurnItems(
+  items: ReadonlyArray<OrchestrationV2TurnItem>,
 ): DelegatedAgent[] {
-  return activities.flatMap((activity) => {
-    if (activity.kind !== "agent.delegated") return [];
-    const payload = decodeDelegationPayload(activity.payload);
-    return Option.isSome(payload) ? [{ ...payload.value, activityId: activity.id }] : [];
-  });
+  return items.flatMap((item) =>
+    item.type === "system_notice" && item.agentDelegation
+      ? [{ ...item.agentDelegation, activityId: EventId.make(item.id) }]
+      : [],
+  );
 }
 
 export function isAgentDelegationActive(status: AgentGetDelegationResult["status"]): boolean {

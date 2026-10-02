@@ -5,17 +5,17 @@ import { isAgentDelegationActive } from "@t3tools/shared/agentMentions";
 export function delegationShellRevision(
   shell: Pick<
     EnvironmentThreadShell,
-    "updatedAt" | "latestTurn" | "session" | "hasPendingApprovals" | "hasPendingUserInput"
+    "updatedAt" | "latestRun" | "runtime" | "hasPendingApprovals" | "hasPendingUserInput"
   > | null,
 ): string | null {
   return shell === null
     ? null
     : JSON.stringify([
         shell.updatedAt,
-        shell.latestTurn?.turnId,
-        shell.latestTurn?.state,
-        shell.session?.status,
-        shell.session?.activeTurnId,
+        shell.latestRun?.runId,
+        shell.latestRun?.status,
+        shell.runtime?.status,
+        shell.runtime?.activeRunId,
         shell.hasPendingApprovals,
         shell.hasPendingUserInput,
       ]);

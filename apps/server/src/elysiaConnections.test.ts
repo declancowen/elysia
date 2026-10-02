@@ -14,6 +14,8 @@ it("rejects connection endpoints before their handlers while preserving local ap
   try {
     for (const pathname of [
       "/api/connect/link-proof",
+      "/api/t3-connect/health",
+      "/api/t3-connect/mint-credential",
       "/api/auth/pairing-token",
       "/api/auth/clients",
       "/api/auth/clients/client-id",

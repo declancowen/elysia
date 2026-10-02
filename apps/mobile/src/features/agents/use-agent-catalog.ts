@@ -1,7 +1,7 @@
 import type { EnvironmentId, ProjectId } from "@t3tools/contracts";
 import { useMemo } from "react";
 
-import { useProjects, useThreadShells } from "../../state/entities";
+import { useProjects, useThreadShells, useNavigationThreadShells } from "../../state/entities";
 import {
   selectAgentRoster,
   selectNonAgentProjectItems,
@@ -16,10 +16,11 @@ export function useRegularProjects() {
 export function useAgentCatalog() {
   const allProjects = useProjects();
   const allThreads = useThreadShells();
+  const navigationThreads = useNavigationThreadShells();
   const projects = useMemo(() => selectRegularProjects(allProjects), [allProjects]);
   const threads = useMemo(
-    () => selectNonAgentProjectItems(allThreads, allProjects),
-    [allProjects, allThreads],
+    () => selectNonAgentProjectItems(navigationThreads, allProjects),
+    [allProjects, navigationThreads],
   );
   const agents = useMemo(
     () => selectAgentRoster(allProjects, allThreads),

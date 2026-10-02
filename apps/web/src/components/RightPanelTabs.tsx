@@ -84,6 +84,7 @@ import { PullRequestGlyph } from "~/components/pullRequest/pullRequestIcons";
 interface RightPanelTabsProps {
   mode: PreviewPanelMode;
   maximized?: boolean;
+  inlineSize?: import("~/hooks/usePreviewPanelInlineSize").PreviewPanelInlineSize;
   open?: boolean;
   /** Forwarded to PreviewPanelShell so this surface persists its own width. */
   widthStorageKey?: string;
@@ -1132,6 +1133,7 @@ export function RightPanelTabs(props: RightPanelTabsProps) {
   return (
     <PreviewPanelShell
       mode={props.mode}
+      {...(props.inlineSize ? { inlineSize: props.inlineSize } : {})}
       {...(props.maximized !== undefined ? { maximized: props.maximized } : {})}
       {...(props.open !== undefined ? { open: props.open } : {})}
       {...(props.widthStorageKey !== undefined ? { widthStorageKey: props.widthStorageKey } : {})}

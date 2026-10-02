@@ -1,3 +1,4 @@
+import { SINGLE_PROVIDER_UI } from "@t3tools/contracts";
 import * as Linking from "expo-linking";
 import * as SplashScreen from "expo-splash-screen";
 import { useEffect } from "react";
@@ -72,14 +73,11 @@ function AppContent() {
   return (
     <>
       <SplashScreenCoordinator />
-      <SubscriptionUsageCoordinator />
+      {!SINGLE_PROVIDER_UI ? <SubscriptionUsageCoordinator /> : null}
       <GestureHandlerRootView className="flex-1">
         <KeyboardProvider statusBarTranslucent>
           <SafeAreaProvider>
-            <StatusBar
-              barStyle={themeAppearance === "dark" ? "light-content" : "dark-content"}
-              translucent
-            />
+            <StatusBar barStyle={themeAppearance === "dark" ? "light-content" : "dark-content"} />
             {/* The navigation theme drives the NATIVE header appearance: native-stack
                 forwards `dark` as the nav bar's overrideUserInterfaceStyle. Without
                 this, React Navigation defaults to its light theme and every native

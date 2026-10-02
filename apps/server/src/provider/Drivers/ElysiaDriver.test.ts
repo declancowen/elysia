@@ -17,11 +17,17 @@ import * as ElysiaCli from "../ElysiaCli.ts";
 import { NoOpProviderEventLoggers, ProviderEventLoggers } from "../Layers/ProviderEventLoggers.ts";
 import { makeProviderMaintenanceCapabilities } from "../providerMaintenance.ts";
 import { ElysiaDriver } from "./ElysiaDriver.ts";
+import { ClaudeAgentSdkQueryRunner } from "../../orchestration-v2/Adapters/ClaudeAdapterV2.ts";
+import * as IdAllocator from "../../orchestration-v2/IdAllocator.ts";
+import * as ProviderContinuationRequests from "../../orchestration-v2/ProviderContinuationRequests.ts";
 
 vi.mock("../ElysiaCli.ts", { spy: true });
 
 const testLayer = ServerConfig.layerTest(process.cwd(), { prefix: "elysia-startup-test-" }).pipe(
   Layer.provideMerge(NodeServices.layer),
+  Layer.provideMerge(IdAllocator.layer),
+  Layer.provideMerge(ProviderContinuationRequests.layer),
+  Layer.provideMerge(Layer.mock(ClaudeAgentSdkQueryRunner)({})),
   Layer.provideMerge(ServerSettingsService.layerTest({ enableProviderUpdateChecks: false })),
   Layer.provideMerge(
     Layer.mock(BackgroundPolicy.BackgroundPolicy)({

@@ -1,6 +1,6 @@
 import * as NodeDnsPromises from "node:dns/promises";
 import * as NodeNet from "node:net";
-import type { SshDeviceHostConfig } from "@t3tools/contracts";
+import { CONNECTIONS_ENABLED, type SshDeviceHostConfig } from "@t3tools/contracts";
 import * as NodeOS from "node:os";
 import * as Context from "effect/Context";
 import { runSshCommand } from "@t3tools/ssh/command";
@@ -63,6 +63,7 @@ export const isLocalSshDeviceHost = Effect.fn("isLocalSshDeviceHost")(function* 
 export const remoteSshDeviceHosts = Effect.fn("remoteSshDeviceHosts")(function* (
   hosts: ReadonlyArray<SshDeviceHostConfig>,
 ) {
+  if (!CONNECTIONS_ENABLED) return [];
   return yield* Effect.filter(
     hosts,
     (host) => isLocalSshDeviceHost(host).pipe(Effect.map((local) => !local)),

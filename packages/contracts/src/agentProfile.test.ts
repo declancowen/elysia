@@ -1,7 +1,7 @@
 import { assert, it } from "@effect/vitest";
 import * as Schema from "effect/Schema";
 
-import { AgentCreateInput, AgentProfile } from "./orchestration.ts";
+import { AgentCreateInput, AgentProfile } from "./agents.ts";
 
 const decodeProfile = Schema.decodeUnknownSync(AgentProfile);
 

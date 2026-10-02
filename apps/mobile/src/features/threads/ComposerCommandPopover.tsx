@@ -6,6 +6,7 @@ import type {
   AgentProfile,
   ProjectId,
   PullRequestContextMetadata,
+  ScopedThreadRef,
   ServerProviderSkill,
   ServerProviderSlashCommand,
 } from "@t3tools/contracts";
@@ -39,6 +40,13 @@ export type ComposerCommandItem =
       readonly type: "path";
       readonly path: string;
       readonly kind: "file" | "directory";
+      readonly label: string;
+      readonly description: string;
+    }
+  | {
+      readonly id: string;
+      readonly type: "thread";
+      readonly thread: ScopedThreadRef;
       readonly label: string;
       readonly description: string;
     }
@@ -111,6 +119,8 @@ function itemIcon(item: ComposerCommandItem): AppSymbolName | null {
     case "path":
     case "agent":
       return null;
+    case "thread":
+      return "text.bubble";
   }
 }
 

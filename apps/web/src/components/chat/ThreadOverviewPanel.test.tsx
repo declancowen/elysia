@@ -601,3 +601,36 @@ it("keeps Git available with no diff and lets it collapse before opening changes
   await act(async () => changes!.click());
   expect(props.onToggleChanges).toHaveBeenCalledOnce();
 });
+
+it("reveals large V2 child rosters one page at a time without losing failed results", async () => {
+  const { projectedSubagentsToRuntime } =
+    await import("@t3tools/client-runtime/state/subagentRuntime");
+  const DateTime = await import("effect/DateTime");
+  const now = DateTime.makeUnsafe("2026-10-02T00:00:00.000Z");
+  const subagents = projectedSubagentsToRuntime(
+    Array.from({ length: 20 }, (_, index) => ({
+      id: `child-${index}`,
+      title: `Child ${index}`,
+      prompt: "Check it",
+      model: "native-model",
+      status: index === 19 ? ("failed" as const) : ("completed" as const),
+      result: index === 19 ? "A retained failure" : "Done",
+      startedAt: now,
+      completedAt: now,
+      updatedAt: now,
+    })),
+  );
+  await render({ subagents, agents: { working: 0, done: 20 } });
+  await click("Thread overview");
+  await click("0 working20 done");
+  expect(document.body.textContent).toContain("Child 5");
+  expect(document.body.textContent).not.toContain("Child 6");
+  await click("Show 12 more");
+  expect(document.body.textContent).toContain("Child 17");
+  expect(document.body.textContent).not.toContain("Child 19");
+  await click("Show 2 more");
+  await click("Child 19failed");
+  expect(document.body.textContent).toContain("A retained failure");
+  await click("Back to subagents");
+  expect(document.body.textContent).toContain("Child 19");
+});

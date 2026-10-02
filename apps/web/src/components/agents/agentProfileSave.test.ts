@@ -3,6 +3,7 @@ import {
   ProjectId,
   ProviderInstanceId,
   ThreadId,
+  ProviderThreadId,
   type AgentProfile,
   type ModelSelection,
 } from "@t3tools/contracts";
@@ -33,12 +34,14 @@ function fixture() {
     createdAt: "2026-10-01T09:00:00Z",
     archivedAt: null,
     modelSelection: model,
-    session: {
-      threadId,
-      status: "ready",
+    activeProviderThreadId: ProviderThreadId.make("agent-provider-thread"),
+    latestRun: null,
+    pendingBackgroundTasks: [],
+    runtime: {
+      providerInstanceId: model.instanceId,
+      status: "completed",
       providerName: "claudeAgent",
-      runtimeMode: "full-access",
-      activeTurnId: null,
+      activeRunId: null,
       lastError: null,
       updatedAt: "2026-10-01T09:00:00Z",
     },
@@ -121,11 +124,13 @@ describe("saving a persistent agent", () => {
       const busyThread: typeof thread = {
         ...thread,
         ...(condition === "running" || condition === "starting"
-          ? { session: { ...thread.session!, status: condition } }
+          ? { runtime: { ...thread.runtime!, status: condition } }
           : {}),
         hasPendingApprovals: condition === "approval",
         hasPendingUserInput: condition === "input",
-        ...(condition === "monitoring" ? { backgroundLiveness: "monitoring" as const } : {}),
+        ...(condition === "monitoring"
+          ? { runtime: { ...thread.runtime!, status: "waiting" as const } }
+          : {}),
       };
       await expect(saveAgentProfile({ ...input, threads: [busyThread] })).rejects.toThrow(
         "Wait for the current task to finish",
@@ -176,7 +181,10 @@ describe("saving a persistent agent", () => {
 
     const stoppedThread: typeof thread = {
       ...thread,
-      session: { ...thread.session!, status: "stopped" },
+      activeProviderThreadId: null,
+      latestRun: null,
+      pendingBackgroundTasks: [],
+      runtime: { ...thread.runtime!, status: "idle" },
     };
     await saveAgentProfile({ ...input, threads: [stoppedThread] });
     expect(input.stopSession).toHaveBeenCalledOnce();

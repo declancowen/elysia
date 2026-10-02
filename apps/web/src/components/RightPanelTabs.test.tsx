@@ -123,15 +123,15 @@ function renderTabs(
       onAddDiff={() => undefined}
       onAddFiles={() => undefined}
       onAddAgents={() => undefined}
-      onAddDevice={() => undefined}
+      agentsAvailable={false}
       liveAgentCount={0}
+      onAddDevice={() => undefined}
       browserAvailable
       terminalAvailable={false}
       diffAvailable={false}
       filesAvailable={false}
       pullRequestAvailable={false}
       pullRequestsAvailable={false}
-      agentsAvailable={false}
       deviceAvailable={false}
     >
       <div>content</div>

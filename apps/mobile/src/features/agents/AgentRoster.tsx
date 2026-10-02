@@ -1,3 +1,4 @@
+import { threadRuntimeIsActive } from "@t3tools/client-runtime/state/models";
 import type { EnvironmentThreadShell } from "@t3tools/client-runtime/state/shell";
 import type { EnvironmentId } from "@t3tools/contracts";
 import { Pressable, View } from "react-native";
@@ -55,7 +56,7 @@ export function AgentRoster(props: {
           >
             <AgentAvatar
               avatar={project.agentProfile.avatar}
-              working={conversation?.latestTurn?.state === "running"}
+              working={threadRuntimeIsActive(conversation?.runtime)}
               active={selected}
             />
             <View className="flex-1">

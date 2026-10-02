@@ -1,3 +1,4 @@
+import * as DateTime from "effect/DateTime";
 // @vitest-environment jsdom
 import { act } from "react";
 import { createRoot } from "react-dom/client";
@@ -7,14 +8,15 @@ import {
   MessageId,
   ProjectId,
   ThreadId,
-  type OrchestrationThreadActivity,
+  type OrchestrationV2TurnItem,
+  TurnItemId,
   type AgentGetDelegationResult,
 } from "@t3tools/contracts";
 import { expect, it, vi } from "vite-plus/test";
 
 const state = vi.hoisted(() => ({
   status: "working" as AgentGetDelegationResult["status"],
-  activities: [] as OrchestrationThreadActivity[],
+  activities: [] as OrchestrationV2TurnItem[],
   project: {
     title: "Friday",
     agentProfile: { archived: false, avatar: { preset: "triangle", color: "#EEAF00" } },
@@ -27,7 +29,7 @@ const state = vi.hoisted(() => ({
 }));
 vi.mock("~/state/entities", () => ({
   useProject: () => state.project,
-  useThreadDetail: () => ({ activities: state.activities }),
+  useThreadProjection: () => ({ projection: { turnItems: state.activities } }),
 }));
 vi.mock("./useDelegatedAgents", () => ({
   useDelegatedAgents: (
@@ -95,19 +97,29 @@ it("shows plain clickable agent names and task-specific status in sent messages"
     agentProfile: { archived: false, avatar: { preset: "triangle", color: "#EEAF00" } },
   };
   state.status = "working";
-  const activity = (message: string, agent: string): OrchestrationThreadActivity => ({
-    id: EventId.make(`${message}-${agent}`),
-    tone: "info",
-    kind: "agent.delegated",
-    summary: "Task delegated",
-    turnId: null,
-    createdAt: "2026-10-02T00:00:00.000Z",
-    payload: {
-      agentProjectId: agent,
-      agentThreadId: `chat-${agent}`,
+  const activity = (message: string, agent: string): OrchestrationV2TurnItem => ({
+    id: TurnItemId.make(`${message}-${agent}`),
+    type: "system_notice",
+    threadId: ThreadId.make("source"),
+    runId: null,
+    nodeId: null,
+    status: "completed",
+    providerThreadId: null,
+    providerTurnId: null,
+    nativeItemRef: null,
+    parentItemId: null,
+    ordinal: 0,
+    title: null,
+    completedAt: null,
+    startedAt: DateTime.makeUnsafe("2026-10-02T00:00:00.000Z"),
+    updatedAt: DateTime.makeUnsafe("2026-10-02T00:00:00.000Z"),
+    message: "Task delegated",
+    agentDelegation: {
+      agentProjectId: ProjectId.make(agent),
+      agentThreadId: ThreadId.make(`chat-${agent}`),
       agentName: agent,
-      sourceMessageId: message,
-      targetMessageId: `target-${message}`,
+      sourceMessageId: MessageId.make(message),
+      targetMessageId: MessageId.make(`target-${message}`),
       targetTurnId: null,
     },
   });

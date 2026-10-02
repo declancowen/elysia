@@ -23,7 +23,7 @@ export function SidebarSectionHeader({
   children?: ReactNode;
 }) {
   const labelClassName =
-    "flex h-9 w-full items-center gap-1.5 rounded-md px-2.5 text-left text-sidebar-section font-normal text-sidebar-muted-foreground/65 saturate-0";
+    "flex h-9 w-full items-center gap-1.5 rounded-md px-2.5 text-left text-sidebar-section font-normal text-sidebar-muted-foreground/65";
   return (
     <div className="group/section-header relative mb-1">
       <button
@@ -33,14 +33,14 @@ export function SidebarSectionHeader({
         onClick={onToggle}
         className={`${labelClassName} cursor-pointer hover:bg-sidebar-row-hover focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring`}
       >
-        <span>{label}</span>
+        <span className="saturate-0">{label}</span>
         {expanded ? (
           <ChevronDownIcon
             aria-hidden
-            className="size-3.5 opacity-0 group-hover/section-header:opacity-100 group-focus-within/section-header:opacity-100"
+            className="size-3.5 saturate-0 opacity-0 group-hover/section-header:opacity-100 group-focus-within/section-header:opacity-100"
           />
         ) : (
-          <ChevronRightIcon aria-hidden className="size-3.5" />
+          <ChevronRightIcon aria-hidden className="size-3.5 saturate-0" />
         )}
       </button>
       <div className="absolute top-1/2 right-0.5 flex -translate-y-1/2 items-center gap-1">

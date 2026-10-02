@@ -4,6 +4,13 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, expect, it, vi } from "vite-plus/test";
 import { EventId, MessageId, ProjectId, ThreadId, TurnId } from "@t3tools/contracts";
 import type { DelegatedAgentView } from "../agents/useDelegatedAgents";
+import {
+  createMemoryHistory,
+  createRootRoute,
+  createRoute,
+  createRouter,
+  RouterContextProvider,
+} from "@tanstack/react-router";
 
 const state = vi.hoisted(() => ({
   wide: false,
@@ -25,6 +32,18 @@ import type { ChatAttachment } from "~/types";
 
 let root: Root;
 let host: HTMLDivElement;
+function createTestRouter() {
+  const rootRoute = createRootRoute();
+  const threadRoute = createRoute({
+    getParentRoute: () => rootRoute,
+    path: "/$environmentId/$threadId",
+  });
+  return createRouter({
+    routeTree: rootRoute.addChildren([threadRoute]),
+    history: createMemoryHistory({ initialEntries: ["/local/source"] }),
+  });
+}
+let router: ReturnType<typeof createTestRouter>;
 const props: ThreadOverviewPanelProps = {
   threadKey: "thread-one",
   label: "Elysia",
@@ -44,7 +63,13 @@ const props: ThreadOverviewPanelProps = {
 };
 
 async function render(overrides: Partial<ThreadOverviewPanelProps> = {}) {
-  await act(async () => root.render(<ThreadOverviewPanel {...props} {...overrides} />));
+  await act(async () =>
+    root.render(
+      <RouterContextProvider router={router}>
+        <ThreadOverviewPanel {...props} {...overrides} />
+      </RouterContextProvider>,
+    ),
+  );
 }
 
 async function click(label: string) {
@@ -64,7 +89,9 @@ async function outsidePress() {
   });
 }
 
-beforeEach(() => {
+beforeEach(async () => {
+  router = createTestRouter();
+  await router.load();
   state.wide = false;
   state.code = true;
   state.delegated = [];
@@ -343,6 +370,23 @@ it("opens the clicked agent's responses only in the originating chat", async () 
   expect(document.querySelector('[aria-label="View Friday responses"]')).toBeNull();
   expect(document.body.textContent).not.toContain("recent.pdf");
   expect(useThreadOverviewStore.getState().target).toBeNull();
+});
+
+it("opens the agent chat in its source environment and dismisses the floating view", async () => {
+  const agent = workingAgent("Friday");
+  state.delegated = [agent];
+  await render({
+    sourceThreadRef: {
+      environmentId: EnvironmentId.make("remote-panel"),
+      threadId: ThreadId.make("source"),
+    },
+    delegatedAgents: [agent.job],
+  });
+  const link = document.querySelector<HTMLAnchorElement>('[aria-label="Open Friday chat"]');
+  expect(link).not.toBeNull();
+  await act(async () => link!.click());
+  expect(router.history.location.pathname).toBe("/remote-panel/thread-Friday");
+  expect(document.querySelector('[role="dialog"]')).toBeNull();
 });
 
 it("lands on the latest loaded response, reserves space for short replies, and preserves manual scrolling", async () => {

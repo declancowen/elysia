@@ -1,4 +1,5 @@
 import { Popover as PopoverPrimitive } from "@base-ui/react/popover";
+import { Link } from "@tanstack/react-router";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useThreadOverviewStore } from "./threadOverviewStore";
 import { scopeThreadRef } from "@t3tools/client-runtime/environment";
@@ -21,6 +22,7 @@ import {
   PlusIcon,
 } from "~/icons";
 import { cn } from "~/lib/utils";
+import { buildThreadRouteParams } from "~/threadRoutes";
 import {
   isFileAttachment,
   isImageAttachment,
@@ -247,22 +249,39 @@ function OverviewPopover({
                   <ArrowLeftIcon className="size-3.5" />
                 </Button>
               ) : null}
-              {selectedAgent?.project?.agentProfile ? (
-                <AgentAvatar
-                  avatar={selectedAgent.project.agentProfile.avatar}
-                  working={selectedAgent.working}
-                  className="size-6"
-                />
-              ) : selectedSubagent ? (
-                <BotIcon aria-hidden className="size-5" />
-              ) : null}
-              <PopoverTitle className="min-w-0 flex-1">
-                <span className="block truncate">
-                  {selectedAgent?.name ??
-                    selectedSubagent?.title ??
-                    (view?.kind === "subagents" ? "Subagents" : label)}
-                </span>
-              </PopoverTitle>
+              {selectedAgent && sourceThreadRef ? (
+                <Link
+                  to="/$environmentId/$threadId"
+                  params={buildThreadRouteParams(
+                    scopeThreadRef(sourceThreadRef.environmentId, selectedAgent.job.agentThreadId),
+                  )}
+                  aria-label={`Open ${selectedAgent.name} chat`}
+                  onClick={() => setOpen(false)}
+                  className="flex min-w-0 flex-1 items-center gap-2 rounded-sm focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  {selectedAgent.project?.agentProfile ? (
+                    <AgentAvatar
+                      avatar={selectedAgent.project.agentProfile.avatar}
+                      working={selectedAgent.working}
+                      className="size-6"
+                    />
+                  ) : null}
+                  <PopoverTitle className="min-w-0 flex-1">
+                    <span className="block truncate">{selectedAgent.name}</span>
+                  </PopoverTitle>
+                </Link>
+              ) : (
+                <>
+                  {selectedSubagent ? <BotIcon aria-hidden className="size-5" /> : null}
+                  <PopoverTitle className="min-w-0 flex-1">
+                    <span className="block truncate">
+                      {selectedAgent?.name ??
+                        selectedSubagent?.title ??
+                        (view?.kind === "subagents" ? "Subagents" : label)}
+                    </span>
+                  </PopoverTitle>
+                </>
+              )}
               {selectedAgent ? (
                 <span
                   className="flex items-center gap-1 text-xs text-muted-foreground"

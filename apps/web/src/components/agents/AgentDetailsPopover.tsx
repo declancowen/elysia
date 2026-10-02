@@ -88,7 +88,7 @@ function AgentDetails({ agent, onClose }: { agent: AgentRosterEntry; onClose: ()
         <div ref={labelRef} className="min-w-0 flex-1 space-y-1 break-words">
           <PopoverTitle>{project.title}</PopoverTitle>
           {profile.title ? (
-            <p className="w-fit rounded-md bg-secondary px-2 py-1 text-xs text-secondary-foreground">
+            <p className="w-fit rounded-md bg-foreground/15 px-2 py-1 text-xs text-foreground">
               {profile.title}
             </p>
           ) : null}

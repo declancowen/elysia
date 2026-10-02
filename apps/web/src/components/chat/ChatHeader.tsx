@@ -456,7 +456,10 @@ export const ChatHeader = memo(function ChatHeader({
             doesn't answer it. */}
         {activeProject ? (
           <>
-            <WorkspaceBreadcrumbItem className="shrink">
+            <WorkspaceBreadcrumbItem
+              current={Boolean(activeProject.agentProfile)}
+              className="shrink"
+            >
               <Tooltip>
                 <TooltipTrigger
                   render={
@@ -497,67 +500,67 @@ export const ChatHeader = memo(function ChatHeader({
                 </TooltipPopup>
               </Tooltip>
             </WorkspaceBreadcrumbItem>
-            <WorkspaceBreadcrumbSeparator>
-              <WorkspaceBreadcrumbText>/</WorkspaceBreadcrumbText>
-            </WorkspaceBreadcrumbSeparator>
+            {!activeProject.agentProfile && (
+              <WorkspaceBreadcrumbSeparator>
+                <WorkspaceBreadcrumbText>/</WorkspaceBreadcrumbText>
+              </WorkspaceBreadcrumbSeparator>
+            )}
           </>
         ) : null}
-        <WorkspaceBreadcrumbItem current className="min-w-10 flex-1">
-          {activeProject?.agentProfile ? (
-            <WorkspaceBreadcrumbText>
-              {activeProject.agentProfile.title ?? "Agent"}
-            </WorkspaceBreadcrumbText>
-          ) : renamingTitle !== null ? (
-            <input
-              autoFocus
-              aria-label="Thread title"
-              className="min-w-0 flex-1 rounded-sm bg-transparent text-sm font-medium text-foreground outline-none ring-1 ring-ring/50 focus:ring-ring"
-              defaultValue={renamingTitle}
-              onBlur={(event) => {
-                if (renameCommittedRef.current) return;
-                commitRename(event.currentTarget.value);
-              }}
-              onFocus={(event) => event.currentTarget.select()}
-              onKeyDown={handleRenameKeyDown}
-            />
-          ) : isServerThread ? (
-            <Tooltip>
-              <TooltipTrigger
-                render={
-                  <button
-                    ref={titleButtonRef}
-                    type="button"
-                    aria-label={`Thread actions for ${activeThreadTitle}`}
-                    aria-haspopup="menu"
-                    onClick={openMenuFromTitle}
-                    onDoubleClick={handleTitleDoubleClick}
-                    onBlur={cancelPendingTitleMenu}
-                    className="group/thread-title inline-flex min-w-0 max-w-full cursor-pointer items-center gap-1 rounded-sm text-left focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
+        {!activeProject?.agentProfile && (
+          <WorkspaceBreadcrumbItem current className="min-w-10 flex-1">
+            {renamingTitle !== null ? (
+              <input
+                autoFocus
+                aria-label="Thread title"
+                className="min-w-0 flex-1 rounded-sm bg-transparent text-sm font-medium text-foreground outline-none ring-1 ring-ring/50 focus:ring-ring"
+                defaultValue={renamingTitle}
+                onBlur={(event) => {
+                  if (renameCommittedRef.current) return;
+                  commitRename(event.currentTarget.value);
+                }}
+                onFocus={(event) => event.currentTarget.select()}
+                onKeyDown={handleRenameKeyDown}
+              />
+            ) : isServerThread ? (
+              <Tooltip>
+                <TooltipTrigger
+                  render={
+                    <button
+                      ref={titleButtonRef}
+                      type="button"
+                      aria-label={`Thread actions for ${activeThreadTitle}`}
+                      aria-haspopup="menu"
+                      onClick={openMenuFromTitle}
+                      onDoubleClick={handleTitleDoubleClick}
+                      onBlur={cancelPendingTitleMenu}
+                      className="group/thread-title inline-flex min-w-0 max-w-full cursor-pointer items-center gap-1 rounded-sm text-left focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
+                    />
+                  }
+                >
+                  <h2 className="min-w-0">
+                    <WorkspaceBreadcrumbText>{activeThreadTitle}</WorkspaceBreadcrumbText>
+                  </h2>
+                  <ChevronDownIcon
+                    aria-hidden
+                    data-thread-title-chevron
+                    className="size-3.5 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover/thread-title:opacity-100 group-focus-visible/thread-title:opacity-100"
                   />
-                }
-              >
-                <h2 className="min-w-0">
+                </TooltipTrigger>
+                <TooltipPopup side="top">{activeThreadTitle}</TooltipPopup>
+              </Tooltip>
+            ) : (
+              <Tooltip>
+                <TooltipTrigger
+                  render={<h2 aria-label={activeThreadTitle} className="min-w-0 flex-1" />}
+                >
                   <WorkspaceBreadcrumbText>{activeThreadTitle}</WorkspaceBreadcrumbText>
-                </h2>
-                <ChevronDownIcon
-                  aria-hidden
-                  data-thread-title-chevron
-                  className="size-3.5 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover/thread-title:opacity-100 group-focus-visible/thread-title:opacity-100"
-                />
-              </TooltipTrigger>
-              <TooltipPopup side="top">{activeThreadTitle}</TooltipPopup>
-            </Tooltip>
-          ) : (
-            <Tooltip>
-              <TooltipTrigger
-                render={<h2 aria-label={activeThreadTitle} className="min-w-0 flex-1" />}
-              >
-                <WorkspaceBreadcrumbText>{activeThreadTitle}</WorkspaceBreadcrumbText>
-              </TooltipTrigger>
-              <TooltipPopup side="top">{activeThreadTitle}</TooltipPopup>
-            </Tooltip>
-          )}
-        </WorkspaceBreadcrumbItem>
+                </TooltipTrigger>
+                <TooltipPopup side="top">{activeThreadTitle}</TooltipPopup>
+              </Tooltip>
+            )}
+          </WorkspaceBreadcrumbItem>
+        )}
       </WorkspaceBreadcrumb>
       <div
         ref={headerActionsRef}

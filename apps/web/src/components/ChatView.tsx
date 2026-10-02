@@ -10200,10 +10200,13 @@ export default function ChatView(props: ChatViewProps) {
               className={cn(
                 isDraftHeroState
                   ? "pointer-events-none absolute inset-0 z-20 flex items-center"
-                  : "pointer-events-none absolute inset-x-0 bottom-0 z-20 pt-1.5 sm:pt-2",
+                  : cn(
+                      "pointer-events-none absolute inset-x-0 bottom-0 z-20",
+                      SINGLE_PROVIDER_UI ? "pt-1" : "pt-1.5 sm:pt-2",
+                    ),
                 SINGLE_PROVIDER_UI &&
                   !isDraftHeroState &&
-                  "before:pointer-events-none before:absolute before:inset-x-0 before:-top-2 before:z-0 before:h-2 before:bg-linear-to-b before:from-transparent before:to-background after:pointer-events-none after:absolute after:inset-0 after:z-0 after:bg-background",
+                  "before:pointer-events-none before:absolute before:inset-x-0 before:-top-4 before:z-0 before:h-4 before:bg-linear-to-b before:from-transparent before:to-background after:pointer-events-none after:absolute after:inset-0 after:z-0 after:bg-background",
               )}
             >
               <div

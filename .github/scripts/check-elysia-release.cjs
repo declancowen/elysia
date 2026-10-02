@@ -23,8 +23,10 @@ function resolveElysiaReleaseVersion(raw, releases) {
   return version;
 }
 
-async function resolveElysiaRelease({ github, context, raw }) {
-  await assertReleaseSource({ github, context, releaseChannel: "stable" });
+async function resolveElysiaRelease({ github, context, raw, publish = true }) {
+  // Unpublished branch installers are artifacts; published releases still require main.
+  const buildOnly = context.eventName === "workflow_dispatch" && publish === false;
+  if (!buildOnly) await assertReleaseSource({ github, context, releaseChannel: "stable" });
   const releases = await github.paginate(github.rest.repos.listReleases, {
     ...context.repo,
     per_page: 100,

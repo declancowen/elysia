@@ -676,7 +676,7 @@ server.serve_forever()
 `,
     ]);
     try {
-      const [output] = await NodeEvents.once(server.stdout!, "data");
+      const [output] = await NodeEvents.EventEmitter.once(server.stdout!, "data");
       const port = Number(String(output).trim());
       const statePath = NodePath.join(profile, ".elysia/compression.json");
       const state = JSON.stringify({ enabled: true, port });
@@ -690,7 +690,7 @@ server.serve_forever()
       expect(NodeFS.readFileSync(settingsPath, "utf8")).toBe(settings);
       expect(server.exitCode).toBeNull();
     } finally {
-      const exited = NodeEvents.once(server, "exit");
+      const exited = NodeEvents.EventEmitter.once(server, "exit");
       server.kill();
       await exited;
     }

@@ -252,7 +252,11 @@ import {
 } from "./ui/combobox";
 import { SidebarContent, SidebarGroup, useSidebar } from "./ui/sidebar";
 import { SidebarChromeFooter, SidebarChromeHeader } from "./sidebar/SidebarChrome";
-import { SidebarHeaderIconButton, SidebarThreadHeader } from "./sidebar/SidebarThreadHeader";
+import {
+  SidebarHeaderIconButton,
+  SidebarThreadHeader,
+  SidebarThreadSearch,
+} from "./sidebar/SidebarThreadHeader";
 import { Menu, MenuItem, MenuPopup, MenuSeparator, MenuShortcut, MenuTrigger } from "./ui/menu";
 import { Tooltip, TooltipPopup, TooltipProvider, TooltipTrigger } from "./ui/tooltip";
 import { MiddleTruncate } from "./ui/middle-truncate";
@@ -4574,7 +4578,26 @@ export default function Sidebar() {
   const newThreadInProjectShortcutLabel = shortcutLabelForCommand(keybindings, "chat.newLocal");
   return (
     <>
-      <SidebarChromeHeader isElectron={isElectron} />
+      <SidebarChromeHeader
+        isElectron={isElectron}
+        search={
+          <SidebarThreadSearch
+            searchFieldRef={headerSearchRef}
+            shortcutLabel={shortcutLabelForCommand(keybindings, "commandPalette.toggle")}
+            searchInputRef={threadSearchInputRef}
+            searchQuery={threadSearchQuery}
+            onSearchQueryChange={(value) => {
+              setThreadSearchQuery(value);
+              setActiveSearchResultIndex(0);
+            }}
+            onSearchKeyDown={handleThreadSearchKeyDown}
+            isSearching={isSearchingThreads}
+            searchResultCount={threadSearchResults.length}
+            activeSearchResultIndex={activeSearchResultIndex}
+            onClearSearch={clearThreadSearch}
+          />
+        }
+      />
       <SidebarContent
         className="min-h-full"
         fixedHeader={
@@ -4582,7 +4605,6 @@ export default function Sidebar() {
           // header and would otherwise paint across the search row's outline.
           <SidebarGroup className="z-[1]">
             <SidebarThreadHeader
-              searchFieldRef={headerSearchRef}
               hasProjects={projectGroups.length > 0}
               projectScope={
                 <Combobox
@@ -4734,17 +4756,6 @@ export default function Sidebar() {
               newThreadShortcutLabel={newThreadShortcutLabel}
               newThreadInProjectShortcutLabel={newThreadInProjectShortcutLabel}
               showNewThreadInProjectHint={projectGroups.length > 1}
-              searchInputRef={threadSearchInputRef}
-              searchQuery={threadSearchQuery}
-              onSearchQueryChange={(value) => {
-                setThreadSearchQuery(value);
-                setActiveSearchResultIndex(0);
-              }}
-              onSearchKeyDown={handleThreadSearchKeyDown}
-              isSearching={isSearchingThreads}
-              searchResultCount={threadSearchResults.length}
-              activeSearchResultIndex={activeSearchResultIndex}
-              onClearSearch={clearThreadSearch}
             />
             <AgentRoster inset={false} />
             <div

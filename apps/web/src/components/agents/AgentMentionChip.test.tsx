@@ -1,10 +1,20 @@
 // @vitest-environment jsdom
 import { act } from "react";
 import { createRoot } from "react-dom/client";
-import { EnvironmentId } from "@t3tools/contracts";
+import {
+  EnvironmentId,
+  EventId,
+  MessageId,
+  ProjectId,
+  ThreadId,
+  type OrchestrationThreadActivity,
+  type AgentGetDelegationResult,
+} from "@t3tools/contracts";
 import { expect, it, vi } from "vite-plus/test";
 
 const state = vi.hoisted(() => ({
+  status: "working" as AgentGetDelegationResult["status"],
+  activities: [] as OrchestrationThreadActivity[],
   project: {
     title: "Friday",
     agentProfile: { archived: false, avatar: { preset: "triangle", color: "#EEAF00" } },
@@ -15,15 +25,31 @@ const state = vi.hoisted(() => ({
       }
     | undefined,
 }));
-vi.mock("~/state/entities", () => ({ useProject: () => state.project }));
-import { AgentMentionChip } from "./AgentMentionChip";
+vi.mock("~/state/entities", () => ({
+  useProject: () => state.project,
+  useThreadDetail: () => ({ activities: state.activities }),
+}));
+vi.mock("./useDelegatedAgents", () => ({
+  useDelegatedAgents: (
+    _source: unknown,
+    jobs: import("@t3tools/shared/agentMentions").DelegatedAgent[],
+  ) =>
+    jobs.map((job) => ({
+      job,
+      name: job.agentName,
+      working: state.status === "working",
+      data: { ...job, status: state.status, messages: [], truncated: false },
+    })),
+}));
+import { useThreadOverviewStore } from "../chat/threadOverviewStore";
+import { AgentMentionChip, SentAgentMentionChip } from "./AgentMentionChip";
 
 it("resolves sent agent mentions to their avatar, retains archived history, and handles a missing agent", async () => {
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   const host = document.createElement("div");
   document.body.append(host);
   const root = createRoot(host);
-  const render = async (allowArchived = false) =>
+  const render = async (allowArchived = false, status?: AgentGetDelegationResult["status"]) =>
     act(async () =>
       root.render(
         <AgentMentionChip
@@ -32,14 +58,20 @@ it("resolves sent agent mentions to their avatar, retains archived history, and 
           label="@Friday"
           copyMarkdown="agent-reference"
           allowArchived={allowArchived}
+          status={status}
         />,
       ),
     );
   try {
     await render();
-    expect(host.textContent).toContain("@Friday");
+    expect(host.textContent).toContain("Friday");
     expect(host.querySelector('path[fill="#EEAF00"]')).not.toBeNull();
     expect(host.querySelector('[data-markdown-copy="agent-reference"]')).not.toBeNull();
+    await render(false, "working");
+    expect(host.querySelector('[aria-label="Agent working"]')).not.toBeNull();
+    await render(false, "completed");
+    expect(host.querySelector('[aria-label="Agent working"]')).toBeNull();
+    expect(host.querySelector('[aria-label="Agent finished"]')).not.toBeNull();
     state.project!.agentProfile.archived = true;
     await render(true);
     expect(host.querySelector('path[fill="#EEAF00"]')).not.toBeNull();
@@ -47,9 +79,76 @@ it("resolves sent agent mentions to their avatar, retains archived history, and 
     expect(host.querySelector("[data-context-unresolved]")).not.toBeNull();
     state.project = undefined;
     await render(true);
-    expect(host.textContent).toContain("@Friday");
+    expect(host.textContent).toContain("Friday");
     expect(host.querySelector("[data-context-unresolved]")).not.toBeNull();
   } finally {
+    await act(async () => root.unmount());
+    host.remove();
+    vi.unstubAllGlobals();
+  }
+});
+
+it("shows plain clickable agent names and task-specific status in sent messages", async () => {
+  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+  state.project = {
+    title: "Friday",
+    agentProfile: { archived: false, avatar: { preset: "triangle", color: "#EEAF00" } },
+  };
+  state.status = "working";
+  const activity = (message: string, agent: string): OrchestrationThreadActivity => ({
+    id: EventId.make(`${message}-${agent}`),
+    tone: "info",
+    kind: "agent.delegated",
+    summary: "Task delegated",
+    turnId: null,
+    createdAt: "2026-10-02T00:00:00.000Z",
+    payload: {
+      agentProjectId: agent,
+      agentThreadId: `chat-${agent}`,
+      agentName: agent,
+      sourceMessageId: message,
+      targetMessageId: `target-${message}`,
+      targetTurnId: null,
+    },
+  });
+  state.activities = [
+    activity("older", "friday"),
+    activity("request", "other"),
+    activity("request", "friday"),
+  ];
+  const source = { environmentId: EnvironmentId.make("local"), threadId: ThreadId.make("source") };
+  const host = document.createElement("div");
+  document.body.append(host);
+  const root = createRoot(host);
+  const render = () =>
+    root.render(
+      <SentAgentMentionChip
+        environmentId={source.environmentId}
+        contextId="friday"
+        label="@Friday"
+        sourceThreadRef={source}
+        sourceMessageId={MessageId.make("request")}
+        allowArchived
+      />,
+    );
+  try {
+    await act(async () => render());
+    expect(host.textContent).toBe("Friday");
+    expect(host.querySelector('[aria-label="Agent working"]')).not.toBeNull();
+    await act(async () => host.querySelector<HTMLButtonElement>("button")!.click());
+    expect(useThreadOverviewStore.getState().target).toEqual({
+      source,
+      projectId: ProjectId.make("friday"),
+    });
+    state.status = "completed";
+    await act(async () => render());
+    expect(host.querySelector('[aria-label="Agent working"]')).toBeNull();
+    expect(host.querySelector('[aria-label="Agent finished"]')).not.toBeNull();
+    state.activities = [activity("older", "friday"), activity("request", "other")];
+    await act(async () => render());
+    expect(host.querySelector('[aria-label="Agent finished"]')).toBeNull();
+  } finally {
+    useThreadOverviewStore.setState({ target: null });
     await act(async () => root.unmount());
     host.remove();
     vi.unstubAllGlobals();

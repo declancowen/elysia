@@ -9980,7 +9980,6 @@ export default function ChatView(props: ChatViewProps) {
               agents: { working: agentPanelModel.liveCount, done: agentPanelModel.settledCount },
               sourceThreadRef: isServerThread ? activeThreadRef : null,
               delegatedAgents,
-              requests: activeThread.messages,
               composerElement: composerOverlayElement,
               subagents: [
                 ...agentPanelModel.directAgents,

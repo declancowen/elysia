@@ -16,6 +16,7 @@ import { useAgents, type AgentRosterEntry } from "./useAgents";
 
 export function AgentRoster({ inset = true }: { inset?: boolean }) {
   const active = useAgents().filter(({ project }) => !project.agentProfile?.archived);
+  const params = useParams({ strict: false });
   const { expanded, setExpanded } = useSidebarSectionExpansion("sidebar-agents");
   const { isMobile, setOpenMobile } = useSidebar();
   const createAgent = () => {
@@ -40,17 +41,22 @@ export function AgentRoster({ inset = true }: { inset?: boolean }) {
           <PlusIcon />
         </Button>
       </SidebarSectionHeader>
-      {expanded &&
-        active.map((agent) => (
-          <AgentRow key={`${agent.project.environmentId}:${agent.project.id}`} {...agent} />
-        ))}
+      {(expanded
+        ? active
+        : active.filter(
+            ({ project, thread }) =>
+              params.environmentId === project.environmentId && thread?.id === params.threadId,
+          )
+      ).map((agent) => (
+        <AgentRow key={`${agent.project.environmentId}:${agent.project.id}`} {...agent} />
+      ))}
       {expanded && active.length === 0 ? (
         <button
           type="button"
-          className="w-full rounded-lg px-2.5 py-2 text-left text-xs text-sidebar-muted-foreground hover:bg-sidebar-row-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="w-full cursor-pointer rounded-lg px-2.5 py-2 text-left text-xs text-sidebar-muted-foreground hover:bg-sidebar-row-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           onClick={createAgent}
         >
-          Create your first agent
+          No agents yet
         </button>
       ) : null}
     </section>

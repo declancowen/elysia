@@ -9,7 +9,6 @@ import {
   FolderPlusIcon,
   PinIcon,
   Globe2Icon,
-  SearchIcon,
   SquarePenIcon,
   TerminalIcon,
   TriangleAlertIcon,
@@ -134,7 +133,6 @@ import {
 } from "../threadRoutes";
 import { stackedThreadToast, toastManager } from "./ui/toast";
 import { formatRelativeTimeLabel } from "../timestampFormat";
-import { Kbd } from "./ui/kbd";
 import {
   getArm64IntelBuildWarningDescription,
   getDesktopUpdateActionError,
@@ -202,14 +200,18 @@ import {
   ThreadStatusPill,
 } from "./Sidebar.logic";
 import { sortThreads } from "../lib/threadSort";
-import { SidebarChromeFooter, SidebarChromeHeader } from "./sidebar/SidebarChrome";
+import {
+  SidebarChromeFooter,
+  SidebarChromeHeader,
+  SidebarHeaderSearch,
+  SidebarNewChatButton,
+} from "./sidebar/SidebarChrome";
 import { RecentThreadsHeader, useRecentThreadsExpansion } from "./sidebar/RecentThreadsHeader";
 import { AgentRoster } from "./agents/AgentRoster";
 import { SidebarSectionHeader, useSidebarSectionExpansion } from "./sidebar/SidebarSectionHeader";
 import { selectNonAgentProjectItems, selectRegularProjects } from "../agentPresentation";
 import { useCopyToClipboard } from "~/hooks/useCopyToClipboard";
 import { useIsMobile } from "~/hooks/useMediaQuery";
-import { CommandDialogTrigger } from "./ui/command";
 import {
   useClientSettings,
   useUpdateClientSettings,
@@ -2951,7 +2953,6 @@ interface SidebarProjectsContentProps {
   routeThreadKey: string | null;
   openPullRequestsInRightPanel: boolean;
   newThreadShortcutLabel: string | null;
-  commandPaletteShortcutLabel: string | null;
   threadJumpLabelByKey: ReadonlyMap<string, string>;
   attachThreadListAutoAnimateRef: (node: HTMLElement | null) => void;
   expandThreadListForProject: (projectKey: string) => void;
@@ -2992,7 +2993,6 @@ const SidebarProjectsContent = memo(function SidebarProjectsContent(
     routeThreadKey,
     openPullRequestsInRightPanel,
     newThreadShortcutLabel,
-    commandPaletteShortcutLabel,
     threadJumpLabelByKey,
     attachThreadListAutoAnimateRef,
     expandThreadListForProject,
@@ -3077,13 +3077,7 @@ const SidebarProjectsContent = memo(function SidebarProjectsContent(
         <SidebarGroup className="z-[1]">
           <SidebarMenu>
             <SidebarMenuItem>
-              <CommandDialogTrigger
-                render={<SidebarMenuButton data-testid="command-palette-trigger" />}
-              >
-                <SearchIcon />
-                <span className="flex-1 truncate">Search</span>
-                {commandPaletteShortcutLabel ? <Kbd>{commandPaletteShortcutLabel}</Kbd> : null}
-              </CommandDialogTrigger>
+              <SidebarNewChatButton />
             </SidebarMenuItem>
           </SidebarMenu>
         </SidebarGroup>
@@ -3139,16 +3133,14 @@ const SidebarProjectsContent = memo(function SidebarProjectsContent(
       )}
       <SidebarGroup>
         <RecentThreadsHeader environmentId={primaryEnvironmentId} />
-        {recentExpanded && (
-          <SidebarMenu>
-            {recentProjects.map((project) => (
-              <SidebarProjectListRow
-                key={project.projectKey}
-                {...projectItemProps(project, null)}
-              />
-            ))}
-          </SidebarMenu>
-        )}
+        <SidebarMenu>
+          {recentProjects.map((project) => (
+            <SidebarProjectListRow key={project.projectKey} {...projectItemProps(project, null)} />
+          ))}
+        </SidebarMenu>
+        {recentExpanded && recentProjects.length === 0 ? (
+          <p className="px-2.5 py-2 text-xs text-sidebar-muted-foreground">No chats yet</p>
+        ) : null}
         <div className="mt-4">
           <SidebarSectionHeader
             label="Projects"
@@ -3222,7 +3214,7 @@ const SidebarProjectsContent = memo(function SidebarProjectsContent(
           ))}
 
         {projectsExpanded && folderProjects.length === 0 && (
-          <div className="px-2 pt-4 text-center text-secondary-label text-xs">No projects yet</div>
+          <p className="px-2.5 py-2 text-xs text-sidebar-muted-foreground">No projects yet</p>
         )}
       </SidebarGroup>
     </SidebarContent>
@@ -3576,7 +3568,7 @@ export default function LegacySidebar() {
         : []),
       ...sortedProjects.flatMap((project) => {
         const recent = isScratchProject(project, scratchWorkspaceRootFor(project.environmentId));
-        if (recent ? !recentExpanded : !projectsExpanded) return [];
+        if (!recent && !projectsExpanded) return [];
         const projectThreads = sortThreads(
           (threadsByProjectKey.get(project.projectKey) ?? []).filter(
             (thread) => thread.archivedAt === null && thread.pinnedAt == null,
@@ -3901,7 +3893,10 @@ export default function LegacySidebar() {
       {prewarmedSidebarThreadRefs.map((threadRef) => (
         <SidebarThreadDetailPrewarmer key={scopedThreadKey(threadRef)} threadRef={threadRef} />
       ))}
-      <SidebarChromeHeader isElectron={isElectron} />
+      <SidebarChromeHeader
+        isElectron={isElectron}
+        search={<SidebarHeaderSearch shortcutLabel={commandPaletteShortcutLabel} />}
+      />
 
       <SidebarProjectsContent
         showArm64IntelBuildWarning={showArm64IntelBuildWarning}
@@ -3930,7 +3925,6 @@ export default function LegacySidebar() {
         routeThreadKey={routeThreadKey}
         openPullRequestsInRightPanel={routeThreadRef !== null}
         newThreadShortcutLabel={newThreadShortcutLabel}
-        commandPaletteShortcutLabel={commandPaletteShortcutLabel}
         threadJumpLabelByKey={visibleThreadJumpLabelByKey}
         attachThreadListAutoAnimateRef={attachThreadListAutoAnimateRef}
         expandThreadListForProject={expandThreadListForProject}

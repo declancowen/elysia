@@ -6,7 +6,7 @@ import { expect, it, vi } from "vite-plus/test";
 
 import { SidebarProvider } from "../ui/sidebar";
 import { RECENT_THREADS_EXPANSION_KEY, RecentThreadsHeader } from "./RecentThreadsHeader";
-import { SidebarUtilityMenu } from "./SidebarChrome";
+import { SidebarNewChatButton, SidebarUtilityMenu } from "./SidebarChrome";
 import { useUiStateStore } from "~/uiStateStore";
 
 const state = vi.hoisted(() => ({
@@ -40,6 +40,7 @@ vi.mock("@tanstack/react-router", () => ({
 }));
 
 vi.mock("~/state/environments", () => ({
+  usePrimaryEnvironmentId: () => EnvironmentId.make("local"),
   useEnvironments: () => ({
     environments: [{ serverConfig: { environment: { capabilities: { pullRequests: true } } } }],
   }),
@@ -152,6 +153,52 @@ it("keeps Work/Code beside Settings, preserves sidebar layout, and hides both sw
   } finally {
     await act(async () => root.unmount());
     useUiStateStore.setState({ projectExpandedById: originalProjectExpansion });
+    container.remove();
+    vi.unstubAllGlobals();
+  }
+});
+
+it("starts the new top-level chat in Chats and expands the section", async () => {
+  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+  vi.stubGlobal("matchMedia", () => ({
+    matches: false,
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+  }));
+  const original = useUiStateStore.getState().projectExpandedById;
+  useUiStateStore.setState({ projectExpandedById: { [RECENT_THREADS_EXPANSION_KEY]: false } });
+  state.connected = true;
+  state.startScratchThread.mockReset();
+  const container = document.createElement("div");
+  document.body.append(container);
+  const root = createRoot(container);
+  try {
+    await act(async () =>
+      root.render(
+        <SidebarProvider>
+          <SidebarNewChatButton />
+        </SidebarProvider>,
+      ),
+    );
+    await act(async () =>
+      container.querySelector<HTMLButtonElement>('[aria-label="New chat"]')!.click(),
+    );
+    expect(state.startScratchThread).toHaveBeenCalledWith(EnvironmentId.make("local"));
+    expect(useUiStateStore.getState().projectExpandedById[RECENT_THREADS_EXPANSION_KEY]).toBe(true);
+    state.connected = false;
+    await act(async () =>
+      root.render(
+        <SidebarProvider>
+          <SidebarNewChatButton />
+        </SidebarProvider>,
+      ),
+    );
+    expect(container.querySelector<HTMLButtonElement>('[aria-label="New chat"]')!.disabled).toBe(
+      true,
+    );
+  } finally {
+    await act(async () => root.unmount());
+    useUiStateStore.setState({ projectExpandedById: original });
     container.remove();
     vi.unstubAllGlobals();
   }

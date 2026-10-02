@@ -29,6 +29,7 @@ const state = vi.hoisted(() => ({
   contextMenu: vi.fn(),
   toast: vi.fn(),
   mobile: false,
+  activeThreadId: "ordinary-chat",
   sidebarOpen: false,
   setOpenMobile: vi.fn(),
 }));
@@ -43,7 +44,7 @@ vi.mock("../../state/use-atom-command", () => ({
 }));
 vi.mock("@tanstack/react-router", () => ({
   useNavigate: () => state.navigate,
-  useParams: () => ({ environmentId: "local", threadId: "ordinary-chat" }),
+  useParams: () => ({ environmentId: "local", threadId: state.activeThreadId }),
 }));
 vi.mock("../../localApi", () => ({
   readLocalApi: () => ({ contextMenu: { show: state.contextMenu } }),
@@ -140,6 +141,7 @@ beforeEach(() => {
     },
   );
   useUiStateStore.setState({ projectExpandedById: {} });
+  state.activeThreadId = "ordinary-chat";
   state.projects = [
     project,
     {
@@ -262,16 +264,16 @@ it("shows agent management only for the current agent and keeps create/archive a
 it("collapses Agents even when empty, persists across remounts, and expands when creating", async () => {
   state.projects = [];
   await render(false, true);
-  expect(host.textContent).toContain("Create your first agent");
+  expect(host.textContent).toContain("No agents yet");
   await click("Agents");
-  expect(host.textContent).not.toContain("Create your first agent");
+  expect(host.textContent).not.toContain("No agents yet");
   expect(button("Agents").getAttribute("aria-expanded")).toBe("false");
   await act(async () => root.render(null));
   await render(false, true);
   expect(button("Agents").getAttribute("aria-expanded")).toBe("false");
   await click("Create new agent");
   expect(button("Agents").getAttribute("aria-expanded")).toBe("true");
-  expect(host.textContent).toContain("Create your first agent");
+  expect(host.textContent).toContain("No agents yet");
   expect(useAgentDialogStore.getState().target).toEqual({ projectRef: null });
 });
 
@@ -383,7 +385,7 @@ it("dismisses the narrow sidebar when creating from either entry point or editin
   state.sidebarOpen = true;
   state.projects = [];
   await render(false, true);
-  await click("Create your first agent");
+  await click("No agents yet");
   expect(useAgentDialogStore.getState().target).toEqual({ projectRef: null });
   expect(state.sidebarOpen).toBe(false);
 
@@ -425,4 +427,17 @@ it("keeps the narrow sidebar open on context-menu cancellation and dismisses it 
   );
   expect(state.sidebarOpen).toBe(false);
   expect(state.navigate).not.toHaveBeenCalled();
+});
+
+it("keeps the current agent visible while Agents is collapsed and hides it after leaving", async () => {
+  state.activeThreadId = threadId;
+  await render(false, true);
+  await click("Agents");
+  expect(host.textContent).toContain("Alex");
+  expect(host.querySelector('[aria-current="page"]')).not.toBeNull();
+  state.activeThreadId = "ordinary-chat";
+  await render(false, true);
+  expect(host.textContent).not.toContain("Alex");
+  await click("Agents");
+  expect(host.textContent).toContain("Alex");
 });

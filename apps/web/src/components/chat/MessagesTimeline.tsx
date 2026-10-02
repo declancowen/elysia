@@ -1,4 +1,4 @@
-import { AgentMentionChip } from "../agents/AgentMentionChip";
+import { SentAgentMentionChip } from "../agents/AgentMentionChip";
 import { useCodeWorkspace } from "~/hooks/useSettings";
 import { ArrowUpIcon, ClockIcon } from "lucide-react";
 import { ReadOnlySourcePreview } from "../files/AttachmentFilePreview";
@@ -2092,6 +2092,7 @@ function UserTimelineRow({ row }: { row: Extract<TimelineRow, { kind: "message" 
             : null;
       return (
         <UserMessageContextReferenceChip
+          sourceMessageId={row.message.id}
           reference={reference}
           record={record}
           annotationImage={annotationImage}
@@ -2117,6 +2118,7 @@ function UserTimelineRow({ row }: { row: Extract<TimelineRow, { kind: "message" 
       onImageExpand,
       onFileOpen,
       ctx.activeThreadEnvironmentId,
+      row.message.id,
     ],
   );
 
@@ -3905,6 +3907,7 @@ const userMessageContextPresentationRegistry = createContextPresentationRegistry
 
 /** One inline context chip in a sent message, dispatched by the shared presentation registry. */
 function UserMessageContextReferenceChip(props: {
+  sourceMessageId: MessageId;
   reference: ChatMarkdownContextReference;
   record: KnownComposerContextRecord | undefined;
   annotationImage: ChatImageAttachment | null;
@@ -3913,7 +3916,7 @@ function UserMessageContextReferenceChip(props: {
   onExpandVideo: (file: ChatFileAttachment) => void;
   onOpenFile: (file: ChatFileAttachment) => void;
 }) {
-  const { resolvedTheme, activeThreadEnvironmentId } = use(TimelineRowCtx);
+  const { resolvedTheme, activeThreadEnvironmentId, threadRef } = use(TimelineRowCtx);
   const copyMarkdown = formatComposerContextReference({
     kind: props.reference.kind,
     contextId: props.reference.contextId as ComposerContextId,
@@ -3921,7 +3924,9 @@ function UserMessageContextReferenceChip(props: {
   });
   if (props.reference.kind === "agent") {
     return (
-      <AgentMentionChip
+      <SentAgentMentionChip
+        sourceThreadRef={threadRef}
+        sourceMessageId={props.sourceMessageId}
         environmentId={activeThreadEnvironmentId}
         contextId={props.reference.contextId}
         label={props.reference.label}

@@ -165,6 +165,7 @@ it.effect(
       );
       assert.include(target.messages[0]!.text, "@Friday investigate the next release.");
       assert.notInclude(target.messages[0]!.text, "t3-context://v1/agent/");
+      assert.include(target.messages[0]!.text, "Start that message with **Task:**");
       const source = yield* read(sourceThreadId);
       assert.equal(
         source.messages.find((message) => message.id === input.messageId)?.text,

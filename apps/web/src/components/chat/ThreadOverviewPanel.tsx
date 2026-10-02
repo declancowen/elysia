@@ -1,11 +1,11 @@
 import { Popover as PopoverPrimitive } from "@base-ui/react/popover";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useThreadOverviewStore } from "./threadOverviewStore";
 import { scopeThreadRef } from "@t3tools/client-runtime/environment";
-import type { OrchestrationMessage, ScopedThreadRef } from "@t3tools/contracts";
+import type { ScopedThreadRef } from "@t3tools/contracts";
 import { type DelegatedAgent } from "@t3tools/shared/agentMentions";
 
 import type { RuntimeSubagent } from "@t3tools/client-runtime/state/subagentRuntime";
-import { replaceComposerContextReferences } from "@t3tools/shared/composerContextReferences";
 import { useMediaQuery } from "~/hooks/useMediaQuery";
 import { useCodeWorkspace } from "~/hooks/useSettings";
 import {
@@ -31,6 +31,8 @@ import { Popover, PopoverTitle, PopoverTrigger } from "../ui/popover";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
 import ChatMarkdown from "../ChatMarkdown";
 import { AgentAvatar } from "../agents/AgentAvatar";
+import { DelegatedAgentStatus } from "../agents/DelegatedAgentStatus";
+import { Spinner } from "../ui/spinner";
 import { groupDelegatedAgents, useDelegatedAgents } from "../agents/useDelegatedAgents";
 
 export interface ThreadOverviewPanelProps {
@@ -47,7 +49,6 @@ export interface ThreadOverviewPanelProps {
   sourceThreadRef?: ScopedThreadRef | null;
   delegatedAgents?: ReadonlyArray<DelegatedAgent>;
   sourceHistoryReady?: boolean;
-  requests?: ReadonlyArray<Pick<OrchestrationMessage, "id" | "text">>;
   subagents?: ReadonlyArray<
     Pick<RuntimeSubagent, "id" | "title" | "status" | "result" | "error" | "progress">
   >;
@@ -72,12 +73,12 @@ function OverviewPopover({
   sourceThreadRef,
   delegatedAgents = NO_DELEGATIONS,
   sourceHistoryReady = true,
-  requests = NO_ITEMS,
   subagents = NO_ITEMS,
   composerElement,
   wide,
 }: ThreadOverviewPanelProps & { wide: boolean }) {
   const codeWorkspace = useCodeWorkspace();
+  const target = useThreadOverviewStore((state) => state.target);
   const [open, setOpen] = useState(false);
   const anchorRef = useRef<HTMLSpanElement>(null);
   const [sourcesExpanded, setSourcesExpanded] = useState(false);
@@ -89,7 +90,8 @@ function OverviewPopover({
     { kind: "agent" | "subagent"; id: string } | { kind: "subagents" } | null
   >(null);
   const [expanded, setExpanded] = useState(false);
-  const [availableHeight, setAvailableHeight] = useState(320);
+  const [availableSize, setAvailableSize] = useState({ height: 320, width: 320 });
+  const showChanges = codeWorkspace && changes !== null;
   const selectedAgent =
     view?.kind === "agent" ? grouped.find(({ job }) => job.agentProjectId === view.id) : null;
   const selectedSubagent =
@@ -99,7 +101,9 @@ function OverviewPopover({
     const measure = () => {
       const top = anchorRef.current?.getBoundingClientRect().top ?? 0;
       const bottom = composerElement?.getBoundingClientRect().bottom ?? window.innerHeight;
-      setAvailableHeight(Math.max(0, Math.floor(bottom - top - 12)));
+      const width =
+        anchorRef.current?.closest("[data-chat-header]")?.getBoundingClientRect().width ?? 320;
+      setAvailableSize({ height: Math.max(0, Math.floor(bottom - top - 12)), width });
     };
     measure();
     const observer = new ResizeObserver(measure);
@@ -122,6 +126,18 @@ function OverviewPopover({
       }
     }
   }, [delegated, sourceHistoryReady]);
+  useEffect(() => {
+    if (
+      !target ||
+      target.source.environmentId !== sourceThreadRef?.environmentId ||
+      target.source.threadId !== sourceThreadRef.threadId
+    )
+      return;
+    setExpanded(false);
+    setView({ kind: "agent", id: target.projectId });
+    setOpen(true);
+    useThreadOverviewStore.setState({ target: null });
+  }, [target, sourceThreadRef]);
   const visibleSources = sourcesExpanded ? sources : sources.slice(0, 3);
   const openView = (action: () => void) => {
     action();
@@ -170,10 +186,24 @@ function OverviewPopover({
           <PopoverPrimitive.Popup
             data-slot="popover-popup"
             initialFocus={wide ? false : undefined}
-            style={{ height: expanded ? availableHeight : Math.min(320, availableHeight) }}
+            style={{
+              height:
+                wide && view && expanded
+                  ? Math.min(
+                      availableSize.height,
+                      320 + Math.max(0, availableSize.height - 320) / 2,
+                    )
+                  : Math.min(320, availableSize.height),
+              width:
+                view && expanded
+                  ? wide
+                    ? 320 + Math.max(0, availableSize.width - 320) / 2
+                    : "calc(100vw - 2rem)"
+                  : 320,
+            }}
             className="flex max-h-(--available-height) w-80 max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-3xl border border-(--app-theme-toolbar-border,var(--border)) text-foreground shadow-lg outline-none [--overview-surface:var(--app-theme-surface-raised,var(--card))] dark:[--overview-surface:var(--app-theme-surface-raised,var(--surface-raised))] bg-(--overview-surface)/(--glass-opacity) backdrop-blur-(--glass-blur) backdrop-saturate-(--glass-saturation) not-supports-[((backdrop-filter:blur(1px))_or_(-webkit-backdrop-filter:blur(1px)))]:bg-(--overview-surface)"
           >
-            <header className="flex shrink-0 items-center gap-2 border-b border-border/50 px-5 py-4">
+            <header className="flex shrink-0 items-center gap-2 px-5 py-4">
               {view ? (
                 <Button
                   variant="ghost-muted"
@@ -181,7 +211,10 @@ function OverviewPopover({
                   aria-label={
                     view.kind === "subagent" ? "Back to subagents" : "Back to thread overview"
                   }
-                  onClick={() => setView(view.kind === "subagent" ? { kind: "subagents" } : null)}
+                  onClick={() => {
+                    setExpanded(false);
+                    setView(view.kind === "subagent" ? { kind: "subagents" } : null);
+                  }}
                 >
                   <ArrowLeftIcon className="size-3.5" />
                 </Button>
@@ -202,24 +235,51 @@ function OverviewPopover({
                     (view?.kind === "subagents" ? "Subagents" : label)}
                 </span>
               </PopoverTitle>
-              <Button
-                variant="ghost-muted"
-                size="icon-xs"
-                aria-label={expanded ? "Collapse overview" : "Expand overview"}
-                aria-expanded={expanded}
-                onClick={() => setExpanded(!expanded)}
-              >
-                {expanded ? (
-                  <ChevronUpIcon className="size-3.5" />
-                ) : (
-                  <ChevronDownIcon className="size-3.5" />
-                )}
-              </Button>
+              {selectedAgent ? (
+                <span
+                  className="flex items-center gap-1 text-xs text-muted-foreground"
+                  role="status"
+                >
+                  {selectedAgent.working ? <Spinner size="xs" aria-label="Agent working" /> : null}
+                  {selectedAgent.working
+                    ? selectedAgent.data?.status === "waiting"
+                      ? "Needs input"
+                      : "Working"
+                    : selectedAgent.data?.status === "completed"
+                      ? "Finished"
+                      : selectedAgent.data?.status === "error"
+                        ? "Failed"
+                        : selectedAgent.data?.status === "interrupted"
+                          ? "Stopped"
+                          : "Unavailable"}
+                </span>
+              ) : null}
+              {view || showChanges ? (
+                <Button
+                  variant="ghost-muted"
+                  size="icon-xs"
+                  aria-label={
+                    view
+                      ? expanded
+                        ? "Collapse agent responses"
+                        : "Expand agent responses"
+                      : "Show changes"
+                  }
+                  aria-expanded={view ? expanded : undefined}
+                  onClick={() => (view ? setExpanded(!expanded) : openView(onToggleChanges))}
+                >
+                  {expanded ? (
+                    <ChevronUpIcon className="size-3.5" />
+                  ) : (
+                    <ChevronDownIcon className="size-3.5" />
+                  )}
+                </Button>
+              ) : null}
             </header>
             <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-5">
               {view === null ? (
-                <div className="space-y-4">
-                  {codeWorkspace && changes !== null && (
+                <div className="flex flex-col gap-4 [&>section:not(:first-child)]:border-t [&>section:not(:first-child)]:border-border/50 [&>section:not(:first-child)]:pt-3">
+                  {showChanges && (
                     <button
                       type="button"
                       className={rowClassName}
@@ -236,8 +296,9 @@ function OverviewPopover({
                     </button>
                   )}
                   {grouped.length > 0 ? (
-                    <section className="border-t border-border/50 pt-3">
+                    <section>
                       <h3 className="mb-2 text-xs text-muted-foreground">Agents</h3>
+                      <DelegatedAgentStatus agents={delegated} />
                       {grouped.map((agent) => (
                         <button
                           key={agent.job.agentProjectId}
@@ -265,7 +326,7 @@ function OverviewPopover({
                       ))}
                     </section>
                   ) : null}
-                  <section className="border-t border-border/50 pt-3">
+                  <section>
                     <h3 className="text-xs text-muted-foreground">Subagents</h3>
                     <button
                       type="button"
@@ -277,7 +338,7 @@ function OverviewPopover({
                       <span className="text-sm text-muted-foreground">{agents.done} done</span>
                     </button>
                   </section>
-                  <section className="border-t border-border/50 pt-3">
+                  <section>
                     <div className="mb-1 flex items-center justify-between gap-2">
                       <button
                         type="button"
@@ -354,30 +415,46 @@ function OverviewPopover({
                   </section>
                 </div>
               ) : selectedAgent ? (
-                <div className="space-y-5" aria-label={`${selectedAgent.name} responses`}>
+                <div className="flex flex-col gap-5" aria-label={`${selectedAgent.name} responses`}>
                   {selectedAgent.jobs.map(({ job, data, project, working }) => {
-                    const request = requests.find(({ id }) => id === job.sourceMessageId);
-                    const ask = request
-                      ? replaceComposerContextReferences(request.text, (reference) =>
-                          reference.kind === "agent" ? "" : reference.source,
-                        ).trim()
-                      : "The original request is unavailable.";
-                    const result = data?.messages
+                    const messages = data?.messages ?? [];
+                    const first = messages[0];
+                    // The task run supplies its own summary; old replies remain results.
+                    const hasSummary = /^\*\*Task:\*\*\s*/i.test(first?.text ?? "");
+                    const pendingSummary =
+                      first?.streaming && "**task:**".startsWith(first.text.trim().toLowerCase());
+                    const ask = hasSummary ? first!.text.replace(/^\*\*Task:\*\*\s*/i, "") : null;
+                    const result = (hasSummary || pendingSummary ? messages.slice(1) : messages)
                       .map(({ text }) => text)
                       .filter(Boolean)
                       .join("\n\n");
                     return (
-                      <section key={job.activityId} className="space-y-3">
+                      <section key={job.activityId} className="flex flex-col gap-3">
                         <div
-                          className="rounded-2xl bg-message text-message-foreground p-3"
-                          aria-label="Ask"
+                          className="flex items-start gap-2 rounded-2xl bg-message text-message-foreground p-3"
+                          aria-label="Task summary"
                         >
-                          <p className="mb-2 text-xs text-muted-foreground">Ask</p>
-                          <ChatMarkdown
-                            text={ask}
-                            cwd={undefined}
-                            environmentId={sourceThreadRef?.environmentId}
-                          />
+                          {project?.agentProfile ? (
+                            <AgentAvatar
+                              avatar={project.agentProfile.avatar}
+                              className="mt-1 size-5 shrink-0"
+                            />
+                          ) : null}
+                          <div className="min-w-0 flex-1">
+                            {ask ? (
+                              <ChatMarkdown
+                                text={ask}
+                                cwd={project?.workspaceRoot}
+                                environmentId={sourceThreadRef?.environmentId}
+                              />
+                            ) : (
+                              <p className="text-sm text-muted-foreground">
+                                {working
+                                  ? "Summarising the request…"
+                                  : "No task summary was recorded for this earlier response."}
+                              </p>
+                            )}
+                          </div>
                         </div>
                         <div
                           className="flex items-start gap-2 rounded-2xl bg-background/30 p-3"
@@ -434,7 +511,7 @@ function OverviewPopover({
                   })}
                 </div>
               ) : selectedSubagent ? (
-                <div className="space-y-3">
+                <div className="flex flex-col gap-3">
                   <div
                     className="rounded-2xl bg-message text-message-foreground p-3"
                     aria-label="Ask"
@@ -462,7 +539,7 @@ function OverviewPopover({
                   </div>
                 </div>
               ) : view?.kind === "subagents" ? (
-                <div className="space-y-2">
+                <div className="flex flex-col gap-2">
                   {subagents.length ? (
                     subagents.map((agent) => (
                       <button

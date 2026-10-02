@@ -286,6 +286,7 @@ export const delegateToPersistentAgent = Effect.fn("delegateToPersistentAgent")(
           `Origin chat: ${input.sourceThreadId}`,
           `Origin workspace (reference only): ${sourceOption.value.worktreePath ?? sourceProject.value.workspaceRoot}`,
           "Continue in your own agent chat, workspace and memory. The originating workspace and transcript are references; they do not change your working directory.",
+          "Before using tools, send a separate, brief assistant message summarising what you understand the current request to be. Start that message with **Task:**. Then carry out the task and send the result in a subsequent assistant message. Do not repeat the delegation instructions or narrate the handoff.",
           "Recent excerpt (reference only, limited to the last two messages):",
           recentContext(
             sourceMessages.filter((message) => message.messageId !== input.messageId),

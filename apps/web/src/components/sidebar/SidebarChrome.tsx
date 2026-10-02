@@ -7,6 +7,8 @@ import {
   SettingsIcon,
   Columns2Icon,
   PanelLeftIcon,
+  SearchIcon,
+  SquarePenIcon,
 } from "lucide-react";
 import type { ReactNode } from "react";
 import { memo, useCallback } from "react";
@@ -19,7 +21,11 @@ import {
   useEnvironmentIdentificationMode,
 } from "../../hooks/useSettings";
 import { cn } from "../../lib/utils";
-import { useEnvironments } from "../../state/environments";
+import { useEnvironments, usePrimaryEnvironmentId } from "../../state/environments";
+import { useScratchProject } from "../../hooks/useScratchProject";
+import { useRecentThreadsExpansion } from "./RecentThreadsHeader";
+import { CommandDialogTrigger } from "../ui/command";
+import { Kbd } from "../ui/kbd";
 import { ElysiaWordmark } from "../Icons";
 import {
   resolveEnvironmentIdentificationPillLabel,
@@ -46,8 +52,10 @@ import { PullRequestGlyph } from "~/components/pullRequest/pullRequestIcons";
 
 export const SidebarChromeHeader = memo(function SidebarChromeHeader({
   isElectron,
+  search,
 }: {
   isElectron: boolean;
+  search?: ReactNode;
 }) {
   const stageLabel = useEnvironmentStageLabel();
   const environmentIdentificationMode = useEnvironmentIdentificationMode();
@@ -75,6 +83,7 @@ export const SidebarChromeHeader = memo(function SidebarChromeHeader({
         className="relative top-auto z-10 translate-y-0 md:hidden"
       />
       <SidebarBrand onBackdrop={backdropVariant !== null} />
+      <div className="[-webkit-app-region:no-drag] relative z-10 min-w-0 flex-1 pr-2">{search}</div>
       {pillLabel ? (
         <Badge
           className="relative z-10 ml-1 hidden @[15rem]/sidebar-header:inline-flex"
@@ -101,6 +110,39 @@ function SidebarBrand({ onBackdrop }: { onBackdrop: boolean }) {
     >
       <ElysiaWordmark aria-label="Elysia" className="h-5 w-auto shrink-0" />
     </Link>
+  );
+}
+
+export function SidebarHeaderSearch({ shortcutLabel }: { shortcutLabel?: string | null }) {
+  return (
+    <CommandDialogTrigger render={<SidebarMenuButton data-testid="command-palette-trigger" />}>
+      <SearchIcon />
+      <span className="min-w-0 flex-1 truncate">Search</span>
+      {shortcutLabel ? <Kbd>{shortcutLabel}</Kbd> : null}
+    </CommandDialogTrigger>
+  );
+}
+
+export function SidebarNewChatButton() {
+  const environmentId = usePrimaryEnvironmentId();
+  const { scratchEnvironmentId, startScratchThread } = useScratchProject();
+  const { setExpanded } = useRecentThreadsExpansion();
+  const { isMobile, setOpenMobile } = useSidebar();
+  const target = scratchEnvironmentId(environmentId);
+  return (
+    <SidebarMenuButton
+      aria-label="New chat"
+      disabled={target === null}
+      onClick={() => {
+        if (target === null) return;
+        setExpanded(true);
+        if (isMobile) setOpenMobile(false);
+        void startScratchThread(target);
+      }}
+    >
+      <SquarePenIcon />
+      <span>New chat</span>
+    </SidebarMenuButton>
   );
 }
 

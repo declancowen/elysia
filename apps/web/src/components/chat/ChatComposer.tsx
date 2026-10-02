@@ -2392,7 +2392,7 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
               type: "agent" as const,
               projectId: project.id,
               avatar: project.agentProfile!.avatar,
-              label: `@${project.title}`,
+              label: project.title,
               description: busy
                 ? "Working — try again when finished"
                 : "Delegate a task to this agent",
@@ -3653,7 +3653,7 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
       if (item.type === "path" || item.type === "agent") {
         const replacement = `${
           item.type === "agent"
-            ? formatAgentMention(item.projectId, item.label.slice(1))
+            ? formatAgentMention(item.projectId, item.label)
             : serializeComposerFileLink(item.path)
         } `;
         const replacementRangeEnd = extendReplacementRangeForTrailingSpace(

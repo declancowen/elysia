@@ -30,6 +30,7 @@ import {
 import { Button } from "../ui/button";
 import { Popover, PopoverTitle, PopoverTrigger } from "../ui/popover";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
+import { AgentMessageBubble } from "../agents/AgentMessageBubble";
 import ChatMarkdown from "../ChatMarkdown";
 import { AgentAvatar } from "../agents/AgentAvatar";
 import { Spinner } from "../ui/spinner";
@@ -38,6 +39,7 @@ import { groupDelegatedAgents, useDelegatedAgents } from "../agents/useDelegated
 export interface ThreadOverviewPanelProps {
   threadKey: string;
   label: string;
+  showGit?: boolean;
   changes: { additions: number; deletions: number } | null;
   agents: { working: number; done: number };
   sources: ReadonlyArray<ChatAttachment>;
@@ -59,11 +61,12 @@ const NO_ITEMS: ReadonlyArray<never> = [];
 const NO_DELEGATIONS: ReadonlyArray<DelegatedAgent> = [];
 
 const rowClassName =
-  "flex w-full cursor-pointer items-center gap-3 rounded-lg py-2 text-left transition-colors hover:bg-accent/50 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-default";
+  "-mx-2 flex w-[calc(100%+1rem)] cursor-pointer items-center gap-3 rounded-lg px-2 py-1.5 text-left transition-colors hover:bg-accent/50 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-default";
 
 function OverviewPopover({
   label,
   changes,
+  showGit = changes !== null,
   agents,
   sources,
   onToggleChanges,
@@ -81,7 +84,8 @@ function OverviewPopover({
   const target = useThreadOverviewStore((state) => state.target);
   const [open, setOpen] = useState(false);
   const anchorRef = useRef<HTMLSpanElement>(null);
-  const [sourcesExpanded, setSourcesExpanded] = useState(false);
+  const [sourcesExpanded, setSourcesExpanded] = useState(true);
+  const [gitExpanded, setGitExpanded] = useState(true);
   const delegated = useDelegatedAgents(sourceThreadRef ?? null, delegatedAgents);
   const initialJobs = useRef<Set<string> | null>(null);
   const openedJobs = useRef(new Set<string>());
@@ -91,7 +95,7 @@ function OverviewPopover({
   >(null);
   const [expanded, setExpanded] = useState(false);
   const [availableSize, setAvailableSize] = useState({ height: 320, width: 320 });
-  const showChanges = codeWorkspace && changes !== null;
+  const showChanges = codeWorkspace && showGit;
   const selectedAgent =
     view?.kind === "agent" ? grouped.find(({ job }) => job.agentProjectId === view.id) : null;
   const selectedSubagent =
@@ -138,7 +142,7 @@ function OverviewPopover({
     setOpen(true);
     useThreadOverviewStore.setState({ target: null });
   }, [target, sourceThreadRef]);
-  const visibleSources = sourcesExpanded ? sources : sources.slice(0, 3);
+  const visibleSources = sourcesExpanded ? sources.slice(0, 3) : [];
   const openView = (action: () => void) => {
     action();
     setOpen(false);
@@ -193,7 +197,7 @@ function OverviewPopover({
                       availableSize.height,
                       320 + Math.max(0, availableSize.height - 320) / 2,
                     )
-                  : Math.min(320, availableSize.height),
+                  : Math.min(view ? 320 : 560, availableSize.height),
               width:
                 view && expanded
                   ? wide
@@ -201,9 +205,9 @@ function OverviewPopover({
                     : "calc(100vw - 2rem)"
                   : 320,
             }}
-            className="flex max-h-(--available-height) w-80 max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-3xl border border-(--app-theme-toolbar-border,var(--border)) text-foreground shadow-lg outline-none [--overview-surface:var(--app-theme-surface-raised,var(--card))] dark:[--overview-surface:var(--app-theme-surface-raised,var(--surface-raised))] bg-(--overview-surface)/(--glass-opacity) backdrop-blur-(--glass-blur) backdrop-saturate-(--glass-saturation) not-supports-[((backdrop-filter:blur(1px))_or_(-webkit-backdrop-filter:blur(1px)))]:bg-(--overview-surface)"
+            className="flex max-h-(--available-height) w-80 max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-3xl border border-(--app-theme-toolbar-border,var(--border)) text-foreground outline-none [--overview-surface:var(--app-theme-surface-raised,var(--card))] dark:[--overview-surface:var(--app-theme-surface-raised,var(--surface-raised))] bg-(--overview-surface)/(--glass-opacity) backdrop-blur-(--glass-blur) backdrop-saturate-(--glass-saturation) not-supports-[((backdrop-filter:blur(1px))_or_(-webkit-backdrop-filter:blur(1px)))]:bg-(--overview-surface)"
           >
-            <header className="flex shrink-0 items-center gap-2 px-5 pt-4 pb-2">
+            <header className="flex shrink-0 items-center gap-2 px-5 pt-3 pb-2">
               {view ? (
                 <Button
                   variant="ghost-muted"
@@ -282,60 +286,82 @@ function OverviewPopover({
             </header>
             <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 pt-1 pb-5">
               {view === null ? (
-                <div className="flex flex-col gap-4 [&>section:not(:first-child)]:border-t [&>section:not(:first-child)]:border-border/50 [&>section:not(:first-child)]:pt-3">
+                <div className="flex flex-col gap-2.5 [&>section:not(:first-child)]:border-t [&>section:not(:first-child)]:border-border/50 [&>section:not(:first-child)]:pt-2.5">
                   {showChanges && (
-                    <button
-                      type="button"
-                      className={rowClassName}
-                      onClick={() => openView(onToggleChanges)}
-                    >
-                      <FileDiffIcon aria-hidden className="size-4 shrink-0" />
-                      <span className="flex-1">Changes</span>
-                      <span className="text-xs tabular-nums text-success">
-                        +{changes.additions.toLocaleString()}
-                      </span>
-                      <span className="text-xs tabular-nums text-destructive">
-                        −{changes.deletions.toLocaleString()}
-                      </span>
-                    </button>
+                    <section>
+                      <button
+                        type="button"
+                        className="mb-1 flex cursor-pointer items-center gap-1.5 text-xs text-muted-foreground"
+                        aria-label="Git"
+                        aria-expanded={gitExpanded}
+                        onClick={() => setGitExpanded(!gitExpanded)}
+                      >
+                        Git{" "}
+                        <ChevronDownIcon className={cn("size-3", !gitExpanded && "-rotate-90")} />
+                      </button>
+                      {gitExpanded && (
+                        <button
+                          type="button"
+                          className={rowClassName}
+                          onClick={() => openView(onToggleChanges)}
+                        >
+                          <FileDiffIcon aria-hidden className="size-4 shrink-0" />
+                          <span className="flex-1 text-sm">Changes</span>
+                          <span className="text-xs tabular-nums text-success">
+                            +{(changes?.additions ?? 0).toLocaleString()}
+                          </span>
+                          <span className="text-xs tabular-nums text-destructive">
+                            −{(changes?.deletions ?? 0).toLocaleString()}
+                          </span>
+                        </button>
+                      )}
+                    </section>
                   )}
                   {grouped.length > 0 ? (
                     <section>
-                      <h3 className="mb-2 flex justify-between text-xs text-muted-foreground">
+                      <h3 className="mb-1 flex justify-between text-xs text-muted-foreground">
                         <span>Agents</span>
                         {grouped.some((agent) => agent.working) ? (
                           <span>{grouped.filter((agent) => agent.working).length} working</span>
                         ) : null}
                       </h3>
-                      {grouped.map((agent) => (
-                        <button
-                          key={agent.job.agentProjectId}
-                          type="button"
-                          className={rowClassName}
-                          aria-label={`View ${agent.name} responses`}
-                          onClick={() => setView({ kind: "agent", id: agent.job.agentProjectId })}
-                        >
-                          {agent.project?.agentProfile ? (
-                            <AgentAvatar
-                              avatar={agent.project.agentProfile.avatar}
-                              working={agent.working}
-                              className="size-5"
-                            />
-                          ) : null}
-                          <span className="flex-1 truncate text-sm">{agent.name}</span>
-                          <span className="text-xs text-muted-foreground">
-                            {agent.working
-                              ? "Working"
-                              : agent.data?.status === "completed"
-                                ? "Finished"
-                                : "Stopped"}
-                          </span>
-                        </button>
-                      ))}
+                      <div className="flex items-center gap-2 overflow-x-auto" aria-label="Agents">
+                        {grouped.map((agent) => (
+                          <Tooltip key={agent.job.agentProjectId}>
+                            <TooltipTrigger
+                              render={
+                                <button
+                                  type="button"
+                                  className="flex shrink-0 cursor-pointer items-center justify-center rounded-lg p-1 hover:bg-accent/50 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
+                                  aria-label={`View ${agent.name} responses`}
+                                  onClick={() => {
+                                    setExpanded(false);
+                                    setView({ kind: "agent", id: agent.job.agentProjectId });
+                                  }}
+                                />
+                              }
+                            >
+                              {agent.project?.agentProfile ? (
+                                <AgentAvatar
+                                  avatar={agent.project.agentProfile.avatar}
+                                  working={agent.working}
+                                  className="size-5"
+                                />
+                              ) : (
+                                <BotIcon className="size-5" />
+                              )}
+                            </TooltipTrigger>
+                            <TooltipPopup>
+                              {agent.name}
+                              {agent.working ? " · Working" : ""}
+                            </TooltipPopup>
+                          </Tooltip>
+                        ))}
+                      </div>
                     </section>
                   ) : null}
                   <section>
-                    <h3 className="text-xs text-muted-foreground">Subagents</h3>
+                    <h3 className="mb-1 text-xs text-muted-foreground">Subagents</h3>
                     <button
                       type="button"
                       className={rowClassName}
@@ -351,16 +377,16 @@ function OverviewPopover({
                       <button
                         type="button"
                         aria-expanded={sourcesExpanded}
-                        aria-label={sourcesExpanded ? "Show recent sources" : "Show all sources"}
+                        aria-label={sourcesExpanded ? "Collapse sources" : "Expand sources"}
                         className="flex cursor-pointer items-center gap-1.5 rounded-sm text-xs text-muted-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
                         onClick={() => setSourcesExpanded((expanded) => !expanded)}
                       >
-                        Sources
+                        Sources{!sourcesExpanded ? ` (${sources.length})` : ""}
                         <ChevronDownIcon
                           aria-hidden
                           className={cn(
                             "size-3 transition-transform",
-                            sourcesExpanded && "rotate-180",
+                            !sourcesExpanded && "-rotate-90",
                           )}
                         />
                       </button>
@@ -373,7 +399,7 @@ function OverviewPopover({
                         <PlusIcon className="size-3.5" />
                       </Button>
                     </div>
-                    {visibleSources.length === 0 ? (
+                    {!sourcesExpanded ? null : visibleSources.length === 0 ? (
                       <p className="py-2 text-xs text-muted-foreground">No uploaded sources yet.</p>
                     ) : (
                       visibleSources.map((source) => (
@@ -438,18 +464,11 @@ function OverviewPopover({
                       .join("\n\n");
                     return (
                       <section key={job.activityId} className="flex flex-col gap-3">
-                        <div
-                          className="flex items-start gap-2 rounded-2xl bg-message text-message-foreground p-3"
-                          aria-label="Task summary"
+                        <AgentMessageBubble
+                          avatar={project?.agentProfile?.avatar}
+                          working={working}
                         >
-                          {project?.agentProfile ? (
-                            <AgentAvatar
-                              avatar={project.agentProfile.avatar}
-                              working={working}
-                              className="mt-1 size-5 shrink-0"
-                            />
-                          ) : null}
-                          <div className="min-w-0 flex-1">
+                          <div aria-label="Task summary">
                             {ask ? (
                               <ChatMarkdown
                                 text={ask}
@@ -464,7 +483,7 @@ function OverviewPopover({
                               </p>
                             )}
                           </div>
-                        </div>
+                        </AgentMessageBubble>
                         <div
                           className="flex items-start gap-2 rounded-2xl bg-background/30 p-3"
                           aria-label="Result"

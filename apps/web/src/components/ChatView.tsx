@@ -9970,6 +9970,11 @@ export default function ChatView(props: ChatViewProps) {
             overview={{
               threadKey: activeThreadKey ?? routeThreadKey,
               label: activeProject?.title ?? activeThread.title,
+              showGit:
+                codeWorkspace &&
+                activeProject !== null &&
+                !activeProject.agentProfile &&
+                !isScratchProject(activeProject, serverConfig?.scratchWorkspaceRoot),
               changes:
                 isServerThread && isGitRepo && gitStatusQuery.data
                   ? {
@@ -10069,6 +10074,9 @@ export default function ChatView(props: ChatViewProps) {
             <div className="relative flex min-h-0 flex-1 flex-col bg-background">
               {/* Messages — LegendList handles virtualization and scrolling internally */}
               <MessagesTimeline
+                agentAvatar={
+                  paintOnlyDisplayedTimeline ? undefined : activeProject?.agentProfile?.avatar
+                }
                 citationRequest={paintOnlyDisplayedTimeline ? null : citationRequest}
                 citationHistoryLoading={threadDetailLoading}
                 {...(!paintOnlyDisplayedTimeline

@@ -1,3 +1,8 @@
+import { Link } from "@tanstack/react-router";
+import { agentTaskHandoff } from "@t3tools/shared/agentMentions";
+import { scopeThreadRef } from "@t3tools/client-runtime/environment";
+import { AgentMessageBubble } from "../agents/AgentMessageBubble";
+import { AgentAvatar, type AgentAvatarValue } from "../agents/AgentAvatar";
 import { AgentMessageStatus, SentAgentMentionChip } from "../agents/AgentMentionChip";
 import { useCodeWorkspace } from "~/hooks/useSettings";
 import { ArrowUpIcon, ClockIcon } from "~/icons";
@@ -271,6 +276,7 @@ import { ComputerUseAppIcon } from "~/components/Icons";
 // ---------------------------------------------------------------------------
 
 interface TimelineRowSharedState {
+  agentAvatar: AgentAvatarValue | undefined;
   citationRequest: AssistantCitationTarget | null;
   listRef: React.RefObject<LegendListRef | null>;
   timestampFormat: TimestampFormat;
@@ -399,6 +405,7 @@ const TIMELINE_MAINTAIN_SCROLL_AT_END_SMOOTH = {
 // ---------------------------------------------------------------------------
 
 interface MessagesTimelineProps {
+  agentAvatar?: AgentAvatarValue | undefined;
   citationRequest?: AssistantCitationRequest | null;
   citationHistoryLoading?: boolean;
   onCiteAssistantText?: (
@@ -529,12 +536,42 @@ export const MessagesTimeline = memo(function MessagesTimeline({
   onSteerQueuedMessage = NOOP_QUEUED_MESSAGE_ACTION,
   steerQueuedMessageShortcutLabel = null,
   onRemoveQueuedMessage = NOOP_QUEUED_MESSAGE_ACTION,
+  agentAvatar,
 }: MessagesTimelineProps) {
   const listIdentityKey = displayThreadKey ?? routeThreadKey;
-  const rememberedPosition = useMemo(
-    () => readTimelinePosition(listIdentityKey),
-    [listIdentityKey],
+  const [agentLanding, setAgentLanding] = useState<{ key: string; messageId: MessageId | null }>({
+    key: listIdentityKey,
+    messageId: null,
+  });
+  const latestMessage =
+    agentAvatar &&
+    timelineEntries.findLast(
+      (entry) =>
+        entry.kind === "message" &&
+        entry.message.role !== "reasoning" &&
+        (entry.message.text.trim().length > 0 || entry.message.attachments?.length),
+    );
+  const savedAgentLanding = agentLanding.key === listIdentityKey ? agentLanding.messageId : null;
+  const capturingAgentLanding = Boolean(
+    agentAvatar && !savedAgentLanding && latestMessage?.kind === "message",
   );
+  const agentLandingMessageId = agentAvatar
+    ? (savedAgentLanding ?? (latestMessage?.kind === "message" ? latestMessage.message.id : null))
+    : null;
+  if (agentLanding.key !== listIdentityKey || capturingAgentLanding)
+    setAgentLanding({ key: listIdentityKey, messageId: agentLandingMessageId });
+  const rememberedPosition = useMemo(() => {
+    const saved = readTimelinePosition(listIdentityKey);
+    return agentLandingMessageId
+      ? {
+          ...saved,
+          rowId: agentLandingMessageId,
+          offsetWithinRow: 0,
+          scrollOffset: 0,
+          atEnd: false,
+        }
+      : saved;
+  }, [listIdentityKey, agentLandingMessageId]);
   const [expandedTurnIds, setExpandedTurnIds] = useState<ReadonlySet<TurnId>>(
     () => rememberedPosition?.disclosures?.turns ?? new Set(),
   );
@@ -550,6 +587,8 @@ export const MessagesTimeline = memo(function MessagesTimeline({
   const [positionedThreadKey, setPositionedThreadKey] = useState<string | null>(() =>
     rememberedPosition?.atEnd === false ? null : listIdentityKey,
   );
+  if (capturingAgentLanding && positionedThreadKey === listIdentityKey)
+    setPositionedThreadKey(null);
   const restoringThreadPosition = positionedThreadKey !== listIdentityKey;
   const prefersReducedMotion = useMediaQuery("(prefers-reduced-motion: reduce)");
   const listIdentityRef = useRef(listIdentityKey);
@@ -979,12 +1018,23 @@ export const MessagesTimeline = memo(function MessagesTimeline({
   const anchoredEndSpace = useMemo(() => {
     const config = resolveChatListAnchoredEndSpace(
       rows,
-      anchorMessageId,
-      (row) => (row.kind === "message" && row.message.role === "user" ? row.message.id : null),
-      { anchorOffset: CHAT_TIMELINE_ANCHOR_OFFSET },
+      anchorMessageId ?? agentLandingMessageId,
+      (row) =>
+        row.kind === "message" &&
+        (anchorMessageId === null && agentLandingMessageId !== null
+          ? row.message.id === agentLandingMessageId
+          : row.message.role === "user")
+          ? row.message.id
+          : null,
+      {
+        anchorOffset:
+          anchorMessageId === null && agentLandingMessageId !== null
+            ? 0
+            : CHAT_TIMELINE_ANCHOR_OFFSET,
+      },
     );
     return config ? { ...config, onReady: handleAnchorReady } : undefined;
-  }, [anchorMessageId, handleAnchorReady, rows]);
+  }, [anchorMessageId, agentLandingMessageId, handleAnchorReady, rows]);
   const timelineListFooter = useMemo(
     () => <TimelineListFooter composerInset={anchoredEndSpace ? 0 : contentInsetEndAdjustment} />,
     [anchoredEndSpace, contentInsetEndAdjustment],
@@ -1148,6 +1198,7 @@ export const MessagesTimeline = memo(function MessagesTimeline({
 
   const sharedState = useMemo<TimelineRowSharedState>(
     () => ({
+      agentAvatar,
       citationRequest: readyCitationRequest,
       listRef,
       timestampFormat,
@@ -1185,6 +1236,7 @@ export const MessagesTimeline = memo(function MessagesTimeline({
       onRemoveQueuedMessage,
     }),
     [
+      agentAvatar,
       readyCitationRequest,
       listRef,
       timestampFormat,
@@ -1261,13 +1313,16 @@ export const MessagesTimeline = memo(function MessagesTimeline({
   const renderItem = useCallback(
     ({ item }: { item: MessagesTimelineRow }) => (
       <div
-        className="mx-auto w-full min-w-0 max-w-(--chat-max-width) overflow-x-clip"
+        className={cn(
+          "mx-auto w-full min-w-0 max-w-(--chat-max-width)",
+          !agentAvatar && "overflow-x-clip",
+        )}
         data-timeline-root="true"
       >
         <TimelineRowContent row={item} />
       </div>
     ),
-    [],
+    [agentAvatar],
   );
 
   if (rows.length === 0 && !isWorking) {
@@ -1961,6 +2016,28 @@ function MessageAuthorHeading({ children }: { children: string }) {
   return <h3 className="sr-only select-none">{children}</h3>;
 }
 
+function AgentTaskReceivedHeading({
+  handoff,
+  environmentId,
+}: {
+  handoff: NonNullable<ReturnType<typeof agentTaskHandoff>>;
+  environmentId: EnvironmentId;
+}) {
+  const source = useThread(scopeThreadRef(environmentId, handoff.sourceThreadId));
+  return (
+    <p className="mb-2 text-xs text-muted-foreground">
+      Task received from{" "}
+      <Link
+        to="/$environmentId/$threadId"
+        params={{ environmentId, threadId: handoff.sourceThreadId }}
+        className="font-medium underline underline-offset-2"
+      >
+        {source?.title ?? handoff.sourceThreadTitle}
+      </Link>
+    </p>
+  );
+}
+
 function UserTimelineRow({ row }: { row: Extract<TimelineRow, { kind: "message" }> }) {
   const ctx = use(TimelineRowCtx);
   const { onImageExpand, onFileOpen } = ctx;
@@ -1994,7 +2071,11 @@ function UserTimelineRow({ row }: { row: Extract<TimelineRow, { kind: "message" 
   const unknownAttachments = (row.message.attachments ?? []).filter(
     (attachment) => !isImageAttachment(attachment) && !isFileAttachment(attachment),
   );
-  const resolvedContext = useMemo(() => resolveUserMessageContext(row.message), [row.message]);
+  const handoff = useMemo(() => agentTaskHandoff(row.message), [row.message]);
+  const resolvedContext = useMemo(
+    () => resolveUserMessageContext(handoff ? { ...row.message, text: handoff.ask } : row.message),
+    [handoff, row.message],
+  );
   const previewImages = useMemo(
     () => userImages.filter((image) => image.name.startsWith("preview-annotation-")),
     [userImages],
@@ -2120,8 +2201,14 @@ function UserTimelineRow({ row }: { row: Extract<TimelineRow, { kind: "message" 
   );
 
   return (
-    <div className="group flex flex-col items-end gap-1">
+    <div className={cn("group flex flex-col gap-1", handoff ? "items-start px-1" : "items-end")}>
       <div className="relative max-w-[80%] rounded-2xl bg-message p-3 text-message-foreground">
+        {handoff && ctx.agentAvatar ? (
+          <AgentAvatar
+            avatar={ctx.agentAvatar}
+            className="absolute right-full top-3 mr-1 size-3 sm:size-4"
+          />
+        ) : null}
         {collectComposerContextReferences(resolvedContext.text).some(
           (reference) => reference.kind === "agent",
         ) ? (
@@ -2129,7 +2216,14 @@ function UserTimelineRow({ row }: { row: Extract<TimelineRow, { kind: "message" 
             <AgentMessageStatus sourceThreadRef={ctx.threadRef} sourceMessageId={row.message.id} />
           </div>
         ) : null}
-        <MessageAuthorHeading>You</MessageAuthorHeading>
+        {handoff ? (
+          <AgentTaskReceivedHeading
+            handoff={handoff}
+            environmentId={ctx.activeThreadEnvironmentId}
+          />
+        ) : (
+          <MessageAuthorHeading>You</MessageAuthorHeading>
+        )}
         {(regularImages.length > 0 || userVideos.length > 0) && (
           <div className="mb-2 grid max-w-[210px] grid-cols-2 gap-2">
             {regularImages.map((image) => (
@@ -2241,7 +2335,12 @@ function UserTimelineRow({ row }: { row: Extract<TimelineRow, { kind: "message" 
           />
         </div>
       </div>
-      <div className="flex w-full max-w-[80%] items-center justify-end pe-1 text-xs tabular-nums opacity-0 transition-opacity duration-200 pointer-coarse:opacity-100 focus-within:opacity-100 group-hover:opacity-100">
+      <div
+        className={cn(
+          "flex w-full max-w-[80%] items-center pe-1 text-xs tabular-nums opacity-0 transition-opacity duration-200 pointer-coarse:opacity-100 focus-within:opacity-100 group-hover:opacity-100",
+          !handoff && "justify-end",
+        )}
+      >
         <div className="flex shrink-0 items-center gap-2">
           <Tooltip>
             <TooltipTrigger render={<p className="text-muted-foreground text-xs tabular-nums" />}>
@@ -2399,11 +2498,12 @@ function TurnFoldTimelineRow({ row }: { row: Extract<TimelineRow, { kind: "turn-
 function AssistantTimelineRow({ row }: { row: Extract<TimelineRow, { kind: "message" }> }) {
   const ctx = use(TimelineRowCtx);
   const messageText = row.message.text || (row.message.streaming ? "" : "(empty response)");
+  const taskSummary = ctx.agentAvatar && /^\*\*Task:\*\*\s*/i.test(messageText);
 
   return (
     <>
       <div className="relative min-w-0 px-1 py-0.5">
-        <MessageAuthorHeading>Elysia</MessageAuthorHeading>
+        {!ctx.agentAvatar && <MessageAuthorHeading>Elysia</MessageAuthorHeading>}
         <AssistantCitationSource
           messageId={row.message.id}
           {...(ctx.threadRef ? { threadRef: ctx.threadRef } : {})}
@@ -2411,18 +2511,29 @@ function AssistantTimelineRow({ row }: { row: Extract<TimelineRow, { kind: "mess
           request={ctx.citationRequest}
           listRef={ctx.listRef}
         >
-          <ChatMarkdown
-            text={messageText}
-            cwd={ctx.markdownCwd}
-            threadRef={ctx.threadRef ?? undefined}
-            isStreaming={Boolean(row.message.streaming)}
-            lineBreaks={shouldPreserveAssistantLineBreaks(messageText)}
-            skills={ctx.skills}
-            headingLevelOffset={MESSAGE_HEADING_LEVEL}
-            onUseArtifactTemplate={ctx.onUseArtifactTemplate}
-            onRunShellCommand={ctx.onRunShellCommand}
-            onImageExpand={ctx.onImageExpand}
-          />
+          {taskSummary ? (
+            <AgentMessageBubble avatar={ctx.agentAvatar} working={row.message.streaming}>
+              <ChatMarkdown
+                text={messageText.replace(/^\*\*Task:\*\*\s*/i, "")}
+                cwd={ctx.markdownCwd}
+                threadRef={ctx.threadRef ?? undefined}
+                isStreaming={Boolean(row.message.streaming)}
+              />
+            </AgentMessageBubble>
+          ) : (
+            <ChatMarkdown
+              text={messageText}
+              cwd={ctx.markdownCwd}
+              threadRef={ctx.threadRef ?? undefined}
+              isStreaming={Boolean(row.message.streaming)}
+              lineBreaks={shouldPreserveAssistantLineBreaks(messageText)}
+              skills={ctx.skills}
+              headingLevelOffset={MESSAGE_HEADING_LEVEL}
+              onUseArtifactTemplate={ctx.onUseArtifactTemplate}
+              onRunShellCommand={ctx.onRunShellCommand}
+              onImageExpand={ctx.onImageExpand}
+            />
+          )}
         </AssistantCitationSource>
         <AssistantChangedFilesSection
           turnSummary={row.assistantTurnDiffSummary}

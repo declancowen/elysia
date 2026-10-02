@@ -90,15 +90,20 @@ afterEach(async () => {
   vi.unstubAllGlobals();
 });
 
-it("shows three recent uploads, expands older uploads, and dismisses outside on a narrow screen", async () => {
+it("shows only three uploads, collapses with a count, and opens all sources", async () => {
   await render();
   expect(document.querySelector('[role="dialog"]')).toBeNull();
   await click("Thread overview");
   expect(document.body.textContent).toContain("recent.pdf");
   expect(document.body.textContent).not.toContain("older.txt");
-  await click("Show all sources");
-  expect(document.body.textContent).toContain("older.txt");
-  await outsidePress();
+  await click("Collapse sources");
+  expect(document.body.textContent).toContain("Sources (4)");
+  expect(document.body.textContent).not.toContain("recent.pdf");
+  await click("Expand sources");
+  expect(document.body.textContent).toContain("recent.pdf");
+  expect(document.body.textContent).not.toContain("older.txt");
+  await click("View all");
+  expect(props.onOpenSources).toHaveBeenCalledOnce();
   expect(document.querySelector('[role="dialog"]')).toBeNull();
 });
 
@@ -266,7 +271,7 @@ it("keeps completed history closed after the source detail loads", async () => {
   });
   expect(document.querySelector('[role="dialog"]')).toBeNull();
   await click("Thread overview");
-  expect(document.body.textContent).toContain("Friday");
+  expect(document.querySelector('[aria-label="View Friday responses"]')).not.toBeNull();
 });
 
 it("opens an individual subagent result inside the container and returns through Back", async () => {
@@ -364,4 +369,18 @@ it("keeps a streaming task summary separate from the result", async () => {
   expect(document.querySelector('[aria-label="Result"]')?.textContent).not.toContain(
     "I will check the release.",
   );
+});
+
+it("keeps Git available with no diff and lets it collapse before opening changes", async () => {
+  await render({ changes: null, showGit: true });
+  await click("Thread overview");
+  expect(document.body.textContent).toContain("Changes+0−0");
+  await click("Git");
+  expect(document.body.textContent).not.toContain("Changes");
+  await click("Git");
+  const changes = Array.from(document.querySelectorAll("button")).find((button) =>
+    button.textContent?.startsWith("Changes"),
+  );
+  await act(async () => changes!.click());
+  expect(props.onToggleChanges).toHaveBeenCalledOnce();
 });

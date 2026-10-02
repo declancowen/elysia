@@ -307,6 +307,11 @@ export const delegateToPersistentAgent = Effect.fn("delegateToPersistentAgent")(
               contextId: sourceFilesId,
               label: "Original request attachments",
               payload: {
+                handoff: {
+                  sourceThreadId: input.sourceThreadId,
+                  sourceThreadTitle: sourceOption.value.title,
+                  ask: stripAgentRouting(input.text),
+                },
                 attachments: preparedSource.message.attachments.map(
                   ({ id, type, name, mimeType, sizeBytes }) => ({
                     id,

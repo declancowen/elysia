@@ -285,6 +285,74 @@ function buildSnapShotTimelineEntry(previewUrl?: string) {
 }
 
 describe("MessagesTimeline", () => {
+  it("opens an agent chat at the latest visible message and preserves manual navigation on updates", async () => {
+    vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+    vi.stubGlobal("requestAnimationFrame", () => 0);
+    vi.stubGlobal("cancelAnimationFrame", () => {});
+    const props = buildProps();
+    const cancelRestore = createRef<(() => void) | null>();
+    const scrollToIndex = vi.fn(() => Promise.resolve());
+    props.listRef.current = {
+      getState: () => ({ isAtEnd: false, indexByKey: () => undefined }),
+      getScrollableNode: () => null,
+      scrollToIndex,
+      scrollToOffset: vi.fn(() => Promise.resolve()),
+      scrollToEnd: vi.fn(() => Promise.resolve()),
+    } as unknown as LegendListRef;
+    const first = buildUserTimelineEntry("Earlier ask");
+    first.id = first.message.id;
+    const last = buildAssistantTimelineEntry("Latest result");
+    last.id = "latest-result";
+    last.message.id = MessageId.make(last.id);
+    const reasoning = {
+      ...last,
+      id: "thinking",
+      message: { ...last.message, role: "reasoning" as const, id: MessageId.make("thinking") },
+    };
+    let renderer: ReactTestRenderer | undefined;
+    try {
+      await act(() => {
+        renderer = create(
+          <MessagesTimeline
+            {...props}
+            cancelPositionRestoreRef={cancelRestore}
+            agentAvatar={{ preset: "robot", color: "#28B4FF" }}
+            timelineEntries={[first, last, reasoning]}
+          />,
+        );
+      });
+      expect(scrollToIndex).toHaveBeenCalledWith({
+        index: 1,
+        animated: false,
+        viewPosition: 0,
+        viewOffset: -0,
+      });
+      const list = renderer!.root.findByProps({ "data-testid": "legend-list" });
+      expect(list.props["data-anchor-index"]).toBe(1);
+      expect(list.props["data-anchor-offset"]).toBe(0);
+      await act(() => cancelRestore.current?.());
+      scrollToIndex.mockClear();
+      await act(() =>
+        renderer!.update(
+          <MessagesTimeline
+            {...props}
+            cancelPositionRestoreRef={cancelRestore}
+            agentAvatar={{ preset: "robot", color: "#28B4FF" }}
+            timelineEntries={[
+              first,
+              { ...last, message: { ...last.message, text: "Latest result extended" } },
+              reasoning,
+            ]}
+          />,
+        ),
+      );
+      expect(scrollToIndex).not.toHaveBeenCalled();
+    } finally {
+      await act(() => renderer?.unmount());
+      vi.unstubAllGlobals();
+    }
+  });
+
   it("renders previous and next controls with the minimap", () => {
     const first = buildUserTimelineEntry("First turn");
     const secondBase = buildUserTimelineEntry("Second turn");

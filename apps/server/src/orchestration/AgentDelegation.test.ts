@@ -968,7 +968,21 @@ it.effect("hands off only a bounded recent excerpt and the current request", () 
       });
     }
     yield* delegateToPersistentAgent(input, dispatch);
-    const text = (yield* read(agentThreadId)).messages[0]!.text;
+    const message = (yield* read(agentThreadId)).messages[0]!;
+    const text = message.text;
+    const source = message.context?.records.find(
+      ({ kind }) => kind === "elysia-agent-delegation-source",
+    );
+    assert.deepInclude(source, {
+      payload: {
+        handoff: {
+          sourceThreadId,
+          sourceThreadTitle: "Release work",
+          ask: "@Friday investigate the next release.",
+        },
+        attachments: [],
+      },
+    });
     assert.notInclude(text, "Old transcript content");
     const excerpt = text
       .split("Recent excerpt (reference only, limited to the last two messages):\n\n")[1]!

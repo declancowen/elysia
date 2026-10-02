@@ -85,10 +85,10 @@ function AgentDetails({ agent, onClose }: { agent: AgentRosterEntry; onClose: ()
             working={busy}
           />
         </div>
-        <div ref={labelRef} className="min-w-0 flex-1 space-y-1 break-words">
+        <div ref={labelRef} className="flex min-w-0 flex-1 flex-col gap-2 break-words">
           <PopoverTitle>{project.title}</PopoverTitle>
           {profile.title ? (
-            <p className="w-fit rounded-md bg-foreground/15 px-2 py-1 text-xs text-foreground">
+            <p className="w-fit rounded-md bg-foreground/15 px-1.5 py-0.5 text-2xs text-foreground">
               {profile.title}
             </p>
           ) : null}

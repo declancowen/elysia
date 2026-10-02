@@ -98,12 +98,16 @@ function OverviewPopover({
   const [expanded, setExpanded] = useState(false);
   const bodyRef = useRef<HTMLDivElement>(null);
   const landedView = useRef<typeof view>(null);
-  const [availableSize, setAvailableSize] = useState({ height: 320, width: 320 });
+  const [availableSize, setAvailableSize] = useState({ x: 0, y: 0, height: 320, width: 320 });
   const showChanges = codeWorkspace && showGit;
   const selectedAgent =
     view?.kind === "agent" ? grouped.find(({ job }) => job.agentProjectId === view.id) : null;
   const selectedSubagent =
     view?.kind === "subagent" ? subagents.find(({ id }) => id === view.id) : null;
+  const collapsedWidth = Math.min(320, availableSize.width);
+  const expandedWidth = wide
+    ? collapsedWidth + (availableSize.width - collapsedWidth) / 2
+    : availableSize.width;
   useLayoutEffect(() => {
     const body = bodyRef.current;
     if (!open || !selectedAgent) {
@@ -117,7 +121,7 @@ function OverviewPopover({
     if (!message) return;
     const rect = message.getBoundingClientRect();
     const top = body.scrollTop + rect.top - body.getBoundingClientRect().top;
-    // Short last messages need trailing space to land at the top without earlier replies.
+    // Land at the start of the whole reply with its avatar, including progress messages.
     body.style.paddingBottom = `${Math.max(20, body.clientHeight - rect.height)}px`;
     if (landedView.current === view) return;
     body.scrollTop = top;
@@ -125,15 +129,33 @@ function OverviewPopover({
   }, [open, view, selectedAgent, expanded, availableSize]);
   useLayoutEffect(() => {
     if (!open) return;
+    const column = anchorRef.current?.closest("[data-chat-column-maximized-away]");
+    const header = anchorRef.current?.closest("[data-chat-header]");
     const measure = () => {
-      const top = anchorRef.current?.getBoundingClientRect().top ?? 0;
-      const bottom = composerElement?.getBoundingClientRect().bottom ?? window.innerHeight;
-      const width =
-        anchorRef.current?.closest("[data-chat-header]")?.getBoundingClientRect().width ?? 320;
-      setAvailableSize({ height: Math.max(0, Math.floor(bottom - top - 12)), width });
+      const bounds = column?.getBoundingClientRect();
+      const headerBounds = header?.getBoundingClientRect();
+      const x = Math.max(0, bounds?.left ?? headerBounds?.left ?? 0) + 12;
+      const y =
+        Math.max(bounds?.top ?? 0, anchorRef.current?.getBoundingClientRect().top ?? 0) + 12;
+      const right =
+        Math.min(window.innerWidth, bounds?.right ?? headerBounds?.right ?? window.innerWidth) - 12;
+      const bottom =
+        Math.min(
+          window.innerHeight,
+          bounds?.bottom ?? window.innerHeight,
+          composerElement?.getBoundingClientRect().bottom ?? window.innerHeight,
+        ) - 12;
+      setAvailableSize({
+        x,
+        y,
+        height: Math.max(0, Math.floor(bottom - y)),
+        width: Math.max(0, Math.floor(right - x)),
+      });
     };
     measure();
     const observer = new ResizeObserver(measure);
+    const boundaryElement = column ?? header;
+    if (boundaryElement) observer.observe(boundaryElement);
     if (composerElement) observer.observe(composerElement);
     window.addEventListener("resize", measure);
     return () => {
@@ -207,7 +229,10 @@ function OverviewPopover({
           align="end"
           anchor={anchorRef}
           sideOffset={12}
-          className="z-40 max-w-[calc(100vw-2rem)]"
+          collisionBoundary={availableSize}
+          collisionPadding={0}
+          collisionAvoidance={{ side: "shift", align: "shift", fallbackAxisSide: "none" }}
+          className="z-40"
         >
           {/* This feature frame follows the composer surface rather than a menu surface. */}
           <PopoverPrimitive.Popup
@@ -224,14 +249,10 @@ function OverviewPopover({
                     ? Math.min(320, availableSize.height)
                     : undefined,
               maxHeight: availableSize.height,
-              width:
-                view && expanded
-                  ? wide
-                    ? 320 + Math.max(0, availableSize.width - 320) / 2
-                    : "calc(100vw - 2rem)"
-                  : 320,
+              width: view && expanded ? expandedWidth : collapsedWidth,
+              maxWidth: availableSize.width,
             }}
-            className="flex max-h-(--available-height) w-80 max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-3xl border border-(--app-theme-toolbar-border,var(--border)) text-foreground outline-none [--overview-surface:var(--app-theme-surface-raised,var(--card))] dark:[--overview-surface:var(--app-theme-surface-raised,var(--surface-raised))] bg-(--overview-surface)/(--glass-opacity) backdrop-blur-(--glass-blur) backdrop-saturate-(--glass-saturation) not-supports-[((backdrop-filter:blur(1px))_or_(-webkit-backdrop-filter:blur(1px)))]:bg-(--overview-surface)"
+            className="flex max-h-(--available-height) flex-col overflow-hidden rounded-3xl border border-(--app-theme-toolbar-border,var(--border)) text-foreground outline-none [--overview-surface:var(--app-theme-surface-raised,var(--card))] dark:[--overview-surface:var(--app-theme-surface-raised,var(--surface-raised))] bg-(--overview-surface)/(--glass-opacity) backdrop-blur-(--glass-blur) backdrop-saturate-(--glass-saturation) not-supports-[((backdrop-filter:blur(1px))_or_(-webkit-backdrop-filter:blur(1px)))]:bg-(--overview-surface)"
           >
             <header className="flex shrink-0 items-center gap-2 px-5 pt-5 pb-2">
               {view ? (
@@ -301,7 +322,7 @@ function OverviewPopover({
                           : "Unavailable"}
                 </span>
               ) : null}
-              {view || showChanges ? (
+              {(view ? expanded || expandedWidth > collapsedWidth : showChanges) ? (
                 <Button
                   variant="ghost"
                   size="icon-xs"
@@ -535,15 +556,16 @@ function OverviewPopover({
                           </div>
                         </AgentMessageBubble>
                         {results.length ? (
-                          results.map((message) => (
-                            <div key={message.id} data-agent-panel-message={message.id}>
-                              <AgentMessageBubble
-                                avatar={project?.agentProfile?.avatar}
-                                working={working}
-                                bubble={false}
-                              >
-                                <div className="min-w-0" aria-label="Result">
+                          <div data-agent-panel-message={results.at(-1)?.id}>
+                            <AgentMessageBubble
+                              avatar={project?.agentProfile?.avatar}
+                              working={working}
+                              bubble={false}
+                            >
+                              <div className="flex min-w-0 flex-col gap-3" aria-label="Result">
+                                {results.map((message) => (
                                   <ChatMarkdown
+                                    key={message.id}
                                     text={message.text}
                                     cwd={project?.workspaceRoot}
                                     environmentId={sourceThreadRef?.environmentId}
@@ -557,10 +579,10 @@ function OverviewPopover({
                                       : {})}
                                     isStreaming={message.streaming}
                                   />
-                                </div>
-                              </AgentMessageBubble>
-                            </div>
-                          ))
+                                ))}
+                              </div>
+                            </AgentMessageBubble>
+                          </div>
                         ) : (
                           <p className="text-sm text-muted-foreground" aria-label="Result">
                             {working

@@ -280,8 +280,8 @@ it("keeps one agent entry, uses its own summary, and expands halfway across and 
   expect(document.querySelector('input, textarea, [contenteditable="true"]')).toBeNull();
   expect((document.querySelector('[role="dialog"]') as HTMLElement).style.height).toBe("320px");
   await click("Expand agent responses");
-  expect((document.querySelector('[role="dialog"]') as HTMLElement).style.height).toBe("454px");
-  expect((document.querySelector('[role="dialog"]') as HTMLElement).style.width).toBe("660px");
+  expect((document.querySelector('[role="dialog"]') as HTMLElement).style.height).toBe("448px");
+  expect((document.querySelector('[role="dialog"]') as HTMLElement).style.width).toBe("648px");
   await click("Collapse agent responses");
   expect((document.querySelector('[role="dialog"]') as HTMLElement).style.height).toBe("320px");
   await click("Back to thread overview");
@@ -348,7 +348,7 @@ it("uses the overview arrow for Git changes, and expands narrow agent responses 
   expect(document.querySelector('[aria-label="Show Git"]')).toBeNull();
   const height = responses.style.height;
   await click("Expand agent responses");
-  expect(responses.style.width).toBe("calc(100vw - 2rem)");
+  expect(responses.style.width).toBe(`${window.innerWidth - 24}px`);
   expect(responses.style.height).toBe(height);
 });
 
@@ -370,6 +370,100 @@ it("opens the clicked agent's responses only in the originating chat", async () 
   expect(document.querySelector('[aria-label="View Friday responses"]')).toBeNull();
   expect(document.body.textContent).not.toContain("recent.pdf");
   expect(useThreadOverviewStore.getState().target).toBeNull();
+});
+
+it.each([false, true])(
+  "fits the thread column after panel resizing and hides pointless expansion (wide: %s)",
+  async (wide) => {
+    const observers = new Map<Element, Set<() => void>>();
+    vi.stubGlobal(
+      "ResizeObserver",
+      class {
+        constructor(private callback: () => void) {}
+        observe(element: Element) {
+          const callbacks = observers.get(element) ?? new Set();
+          callbacks.add(this.callback);
+          observers.set(element, callbacks);
+        }
+        unobserve() {}
+        disconnect() {}
+      },
+    );
+    state.wide = wide;
+    state.delegated = [workingAgent("Friday")];
+    host.setAttribute("data-chat-column-maximized-away", "false");
+    let bounds = new DOMRect(200, 0, 780, 200);
+    vi.spyOn(host, "getBoundingClientRect").mockImplementation(() => bounds);
+    await render({ delegatedAgents: state.delegated.map(({ job }) => job) });
+    await click("Expand agent responses");
+    const panel = document.querySelector<HTMLElement>('[role="dialog"]')!;
+    expect(panel.style.width).toBe(wide ? "538px" : "756px");
+    expect(panel.style.height).toBe("176px");
+
+    // Opening/resizing the side panel changes the column without resizing the window.
+    bounds = new DOMRect(200, 0, 300, 160);
+    await act(async () => {
+      for (const callback of observers.get(host) ?? []) callback();
+    });
+    expect(panel.style.width).toBe("276px");
+    expect(panel.style.height).toBe("136px");
+    await click("Collapse agent responses");
+    expect(panel.style.width).toBe("276px");
+    expect(document.querySelector('[aria-label="Expand agent responses"]')).toBeNull();
+
+    vi.stubGlobal("innerHeight", 140);
+    await act(async () => window.dispatchEvent(new Event("resize")));
+    expect(panel.style.height).toBe("116px");
+  },
+);
+
+it("shows one task avatar and one response avatar across progress and final messages", async () => {
+  const agent = workingAgent("Friday");
+  state.delegated = [
+    {
+      ...agent,
+      project: {
+        environmentId: EnvironmentId.make("local"),
+        id: agent.job.agentProjectId,
+        title: "Friday",
+        workspaceRoot: "/agents/friday",
+        repositoryIdentity: null,
+        defaultModelSelection: null,
+        scripts: [],
+        createdAt: "2026-10-02T00:00:00Z",
+        updatedAt: "2026-10-02T00:00:00Z",
+        agentProfile: {
+          instructions: "Assist with tasks.",
+          avatar: { preset: "brain", color: "#28B4FF" },
+          archived: false,
+          notificationsEnabled: true,
+        },
+      },
+      data: {
+        ...agent.data!,
+        messages: ["**Task:** Check it.", "First progress", "Next progress", "Final result"].map(
+          (text) => ({
+            id: MessageId.make(text),
+            role: "assistant" as const,
+            text,
+            turnId: agent.job.targetTurnId,
+            streaming: false,
+            createdAt: "2026-10-02T00:00:00Z",
+            updatedAt: "2026-10-02T00:00:00Z",
+          }),
+        ),
+      },
+    },
+  ];
+  await render({ delegatedAgents: [agent.job] });
+  const body = document.querySelector<HTMLElement>("[data-agent-panel-scroll]")!;
+  expect(body.querySelectorAll(".agent-avatar")).toHaveLength(2);
+  for (const text of ["Check it.", "First progress", "Next progress", "Final result"])
+    expect(body.textContent).toContain(text);
+  await click("Expand agent responses");
+  expect(body.querySelectorAll(".agent-avatar")).toHaveLength(2);
+  await click("Collapse agent responses");
+  expect(body.querySelectorAll(".agent-avatar")).toHaveLength(2);
 });
 
 it("opens the agent chat in its source environment and dismisses the floating view", async () => {
@@ -447,7 +541,7 @@ it("lands on the latest loaded response, reserves space for short replies, and p
   expect(body.scrollTop).toBe(450);
   expect(body.style.paddingBottom).toBe("140px");
   expect(document.querySelector('[data-agent-panel-message="latest"]')?.textContent).toBe(
-    "Latest reply",
+    "Earlier progressLatest reply",
   );
   body.scrollTop = 125;
   await render({ delegatedAgents: state.delegated.map(({ job }) => job) });

@@ -141,6 +141,17 @@ describe("formatContextWindowCompactionMessage", () => {
 
 describe("shouldOfferResumeCompaction", () => {
   const now = "2026-08-24T12:00:00.000Z";
+  it("leaves native automatic compaction in control without prompting", () => {
+    expect(
+      shouldOfferResumeCompaction({
+        provider: "claudeAgent",
+        usedTokens: 157_000,
+        updatedAt: "2026-08-24T09:00:00.000Z",
+        now,
+        automaticCompaction: true,
+      }),
+    ).toBe(false);
+  });
 
   it("matches Claude's old-session age and context thresholds", () => {
     expect(

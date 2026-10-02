@@ -5433,6 +5433,14 @@ it.effect(
       yield* provider.sendTurn({ threadId, input: "Continue" });
       assert.equal(claude.sendTurn.mock.calls.length, 1);
       assert.equal(claude.startSession.mock.calls.length, 1);
+      yield* claude.stopAll();
+      yield* provider.sendTurn({ threadId, input: "Continue after restart" });
+      assert.equal(claude.startSession.mock.calls.length, 2);
+      assert.deepEqual(claude.startSession.mock.calls.at(-1)?.[0].persistentAgent, {
+        name: "Edna",
+        instructions: "Help with work",
+        memoryDirectory: NodePath.join(workspace, ".claude", "memory"),
+      });
     }).pipe(Effect.provide(layer));
   },
 );

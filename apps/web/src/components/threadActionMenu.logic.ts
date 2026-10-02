@@ -79,13 +79,7 @@ export function buildThreadActionMenuItems(
           },
         ]
       : []),
-    ...(state.supports.pinning
-      ? [
-          state.isPinned
-            ? { id: "unpin" as const, label: "Unpin thread", icon: "pin-off" }
-            : { id: "pin" as const, label: "Pin thread", icon: "pin" },
-        ]
-      : []),
+    ...buildThreadPinMenuItems(state.isPinned, state.supports.pinning),
     // Both lifecycle actions stay available on pinned threads: settling
     // clears the pin ("done" beats "keep on top"), and snoozing hides the
     // card until wake with the pin intact.
@@ -196,4 +190,17 @@ export function buildThreadActionMenuItems(
       icon: "trash",
     },
   ];
+}
+
+export function buildThreadPinMenuItems(
+  isPinned: boolean,
+  supported: boolean,
+): ReadonlyArray<ContextMenuItem<"pin" | "unpin">> {
+  return supported
+    ? [
+        isPinned
+          ? { id: "unpin", label: "Unpin thread", icon: "pin-off" }
+          : { id: "pin", label: "Pin thread", icon: "pin" },
+      ]
+    : [];
 }

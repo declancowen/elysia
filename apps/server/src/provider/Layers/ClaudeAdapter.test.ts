@@ -7019,7 +7019,7 @@ describe("ClaudeAdapterLive", () => {
     },
   );
 
-  it.effect("propagates SDK history errors instead of discarding saved Claude context", () => {
+  it.effect("resumes the saved native context when SDK history inspection is unavailable", () => {
     const harness = makeHarness({
       getSessionMessages: async () => {
         throw new Error("History access denied");
@@ -7035,8 +7035,16 @@ describe("ClaudeAdapterLive", () => {
           runtimeMode: "full-access",
         })
         .pipe(Effect.result);
-      assert.equal(result._tag, "Failure");
-      assert.equal(harness.getLastCreateQueryInput(), undefined);
+      assert.equal(result._tag, "Success");
+      assert.equal(
+        harness.getLastCreateQueryInput()?.options.resume,
+        "550e8400-e29b-41d4-a716-446655440000",
+      );
+      yield* adapter.sendTurn({ threadId: RESUME_THREAD_ID, input: "/compact" });
+      assert.equal(
+        yield* Effect.promise(() => readFirstPromptText(harness.getLastCreateQueryInput())),
+        "/compact",
+      );
     }).pipe(Effect.provide(harness.layer));
   });
 
@@ -8397,7 +8405,55 @@ describe("ClaudeAdapterLive", () => {
     );
   });
 
-  it.effect("routes Claude resume compaction through the shared user-input UI", () => {
+  it.effect("automatically compacts resumed Elysia chats without requesting user input", () => {
+    const harness = makeHarness({
+      environment: {
+        ELYSIA_PROFILE_ROOT: "/tmp/elysia-managed-profile",
+        DISABLE_AUTO_COMPACT: "1",
+        CLAUDE_CODE_DISABLE_UNKNOWN_MODEL_WINDOW_ENFORCEMENT: "1",
+      },
+    });
+    return Effect.gen(function* () {
+      const adapter = yield* ClaudeAdapter;
+      yield* adapter.startSession({
+        threadId: RESUME_THREAD_ID,
+        resumeCursor: { resume: "550e8400-e29b-41d4-a716-446655440000" },
+        runtimeMode: "full-access",
+      });
+      const input = harness.getLastCreateQueryInput()!;
+      assert.include(input.options.settings as object, { autoCompactEnabled: true });
+      assert.include(input.options.env!, {
+        DISABLE_AUTO_COMPACT: "0",
+        DISABLE_COMPACT: "0",
+        CLAUDE_CODE_DISABLE_UNKNOWN_MODEL_WINDOW_ENFORCEMENT: "0",
+        CLAUDE_CODE_AUTO_COMPACT_WINDOW: "140000",
+      });
+      assert.include(input.options.managedSettings as object, { autoCompactEnabled: true });
+      assert.equal(
+        (input.options.managedSettings as { env: Record<string, string> }).env
+          .CLAUDE_CODE_DISABLE_UNKNOWN_MODEL_WINDOW_ENFORCEMENT,
+        "0",
+      );
+      const onUserDialog = input.options.onUserDialog!;
+      assert.deepEqual(
+        yield* Effect.promise(() =>
+          onUserDialog(
+            {
+              dialogKind: "resume_return",
+              payload: { sessionAgeMinutes: 145, estimatedTokens: 157000 },
+            },
+            { signal: new AbortController().signal, requestId: "automatic-resume" },
+          ),
+        ),
+        {
+          behavior: "completed",
+          result: "compact",
+        },
+      );
+    }).pipe(Effect.provide(harness.layer));
+  });
+
+  it.effect("routes upstream Claude resume compaction through the shared user-input UI", () => {
     const harness = makeHarness();
     return Effect.gen(function* () {
       const adapter = yield* ClaudeAdapter;

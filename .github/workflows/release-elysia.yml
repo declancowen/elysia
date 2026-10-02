@@ -193,6 +193,8 @@ jobs:
             packages/shared/src/agentMentions.test.ts \
             apps/server/src/orchestration/PersistentAgents.test.ts \
             apps/server/src/orchestration/AgentDelegation.test.ts \
+            apps/server/src/orchestration/decider.pinned.test.ts \
+            apps/server/src/orchestration/projector.pinned.test.ts \
             apps/server/src/orchestration/Layers/ProjectionSnapshotQuery.test.ts \
             apps/server/src/orchestration/threadDetailCursor.test.ts \
             apps/server/src/provider/ElysiaAgentProtection.test.ts \
@@ -201,6 +203,8 @@ jobs:
             apps/server/src/provider/Layers/ClaudeAdapter.test.ts \
             apps/server/src/orchestration/Layers/CheckpointReactor.test.ts \
             apps/web/src/agentPresentation.test.ts \
+            apps/web/src/components/threadActionMenu.logic.test.ts \
+            apps/web/src/components/chat/ContextWindowMeter.logic.test.ts \
             apps/web/src/components/agents/agentProfileSave.test.ts \
             apps/web/src/components/agents/agentDialogStore.test.ts \
             apps/web/src/components/agents/AgentEditorPage.test.tsx \

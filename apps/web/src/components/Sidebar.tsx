@@ -130,6 +130,10 @@ import { useScratchProject } from "../hooks/useScratchProject";
 import { isScratchProject } from "@t3tools/client-runtime/state/projects";
 import { AgentRoster } from "./agents/AgentRoster";
 import {
+  SidebarSectionHeader as WorkspaceSectionHeader,
+  useSidebarSectionExpansion,
+} from "./sidebar/SidebarSectionHeader";
+import {
   isAgentProject,
   selectNonAgentProjectItems,
   selectRegularProjects,
@@ -821,7 +825,7 @@ const SidebarDraftRow = memo(function SidebarDraftRow(props: {
               <SidebarProjectIcon
                 project={props.project}
                 projectless={props.projectless}
-                className="size-4 shrink-0"
+                className="size-3 shrink-0"
               />
             ) : null}
             <span className="min-w-0 flex-1 truncate text-xs font-medium text-secondary-label">
@@ -1851,7 +1855,7 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: {
                 <SidebarProjectIcon
                   project={props.project}
                   projectless={props.projectless}
-                  className="size-4 shrink-0"
+                  className="size-3 shrink-0"
                 />
               ) : null}
               {props.projectDisplayName ? (
@@ -2777,6 +2781,8 @@ export default function Sidebar() {
   }, [nowMinute, optimisticDrop, scopedProjectKeys, serverConfigs, snoozeWakeTick, threads]);
 
   const threadSearchInputRef = useRef<HTMLInputElement>(null);
+  const { expanded: pinnedExpanded, setExpanded: setPinnedExpanded } =
+    useSidebarSectionExpansion("sidebar-pinned");
   const [threadSearchQuery, setThreadSearchQuery] = useState("");
   const [activeSearchResultIndex, setActiveSearchResultIndex] = useState(0);
   const isSearchingThreads = threadSearchQuery.trim().length > 0;
@@ -2924,10 +2930,10 @@ export default function Sidebar() {
   );
   const orderedThreadKeys = useMemo(
     () =>
-      orderedThreads.map((thread) =>
-        scopedThreadKey(scopeThreadRef(thread.environmentId, thread.id)),
-      ),
-    [orderedThreads],
+      orderedThreads
+        .filter((thread) => pinnedExpanded || thread.pinnedAt == null)
+        .map((thread) => scopedThreadKey(scopeThreadRef(thread.environmentId, thread.id))),
+    [orderedThreads, pinnedExpanded],
   );
   // Rows call back into the click handler without carrying the ordered list as
   // a prop — a fresh array identity per shell update would defeat every row's
@@ -3517,10 +3523,10 @@ export default function Sidebar() {
         settledThreads.length ===
       0
     ) {
-      return [];
+      return [{ kind: "marker", marker: "pinned-header" }];
     }
     const items: SidebarListItem[] = [{ kind: "marker", marker: "pinned-header" }];
-    const pinnedRows = rowsOf(pinnedThreads, "pinned");
+    const pinnedRows = pinnedExpanded ? rowsOf(pinnedThreads, "pinned") : [];
     items.push(...pinnedRows);
     items.push({ kind: "marker", marker: "pinned-divider" });
     const activeRows = rowsOf(activeThreads, "active");
@@ -3538,6 +3544,7 @@ export default function Sidebar() {
   }, [
     activeThreads,
     pinnedThreads,
+    pinnedExpanded,
     renderedSettledThreads,
     settledThreads.length,
     snoozedThreads.length,
@@ -4991,11 +4998,18 @@ export default function Sidebar() {
                         switch (item.marker) {
                           case "pinned-header":
                             items.push(
+                              <li key="pinned-section-heading" className="list-none">
+                                <WorkspaceSectionHeader
+                                  label="Pinned"
+                                  expanded={pinnedExpanded}
+                                  onToggle={() => setPinnedExpanded(!pinnedExpanded)}
+                                />
+                              </li>,
                               <SidebarDragBoundary
                                 key="pinned-header"
                                 marker="pinned-header"
                                 label="Pinned"
-                                visible={from !== null}
+                                visible={false}
                                 isDropTarget={dragTargetSection === "pinned"}
                               />,
                             );

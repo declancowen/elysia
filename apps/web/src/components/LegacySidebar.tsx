@@ -118,6 +118,8 @@ import { isScratchProject } from "@t3tools/client-runtime/state/projects";
 import { useDesktopUpdateState } from "../state/desktopUpdate";
 
 import { useThreadActions } from "../hooks/useThreadActions";
+import { buildThreadPinMenuItems } from "./threadActionMenu.logic";
+import { readEnvironmentSupportsPinning } from "../state/entities";
 import { projectEnvironment } from "../state/projects";
 import { threadEnvironment, useEnvironmentThread } from "../state/threads";
 import { useEnvironment, useEnvironments, usePrimaryEnvironmentId } from "../state/environments";
@@ -190,6 +192,7 @@ import {
   orderItemsByPreferredIds,
   shouldClearThreadSelectionOnMouseDown,
   sortProjectsForSidebar,
+  sortPinnedThreadsForSidebar,
   useSidebarRowSubscriptionLease,
   useThreadJumpHintVisibility,
   ThreadStatusPill,
@@ -1149,6 +1152,7 @@ interface SidebarProjectItemProps {
   project: SidebarProjectSnapshot;
   hideProjectHeader?: boolean;
   projectExpandedOverride?: boolean;
+  pinnedOnly?: boolean;
   isThreadListExpanded: boolean;
   activeRouteThreadKey: string | null;
   openPullRequestsInRightPanel: boolean;
@@ -1172,6 +1176,7 @@ const SidebarProjectItem = memo(function SidebarProjectItem(props: SidebarProjec
     project,
     hideProjectHeader = false,
     projectExpandedOverride,
+    pinnedOnly = false,
     isThreadListExpanded,
     activeRouteThreadKey,
     openPullRequestsInRightPanel,
@@ -1214,6 +1219,7 @@ const SidebarProjectItem = memo(function SidebarProjectItem(props: SidebarProjec
     reportFailure: false,
   });
   const updateSettings = useUpdateClientSettings();
+  const { pinThread, confirmAndUnpinThread } = useThreadActions();
   const sidebarThreadPreviewCount = useClientSettings<SidebarThreadPreviewCount>(
     (settings) => settings.sidebarThreadPreviewCount,
   );
@@ -1285,7 +1291,10 @@ const SidebarProjectItem = memo(function SidebarProjectItem(props: SidebarProjec
   // thread-list change).
   const sidebarThreadByKeyRef = useRef(sidebarThreadByKey);
   sidebarThreadByKeyRef.current = sidebarThreadByKey;
-  const projectThreads = sidebarThreads;
+  const projectThreads = useMemo(
+    () => sidebarThreads.filter((thread) => pinnedOnly === (thread.pinnedAt != null)),
+    [sidebarThreads, pinnedOnly],
+  );
   const projectPreferenceKeys = useMemo(() => projectExpansionPreferenceKeys(project), [project]);
   const storedProjectExpanded = useUiStateStore((state) =>
     resolveProjectExpanded(state.projectExpandedById, projectPreferenceKeys),
@@ -1343,17 +1352,17 @@ const SidebarProjectItem = memo(function SidebarProjectItem(props: SidebarProjec
   }, [memberProjectByScopedKey, project.memberProjects, projectThreads]);
 
   const { visibleProjectThreads, orderedProjectThreadKeys } = useMemo(() => {
-    const visibleProjectThreads = sortThreads(
-      projectThreads.filter((thread) => thread.archivedAt === null),
-      threadSortOrder,
-    );
+    const visible = projectThreads.filter((thread) => thread.archivedAt === null);
+    const visibleProjectThreads = pinnedOnly
+      ? sortPinnedThreadsForSidebar(visible)
+      : sortThreads(visible, threadSortOrder);
     return {
       orderedProjectThreadKeys: visibleProjectThreads.map((thread) =>
         scopedThreadKey(scopeThreadRef(thread.environmentId, thread.id)),
       ),
       visibleProjectThreads,
     };
-  }, [projectThreads, threadSortOrder]);
+  }, [projectThreads, threadSortOrder, pinnedOnly]);
 
   const pinnedCollapsedThread = useMemo(() => {
     if (projectExpanded || activeRouteThreadKey === null) return null;
@@ -2235,6 +2244,10 @@ const SidebarProjectItem = memo(function SidebarProjectItem(props: SidebarProjec
           ...(getClientSettings().workspaceMode === "code" && thread.branch
             ? [{ id: "new-thread-on-branch", label: `New thread on ${thread.branch}` }]
             : []),
+          ...buildThreadPinMenuItems(
+            thread.pinnedAt != null,
+            readEnvironmentSupportsPinning(thread.environmentId),
+          ),
           { id: "rename", label: "Rename thread" },
           { id: "mark-unread", label: "Mark unread" },
           { id: "copy-path", label: "Copy Path" },
@@ -2244,6 +2257,23 @@ const SidebarProjectItem = memo(function SidebarProjectItem(props: SidebarProjec
         ],
         position,
       );
+
+      if (clicked === "pin" || clicked === "unpin") {
+        const result = await (clicked === "pin"
+          ? pinThread(threadRef)
+          : confirmAndUnpinThread(threadRef));
+        if (result._tag === "Failure" && !isAtomCommandInterrupted(result)) {
+          const error = squashAtomCommandFailure(result);
+          toastManager.add(
+            stackedThreadToast({
+              type: "error",
+              title: "Could not update pin",
+              description: error instanceof Error ? error.message : "An error occurred.",
+            }),
+          );
+        }
+        return;
+      }
 
       if (clicked === "project-settings") {
         if (isMobile) setOpenMobile(false);
@@ -2332,6 +2362,8 @@ const SidebarProjectItem = memo(function SidebarProjectItem(props: SidebarProjec
     },
     [
       appSettingsConfirmThreadDelete,
+      pinThread,
+      confirmAndUnpinThread,
       copyPathToClipboard,
       copyThreadIdToClipboard,
       deleteThread,
@@ -2909,6 +2941,16 @@ const SidebarProjectsContent = memo(function SidebarProjectsContent(
   const { expanded: recentExpanded } = useRecentThreadsExpansion();
   const { expanded: projectsExpanded, setExpanded: setProjectsExpanded } =
     useSidebarSectionExpansion("sidebar-projects");
+  const { expanded: pinnedExpanded, setExpanded: setPinnedExpanded } =
+    useSidebarSectionExpansion("sidebar-pinned");
+  const projectsWithPins = new Set(
+    useThreadShells()
+      .filter((thread) => thread.archivedAt === null && thread.pinnedAt != null)
+      .map((thread) => scopedProjectKey(scopeProjectRef(thread.environmentId, thread.projectId))),
+  );
+  const pinnedProjects = sortedProjects.filter((project) =>
+    project.memberProjectRefs.some((ref) => projectsWithPins.has(scopedProjectKey(ref))),
+  );
   const primaryEnvironmentId = usePrimaryEnvironmentId();
   const recentProjects = sortedProjects.filter((project) =>
     isScratchProject(project, scratchWorkspaceRootFor(project.environmentId)),
@@ -3006,6 +3048,27 @@ const SidebarProjectsContent = memo(function SidebarProjectsContent(
       ) : null}
       <LocalSecondaryStatus />
       <AgentRoster />
+      <SidebarGroup>
+        <SidebarSectionHeader
+          label="Pinned"
+          expanded={pinnedExpanded}
+          onToggle={() => setPinnedExpanded(!pinnedExpanded)}
+        />
+        {pinnedExpanded && (
+          <SidebarMenu>
+            {pinnedProjects.map((project) => (
+              <SidebarProjectListRow
+                key={project.projectKey}
+                {...projectItemProps(project, null)}
+                hideProjectHeader
+                pinnedOnly
+                projectExpandedOverride
+                isThreadListExpanded
+              />
+            ))}
+          </SidebarMenu>
+        )}
+      </SidebarGroup>
       <SidebarGroup>
         <RecentThreadsHeader environmentId={primaryEnvironmentId} />
         {recentExpanded && (
@@ -3109,6 +3172,7 @@ export default function LegacySidebar() {
   const projectExpandedById = useUiStateStore((store) => store.projectExpandedById);
   const { expanded: recentExpanded } = useRecentThreadsExpansion();
   const { expanded: projectsExpanded } = useSidebarSectionExpansion("sidebar-projects");
+  const { expanded: pinnedExpanded } = useSidebarSectionExpansion("sidebar-pinned");
   const projectOrder = useUiStateStore((store) => store.projectOrder);
   const reorderProjects = useUiStateStore((store) => store.reorderProjects);
   const navigate = useNavigate();
@@ -3432,13 +3496,22 @@ export default function LegacySidebar() {
   ]);
   const isManualProjectSorting = sidebarProjectSortOrder === "manual";
   const visibleSidebarThreadKeys = useMemo(
-    () =>
-      sortedProjects.flatMap((project) => {
+    () => [
+      ...(pinnedExpanded
+        ? sortedProjects.flatMap((project) =>
+            sortPinnedThreadsForSidebar(
+              (threadsByProjectKey.get(project.projectKey) ?? []).filter(
+                (thread) => thread.archivedAt === null && thread.pinnedAt != null,
+              ),
+            ).map((thread) => scopedThreadKey(scopeThreadRef(thread.environmentId, thread.id))),
+          )
+        : []),
+      ...sortedProjects.flatMap((project) => {
         const recent = isScratchProject(project, scratchWorkspaceRootFor(project.environmentId));
         if (recent ? !recentExpanded : !projectsExpanded) return [];
         const projectThreads = sortThreads(
           (threadsByProjectKey.get(project.projectKey) ?? []).filter(
-            (thread) => thread.archivedAt === null,
+            (thread) => thread.archivedAt === null && thread.pinnedAt == null,
           ),
           sidebarThreadSortOrder,
         );
@@ -3470,6 +3543,7 @@ export default function LegacySidebar() {
           scopedThreadKey(scopeThreadRef(thread.environmentId, thread.id)),
         );
       }),
+    ],
     [
       sidebarThreadSortOrder,
       sidebarThreadPreviewCount,
@@ -3477,6 +3551,7 @@ export default function LegacySidebar() {
       projectExpandedById,
       recentExpanded,
       projectsExpanded,
+      pinnedExpanded,
       routeThreadKey,
       scratchWorkspaceRootFor,
       sortedProjects,

@@ -65,8 +65,10 @@ export function shouldOfferResumeCompaction(input: {
   readonly usedTokens: number | null | undefined;
   readonly updatedAt: string | null | undefined;
   readonly now: string;
+  readonly automaticCompaction?: boolean;
 }): boolean {
   if (
+    input.automaticCompaction ||
     input.provider !== "claudeAgent" ||
     (input.usedTokens ?? 0) < CLAUDE_RESUME_COMPACTION_TOKENS
   ) {

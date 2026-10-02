@@ -7,7 +7,7 @@ import {
 } from "@t3tools/shared/agentMentions";
 import { projectEnvironment } from "../state/projects";
 import { isScratchProject } from "@t3tools/client-runtime/state/projects";
-import type { UsageLimitSourceSnapshots } from "@t3tools/contracts";
+import { SINGLE_PROVIDER_UI, type UsageLimitSourceSnapshots } from "@t3tools/contracts";
 import {
   collectProviderUsageLimits,
   hasProviderUsageLimits,
@@ -6518,6 +6518,10 @@ export default function ChatView(props: ChatViewProps) {
       pendingUserInputs.length > 0 ||
       phase === "running" ||
       !shouldOfferResumeCompaction({
+        automaticCompaction:
+          SINGLE_PROVIDER_UI ||
+          !!activeProject?.agentProfile ||
+          activeContextWindow.compactsAutomatically === true,
         provider: selectedProvider,
         usedTokens: activeContextWindow.usedTokens,
         updatedAt: activeContextWindow.updatedAt,
@@ -6562,6 +6566,7 @@ export default function ChatView(props: ChatViewProps) {
   }, [
     activeContextWindow,
     activeThread,
+    activeProject,
     compactDisabled,
     compactDisabledReason,
     composerRef,

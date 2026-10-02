@@ -4698,10 +4698,20 @@ export const makeClaudeAdapter = Effect.fn("makeClaudeAdapter")(function* (
       let resumeState = readClaudeResumeState(input.resumeCursor);
       const threadId = input.threadId;
       const savedSessionId = resumeState?.resume;
-      const missingResumeHistory =
-        savedSessionId !== undefined &&
-        (yield* readSessionHistory(threadId, "startSession", savedSessionId, input.cwd)).length ===
-          0;
+      // History inspection is advisory. If the helper is unavailable, let the
+      // native CLI resume the saved id rather than blocking /compact or dropping context.
+      const savedHistory =
+        savedSessionId === undefined
+          ? undefined
+          : yield* readSessionHistory(threadId, "startSession", savedSessionId, input.cwd).pipe(
+              Effect.catch((error) =>
+                Effect.logWarning("claude.resume.history-inspection-failed", {
+                  threadId,
+                  cause: error,
+                }).pipe(Effect.as(undefined)),
+              ),
+            );
+      const missingResumeHistory = savedHistory !== undefined && savedHistory.length === 0;
       if (missingResumeHistory) resumeState = undefined;
       const existingResumeSessionId = resumeState?.resume;
       const newSessionId = existingResumeSessionId === undefined ? yield* randomUUIDv4 : undefined;
@@ -4883,6 +4893,10 @@ export const makeClaudeAdapter = Effect.fn("makeClaudeAdapter")(function* (
       ) {
         if (request.dialogKind !== "resume_return") {
           return { behavior: "cancelled" as const };
+        }
+
+        if (claudeEnvironment.ELYSIA_PROFILE_ROOT || input.persistentAgent) {
+          return { behavior: "completed" as const, result: "compact" };
         }
 
         const context = yield* Ref.get(contextRef);
@@ -5177,11 +5191,13 @@ export const makeClaudeAdapter = Effect.fn("makeClaudeAdapter")(function* (
           ? "bypassPermissions"
           : runtimeModeToPermission[input.runtimeMode]);
       const settings = {
+        ...(claudeEnvironment.ELYSIA_PROFILE_ROOT || input.persistentAgent
+          ? { autoCompactEnabled: true }
+          : {}),
         ...(input.persistentAgent
           ? {
               autoMemoryEnabled: true,
               autoMemoryDirectory: input.persistentAgent.memoryDirectory,
-              autoCompactEnabled: true,
             }
           : {}),
         ...(typeof thinking === "boolean" ? { alwaysThinkingEnabled: thinking } : {}),
@@ -5204,21 +5220,24 @@ export const makeClaudeAdapter = Effect.fn("makeClaudeAdapter")(function* (
         ...(input.cwd ? [input.cwd] : []),
         serverConfig.attachmentsDir,
       ];
+      const autoCompactWindow = String(
+        Math.max(100_000, Math.min(1_000_000, Math.floor((initialContextWindow ?? 200_000) * 0.7))),
+      );
       const queryEnvironment = elysiaModelEnvironment(
         {
           ...claudeEnvironment,
           ...options?.environment,
+          ...(claudeEnvironment.ELYSIA_PROFILE_ROOT || input.persistentAgent
+            ? {
+                DISABLE_AUTO_COMPACT: "0",
+                DISABLE_COMPACT: "0",
+                CLAUDE_CODE_DISABLE_UNKNOWN_MODEL_WINDOW_ENFORCEMENT: "0",
+                CLAUDE_CODE_AUTO_COMPACT_WINDOW: autoCompactWindow,
+              }
+            : {}),
           ...(input.persistentAgent && input.cwd
             ? {
                 GIT_CEILING_DIRECTORIES: path.dirname(input.cwd),
-                DISABLE_AUTO_COMPACT: "0",
-                DISABLE_COMPACT: "0",
-                CLAUDE_CODE_AUTO_COMPACT_WINDOW: String(
-                  Math.max(
-                    100_000,
-                    Math.min(1_000_000, Math.floor((initialContextWindow ?? 200_000) * 0.7)),
-                  ),
-                ),
               }
             : {}),
           ...(claudeEnvironment.CLAUDE_CONFIG_DIR
@@ -5272,7 +5291,14 @@ export const makeClaudeAdapter = Effect.fn("makeClaudeAdapter")(function* (
         ...(claudeEnvironment.ELYSIA_PROFILE_ROOT
           ? {
               managedSettings: {
+                ...settings,
                 ...(typeof protection.settings === "object" ? protection.settings : {}),
+                env: {
+                  DISABLE_AUTO_COMPACT: "0",
+                  DISABLE_COMPACT: "0",
+                  CLAUDE_CODE_DISABLE_UNKNOWN_MODEL_WINDOW_ENFORCEMENT: "0",
+                  CLAUDE_CODE_AUTO_COMPACT_WINDOW: autoCompactWindow,
+                },
                 ...(protection.sandbox ? { sandbox: protection.sandbox } : {}),
                 availableModels: modelCatalog.models.map((entry) => entry.model.slug),
                 enforceAvailableModels: true,

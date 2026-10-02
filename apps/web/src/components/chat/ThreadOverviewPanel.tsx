@@ -143,7 +143,7 @@ function OverviewPopover({
             <div
               className={cn(
                 "shrink-0 overflow-y-auto rounded-3xl border shadow-lg",
-                visibleResponses.length > 0
+                wide && visibleResponses.length > 0
                   ? "max-h-[min(55vh,var(--available-height))]"
                   : "max-h-[min(70vh,var(--available-height))]",
                 "[--overview-surface:var(--app-theme-surface-raised,var(--card))] dark:[--overview-surface:var(--app-theme-surface-raised,var(--surface-raised))]",
@@ -266,7 +266,7 @@ function OverviewPopover({
                 </section>
               </div>
             </div>
-            {visibleResponses.length > 0 ? (
+            {wide && visibleResponses.length > 0 ? (
               <div
                 className="min-h-0 overflow-y-auto overscroll-contain px-5 pt-4 pb-2"
                 aria-label="Delegated agent responses"

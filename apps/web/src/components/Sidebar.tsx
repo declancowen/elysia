@@ -1075,6 +1075,7 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: {
   onUnsettle: (threadRef: ScopedThreadRef) => void;
   onSnooze: (threadRef: ScopedThreadRef, preset: Pick<SnoozePreset, "snoozedUntil">) => void;
   onUnsnooze: (threadRef: ScopedThreadRef) => void;
+  onPin: (threadRef: ScopedThreadRef) => void;
   onUnpin: (threadRef: ScopedThreadRef) => void;
   onAcknowledgeWoke: (threadRef: ScopedThreadRef, visitedAt: string) => void;
   /**
@@ -1100,6 +1101,7 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: {
     onThreadClick,
     onUnsettle,
     onUnsnooze,
+    onPin,
     onUnpin,
     openPullRequestsInRightPanel,
     renamingTitle,
@@ -1401,13 +1403,14 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: {
     },
     [onUnsnooze, threadRef],
   );
-  const handleUnpinClick = useCallback(
+  const handlePinClick = useCallback(
     (event: ReactMouseEvent) => {
       event.preventDefault();
       event.stopPropagation();
-      onUnpin(threadRef);
+      if (props.isPinned) onUnpin(threadRef);
+      else onPin(threadRef);
     },
-    [onUnpin, threadRef],
+    [onPin, onUnpin, props.isPinned, threadRef],
   );
   const handleSnoozePreset = useCallback(
     (preset: Pick<SnoozePreset, "snoozedUntil">) => {
@@ -1626,7 +1629,7 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: {
     </Tooltip>
   ) : null;
   const showPin =
-    props.isPinned && (!sortable?.isDragging || (props.dragOverPinned && props.dropVerb === null));
+    !sortable?.isDragging || (props.isPinned && props.dragOverPinned && props.dropVerb === null);
   const pinIndicator = showPin ? (
     props.pinningSupported && !sortable?.isDragging ? (
       <Tooltip>
@@ -1634,23 +1637,32 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: {
           render={
             <button
               type="button"
-              aria-label="Unpin thread"
-              onClick={handleUnpinClick}
-              className="inline-flex cursor-pointer items-center rounded-sm text-muted-foreground/65 outline-none transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
+              aria-label={props.isPinned ? "Unpin thread" : "Pin thread"}
+              onClick={handlePinClick}
+              onPointerDown={(event) => event.stopPropagation()}
+              onKeyDown={(event) => event.stopPropagation()}
+              className={cn(
+                "inline-flex cursor-pointer items-center rounded-sm text-muted-foreground/65 outline-none transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring",
+                !props.isPinned &&
+                  "pointer-events-none opacity-0 group-hover/sidebar-row:pointer-events-auto group-hover/sidebar-row:opacity-100 group-focus-within/sidebar-row:pointer-events-auto group-focus-within/sidebar-row:opacity-100",
+              )}
             />
           }
         >
-          <PinIcon aria-hidden className="size-3 shrink-0" />
+          <PinIcon
+            aria-hidden
+            className={cn("size-3 shrink-0", props.isPinned && "fill-current")}
+          />
         </TooltipTrigger>
-        <TooltipPopup>Unpin thread</TooltipPopup>
+        <TooltipPopup>{props.isPinned ? "Unpin thread" : "Pin thread"}</TooltipPopup>
       </Tooltip>
-    ) : (
+    ) : props.isPinned ? (
       <PinIcon
         aria-label="Pinned"
         role="img"
-        className="size-3 shrink-0 text-muted-foreground/65"
+        className="size-3 shrink-0 fill-current text-muted-foreground/65"
       />
-    )
+    ) : null
   ) : null;
 
   if (variant === "slim") {
@@ -4952,6 +4964,7 @@ export default function Sidebar() {
                             onUnsettle={attemptUnsettle}
                             onSnooze={attemptSnooze}
                             onUnsnooze={attemptUnsnooze}
+                            onPin={attemptPin}
                             onUnpin={attemptUnpin}
                             onAcknowledgeWoke={acknowledgeWoke}
                             onFileDropThreads={handleThreadFileDrop}
@@ -5000,13 +5013,15 @@ export default function Sidebar() {
                         switch (item.marker) {
                           case "pinned-header":
                             items.push(
-                              <li key="pinned-section-heading" className="list-none">
-                                <WorkspaceSectionHeader
-                                  label="Pinned"
-                                  expanded={pinnedExpanded}
-                                  onToggle={() => setPinnedExpanded(!pinnedExpanded)}
-                                />
-                              </li>,
+                              pinnedThreads.length > 0 ? (
+                                <li key="pinned-section-heading" className="list-none">
+                                  <WorkspaceSectionHeader
+                                    label="Pinned"
+                                    expanded={pinnedExpanded}
+                                    onToggle={() => setPinnedExpanded(!pinnedExpanded)}
+                                  />
+                                </li>
+                              ) : null,
                               <SidebarDragBoundary
                                 key="pinned-header"
                                 marker="pinned-header"

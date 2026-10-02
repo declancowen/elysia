@@ -5,10 +5,8 @@ import { formatAttachmentSize } from "@t3tools/client-runtime/state/attachments"
 import { videoMimeType } from "@t3tools/shared/video";
 import { MessageCircleIcon, MousePointerClickIcon } from "lucide-react";
 import { createContext, type MouseEvent, type ReactElement, type ReactNode, use } from "react";
-import { ProjectId, type EnvironmentId } from "@t3tools/contracts";
-import { scopeProjectRef } from "@t3tools/client-runtime/environment";
-import { useProject } from "~/state/entities";
-import { AgentAvatar } from "./agents/AgentAvatar";
+import { type EnvironmentId } from "@t3tools/contracts";
+import { AgentMentionChip } from "./agents/AgentMentionChip";
 
 import type { ComposerFileAttachment, ComposerImageAttachment } from "~/composerDraftStore";
 import { composerFileNeedsReattach } from "~/composerDraftStore";
@@ -422,26 +420,16 @@ export function ComposerContextReferenceChip(props: {
   label: string;
 }): ReactElement {
   const records = use(ComposerContextRecordsContext);
+  const { environmentId } = use(ComposerContextActionsContext);
   if (props.kind === "agent")
-    return <AgentMentionChip contextId={props.contextId} label={props.label} />;
+    return (
+      <AgentMentionChip
+        environmentId={environmentId}
+        contextId={props.contextId}
+        label={props.label}
+      />
+    );
   return composerContextPresentationRegistry.render(props.kind, records.get(props.contextId), {
     label: props.label,
   });
-}
-
-function AgentMentionChip({ contextId, label }: { contextId: string; label: string }) {
-  const { environmentId } = use(ComposerContextActionsContext);
-  const project = useProject(
-    environmentId ? scopeProjectRef(environmentId, ProjectId.make(contextId)) : null,
-  );
-  if (!project?.agentProfile || project.agentProfile.archived)
-    return <UnresolvedContextChip label={label} />;
-  return (
-    <ContextChipShell
-      kind="mention"
-      icon={<AgentAvatar avatar={project.agentProfile.avatar} />}
-      label={`@${project.title}`}
-      tooltip="This task continues in the agent’s own chat."
-    />
-  );
 }

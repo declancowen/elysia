@@ -7,6 +7,7 @@ import {
   FolderClosedIcon,
   FolderOpenIcon,
   FolderPlusIcon,
+  PinIcon,
   Globe2Icon,
   SearchIcon,
   SquarePenIcon,
@@ -362,6 +363,7 @@ interface SidebarThreadRowProps {
   ) => Promise<void>;
   cancelRename: () => void;
   attemptArchiveThread: (threadRef: ScopedThreadRef) => Promise<void>;
+  toggleThreadPin: (threadRef: ScopedThreadRef) => Promise<void>;
   openPrLink: (
     event: React.MouseEvent<HTMLElement>,
     prUrl: string,
@@ -395,6 +397,7 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: SidebarThreadRowP
     commitRename,
     cancelRename,
     attemptArchiveThread,
+    toggleThreadPin,
     openPrLink,
     onFileDropThreads,
     thread,
@@ -503,7 +506,7 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: SidebarThreadRowP
   const threadMetaClassName = isConfirmingArchive
     ? "pointer-events-none opacity-0"
     : !isThreadRunning
-      ? "pointer-events-none transition-opacity duration-150 max-sm:pr-6 group-hover/menu-sub-item:opacity-0 group-focus-within/menu-sub-item:opacity-0"
+      ? "pointer-events-none transition-opacity duration-150 max-sm:pr-12 group-hover/menu-sub-item:opacity-0 group-focus-within/menu-sub-item:opacity-0"
       : "pointer-events-none";
   const clearConfirmingArchive = useCallback(() => {
     setConfirmingArchiveThreadKey((current) => (current === threadKey ? null : current));
@@ -863,6 +866,43 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: SidebarThreadRowP
               isRemoteThread ? "max-sm:min-w-24" : "max-sm:min-w-20"
             }`}
           >
+            {!isConfirmingArchive &&
+              !isThreadRunning &&
+              readEnvironmentSupportsPinning(thread.environmentId) && (
+                <div className="pointer-events-none absolute top-1/2 right-6.5 -translate-y-1/2 opacity-0 transition-opacity duration-150 max-sm:pointer-events-auto max-sm:opacity-100 group-hover/menu-sub-item:pointer-events-auto group-hover/menu-sub-item:opacity-100 group-focus-within/menu-sub-item:pointer-events-auto group-focus-within/menu-sub-item:opacity-100">
+                  <Tooltip>
+                    <TooltipTrigger
+                      render={
+                        <button
+                          type="button"
+                          data-thread-selection-safe
+                          aria-label={
+                            thread.pinnedAt != null
+                              ? `Unpin ${thread.title}`
+                              : `Pin ${thread.title}`
+                          }
+                          className={SIDEBAR_ICON_ACTION_BUTTON_CLASS}
+                          onPointerDown={stopPropagationOnPointerDown}
+                          onKeyDown={(event) => event.stopPropagation()}
+                          onClick={(event) => {
+                            event.preventDefault();
+                            event.stopPropagation();
+                            void toggleThreadPin(threadRef);
+                          }}
+                        />
+                      }
+                    >
+                      <PinIcon
+                        aria-hidden
+                        className={cn("size-3.5", thread.pinnedAt != null && "fill-current")}
+                      />
+                    </TooltipTrigger>
+                    <TooltipPopup side="top">
+                      {thread.pinnedAt != null ? "Unpin" : "Pin"}
+                    </TooltipPopup>
+                  </Tooltip>
+                </div>
+              )}
             {isConfirmingArchive ? (
               <button
                 ref={handleConfirmArchiveRef}
@@ -1013,6 +1053,7 @@ interface SidebarProjectThreadListProps {
   ) => Promise<void>;
   cancelRename: () => void;
   attemptArchiveThread: (threadRef: ScopedThreadRef) => Promise<void>;
+  toggleThreadPin: (threadRef: ScopedThreadRef) => Promise<void>;
   openPrLink: (
     event: React.MouseEvent<HTMLElement>,
     prUrl: string,
@@ -1059,6 +1100,7 @@ const SidebarProjectThreadList = memo(function SidebarProjectThreadList(
     commitRename,
     cancelRename,
     attemptArchiveThread,
+    toggleThreadPin,
     openPrLink,
     expandThreadListForProject,
     collapseThreadListForProject,
@@ -1110,6 +1152,7 @@ const SidebarProjectThreadList = memo(function SidebarProjectThreadList(
                 commitRename={commitRename}
                 cancelRename={cancelRename}
                 attemptArchiveThread={attemptArchiveThread}
+                toggleThreadPin={toggleThreadPin}
                 openPrLink={openPrLink}
               />
             );
@@ -2082,6 +2125,27 @@ const SidebarProjectItem = memo(function SidebarProjectItem(props: SidebarProjec
     [createThreadForProjectMember, project.groupedProjectCount, project.memberProjects],
   );
 
+  const toggleThreadPin = useCallback(
+    async (threadRef: ScopedThreadRef) => {
+      const thread = sidebarThreadByKeyRef.current.get(scopedThreadKey(threadRef));
+      if (!thread || !readEnvironmentSupportsPinning(thread.environmentId)) return;
+      const result = await (thread.pinnedAt == null
+        ? pinThread(threadRef)
+        : confirmAndUnpinThread(threadRef));
+      if (result._tag === "Failure" && !isAtomCommandInterrupted(result)) {
+        const error = squashAtomCommandFailure(result);
+        toastManager.add(
+          stackedThreadToast({
+            type: "error",
+            title: "Could not update pin",
+            description: error instanceof Error ? error.message : "An error occurred.",
+          }),
+        );
+      }
+    },
+    [confirmAndUnpinThread, pinThread],
+  );
+
   const attemptArchiveThread = useCallback(
     async (threadRef: ScopedThreadRef) => {
       const result = await archiveThread(threadRef);
@@ -2264,19 +2328,7 @@ const SidebarProjectItem = memo(function SidebarProjectItem(props: SidebarProjec
       );
 
       if (clicked === "pin" || clicked === "unpin") {
-        const result = await (clicked === "pin"
-          ? pinThread(threadRef)
-          : confirmAndUnpinThread(threadRef));
-        if (result._tag === "Failure" && !isAtomCommandInterrupted(result)) {
-          const error = squashAtomCommandFailure(result);
-          toastManager.add(
-            stackedThreadToast({
-              type: "error",
-              title: "Could not update pin",
-              description: error instanceof Error ? error.message : "An error occurred.",
-            }),
-          );
-        }
+        await toggleThreadPin(threadRef);
         return;
       }
 
@@ -2367,8 +2419,7 @@ const SidebarProjectItem = memo(function SidebarProjectItem(props: SidebarProjec
     },
     [
       appSettingsConfirmThreadDelete,
-      pinThread,
-      confirmAndUnpinThread,
+      toggleThreadPin,
       projectless,
       copyPathToClipboard,
       copyThreadIdToClipboard,
@@ -2508,6 +2559,7 @@ const SidebarProjectItem = memo(function SidebarProjectItem(props: SidebarProjec
         commitRename={commitRename}
         cancelRename={cancelRename}
         attemptArchiveThread={attemptArchiveThread}
+        toggleThreadPin={toggleThreadPin}
         openPrLink={openPrLink}
         expandThreadListForProject={expandThreadListForProject}
         collapseThreadListForProject={collapseThreadListForProject}
@@ -3062,27 +3114,29 @@ const SidebarProjectsContent = memo(function SidebarProjectsContent(
       ) : null}
       <LocalSecondaryStatus />
       <AgentRoster />
-      <SidebarGroup>
-        <SidebarSectionHeader
-          label="Pinned"
-          expanded={pinnedExpanded}
-          onToggle={() => setPinnedExpanded(!pinnedExpanded)}
-        />
-        {pinnedExpanded && (
-          <SidebarMenu>
-            {pinnedProjects.map((project) => (
-              <SidebarProjectListRow
-                key={project.projectKey}
-                {...projectItemProps(project, null)}
-                hideProjectHeader
-                pinnedOnly
-                projectExpandedOverride
-                isThreadListExpanded
-              />
-            ))}
-          </SidebarMenu>
-        )}
-      </SidebarGroup>
+      {pinnedProjects.length > 0 && (
+        <SidebarGroup>
+          <SidebarSectionHeader
+            label="Pinned"
+            expanded={pinnedExpanded}
+            onToggle={() => setPinnedExpanded(!pinnedExpanded)}
+          />
+          {pinnedExpanded && (
+            <SidebarMenu>
+              {pinnedProjects.map((project) => (
+                <SidebarProjectListRow
+                  key={project.projectKey}
+                  {...projectItemProps(project, null)}
+                  hideProjectHeader
+                  pinnedOnly
+                  projectExpandedOverride
+                  isThreadListExpanded
+                />
+              ))}
+            </SidebarMenu>
+          )}
+        </SidebarGroup>
+      )}
       <SidebarGroup>
         <RecentThreadsHeader environmentId={primaryEnvironmentId} />
         {recentExpanded && (

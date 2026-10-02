@@ -15,7 +15,7 @@ import {
   isAtomCommandInterrupted,
   squashAtomCommandFailure,
 } from "@t3tools/client-runtime/state/runtime";
-import { ChevronDownIcon, EllipsisIcon } from "lucide-react";
+import { ChevronDownIcon, EllipsisIcon, MessageCircleIcon } from "lucide-react";
 import {
   memo,
   useCallback,
@@ -209,7 +209,7 @@ export const ChatHeader = memo(function ChatHeader({
   );
   if (!actionsCollapsed && actionsOpen) setActionsOpen(false);
   const primaryEnvironmentId = usePrimaryEnvironmentId();
-  const activeProjectName = activeProject?.title;
+  const activeProjectName = projectless ? "Chats" : activeProject?.title;
   const activeProjectCwd = activeProject?.workspaceRoot ?? null;
   const fileScripts = useT3ProjectFileScripts(
     activeThreadEnvironmentId,
@@ -480,6 +480,8 @@ export const ChatHeader = memo(function ChatHeader({
                 >
                   {activeProject.agentProfile ? (
                     <AgentAvatar avatar={activeProject.agentProfile.avatar} className="size-4" />
+                  ) : projectless ? (
+                    <MessageCircleIcon aria-hidden className="size-3.5" />
                   ) : (
                     <ProjectFavicon project={activeProject} className="size-3.5" />
                   )}

@@ -173,6 +173,7 @@ function workingAgent(name: string): DelegatedAgentView {
 }
 
 it("auto-opens grouped working agents and keeps dismissing a read-only response separate from the task", async () => {
+  state.wide = true;
   state.delegated = [workingAgent("Friday"), workingAgent("Edna"), workingAgent("Rocket")];
   const jobs = state.delegated.map(({ job }) => job);
   await render({ delegatedAgents: jobs });
@@ -204,6 +205,38 @@ it("auto-opens grouped working agents and keeps dismissing a read-only response 
   await click("Dismiss Friday response");
   expect(document.body.textContent).not.toContain("Task-only response");
   expect(document.body.textContent).toContain("3 working");
+});
+
+it("keeps agent status in the overlay and shows its response only in a dedicated column", async () => {
+  const agent = workingAgent("Friday");
+  state.delegated = [
+    {
+      ...agent,
+      data: {
+        ...agent.data!,
+        messages: [
+          {
+            id: MessageId.make("reply"),
+            role: "assistant",
+            text: "Friday's reply",
+            turnId: TurnId.make("turn-Friday"),
+            streaming: true,
+            createdAt: "2026-10-02T00:00:00.000Z",
+            updatedAt: "2026-10-02T00:00:00.000Z",
+          },
+        ],
+      },
+    },
+  ];
+  const delegatedAgents = state.delegated.map(({ job }) => job);
+  await render({ delegatedAgents });
+  expect(document.body.textContent).toContain("Friday is working");
+  expect(document.body.textContent).not.toContain("Friday's reply");
+  state.wide = true;
+  await render({ delegatedAgents });
+  expect(document.body.textContent).toContain("Friday's reply");
+  await render({ delegatedAgents, transient: true });
+  expect(document.body.textContent).not.toContain("Friday's reply");
 });
 
 it("keeps completed history closed after the source detail loads", async () => {

@@ -1,3 +1,4 @@
+import { AgentMentionChip } from "../agents/AgentMentionChip";
 import { useCodeWorkspace } from "~/hooks/useSettings";
 import { ArrowUpIcon, ClockIcon } from "lucide-react";
 import { ReadOnlySourcePreview } from "../files/AttachmentFilePreview";
@@ -3912,12 +3913,23 @@ function UserMessageContextReferenceChip(props: {
   onExpandVideo: (file: ChatFileAttachment) => void;
   onOpenFile: (file: ChatFileAttachment) => void;
 }) {
-  const { resolvedTheme } = use(TimelineRowCtx);
+  const { resolvedTheme, activeThreadEnvironmentId } = use(TimelineRowCtx);
   const copyMarkdown = formatComposerContextReference({
     kind: props.reference.kind,
     contextId: props.reference.contextId as ComposerContextId,
     label: props.reference.label,
   });
+  if (props.reference.kind === "agent") {
+    return (
+      <AgentMentionChip
+        environmentId={activeThreadEnvironmentId}
+        contextId={props.reference.contextId}
+        label={props.reference.label}
+        copyMarkdown={copyMarkdown}
+        allowArchived
+      />
+    );
+  }
   return userMessageContextPresentationRegistry.render(props.reference.kind, props.record, {
     reference: props.reference,
     annotationImage: props.annotationImage,

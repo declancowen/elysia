@@ -1,5 +1,6 @@
 import { useCodeWorkspace } from "~/hooks/useSettings";
 import {
+  SINGLE_PROVIDER_UI,
   type EnvironmentId,
   type EditorId,
   type ProjectScript,
@@ -15,7 +16,7 @@ import {
   isAtomCommandInterrupted,
   squashAtomCommandFailure,
 } from "@t3tools/client-runtime/state/runtime";
-import { ChevronDownIcon, EllipsisIcon, MessageCircleIcon } from "~/icons";
+import { ChevronDownIcon, EllipsisIcon, FolderClosedIcon, MessageCircleIcon } from "~/icons";
 import {
   memo,
   useCallback,
@@ -474,7 +475,7 @@ export const ChatHeader = memo(function ChatHeader({
                               )
                           : onNewThreadInProject
                       }
-                      className="inline-flex min-w-0 max-w-full cursor-pointer items-center gap-1.5 rounded-sm text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
+                      className="inline-flex min-w-0 max-w-full cursor-pointer items-center gap-1.5 rounded-sm text-foreground transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
                     />
                   }
                 >
@@ -482,6 +483,8 @@ export const ChatHeader = memo(function ChatHeader({
                     <AgentAvatar avatar={activeProject.agentProfile.avatar} className="size-4" />
                   ) : projectless ? (
                     <MessageCircleIcon aria-hidden className="size-3.5" />
+                  ) : SINGLE_PROVIDER_UI ? (
+                    <FolderClosedIcon aria-hidden className="size-3.5" />
                   ) : (
                     <ProjectFavicon project={activeProject} className="size-3.5" />
                   )}

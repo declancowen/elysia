@@ -34,7 +34,7 @@ export function AgentRoster({ inset = true }: { inset?: boolean }) {
         <Button
           type="button"
           size="icon-xs"
-          variant="ghost-muted"
+          variant="ghost"
           aria-label="Create new agent"
           onClick={createAgent}
         >
@@ -127,7 +127,7 @@ function AgentRow(agent: AgentRosterEntry) {
                 disabled={pending || busy}
                 aria-label={`Archive ${project.title}`}
                 className={cn(
-                  "inline-flex size-6 cursor-pointer items-center justify-center rounded-md text-icon-muted hover:text-foreground focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-default disabled:opacity-60",
+                  "inline-flex size-6 cursor-pointer items-center justify-center rounded-md text-foreground focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-default disabled:opacity-60",
                   !selected &&
                     "opacity-0 max-sm:opacity-100 group-hover/agent-row:opacity-100 group-focus-within/agent-row:opacity-100",
                 )}
@@ -146,7 +146,7 @@ function AgentRow(agent: AgentRosterEntry) {
             render={
               <button
                 type="button"
-                className="inline-flex size-6 cursor-pointer items-center justify-center rounded-md text-icon-muted hover:text-foreground focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-60"
+                className="inline-flex size-6 cursor-pointer items-center justify-center rounded-md text-foreground focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-60"
                 disabled={pending}
                 aria-label={`Actions for ${project.title}`}
               />

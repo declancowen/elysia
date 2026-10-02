@@ -63,7 +63,7 @@ export function SidebarThreadSearch({
     <div ref={searchFieldRef} className="flex h-8 items-center gap-1">
       <Popover>
         <PopoverTrigger
-          render={<Button variant="ghost-muted" size="icon-sm" aria-label="Search threads" />}
+          render={<Button variant="ghost" size="icon-sm" aria-label="Search threads" />}
         >
           <SearchIcon />
         </PopoverTrigger>
@@ -93,7 +93,7 @@ export function SidebarThreadSearch({
               <Button
                 type="button"
                 size="icon-micro"
-                variant="ghost-muted"
+                variant="ghost"
                 className="shrink-0"
                 aria-label="Clear thread search"
                 onClick={() => {
@@ -109,7 +109,7 @@ export function SidebarThreadSearch({
       </Popover>
       {shortcutLabel ? (
         <CommandDialogTrigger
-          render={<Button size="xs" variant="ghost-muted" aria-label="Open command palette" />}
+          render={<Button size="xs" variant="ghost" aria-label="Open command palette" />}
         >
           <Kbd>{shortcutLabel}</Kbd>
         </CommandDialogTrigger>

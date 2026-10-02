@@ -254,7 +254,7 @@ const PROJECT_GROUPING_MODE_LABELS: Record<SidebarProjectGroupingMode, string> =
   separate: "Keep separate",
 };
 const SIDEBAR_ICON_ACTION_BUTTON_CLASS =
-  "inline-flex h-6 min-w-6 cursor-pointer items-center justify-center rounded-md px-0.75 text-icon-muted hover:text-foreground focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-ring";
+  "inline-flex h-6 min-w-6 cursor-pointer items-center justify-center rounded-md px-0.75 text-foreground focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-ring";
 
 function SidebarThreadDetailPrewarmer({ threadRef }: { readonly threadRef: ScopedThreadRef }) {
   useEnvironmentThread(threadRef.environmentId, threadRef.threadId);
@@ -741,13 +741,13 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: SidebarThreadRowP
         data-size="sm"
         data-testid={`thread-row-${thread.id}`}
         className={cn(
-          "relative isolate flex h-8 w-full min-w-0 cursor-pointer select-none items-center gap-2 overflow-hidden rounded-md px-2.5 text-left text-xs outline-hidden focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring group-data-[collapsible=icon]:hidden [&>span:last-child]:truncate [&>svg:not([class*='size-'])]:size-4 [&>svg]:shrink-0 [&>svg]:text-sidebar-muted-foreground",
+          "relative isolate flex h-8 w-full min-w-0 cursor-pointer select-none items-center gap-2 overflow-hidden rounded-md px-2.5 text-left text-xs outline-hidden focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring group-data-[collapsible=icon]:hidden [&>span:last-child]:truncate [&>svg:not([class*='size-'])]:size-4 [&>svg]:shrink-0 [&>svg]:text-sidebar-foreground",
           props.indented && "pl-8.5",
           isActive
             ? "bg-sidebar-row-active font-medium text-sidebar-foreground hover:bg-sidebar-row-active"
             : isSelected
               ? "bg-sidebar-row-selected text-sidebar-foreground hover:bg-sidebar-row-active"
-              : "text-sidebar-muted-foreground/80 hover:bg-sidebar-row-hover hover:text-sidebar-foreground",
+              : "text-sidebar-foreground hover:bg-sidebar-row-hover",
           isFileDragOver && "ring-1 ring-inset ring-primary/70",
         )}
         onClick={handleRowClick}
@@ -2455,7 +2455,7 @@ const SidebarProjectItem = memo(function SidebarProjectItem(props: SidebarProjec
             aria-expanded={projectExpanded}
             onContextMenu={handleProjectButtonContextMenu}
           >
-            <span className="flex size-4 shrink-0 items-center justify-center text-sidebar-foreground/90">
+            <span className="flex size-4 shrink-0 items-center justify-center text-sidebar-foreground">
               {SINGLE_PROVIDER_UI ? (
                 projectExpanded ? (
                   <FolderOpenIcon aria-hidden className="size-4" />
@@ -2467,7 +2467,7 @@ const SidebarProjectItem = memo(function SidebarProjectItem(props: SidebarProjec
               )}
             </span>
             <span className="flex min-w-0 flex-1 items-center gap-2">
-              <span className="truncate text-sm font-medium text-sidebar-foreground/90">
+              <span className="truncate text-sm font-medium text-sidebar-foreground">
                 {project.displayName}
               </span>
               {project.groupedProjectCount > 1 ? (
@@ -2805,9 +2805,7 @@ function ProjectSortMenu({
   return (
     <Menu>
       <Tooltip>
-        <TooltipTrigger
-          render={<MenuTrigger render={<Button size="icon-xs" variant="ghost-muted" />} />}
-        >
+        <TooltipTrigger render={<MenuTrigger render={<Button size="icon-xs" variant="ghost" />} />}>
           <ArrowUpDownIcon className="size-3.5" />
         </TooltipTrigger>
         <TooltipPopup side="right">Sidebar options</TooltipPopup>
@@ -3162,7 +3160,7 @@ const SidebarProjectsContent = memo(function SidebarProjectsContent(
                 render={
                   <Button
                     size="icon-xs"
-                    variant="ghost-muted"
+                    variant="ghost"
                     aria-label="Add project"
                     data-testid="sidebar-add-project-trigger"
                     onClick={() => {
@@ -3500,7 +3498,7 @@ export default function LegacySidebar() {
 
   const animatedProjectListsRef = useRef(new WeakSet<HTMLElement>());
   const attachProjectListAutoAnimateRef = useCallback((node: HTMLElement | null) => {
-    if (!node || animatedProjectListsRef.current.has(node)) {
+    if (SINGLE_PROVIDER_UI || !node || animatedProjectListsRef.current.has(node)) {
       return;
     }
     autoAnimate(node, SIDEBAR_LIST_ANIMATION_OPTIONS);
@@ -3509,7 +3507,7 @@ export default function LegacySidebar() {
 
   const animatedThreadListsRef = useRef(new WeakSet<HTMLElement>());
   const attachThreadListAutoAnimateRef = useCallback((node: HTMLElement | null) => {
-    if (!node || animatedThreadListsRef.current.has(node)) {
+    if (SINGLE_PROVIDER_UI || !node || animatedThreadListsRef.current.has(node)) {
       return;
     }
     autoAnimate(node, SIDEBAR_LIST_ANIMATION_OPTIONS);

@@ -122,7 +122,7 @@ export function SidebarHeaderSearch({ shortcutLabel }: { shortcutLabel?: string 
       <CommandDialogTrigger
         render={
           <Button
-            variant="ghost-muted"
+            variant="ghost"
             size="icon-sm"
             aria-label="Search"
             data-testid="command-palette-trigger"
@@ -133,7 +133,7 @@ export function SidebarHeaderSearch({ shortcutLabel }: { shortcutLabel?: string 
       </CommandDialogTrigger>
       {shortcutLabel ? (
         <CommandDialogTrigger
-          render={<Button variant="ghost-muted" size="xs" aria-label="Open command palette" />}
+          render={<Button variant="ghost" size="xs" aria-label="Open command palette" />}
         >
           <Kbd>{shortcutLabel}</Kbd>
         </CommandDialogTrigger>

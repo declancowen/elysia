@@ -56,6 +56,7 @@ import {
   ClockIcon,
   EyeIcon,
   FolderIcon,
+  FolderClosedIcon,
   GitBranchIcon,
   MessageCircleIcon,
   MessageCircleQuestionIcon,
@@ -335,7 +336,6 @@ function terminalProcessLabel(count: number): string {
 }
 
 function SidebarProjectIcon({
-  project,
   projectless,
   className,
 }: {
@@ -346,7 +346,7 @@ function SidebarProjectIcon({
   return projectless ? (
     <MessageCircleIcon aria-hidden className={className} />
   ) : (
-    <ProjectFavicon project={project} className={className} />
+    <FolderClosedIcon aria-hidden className={className} />
   );
 }
 
@@ -507,7 +507,7 @@ function SnoozeMenuButton(props: {
                   aria-label="Snooze thread"
                   onClick={(event) => event.stopPropagation()}
                   onDoubleClick={(event) => event.stopPropagation()}
-                  className="inline-flex h-full cursor-pointer items-center gap-0.5 rounded-md bg-transparent px-1.5 text-xs text-muted-foreground hover:text-foreground"
+                  className="inline-flex h-full cursor-pointer items-center gap-0.5 rounded-md bg-transparent px-1.5 text-xs text-foreground"
                 />
               }
             />
@@ -694,7 +694,7 @@ function SidebarSectionHeader(props: {
   const snoozed = props.marker === "snoozed-header";
   const className = cn(
     "flex h-full w-full items-center gap-2 px-2 text-left text-xs font-medium",
-    snoozed ? "text-info-foreground" : "text-sidebar-muted-foreground/60",
+    snoozed ? "text-info-foreground" : "text-sidebar-foreground",
     props.dragging && "text-sidebar-foreground/80",
     props.isDropTarget && "text-primary",
   );
@@ -823,7 +823,7 @@ const SidebarDraftRow = memo(function SidebarDraftRow(props: {
             SINGLE_PROVIDER_UI ? "h-15" : "h-[4.875rem]",
           )}
         >
-          <div className="flex h-5 min-w-0 items-center gap-1.5 text-secondary-label">
+          <div className="flex h-5 min-w-0 items-center gap-1.5 text-foreground">
             <SquarePenIcon aria-hidden className={draftPenClassName} />
             {props.project ? (
               <SidebarProjectIcon
@@ -853,7 +853,7 @@ const SidebarDraftRow = memo(function SidebarDraftRow(props: {
               </Tooltip>
             </span>
           </div>
-          <div aria-hidden className="mt-0.5 truncate text-sm font-medium text-foreground/90">
+          <div aria-hidden className="mt-0.5 truncate text-sm font-medium text-foreground">
             {preview}
           </div>
         </div>
@@ -1469,7 +1469,6 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: {
   // content; surface is reserved for interaction (hover, multi-select, route).
   const rowSurfaceClassName = cn(
     "group/sidebar-row relative w-full cursor-pointer overflow-hidden rounded-md text-left outline-none select-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
-    variantAction === "unsettle" && "[&:not(:hover):not(:focus-within)_*]:text-secondary-label/70",
     props.isActive
       ? "bg-sidebar-row-active text-sidebar-foreground"
       : isSelected
@@ -1477,13 +1476,8 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: {
         : hasUnsentDraft
           ? cn(draftSurfaceClassName, "text-sidebar-foreground")
           : shouldRecede
-            ? "text-sidebar-muted-foreground/75 hover:bg-sidebar-row-hover hover:text-sidebar-foreground"
+            ? "text-sidebar-foreground hover:bg-sidebar-row-hover"
             : "bg-transparent text-sidebar-foreground hover:bg-sidebar-row-hover",
-    // Background work fades as a whole row, status label included, so it
-    // takes less attention than rows that need a human (input, approval).
-    shouldRecede &&
-      (status === "working" || status === "monitoring") &&
-      "opacity-70 transition-opacity hover:opacity-100 focus-within:opacity-100 motion-reduce:transition-none",
     isFileDragOver && "ring-1 ring-inset ring-primary/70",
     // The hover tint must not clobber an active/selected row's own surface.
     isFileDragOver && !props.isActive && !isSelected && "bg-sidebar-row-hover",
@@ -1549,27 +1543,7 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: {
       className={cn(
         "min-w-0 flex-1 text-sm transition-opacity motion-reduce:transition-none",
         shouldRecede ? "font-normal" : "font-medium",
-        variant === "card"
-          ? cn(
-              "truncate",
-              shouldRecede
-                ? "text-secondary-label"
-                : isUnread || isWoke || status === "input"
-                  ? "text-foreground"
-                  : status === "failed"
-                    ? "text-foreground/95"
-                    : "text-foreground/90",
-            )
-          : cn(
-              "truncate group-focus-within/sidebar-row:text-foreground group-hover/sidebar-row:text-foreground",
-              shouldRecede
-                ? "text-secondary-label/70"
-                : props.isActive || isWoke || status === "input"
-                  ? "text-foreground"
-                  : isUnread
-                    ? "text-muted-foreground"
-                    : "text-secondary-label/70",
-            ),
+        "truncate text-foreground",
         isRegeneratingTitle && "opacity-55",
       )}
     >
@@ -1646,7 +1620,7 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: {
               onPointerDown={(event) => event.stopPropagation()}
               onKeyDown={(event) => event.stopPropagation()}
               className={cn(
-                "inline-flex cursor-pointer items-center rounded-sm text-muted-foreground/65 outline-none transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring",
+                "inline-flex cursor-pointer items-center rounded-sm text-foreground outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring",
                 !props.isPinned &&
                   "pointer-events-none opacity-0 group-hover/sidebar-row:pointer-events-auto group-hover/sidebar-row:opacity-100 group-focus-within/sidebar-row:pointer-events-auto group-focus-within/sidebar-row:opacity-100",
               )}
@@ -1662,11 +1636,7 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: {
         <TooltipPopup>{props.isPinned ? "Unpin thread" : "Pin thread"}</TooltipPopup>
       </Tooltip>
     ) : props.isPinned ? (
-      <PinIcon
-        aria-label="Pinned"
-        role="img"
-        className="size-3 shrink-0 text-muted-foreground/65"
-      />
+      <PinIcon aria-label="Pinned" role="img" className="size-3 shrink-0 text-foreground" />
     ) : null
   ) : null;
 
@@ -1776,7 +1746,7 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: {
                       aria-label="Wake thread now"
                       onClick={handleUnsnoozeClick}
                       className={cn(
-                        "pointer-events-none absolute inset-y-0 right-0 -mr-1 inline-flex cursor-pointer items-center gap-1 rounded-md bg-transparent px-1.5 text-xs text-muted-foreground opacity-0 transition-opacity hover:text-foreground focus-visible:pointer-events-auto focus-visible:opacity-100 group-hover/sidebar-row:pointer-events-auto group-hover/sidebar-row:opacity-100",
+                        "pointer-events-none absolute inset-y-0 right-0 -mr-1 inline-flex cursor-pointer items-center gap-1 rounded-md bg-transparent px-1.5 text-xs text-foreground opacity-0 transition-opacity focus-visible:pointer-events-auto focus-visible:opacity-100 group-hover/sidebar-row:pointer-events-auto group-hover/sidebar-row:opacity-100",
                         isWoke && "group-hover/sidebar-row:static",
                       )}
                     >
@@ -1792,7 +1762,7 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: {
                           aria-label="Un-settle thread"
                           onClick={handleUnsettleClick}
                           className={cn(
-                            "pointer-events-none absolute inset-y-0 right-0 -mr-1 inline-flex cursor-pointer items-center gap-1 rounded-md bg-transparent px-1.5 text-xs text-muted-foreground opacity-0 transition-opacity hover:text-foreground focus-visible:pointer-events-auto focus-visible:opacity-100 group-hover/sidebar-row:pointer-events-auto group-hover/sidebar-row:opacity-100",
+                            "pointer-events-none absolute inset-y-0 right-0 -mr-1 inline-flex cursor-pointer items-center gap-1 rounded-md bg-transparent px-1.5 text-xs text-foreground opacity-0 transition-opacity focus-visible:pointer-events-auto focus-visible:opacity-100 group-hover/sidebar-row:pointer-events-auto group-hover/sidebar-row:opacity-100",
                             isWoke && "group-hover/sidebar-row:static",
                           )}
                         />
@@ -1808,7 +1778,7 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: {
                     aria-label="Settle thread"
                     onClick={handleSettleClick}
                     className={cn(
-                      "pointer-events-none absolute inset-y-0 right-0 inline-flex cursor-pointer items-center gap-1 rounded-md bg-transparent px-2 text-xs text-muted-foreground opacity-0 transition-opacity hover:text-foreground focus-visible:pointer-events-auto focus-visible:opacity-100 group-hover/sidebar-row:pointer-events-auto group-hover/sidebar-row:opacity-100",
+                      "pointer-events-none absolute inset-y-0 right-0 inline-flex cursor-pointer items-center gap-1 rounded-md bg-transparent px-2 text-xs text-foreground opacity-0 transition-opacity focus-visible:pointer-events-auto focus-visible:opacity-100 group-hover/sidebar-row:pointer-events-auto group-hover/sidebar-row:opacity-100",
                       isWoke && "group-hover/sidebar-row:static",
                     )}
                   >
@@ -1866,7 +1836,7 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: {
               SINGLE_PROVIDER_UI ? "h-15" : "h-[4.875rem]",
             )}
           >
-            <div className="flex h-5 min-w-0 items-center gap-1.5 text-secondary-label">
+            <div className="flex h-5 min-w-0 items-center gap-1.5 text-foreground">
               {draftIndicator}
               {props.project ? (
                 <SidebarProjectIcon
@@ -1878,7 +1848,7 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: {
               {props.projectDisplayName ? (
                 <span
                   className={cn(
-                    "min-w-0 flex-1 truncate text-secondary-label text-xs",
+                    "min-w-0 flex-1 truncate text-foreground text-xs",
                     shouldRecede ? "font-normal" : "font-medium",
                   )}
                 >
@@ -1984,7 +1954,7 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: {
                                 type="button"
                                 aria-label="Discard draft"
                                 onClick={handleDiscardDraftClick}
-                                className="inline-flex cursor-pointer items-center rounded-md bg-transparent px-1.5 text-xs text-muted-foreground hover:text-foreground"
+                                className="inline-flex cursor-pointer items-center rounded-md bg-transparent px-1.5 text-xs text-foreground"
                               />
                             }
                           >
@@ -2009,7 +1979,7 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: {
                                 type="button"
                                 aria-label="Settle thread"
                                 onClick={handleSettleClick}
-                                className="-mr-1 inline-flex cursor-pointer items-center gap-1 rounded-md bg-transparent px-1.5 text-xs text-muted-foreground hover:text-foreground"
+                                className="-mr-1 inline-flex cursor-pointer items-center gap-1 rounded-md bg-transparent px-1.5 text-xs text-foreground"
                               />
                             }
                           >
@@ -2214,7 +2184,7 @@ const SidebarSearchResultRow = memo(function SidebarSearchResultRow(props: {
                 "flex min-h-9 w-full cursor-pointer items-center gap-2.5 rounded-md px-2.5 py-1 text-left text-sm outline-none",
                 props.isHighlighted || props.isRouteActive
                   ? "bg-sidebar-row-active text-sidebar-foreground"
-                  : "text-sidebar-muted-foreground/75 hover:bg-sidebar-row-hover hover:text-sidebar-foreground",
+                  : "text-sidebar-foreground hover:bg-sidebar-row-hover",
                 isFileDragOver && "ring-1 ring-inset ring-primary/70",
                 isFileDragOver && !props.isRouteActive && "bg-sidebar-row-hover",
               )}
@@ -4731,7 +4701,7 @@ export default function Sidebar() {
                             {project ? (
                               <Button
                                 size="icon-xs"
-                                variant="ghost-muted"
+                                variant="ghost"
                                 tabIndex={-1}
                                 aria-hidden="true"
                                 title={`Project settings for ${item.label}`}
@@ -5137,7 +5107,7 @@ export default function Sidebar() {
                         <button
                           type="button"
                           onClick={showMoreSettled}
-                          className="flex h-9 w-full cursor-pointer items-center gap-2.5 rounded-md px-2.5 text-left text-sm text-sidebar-muted-foreground/55 hover:bg-sidebar-row-hover hover:text-sidebar-foreground"
+                          className="flex h-9 w-full cursor-pointer items-center gap-2.5 rounded-md px-2.5 text-left text-sm text-sidebar-foreground hover:bg-sidebar-row-hover hover:text-sidebar-foreground"
                         >
                           <PlusIcon aria-hidden className="size-4 shrink-0" />
                           Show {Math.min(hiddenSettledCount, SETTLED_TAIL_PAGE_COUNT)} more

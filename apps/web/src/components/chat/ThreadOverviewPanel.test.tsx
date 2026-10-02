@@ -99,6 +99,7 @@ it("shows only three uploads, collapses with a count, and opens all sources", as
   await click("Collapse sources");
   expect(document.body.textContent).toContain("Sources (4)");
   expect(document.body.textContent).not.toContain("recent.pdf");
+  expect(document.body.textContent).not.toContain("View all");
   await click("Expand sources");
   expect(document.body.textContent).toContain("recent.pdf");
   expect(document.body.textContent).not.toContain("older.txt");
@@ -304,7 +305,11 @@ it("uses the overview arrow for Git changes, and expands narrow agent responses 
   await click("Thread overview");
   const panel = document.querySelector('[role="dialog"]') as HTMLElement;
   expect(panel.style.width).toBe("320px");
-  await click("Show changes");
+  await click("Hide Git");
+  expect(document.body.textContent).not.toContain("Changes");
+  expect(props.onToggleChanges).not.toHaveBeenCalled();
+  await click("Show Git");
+  await click("Changes+35−8");
   expect(props.onToggleChanges).toHaveBeenCalledTimes(1);
   expect(document.querySelector('[role="dialog"]')).toBeNull();
   state.code = false;
@@ -312,7 +317,7 @@ it("uses the overview arrow for Git changes, and expands narrow agent responses 
   await render({ delegatedAgents: state.delegated.map(({ job }) => job) });
   const responses = document.querySelector('[role="dialog"]') as HTMLElement;
   expect(document.body.textContent).toContain("Working");
-  expect(document.querySelector('[aria-label="Show changes"]')).toBeNull();
+  expect(document.querySelector('[aria-label="Show Git"]')).toBeNull();
   const height = responses.style.height;
   await click("Expand agent responses");
   expect(responses.style.width).toBe("calc(100vw - 2rem)");
@@ -375,9 +380,11 @@ it("keeps Git available with no diff and lets it collapse before opening changes
   await render({ changes: null, showGit: true });
   await click("Thread overview");
   expect(document.body.textContent).toContain("Changes+0−0");
-  await click("Git");
+  await click("Hide Git");
   expect(document.body.textContent).not.toContain("Changes");
-  await click("Git");
+  expect(document.querySelector('[role="dialog"]')).not.toBeNull();
+  expect(props.onToggleChanges).not.toHaveBeenCalled();
+  await click("Show Git");
   const changes = Array.from(document.querySelectorAll("button")).find((button) =>
     button.textContent?.startsWith("Changes"),
   );

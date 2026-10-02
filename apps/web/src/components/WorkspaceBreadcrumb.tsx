@@ -53,7 +53,7 @@ export function WorkspaceBreadcrumbItem({
       aria-current={current ? "page" : undefined}
       className={cn(
         "flex min-w-0 items-center font-medium",
-        current ? "text-foreground" : "shrink-0 text-muted-foreground",
+        current ? "text-foreground" : "shrink-0 text-foreground",
         className,
       )}
     >
@@ -70,7 +70,7 @@ export function WorkspaceBreadcrumbSeparator({
   readonly children?: ReactNode;
 }) {
   return (
-    <li aria-hidden="true" className={cn("flex shrink-0 items-center text-icon-muted", className)}>
+    <li aria-hidden="true" className={cn("flex shrink-0 items-center text-foreground", className)}>
       {children}
     </li>
   );

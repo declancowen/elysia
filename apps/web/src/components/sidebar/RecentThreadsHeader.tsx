@@ -31,7 +31,7 @@ export function RecentThreadsHeader({ environmentId }: { environmentId: Environm
             render={
               <Button
                 size="icon-xs"
-                variant="ghost-muted"
+                variant="ghost"
                 aria-label="New chat"
                 disabled={targetEnvironmentId === null}
                 onClick={() => {

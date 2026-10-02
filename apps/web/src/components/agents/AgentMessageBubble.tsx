@@ -6,10 +6,12 @@ export function AgentMessageBubble({
   avatar,
   working = false,
   children,
+  bubble = true,
 }: {
   avatar: AgentAvatarValue | undefined;
   working?: boolean;
   children: ReactNode;
+  bubble?: boolean;
 }) {
   return (
     <div className="relative min-w-0">
@@ -17,10 +19,14 @@ export function AgentMessageBubble({
         <AgentAvatar
           avatar={avatar}
           working={working}
-          className="absolute right-full top-3 mr-1 size-3 sm:size-4"
+          className="absolute right-full top-3 mr-1 size-3 sm:mr-2 sm:size-5"
         />
       ) : null}
-      <div className="rounded-2xl bg-message p-3 text-message-foreground">{children}</div>
+      {bubble ? (
+        <div className="rounded-2xl bg-message p-3 text-message-foreground">{children}</div>
+      ) : (
+        children
+      )}
     </div>
   );
 }

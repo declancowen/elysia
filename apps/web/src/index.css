@@ -92,11 +92,7 @@ html[data-mobile-composer-route-transition="true"]::view-transition-old(t3-mobil
   --control-radius: 0.5rem;
   --sidebar-content-inset: 0.5rem;
   --sidebar-control-gap: 0.5rem;
-  --sidebar-icon-color: color-mix(
-    in srgb,
-    var(--contrast-sidebar-muted-foreground) 60%,
-    var(--sidebar)
-  );
+  --sidebar-icon-color: var(--contrast-sidebar-foreground);
   --sidebar-row-content-inset: 0.625rem;
   --command-shell-inset: 0.5rem;
   --command-content-inset: 1rem;
@@ -1332,9 +1328,7 @@ html[data-theme-token-probe] *::after {
   top: calc(100% + 0.35rem);
 }
 
-/* Workspace actions use a small, separate chrome hierarchy. Keeping these
-   roles explicit prevents the thread toolbar from falling back to the default
-   dark-mode whites while preserving the same theme file across clients. */
+/* Workspace controls share the toolbar foreground across light and dark themes. */
 html[data-theme-id] [data-chat-header] {
   background-color: var(--toolbar-background);
   color: var(--contrast-toolbar-foreground);
@@ -1343,10 +1337,10 @@ html[data-theme-id] [data-chat-header] {
 html[data-theme-id] [data-chat-header] [data-slot="button"],
 html[data-theme-id] [data-chat-header] [data-slot="menu-trigger"],
 html[data-theme-id] [data-chat-header] [data-toolbar-control] {
-  --control-icon-color: var(--contrast-toolbar-control-foreground);
+  --control-icon-color: var(--contrast-toolbar-foreground);
   background-color: var(--toolbar-control);
   border-color: var(--contrast-toolbar-border);
-  color: var(--contrast-toolbar-control-foreground);
+  color: var(--contrast-toolbar-foreground);
 }
 
 /* The panel layout toggles stay ghost: they render both inside the header and
@@ -1551,8 +1545,6 @@ html[data-theme-id="default"]
 
 html[data-theme-id] [data-chat-header] [data-thread-overview-trigger][aria-expanded="true"] {
   background-color: var(--sidebar);
-  color: var(--contrast-sidebar-foreground);
-  --control-icon-color: var(--contrast-sidebar-foreground);
 }
 
 html[data-theme-id] [data-app-sidebar] {

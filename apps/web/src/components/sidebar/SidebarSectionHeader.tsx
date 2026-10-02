@@ -23,7 +23,7 @@ export function SidebarSectionHeader({
   children?: ReactNode;
 }) {
   const labelClassName =
-    "flex h-9 w-full items-center gap-1.5 rounded-md px-2.5 text-left text-sidebar-section font-normal text-sidebar-muted-foreground/65";
+    "flex h-9 w-full items-center gap-1.5 rounded-md px-2.5 text-left text-sidebar-section font-normal text-sidebar-foreground";
   return (
     <div className="group/section-header relative mb-1">
       <button

@@ -197,7 +197,10 @@ function OverviewPopover({
                       availableSize.height,
                       320 + Math.max(0, availableSize.height - 320) / 2,
                     )
-                  : Math.min(view ? 320 : 560, availableSize.height),
+                  : view
+                    ? Math.min(320, availableSize.height)
+                    : undefined,
+              maxHeight: availableSize.height,
               width:
                 view && expanded
                   ? wide
@@ -210,7 +213,7 @@ function OverviewPopover({
             <header className="flex shrink-0 items-center gap-2 px-5 pt-3 pb-2">
               {view ? (
                 <Button
-                  variant="ghost-muted"
+                  variant="ghost"
                   size="icon-xs"
                   aria-label={
                     view.kind === "subagent" ? "Back to subagents" : "Back to thread overview"
@@ -260,17 +263,19 @@ function OverviewPopover({
               ) : null}
               {view || showChanges ? (
                 <Button
-                  variant="ghost-muted"
+                  variant="ghost"
                   size="icon-xs"
                   aria-label={
                     view
                       ? expanded
                         ? "Collapse agent responses"
                         : "Expand agent responses"
-                      : "Show changes"
+                      : gitExpanded
+                        ? "Hide Git"
+                        : "Show Git"
                   }
-                  aria-expanded={view ? expanded : undefined}
-                  onClick={() => (view ? setExpanded(!expanded) : openView(onToggleChanges))}
+                  aria-expanded={view ? expanded : gitExpanded}
+                  onClick={() => (view ? setExpanded(!expanded) : setGitExpanded(!gitExpanded))}
                 >
                   {view ? (
                     expanded ? (
@@ -279,7 +284,7 @@ function OverviewPopover({
                       <ExpandIcon className="size-3.5" />
                     )
                   ) : (
-                    <ChevronDownIcon className="size-3.5" />
+                    <ChevronDownIcon className={cn("size-3.5", !gitExpanded && "-rotate-90")} />
                   )}
                 </Button>
               ) : null}
@@ -287,34 +292,22 @@ function OverviewPopover({
             <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 pt-1 pb-5">
               {view === null ? (
                 <div className="flex flex-col gap-2.5 [&>section:not(:first-child)]:border-t [&>section:not(:first-child)]:border-border/50 [&>section:not(:first-child)]:pt-2.5">
-                  {showChanges && (
+                  {showChanges && gitExpanded && (
                     <section>
                       <button
                         type="button"
-                        className="mb-1 flex cursor-pointer items-center gap-1.5 text-xs text-muted-foreground"
-                        aria-label="Git"
-                        aria-expanded={gitExpanded}
-                        onClick={() => setGitExpanded(!gitExpanded)}
+                        className={rowClassName}
+                        onClick={() => openView(onToggleChanges)}
                       >
-                        Git{" "}
-                        <ChevronDownIcon className={cn("size-3", !gitExpanded && "-rotate-90")} />
+                        <FileDiffIcon aria-hidden className="size-4 shrink-0" />
+                        <span className="flex-1 text-sm">Changes</span>
+                        <span className="text-xs tabular-nums text-success">
+                          +{(changes?.additions ?? 0).toLocaleString()}
+                        </span>
+                        <span className="text-xs tabular-nums text-destructive">
+                          −{(changes?.deletions ?? 0).toLocaleString()}
+                        </span>
                       </button>
-                      {gitExpanded && (
-                        <button
-                          type="button"
-                          className={rowClassName}
-                          onClick={() => openView(onToggleChanges)}
-                        >
-                          <FileDiffIcon aria-hidden className="size-4 shrink-0" />
-                          <span className="flex-1 text-sm">Changes</span>
-                          <span className="text-xs tabular-nums text-success">
-                            +{(changes?.additions ?? 0).toLocaleString()}
-                          </span>
-                          <span className="text-xs tabular-nums text-destructive">
-                            −{(changes?.deletions ?? 0).toLocaleString()}
-                          </span>
-                        </button>
-                      )}
                     </section>
                   )}
                   {grouped.length > 0 ? (
@@ -378,7 +371,7 @@ function OverviewPopover({
                         type="button"
                         aria-expanded={sourcesExpanded}
                         aria-label={sourcesExpanded ? "Collapse sources" : "Expand sources"}
-                        className="flex cursor-pointer items-center gap-1.5 rounded-sm text-xs text-muted-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
+                        className="flex cursor-pointer items-center gap-1.5 rounded-sm text-xs text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
                         onClick={() => setSourcesExpanded((expanded) => !expanded)}
                       >
                         Sources{!sourcesExpanded ? ` (${sources.length})` : ""}
@@ -391,7 +384,7 @@ function OverviewPopover({
                         />
                       </button>
                       <Button
-                        variant="ghost-muted"
+                        variant="ghost"
                         size="icon-xs"
                         aria-label="Add sources"
                         onClick={() => openView(onAddSources)}
@@ -427,10 +420,7 @@ function OverviewPopover({
                                 className="size-6 shrink-0 rounded-sm border border-border object-cover"
                               />
                             ) : (
-                              <FileIcon
-                                aria-hidden
-                                className="size-4 shrink-0 text-muted-foreground"
-                              />
+                              <FileIcon aria-hidden className="size-4 shrink-0 text-foreground" />
                             )}
                             <span className="min-w-0 truncate text-sm">{source.name}</span>
                           </TooltipTrigger>
@@ -438,18 +428,23 @@ function OverviewPopover({
                         </Tooltip>
                       ))
                     )}
-                    <button
-                      type="button"
-                      className={cn(rowClassName, "text-sm text-muted-foreground")}
-                      onClick={() => openView(onOpenSources)}
-                    >
-                      <LinkIcon aria-hidden className="size-4 shrink-0" />
-                      View all
-                    </button>
+                    {sourcesExpanded && (
+                      <button
+                        type="button"
+                        className={cn(rowClassName, "text-sm text-foreground")}
+                        onClick={() => openView(onOpenSources)}
+                      >
+                        <LinkIcon aria-hidden className="size-4 shrink-0" />
+                        View all
+                      </button>
+                    )}
                   </section>
                 </div>
               ) : selectedAgent ? (
-                <div className="flex flex-col gap-5" aria-label={`${selectedAgent.name} responses`}>
+                <div
+                  className="flex flex-col gap-5 pl-8"
+                  aria-label={`${selectedAgent.name} responses`}
+                >
                   {selectedAgent.jobs.map(({ job, data, project, working }) => {
                     const messages = data?.messages ?? [];
                     const first = messages[0];
@@ -484,19 +479,12 @@ function OverviewPopover({
                             )}
                           </div>
                         </AgentMessageBubble>
-                        <div
-                          className="flex items-start gap-2 rounded-2xl bg-background/30 p-3"
-                          aria-label="Result"
+                        <AgentMessageBubble
+                          avatar={project?.agentProfile?.avatar}
+                          working={working}
+                          bubble={false}
                         >
-                          {project?.agentProfile ? (
-                            <AgentAvatar
-                              avatar={project.agentProfile.avatar}
-                              className="mt-1 size-5 shrink-0"
-                              working={working}
-                            />
-                          ) : null}
-                          <div className="min-w-0 flex-1">
-                            <p className="mb-2 text-xs text-muted-foreground">Result</p>
+                          <div className="min-w-0" aria-label="Result">
                             {result ? (
                               <ChatMarkdown
                                 text={result}
@@ -533,7 +521,7 @@ function OverviewPopover({
                               </p>
                             ) : null}
                           </div>
-                        </div>
+                        </AgentMessageBubble>
                       </section>
                     );
                   })}
@@ -544,7 +532,6 @@ function OverviewPopover({
                     className="rounded-2xl bg-message text-message-foreground p-3"
                     aria-label="Ask"
                   >
-                    <p className="mb-2 text-xs text-muted-foreground">Ask</p>
                     <ChatMarkdown text={selectedSubagent.title} cwd={undefined} />
                   </div>
                   <div
@@ -553,7 +540,6 @@ function OverviewPopover({
                   >
                     <BotIcon aria-hidden className="mt-1 size-5 shrink-0" />
                     <div className="min-w-0 flex-1">
-                      <p className="mb-2 text-xs text-muted-foreground">Result</p>
                       <ChatMarkdown
                         cwd={undefined}
                         text={

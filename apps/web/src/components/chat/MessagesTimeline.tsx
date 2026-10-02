@@ -2206,7 +2206,7 @@ function UserTimelineRow({ row }: { row: Extract<TimelineRow, { kind: "message" 
         {handoff && ctx.agentAvatar ? (
           <AgentAvatar
             avatar={ctx.agentAvatar}
-            className="absolute right-full top-3 mr-1 size-3 sm:size-4"
+            className="absolute right-full top-3 mr-1 size-3 sm:mr-2 sm:size-5"
           />
         ) : null}
         {collectComposerContextReferences(resolvedContext.text).some(

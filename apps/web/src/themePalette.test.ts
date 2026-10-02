@@ -107,12 +107,14 @@ describe("theme files", () => {
     const light = getStandardThemeColors("light");
     expectThemeColors(light, {
       canvas: "#ffffff",
-      sidebar: "#f4f8fc",
+      toolbar: "#ffffff",
+      chrome: "#ffffff",
+      sidebar: "#fafbfc",
       sidebarRowActive: "#aae6ff",
       messageSurface: "#ddf3ff",
     });
-    expect(contrastRatio(light.sidebar, light.canvas)).toBeGreaterThan(1.05);
-    expect(contrastRatio(light.sidebar, light.canvas)).toBeLessThan(1.12);
+    expect(contrastRatio(light.sidebar, light.canvas)).toBeGreaterThan(1);
+    expect(contrastRatio(light.sidebar, light.canvas)).toBeLessThan(1.05);
     expect(contrastRatio(light.sidebarForeground, light.sidebar)).toBeGreaterThanOrEqual(4.5);
     expect(contrastRatio(light.sidebarMutedForeground, light.sidebar)).toBeGreaterThanOrEqual(4.5);
     const dark = getStandardThemeColors("dark");
@@ -1100,17 +1102,17 @@ describe("singleAppearanceOf", () => {
   });
 });
 
-it("ships the supplied GitHub and Notion palettes with their original appearances", () => {
+it("keeps the distinct GitHub and Notion palettes available in both appearances", () => {
   expect(BUILT_IN_THEMES.some((theme) => theme.id === "t3-chat")).toBe(false);
   expect(ELYSIA_THEMES.map((theme) => theme.label)).toEqual([
-    "GitHub",
-    "GitHub Dark Neutral Unified",
-    "Notion Inverted",
-    "Notion",
+    "Midnight",
+    "Space Grey",
+    "Canvas",
+    "Paper",
   ]);
   expect(ELYSIA_THEMES.map(getThemeModes)).toEqual([
-    ["dark"],
-    ["dark"],
+    ["light", "dark"],
+    ["light", "dark"],
     ["light", "dark"],
     ["light", "dark"],
   ]);
@@ -1120,4 +1122,14 @@ it("ships the supplied GitHub and Notion palettes with their original appearance
   expect(neutral?.colors.sidebar).toBe(canonical("#151515"));
   expect(inverted?.colors.canvas).toBe(canonical("#f7f7f5"));
   expect(notion?.variants?.dark?.canvas).toBe(canonical("#191919"));
+  for (const theme of [github!, neutral!]) {
+    const colors = getThemeColorsForMode(theme, "light")!;
+    for (const [foreground, background] of [
+      [colors.text, colors.canvas],
+      [colors.sidebarForeground, colors.sidebar],
+      [colors.sidebarMutedForeground, colors.sidebar],
+      [colors.messageActionForeground, colors.messageAction],
+    ])
+      expect(contrastRatio(foreground!, background!)).toBeGreaterThanOrEqual(4.5);
+  }
 });

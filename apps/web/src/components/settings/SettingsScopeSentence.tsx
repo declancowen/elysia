@@ -1,6 +1,7 @@
-import { resolveEnvironmentMachineKind } from "@t3tools/contracts";
+import { SINGLE_PROVIDER_UI, resolveEnvironmentMachineKind } from "@t3tools/contracts";
+import { isScratchProject } from "@t3tools/client-runtime/state/projects";
 import { useLocation } from "@tanstack/react-router";
-import { ChevronDownIcon, LayersIcon } from "lucide-react";
+import { ChevronDownIcon, LayersIcon, MessageCircleIcon } from "lucide-react";
 import type { ReactNode } from "react";
 
 import type { SidebarProjectSnapshot } from "../../sidebarProjectGrouping";
@@ -69,13 +70,15 @@ export function SettingsScopeSentence() {
         <span className="shrink-0">Applying settings for</span>
         <ProjectScopeMenu {...props} />
       </span>
-      <span className="flex min-w-0 items-center gap-1.5">
-        <span className="shrink-0">
-          {/* A legacy checkout link names one environment without `machine`. */}
-          {scope.search.machine || scope.scope.kind === "checkout" ? "on" : "across"}
+      {!SINGLE_PROVIDER_UI && (
+        <span className="flex min-w-0 items-center gap-1.5">
+          <span className="shrink-0">
+            {/* A legacy checkout link names one environment without `machine`. */}
+            {scope.search.machine || scope.scope.kind === "checkout" ? "on" : "across"}
+          </span>
+          <EnvironmentScopeMenu {...props} />
         </span>
-        <EnvironmentScopeMenu {...props} />
-      </span>
+      )}
     </p>
   );
 }
@@ -185,13 +188,30 @@ function EnvironmentScopeMenu({
   );
 }
 
-function ProjectScopeMenu({ value, groups, onChange }: SettingsScopeMenuProps) {
+function ProjectScopeMenu({ value, groups, environments, onChange }: SettingsScopeMenuProps) {
   const selected = groups.find((group) => group.projectKey === value.project);
+  const projectIcon = (group: SidebarProjectSnapshot) =>
+    isScratchProject(
+      group,
+      environments.find((entry) => entry.environmentId === group.environmentId)?.serverConfig
+        ?.scratchWorkspaceRoot,
+    ) ? (
+      <MessageCircleIcon aria-hidden className="size-3.5 shrink-0" />
+    ) : (
+      <ProjectFavicon project={group} className="size-3.5 shrink-0" />
+    );
   return (
     <ScopeMenu
-      ariaLabel="Project scope"
-      icon={selected ? <ProjectFavicon project={selected} className="size-3.5 shrink-0" /> : null}
-      label={selected?.displayName ?? (value.project ? "Unavailable project" : "All projects")}
+      ariaLabel={SINGLE_PROVIDER_UI ? "Settings scope" : "Project scope"}
+      icon={selected ? projectIcon(selected) : null}
+      label={
+        selected?.displayName ??
+        (value.project
+          ? "Unavailable project"
+          : SINGLE_PROVIDER_UI
+            ? "App defaults"
+            : "All projects")
+      }
     >
       <MenuRadioGroup
         value={projectAxisValue(value)}
@@ -201,7 +221,9 @@ function ProjectScopeMenu({ value, groups, onChange }: SettingsScopeMenuProps) {
       >
         <MenuRadioItem value={ALL_PROJECTS_VALUE}>
           <span className="flex min-w-0 items-center gap-2">
-            <span className="min-w-0 flex-1 truncate">All projects</span>
+            <span className="min-w-0 flex-1 truncate">
+              {SINGLE_PROVIDER_UI ? "App defaults" : "All projects"}
+            </span>
             <MenuRadioItemIndicator />
           </span>
         </MenuRadioItem>
@@ -209,7 +231,7 @@ function ProjectScopeMenu({ value, groups, onChange }: SettingsScopeMenuProps) {
         {groups.map((group) => (
           <MenuRadioItem key={group.projectKey} value={group.projectKey}>
             <span className="flex min-w-0 items-center gap-2">
-              <ProjectFavicon project={group} className="size-3.5" />
+              {projectIcon(group)}
               <span className="min-w-0 flex-1 truncate">{group.displayName}</span>
               <MenuRadioItemIndicator />
             </span>

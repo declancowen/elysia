@@ -3,12 +3,13 @@ import { SettingsGroup } from "./SettingsGroup";
 import { ArchivedAgentsSection } from "./ArchivedAgentsSection";
 import { Spinner } from "~/components/ui/spinner";
 import { NotificationSettings } from "./NotificationSettings";
-import { ArchiveIcon, ArchiveX, CheckIcon, ChevronRightIcon, SettingsIcon } from "lucide-react";
+import { ArchiveIcon, ArchiveX, CheckIcon, SettingsIcon } from "lucide-react";
 import { Link, useNavigate } from "@tanstack/react-router";
 import type { CSSProperties, ReactNode } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   type BackgroundActivityProfile,
+  SINGLE_PROVIDER_UI,
   ProviderDriverKind,
   type ProviderInstanceId,
   type ScopedThreadRef,
@@ -102,7 +103,6 @@ import {
   AlertDialogTitle,
 } from "../ui/alert-dialog";
 import { Button } from "../ui/button";
-import { Collapsible, CollapsiblePanel, CollapsibleTrigger } from "../ui/collapsible";
 import {
   Dialog,
   DialogDescription,
@@ -157,7 +157,6 @@ import {
   SettingsPageContainer,
   SettingsRow,
   SettingsSection,
-  useSettingsSearchTarget,
   useSettingsSearchTargetId,
 } from "./settingsLayout";
 import { searchableSetting } from "./settingsSearch";
@@ -434,7 +433,7 @@ export function useSettingsRestore(onRestored?: () => void) {
         : []),
       ...(settings.environmentIdentificationMode !==
       DEFAULT_UNIFIED_SETTINGS.environmentIdentificationMode
-        ? ["Environment identification"]
+        ? [SINGLE_PROVIDER_UI ? "App identification" : "Environment identification"]
         : []),
       ...(settings.timestampFormat !== DEFAULT_UNIFIED_SETTINGS.timestampFormat
         ? ["Time format"]
@@ -1893,95 +1892,51 @@ function AutoSettleDaysInput({
   );
 }
 
-// The legacy rows sit behind the fold, so a settings-search jump has to
-// expand the section before its target can mount and scroll.
-const LEGACY_FEATURE_TARGET_IDS: ReadonlySet<string> = new Set([
-  "legacy-plan-mode",
-  "legacy-context-window-indicator",
-  "legacy-sidebar",
-]);
-
-/**
- * Retired features kept only for users who still depend on them. Collapsed by
- * default so they stay out of the everyday settings path; a settings-search
- * jump to one of the rows unfolds the section.
- */
 function WorkspacePreferencesSection() {
   const settings = useScopedSettings();
   const updateSettings = useUpdateScopedSettings();
-  const [open, setOpen] = useState(true);
-  const searchTargetId = useSettingsSearchTargetId();
-  const targetRef = useSettingsSearchTarget<HTMLElement>("legacy-features");
-  // Unfold once per search jump; tracking the handled id lets the user fold
-  // the section back up without the still-set target immediately reopening it.
-  const lastExpandedTargetRef = useRef<string | null>(null);
-  useEffect(() => {
-    if (searchTargetId === null) {
-      // A handled jump clears the target; forgetting it here lets a later
-      // jump to the same row expand the section again.
-      lastExpandedTargetRef.current = null;
-      return;
-    }
-    if (!LEGACY_FEATURE_TARGET_IDS.has(searchTargetId)) return;
-    if (lastExpandedTargetRef.current === searchTargetId) return;
-    lastExpandedTargetRef.current = searchTargetId;
-    setOpen(true);
-  }, [searchTargetId]);
-
   return (
-    <section id="legacy-features" ref={targetRef} tabIndex={-1} className="space-y-2.5">
-      <Collapsible open={open} onOpenChange={setOpen}>
-        <CollapsibleTrigger className="group flex min-h-8 w-full items-center gap-2 px-3 sm:px-4">
-          <h2 className="text-sm font-normal text-foreground/70 transition-colors group-hover:text-foreground">
-            Workspace preferences
-          </h2>
-          <ChevronRightIcon className="size-4 text-muted-foreground transition-transform duration-200 group-data-panel-open:rotate-90" />
-        </CollapsibleTrigger>
-        <CollapsiblePanel>
-          <SettingsGroup>
-            <SettingsRow
-              {...searchableSetting("legacy-plan-mode")}
-              description="Restore Build/Plan, /plan, /default, and Shift+Tab. Off uses build mode."
-              control={
-                <Switch
-                  checked={settings.planModeEnabled}
-                  onCheckedChange={(checked) => {
-                    updateSettings({ planModeEnabled: Boolean(checked) });
-                  }}
-                  aria-label="Plan mode"
-                />
-              }
-            />
-            <SettingsRow
-              {...searchableSetting("legacy-context-window-indicator")}
-              description="Shows context window usage as a circular indicator in the composer."
-              control={
-                <Switch
-                  checked={settings.contextWindowMeterEnabled}
-                  onCheckedChange={(checked) =>
-                    updateSettings({ contextWindowMeterEnabled: Boolean(checked) })
-                  }
-                  aria-label="Context window indicator"
-                />
-              }
-            />
-            <SettingsRow
-              {...searchableSetting("legacy-sidebar")}
-              description="Group chats beneath each project in Project view, or show them together in Thread view."
-              control={
-                <Switch
-                  checked={settings.legacySidebarEnabled}
-                  onCheckedChange={(checked) =>
-                    updateSettings({ legacySidebarEnabled: Boolean(checked) })
-                  }
-                  aria-label="Project view"
-                />
-              }
-            />
-          </SettingsGroup>
-        </CollapsiblePanel>
-      </Collapsible>
-    </section>
+    <SettingsSection id="legacy-features" title="Workspace preferences">
+      <SettingsRow
+        {...searchableSetting("legacy-plan-mode")}
+        description="Restore Build/Plan, /plan, /default, and Shift+Tab. Off uses build mode."
+        control={
+          <Switch
+            checked={settings.planModeEnabled}
+            onCheckedChange={(checked) => {
+              updateSettings({ planModeEnabled: Boolean(checked) });
+            }}
+            aria-label="Plan mode"
+          />
+        }
+      />
+      <SettingsRow
+        {...searchableSetting("legacy-context-window-indicator")}
+        description="Shows context window usage as a circular indicator in the composer."
+        control={
+          <Switch
+            checked={settings.contextWindowMeterEnabled}
+            onCheckedChange={(checked) =>
+              updateSettings({ contextWindowMeterEnabled: Boolean(checked) })
+            }
+            aria-label="Context window indicator"
+          />
+        }
+      />
+      <SettingsRow
+        {...searchableSetting("legacy-sidebar")}
+        description="Group chats beneath each project in Project view, or show them together in Thread view."
+        control={
+          <Switch
+            checked={settings.legacySidebarEnabled}
+            onCheckedChange={(checked) =>
+              updateSettings({ legacySidebarEnabled: Boolean(checked) })
+            }
+            aria-label="Project view"
+          />
+        }
+      />
+    </SettingsSection>
   );
 }
 
@@ -2612,10 +2567,16 @@ export function GeneralSettingsPanel() {
           {...searchableSetting("continue-threads-after-server-update")}
           serverScoped
           settingKeys={["continueThreadsAfterServerUpdate"]}
-          description="Automatically resume interrupted threads after an update, crash, or machine restart on the selected environments. Update older servers first."
+          description={
+            SINGLE_PROVIDER_UI
+              ? "Automatically resume interrupted threads after an update, crash, or restart."
+              : "Automatically resume interrupted threads after an update, crash, or machine restart on the selected environments. Update older servers first."
+          }
           status={
             !supportsRestartContinuation
-              ? "All selected connected environments must support restart continuation."
+              ? SINGLE_PROVIDER_UI
+                ? "Update Elysia to enable restart continuation."
+                : "All selected connected environments must support restart continuation."
               : undefined
           }
           resetAction={
@@ -2947,7 +2908,9 @@ export function GeneralSettingsPanel() {
           control={
             !hasServerTargets ? (
               <span className="text-sm text-muted-foreground">
-                Connect an environment to choose its text generation model.
+                {SINGLE_PROVIDER_UI
+                  ? "Connect Elysia to choose its text generation model."
+                  : "Connect an environment to choose its text generation model."}
               </span>
             ) : !hasTextGenerationProvider ? (
               <span className="text-sm text-muted-foreground">
@@ -3049,9 +3012,11 @@ export function GeneralSettingsPanel() {
         <SettingsRow
           {...searchableSetting("diagnostics")}
           description={
-            isEnvironmentScope
-              ? "Inspect processes, resource use, and logs on this environment."
-              : "Inspect processes, resource use, and logs on one environment at a time."
+            SINGLE_PROVIDER_UI
+              ? "Inspect Elysia processes, resource use, and logs."
+              : isEnvironmentScope
+                ? "Inspect processes, resource use, and logs on this environment."
+                : "Inspect processes, resource use, and logs on one environment at a time."
           }
           control={
             <Button
@@ -3218,7 +3183,9 @@ export function ArchivedThreadsPanel() {
             }
             description={
               isLoadingArchive
-                ? "Checking connected environments."
+                ? SINGLE_PROVIDER_UI
+                  ? "Loading archived chats."
+                  : "Checking connected environments."
                 : (archiveError ?? "Archived threads will appear here.")
             }
           />

@@ -1,6 +1,10 @@
 import { SettingsGroup } from "./SettingsGroup";
 import { InfoIcon, Undo2Icon } from "lucide-react";
-import { DEFAULT_SERVER_SETTINGS, type ServerSettings } from "@t3tools/contracts";
+import {
+  DEFAULT_SERVER_SETTINGS,
+  SINGLE_PROVIDER_UI,
+  type ServerSettings,
+} from "@t3tools/contracts";
 import * as Equal from "effect/Equal";
 import { useLocation, useNavigate } from "@tanstack/react-router";
 import {
@@ -302,8 +306,9 @@ export function SettingsRow({
   const unavailable =
     serverScoped &&
     !(context ? context.connectedEnvironments.length > 0 : primarySettingsAvailable);
-  const inheritedFrom =
-    source === "environment" && context?.scope.environmentIds.length === 1
+  const inheritedFrom = SINGLE_PROVIDER_UI
+    ? "Elysia"
+    : source === "environment" && context?.scope.environmentIds.length === 1
       ? (context.environments.find(
           (environment) => environment.environmentId === context.scope.environmentIds[0],
         )?.label ?? "environment")
@@ -382,11 +387,17 @@ export function SettingsRow({
     unavailable && control
       ? inertControl(
           context
-            ? "Reconnect the selected environment to change this setting."
+            ? SINGLE_PROVIDER_UI
+              ? "Reconnect Elysia to change this setting."
+              : "Reconnect the selected environment to change this setting."
             : PRIMARY_SETTINGS_UNAVAILABLE_MESSAGE,
         )
       : environmentWide && control
-        ? inertControl("Environment-wide setting. Select an environment to change it.")
+        ? inertControl(
+            SINGLE_PROVIDER_UI
+              ? "App-wide setting. Select App defaults to change it."
+              : "Environment-wide setting. Select an environment to change it.",
+          )
         : control;
   // Server rows get an indicator beside the title that opens the resolution
   // chain per target at every scope; client rows keep a plain status only.
@@ -402,7 +413,12 @@ export function SettingsRow({
       }),
     );
   const inheritance: { state: SettingInheritanceState; summary: string } = mixed
-    ? { state: "mixed", summary: "Mixed across selected environments" }
+    ? {
+        state: "mixed",
+        summary: SINGLE_PROVIDER_UI
+          ? "Mixed across selected projects"
+          : "Mixed across selected environments",
+      }
     : source === "project"
       ? { state: "overridden", summary: "Overridden for this project" }
       : source === "t3.json"
@@ -410,7 +426,10 @@ export function SettingsRow({
         : source === "environment" && scopedKeys.length > 0
           ? { state: "inherited", summary: `Inherited from ${inheritedFrom}` }
           : customized
-            ? { state: "environment", summary: "Set on the environment" }
+            ? {
+                state: "environment",
+                summary: SINGLE_PROVIDER_UI ? "Set in Elysia" : "Set on the environment",
+              }
             : { state: "default", summary: "Built-in default" };
   const renderedInheritance =
     context && serverScoped && settingKeys.length > 0 ? (

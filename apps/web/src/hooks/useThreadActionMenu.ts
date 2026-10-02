@@ -66,9 +66,10 @@ export function useThreadActionMenu(input: {
   readonly threadRef: ScopedThreadRef | null;
   /** Fallback for "Copy path" when the thread has no worktree. */
   readonly projectCwd: string | null;
+  readonly projectless?: boolean;
   readonly onStartRename: () => void;
 }) {
-  const { threadRef, projectCwd, onStartRename } = input;
+  const { threadRef, projectCwd, projectless = false, onStartRename } = input;
   const codeWorkspace = useCodeWorkspace();
   const router = useRouter();
   const projects = useProjects();
@@ -143,6 +144,7 @@ export function useThreadActionMenu(input: {
         const isRegeneratingTitle = thread.titleRegeneration != null;
         const snoozePresets = resolveSnoozePresets(now, timestampFormat);
         const items = buildThreadActionMenuItems({
+          projectless,
           branch: codeWorkspace ? (thread.branch ?? null) : null,
           // The chat header has no project-scoped thread list behind the
           // menu, so the "Filter by project" affordance is sidebar-only.
@@ -342,6 +344,7 @@ export function useThreadActionMenu(input: {
       onStartRename,
       pinThread,
       projectCwd,
+      projectless,
       projectGroupingSettings,
       projects,
       router,

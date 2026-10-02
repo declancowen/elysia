@@ -2224,10 +2224,15 @@ function OpenCommandPaletteDialog(props: {
     projectGroups[0] ??
     null;
   if (contextualProjectGroup) {
+    const chatSettings = isScratchProject(
+      contextualProjectGroup,
+      scratchWorkspaceRootFor(contextualProjectGroup.environmentId),
+    );
     actionItems.push({
       kind: "action",
       value: "action:project-settings",
       searchTerms: [
+        ...(chatSettings ? ["chat", "chats"] : []),
         "project",
         "settings",
         "name",
@@ -2240,9 +2245,13 @@ function OpenCommandPaletteDialog(props: {
         "remove",
         "t3.json",
       ],
-      title: "Project settings",
-      description: contextualProjectGroup.displayName,
-      icon: <FolderIcon className={ITEM_ICON_CLASS} />,
+      title: chatSettings ? "Chat settings" : "Project settings",
+      description: chatSettings ? "Chats" : contextualProjectGroup.displayName,
+      icon: chatSettings ? (
+        <MessageCircleIcon className={ITEM_ICON_CLASS} />
+      ) : (
+        <FolderIcon className={ITEM_ICON_CLASS} />
+      ),
       run: async () => {
         await navigate({
           to: "/projects/$projectKey",

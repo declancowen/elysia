@@ -59,6 +59,12 @@ describe("buildThreadActionMenuItems", () => {
       icon: "settings",
     });
     expect(items[copyIndex + 2]?.id).toBe("archive");
+    expect(
+      buildThreadActionMenuItems({ ...baseState, projectless: true })[copyIndex + 1],
+    ).toMatchObject({
+      id: "project-settings",
+      label: "Chat settings",
+    });
   });
 
   it("offers project filtering only for surfaces with a scoped thread list", () => {

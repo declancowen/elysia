@@ -1,4 +1,5 @@
 import { RefreshIcon } from "~/components/ui/refresh-icon";
+import { SINGLE_PROVIDER_UI } from "@t3tools/contracts";
 import { ChevronDownIcon } from "lucide-react";
 import * as Duration from "effect/Duration";
 import * as Option from "effect/Option";
@@ -480,14 +481,21 @@ function EmptySourceControlDiscovery({
   const hasError = error !== null;
 
   return (
-    <SettingsSection id={searchableSetting("source-control").id} title="Server environment">
+    <SettingsSection
+      id={searchableSetting("source-control").id}
+      title={SINGLE_PROVIDER_UI ? "Git tools" : "Server environment"}
+    >
       <Empty>
         <EmptyMedia variant="icon">
           <PullRequestGlyph.pullRequest />
         </EmptyMedia>
         <EmptyHeader>
           <EmptyTitle>
-            {hasError ? "Could not scan the server environment" : "Nothing detected yet"}
+            {hasError
+              ? SINGLE_PROVIDER_UI
+                ? "Could not scan Git tools"
+                : "Could not scan the server environment"
+              : "Nothing detected yet"}
           </EmptyTitle>
           <EmptyDescription>
             {hasError
@@ -539,7 +547,7 @@ export function SourceControlSettingsPanel() {
             variant="ghost-muted"
             onClick={handleScan}
             disabled={discovery.isPending}
-            aria-label="Rescan server environment"
+            aria-label={SINGLE_PROVIDER_UI ? "Rescan Git tools" : "Rescan server environment"}
           >
             <RefreshIcon refreshing={discovery.isPending} />
           </Button>
@@ -553,9 +561,14 @@ export function SourceControlSettingsPanel() {
     <SettingsPageContainer>
       <ProjectDefaultsSettings category="source-control" />
       {environmentId === null ? (
-        <SettingsSection id={searchableSetting("source-control").id} title="Server environment">
+        <SettingsSection
+          id={searchableSetting("source-control").id}
+          title={SINGLE_PROVIDER_UI ? "Git tools" : "Server environment"}
+        >
           <p className="px-4 py-3 text-sm text-muted-foreground">
-            Connect an environment to inspect its version control tools and hosting integrations.
+            {SINGLE_PROVIDER_UI
+              ? "Connect Elysia to inspect Git tools and hosting integrations."
+              : "Connect an environment to inspect its version control tools and hosting integrations."}
           </p>
         </SettingsSection>
       ) : isInitialScanPending ? (

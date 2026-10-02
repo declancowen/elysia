@@ -6,7 +6,7 @@ import { useEnvironments } from "../../state/environments";
 import type { SettingsScopeSearch } from "./settingsScope";
 import { useSettingsProjectGroups } from "./useSettingsProjectGroups";
 import { useLocation, useNavigate } from "@tanstack/react-router";
-import type { EnvironmentId } from "@t3tools/contracts";
+import { SINGLE_PROVIDER_UI, type EnvironmentId } from "@t3tools/contracts";
 
 /** Offer an explicit target change when a category has no settings at this scope. */
 export function SettingsScopeNotice({
@@ -31,7 +31,9 @@ export function SettingsScopeNotice({
           .filter((group) => !search.project || group.projectKey === search.project)
           .flatMap((group) =>
             group.memberProjects.map((member) => ({
-              label: `${group.displayName} · ${member.environmentLabel ?? "Environment"} · ${member.workspaceRoot}`,
+              label: SINGLE_PROVIDER_UI
+                ? `${group.displayName} · ${member.workspaceRoot}`
+                : `${group.displayName} · ${member.environmentLabel ?? "Environment"} · ${member.workspaceRoot}`,
               search: {
                 project: group.projectKey,
                 machine: member.environmentId,
@@ -52,15 +54,23 @@ export function SettingsScopeNotice({
                   eligibleEnvironmentIds.includes(entry.environmentId),
               )
               .map((entry) => ({
-                label: environments.some(
-                  (other) =>
-                    other.environmentId !== entry.environmentId && other.label === entry.label,
-                )
-                  ? `${entry.label} · ${entry.displayUrl || entry.environmentId}`
-                  : entry.label,
+                label: SINGLE_PROVIDER_UI
+                  ? "Elysia"
+                  : environments.some(
+                        (other) =>
+                          other.environmentId !== entry.environmentId &&
+                          other.label === entry.label,
+                      )
+                    ? `${entry.label} · ${entry.displayUrl || entry.environmentId}`
+                    : entry.label,
                 search: { machine: entry.environmentId },
               }))
-          : [{ label: "Open all environments", search: {} }];
+          : [
+              {
+                label: SINGLE_PROVIDER_UI ? "Open app settings" : "Open all environments",
+                search: {},
+              },
+            ];
   return (
     <SettingsPageContainer>
       <Alert role="status">

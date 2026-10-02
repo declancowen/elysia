@@ -4,6 +4,8 @@ import {
   WorkspaceBreadcrumbSeparator,
 } from "../WorkspaceBreadcrumb";
 import { SETTINGS_SECTION_LABELS } from "./settingsSearch";
+import { useOptionalSettingsScope } from "./SettingsScopeContext";
+import { isScratchProject } from "@t3tools/client-runtime/state/projects";
 
 const SETTINGS_BREADCRUMB_LABELS: Readonly<Record<string, string>> = {
   ...SETTINGS_SECTION_LABELS,
@@ -21,7 +23,19 @@ function settingsBreadcrumbLabel(pathname: string): string | null {
  * page content, see `SettingsScopeSentence`.
  */
 export function SettingsBreadcrumb({ pathname }: { pathname: string }) {
-  const sectionLabel = settingsBreadcrumbLabel(pathname);
+  const scope = useOptionalSettingsScope();
+  const chatScope =
+    scope &&
+    (scope.scope.kind === "project" || scope.scope.kind === "checkout") &&
+    scope.scope.members.some((member) =>
+      isScratchProject(
+        member,
+        scope.environments.find((entry) => entry.environmentId === member.environmentId)
+          ?.serverConfig?.scratchWorkspaceRoot,
+      ),
+    );
+  const sectionLabel =
+    pathname === "/settings/projects" && chatScope ? "Chats" : settingsBreadcrumbLabel(pathname);
 
   return (
     <WorkspaceBreadcrumb ariaLabel="Settings breadcrumb">

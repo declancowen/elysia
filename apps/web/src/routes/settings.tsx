@@ -29,6 +29,7 @@ import {
 } from "../components/settings/settingsSearch";
 
 import { useCodeWorkspace } from "../hooks/useSettings";
+import { SINGLE_PROVIDER_UI } from "@t3tools/contracts";
 import {
   isSettingsPathVisibleInWorkspace,
   isSettingsTargetVisibleInWorkspace,
@@ -76,9 +77,11 @@ function SettingsScopeBoundary({ pathname, children }: { pathname: string; child
         targetId={hash}
         eligibleEnvironmentIds={autoSettlementAvailability.eligibleEnvironmentIds}
       >
-        {autoSettlementAvailability.eligibleEnvironmentIds.length > 0
-          ? `${searchTarget.title} requires a supporting environment. Choose one to continue.`
-          : `${searchTarget.title} requires a supporting environment. Connect or update an environment to continue.`}
+        {SINGLE_PROVIDER_UI
+          ? `Update Elysia to use ${searchTarget.title.toLowerCase()}.`
+          : autoSettlementAvailability.eligibleEnvironmentIds.length > 0
+            ? `${searchTarget.title} requires a supporting environment. Choose one to continue.`
+            : `${searchTarget.title} requires a supporting environment. Connect or update an environment to continue.`}
       </SettingsScopeNotice>
     );
   }
@@ -108,14 +111,20 @@ function SettingsScopeBoundary({ pathname, children }: { pathname: string; child
   if (scope.kind === "unavailable")
     return (
       <SettingsPageContainer>
-        <p className="text-sm text-muted-foreground">{scope.message}</p>
+        <p className="text-sm text-muted-foreground">
+          {SINGLE_PROVIDER_UI
+            ? "These settings are no longer available. Choose another project or Chats."
+            : scope.message}
+        </p>
       </SettingsPageContainer>
     );
   if (scope.kind === "environment" && connectedEnvironments.length === 0) {
     return (
       <SettingsPageContainer>
         <p className="text-sm text-muted-foreground">
-          Reconnect {scope.label} to change its settings.
+          {SINGLE_PROVIDER_UI
+            ? "Reconnect Elysia to change its settings."
+            : `Reconnect ${scope.label} to change its settings.`}
         </p>
       </SettingsPageContainer>
     );
@@ -166,7 +175,7 @@ function SettingsRouteLayout() {
   return (
     <SettingsScopeProvider
       search={rawSearch}
-      singleEnvironment={pathname === "/settings/providers"}
+      singleEnvironment={SINGLE_PROVIDER_UI || pathname === "/settings/providers"}
       onChange={(next) => {
         // Send every axis so the retain middleware sees an explicit target
         // even when the choice is "all", which is the absence of a key.

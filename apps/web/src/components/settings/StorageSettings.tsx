@@ -4,6 +4,7 @@ import { useState } from "react";
 
 import { Select, SelectItem, SelectPopup, SelectTrigger, SelectValue } from "../ui/select";
 import { Switch } from "../ui/switch";
+import { SINGLE_PROVIDER_UI } from "@t3tools/contracts";
 import {
   NumberField,
   NumberFieldDecrement,
@@ -143,8 +144,9 @@ export function StorageSettingsPanel() {
           )
           .map((environment) => environment.environmentId)}
       >
-        Update the selected environments to use storage cleanup, or choose a machine that supports
-        it.
+        {SINGLE_PROVIDER_UI
+          ? "Update Elysia to use storage cleanup."
+          : "Update the selected environments to use storage cleanup, or choose a machine that supports it."}
       </SettingsScopeNotice>
     );
   }

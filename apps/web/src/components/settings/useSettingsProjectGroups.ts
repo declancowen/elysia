@@ -1,5 +1,6 @@
 import { useRegularProjects } from "../../hooks/useRegularProjects";
 import { useMemo } from "react";
+import { isScratchProject } from "@t3tools/client-runtime/state/projects";
 
 import { useClientSettings } from "../../hooks/useSettings";
 import { selectProjectGroupingSettings } from "../../logicalProject";
@@ -19,6 +20,16 @@ export function useSettingsProjectGroups() {
       settings,
       primaryEnvironmentId,
       resolveEnvironmentLabel: (id) => labels.get(id) ?? null,
-    }).sort((a, b) => a.displayName.localeCompare(b.displayName));
+    })
+      .map((group) =>
+        isScratchProject(
+          group,
+          environments.find((entry) => entry.environmentId === group.environmentId)?.serverConfig
+            ?.scratchWorkspaceRoot,
+        )
+          ? { ...group, displayName: "Chats" }
+          : group,
+      )
+      .sort((a, b) => a.displayName.localeCompare(b.displayName));
   }, [environments, primaryEnvironmentId, projects, settings]);
 }

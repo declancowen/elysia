@@ -4205,6 +4205,7 @@ export default function Sidebar() {
         const clicked = await settlePromise(() =>
           api.contextMenu.show(
             buildThreadActionMenuItems({
+              projectless: projectlessKeys.has(`${thread.environmentId}:${thread.projectId}`),
               branch: getClientSettings().workspaceMode === "code" ? (thread.branch ?? null) : null,
               projectFilter: threadProjectGroup
                 ? {
@@ -4434,6 +4435,7 @@ export default function Sidebar() {
       handleMultiSelectContextMenu,
       markThreadUnread,
       openProjectSettings,
+      projectlessKeys,
       projectScopeKey,
       projectByKey,
       serverConfigs,

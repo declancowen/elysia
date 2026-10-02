@@ -156,6 +156,9 @@ export const ChatHeader = memo(function ChatHeader({
   onUpdateProjectScript,
   onDeleteProjectScript,
 }: ChatHeaderProps) {
+  const serverConfig = useAtomValue(serverEnvironment.configValueAtom(activeThreadEnvironmentId));
+  const projectless =
+    !!activeProject && isScratchProject(activeProject, serverConfig?.scratchWorkspaceRoot);
   const { active: panelAnimationsActive, durationMs: panelAnimationDurationMs } =
     usePanelAnimationSettings();
   const headerActionsRef = useRef<HTMLDivElement | null>(null);
@@ -267,6 +270,7 @@ export const ChatHeader = memo(function ChatHeader({
   const { openMenu, closeMenu } = useThreadActionMenu({
     threadRef: isServerThread && activeProject?.agentProfile == null ? activeThreadRef : null,
     projectCwd: activeProjectCwd,
+    projectless,
     onStartRename: startRename,
   });
   const titleButtonRef = useRef<HTMLButtonElement | null>(null);
@@ -344,10 +348,19 @@ export const ChatHeader = memo(function ChatHeader({
         const api = readLocalApi();
         if (!api) return;
         void api.contextMenu
-          .show([{ id: "project-settings", label: "Project settings", icon: "settings" }], {
-            x: event.clientX,
-            y: event.clientY,
-          })
+          .show(
+            [
+              {
+                id: "project-settings",
+                label: projectless ? "Chat settings" : "Project settings",
+                icon: "settings",
+              },
+            ],
+            {
+              x: event.clientX,
+              y: event.clientY,
+            },
+          )
           .then((action) => {
             if (action === "project-settings") onOpenProjectSettings?.();
           });
@@ -357,6 +370,7 @@ export const ChatHeader = memo(function ChatHeader({
     },
     [
       activeProject,
+      projectless,
       cancelPendingTitleMenu,
       isServerThread,
       onOpenProjectSettings,
@@ -378,7 +392,6 @@ export const ChatHeader = memo(function ChatHeader({
     [commitRename],
   );
   const codeWorkspace = useCodeWorkspace();
-  const serverConfig = useAtomValue(serverEnvironment.configValueAtom(activeThreadEnvironmentId));
   const headerActions = codeWorkspace && (
     <>
       {activeProjectScripts && (

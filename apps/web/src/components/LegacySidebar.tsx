@@ -4,6 +4,8 @@ import { Spinner } from "~/components/ui/spinner";
 import {
   ArchiveIcon,
   ArrowUpDownIcon,
+  FolderClosedIcon,
+  FolderOpenIcon,
   FolderPlusIcon,
   Globe2Icon,
   SearchIcon,
@@ -45,6 +47,7 @@ import { restrictToFirstScrollableAncestor, restrictToVerticalAxis } from "@dnd-
 import { CSS } from "@dnd-kit/utilities";
 import {
   type ContextMenuItem,
+  SINGLE_PROVIDER_UI,
   ProjectId,
   type ScopedThreadRef,
   type ResolvedKeybindingsConfig,
@@ -1220,6 +1223,8 @@ const SidebarProjectItem = memo(function SidebarProjectItem(props: SidebarProjec
   });
   const updateSettings = useUpdateClientSettings();
   const { pinThread, confirmAndUnpinThread } = useThreadActions();
+  const environment = useEnvironment(project.environmentId);
+  const projectless = isScratchProject(project, environment?.serverConfig?.scratchWorkspaceRoot);
   const sidebarThreadPreviewCount = useClientSettings<SidebarThreadPreviewCount>(
     (settings) => settings.sidebarThreadPreviewCount,
   );
@@ -2252,7 +2257,7 @@ const SidebarProjectItem = memo(function SidebarProjectItem(props: SidebarProjec
           { id: "mark-unread", label: "Mark unread" },
           { id: "copy-path", label: "Copy Path" },
           { id: "copy-thread-id", label: "Copy Thread ID" },
-          { id: "project-settings", label: "Project settings" },
+          { id: "project-settings", label: projectless ? "Chat settings" : "Project settings" },
           { id: "delete", label: "Delete", destructive: true, icon: "trash" },
         ],
         position,
@@ -2364,6 +2369,7 @@ const SidebarProjectItem = memo(function SidebarProjectItem(props: SidebarProjec
       appSettingsConfirmThreadDelete,
       pinThread,
       confirmAndUnpinThread,
+      projectless,
       copyPathToClipboard,
       copyThreadIdToClipboard,
       deleteThread,
@@ -2395,7 +2401,15 @@ const SidebarProjectItem = memo(function SidebarProjectItem(props: SidebarProjec
             onContextMenu={handleProjectButtonContextMenu}
           >
             <span className="flex size-4 shrink-0 items-center justify-center text-sidebar-foreground/90">
-              <ProjectFavicon project={project} className="size-4" />
+              {SINGLE_PROVIDER_UI ? (
+                projectExpanded ? (
+                  <FolderOpenIcon aria-hidden className="size-4" />
+                ) : (
+                  <FolderClosedIcon aria-hidden className="size-4" />
+                )
+              ) : (
+                <ProjectFavicon project={project} className="size-4" />
+              )}
             </span>
             <span className="flex min-w-0 flex-1 items-center gap-2">
               <span className="truncate text-sm font-medium text-sidebar-foreground/90">

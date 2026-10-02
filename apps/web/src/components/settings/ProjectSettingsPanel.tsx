@@ -6,8 +6,13 @@ import {
   type AtomCommandResult,
 } from "@t3tools/client-runtime/state/runtime";
 import { scopeProjectRef, scopeThreadRef } from "@t3tools/client-runtime/environment";
+import { isScratchProject } from "@t3tools/client-runtime/state/projects";
 import { AsyncResult } from "effect/unstable/reactivity";
-import { type EnvironmentId, type ProjectIconOverride } from "@t3tools/contracts";
+import {
+  SINGLE_PROVIDER_UI,
+  type EnvironmentId,
+  type ProjectIconOverride,
+} from "@t3tools/contracts";
 import { useLocation, useNavigate } from "@tanstack/react-router";
 import * as Cause from "effect/Cause";
 import { InfoIcon, Trash2Icon } from "lucide-react";
@@ -138,9 +143,7 @@ export function ProjectSettingsPanel({
   }
   if (members.length === 0)
     return (
-      <p className="p-8 text-sm text-muted-foreground">
-        This checkout is no longer available in the selected project and environment.
-      </p>
+      <p className="p-8 text-sm text-muted-foreground">This checkout is no longer available.</p>
     );
   const scopedGroup = {
     ...selected,
@@ -221,7 +224,9 @@ function ProjectDetail({
       });
       if (unavailable) {
         const error = new Error(
-          `Connect ${unavailable.environmentLabel ?? "the selected environment"} and try again.`,
+          SINGLE_PROVIDER_UI
+            ? "Reconnect Elysia and try again."
+            : `Connect ${unavailable.environmentLabel ?? "the selected environment"} and try again.`,
         );
         const result: AtomCommandResult<void, unknown> = AsyncResult.failure(Cause.fail(error));
         reportFailure(failureTitle, result);
@@ -405,6 +410,20 @@ function ProjectDetail({
       ))}
     </SettingsSection>
   );
+
+  if (
+    isScratchProject(
+      representative,
+      environmentById.get(representative.environmentId)?.serverConfig?.scratchWorkspaceRoot,
+    )
+  ) {
+    return (
+      <SettingsPageContainer>
+        <ProjectDefaultsSettings category="general" />
+        <ProjectDefaultsSettings category="integrations" />
+      </SettingsPageContainer>
+    );
+  }
 
   return (
     <>

@@ -1,5 +1,6 @@
 import {
   DEFAULT_SERVER_SETTINGS,
+  SINGLE_PROVIDER_UI,
   PROJECT_FILE_BACKED_SETTINGS,
   type ProjectFileBackedSettingKey,
   resolveEnvironmentMachineKind,
@@ -231,8 +232,16 @@ export function SettingInheritance({
               className="px-3 py-2.5"
             >
               <h4 className="flex items-center gap-1.5 pb-1.5 text-xs font-medium text-muted-foreground">
-                <EnvironmentMachineIcon aria-hidden kind={machine} className="size-3.5 shrink-0" />
-                <span className="min-w-0 truncate">{target.label}</span>
+                {!SINGLE_PROVIDER_UI && (
+                  <EnvironmentMachineIcon
+                    aria-hidden
+                    kind={machine}
+                    className="size-3.5 shrink-0"
+                  />
+                )}
+                <span className="min-w-0 truncate">
+                  {SINGLE_PROVIDER_UI ? "Elysia" : target.label}
+                </span>
               </h4>
               <ol role="list" className="text-sm">
                 {layers.map((layer) => (
@@ -249,7 +258,11 @@ export function SettingInheritance({
                         layer.effective ? "font-medium text-foreground" : "text-muted-foreground",
                       )}
                     >
-                      {layer.key === "environment" ? "Environment" : layer.label}
+                      {layer.key === "environment"
+                        ? SINGLE_PROVIDER_UI
+                          ? "Elysia"
+                          : "Environment"
+                        : layer.label}
                     </span>
                     <span
                       className={cn(

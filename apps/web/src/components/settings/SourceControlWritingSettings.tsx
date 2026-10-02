@@ -1,4 +1,5 @@
 import { useNavigate } from "@tanstack/react-router";
+import { SINGLE_PROVIDER_UI } from "@t3tools/contracts";
 import { useRef, useState } from "react";
 import type {
   ProviderInstanceId,
@@ -189,8 +190,16 @@ export function SourceControlWritingSettingsSection() {
                   value={allInstructions ?? ""}
                   onChange={(event) => setAllInstructions(event.target.value)}
                   rows={4}
-                  aria-label="Custom source control instructions for all selected environments"
-                  placeholder="Write the instructions each selected environment should use."
+                  aria-label={
+                    SINGLE_PROVIDER_UI
+                      ? "Custom source control instructions"
+                      : "Custom source control instructions for all selected environments"
+                  }
+                  placeholder={
+                    SINGLE_PROVIDER_UI
+                      ? "Write the source control instructions Elysia should use."
+                      : "Write the instructions each selected environment should use."
+                  }
                 />
                 <Button
                   size="sm"
@@ -284,7 +293,11 @@ export function SourceControlWritingSettingsSection() {
         serverScoped
         settingKeys={["sourceControlWriterModelSelection"]}
         {...searchableSetting("source-control-writer-model")}
-        description="Model for source control text and branch or bookmark names. Off uses the environment's text generation model."
+        description={
+          SINGLE_PROVIDER_UI
+            ? "Model for source control text and branch names. Off uses Elysia's text generation model."
+            : "Model for source control text and branch or bookmark names. Off uses the environment's text generation model."
+        }
         control={
           !hasServerTargets ? (
             <span className="text-sm text-muted-foreground">

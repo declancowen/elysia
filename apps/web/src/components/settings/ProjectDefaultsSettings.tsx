@@ -1,9 +1,11 @@
 import {
   DEFAULT_SERVER_SETTINGS,
+  SINGLE_PROVIDER_UI,
   type ModelSelection,
   type ProviderInstanceId,
   type WorktreeSubmodules,
 } from "@t3tools/contracts";
+import { isScratchProject } from "@t3tools/client-runtime/state/projects";
 import { createModelSelection } from "@t3tools/shared/model";
 import { resolveProjectSettings } from "@t3tools/shared/projectSettings";
 import { useNavigate } from "@tanstack/react-router";
@@ -82,6 +84,11 @@ export function ProjectDefaultsSettings({ category }: { category: ProjectSetting
   const mixedMergeMethod = useScopedSettingsMixed(["pullRequestMergeMethod"]);
   const modelSource = useScopedSettingSource(["defaultModelSelection"]);
   const isProjectScope = scope.kind === "project" || scope.kind === "checkout";
+  const isChatScope =
+    isProjectScope &&
+    scope.members.some((member) =>
+      isScratchProject(member, representative?.serverConfig?.scratchWorkspaceRoot),
+    );
   const unavailable = connectedEnvironments.length === 0;
   // File-backed keys show their effective value; the target already carries
   // the checkout's t3.json, and a null file here only fills the built-in.
@@ -114,7 +121,9 @@ export function ProjectDefaultsSettings({ category }: { category: ProjectSetting
         entry.driverKind !== sourceEntry?.driverKind ||
         !options?.some((option) => option.slug === model && !option.isUnavailable)
       ) {
-        return `This model is unavailable on ${environment?.label ?? "a selected environment"}. Select that environment to choose its model separately.`;
+        return SINGLE_PROVIDER_UI
+          ? "This model is unavailable in Elysia."
+          : `This model is unavailable on ${environment?.label ?? "a selected environment"}. Select that environment to choose its model separately.`;
       }
     }
     return null;
@@ -137,9 +146,11 @@ export function ProjectDefaultsSettings({ category }: { category: ProjectSetting
       id="default-model"
       title="Model"
       description={
-        isProjectScope
-          ? "Model for new threads in this project."
-          : "Default model for new threads. Projects can override it."
+        isChatScope
+          ? "Model for new chats."
+          : isProjectScope
+            ? "Model for new threads in this project."
+            : "Default model for new threads. Projects can override it."
       }
       status={
         unavailable || mixedModel || modelSource === "project"
@@ -258,7 +269,9 @@ export function ProjectDefaultsSettings({ category }: { category: ProjectSetting
       }
       title={
         category === "general" || category === "project"
-          ? "New threads"
+          ? isChatScope
+            ? "New chats"
+            : "New threads"
           : category === "integrations"
             ? "Browser"
             : "Repositories"
@@ -278,9 +291,11 @@ export function ProjectDefaultsSettings({ category }: { category: ProjectSetting
             mixed={mixedPermissions}
             {...searchableSetting("default-permissions")}
             description={
-              isProjectScope
-                ? "Permissions for new threads in this project."
-                : "Default permissions for new threads. Projects can override them."
+              isChatScope
+                ? "Permissions for new chats."
+                : isProjectScope
+                  ? "Permissions for new threads in this project."
+                  : "Default permissions for new threads. Projects can override them."
             }
             resetAction={
               settings.defaultRuntimeMode !== DEFAULT_SERVER_SETTINGS.defaultRuntimeMode ? (
@@ -333,53 +348,55 @@ export function ProjectDefaultsSettings({ category }: { category: ProjectSetting
               </Select>
             }
           />
-          {workspaceRow}
-          <SettingsRow
-            serverScoped
-            settingKeys={["worktreeSubmodules"]}
-            mixed={mixedSubmodules}
-            {...searchableSetting("worktree-submodules")}
-            description={
-              isProjectScope
-                ? "How new worktrees in this project populate git submodules."
-                : "How new worktrees populate git submodules. Projects and their t3.json can override it."
-            }
-            resetAction={
-              !isProjectScope && settings.worktreeSubmodules !== null ? (
-                <SettingResetButton
-                  label="worktree submodules"
-                  onClick={() => updateSettings({ worktreeSubmodules: null })}
-                />
-              ) : null
-            }
-            control={
-              <Select
-                value={mixedSubmodules ? null : (effective?.worktreeSubmodules ?? null)}
-                onValueChange={(value) => {
-                  if (isWorktreeSubmodules(value)) updateSettings({ worktreeSubmodules: value });
-                }}
-              >
-                <SelectTrigger size="sm" aria-label="Worktree submodules">
-                  <SelectValue>
-                    {(value: string | null) =>
-                      isWorktreeSubmodules(value)
-                        ? WORKTREE_SUBMODULES_LABELS[value]
-                        : unavailable
-                          ? "Unavailable"
-                          : "Mixed"
-                    }
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectPopup align="end" alignItemWithTrigger={false}>
-                  {WORKTREE_SUBMODULES_OPTIONS.map((option) => (
-                    <SelectItem key={option} value={option}>
-                      {WORKTREE_SUBMODULES_LABELS[option]}
-                    </SelectItem>
-                  ))}
-                </SelectPopup>
-              </Select>
-            }
-          />
+          {!isChatScope && workspaceRow}
+          {!isChatScope && (
+            <SettingsRow
+              serverScoped
+              settingKeys={["worktreeSubmodules"]}
+              mixed={mixedSubmodules}
+              {...searchableSetting("worktree-submodules")}
+              description={
+                isProjectScope
+                  ? "How new worktrees in this project populate git submodules."
+                  : "How new worktrees populate git submodules. Projects and their t3.json can override it."
+              }
+              resetAction={
+                !isProjectScope && settings.worktreeSubmodules !== null ? (
+                  <SettingResetButton
+                    label="worktree submodules"
+                    onClick={() => updateSettings({ worktreeSubmodules: null })}
+                  />
+                ) : null
+              }
+              control={
+                <Select
+                  value={mixedSubmodules ? null : (effective?.worktreeSubmodules ?? null)}
+                  onValueChange={(value) => {
+                    if (isWorktreeSubmodules(value)) updateSettings({ worktreeSubmodules: value });
+                  }}
+                >
+                  <SelectTrigger size="sm" aria-label="Worktree submodules">
+                    <SelectValue>
+                      {(value: string | null) =>
+                        isWorktreeSubmodules(value)
+                          ? WORKTREE_SUBMODULES_LABELS[value]
+                          : unavailable
+                            ? "Unavailable"
+                            : "Mixed"
+                      }
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectPopup align="end" alignItemWithTrigger={false}>
+                    {WORKTREE_SUBMODULES_OPTIONS.map((option) => (
+                      <SelectItem key={option} value={option}>
+                        {WORKTREE_SUBMODULES_LABELS[option]}
+                      </SelectItem>
+                    ))}
+                  </SelectPopup>
+                </Select>
+              }
+            />
+          )}
         </>
       ) : category === "source-control" ? (
         <>
@@ -470,9 +487,11 @@ export function ProjectDefaultsSettings({ category }: { category: ProjectSetting
             id={searchableSetting("agent-browser-access").id}
             title="Agent browser access"
             description={
-              isProjectScope
-                ? "Allow agents in this project to use the shared browser. Applies when the agent session next starts."
-                : "Allow agents to use the shared browser. Projects can override it."
+              isChatScope
+                ? "Allow chats to use the shared browser. Applies when the session next starts."
+                : isProjectScope
+                  ? "Allow agents in this project to use the shared browser. Applies when the agent session next starts."
+                  : "Allow agents to use the shared browser. Projects can override it."
             }
             resetAction={
               settings.enableAgentBrowserAccess !==

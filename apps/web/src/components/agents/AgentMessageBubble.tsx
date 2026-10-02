@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { cn } from "~/lib/utils";
 import { AgentAvatar, type AgentAvatarValue } from "./AgentAvatar";
 
 /** Avatars live in the gutter; the bubble keeps the normal message-column alignment. */
@@ -19,7 +20,10 @@ export function AgentMessageBubble({
         <AgentAvatar
           avatar={avatar}
           working={working}
-          className="absolute right-full top-3 mr-1 size-3 sm:mr-2 sm:size-5"
+          className={cn(
+            "absolute right-full mr-1 size-3 sm:mr-2 sm:size-5",
+            bubble ? "top-3" : "top-0.5",
+          )}
         />
       ) : null}
       {bubble ? (

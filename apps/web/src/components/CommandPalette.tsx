@@ -59,7 +59,7 @@ import {
   SquarePenIcon,
   SunIcon,
   TextSearchIcon,
-} from "lucide-react";
+} from "~/icons";
 import {
   useCallback,
   useDeferredValue,

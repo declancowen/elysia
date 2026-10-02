@@ -5,7 +5,7 @@
  * repeated here. The popover around it belongs to PullRequestComposer.
  */
 import type { EnvironmentId, PullRequestRef, PullRequestReviewVerdict } from "@t3tools/contracts";
-import { CheckIcon, MessageSquareIcon, XCircleIcon } from "lucide-react";
+import { CheckIcon, MessageSquareIcon, XCircleIcon } from "~/icons";
 import { useState, type ReactNode, type RefObject } from "react";
 
 import { pullRequestEnvironment } from "~/state/pullRequests";

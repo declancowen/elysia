@@ -42,7 +42,7 @@ vi.mock("./useDelegatedAgents", () => ({
     })),
 }));
 import { useThreadOverviewStore } from "../chat/threadOverviewStore";
-import { AgentMentionChip, SentAgentMentionChip } from "./AgentMentionChip";
+import { AgentMentionChip, AgentMessageStatus, SentAgentMentionChip } from "./AgentMentionChip";
 
 it("resolves sent agent mentions to their avatar, retains archived history, and handles a missing agent", async () => {
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
@@ -68,10 +68,10 @@ it("resolves sent agent mentions to their avatar, retains archived history, and 
     expect(host.querySelector('path[fill="#EEAF00"]')).not.toBeNull();
     expect(host.querySelector('[data-markdown-copy="agent-reference"]')).not.toBeNull();
     await render(false, "working");
-    expect(host.querySelector('[aria-label="Agent working"]')).not.toBeNull();
+    expect(host.querySelector('[data-working="true"]')).not.toBeNull();
     await render(false, "completed");
-    expect(host.querySelector('[aria-label="Agent working"]')).toBeNull();
-    expect(host.querySelector('[aria-label="Agent finished"]')).not.toBeNull();
+    expect(host.querySelector('[data-working="true"]')).toBeNull();
+    expect(host.querySelector('[data-working="false"]')).not.toBeNull();
     state.project!.agentProfile.archived = true;
     await render(true);
     expect(host.querySelector('path[fill="#EEAF00"]')).not.toBeNull();
@@ -122,19 +122,25 @@ it("shows plain clickable agent names and task-specific status in sent messages"
   const root = createRoot(host);
   const render = () =>
     root.render(
-      <SentAgentMentionChip
-        environmentId={source.environmentId}
-        contextId="friday"
-        label="@Friday"
-        sourceThreadRef={source}
-        sourceMessageId={MessageId.make("request")}
-        allowArchived
-      />,
+      <>
+        <div data-bubble>
+          <SentAgentMentionChip
+            environmentId={source.environmentId}
+            contextId="friday"
+            label="@Friday"
+            sourceThreadRef={source}
+            sourceMessageId={MessageId.make("request")}
+            allowArchived
+          />
+        </div>
+        <AgentMessageStatus sourceThreadRef={source} sourceMessageId={MessageId.make("request")} />
+      </>,
     );
   try {
     await act(async () => render());
     expect(host.textContent).toBe("Friday");
-    expect(host.querySelector('[aria-label="Agent working"]')).not.toBeNull();
+    expect(host.querySelector('[data-bubble] [role="status"]')).toBeNull();
+    expect(host.querySelector('[aria-label="Agents working"]')).not.toBeNull();
     await act(async () => host.querySelector<HTMLButtonElement>("button")!.click());
     expect(useThreadOverviewStore.getState().target).toEqual({
       source,
@@ -142,11 +148,11 @@ it("shows plain clickable agent names and task-specific status in sent messages"
     });
     state.status = "completed";
     await act(async () => render());
-    expect(host.querySelector('[aria-label="Agent working"]')).toBeNull();
-    expect(host.querySelector('[aria-label="Agent finished"]')).not.toBeNull();
-    state.activities = [activity("older", "friday"), activity("request", "other")];
+    expect(host.querySelector('[aria-label="Agents working"]')).toBeNull();
+    expect(host.querySelector('[aria-label="Agents finished"]')).not.toBeNull();
+    state.activities = [activity("older", "friday"), activity("another-request", "other")];
     await act(async () => render());
-    expect(host.querySelector('[aria-label="Agent finished"]')).toBeNull();
+    expect(host.querySelector('[aria-label="Agents finished"]')).toBeNull();
   } finally {
     useThreadOverviewStore.setState({ target: null });
     await act(async () => root.unmount());

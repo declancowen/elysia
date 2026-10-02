@@ -1,13 +1,15 @@
 // @vitest-environment jsdom
 import { EnvironmentId } from "@t3tools/contracts";
-import { act, useSyncExternalStore } from "react";
+import { act, useRef, useState, useSyncExternalStore } from "react";
 import { createRoot } from "react-dom/client";
 import { expect, it, vi } from "vite-plus/test";
 
 import { SidebarProvider } from "../ui/sidebar";
 import { RECENT_THREADS_EXPANSION_KEY, RecentThreadsHeader } from "./RecentThreadsHeader";
-import { SidebarNewChatButton, SidebarUtilityMenu } from "./SidebarChrome";
+import { SidebarHeaderSearch, SidebarNewChatButton, SidebarUtilityMenu } from "./SidebarChrome";
 import { useUiStateStore } from "~/uiStateStore";
+import { CommandDialog } from "../ui/command";
+import { SidebarThreadSearch } from "./SidebarThreadHeader";
 
 const state = vi.hoisted(() => ({
   pathname: "/",
@@ -200,6 +202,91 @@ it("starts the new top-level chat in Chats and expands the section", async () =>
     await act(async () => root.unmount());
     useUiStateStore.setState({ projectExpandedById: original });
     container.remove();
+    vi.unstubAllGlobals();
+  }
+});
+
+it("opens search from its icon in each view and keeps the command shortcut available", async () => {
+  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+  vi.stubGlobal(
+    "ResizeObserver",
+    class {
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    },
+  );
+  const host = document.createElement("div");
+  document.body.append(host);
+  const root = createRoot(host);
+  const openPalette = vi.fn();
+  const keyDown = vi.fn();
+  function Search() {
+    const input = useRef<HTMLInputElement>(null);
+    const [query, setQuery] = useState("");
+    return (
+      <SidebarThreadSearch
+        searchInputRef={input}
+        shortcutLabel="⌘K"
+        searchQuery={query}
+        onSearchQueryChange={setQuery}
+        onSearchKeyDown={keyDown}
+        isSearching={query.length > 0}
+        searchResultCount={0}
+        activeSearchResultIndex={0}
+        onClearSearch={() => setQuery("")}
+      />
+    );
+  }
+  try {
+    await act(async () =>
+      root.render(
+        <CommandDialog onOpenChange={openPalette}>
+          <SidebarHeaderSearch shortcutLabel="⌘K" />
+        </CommandDialog>,
+      ),
+    );
+    const search = host.querySelector<HTMLButtonElement>('button[aria-label="Search"]')!;
+    expect(search.textContent).toBe("");
+    await act(async () => search.click());
+    expect(openPalette.mock.calls.at(-1)?.[0]).toBe(true);
+    await act(async () =>
+      root.render(
+        <CommandDialog onOpenChange={openPalette}>
+          <Search />
+        </CommandDialog>,
+      ),
+    );
+    await act(async () =>
+      host.querySelector<HTMLButtonElement>('button[aria-label="Search threads"]')!.click(),
+    );
+    const input = document.querySelector<HTMLInputElement>('input[aria-label="Search threads"]')!;
+    expect(input).not.toBeNull();
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(
+        input,
+        "Friday",
+      );
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    expect(input.value).toBe("Friday");
+    await act(async () =>
+      input.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true })),
+    );
+    expect(keyDown).toHaveBeenCalled();
+    await act(async () =>
+      document
+        .querySelector<HTMLButtonElement>('button[aria-label="Clear thread search"]')!
+        .click(),
+    );
+    expect(input.value).toBe("");
+    await act(async () =>
+      host.querySelector<HTMLButtonElement>('button[aria-label="Open command palette"]')!.click(),
+    );
+    expect(openPalette.mock.calls.at(-1)?.[0]).toBe(true);
+  } finally {
+    await act(async () => root.unmount());
+    host.remove();
     vi.unstubAllGlobals();
   }
 });

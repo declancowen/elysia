@@ -1,5 +1,5 @@
 import type { EnvironmentId } from "@t3tools/contracts";
-import { PlusIcon } from "lucide-react";
+import { PlusIcon } from "~/icons";
 
 import { useScratchProject } from "~/hooks/useScratchProject";
 import { Button } from "../ui/button";

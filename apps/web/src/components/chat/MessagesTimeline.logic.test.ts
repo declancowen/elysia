@@ -3911,3 +3911,66 @@ describe("computeStableMessagesTimelineRows", () => {
     expect(reordered.result).toEqual([initial.result[1], initial.result[0]]);
   });
 });
+
+it("keeps delegated agent acknowledgements outside tool groups and settled turn folds", () => {
+  const turnId = TurnId.make("delegated-turn");
+  const ack: WorkLogEntry = {
+    id: "agent-ack",
+    createdAt: "2026-10-02T00:00:02Z",
+    turnId,
+    tone: "info",
+    label: "Friday: I got it.",
+    agentDelegation: {
+      activityId: EventId.make("agent-ack"),
+      agentProjectId: ProjectId.make("friday"),
+      agentThreadId: ThreadId.make("friday-chat"),
+      agentName: "Friday",
+      sourceMessageId: MessageId.make("request"),
+      targetMessageId: MessageId.make("delegated-request"),
+      targetTurnId: null,
+    },
+  };
+  const final: ChatMessage = {
+    id: MessageId.make("finished"),
+    role: "assistant",
+    text: "Done",
+    turnId,
+    createdAt: "2026-10-02T00:00:04Z",
+    updatedAt: "2026-10-02T00:00:04Z",
+    streaming: false,
+  };
+  const timelineEntries = deriveTimelineEntries(
+    [final],
+    [],
+    [
+      {
+        turnId,
+        tone: "info",
+        id: "tool-before",
+        createdAt: "2026-10-02T00:00:01Z",
+        label: "Read",
+      },
+      ack,
+      {
+        turnId,
+        tone: "info",
+        id: "tool-after",
+        createdAt: "2026-10-02T00:00:03Z",
+        label: "Read",
+      },
+    ],
+  );
+  for (const isWorking of [true, false]) {
+    const rows = deriveMessagesTimelineRows({
+      timelineEntries,
+      isWorking,
+      runningTurnId: isWorking ? turnId : null,
+      activeTurnStartedAt: null,
+      turnDiffSummaries: [],
+      supportsConversationRollback: false,
+    });
+    const row = rows.find((row) => row.id === "agent-ack");
+    expect(row?.kind).toBe("work");
+    expect(row?.kind === "work" ? row.groupedEntries : []).toEqual([ack]);
+  }
+});

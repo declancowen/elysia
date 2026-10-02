@@ -1,7 +1,7 @@
 import { SINGLE_PROVIDER_UI, resolveEnvironmentMachineKind } from "@t3tools/contracts";
 import { isScratchProject } from "@t3tools/client-runtime/state/projects";
 import { useLocation } from "@tanstack/react-router";
-import { ChevronDownIcon, LayersIcon, MessageCircleIcon } from "lucide-react";
+import { ChevronDownIcon, LayersIcon, MessageCircleIcon } from "~/icons";
 import type { ReactNode } from "react";
 
 import type { SidebarProjectSnapshot } from "../../sidebarProjectGrouping";

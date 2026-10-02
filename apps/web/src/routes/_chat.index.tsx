@@ -3,7 +3,7 @@ import { CONNECTIONS_ENABLED } from "@t3tools/contracts";
 import { RefreshIcon } from "~/components/ui/refresh-icon";
 import { scopeProjectRef } from "@t3tools/client-runtime/environment";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { LinkIcon, PlusIcon } from "lucide-react";
+import { LinkIcon, PlusIcon } from "~/icons";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { isLocalEnvironmentDisabled } from "../localEnvironment";

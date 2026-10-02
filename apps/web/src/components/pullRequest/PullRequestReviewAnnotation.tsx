@@ -9,13 +9,7 @@ import type {
   PullRequestThreadCommentsResult,
   PullRequestThreadComment,
 } from "@t3tools/contracts";
-import {
-  CheckCircle2Icon,
-  CircleIcon,
-  HammerIcon,
-  MessageSquareIcon,
-  Trash2Icon,
-} from "lucide-react";
+import { CheckCircle2Icon, CircleIcon, HammerIcon, MessageSquareIcon, Trash2Icon } from "~/icons";
 import { useRef, useState } from "react";
 
 import { formatRelativeTimeLabel } from "~/timestampFormat";

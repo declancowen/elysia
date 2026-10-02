@@ -11,7 +11,7 @@ import {
   GaugeIcon,
   HardDriveIcon,
   MemoryStickIcon,
-} from "lucide-react";
+} from "~/icons";
 import type {
   BackgroundBooleanState,
   EnvironmentId,

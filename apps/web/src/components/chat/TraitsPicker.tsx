@@ -16,7 +16,7 @@ import {
   normalizeModelSlug,
 } from "@t3tools/shared/model";
 import { memo, useCallback } from "react";
-import { BrainIcon, ZapIcon } from "lucide-react";
+import { BrainIcon, ZapIcon } from "~/icons";
 import { UltrafastIcon } from "../Icons";
 import {
   Menu,

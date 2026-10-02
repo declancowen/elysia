@@ -7,7 +7,7 @@ import {
 } from "@t3tools/contracts";
 import { scopeProjectRef } from "@t3tools/client-runtime/environment";
 import { useMemo } from "react";
-import { CheckIcon, CircleAlertIcon, SquareIcon } from "lucide-react";
+import { CheckIcon, CircleAlertIcon, SquareIcon } from "~/icons";
 import { delegatedAgentsFromActivities } from "@t3tools/shared/agentMentions";
 import { useDelegatedAgents } from "./useDelegatedAgents";
 import { Spinner } from "../ui/spinner";
@@ -46,17 +46,6 @@ export function AgentMentionChip({
     );
   }
   const working = status === "working" || status === "queued";
-  const statusIcon = working ? (
-    <Spinner size="xs" aria-label="Agent working" />
-  ) : status === "completed" ? (
-    <CheckIcon aria-label="Agent finished" />
-  ) : status === "error" ? (
-    <CircleAlertIcon aria-label="Agent failed" />
-  ) : status === "waiting" ? (
-    <CircleAlertIcon aria-label="Agent needs input" />
-  ) : status === "interrupted" ? (
-    <SquareIcon aria-label="Agent stopped" />
-  ) : null;
   if (onOpen)
     return (
       <button
@@ -72,18 +61,12 @@ export function AgentMentionChip({
           working={working}
         />
         <span>{project.title}</span>
-        {statusIcon}
       </button>
     );
   return (
     <ContextChipShell
       kind="mention"
-      icon={
-        <>
-          <AgentAvatar avatar={project.agentProfile.avatar} working={working} />
-          {statusIcon}
-        </>
-      }
+      icon={<AgentAvatar avatar={project.agentProfile.avatar} working={working} />}
       label={project.title}
       data-markdown-copy={copyMarkdown}
       tooltip="This task continues in the agent’s own chat."
@@ -119,5 +102,55 @@ export function SentAgentMentionChip(
       }
       status={agent?.data?.status ?? (agent?.working ? "working" : undefined)}
     />
+  );
+}
+
+/** Progress belongs beside the source bubble, never inside the agent mention. */
+export function AgentMessageStatus({
+  sourceThreadRef,
+  sourceMessageId,
+}: {
+  sourceThreadRef: ScopedThreadRef | null;
+  sourceMessageId: MessageId;
+}) {
+  const source = useThreadDetail(sourceThreadRef);
+  const jobs = useMemo(
+    () =>
+      delegatedAgentsFromActivities(source?.activities ?? []).filter(
+        (job) => job.sourceMessageId === sourceMessageId,
+      ),
+    [source?.activities, sourceMessageId],
+  );
+  const agents = useDelegatedAgents(sourceThreadRef, jobs);
+  if (!agents.length) return null;
+  const working = agents.some((agent) => agent.working);
+  const completed = agents.every((agent) => agent.data?.status === "completed");
+  const failed = agents.some(
+    (agent) => agent.data?.status === "error" || agent.data?.status === "waiting",
+  );
+  return (
+    <span
+      role="status"
+      className="flex size-4 items-center justify-center text-muted-foreground [&>svg]:size-4"
+      aria-label={
+        working
+          ? "Agents working"
+          : completed
+            ? "Agents finished"
+            : failed
+              ? "Agents need attention"
+              : "Agents stopped"
+      }
+    >
+      {working ? (
+        <Spinner size="md" />
+      ) : completed ? (
+        <CheckIcon aria-hidden />
+      ) : failed ? (
+        <CircleAlertIcon aria-hidden />
+      ) : (
+        <SquareIcon aria-hidden />
+      )}
+    </span>
   );
 }

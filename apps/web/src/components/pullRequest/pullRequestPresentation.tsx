@@ -17,7 +17,7 @@ import {
   UserCheckIcon,
   UserRoundIcon,
   UserRoundXIcon,
-} from "lucide-react";
+} from "~/icons";
 import { Children, type CSSProperties, isValidElement, type ReactNode, useState } from "react";
 
 import { cn } from "~/lib/utils";

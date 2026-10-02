@@ -9,7 +9,7 @@ import {
   PanelLeftIcon,
   SearchIcon,
   SquarePenIcon,
-} from "lucide-react";
+} from "~/icons";
 import type { ReactNode } from "react";
 import { memo, useCallback } from "react";
 import { Link, useLocation, useNavigate } from "@tanstack/react-router";
@@ -25,6 +25,7 @@ import { useEnvironments, usePrimaryEnvironmentId } from "../../state/environmen
 import { useScratchProject } from "../../hooks/useScratchProject";
 import { useRecentThreadsExpansion } from "./RecentThreadsHeader";
 import { CommandDialogTrigger } from "../ui/command";
+import { Button } from "../ui/button";
 import { Kbd } from "../ui/kbd";
 import { ElysiaWordmark } from "../Icons";
 import {
@@ -83,7 +84,9 @@ export const SidebarChromeHeader = memo(function SidebarChromeHeader({
         className="relative top-auto z-10 translate-y-0 md:hidden"
       />
       <SidebarBrand onBackdrop={backdropVariant !== null} />
-      <div className="[-webkit-app-region:no-drag] relative z-10 min-w-0 flex-1 pr-2">{search}</div>
+      <div className="[-webkit-app-region:no-drag] relative z-10 flex min-w-0 flex-1 justify-end pr-2">
+        {search}
+      </div>
       {pillLabel ? (
         <Badge
           className="relative z-10 ml-1 hidden @[15rem]/sidebar-header:inline-flex"
@@ -115,11 +118,27 @@ function SidebarBrand({ onBackdrop }: { onBackdrop: boolean }) {
 
 export function SidebarHeaderSearch({ shortcutLabel }: { shortcutLabel?: string | null }) {
   return (
-    <CommandDialogTrigger render={<SidebarMenuButton data-testid="command-palette-trigger" />}>
-      <SearchIcon />
-      <span className="min-w-0 flex-1 truncate">Search</span>
-      {shortcutLabel ? <Kbd>{shortcutLabel}</Kbd> : null}
-    </CommandDialogTrigger>
+    <div className="flex items-center gap-1">
+      <CommandDialogTrigger
+        render={
+          <Button
+            variant="ghost-muted"
+            size="icon-sm"
+            aria-label="Search"
+            data-testid="command-palette-trigger"
+          />
+        }
+      >
+        <SearchIcon />
+      </CommandDialogTrigger>
+      {shortcutLabel ? (
+        <CommandDialogTrigger
+          render={<Button variant="ghost-muted" size="xs" aria-label="Open command palette" />}
+        >
+          <Kbd>{shortcutLabel}</Kbd>
+        </CommandDialogTrigger>
+      ) : null}
+    </div>
   );
 }
 

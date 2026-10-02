@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { ChevronDownIcon, ChevronRightIcon } from "lucide-react";
+import { ChevronDownIcon, ChevronRightIcon } from "~/icons";
 
 import { resolveProjectExpanded, useUiStateStore } from "~/uiStateStore";
 

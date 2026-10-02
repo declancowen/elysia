@@ -148,8 +148,8 @@ export function ProjectIconPickerDialog({
               <Input
                 type="search"
                 value={query}
-                aria-label="Search Lucide icons"
-                placeholder="Search all Lucide icons"
+                aria-label="Search Hugeicons"
+                placeholder="Search Hugeicons"
                 onChange={(event) => setQuery(event.currentTarget.value)}
               />
               <ScrollArea scrollFade className="max-h-64">

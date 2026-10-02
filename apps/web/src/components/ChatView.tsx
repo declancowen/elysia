@@ -253,7 +253,7 @@ import {
   Minimize2Icon,
   PaperclipIcon,
   WifiOffIcon,
-} from "lucide-react";
+} from "~/icons";
 import { cn, randomHex, randomUUID } from "~/lib/utils";
 import { stackedThreadToast, toastManager } from "./ui/toast";
 import { decodeProjectScriptKeybindingRule } from "~/lib/projectScriptKeybindings";

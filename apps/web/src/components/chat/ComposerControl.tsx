@@ -2,7 +2,7 @@ import { mergeProps } from "@base-ui/react/merge-props";
 import { Select as SelectPrimitive } from "@base-ui/react/select";
 import { useRender } from "@base-ui/react/use-render";
 import type { ComponentProps, ComponentType } from "react";
-import { ChevronDownIcon } from "lucide-react";
+import { ChevronDownIcon } from "~/icons";
 
 import { cn } from "~/lib/utils";
 import { Separator } from "../ui/separator";

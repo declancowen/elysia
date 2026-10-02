@@ -8,11 +8,12 @@ import {
   FolderOpenIcon,
   FolderPlusIcon,
   PinIcon,
+  PinOffIcon,
   Globe2Icon,
   SquarePenIcon,
   TerminalIcon,
   TriangleAlertIcon,
-} from "lucide-react";
+} from "~/icons";
 import {
   ChangeRequestStatusIcon,
   prStatusIndicator,
@@ -894,10 +895,11 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: SidebarThreadRowP
                         />
                       }
                     >
-                      <PinIcon
-                        aria-hidden
-                        className={cn("size-3.5", thread.pinnedAt != null && "fill-current")}
-                      />
+                      {thread.pinnedAt != null ? (
+                        <PinOffIcon aria-hidden className="size-3.5" />
+                      ) : (
+                        <PinIcon aria-hidden className="size-3.5" />
+                      )}
                     </TooltipTrigger>
                     <TooltipPopup side="top">
                       {thread.pinnedAt != null ? "Unpin" : "Pin"}

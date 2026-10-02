@@ -1,4 +1,4 @@
-import { AlertTriangleIcon as WarningIcon } from "lucide-react";
+import { AlertTriangleIcon as WarningIcon } from "~/icons";
 import { useState } from "react";
 
 import { Button } from "~/components/ui/button";

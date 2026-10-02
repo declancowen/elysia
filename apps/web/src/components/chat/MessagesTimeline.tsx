@@ -1,6 +1,6 @@
-import { SentAgentMentionChip } from "../agents/AgentMentionChip";
+import { AgentMessageStatus, SentAgentMentionChip } from "../agents/AgentMentionChip";
 import { useCodeWorkspace } from "~/hooks/useSettings";
-import { ArrowUpIcon, ClockIcon } from "lucide-react";
+import { ArrowUpIcon, ClockIcon } from "~/icons";
 import { ReadOnlySourcePreview } from "../files/AttachmentFilePreview";
 import { useRightPanelStore } from "~/rightPanelStore";
 import {
@@ -26,9 +26,6 @@ import {
   type WorktreeSetupSnapshot,
 } from "@t3tools/contracts";
 import { parseScopedThreadKey } from "@t3tools/client-runtime/environment";
-import { delegatedAgentsFromActivities } from "@t3tools/shared/agentMentions";
-import { DelegatedAgentStatus } from "../agents/DelegatedAgentStatus";
-import { useDelegatedAgents } from "../agents/useDelegatedAgents";
 import { replaceComposerContextReferences } from "@t3tools/shared/composerContextReferences";
 import type { CodexArtifactTemplate } from "@t3tools/client-runtime/codex-artifact-templates";
 import {
@@ -136,7 +133,7 @@ import {
   WrenchIcon,
   XIcon,
   ZapIcon,
-} from "lucide-react";
+} from "~/icons";
 import type {
   ComposerContextId,
   ComposerContextRecord,
@@ -161,7 +158,7 @@ import { ProposedPlanCard } from "./ProposedPlanCard";
 import { ChangedFilesCard } from "./ChangedFilesTree";
 import { useAtomValue } from "@effect/atom-react";
 import { useFileContextMenuHandler } from "../../fileContextMenu";
-import { useProject, useThread, useThreadDetail } from "../../state/entities";
+import { useProject, useThread } from "../../state/entities";
 import { serverEnvironment } from "../../state/server";
 import {
   CHAT_TIMELINE_ANCHOR_OFFSET,
@@ -2125,6 +2122,13 @@ function UserTimelineRow({ row }: { row: Extract<TimelineRow, { kind: "message" 
   return (
     <div className="group flex flex-col items-end gap-1">
       <div className="relative max-w-[80%] rounded-2xl bg-message p-3 text-message-foreground">
+        {collectComposerContextReferences(resolvedContext.text).some(
+          (reference) => reference.kind === "agent",
+        ) ? (
+          <div className="absolute right-full top-3 mr-3">
+            <AgentMessageStatus sourceThreadRef={ctx.threadRef} sourceMessageId={row.message.id} />
+          </div>
+        ) : null}
         <MessageAuthorHeading>You</MessageAuthorHeading>
         {(regularImages.length > 0 || userVideos.length > 0) && (
           <div className="mb-2 grid max-w-[210px] grid-cols-2 gap-2">
@@ -4759,18 +4763,17 @@ function AgentDelegationRow({
   delegation: NonNullable<TimelineWorkEntry["agentDelegation"]>;
 }) {
   const { threadRef } = use(TimelineRowCtx);
-  const source = useThreadDetail(threadRef);
-  const jobs = useMemo(
-    () =>
-      delegatedAgentsFromActivities(source?.activities ?? []).filter(
-        (job) => job.sourceMessageId === delegation.sourceMessageId,
-      ),
-    [source?.activities, delegation.sourceMessageId],
-  );
-  const agents = useDelegatedAgents(threadRef, jobs);
   return (
-    <div className="py-1">
-      <DelegatedAgentStatus agents={agents} />
+    <div className="py-1 text-sm text-muted-foreground">
+      <SentAgentMentionChip
+        environmentId={threadRef?.environmentId ?? null}
+        contextId={delegation.agentProjectId}
+        label={delegation.agentName}
+        sourceThreadRef={threadRef}
+        sourceMessageId={delegation.sourceMessageId}
+        allowArchived
+      />
+      {": I got it. I’ll continue in my chat."}
     </div>
   );
 }

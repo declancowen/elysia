@@ -6,7 +6,7 @@ import {
   ExternalLink,
   MousePointerClick,
   PictureInPicture2,
-} from "lucide-react";
+} from "~/icons";
 import {
   type FormEvent,
   type KeyboardEvent,

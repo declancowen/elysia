@@ -26,7 +26,7 @@ import {
   TriangleAlertIcon,
   WrapTextIcon,
   type LucideIcon,
-} from "lucide-react";
+} from "~/icons";
 import type {
   AssetResource,
   EnvironmentId,

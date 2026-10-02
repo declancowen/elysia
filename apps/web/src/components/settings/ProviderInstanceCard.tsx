@@ -13,7 +13,7 @@ import {
   PlusIcon,
   Trash2Icon,
   XIcon,
-} from "lucide-react";
+} from "~/icons";
 import * as Arr from "effect/Array";
 import * as Result from "effect/Result";
 import { useEffect, useRef, useState, type ReactElement, type ReactNode } from "react";

@@ -351,6 +351,7 @@ function isActivityEntry(entry: TimelineEntry): entry is ActivityEntry {
     ? entry.message.role === "reasoning"
     : entry.kind === "work" &&
         entry.entry.agentSpawn === undefined &&
+        entry.entry.agentDelegation === undefined &&
         entry.entry.questionAnswer === undefined &&
         entry.entry.sourceActivityKind !== "context-compaction" &&
         entry.entry.tone !== "error";
@@ -767,7 +768,9 @@ function deriveTurnFolds(input: {
       // User input and subagent batches stay visible after their turn settles.
       if (
         entry.kind === "work" &&
-        (entry.entry.questionAnswer !== undefined || entry.entry.agentSpawn !== undefined)
+        (entry.entry.questionAnswer !== undefined ||
+          entry.entry.agentSpawn !== undefined ||
+          entry.entry.agentDelegation !== undefined)
       ) {
         continue;
       }
@@ -1080,6 +1083,7 @@ export function deriveMessagesTimelineRows(input: {
     latestRunningToolEntry !== undefined ||
     (latestVisibleToolEntry !== undefined &&
       latestVisibleToolEntry.entry.agentSpawn === undefined &&
+      latestVisibleToolEntry.entry.agentDelegation === undefined &&
       (workEntryIndicatesToolSuccess(latestVisibleToolEntry.entry) ||
         (latestVisibleToolEntry.entry.toolLifecycleStatus === "completed" &&
           !workEntryDisplayIndicatesToolFailure(latestVisibleToolEntry.entry))));
@@ -1124,7 +1128,12 @@ export function deriveMessagesTimelineRows(input: {
     if (activeWorkRow === null) return;
     nextRows.push(activeWorkRow);
     hasActivityRow ||= activeWorkRow.active;
-    if (!activeWorkRow.expanded || activeWorkRow.entry.agentSpawn) return;
+    if (
+      !activeWorkRow.expanded ||
+      activeWorkRow.entry.agentSpawn ||
+      activeWorkRow.entry.agentDelegation
+    )
+      return;
     nextRows.push(
       expandedWorkGroupRow(
         activeWorkRow.groupId,
@@ -1229,6 +1238,7 @@ export function deriveMessagesTimelineRows(input: {
     if (timelineEntry.kind === "work") {
       if (
         timelineEntry.entry.agentSpawn !== undefined ||
+        timelineEntry.entry.agentDelegation !== undefined ||
         timelineEntry.entry.questionAnswer !== undefined ||
         timelineEntry.entry.tone === "error"
       ) {
@@ -1255,6 +1265,7 @@ export function deriveMessagesTimelineRows(input: {
           !nextEntry ||
           nextEntry.kind !== "work" ||
           nextEntry.entry.agentSpawn !== undefined ||
+          nextEntry.entry.agentDelegation !== undefined ||
           nextEntry.entry.questionAnswer !== undefined ||
           nextEntry.entry.sourceActivityKind === "context-compaction" ||
           nextEntry.entry.tone === "error" ||

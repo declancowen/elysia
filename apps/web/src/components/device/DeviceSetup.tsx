@@ -1,6 +1,6 @@
 import { DeviceHostUpdates } from "./DeviceHostUpdates";
 import type { DevicePlatform, DeviceServiceState, EnvironmentId } from "@t3tools/contracts";
-import { Check, CircleAlert } from "lucide-react";
+import { Check, CircleAlert } from "~/icons";
 import { useState } from "react";
 
 import { Button } from "~/components/ui/button";

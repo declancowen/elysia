@@ -38,7 +38,7 @@ import {
   InfoIcon,
   LockIcon,
   GlobeIcon,
-} from "lucide-react";
+} from "~/icons";
 import { Radio as RadioPrimitive } from "@base-ui/react/radio";
 import {
   AzureDevOpsIcon,

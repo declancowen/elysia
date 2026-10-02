@@ -15,7 +15,7 @@ import {
   isAtomCommandInterrupted,
   squashAtomCommandFailure,
 } from "@t3tools/client-runtime/state/runtime";
-import { ChevronDownIcon, EllipsisIcon, MessageCircleIcon } from "lucide-react";
+import { ChevronDownIcon, EllipsisIcon, MessageCircleIcon } from "~/icons";
 import {
   memo,
   useCallback,

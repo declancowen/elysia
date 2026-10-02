@@ -11,14 +11,15 @@ import { useCodeWorkspace } from "~/hooks/useSettings";
 import {
   BotIcon,
   ArrowLeftIcon,
-  ChevronUpIcon,
+  ExpandIcon,
+  CollapseIcon,
   ChevronDownIcon,
   FileDiffIcon,
   FileIcon,
   LinkIcon,
   ListIcon,
   PlusIcon,
-} from "lucide-react";
+} from "~/icons";
 import { cn } from "~/lib/utils";
 import {
   isFileAttachment,
@@ -31,7 +32,6 @@ import { Popover, PopoverTitle, PopoverTrigger } from "../ui/popover";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
 import ChatMarkdown from "../ChatMarkdown";
 import { AgentAvatar } from "../agents/AgentAvatar";
-import { DelegatedAgentStatus } from "../agents/DelegatedAgentStatus";
 import { Spinner } from "../ui/spinner";
 import { groupDelegatedAgents, useDelegatedAgents } from "../agents/useDelegatedAgents";
 
@@ -203,7 +203,7 @@ function OverviewPopover({
             }}
             className="flex max-h-(--available-height) w-80 max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-3xl border border-(--app-theme-toolbar-border,var(--border)) text-foreground shadow-lg outline-none [--overview-surface:var(--app-theme-surface-raised,var(--card))] dark:[--overview-surface:var(--app-theme-surface-raised,var(--surface-raised))] bg-(--overview-surface)/(--glass-opacity) backdrop-blur-(--glass-blur) backdrop-saturate-(--glass-saturation) not-supports-[((backdrop-filter:blur(1px))_or_(-webkit-backdrop-filter:blur(1px)))]:bg-(--overview-surface)"
           >
-            <header className="flex shrink-0 items-center gap-2 px-5 py-4">
+            <header className="flex shrink-0 items-center gap-2 px-5 pt-4 pb-2">
               {view ? (
                 <Button
                   variant="ghost-muted"
@@ -268,15 +268,19 @@ function OverviewPopover({
                   aria-expanded={view ? expanded : undefined}
                   onClick={() => (view ? setExpanded(!expanded) : openView(onToggleChanges))}
                 >
-                  {expanded ? (
-                    <ChevronUpIcon className="size-3.5" />
+                  {view ? (
+                    expanded ? (
+                      <CollapseIcon className="size-3.5" />
+                    ) : (
+                      <ExpandIcon className="size-3.5" />
+                    )
                   ) : (
                     <ChevronDownIcon className="size-3.5" />
                   )}
                 </Button>
               ) : null}
             </header>
-            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-5">
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 pt-1 pb-5">
               {view === null ? (
                 <div className="flex flex-col gap-4 [&>section:not(:first-child)]:border-t [&>section:not(:first-child)]:border-border/50 [&>section:not(:first-child)]:pt-3">
                   {showChanges && (
@@ -297,8 +301,12 @@ function OverviewPopover({
                   )}
                   {grouped.length > 0 ? (
                     <section>
-                      <h3 className="mb-2 text-xs text-muted-foreground">Agents</h3>
-                      <DelegatedAgentStatus agents={delegated} />
+                      <h3 className="mb-2 flex justify-between text-xs text-muted-foreground">
+                        <span>Agents</span>
+                        {grouped.some((agent) => agent.working) ? (
+                          <span>{grouped.filter((agent) => agent.working).length} working</span>
+                        ) : null}
+                      </h3>
                       {grouped.map((agent) => (
                         <button
                           key={agent.job.agentProjectId}
@@ -437,6 +445,7 @@ function OverviewPopover({
                           {project?.agentProfile ? (
                             <AgentAvatar
                               avatar={project.agentProfile.avatar}
+                              working={working}
                               className="mt-1 size-5 shrink-0"
                             />
                           ) : null}

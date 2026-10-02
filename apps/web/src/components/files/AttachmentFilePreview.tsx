@@ -14,7 +14,7 @@ import {
   Trash2Icon,
   WrapTextIcon,
   XIcon,
-} from "lucide-react";
+} from "~/icons";
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 
 import { useAssetUrlRefresh } from "~/assets/assetUrls";

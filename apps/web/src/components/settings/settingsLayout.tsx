@@ -1,5 +1,5 @@
 import { SettingsGroup } from "./SettingsGroup";
-import { InfoIcon, Undo2Icon } from "lucide-react";
+import { InfoIcon, Undo2Icon } from "~/icons";
 import {
   DEFAULT_SERVER_SETTINGS,
   SINGLE_PROVIDER_UI,

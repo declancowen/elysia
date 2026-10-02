@@ -9,7 +9,7 @@
  * summary as a comment or the reverse.
  */
 import type { EnvironmentId, PullRequestDetailView, PullRequestRef } from "@t3tools/contracts";
-import { MessageSquareIcon, Trash2Icon, XIcon } from "lucide-react";
+import { MessageSquareIcon, Trash2Icon, XIcon } from "~/icons";
 import { useRef, useState } from "react";
 
 import { Button } from "../ui/button";

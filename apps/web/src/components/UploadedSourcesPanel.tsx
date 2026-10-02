@@ -1,7 +1,7 @@
 import { formatAttachmentSize } from "@t3tools/client-runtime/state/attachments";
 import { useMemo } from "react";
 
-import { ChevronRightIcon, FileIcon, Files, FolderIcon, ImageIcon, PlusIcon } from "lucide-react";
+import { ChevronRightIcon, FileIcon, Files, FolderIcon, ImageIcon, PlusIcon } from "~/icons";
 import {
   isFileAttachment,
   isImageAttachment,

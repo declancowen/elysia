@@ -14,7 +14,7 @@ import {
   CircleDashedIcon,
   InfoIcon,
   SlidersHorizontalIcon,
-} from "lucide-react";
+} from "~/icons";
 import { useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
 import {
   cursorKeychainAccessEnvironments,

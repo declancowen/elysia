@@ -6,7 +6,7 @@ import {
   ServerIcon,
   HardDriveIcon,
   type LucideProps,
-} from "lucide-react";
+} from "~/icons";
 import type { FunctionComponent } from "react";
 import { LinuxIcon } from "./Icons";
 

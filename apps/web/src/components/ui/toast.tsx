@@ -24,7 +24,7 @@ import {
   InfoIcon,
   TriangleAlertIcon,
   XIcon,
-} from "lucide-react";
+} from "~/icons";
 
 import { cn } from "~/lib/utils";
 import { Button, buttonVariants } from "~/components/ui/button";

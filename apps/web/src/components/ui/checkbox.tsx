@@ -1,4 +1,4 @@
-import { CheckIcon, MinusIcon } from "lucide-react";
+import { CheckIcon, MinusIcon } from "~/icons";
 ("use client");
 
 import { Checkbox as CheckboxPrimitive } from "@base-ui/react/checkbox";

@@ -30,9 +30,9 @@ const RESTRICTED_UI_VARIANT_PATTERNS = [
   },
 ];
 
-/** Lucide's pull-request glyphs, which only `pullRequestIcons.tsx` may name. */
+/** Pull-request glyphs, which only `pullRequestIcons.tsx` may name. */
 const RESTRICTED_PULL_REQUEST_GLYPH_IMPORTS = {
-  name: "lucide-react",
+  name: "~/icons",
   importNames: [
     "GitMerge",
     "GitMergeIcon",
@@ -188,7 +188,7 @@ export default defineConfig({
         },
       },
       {
-        // The one module allowed to name lucide's pull-request glyphs; everything else picks
+        // The one module allowed to name pull-request glyphs; everything else picks
         // from its vocabulary. The other import restrictions still apply here.
         files: ["apps/web/src/components/pullRequest/pullRequestIcons.tsx"],
         rules: { "eslint/no-restricted-imports": ["error", { paths: RESTRICTED_IMPORT_PATHS }] },

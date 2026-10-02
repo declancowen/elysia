@@ -18,7 +18,7 @@ import {
   TagIcon,
   UserPlusIcon,
   UsersIcon,
-} from "lucide-react";
+} from "~/icons";
 import type { ReactNode } from "react";
 
 import { readLocalApi } from "~/localApi";

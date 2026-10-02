@@ -1,7 +1,7 @@
 import { scopeProjectRef } from "@t3tools/client-runtime/environment";
 import type { ScopedProjectRef } from "@t3tools/contracts";
 import { useNavigate } from "@tanstack/react-router";
-import { ArchiveIcon, BotIcon, PencilIcon } from "lucide-react";
+import { ArchiveIcon, BotIcon, PencilIcon } from "~/icons";
 import { useLayoutEffect, useRef, useState } from "react";
 import { Button } from "../ui/button";
 import { Popover, PopoverPopup, PopoverTitle, PopoverTrigger } from "../ui/popover";

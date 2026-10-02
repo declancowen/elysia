@@ -1,5 +1,5 @@
 import type { BitbucketSettings, EnvironmentId } from "@t3tools/contracts";
-import { ExternalLinkIcon } from "lucide-react";
+import { ExternalLinkIcon } from "~/icons";
 import { useState } from "react";
 
 import { useEnvironmentSettings } from "../../hooks/useSettings";

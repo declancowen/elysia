@@ -67,10 +67,10 @@ describe("ProjectFavicon", () => {
 
   it("renders a matching outline in the project text colour and existing badge footprint", async () => {
     await render();
-    const icon = container.querySelector("svg.lucide-chef-hat");
+    const icon = container.querySelector('svg[data-icon="chef-hat"]');
     expect(icon).not.toBeNull();
     expect(icon?.getAttribute("fill")).toBe("none");
-    expect(icon?.getAttribute("stroke")).toBe("currentColor");
+    expect(icon?.querySelector("path")?.getAttribute("stroke")).toBe("currentColor");
     expect(icon?.parentElement?.className).toContain("size-4");
     expect(icon?.parentElement?.className).toContain("text-inherit");
     expect(icon?.parentElement?.style.backgroundColor).toBe("");
@@ -85,10 +85,10 @@ describe("ProjectFavicon", () => {
   it("updates the automatic glyph when a project is renamed and uses a folder for an unknown name", async () => {
     await render();
     await render(makeProject({ title: "Downloads" }));
-    expect(container.querySelector("svg.lucide-download")).not.toBeNull();
-    expect(container.querySelector("svg.lucide-chef-hat")).toBeNull();
+    expect(container.querySelector('svg[data-icon="download"]')).not.toBeNull();
+    expect(container.querySelector('svg[data-icon="chef-hat"]')).toBeNull();
     await render(makeProject({ title: "Quiet Lantern" }));
-    expect(container.querySelector("svg.lucide-folder")).not.toBeNull();
+    expect(container.querySelector('svg[data-icon="folder"]')).not.toBeNull();
   });
 
   it("preserves an explicitly saved monogram ahead of a real favicon", async () => {
@@ -120,14 +120,14 @@ describe("ProjectFavicon", () => {
   it("replaces the outline after a real favicon loads and restores it if the image fails", async () => {
     testState.faviconUrl = "https://environment.test/api/assets/token-a/favicon.svg";
     await render();
-    expect(container.querySelector("svg.lucide-chef-hat")).not.toBeNull();
+    expect(container.querySelector('svg[data-icon="chef-hat"]')).not.toBeNull();
     await dispatchImageEvent("img.hidden", "load");
     expect(container.querySelector("svg")).toBeNull();
     expect(container.querySelector("img:not(.hidden)")?.getAttribute("src")).toBe(
       testState.faviconUrl,
     );
     await dispatchImageEvent("img:not(.hidden)", "error");
-    expect(container.querySelector("svg.lucide-chef-hat")).not.toBeNull();
+    expect(container.querySelector('svg[data-icon="chef-hat"]')).not.toBeNull();
   });
 
   it("keeps an older loaded favicon while a refreshed URL loads or fails", async () => {

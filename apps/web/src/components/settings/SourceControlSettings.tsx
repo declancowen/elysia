@@ -1,6 +1,6 @@
 import { RefreshIcon } from "~/components/ui/refresh-icon";
 import { SINGLE_PROVIDER_UI } from "@t3tools/contracts";
-import { ChevronDownIcon } from "lucide-react";
+import { ChevronDownIcon } from "~/icons";
 import * as Duration from "effect/Duration";
 import * as Option from "effect/Option";
 import { useEffect, useState, type ReactNode } from "react";

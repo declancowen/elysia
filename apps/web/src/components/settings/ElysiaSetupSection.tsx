@@ -7,7 +7,7 @@ import { useAtomCommand } from "../../state/use-atom-command";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { WizardSteps } from "../ui/wizard";
-import { ArrowRightIcon, CheckIcon } from "lucide-react";
+import { ArrowRightIcon, CheckIcon } from "~/icons";
 import { toastManager } from "../ui/toast";
 import {
   isAtomCommandInterrupted,

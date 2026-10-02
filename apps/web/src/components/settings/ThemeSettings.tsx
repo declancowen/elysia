@@ -8,7 +8,7 @@ import {
   SunIcon,
   Trash2Icon,
   UploadIcon,
-} from "lucide-react";
+} from "~/icons";
 import { useCallback, useEffect, useState, type ReactElement } from "react";
 import { ELYSIA_THEMES } from "@t3tools/shared/themePalettes";
 import { useEnvironmentThemeDefinitions } from "../../hooks/useEnvironmentTheme";

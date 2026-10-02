@@ -7,7 +7,7 @@ import {
   CopyIcon,
   FolderOpenIcon,
   InfoIcon,
-} from "lucide-react";
+} from "~/icons";
 import {
   isAtomCommandInterrupted,
   squashAtomCommandFailure,

@@ -121,7 +121,7 @@ describe("ComposerCommandMenu", () => {
 
     expect(markup).toContain("$ask-matt");
     expect(markup).toContain('data-slot="badge"');
-    expect(markup).toContain("lucide-folder");
+    expect(markup).toContain('data-icon="folder"');
     expect(markup).toContain(">Repo</span>");
     expect(markup).toContain("Find the right skill or workflow");
   });

@@ -17,7 +17,7 @@ import {
   Sun,
   Type,
   X,
-} from "lucide-react";
+} from "~/icons";
 import type { ReactNode } from "react";
 import { Button } from "~/components/ui/button";
 import {

@@ -68,7 +68,7 @@ import {
   TerminalIcon,
   Undo2Icon,
   XIcon,
-} from "lucide-react";
+} from "~/icons";
 import {
   memo,
   useCallback,
@@ -1653,10 +1653,11 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: {
             />
           }
         >
-          <PinIcon
-            aria-hidden
-            className={cn("size-3 shrink-0", props.isPinned && "fill-current")}
-          />
+          {props.isPinned ? (
+            <PinOffIcon aria-hidden className="size-3 shrink-0" />
+          ) : (
+            <PinIcon aria-hidden className="size-3 shrink-0" />
+          )}
         </TooltipTrigger>
         <TooltipPopup>{props.isPinned ? "Unpin thread" : "Pin thread"}</TooltipPopup>
       </Tooltip>
@@ -1664,7 +1665,7 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: {
       <PinIcon
         aria-label="Pinned"
         role="img"
-        className="size-3 shrink-0 fill-current text-muted-foreground/65"
+        className="size-3 shrink-0 text-muted-foreground/65"
       />
     ) : null
   ) : null;

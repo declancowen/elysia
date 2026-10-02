@@ -21,7 +21,7 @@ import {
   MusicIcon,
   ServerIcon,
   SmartphoneIcon,
-} from "lucide-react";
+} from "~/icons";
 import type { IconName } from "../projectIcons";
 import type { ComponentType } from "react";
 import { lazy, Suspense, useState } from "react";

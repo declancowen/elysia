@@ -1,6 +1,6 @@
 import { scopeProjectRef } from "@t3tools/client-runtime/environment";
 import { useParams } from "@tanstack/react-router";
-import { ArchiveIcon, MoreHorizontalIcon, PencilIcon, PlusIcon } from "lucide-react";
+import { ArchiveIcon, MoreHorizontalIcon, PencilIcon, PlusIcon } from "~/icons";
 import { cn } from "../../lib/utils";
 import { resolveSidebarThreadStatus } from "../Sidebar.logic";
 import { Button } from "../ui/button";

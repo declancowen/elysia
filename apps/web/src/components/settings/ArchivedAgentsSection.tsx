@@ -1,6 +1,6 @@
 import type { EnvironmentId } from "@t3tools/contracts";
 import { squashAtomCommandFailure } from "@t3tools/client-runtime/state/runtime";
-import { RotateCcwIcon } from "lucide-react";
+import { RotateCcwIcon } from "~/icons";
 import { useMemo, useRef, useState } from "react";
 import { useEnvironments } from "../../state/environments";
 import { useProjects } from "../../state/entities";

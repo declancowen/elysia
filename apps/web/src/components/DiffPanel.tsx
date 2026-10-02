@@ -20,7 +20,7 @@ import {
   PilcrowIcon,
   Rows3Icon,
   TextWrapIcon,
-} from "lucide-react";
+} from "~/icons";
 import * as Schema from "effect/Schema";
 import * as DateTime from "effect/DateTime";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";

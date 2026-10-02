@@ -1,4 +1,4 @@
-import { PencilIcon as EditComposerIcon } from "lucide-react";
+import { PencilIcon as EditComposerIcon } from "~/icons";
 import { DESKTOP_PASTE_AS_TEXT_EVENT } from "../../lib/desktopPasteAsText";
 import { isLocalEnvironmentDisabled } from "../../localEnvironment";
 import { usePrimaryEnvironmentId } from "../../state/environments";
@@ -949,7 +949,7 @@ import {
   PlayIcon,
   ShieldIcon,
   XIcon,
-} from "lucide-react";
+} from "~/icons";
 import { proposedPlanTitle } from "../../proposedPlan";
 import { hasProviderSetup } from "./ProviderStatusBanner";
 import {

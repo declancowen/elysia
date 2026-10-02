@@ -1,6 +1,6 @@
 "use client";
 
-import { PipetteIcon, XIcon } from "lucide-react";
+import { PipetteIcon, XIcon } from "~/icons";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { hexToHsv, hsvToHex, type HsvColor } from "../../lib/color";

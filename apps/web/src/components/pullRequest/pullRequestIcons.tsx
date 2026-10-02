@@ -7,7 +7,7 @@ import {
   Link2Icon,
   Unlink2Icon,
   TriangleAlertIcon,
-} from "lucide-react";
+} from "~/icons";
 import type { PullRequestState } from "@t3tools/contracts";
 
 export const PullRequestGlyph = {

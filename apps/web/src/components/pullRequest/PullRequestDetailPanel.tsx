@@ -38,7 +38,7 @@ import {
   PlayIcon,
   RotateCcwIcon,
   TriangleAlertIcon,
-} from "lucide-react";
+} from "~/icons";
 import {
   lazy,
   Suspense,

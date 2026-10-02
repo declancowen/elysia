@@ -32,7 +32,7 @@ import {
   SearchIcon,
   UserLockIcon,
   type LucideIcon,
-} from "lucide-react";
+} from "~/icons";
 import {
   useCallback,
   useEffect,

@@ -83,9 +83,11 @@ export const SidebarChromeHeader = memo(function SidebarChromeHeader({
         variant={backdropVariant ? "media-navigation" : "ghost"}
         className="relative top-auto z-10 translate-y-0 md:hidden"
       />
-      <SidebarBrand onBackdrop={backdropVariant !== null} />
-      <div className="[-webkit-app-region:no-drag] relative z-10 flex min-w-0 flex-1 justify-end pr-2">
-        {search}
+      <div className="@container/sidebar-brand relative z-10 flex min-w-0 flex-1 items-center gap-2 md:ml-[var(--workspace-titlebar-content-left)]">
+        <SidebarBrand onBackdrop={backdropVariant !== null} />
+        <div className="[-webkit-app-region:no-drag] flex min-w-0 flex-1 justify-end pr-2">
+          {search}
+        </div>
       </div>
       {pillLabel ? (
         <Badge
@@ -106,7 +108,7 @@ function SidebarBrand({ onBackdrop }: { onBackdrop: boolean }) {
     <Link
       aria-label="Go to threads"
       className={cn(
-        "relative z-10 ml-[var(--workspace-titlebar-content-left)] hidden h-7 w-fit min-w-0 shrink-0 items-center overflow-hidden rounded-md outline-hidden ring-ring focus-visible:ring-2 md:flex",
+        "relative z-10 hidden h-7 w-fit shrink-0 items-center rounded-md outline-hidden ring-ring focus-visible:ring-2 md:@[10rem]/sidebar-brand:flex",
         onBackdrop ? "text-white" : "text-foreground",
       )}
       to="/"

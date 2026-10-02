@@ -4947,19 +4947,19 @@ export default function ChatView(props: ChatViewProps) {
   const closePreviewPanel = useCallback(() => {
     if (activeThreadRef) {
       // Closing the panel on a live browser or device floats it instead of dropping it.
-      if (activeRightPanelSurface?.kind === "preview" && activeRightPanelSurface.resourceId) {
+      if (visibleRightPanelSurface?.kind === "preview" && visibleRightPanelSurface.resourceId) {
         usePreviewMiniPlayerStore
           .getState()
-          .open(activeThreadRef, browserMiniPlayerSource(activeRightPanelSurface.resourceId));
-      } else if (activeRightPanelSurface?.kind === "device" && activeRightPanelSurface.target) {
+          .open(activeThreadRef, browserMiniPlayerSource(visibleRightPanelSurface.resourceId));
+      } else if (visibleRightPanelSurface?.kind === "device" && visibleRightPanelSurface.target) {
         usePreviewMiniPlayerStore
           .getState()
-          .open(activeThreadRef, { kind: "device", ...activeRightPanelSurface.target });
+          .open(activeThreadRef, { kind: "device", ...visibleRightPanelSurface.target });
       }
       setMaximizedRightPanelThreadKey(null);
       useRightPanelStore.getState().close(activeThreadRef);
     }
-  }, [activeRightPanelSurface, activeThreadRef]);
+  }, [visibleRightPanelSurface, activeThreadRef]);
   const togglePreviewPanel = useCallback(() => {
     if (!activeThreadRef || !isPreviewSupportedInRuntime()) return;
     if (previewPanelOpen) {
@@ -9912,7 +9912,12 @@ export default function ChatView(props: ChatViewProps) {
   });
 
   return (
-    <div className="relative flex min-h-0 min-w-0 flex-1 overflow-hidden bg-background">
+    <div
+      className={cn(
+        "relative flex min-h-0 min-w-0 flex-1 overflow-hidden",
+        SINGLE_PROVIDER_UI ? "bg-sidebar" : "bg-background",
+      )}
+    >
       <Dialog
         open={
           deviceSetupThread !== null &&
@@ -9940,6 +9945,7 @@ export default function ChatView(props: ChatViewProps) {
       <div
         className={cn(
           "flex min-h-0 min-w-0 flex-col overflow-x-hidden",
+          SINGLE_PROVIDER_UI && "bg-background md:rounded-xl",
           rightPanelMaximized ? "w-0 flex-none" : "flex-1",
         )}
         data-chat-column-maximized-away={rightPanelMaximized ? "true" : "false"}
@@ -10191,11 +10197,14 @@ export default function ChatView(props: ChatViewProps) {
               ref={setComposerOverlayElement}
               inert={isRevertingCheckpoint}
               data-chat-composer-overlay="true"
-              className={
+              className={cn(
                 isDraftHeroState
                   ? "pointer-events-none absolute inset-0 z-20 flex items-center"
-                  : "pointer-events-none absolute inset-x-0 bottom-0 z-20 pt-1.5 sm:pt-2"
-              }
+                  : "pointer-events-none absolute inset-x-0 bottom-0 z-20 pt-1.5 sm:pt-2",
+                SINGLE_PROVIDER_UI &&
+                  !isDraftHeroState &&
+                  "before:pointer-events-none before:absolute before:inset-x-0 before:-top-2 before:z-0 before:h-2 before:bg-linear-to-b before:from-transparent before:to-background after:pointer-events-none after:absolute after:inset-0 after:z-0 after:bg-background",
+              )}
             >
               <div
                 ref={attachDraftHeroTransitionGroupRef}

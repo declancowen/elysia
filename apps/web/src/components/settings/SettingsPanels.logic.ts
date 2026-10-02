@@ -19,6 +19,18 @@ import {
 import * as Duration from "effect/Duration";
 import * as Equal from "effect/Equal";
 
+export type ArchivedThreadSort = "project" | "created" | "archived";
+
+export function sortArchivedThreads<
+  T extends { readonly id: string; readonly createdAt: string; readonly archivedAt: string | null },
+>(threads: readonly T[], sort: ArchivedThreadSort): T[] {
+  return threads.toSorted((left, right) => {
+    const leftKey = sort === "created" ? left.createdAt : (left.archivedAt ?? left.createdAt);
+    const rightKey = sort === "created" ? right.createdAt : (right.archivedAt ?? right.createdAt);
+    return rightKey.localeCompare(leftKey) || right.id.localeCompare(left.id);
+  });
+}
+
 export function isProjectGroupingEnabled(mode: SidebarProjectGroupingMode): boolean {
   return mode !== "separate";
 }

@@ -18,7 +18,36 @@ import {
   isProjectGroupingEnabled,
   projectGroupingModeFromToggle,
   resolveBackgroundActivityProfileOption,
+  sortArchivedThreads,
 } from "./SettingsPanels.logic";
+
+describe("archived chat sorting", () => {
+  const threads = [
+    { id: "older-created", createdAt: "2026-09-01", archivedAt: "2026-10-02" },
+    { id: "newer-created", createdAt: "2026-10-01", archivedAt: "2026-10-01" },
+  ];
+
+  it("orders chats by the selected date newest first without changing the source", () => {
+    expect(sortArchivedThreads(threads, "created").map((thread) => thread.id)).toEqual([
+      "newer-created",
+      "older-created",
+    ]);
+    expect(sortArchivedThreads(threads, "archived").map((thread) => thread.id)).toEqual([
+      "older-created",
+      "newer-created",
+    ]);
+    expect(threads[0]?.id).toBe("older-created");
+  });
+
+  it("keeps project groups sorted by archive date and falls back to creation for legacy archives", () => {
+    expect(
+      sortArchivedThreads(
+        [...threads, { id: "legacy", createdAt: "2026-10-03", archivedAt: null }],
+        "project",
+      ).map((thread) => thread.id),
+    ).toEqual(["legacy", "older-created", "newer-created"]);
+  });
+});
 
 describe("typography settings restore", () => {
   it("detects family and size changes by font row", () => {

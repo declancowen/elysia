@@ -45,8 +45,62 @@ describe("rightPanelStore", () => {
     expect(state.activeSurfaceId).toBe("device");
     store.closeSurface(refA, "sources");
     const hidden = selectThreadRightPanelState(useRightPanelStore.getState().byThreadKey, refA);
-    expect(workspaceRightPanelState(hidden, false).isOpen).toBe(false);
+    expect(workspaceRightPanelState(hidden, false)).toMatchObject({
+      isOpen: true,
+      activeSurfaceId: null,
+      surfaces: [],
+    });
     expect(workspaceRightPanelState(hidden, true).surfaces).toHaveLength(3);
+  });
+  it("opens and closes the Work launcher with only stored Code tabs", () => {
+    const store = useRightPanelStore.getState();
+    store.open(refA, "diff");
+    store.open(refA, "files");
+    store.openTerminal(refA, "terminal-1");
+    store.open(refA, "pull-requests");
+    store.openPullRequest(refA, {
+      projectId: "project-1",
+      repository: "declancowen/elysia",
+      number: 10,
+    });
+    store.close(refA);
+    const stored = selectThreadRightPanelState(useRightPanelStore.getState().byThreadKey, refA);
+
+    store.toggleVisibility(refA);
+    const opened = selectThreadRightPanelState(useRightPanelStore.getState().byThreadKey, refA);
+    expect(workspaceRightPanelState(opened, false)).toMatchObject({
+      isOpen: true,
+      activeSurfaceId: null,
+      surfaces: [],
+    });
+    expect(workspaceRightPanelState(opened, true)).toEqual({ ...stored, isOpen: true });
+
+    store.toggleVisibility(refA);
+    const closed = selectThreadRightPanelState(useRightPanelStore.getState().byThreadKey, refA);
+    expect(workspaceRightPanelState(closed, false).isOpen).toBe(false);
+    expect(closed).toEqual(stored);
+  });
+  it("keeps source attachment previews in Work while hiding repository file previews", () => {
+    const store = useRightPanelStore.getState();
+    const attachment = {
+      type: "file" as const,
+      id: "report",
+      name: "report.pdf",
+      mimeType: "application/pdf",
+      sizeBytes: 42,
+    };
+    store.openAttachment(refA, attachment);
+    store.openFile(refA, "README.md");
+    const state = selectThreadRightPanelState(useRightPanelStore.getState().byThreadKey, refA);
+
+    const workState = workspaceRightPanelState(state, false);
+    expect(workState.surfaces).toEqual([
+      expect.objectContaining({ id: "attachment:report", kind: "file", attachment }),
+    ]);
+    expect(workState.activeSurfaceId).toBe("attachment:report");
+    expect(workState.isOpen).toBe(true);
+    expect(workspaceRightPanelState(state, true)).toBe(state);
+    expect(state.activeSurfaceId).toBe("file:README.md");
   });
   it("gives each host/device its own tab and preserves renamed tabs", () => {
     const store = useRightPanelStore.getState();

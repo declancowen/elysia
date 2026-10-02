@@ -120,8 +120,10 @@ export function workspaceRightPanelState(
   codeWorkspace: boolean,
 ): ThreadRightPanelState {
   if (codeWorkspace) return state;
-  const surfaces = state.surfaces.filter((surface) =>
-    ["preview", "sources", "file", "agents"].includes(surface.kind),
+  const surfaces = state.surfaces.filter(
+    (surface) =>
+      ["preview", "sources", "agents"].includes(surface.kind) ||
+      (surface.kind === "file" && surface.attachment !== undefined),
   );
   return {
     ...state,
@@ -130,7 +132,6 @@ export function workspaceRightPanelState(
       surfaces.find((surface) => surface.id === state.activeSurfaceId)?.id ??
       surfaces[0]?.id ??
       null,
-    isOpen: state.isOpen && surfaces.length > 0,
   };
 }
 

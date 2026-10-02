@@ -567,6 +567,14 @@ export const ChatHeader = memo(function ChatHeader({
           // Work has one panel toggle; Code also has the terminal toggle.
           // The page header adds 8px more right padding at sm.
           rightPanelOpen ? "pr-0" : codeWorkspace ? "pr-18.25 sm:pr-14.25" : "pr-9.25 sm:pr-6.25",
+          // The frame and Windows resize insets already reserve part of this space.
+          SINGLE_PROVIDER_UI &&
+            !rightPanelOpen && [
+              "md:[--header-controls-padding:calc(var(--header-controls-space)-var(--desktop-window-right-resize-inset))] md:pr-(--header-controls-padding)",
+              codeWorkspace
+                ? "md:[--header-controls-space:--spacing(12.25)] md:wco:[--header-controls-space:--spacing(14.25)]"
+                : "md:[--header-controls-space:--spacing(4.25)] md:wco:[--header-controls-space:--spacing(6.25)]",
+            ],
           "[[data-panel-animations=true]_&]:motion-safe:transition-[padding-right] [[data-panel-animations=true]_&]:motion-safe:duration-(--panel-animation-duration) [[data-panel-animations=true]_&]:motion-safe:ease-out",
         )}
       >

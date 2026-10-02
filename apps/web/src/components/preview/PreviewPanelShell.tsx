@@ -1,3 +1,4 @@
+import { SINGLE_PROVIDER_UI } from "@t3tools/contracts";
 import {
   type ReactNode,
   type RefObject,
@@ -120,13 +121,13 @@ export function PreviewPanelShell(props: {
       ref={hostRef}
       className={cn(
         "relative flex h-full min-h-0 min-w-0 max-w-full flex-col self-stretch bg-background",
-        isInline
-          ? maximized
-            ? "flex-1 border-l border-border"
-            : "shrink-0 border-l border-border"
-          : "w-full",
+        isInline ? (maximized ? "flex-1" : "shrink-0") : "w-full",
+        isInline &&
+          (SINGLE_PROVIDER_UI
+            ? cn("rounded-xl", open && !maximized && "ml-2")
+            : "border-l border-border"),
         collapsible &&
-          "[[data-panel-animations=true]_&]:transition-[width] [[data-panel-animations=true]_&]:duration-(--panel-animation-duration) [[data-panel-animations=true]_&]:ease-out",
+          "[[data-panel-animations=true]_&]:transition-[width,margin-left] [[data-panel-animations=true]_&]:duration-(--panel-animation-duration) [[data-panel-animations=true]_&]:ease-out",
         collapsible && open && "[[data-panel-animations=true]_&]:starting:w-0!",
         collapsible && !open && "pointer-events-none",
       )}
@@ -142,10 +143,20 @@ export function PreviewPanelShell(props: {
       data-preview-panel-maximized={maximized ? "true" : "false"}
     >
       {isInline && !maximized ? <RightPanelResizeHandle handlers={handlers} /> : null}
-      <div className={cn("h-full min-h-0 w-full", collapsible && "overflow-clip")}>
+      <div
+        className={cn(
+          "h-full min-h-0 w-full",
+          collapsible && "overflow-clip",
+          SINGLE_PROVIDER_UI && isInline && "overflow-clip rounded-xl",
+        )}
+      >
         <div
           className="flex h-full min-h-0 min-w-0 flex-col"
-          style={collapsible && !maximized ? { width: `calc(${width}px - 1px)` } : undefined}
+          style={
+            collapsible && !maximized
+              ? { width: SINGLE_PROVIDER_UI ? `${width}px` : `calc(${width}px - 1px)` }
+              : undefined
+          }
         >
           {props.children}
         </div>
@@ -192,7 +203,7 @@ function useClampedMaxWidth(hostRef: RefObject<HTMLDivElement | null>, enabled: 
     // (the panel would flash over-wide on every mount). clientWidth is
     // integral, so sub-pixel resize deltas bail out of re-rendering.
     const measure = () => {
-      setContainerWidth(parent.clientWidth);
+      setContainerWidth(parent.clientWidth - (SINGLE_PROVIDER_UI ? 8 : 0));
     };
     measure();
     if (typeof ResizeObserver === "undefined") return;

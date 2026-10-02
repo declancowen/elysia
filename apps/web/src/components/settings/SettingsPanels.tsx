@@ -3,7 +3,7 @@ import { SettingsGroup } from "./SettingsGroup";
 import { ArchivedAgentsSection } from "./ArchivedAgentsSection";
 import { Spinner } from "~/components/ui/spinner";
 import { NotificationSettings } from "./NotificationSettings";
-import { ArchiveIcon, ArchiveX, CheckIcon, SettingsIcon } from "~/icons";
+import { ArchiveIcon, ArchiveX, CheckIcon, MessageCircle, SettingsIcon } from "~/icons";
 import { Link, useNavigate } from "@tanstack/react-router";
 import type { CSSProperties, ReactNode } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -149,6 +149,8 @@ import {
   PROVIDER_HEALTH_INTERVAL_STEP_SECONDS,
   hasChangedBackgroundActivitySettings,
   resolveBackgroundActivityProfileOption,
+  sortArchivedThreads,
+  type ArchivedThreadSort,
 } from "./SettingsPanels.logic";
 import {
   PolicyTooltip,
@@ -3050,6 +3052,7 @@ export function GeneralSettingsPanel() {
 
 export function ArchivedThreadsPanel() {
   const { scope } = useSettingsScope();
+  const [sort, setSort] = useState<ArchivedThreadSort>("project");
   const { unarchiveThread, confirmAndDeleteThread } = useThreadActions();
   const {
     snapshots: archivedSnapshots,
@@ -3086,7 +3089,7 @@ export function ArchivedThreadsPanel() {
 
     const archivedProjects = Array.from(projectsByEnvironmentAndId.values());
     const groups: Array<{
-      readonly project: (typeof archivedProjects)[number];
+      readonly project: (typeof archivedProjects)[number] | null;
       readonly threads: Array<(typeof threads)[number]>;
     }> = [];
     for (const project of archivedProjects) {
@@ -3099,16 +3102,42 @@ export function ArchivedThreadsPanel() {
       if (projectThreads.length > 0) {
         groups.push({
           project,
-          threads: projectThreads.toSorted((left, right) => {
-            const leftKey = left.archivedAt ?? left.createdAt;
-            const rightKey = right.archivedAt ?? right.createdAt;
-            return rightKey.localeCompare(leftKey) || right.id.localeCompare(left.id);
-          }),
+          threads: sortArchivedThreads(projectThreads, sort),
         });
       }
     }
-    return groups;
-  }, [archivedSnapshots, scope]);
+    if (sort === "project" || groups.length === 0) return groups;
+    return [
+      {
+        project: null,
+        threads: sortArchivedThreads(
+          groups.flatMap((group) => group.threads),
+          sort,
+        ),
+      },
+    ];
+  }, [archivedSnapshots, scope, sort]);
+
+  const sortControl = (
+    <Select
+      value={sort}
+      onValueChange={(value) => {
+        if (value === "project" || value === "created" || value === "archived") setSort(value);
+      }}
+    >
+      <SelectTrigger size="sm" aria-label="Sort archived chats by">
+        <SelectValue>
+          Sort by:{" "}
+          {sort === "project" ? "Project" : sort === "created" ? "Date created" : "Date archived"}
+        </SelectValue>
+      </SelectTrigger>
+      <SelectPopup align="end" alignItemWithTrigger={false}>
+        <SelectItem value="project">Project</SelectItem>
+        <SelectItem value="created">Date created</SelectItem>
+        <SelectItem value="archived">Date archived</SelectItem>
+      </SelectPopup>
+    </Select>
+  );
 
   const handleArchivedThreadContextMenu = useCallback(
     async (threadRef: ScopedThreadRef, position: { x: number; y: number }) => {
@@ -3165,6 +3194,7 @@ export function ArchivedThreadsPanel() {
         <SettingsSection
           id={isLoadingArchive ? undefined : searchableSetting("archive").id}
           title={searchableSetting("archive").title}
+          headerAction={sortControl}
         >
           <SettingsRow
             title={
@@ -3193,14 +3223,27 @@ export function ArchivedThreadsPanel() {
       ) : (
         archivedGroups.map(({ project, threads: projectThreads }, index) => (
           <SettingsSection
-            key={`${project.environmentId}:${project.id}`}
+            key={
+              index === 0
+                ? "archive-first"
+                : project
+                  ? `${project.environmentId}:${project.id}`
+                  : "chats"
+            }
             id={index === 0 ? searchableSetting("archive").id : undefined}
-            title={project.title}
-            icon={<ProjectFavicon project={project} />}
+            title={project?.title ?? "Chats"}
+            icon={
+              project ? (
+                <ProjectFavicon project={project} />
+              ) : (
+                <MessageCircle className="size-3.5" />
+              )
+            }
+            headerAction={index === 0 ? sortControl : undefined}
           >
             {projectThreads.map((thread) => (
               <SettingsRow
-                key={thread.id}
+                key={`${thread.environmentId}:${thread.id}`}
                 onContextMenu={(event) => {
                   event.preventDefault();
                   void (async () => {

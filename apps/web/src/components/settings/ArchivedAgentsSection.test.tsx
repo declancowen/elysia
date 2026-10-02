@@ -43,7 +43,10 @@ vi.mock("../../state/projects", () => ({
   projectEnvironment: { update: Symbol("updateProject") },
 }));
 vi.mock("../../state/use-atom-command", () => ({ useAtomCommand: () => state.restore }));
-vi.mock("../../hooks/useSettings", () => ({ usePrimarySettingsAvailable: () => true }));
+vi.mock("../../hooks/useSettings", () => ({
+  usePrimarySettingsAvailable: () => true,
+  useCodeWorkspace: () => true,
+}));
 vi.mock("./SettingsScopeContext", () => ({ useOptionalSettingsScope: () => null }));
 vi.mock("./useScopedSettings", () => ({
   useClearProjectOverrides: () => vi.fn(),

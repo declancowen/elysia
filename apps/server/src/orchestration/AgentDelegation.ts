@@ -38,7 +38,7 @@ import {
 } from "./Normalizer.ts";
 import { ProjectionSnapshotQuery } from "./Services/ProjectionSnapshotQuery.ts";
 
-const HISTORY_MAX_CHARS = 12_000;
+const HISTORY_MAX_CHARS = 4_000;
 const SOURCE_FILES_KIND = DELEGATION_SOURCE_CONTEXT_KIND;
 const SourceFiles = Schema.Struct({ attachments: Schema.Array(ChatAttachment) });
 const encodeDelegateRequest = Schema.encodeEffect(Schema.fromJsonString(AgentDelegateInput));
@@ -58,7 +58,7 @@ function recentContext(
   let remaining = HISTORY_MAX_CHARS;
   for (const message of messages
     .filter((message) => ["user", "assistant"].includes(message.role))
-    .slice(-12)
+    .slice(-2)
     .toReversed()) {
     const text = projectComposerContextForProvider({
       text: stripAgentRouting(message.text),
@@ -70,7 +70,7 @@ function recentContext(
     });
     const entry = `${message.role}: ${text}\n${references.join("\n")}`.slice(
       0,
-      Math.min(3_000, remaining),
+      Math.min(2_000, remaining),
     );
     entries.unshift(entry);
     remaining -= entry.length;
@@ -197,7 +197,7 @@ export const delegateToPersistentAgent = Effect.fn("delegateToPersistentAgent")(
       .getProjectShellById(sourceOption.value.projectId)
       .pipe(Effect.mapError(readError));
     const sourceMessages = yield* messageRepository
-      .listByThreadId({ threadId: input.sourceThreadId, limit: 12 })
+      .listByThreadId({ threadId: input.sourceThreadId, limit: 3 })
       .pipe(Effect.mapError(readError));
     if (Option.isNone(sourceProject)) {
       return yield* new OrchestrationDispatchCommandError({
@@ -286,7 +286,7 @@ export const delegateToPersistentAgent = Effect.fn("delegateToPersistentAgent")(
           `Origin chat: ${input.sourceThreadId}`,
           `Origin workspace (reference only): ${sourceOption.value.worktreePath ?? sourceProject.value.workspaceRoot}`,
           "Continue in your own agent chat, workspace and memory. The originating workspace and transcript are references; they do not change your working directory.",
-          "Recent conversation (reference only):",
+          "Recent excerpt (reference only, limited to the last two messages):",
           recentContext(
             sourceMessages.filter((message) => message.messageId !== input.messageId),
             config.attachmentsDir,

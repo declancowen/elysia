@@ -88,3 +88,18 @@ export function useDelegatedAgents(
 }
 
 export type DelegatedAgentView = ReturnType<typeof useDelegatedAgents>[number];
+
+/** Keep task history, but count and display each persistent agent once. */
+export function groupDelegatedAgents(agents: ReadonlyArray<DelegatedAgentView>) {
+  const groups = new Map<string, DelegatedAgentView[]>();
+  for (const agent of agents) {
+    const key = agent.job.agentProjectId;
+    const jobs = groups.get(key) ?? [];
+    jobs.push(agent);
+    groups.set(key, jobs);
+  }
+  return [...groups.values()].map((jobs) => {
+    const agent = jobs.findLast((job) => job.working) ?? jobs[jobs.length - 1]!;
+    return { ...agent, jobs };
+  });
+}

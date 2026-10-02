@@ -1,14 +1,17 @@
 import { Popover as PopoverPrimitive } from "@base-ui/react/popover";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { scopeThreadRef } from "@t3tools/client-runtime/environment";
-import type { ScopedThreadRef } from "@t3tools/contracts";
-import { isAgentDelegationActive, type DelegatedAgent } from "@t3tools/shared/agentMentions";
+import type { OrchestrationMessage, ScopedThreadRef } from "@t3tools/contracts";
+import { type DelegatedAgent } from "@t3tools/shared/agentMentions";
 
+import type { RuntimeSubagent } from "@t3tools/client-runtime/state/subagentRuntime";
+import { replaceComposerContextReferences } from "@t3tools/shared/composerContextReferences";
 import { useMediaQuery } from "~/hooks/useMediaQuery";
 import { useCodeWorkspace } from "~/hooks/useSettings";
 import {
   BotIcon,
-  CheckIcon,
+  ArrowLeftIcon,
+  ChevronUpIcon,
   ChevronDownIcon,
   FileDiffIcon,
   FileIcon,
@@ -28,8 +31,7 @@ import { Popover, PopoverTitle, PopoverTrigger } from "../ui/popover";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
 import ChatMarkdown from "../ChatMarkdown";
 import { AgentAvatar } from "../agents/AgentAvatar";
-import { DelegatedAgentStatus } from "../agents/DelegatedAgentStatus";
-import { useDelegatedAgents } from "../agents/useDelegatedAgents";
+import { groupDelegatedAgents, useDelegatedAgents } from "../agents/useDelegatedAgents";
 
 export interface ThreadOverviewPanelProps {
   threadKey: string;
@@ -38,7 +40,6 @@ export interface ThreadOverviewPanelProps {
   agents: { working: number; done: number };
   sources: ReadonlyArray<ChatAttachment>;
   onToggleChanges: () => void;
-  onOpenAgents: () => void;
   onOpenSources: () => void;
   onAddSources: () => void;
   onOpenSource: (sourceId: string) => void;
@@ -46,8 +47,14 @@ export interface ThreadOverviewPanelProps {
   sourceThreadRef?: ScopedThreadRef | null;
   delegatedAgents?: ReadonlyArray<DelegatedAgent>;
   sourceHistoryReady?: boolean;
+  requests?: ReadonlyArray<Pick<OrchestrationMessage, "id" | "text">>;
+  subagents?: ReadonlyArray<
+    Pick<RuntimeSubagent, "id" | "title" | "status" | "result" | "error" | "progress">
+  >;
+  composerElement?: HTMLElement | null;
 }
 
+const NO_ITEMS: ReadonlyArray<never> = [];
 const NO_DELEGATIONS: ReadonlyArray<DelegatedAgent> = [];
 
 const rowClassName =
@@ -59,13 +66,15 @@ function OverviewPopover({
   agents,
   sources,
   onToggleChanges,
-  onOpenAgents,
   onOpenSources,
   onAddSources,
   onOpenSource,
   sourceThreadRef,
   delegatedAgents = NO_DELEGATIONS,
   sourceHistoryReady = true,
+  requests = NO_ITEMS,
+  subagents = NO_ITEMS,
+  composerElement,
   wide,
 }: ThreadOverviewPanelProps & { wide: boolean }) {
   const codeWorkspace = useCodeWorkspace();
@@ -75,19 +84,44 @@ function OverviewPopover({
   const delegated = useDelegatedAgents(sourceThreadRef ?? null, delegatedAgents);
   const initialJobs = useRef<Set<string> | null>(null);
   const openedJobs = useRef(new Set<string>());
-  const [dismissedJobs, setDismissedJobs] = useState<ReadonlySet<string>>(() => new Set());
-  const visibleResponses = delegated.filter(({ job }) => !dismissedJobs.has(job.activityId));
+  const grouped = groupDelegatedAgents(delegated);
+  const [view, setView] = useState<
+    { kind: "agent" | "subagent"; id: string } | { kind: "subagents" } | null
+  >(null);
+  const [expanded, setExpanded] = useState(false);
+  const [availableHeight, setAvailableHeight] = useState(320);
+  const selectedAgent =
+    view?.kind === "agent" ? grouped.find(({ job }) => job.agentProjectId === view.id) : null;
+  const selectedSubagent =
+    view?.kind === "subagent" ? subagents.find(({ id }) => id === view.id) : null;
+  useLayoutEffect(() => {
+    if (!open) return;
+    const measure = () => {
+      const top = anchorRef.current?.getBoundingClientRect().top ?? 0;
+      const bottom = composerElement?.getBoundingClientRect().bottom ?? window.innerHeight;
+      setAvailableHeight(Math.max(0, Math.floor(bottom - top - 12)));
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    if (composerElement) observer.observe(composerElement);
+    window.addEventListener("resize", measure);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", measure);
+    };
+  }, [open, composerElement]);
   useEffect(() => {
     if (!sourceHistoryReady) return;
-    initialJobs.current ??= new Set(delegatedAgents.map((job) => job.activityId));
-    for (const { job, data } of delegated) {
-      if (!data || openedJobs.current.has(job.activityId)) continue;
-      if (isAgentDelegationActive(data.status) || !initialJobs.current.has(job.activityId)) {
+    initialJobs.current ??= new Set(delegated.map(({ job }) => job.activityId));
+    for (const { job, working } of delegated) {
+      if (openedJobs.current.has(job.activityId)) continue;
+      if (working || !initialJobs.current.has(job.activityId)) {
         openedJobs.current.add(job.activityId);
+        setView({ kind: "agent", id: job.agentProjectId });
         setOpen(true);
       }
     }
-  }, [delegated, delegatedAgents, sourceHistoryReady]);
+  }, [delegated, sourceHistoryReady]);
   const visibleSources = sourcesExpanded ? sources : sources.slice(0, 3);
   const openView = (action: () => void) => {
     action();
@@ -136,205 +170,320 @@ function OverviewPopover({
           <PopoverPrimitive.Popup
             data-slot="popover-popup"
             initialFocus={wide ? false : undefined}
-            className={cn(
-              "flex max-h-[min(80vh,var(--available-height))] w-80 max-w-[calc(100vw-2rem)] flex-col overflow-hidden text-foreground outline-none",
-            )}
+            style={{ height: expanded ? availableHeight : Math.min(320, availableHeight) }}
+            className="flex max-h-(--available-height) w-80 max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-3xl border border-(--app-theme-toolbar-border,var(--border)) text-foreground shadow-lg outline-none [--overview-surface:var(--app-theme-surface-raised,var(--card))] dark:[--overview-surface:var(--app-theme-surface-raised,var(--surface-raised))] bg-(--overview-surface)/(--glass-opacity) backdrop-blur-(--glass-blur) backdrop-saturate-(--glass-saturation) not-supports-[((backdrop-filter:blur(1px))_or_(-webkit-backdrop-filter:blur(1px)))]:bg-(--overview-surface)"
           >
-            <div
-              className={cn(
-                "shrink-0 overflow-y-auto rounded-3xl border shadow-lg",
-                wide && visibleResponses.length > 0
-                  ? "max-h-[min(55vh,var(--available-height))]"
-                  : "max-h-[min(70vh,var(--available-height))]",
-                "[--overview-surface:var(--app-theme-surface-raised,var(--card))] dark:[--overview-surface:var(--app-theme-surface-raised,var(--surface-raised))]",
-                "border-(--app-theme-toolbar-border,var(--border)) bg-(--overview-surface)/(--glass-opacity) backdrop-blur-(--glass-blur) backdrop-saturate-(--glass-saturation)",
-                "not-supports-[((backdrop-filter:blur(1px))_or_(-webkit-backdrop-filter:blur(1px)))]:bg-(--overview-surface)",
-              )}
-            >
-              <div className="space-y-4 p-5">
-                <PopoverTitle>
-                  <span className="block truncate">{label}</span>
-                </PopoverTitle>
-                {codeWorkspace && changes !== null && (
-                  <button
-                    type="button"
-                    className={rowClassName}
-                    onClick={() => openView(onToggleChanges)}
-                  >
-                    <FileDiffIcon aria-hidden className="size-4 shrink-0" />
-                    <span className="flex-1">Changes</span>
-                    <span className="text-xs tabular-nums text-success">
-                      +{changes.additions.toLocaleString()}
-                    </span>
-                    <span className="text-xs tabular-nums text-destructive">
-                      −{changes.deletions.toLocaleString()}
-                    </span>
-                  </button>
+            <header className="flex shrink-0 items-center gap-2 border-b border-border/50 px-5 py-4">
+              {view ? (
+                <Button
+                  variant="ghost-muted"
+                  size="icon-xs"
+                  aria-label={
+                    view.kind === "subagent" ? "Back to subagents" : "Back to thread overview"
+                  }
+                  onClick={() => setView(view.kind === "subagent" ? { kind: "subagents" } : null)}
+                >
+                  <ArrowLeftIcon className="size-3.5" />
+                </Button>
+              ) : null}
+              {selectedAgent?.project?.agentProfile ? (
+                <AgentAvatar
+                  avatar={selectedAgent.project.agentProfile.avatar}
+                  working={selectedAgent.working}
+                  className="size-6"
+                />
+              ) : selectedSubagent ? (
+                <BotIcon aria-hidden className="size-5" />
+              ) : null}
+              <PopoverTitle className="min-w-0 flex-1">
+                <span className="block truncate">
+                  {selectedAgent?.name ??
+                    selectedSubagent?.title ??
+                    (view?.kind === "subagents" ? "Subagents" : label)}
+                </span>
+              </PopoverTitle>
+              <Button
+                variant="ghost-muted"
+                size="icon-xs"
+                aria-label={expanded ? "Collapse overview" : "Expand overview"}
+                aria-expanded={expanded}
+                onClick={() => setExpanded(!expanded)}
+              >
+                {expanded ? (
+                  <ChevronUpIcon className="size-3.5" />
+                ) : (
+                  <ChevronDownIcon className="size-3.5" />
                 )}
-                {delegated.length > 0 ? (
-                  <section className="border-t border-border/50 pt-3">
-                    <h3 className="mb-2 text-xs text-muted-foreground">Agents</h3>
-                    <DelegatedAgentStatus agents={delegated} />
-                  </section>
-                ) : null}
-                <section className="border-t border-border/50 pt-3">
-                  <h3 className="text-xs text-muted-foreground">Subagents</h3>
-                  <button
-                    type="button"
-                    className={rowClassName}
-                    onClick={() => openView(onOpenAgents)}
-                  >
-                    <BotIcon aria-hidden className="size-4 shrink-0 text-primary" />
-                    <span className="flex-1 text-sm">{agents.working} working</span>
-                    <span className="text-sm text-muted-foreground">{agents.done} done</span>
-                  </button>
-                </section>
-                <section className="border-t border-border/50 pt-3">
-                  <div className="mb-1 flex items-center justify-between gap-2">
+              </Button>
+            </header>
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-5">
+              {view === null ? (
+                <div className="space-y-4">
+                  {codeWorkspace && changes !== null && (
                     <button
                       type="button"
-                      aria-expanded={sourcesExpanded}
-                      aria-label={sourcesExpanded ? "Show recent sources" : "Show all sources"}
-                      className="flex cursor-pointer items-center gap-1.5 rounded-sm text-xs text-muted-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
-                      onClick={() => setSourcesExpanded((expanded) => !expanded)}
+                      className={rowClassName}
+                      onClick={() => openView(onToggleChanges)}
                     >
-                      Sources
-                      <ChevronDownIcon
-                        aria-hidden
-                        className={cn(
-                          "size-3 transition-transform",
-                          sourcesExpanded && "rotate-180",
-                        )}
-                      />
+                      <FileDiffIcon aria-hidden className="size-4 shrink-0" />
+                      <span className="flex-1">Changes</span>
+                      <span className="text-xs tabular-nums text-success">
+                        +{changes.additions.toLocaleString()}
+                      </span>
+                      <span className="text-xs tabular-nums text-destructive">
+                        −{changes.deletions.toLocaleString()}
+                      </span>
                     </button>
-                    <Button
-                      variant="ghost-muted"
-                      size="icon-xs"
-                      aria-label="Add sources"
-                      onClick={() => openView(onAddSources)}
-                    >
-                      <PlusIcon className="size-3.5" />
-                    </Button>
-                  </div>
-                  {visibleSources.length === 0 ? (
-                    <p className="py-2 text-xs text-muted-foreground">No uploaded sources yet.</p>
-                  ) : (
-                    visibleSources.map((source) => (
-                      <Tooltip key={source.id}>
-                        <TooltipTrigger
-                          render={
-                            <button
-                              type="button"
-                              className={rowClassName}
-                              disabled={
-                                !isImageAttachment(source) &&
-                                (!isFileAttachment(source) ||
-                                  (source.downloadable === false &&
-                                    (!isVideoAttachment(source) ||
-                                      source.previewUrl === undefined)))
-                              }
-                              onClick={() => openView(() => onOpenSource(source.id))}
-                            />
-                          }
-                        >
-                          {isImageAttachment(source) && source.previewUrl ? (
-                            <img
-                              src={source.previewUrl}
-                              alt=""
-                              className="size-6 shrink-0 rounded-sm border border-border object-cover"
-                            />
-                          ) : (
-                            <FileIcon
-                              aria-hidden
-                              className="size-4 shrink-0 text-muted-foreground"
-                            />
-                          )}
-                          <span className="min-w-0 truncate text-sm">{source.name}</span>
-                        </TooltipTrigger>
-                        <TooltipPopup side="left">{source.name}</TooltipPopup>
-                      </Tooltip>
-                    ))
                   )}
-                  <button
-                    type="button"
-                    className={cn(rowClassName, "text-sm text-muted-foreground")}
-                    onClick={() => openView(onOpenSources)}
-                  >
-                    <LinkIcon aria-hidden className="size-4 shrink-0" />
-                    View all
-                  </button>
-                </section>
-              </div>
-            </div>
-            {wide && visibleResponses.length > 0 ? (
-              <div
-                className="min-h-0 overflow-y-auto overscroll-contain px-5 pt-4 pb-2"
-                aria-label="Delegated agent responses"
-              >
-                {visibleResponses.map(({ job, data, project, name, working }) => (
-                  <section
-                    key={job.activityId}
-                    className="mb-5 space-y-3"
-                    aria-label={`${name} response`}
-                  >
-                    <div className="flex items-center gap-2">
-                      {project?.agentProfile ? (
-                        <AgentAvatar avatar={project.agentProfile.avatar} working={working} />
-                      ) : null}
-                      <span className="min-w-0 flex-1 truncate text-sm font-medium">{name}</span>
+                  {grouped.length > 0 ? (
+                    <section className="border-t border-border/50 pt-3">
+                      <h3 className="mb-2 text-xs text-muted-foreground">Agents</h3>
+                      {grouped.map((agent) => (
+                        <button
+                          key={agent.job.agentProjectId}
+                          type="button"
+                          className={rowClassName}
+                          aria-label={`View ${agent.name} responses`}
+                          onClick={() => setView({ kind: "agent", id: agent.job.agentProjectId })}
+                        >
+                          {agent.project?.agentProfile ? (
+                            <AgentAvatar
+                              avatar={agent.project.agentProfile.avatar}
+                              working={agent.working}
+                              className="size-5"
+                            />
+                          ) : null}
+                          <span className="flex-1 truncate text-sm">{agent.name}</span>
+                          <span className="text-xs text-muted-foreground">
+                            {agent.working
+                              ? "Working"
+                              : agent.data?.status === "completed"
+                                ? "Finished"
+                                : "Stopped"}
+                          </span>
+                        </button>
+                      ))}
+                    </section>
+                  ) : null}
+                  <section className="border-t border-border/50 pt-3">
+                    <h3 className="text-xs text-muted-foreground">Subagents</h3>
+                    <button
+                      type="button"
+                      className={rowClassName}
+                      onClick={() => setView({ kind: "subagents" })}
+                    >
+                      <BotIcon aria-hidden className="size-4 shrink-0 text-primary" />
+                      <span className="flex-1 text-sm">{agents.working} working</span>
+                      <span className="text-sm text-muted-foreground">{agents.done} done</span>
+                    </button>
+                  </section>
+                  <section className="border-t border-border/50 pt-3">
+                    <div className="mb-1 flex items-center justify-between gap-2">
+                      <button
+                        type="button"
+                        aria-expanded={sourcesExpanded}
+                        aria-label={sourcesExpanded ? "Show recent sources" : "Show all sources"}
+                        className="flex cursor-pointer items-center gap-1.5 rounded-sm text-xs text-muted-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
+                        onClick={() => setSourcesExpanded((expanded) => !expanded)}
+                      >
+                        Sources
+                        <ChevronDownIcon
+                          aria-hidden
+                          className={cn(
+                            "size-3 transition-transform",
+                            sourcesExpanded && "rotate-180",
+                          )}
+                        />
+                      </button>
                       <Button
                         variant="ghost-muted"
                         size="icon-xs"
-                        aria-label={`Dismiss ${name} response`}
-                        onClick={() =>
-                          setDismissedJobs((previous) => new Set([...previous, job.activityId]))
-                        }
+                        aria-label="Add sources"
+                        onClick={() => openView(onAddSources)}
                       >
-                        <CheckIcon className="size-3.5" />
+                        <PlusIcon className="size-3.5" />
                       </Button>
                     </div>
-                    {data?.messages.length ? (
-                      data.messages.map((message) => (
-                        <ChatMarkdown
-                          key={message.id}
-                          text={message.text}
-                          cwd={project?.workspaceRoot}
-                          environmentId={sourceThreadRef?.environmentId}
-                          {...(sourceThreadRef
-                            ? {
-                                threadRef: scopeThreadRef(
-                                  sourceThreadRef.environmentId,
-                                  job.agentThreadId,
-                                ),
-                              }
-                            : {})}
-                          isStreaming={message.streaming}
-                        />
-                      ))
+                    {visibleSources.length === 0 ? (
+                      <p className="py-2 text-xs text-muted-foreground">No uploaded sources yet.</p>
                     ) : (
-                      <p className="text-sm text-muted-foreground">
-                        {working
-                          ? data?.status === "waiting"
-                            ? "Needs input in the agent chat."
-                            : "Working…"
-                          : data?.status === "completed"
-                            ? "Task finished."
-                            : data?.status === "error"
-                              ? "This task failed. Open the agent chat to retry."
-                              : data?.status === "interrupted"
-                                ? "Task stopped."
-                                : "This task’s response is unavailable."}
-                      </p>
+                      visibleSources.map((source) => (
+                        <Tooltip key={source.id}>
+                          <TooltipTrigger
+                            render={
+                              <button
+                                type="button"
+                                className={rowClassName}
+                                disabled={
+                                  !isImageAttachment(source) &&
+                                  (!isFileAttachment(source) ||
+                                    (source.downloadable === false &&
+                                      (!isVideoAttachment(source) ||
+                                        source.previewUrl === undefined)))
+                                }
+                                onClick={() => openView(() => onOpenSource(source.id))}
+                              />
+                            }
+                          >
+                            {isImageAttachment(source) && source.previewUrl ? (
+                              <img
+                                src={source.previewUrl}
+                                alt=""
+                                className="size-6 shrink-0 rounded-sm border border-border object-cover"
+                              />
+                            ) : (
+                              <FileIcon
+                                aria-hidden
+                                className="size-4 shrink-0 text-muted-foreground"
+                              />
+                            )}
+                            <span className="min-w-0 truncate text-sm">{source.name}</span>
+                          </TooltipTrigger>
+                          <TooltipPopup side="left">{source.name}</TooltipPopup>
+                        </Tooltip>
+                      ))
                     )}
-                    {data?.truncated ? (
-                      <p className="text-xs text-muted-foreground">
-                        Showing the latest 32 responses for this task.
-                      </p>
-                    ) : null}
+                    <button
+                      type="button"
+                      className={cn(rowClassName, "text-sm text-muted-foreground")}
+                      onClick={() => openView(onOpenSources)}
+                    >
+                      <LinkIcon aria-hidden className="size-4 shrink-0" />
+                      View all
+                    </button>
                   </section>
-                ))}
-              </div>
-            ) : null}
+                </div>
+              ) : selectedAgent ? (
+                <div className="space-y-5" aria-label={`${selectedAgent.name} responses`}>
+                  {selectedAgent.jobs.map(({ job, data, project, working }) => {
+                    const request = requests.find(({ id }) => id === job.sourceMessageId);
+                    const ask = request
+                      ? replaceComposerContextReferences(request.text, (reference) =>
+                          reference.kind === "agent" ? "" : reference.source,
+                        ).trim()
+                      : "The original request is unavailable.";
+                    const result = data?.messages
+                      .map(({ text }) => text)
+                      .filter(Boolean)
+                      .join("\n\n");
+                    return (
+                      <section key={job.activityId} className="space-y-3">
+                        <div
+                          className="rounded-2xl bg-message text-message-foreground p-3"
+                          aria-label="Ask"
+                        >
+                          <p className="mb-2 text-xs text-muted-foreground">Ask</p>
+                          <ChatMarkdown
+                            text={ask}
+                            cwd={undefined}
+                            environmentId={sourceThreadRef?.environmentId}
+                          />
+                        </div>
+                        <div
+                          className="flex items-start gap-2 rounded-2xl bg-background/30 p-3"
+                          aria-label="Result"
+                        >
+                          {project?.agentProfile ? (
+                            <AgentAvatar
+                              avatar={project.agentProfile.avatar}
+                              className="mt-1 size-5 shrink-0"
+                              working={working}
+                            />
+                          ) : null}
+                          <div className="min-w-0 flex-1">
+                            <p className="mb-2 text-xs text-muted-foreground">Result</p>
+                            {result ? (
+                              <ChatMarkdown
+                                text={result}
+                                cwd={project?.workspaceRoot}
+                                environmentId={sourceThreadRef?.environmentId}
+                                {...(sourceThreadRef
+                                  ? {
+                                      threadRef: scopeThreadRef(
+                                        sourceThreadRef.environmentId,
+                                        job.agentThreadId,
+                                      ),
+                                    }
+                                  : {})}
+                                isStreaming={
+                                  data?.messages.some(({ streaming }) => streaming) ?? false
+                                }
+                              />
+                            ) : (
+                              <p className="text-sm text-muted-foreground">
+                                {working
+                                  ? data?.status === "waiting"
+                                    ? "Needs input in the agent chat."
+                                    : "Working…"
+                                  : data?.status === "error"
+                                    ? "This task failed."
+                                    : data?.status === "completed"
+                                      ? "Task finished."
+                                      : "Response unavailable."}
+                              </p>
+                            )}
+                            {data?.truncated ? (
+                              <p className="mt-2 text-xs text-muted-foreground">
+                                Showing the latest 32 response messages for this task.
+                              </p>
+                            ) : null}
+                          </div>
+                        </div>
+                      </section>
+                    );
+                  })}
+                </div>
+              ) : selectedSubagent ? (
+                <div className="space-y-3">
+                  <div
+                    className="rounded-2xl bg-message text-message-foreground p-3"
+                    aria-label="Ask"
+                  >
+                    <p className="mb-2 text-xs text-muted-foreground">Ask</p>
+                    <ChatMarkdown text={selectedSubagent.title} cwd={undefined} />
+                  </div>
+                  <div
+                    className="flex items-start gap-2 rounded-2xl bg-background/30 p-3"
+                    aria-label="Result"
+                  >
+                    <BotIcon aria-hidden className="mt-1 size-5 shrink-0" />
+                    <div className="min-w-0 flex-1">
+                      <p className="mb-2 text-xs text-muted-foreground">Result</p>
+                      <ChatMarkdown
+                        cwd={undefined}
+                        text={
+                          selectedSubagent.result ??
+                          selectedSubagent.error ??
+                          selectedSubagent.progress ??
+                          "Working…"
+                        }
+                      />
+                    </div>
+                  </div>
+                </div>
+              ) : view?.kind === "subagents" ? (
+                <div className="space-y-2">
+                  {subagents.length ? (
+                    subagents.map((agent) => (
+                      <button
+                        key={agent.id}
+                        type="button"
+                        className={rowClassName}
+                        onClick={() => setView({ kind: "subagent", id: agent.id })}
+                      >
+                        <BotIcon aria-hidden className="size-4 shrink-0" />
+                        <span className="min-w-0 flex-1 truncate text-sm">{agent.title}</span>
+                        <span className="text-xs text-muted-foreground">{agent.status}</span>
+                      </button>
+                    ))
+                  ) : (
+                    <p className="text-sm text-muted-foreground">No subagents yet.</p>
+                  )}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">This agent is unavailable.</p>
+              )}
+            </div>
           </PopoverPrimitive.Popup>
         </PopoverPrimitive.Positioner>
       </PopoverPrimitive.Portal>

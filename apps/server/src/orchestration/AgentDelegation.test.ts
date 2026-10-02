@@ -949,3 +949,32 @@ it.effect(
       assert.notInclude(text, "0: large history");
     }).pipe(Effect.scoped, Effect.provide(testLayer)),
 );
+
+it.effect("hands off only a bounded recent excerpt and the current request", () =>
+  Effect.gen(function* () {
+    const { dispatch, read } = yield* seed;
+    for (const [index, text] of [
+      "Old transcript content",
+      "Recent first " + "a".repeat(3000),
+      "Recent second " + "b".repeat(3000),
+    ].entries()) {
+      yield* dispatch({
+        type: "thread.message.user.append",
+        commandId: CommandId.make(`context-${index}`),
+        threadId: sourceThreadId,
+        message: { messageId: MessageId.make(`context-${index}`), text, attachments: [] },
+        createdAt: now,
+      });
+    }
+    yield* delegateToPersistentAgent(input, dispatch);
+    const text = (yield* read(agentThreadId)).messages[0]!.text;
+    assert.notInclude(text, "Old transcript content");
+    const excerpt = text
+      .split("Recent excerpt (reference only, limited to the last two messages):\n\n")[1]!
+      .split("\n\nCurrent request:")[0]!;
+    assert.include(excerpt, "Recent first");
+    assert.include(excerpt, "Recent second");
+    assert.isAtMost(excerpt.length, 4002);
+    assert.include(text, "@Friday investigate the next release.");
+  }).pipe(Effect.scoped, Effect.provide(testLayer)),
+);

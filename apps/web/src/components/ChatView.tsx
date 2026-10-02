@@ -9980,10 +9980,21 @@ export default function ChatView(props: ChatViewProps) {
               agents: { working: agentPanelModel.liveCount, done: agentPanelModel.settledCount },
               sourceThreadRef: isServerThread ? activeThreadRef : null,
               delegatedAgents,
+              requests: activeThread.messages,
+              composerElement: composerOverlayElement,
+              subagents: [
+                ...agentPanelModel.directAgents,
+                ...agentPanelModel.workflows.flatMap((group) => [
+                  ...group.phases.flatMap((phase) => phase.members),
+                  ...group.unphasedMembers,
+                  ...(group.phases.length === 0 && group.unphasedMembers.length === 0
+                    ? [group.workflow]
+                    : []),
+                ]),
+              ],
               sourceHistoryReady: !threadDetailLoading,
               sources: threadSources,
               onToggleChanges: toggleChangesSurface,
-              onOpenAgents: addAgentsSurface,
               onOpenSources: addSourcesSurface,
               onAddSources: addUploadedSources,
               onOpenSource: (id) => {

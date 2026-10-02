@@ -12,7 +12,10 @@ const state = vi.hoisted(() => ({
 }));
 vi.mock("~/hooks/useMediaQuery", () => ({ useMediaQuery: () => state.wide }));
 vi.mock("~/hooks/useSettings", () => ({ useCodeWorkspace: () => state.code }));
-vi.mock("../agents/useDelegatedAgents", () => ({ useDelegatedAgents: () => state.delegated }));
+vi.mock("../agents/useDelegatedAgents", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../agents/useDelegatedAgents")>()),
+  useDelegatedAgents: () => state.delegated,
+}));
 vi.mock("../ChatMarkdown", () => ({ default: ({ text }: { text: string }) => <p>{text}</p> }));
 
 import { ThreadOverviewPanel, type ThreadOverviewPanelProps } from "./ThreadOverviewPanel";
@@ -33,7 +36,6 @@ const props: ThreadOverviewPanelProps = {
     sizeBytes: 1,
   })),
   onToggleChanges: vi.fn(),
-  onOpenAgents: vi.fn(),
   onOpenSources: vi.fn(),
   onAddSources: () => {},
   onOpenSource: () => {},
@@ -142,15 +144,16 @@ it("opens the full Sources view and dismisses the narrow overlay", async () => {
   expect(document.querySelector('[role="dialog"]')).toBeNull();
 });
 
-it("opens only the floating overview until a full-panel action is chosen", async () => {
+it("opens subagents inside the same floating overview", async () => {
   await render();
   await click("Thread overview");
   expect(props.onToggleChanges).not.toHaveBeenCalled();
-  expect(props.onOpenAgents).not.toHaveBeenCalled();
   expect(props.onOpenSources).not.toHaveBeenCalled();
   await click("1 working2 done");
-  expect(props.onOpenAgents).toHaveBeenCalledOnce();
-  expect(document.querySelector('[role="dialog"]')).toBeNull();
+  expect(document.querySelector('[role="dialog"]')).not.toBeNull();
+  expect(document.body.textContent).toContain("No subagents yet.");
+  await click("Back to thread overview");
+  expect(document.body.textContent).toContain("recent.pdf");
 });
 
 function workingAgent(name: string): DelegatedAgentView {
@@ -172,71 +175,65 @@ function workingAgent(name: string): DelegatedAgentView {
   };
 }
 
-it("auto-opens grouped working agents and keeps dismissing a read-only response separate from the task", async () => {
+it("keeps one agent entry, appends ask/result pairs, and expands only to the chat input", async () => {
   state.wide = true;
-  state.delegated = [workingAgent("Friday"), workingAgent("Edna"), workingAgent("Rocket")];
-  const jobs = state.delegated.map(({ job }) => job);
-  await render({ delegatedAgents: jobs });
-  expect(document.querySelector('[role="dialog"]')).not.toBeNull();
-  expect(document.body.textContent).toContain("3 working");
-  expect(document.body.textContent!.indexOf("Agents")).toBeLessThan(
-    document.body.textContent!.indexOf("Subagents"),
-  );
-  state.delegated[0] = {
-    ...state.delegated[0]!,
-    data: {
-      ...state.delegated[0]!.data!,
-      messages: [
-        {
-          id: MessageId.make("friday-reply"),
-          role: "assistant",
-          text: "Task-only response",
-          turnId: TurnId.make("turn-Friday"),
-          streaming: true,
-          createdAt: "2026-10-02T00:00:00.000Z",
-          updatedAt: "2026-10-02T00:00:01.000Z",
-        },
-      ],
+  const first = workingAgent("Friday");
+  const second = {
+    ...first,
+    job: {
+      ...first.job,
+      activityId: EventId.make("second"),
+      sourceMessageId: MessageId.make("second-request"),
     },
   };
-  await render({ delegatedAgents: jobs });
-  expect(document.body.textContent).toContain("Task-only response");
-  expect(document.querySelector('input, textarea, [contenteditable="true"]')).toBeNull();
-  await click("Dismiss Friday response");
-  expect(document.body.textContent).not.toContain("Task-only response");
-  expect(document.body.textContent).toContain("3 working");
-});
-
-it("keeps agent status in the overlay and shows its response only in a dedicated column", async () => {
-  const agent = workingAgent("Friday");
-  state.delegated = [
+  const response = (text: string) => [
     {
-      ...agent,
-      data: {
-        ...agent.data!,
-        messages: [
-          {
-            id: MessageId.make("reply"),
-            role: "assistant",
-            text: "Friday's reply",
-            turnId: TurnId.make("turn-Friday"),
-            streaming: true,
-            createdAt: "2026-10-02T00:00:00.000Z",
-            updatedAt: "2026-10-02T00:00:00.000Z",
-          },
-        ],
-      },
+      id: MessageId.make(text),
+      role: "assistant" as const,
+      text,
+      turnId: TurnId.make("turn-Friday"),
+      streaming: false,
+      createdAt: "2026-10-02T00:00:00.000Z",
+      updatedAt: "2026-10-02T00:00:01.000Z",
     },
   ];
-  const delegatedAgents = state.delegated.map(({ job }) => job);
-  await render({ delegatedAgents });
-  expect(document.body.textContent).toContain("Friday is working");
-  expect(document.body.textContent).not.toContain("Friday's reply");
-  state.wide = true;
-  await render({ delegatedAgents });
-  expect(document.body.textContent).toContain("Friday's reply");
-  await render({ delegatedAgents, transient: true });
-  expect(document.body.textContent).not.toContain("Friday's reply");
+  state.delegated = [
+    {
+      ...first,
+      working: false,
+      data: { ...first.data!, status: "completed", messages: response("First result") },
+    },
+    { ...second, data: { ...second.data!, messages: response("Second result") } },
+  ];
+  const composerElement = document.createElement("div");
+  vi.spyOn(composerElement, "getBoundingClientRect").mockReturnValue({
+    top: 500,
+    bottom: 600,
+  } as DOMRect);
+  await render({
+    composerElement,
+    delegatedAgents: state.delegated.map(({ job }) => job),
+    requests: [
+      { id: first.job.sourceMessageId, text: "First ask" },
+      { id: second.job.sourceMessageId, text: "Second ask" },
+    ],
+  });
+  expect(document.querySelector('[role="dialog"]')).not.toBeNull();
+  expect(document.body.textContent).toContain("First ask");
+  expect(document.body.textContent).toContain("First result");
+  expect(document.body.textContent).toContain("Second ask");
+  expect(document.body.textContent).toContain("Second result");
+  expect(document.body.textContent).not.toContain("recent.pdf");
+  expect(document.querySelector('input, textarea, [contenteditable="true"]')).toBeNull();
+  expect((document.querySelector('[role="dialog"]') as HTMLElement).style.height).toBe("320px");
+  await click("Expand overview");
+  expect((document.querySelector('[role="dialog"]') as HTMLElement).style.height).toBe("588px");
+  await click("Collapse overview");
+  expect((document.querySelector('[role="dialog"]') as HTMLElement).style.height).toBe("320px");
+  await click("Back to thread overview");
+  expect(document.querySelectorAll('[aria-label="View Friday responses"]')).toHaveLength(1);
+  await click("View Friday responses");
+  expect(document.body.textContent).toContain("Second result");
 });
 
 it("keeps completed history closed after the source detail loads", async () => {
@@ -250,4 +247,29 @@ it("keeps completed history closed after the source detail loads", async () => {
   expect(document.querySelector('[role="dialog"]')).toBeNull();
   await click("Thread overview");
   expect(document.body.textContent).toContain("Friday");
+});
+
+it("opens an individual subagent result inside the container and returns through Back", async () => {
+  await render({
+    subagents: [
+      {
+        id: "research",
+        title: "Research the release",
+        status: "completed",
+        result: "Release verified",
+        error: null,
+        progress: null,
+      },
+    ],
+  });
+  await click("Thread overview");
+  await click("1 working2 done");
+  await click("Research the releasecompleted");
+  expect(document.body.textContent).toContain("Release verified");
+  expect(document.body.textContent).not.toContain("recent.pdf");
+  await click("Back to subagents");
+  expect(document.body.textContent).toContain("Research the release");
+  expect(document.body.textContent).not.toContain("Release verified");
+  await click("Back to thread overview");
+  expect(document.body.textContent).toContain("recent.pdf");
 });

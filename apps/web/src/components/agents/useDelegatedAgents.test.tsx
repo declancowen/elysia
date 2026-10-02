@@ -25,7 +25,7 @@ vi.mock("../../state/entities", () => ({
 }));
 
 import { appAtomRegistry } from "../../rpc/atomRegistry";
-import { useDelegatedAgents } from "./useDelegatedAgents";
+import { groupDelegatedAgents, useDelegatedAgents } from "./useDelegatedAgents";
 
 const source = {
   environmentId: EnvironmentId.make("local"),
@@ -82,4 +82,25 @@ it("refreshes a retained working job when reopening after it finished", async ()
   await mount();
   expect(state.load).toHaveBeenCalledTimes(initialReads + 1);
   expect(renderer!.root.findByType("p").children).toEqual(["completed"]);
+});
+
+it("counts each agent once while retaining every linked job and any active status", () => {
+  const active = {
+    job: jobs[0]!,
+    project: undefined,
+    name: "Friday",
+    working: true,
+    data: response,
+  };
+  const finished = {
+    ...active,
+    working: false,
+    job: { ...active.job, activityId: EventId.make("later") },
+    data: { ...response, status: "completed" as const },
+  };
+  const groups = groupDelegatedAgents([active, finished]);
+  expect(groups).toHaveLength(1);
+  expect(groups[0]!.working).toBe(true);
+  expect(groups[0]!.jobs.map(({ job }) => job.activityId)).toEqual(["ack", "later"]);
+  expect(groupDelegatedAgents([finished])[0]!.working).toBe(false);
 });

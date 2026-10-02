@@ -1,7 +1,12 @@
 import { AgentAvatar } from "./AgentAvatar";
-import type { DelegatedAgentView } from "./useDelegatedAgents";
+import { groupDelegatedAgents, type DelegatedAgentView } from "./useDelegatedAgents";
 
-export function DelegatedAgentStatus({ agents }: { agents: ReadonlyArray<DelegatedAgentView> }) {
+export function DelegatedAgentStatus({
+  agents: jobs,
+}: {
+  agents: ReadonlyArray<DelegatedAgentView>;
+}) {
+  const agents = groupDelegatedAgents(jobs);
   const working = agents.filter((agent) => agent.working);
   const visible = working.length > 0 ? working : agents;
   const failed = agents.filter((agent) => agent.data?.status === "error").length;

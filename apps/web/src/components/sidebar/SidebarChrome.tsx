@@ -3,7 +3,7 @@ import {
   ArrowLeftIcon,
   BriefcaseIcon,
   Code2,
-  ChartNoAxesColumnIcon,
+  ChartNoAxesColumnIncreasingIcon,
   SettingsIcon,
   Columns2Icon,
   PanelLeftIcon,
@@ -270,7 +270,7 @@ export const SidebarUtilityMenu = memo(function SidebarUtilityMenu() {
       {!isOnUtilityPage ? (
         <>
           <SidebarUtilityItem
-            icon={<ChartNoAxesColumnIcon />}
+            icon={<ChartNoAxesColumnIncreasingIcon />}
             label="Stats"
             onClick={handleUsageClick}
           />

@@ -28,7 +28,7 @@ import CalendarArrowDownIconAsset from "@hugeicons/core-free-icons/CalendarArrow
 import CalendarArrowUpIconAsset from "@hugeicons/core-free-icons/CalendarArrowUpIcon";
 import CalendarIconAsset from "@hugeicons/core-free-icons/Calendar01Icon";
 import CameraAsset from "@hugeicons/core-free-icons/Camera01Icon";
-import ChartNoAxesColumnIconAsset from "@hugeicons/core-free-icons/ChartNoAxesColumnIcon";
+import ChartNoAxesColumnIncreasingIconAsset from "@hugeicons/core-free-icons/ChartNoAxesColumnIncreasingIcon";
 import CheckAsset from "@hugeicons/core-free-icons/Tick01Icon";
 import CheckIconAsset from "@hugeicons/core-free-icons/CheckIcon";
 import ChefHatIconAsset from "@hugeicons/core-free-icons/ChefHatIcon";
@@ -304,9 +304,9 @@ export const CalendarArrowUpIcon = /* @__PURE__ */ createIcon(
 );
 export const CalendarIcon = /* @__PURE__ */ createIcon(CalendarIconAsset, "calendar");
 export const Camera = /* @__PURE__ */ createIcon(CameraAsset, "camera");
-export const ChartNoAxesColumnIcon = /* @__PURE__ */ createIcon(
-  ChartNoAxesColumnIconAsset,
-  "chart-no-axes-column",
+export const ChartNoAxesColumnIncreasingIcon = /* @__PURE__ */ createIcon(
+  ChartNoAxesColumnIncreasingIconAsset,
+  "chart-no-axes-column-increasing",
 );
 export const Check = /* @__PURE__ */ createIcon(CheckAsset, "check");
 export const CheckCircle2Icon = /* @__PURE__ */ createIcon(CircleCheckIconAsset, "check-circle-2");

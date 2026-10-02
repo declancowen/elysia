@@ -43,7 +43,7 @@ import { useLocation, useNavigate, useParams } from "@tanstack/react-router";
 import * as Option from "effect/Option";
 import {
   ArrowLeftIcon,
-  ChartNoAxesColumnIcon,
+  ChartNoAxesColumnIncreasingIcon,
   CornerLeftUpIcon,
   FileSearchIcon,
   FolderIcon,
@@ -2196,7 +2196,7 @@ function OpenCommandPaletteDialog(props: {
     value: "action:usage",
     searchTerms: ["elysia", "compression", "savings", "usage", "tokens", "stats", "dashboard"],
     title: "Open stats",
-    icon: <ChartNoAxesColumnIcon className={ITEM_ICON_CLASS} />,
+    icon: <ChartNoAxesColumnIncreasingIcon className={ITEM_ICON_CLASS} />,
     shortcutCommand: "usage.open",
     run: async () => {
       await navigate({ to: "/usage" });

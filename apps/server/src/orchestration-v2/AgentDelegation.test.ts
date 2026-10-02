@@ -152,6 +152,7 @@ describe("V2 persistent delegation", () => {
     "new-work",
     "attachments",
     "source-admission-race",
+    "existing-request-race",
   ] as const)
     it.effect(`returns original results durably; source state ${scenario}`, () =>
       Effect.gen(function* () {
@@ -313,7 +314,8 @@ describe("V2 persistent delegation", () => {
           assert.lengthOf(yield* fs.readDirectory(config.attachmentsDir), 1);
         }
         let first;
-        if (scenario === "source-admission-race") {
+        let originalSourceItemOrdinal = 0;
+        if (scenario === "source-admission-race" || scenario === "existing-request-race") {
           const initial = yield* decodeRun({
             id: RunId.make("source-existing-run"),
             threadId: sourceId,
@@ -342,9 +344,70 @@ describe("V2 persistent delegation", () => {
               },
             ],
           });
-          const handoff = yield* delegate(input).pipe(Effect.forkChild);
-          yield* Deferred.await(entered);
           const now = yield* DateTime.now;
+          if (scenario === "existing-request-race") {
+            yield* events.write({
+              events: [
+                {
+                  id: EventId.make("existing-request-message"),
+                  type: "message.updated",
+                  threadId: sourceId,
+                  occurredAt: now,
+                  payload: {
+                    id: input.messageId,
+                    threadId: sourceId,
+                    runId: initial.id,
+                    nodeId: null,
+                    role: "user",
+                    text: input.text,
+                    attachments: [],
+                    streaming: false,
+                    createdAt: now,
+                    updatedAt: now,
+                    createdBy: "user",
+                    creationSource: "web",
+                  },
+                },
+                {
+                  id: EventId.make("existing-request-item-event"),
+                  type: "turn-item.updated",
+                  threadId: sourceId,
+                  occurredAt: now,
+                  payload: {
+                    id: TurnItemId.make("existing-request-item"),
+                    threadId: sourceId,
+                    runId: initial.id,
+                    nodeId: null,
+                    providerThreadId: null,
+                    providerTurnId: null,
+                    nativeItemRef: null,
+                    parentItemId: null,
+                    ordinal: 0,
+                    status: "completed",
+                    title: null,
+                    startedAt: now,
+                    completedAt: now,
+                    updatedAt: now,
+                    type: "user_message",
+                    messageId: input.messageId,
+                    text: input.text,
+                    attachments: [],
+                    createdBy: "user",
+                    creationSource: "web",
+                    inputIntent: "turn_start",
+                  },
+                },
+              ],
+            });
+            originalSourceItemOrdinal = (yield* projections.getThreadProjection(
+              sourceId,
+            )).turnItems.find((item) => item.id === "existing-request-item")!.ordinal;
+          }
+          const handoff =
+            scenario === "source-admission-race"
+              ? yield* delegate(input).pipe(Effect.forkChild)
+              : undefined;
+          if (handoff) yield* Deferred.await(entered);
           // New human steering reuses the existing run and TestClock instant.
           yield* (yield* ThreadCommandExecutor.ThreadCommandExecutor).withLock(
             sourceId,
@@ -402,8 +465,10 @@ describe("V2 persistent delegation", () => {
               ],
             }),
           );
-          yield* Deferred.succeed(release, undefined);
-          first = yield* Fiber.join(handoff);
+          if (handoff) {
+            yield* Deferred.succeed(release, undefined);
+            first = yield* Fiber.join(handoff);
+          } else first = yield* delegate(input);
         } else first = yield* delegate(input);
         assert.deepEqual(yield* delegate(input), first);
         const changed = yield* delegate({ ...input, text: "Different task" }).pipe(Effect.flip);
@@ -435,13 +500,115 @@ describe("V2 persistent delegation", () => {
           assert.equal(copyCount, 4);
         }
 
-        if (scenario === "source-admission-race") {
+        if (scenario === "source-admission-race" || scenario === "existing-request-race") {
           assert.equal(notice.agentDelegation.sourceRunOrdinal, 1);
-          assert.equal(notice.agentDelegation.sourceTurnItemOrdinal, 0);
+          assert.equal(notice.agentDelegation.sourceTurnItemOrdinal, originalSourceItemOrdinal);
           const preserved = (yield* projections.getThreadProjection(sourceId)).turnItems.find(
             (item) => item.type === "system_notice",
           );
           assert.deepEqual(preserved, notice);
+        }
+        if (scenario === "source-admission-race") {
+          const secondProjectId = ProjectId.make("second-agent");
+          const secondThreadId = ThreadId.make("second-agent-chat");
+          const profile = Option.getOrThrow(yield* projects.get(agentId)).agentProfile!;
+          yield* projects.apply({
+            sequence: 100,
+            eventId: EventId.make("second-agent-project"),
+            aggregateKind: "project",
+            aggregateId: secondProjectId,
+            occurredAt: DateTime.formatIso(at),
+            commandId: null,
+            causationEventId: null,
+            correlationId: null,
+            metadata: {},
+            type: "project.created",
+            payload: {
+              projectId: secondProjectId,
+              title: "Blair",
+              workspaceRoot: "/tmp/agent-blair",
+              defaultModelSelection: modelSelection,
+              scripts: [],
+              agentProfile: { ...profile, conversationThreadId: secondThreadId },
+              createdAt: DateTime.formatIso(at),
+              updatedAt: DateTime.formatIso(at),
+            },
+          });
+          yield* events.write({
+            events: [
+              {
+                id: EventId.make("second-agent-created"),
+                type: "thread.created",
+                threadId: secondThreadId,
+                occurredAt: at,
+                payload: {
+                  ...target.thread,
+                  id: secondThreadId,
+                  projectId: secondProjectId,
+                  lineage: {
+                    rootThreadId: secondThreadId,
+                    parentThreadId: null,
+                    relationshipToParent: null,
+                  },
+                },
+              },
+            ],
+          });
+          const secondInput = {
+            ...input,
+            commandId: CommandId.make("delegate-second-agent"),
+            agentProjectId: secondProjectId,
+          };
+          yield* delegate(secondInput);
+          yield* delegate(secondInput);
+          const secondNotice = (yield* projections.getThreadProjection(sourceId)).turnItems.find(
+            (item) =>
+              item.type === "system_notice" &&
+              item.agentDelegation?.agentProjectId === secondProjectId,
+          );
+          if (!secondNotice || secondNotice.type !== "system_notice")
+            return yield* Effect.die("Missing second agent acknowledgment");
+          assert.equal(secondNotice.agentDelegation?.sourceTurnItemOrdinal, 0);
+          assert.equal(
+            secondNotice.agentDelegation?.sourceRunOrdinal,
+            notice.agentDelegation.sourceRunOrdinal,
+          );
+          assert.equal(
+            secondNotice.agentDelegation?.sourceRequestedAt,
+            notice.agentDelegation.sourceRequestedAt,
+          );
+          const second = yield* projections.getThreadProjection(secondThreadId);
+          yield* events.write({
+            events: [
+              {
+                id: EventId.make("second-agent-run-completed"),
+                type: "run.updated",
+                threadId: secondThreadId,
+                occurredAt: at,
+                payload: { ...second.runs[0]!, status: "completed", completedAt: at },
+              },
+              {
+                id: EventId.make("second-agent-reply"),
+                type: "message.updated",
+                threadId: secondThreadId,
+                occurredAt: at,
+                payload: {
+                  id: MessageId.make("second-agent-reply"),
+                  threadId: secondThreadId,
+                  runId: second.runs[0]!.id,
+                  nodeId: null,
+                  role: "assistant",
+                  text: "Second result",
+                  attachments: [],
+                  streaming: false,
+                  createdAt: at,
+                  updatedAt: at,
+                  createdBy: "agent",
+                  creationSource: "provider",
+                },
+              },
+            ],
+          });
         }
         const run = target.runs[0]!;
         yield* events.write({
@@ -541,6 +708,19 @@ describe("V2 persistent delegation", () => {
           CommandId.make(`agent-delegate:result:${notice.id}`),
         );
         assert.equal(Option.getOrThrow(receipt).status, "accepted");
+        if (scenario === "source-admission-race") {
+          const notices = after.turnItems.filter(
+            (item) => item.type === "system_notice" && item.agentDelegation,
+          );
+          assert.lengthOf(notices, 2);
+          for (const notice of notices) {
+            const disposed =
+              yield* (yield* CommandReceiptStore.CommandReceiptStoreV2).getByCommandId(
+                CommandId.make(`agent-delegate:result:${notice.id}`),
+              );
+            assert.equal(Option.getOrThrow(disposed).status, "accepted");
+          }
+        }
 
         assert.equal(
           Option.getOrThrow(yield* projects.get(agentId)).agentProfile?.conversationThreadId,

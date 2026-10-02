@@ -178,15 +178,48 @@ const delegateToPersistentAgentImpl = Effect.fn("delegateToPersistentAgent")(fun
       input.sourceThreadId,
       Effect.gen(function* () {
         const sql = yield* SqlClient.SqlClient;
-        const rows = yield* sql<{ runOrdinal: number; turnItemOrdinal: number }>`SELECT
+        const retained = yield* sql<{ payload_json: string }>`SELECT payload_json
+          FROM orchestration_v2_projection_turn_items
+          WHERE thread_id = ${input.sourceThreadId} AND type = 'system_notice'
+            AND json_extract(payload_json, '$.agentDelegation.sourceMessageId') = ${input.messageId}
+            AND json_extract(payload_json, '$.agentDelegation.sourceTurnItemOrdinal') IS NOT NULL
+            AND json_extract(payload_json, '$.agentDelegation.sourceRunOrdinal') IS NOT NULL
+            AND json_extract(payload_json, '$.agentDelegation.sourceRequestedAt') IS NOT NULL
+          ORDER BY ordinal LIMIT 1`.pipe(Effect.mapError(readError));
+        if (retained[0]) {
+          const notice = yield* decodeTurnItem(retained[0].payload_json).pipe(
+            Effect.mapError(readError),
+          );
+          if (notice.type === "system_notice" && notice.agentDelegation) {
+            const identity = notice.agentDelegation;
+            return {
+              runOrdinal: identity.sourceRunOrdinal!,
+              turnItemOrdinal: identity.sourceTurnItemOrdinal!,
+              requestedAt: identity.sourceRequestedAt!,
+            };
+          }
+        }
+        const original = yield* projections
+          .getThreadRecords(input.sourceThreadId, ["messages"], {
+            messageIds: [input.messageId],
+          })
+          .pipe(Effect.mapError(readError));
+        const rows = yield* sql<{
+          runOrdinal: number;
+          turnItemOrdinal: number;
+          originalRunOrdinal: number | null;
+          originalItemOrdinal: number | null;
+        }>`SELECT
         (SELECT COALESCE(MAX(ordinal), 0) FROM orchestration_v2_projection_runs WHERE thread_id = ${input.sourceThreadId}) AS runOrdinal,
-        (SELECT COALESCE(MAX(ordinal), 0) FROM orchestration_v2_projection_turn_items WHERE thread_id = ${input.sourceThreadId}) AS turnItemOrdinal`.pipe(
+        (SELECT COALESCE(MAX(ordinal), 0) FROM orchestration_v2_projection_turn_items WHERE thread_id = ${input.sourceThreadId}) AS turnItemOrdinal,
+        (SELECT run.ordinal FROM orchestration_v2_projection_runs run JOIN orchestration_v2_projection_messages message ON message.run_id = run.run_id AND message.thread_id = run.thread_id WHERE message.thread_id = ${input.sourceThreadId} AND message.message_id = ${input.messageId}) AS originalRunOrdinal,
+        (SELECT ordinal FROM orchestration_v2_projection_turn_items WHERE thread_id = ${input.sourceThreadId} AND type = 'user_message' AND json_extract(payload_json, '$.messageId') = ${input.messageId} ORDER BY ordinal LIMIT 1) AS originalItemOrdinal`.pipe(
           Effect.mapError(readError),
         );
         return {
-          runOrdinal: rows[0]?.runOrdinal ?? 0,
-          turnItemOrdinal: rows[0]?.turnItemOrdinal ?? 0,
-          requestedAt: DateTime.formatIso(yield* DateTime.now),
+          runOrdinal: rows[0]?.originalRunOrdinal ?? rows[0]?.runOrdinal ?? 0,
+          turnItemOrdinal: rows[0]?.originalItemOrdinal ?? rows[0]?.turnItemOrdinal ?? 0,
+          requestedAt: DateTime.formatIso(original.messages[0]?.createdAt ?? (yield* DateTime.now)),
         };
       }),
     );

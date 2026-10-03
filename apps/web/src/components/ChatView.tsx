@@ -10730,6 +10730,7 @@ export default function ChatView(props: ChatViewProps) {
         activeThreadTitle={activeThread.title}
         layoutControls={panelLayoutControls}
         onTabBarHostChange={setRightPanelTabsHost}
+        inlinePanel={rightPanelOpen && !shouldUsePlanSidebarSheet}
         workspaceBranchControls={workspaceBranchControls}
         overview={{
           threadBoundaryRef: threadPanelPopoverAnchorRef,

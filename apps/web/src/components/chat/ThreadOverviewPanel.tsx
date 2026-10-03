@@ -276,6 +276,7 @@ function OverviewPopover({
           align="end"
           anchor={anchorRef}
           sideOffset={12}
+          sticky
           collisionBoundary={availableSize}
           collisionPadding={0}
           collisionAvoidance={{ side: "shift", align: "shift", fallbackAxisSide: "none" }}

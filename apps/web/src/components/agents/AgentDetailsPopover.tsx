@@ -7,7 +7,7 @@ import {
 } from "../../logicalProject";
 import { useNavigate } from "@tanstack/react-router";
 import { ArchiveIcon, ArchiveX, BotIcon, CalendarClockIcon, Edit03Icon } from "~/icons";
-import { useLayoutEffect, useRef, useState } from "react";
+import { useLayoutEffect, useRef, useState, type RefObject } from "react";
 import { Button } from "../ui/button";
 import { Popover, PopoverPopup, PopoverTitle, PopoverTrigger } from "../ui/popover";
 import { AgentAvatar } from "./AgentAvatar";
@@ -18,9 +18,11 @@ import { useAgents, type AgentRosterEntry } from "./useAgents";
 export function AgentDetailsPopover({
   projectRef,
   defaultOpen = false,
+  threadBoundaryRef,
 }: {
   projectRef: ScopedProjectRef | null;
   defaultOpen?: boolean;
+  threadBoundaryRef?: RefObject<HTMLElement | null>;
 }) {
   const agents = useAgents();
   const current = agents.find(
@@ -46,7 +48,23 @@ export function AgentDetailsPopover({
       >
         <BotIcon className="size-4" />
       </PopoverTrigger>
-      <PopoverPopup width="md" align="end">
+      <PopoverPopup
+        width="md"
+        align="end"
+        {...(threadBoundaryRef?.current
+          ? {
+              collisionBoundary:
+                threadBoundaryRef.current.getAttribute("data-chat-column-maximized-away") === "true"
+                  ? (threadBoundaryRef.current.closest<HTMLElement>(
+                      "[data-chat-workspace-panels]",
+                    ) ?? threadBoundaryRef.current)
+                  : threadBoundaryRef.current,
+              collisionPadding: 12,
+              collisionAvoidance: { side: "shift", align: "shift", fallbackAxisSide: "none" },
+              sticky: true,
+            }
+          : {})}
+      >
         <div className="space-y-4">
           <AgentDetails agent={current} onClose={close} />
           <div className="border-t pt-3">

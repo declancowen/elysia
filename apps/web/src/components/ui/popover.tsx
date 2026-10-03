@@ -45,6 +45,9 @@ function PopoverPopup({
   sideOffset = 4,
   alignOffset = 0,
   collisionAvoidance,
+  collisionBoundary,
+  collisionPadding,
+  sticky,
   tooltipStyle = false,
   keepMounted = false,
   anchor,
@@ -57,6 +60,9 @@ function PopoverPopup({
   sideOffset?: PopoverPrimitive.Positioner.Props["sideOffset"];
   alignOffset?: PopoverPrimitive.Positioner.Props["alignOffset"];
   collisionAvoidance?: PopoverPrimitive.Positioner.Props["collisionAvoidance"];
+  collisionBoundary?: PopoverPrimitive.Positioner.Props["collisionBoundary"];
+  collisionPadding?: PopoverPrimitive.Positioner.Props["collisionPadding"];
+  sticky?: PopoverPrimitive.Positioner.Props["sticky"];
   tooltipStyle?: boolean;
   keepMounted?: PopoverPrimitive.Portal.Props["keepMounted"];
   anchor?: PopoverPrimitive.Positioner.Props["anchor"];
@@ -72,6 +78,9 @@ function PopoverPopup({
         alignOffset={alignOffset}
         anchor={anchor}
         collisionAvoidance={collisionAvoidance}
+        collisionBoundary={collisionBoundary}
+        collisionPadding={collisionPadding}
+        sticky={sticky}
         className={cn(
           "z-[130] h-(--positioner-height) w-(--positioner-width) max-w-(--available-width) transition-transform data-instant:transition-none",
           variant === "panel" &&
@@ -89,7 +98,10 @@ function PopoverPopup({
               "w-fit text-balance rounded-md text-xs shadow-md/5 before:rounded-[calc(var(--radius-md)-1px)]",
             !tooltipStyle &&
               "shadow-[0_16px_40px_-18px_rgb(0_0_0/55%)] dark:shadow-[0_18px_44px_-18px_rgb(0_0_0/80%)]",
-            width !== "auto" && ["max-w-[calc(100vw-2rem)]", popoverPopupWidthClassName[width]],
+            width !== "auto" && [
+              collisionBoundary ? "max-w-(--available-width)" : "max-w-[calc(100vw-2rem)]",
+              popoverPopupWidthClassName[width],
+            ],
             variant === "panel" &&
               "w-full overflow-visible rounded-none border-0 bg-transparent shadow-none before:hidden [backdrop-filter:none] [-webkit-backdrop-filter:none]",
             className,

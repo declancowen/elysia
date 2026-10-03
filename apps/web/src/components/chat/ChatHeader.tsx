@@ -21,6 +21,7 @@ import {
   memo,
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -77,6 +78,7 @@ interface ChatHeaderProps {
   workspaceBranchControls?: ReactNode;
   layoutControls?: ReactNode;
   onTabBarHostChange?: (node: HTMLDivElement | null) => void;
+  inlinePanel?: boolean;
   readonly onOpenPullRequest?: ((number: number) => void) | undefined;
   onNewThreadInProject: () => void;
   onOpenProjectSettings?: (() => void) | undefined;
@@ -130,6 +132,13 @@ export function shouldShowOpenInPicker(input: {
   return input.remoteOpenMode !== "local-exec";
 }
 
+export function resolveChatHeaderMainColumnWidth(
+  header: Pick<DOMRect, "left" | "width">,
+  column: Pick<DOMRect, "right">,
+): number {
+  return Math.max(0, Math.min(header.width, column.right - header.left));
+}
+
 export const ChatHeader = memo(function ChatHeader({
   activeThreadEnvironmentId,
   activeThreadId,
@@ -148,6 +157,7 @@ export const ChatHeader = memo(function ChatHeader({
   workspaceBranchControls,
   layoutControls,
   onTabBarHostChange,
+  inlinePanel = false,
   onOpenPullRequest,
   onNewThreadInProject,
   onOpenProjectSettings,
@@ -156,6 +166,39 @@ export const ChatHeader = memo(function ChatHeader({
   onUpdateProjectScript,
   onDeleteProjectScript,
 }: ChatHeaderProps) {
+  const headerRef = useRef<HTMLDivElement>(null);
+  const [mainColumnWidth, setMainColumnWidth] = useState<number | null>(null);
+  const [mainColumnHidden, setMainColumnHidden] = useState(false);
+  useLayoutEffect(() => {
+    const header = headerRef.current;
+    const column = overview?.threadBoundaryRef?.current;
+    if (!inlinePanel || !header || !column) {
+      setMainColumnWidth(null);
+      setMainColumnHidden(false);
+      return;
+    }
+    const measure = () => {
+      const hidden = column.getAttribute("data-chat-column-maximized-away") === "true";
+      const headerBounds = header.getBoundingClientRect();
+      setMainColumnHidden(hidden);
+      setMainColumnWidth(
+        hidden
+          ? null
+          : resolveChatHeaderMainColumnWidth(headerBounds, column.getBoundingClientRect()),
+      );
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(header);
+    observer.observe(column);
+    const workspace = column.closest("[data-chat-workspace-panels]");
+    if (workspace) observer.observe(workspace);
+    window.addEventListener("resize", measure);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", measure);
+    };
+  }, [inlinePanel, overview?.threadBoundaryRef]);
   const serverConfig = useAtomValue(serverEnvironment.configValueAtom(activeThreadEnvironmentId));
   const projectless =
     !!activeProject && isScratchProject(activeProject, serverConfig?.scratchWorkspaceRoot);
@@ -413,99 +456,111 @@ export const ChatHeader = memo(function ChatHeader({
     ) : null;
   return (
     <div
-      className="relative flex min-w-0 flex-1 items-center gap-2"
+      ref={headerRef}
+      className={cn("relative flex min-w-0 flex-1 items-center", inlinePanel ? "gap-2" : "gap-1")}
       onContextMenu={handleHeaderContextMenu}
     >
-      <WorkspaceBreadcrumb
-        ariaLabel="Thread breadcrumb"
-        className="flex-1 overflow-clip [overflow-clip-margin:2px]"
-      >
-        {activeProject?.agentProfile ? (
-          <WorkspaceBreadcrumbItem current className="min-w-0 flex-1">
-            <button
-              type="button"
-              onClick={() =>
-                openAgentDialog(scopeProjectRef(activeProject.environmentId, activeProject.id))
-              }
-              className="inline-flex min-w-0 max-w-full cursor-pointer items-center gap-2 rounded-sm text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              {activeProject.agentProfile.group ? (
-                <UsersIcon aria-hidden className="size-4" />
-              ) : (
-                <AgentAvatar avatar={activeProject.agentProfile.avatar} className="size-4" />
-              )}
-              <WorkspaceBreadcrumbText>{activeProjectName}</WorkspaceBreadcrumbText>
-            </button>
-          </WorkspaceBreadcrumbItem>
-        ) : null}
-        {!activeProject?.agentProfile && (
-          <WorkspaceBreadcrumbItem current className="min-w-10 flex-1">
-            {renamingTitle !== null ? (
-              <input
-                autoFocus
-                aria-label="Thread title"
-                className="min-w-0 flex-1 rounded-sm bg-transparent text-sm font-medium text-foreground outline-none ring-1 ring-ring/50 focus:ring-ring"
-                defaultValue={renamingTitle}
-                onBlur={(event) => {
-                  if (renameCommittedRef.current) return;
-                  commitRename(event.currentTarget.value);
-                }}
-                onFocus={(event) => event.currentTarget.select()}
-                onKeyDown={handleRenameKeyDown}
-              />
-            ) : isServerThread ? (
-              <Tooltip>
-                <TooltipTrigger
-                  render={
-                    <button
-                      ref={titleButtonRef}
-                      type="button"
-                      aria-label={`Thread actions for ${activeThreadTitle}`}
-                      aria-haspopup="menu"
-                      onClick={openMenuFromTitle}
-                      onDoubleClick={handleTitleDoubleClick}
-                      onBlur={cancelPendingTitleMenu}
-                      className="group/thread-title inline-flex min-w-0 max-w-full cursor-pointer items-center gap-1 rounded-sm text-left focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
-                    />
-                  }
-                >
-                  <h2 className="min-w-0">
-                    <WorkspaceBreadcrumbText>{activeThreadTitle}</WorkspaceBreadcrumbText>
-                  </h2>
-                  <ChevronDownIcon
-                    aria-hidden
-                    data-thread-title-chevron
-                    className="size-3.5 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover/thread-title:opacity-100 group-focus-visible/thread-title:opacity-100"
-                  />
-                </TooltipTrigger>
-                <TooltipPopup side="top">{activeThreadTitle}</TooltipPopup>
-              </Tooltip>
-            ) : (
-              <Tooltip>
-                <TooltipTrigger
-                  render={<h2 aria-label={activeThreadTitle} className="min-w-0 flex-1" />}
-                >
-                  <WorkspaceBreadcrumbText>{activeThreadTitle}</WorkspaceBreadcrumbText>
-                </TooltipTrigger>
-                <TooltipPopup side="top">{activeThreadTitle}</TooltipPopup>
-              </Tooltip>
-            )}
-          </WorkspaceBreadcrumbItem>
-        )}
-      </WorkspaceBreadcrumb>
       <div
-        data-chat-header-actions
+        data-chat-header-main
         className={cn(
-          "flex min-w-0 items-center gap-1 [-webkit-app-region:no-drag]",
-          rightPanelOpen && onTabBarHostChange ? "flex-1" : "shrink-0",
+          "relative flex min-w-0 items-center gap-2",
+          inlinePanel ? "shrink-0" : "flex-1",
+          mainColumnHidden && "shrink-0",
         )}
+        style={mainColumnWidth === null ? undefined : { width: mainColumnWidth }}
       >
+        <WorkspaceBreadcrumb
+          ariaLabel="Thread breadcrumb"
+          className={cn(
+            "flex-1 overflow-clip [overflow-clip-margin:2px]",
+            mainColumnHidden && "hidden",
+          )}
+        >
+          {activeProject?.agentProfile ? (
+            <WorkspaceBreadcrumbItem current className="min-w-0 flex-1">
+              <button
+                type="button"
+                onClick={() =>
+                  openAgentDialog(scopeProjectRef(activeProject.environmentId, activeProject.id))
+                }
+                className="inline-flex min-w-0 max-w-full cursor-pointer items-center gap-2 rounded-sm text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                {activeProject.agentProfile.group ? (
+                  <UsersIcon aria-hidden className="size-4" />
+                ) : (
+                  <AgentAvatar avatar={activeProject.agentProfile.avatar} className="size-4" />
+                )}
+                <WorkspaceBreadcrumbText>{activeProjectName}</WorkspaceBreadcrumbText>
+              </button>
+            </WorkspaceBreadcrumbItem>
+          ) : null}
+          {!activeProject?.agentProfile && (
+            <WorkspaceBreadcrumbItem current className="min-w-10 flex-1">
+              {renamingTitle !== null ? (
+                <input
+                  autoFocus
+                  aria-label="Thread title"
+                  className="min-w-0 flex-1 rounded-sm bg-transparent text-sm font-medium text-foreground outline-none ring-1 ring-ring/50 focus:ring-ring"
+                  defaultValue={renamingTitle}
+                  onBlur={(event) => {
+                    if (renameCommittedRef.current) return;
+                    commitRename(event.currentTarget.value);
+                  }}
+                  onFocus={(event) => event.currentTarget.select()}
+                  onKeyDown={handleRenameKeyDown}
+                />
+              ) : isServerThread ? (
+                <Tooltip>
+                  <TooltipTrigger
+                    render={
+                      <button
+                        ref={titleButtonRef}
+                        type="button"
+                        aria-label={`Thread actions for ${activeThreadTitle}`}
+                        aria-haspopup="menu"
+                        onClick={openMenuFromTitle}
+                        onDoubleClick={handleTitleDoubleClick}
+                        onBlur={cancelPendingTitleMenu}
+                        className="group/thread-title inline-flex min-w-0 max-w-full cursor-pointer items-center gap-1 rounded-sm text-left focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
+                      />
+                    }
+                  >
+                    <h2 className="min-w-0">
+                      <WorkspaceBreadcrumbText>{activeThreadTitle}</WorkspaceBreadcrumbText>
+                    </h2>
+                    <ChevronDownIcon
+                      aria-hidden
+                      data-thread-title-chevron
+                      className="size-3.5 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover/thread-title:opacity-100 group-focus-visible/thread-title:opacity-100"
+                    />
+                  </TooltipTrigger>
+                  <TooltipPopup side="top">{activeThreadTitle}</TooltipPopup>
+                </Tooltip>
+              ) : (
+                <Tooltip>
+                  <TooltipTrigger
+                    render={<h2 aria-label={activeThreadTitle} className="min-w-0 flex-1" />}
+                  >
+                    <WorkspaceBreadcrumbText>{activeThreadTitle}</WorkspaceBreadcrumbText>
+                  </TooltipTrigger>
+                  <TooltipPopup side="top">{activeThreadTitle}</TooltipPopup>
+                </Tooltip>
+              )}
+            </WorkspaceBreadcrumbItem>
+          )}
+        </WorkspaceBreadcrumb>
         {activeProject?.agentProfile || overview ? (
-          <div className="flex shrink-0 items-center gap-1">
+          <div
+            data-chat-header-actions
+            className="flex shrink-0 items-center gap-1 [-webkit-app-region:no-drag]"
+          >
             {activeProject?.agentProfile ? (
               <AgentDetailsPopover
                 key={`${activeProject.environmentId}:${activeProject.id}`}
                 projectRef={scopeProjectRef(activeProject.environmentId, activeProject.id)}
+                {...(overview?.threadBoundaryRef
+                  ? { threadBoundaryRef: overview.threadBoundaryRef }
+                  : {})}
               />
             ) : null}
             {overview && (
@@ -518,10 +573,18 @@ export const ChatHeader = memo(function ChatHeader({
             )}
           </div>
         ) : null}
+      </div>
+      <div
+        data-chat-header-actions
+        className={cn(
+          "flex min-w-0 items-center gap-1 [-webkit-app-region:no-drag]",
+          inlinePanel ? "flex-1" : "shrink-0",
+        )}
+      >
         {onTabBarHostChange ? (
           <div
             ref={onTabBarHostChange}
-            className={cn("min-w-0 flex-1", !rightPanelOpen && "hidden")}
+            className={cn("min-w-0 flex-1", !inlinePanel && "hidden")}
             data-topbar-panel-tabs
           />
         ) : null}

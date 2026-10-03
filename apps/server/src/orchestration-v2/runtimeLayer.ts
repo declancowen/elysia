@@ -252,9 +252,6 @@ const threadLaunchProvided = threadLaunchServiceLayer.pipe(
 const threadLifecycleProvided = threadLifecycleServiceLayer.pipe(
   Layer.provide(threadManagementProvided),
 );
-const scheduledTaskProvided = scheduledTaskServiceLayer.pipe(
-  Layer.provide(Layer.mergeAll(threadLaunchProvided, threadManagementProvided)),
-);
 const providerContinuationWorkerProvided = providerContinuationWorkerLive.pipe(
   Layer.provide(
     Layer.mergeAll(providerContinuationRequestsLayer, threadManagementProvided, idAllocatorLayer),
@@ -316,6 +313,17 @@ const agentDelegationProvided = AgentDelegation.layer.pipe(
       eventSinkProvided,
       threadManagementProvided,
       ThreadCommandExecutor.layer,
+    ),
+  ),
+);
+
+const scheduledTaskProvided = scheduledTaskServiceLayer.pipe(
+  Layer.provide(
+    Layer.mergeAll(
+      threadLaunchProvided,
+      threadManagementProvided,
+      ProjectStore.layer,
+      agentDelegationProvided,
     ),
   ),
 );

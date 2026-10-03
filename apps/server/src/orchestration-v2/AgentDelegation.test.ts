@@ -222,12 +222,13 @@ describe("V2 persistent delegation", () => {
             ...(scenario.startsWith("group") || scenario === "target-group-nested"
               ? {
                   agentProfile: {
-                    instructions: "",
+                    instructions: "Coordinate the release checklist.",
                     avatar: { preset: "brain" as const, color: "blue" as const },
                     archived: false,
                     notificationsEnabled: true,
                     conversationThreadId: sourceId,
                     group: {
+                      workspaceRoot: "/tmp/channel-link",
                       memberProjectIds: [
                         scenario === "group-nonmember" ? ProjectId.make("other") : agentId,
                         ProjectId.make("second"),
@@ -620,6 +621,20 @@ describe("V2 persistent delegation", () => {
         assert.isDefined(notice);
         if (!notice || notice.type !== "system_notice" || !notice.agentDelegation) return;
         const target = yield* projections.getThreadProjection(agentThreadId);
+        if (scenario === "group" || scenario === "group-new-work") {
+          assert.include(
+            target.messages[0]!.text,
+            "Channel description:\n\nCoordinate the release checklist.",
+          );
+          assert.include(
+            target.messages[0]!.text,
+            "Linked channel folder (reference only): /tmp/channel-link",
+          );
+          assert.equal(
+            Option.getOrThrow(yield* projects.get(agentId)).workspaceRoot,
+            "/tmp/agent-alex",
+          );
+        }
         assert.isNull(target.thread.lineage.parentThreadId);
         assert.lengthOf(target.runs, 1);
         if (targetGroup) {

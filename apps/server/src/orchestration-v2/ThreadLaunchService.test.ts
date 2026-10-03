@@ -1,4 +1,6 @@
 import "../testUtils/upstreamForkPolicy.ts";
+import * as ChannelDelegation from "./AgentDelegation.ts";
+import * as ChannelProjects from "./ProjectStore.ts";
 import * as Scheduler from "../scheduling/Scheduler.ts";
 import * as WorktreeSetupTracker from "../project/WorktreeSetupTracker.ts";
 import * as ProjectCloneTracker from "../project/ProjectCloneTracker.ts";
@@ -284,7 +286,15 @@ for (const target of ["new", "existing"] as const) {
       () => {
         const harness = makeHarness();
         const scheduledTasks = ScheduledTasks.layer.pipe(
-          Layer.provide(Layer.mergeAll(harness.layer, NodeCrypto.layer, Scheduler.layer)),
+          Layer.provide(
+            Layer.mergeAll(
+              harness.layer,
+              NodeCrypto.layer,
+              Scheduler.layer,
+              Layer.mock(ChannelProjects.ProjectStoreV2)({ get: () => Effect.succeedNone }),
+              Layer.mock(ChannelDelegation.AgentDelegation)({}),
+            ),
+          ),
         );
         return Effect.gen(function* () {
           const tasks = yield* ScheduledTasks.ScheduledTaskService;

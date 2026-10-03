@@ -1,3 +1,4 @@
+import { useTabOverflow } from "~/hooks/useTabOverflow";
 import { useCodeWorkspace } from "~/hooks/useSettings";
 import { pullRequestHostOf, type SourceControlProviderKind } from "@t3tools/contracts";
 import type { EnvironmentThreadShell } from "@t3tools/client-runtime/state/shell";
@@ -209,12 +210,6 @@ type TabContextMenuAction =
   | "close-others"
   | "close-to-right"
   | "close-all";
-
-const TAB_SCROLL_EDGE_TOLERANCE = 1;
-
-function tabScrollViewport(root: HTMLDivElement | null): HTMLDivElement | null {
-  return root?.querySelector<HTMLDivElement>('[data-slot="scroll-area-viewport"]') ?? null;
-}
 
 /**
  * Desktop preview tab backing a surface, or null for non-preview surfaces, the
@@ -874,46 +869,9 @@ export function RightPanelTabs(props: RightPanelTabsProps) {
   }, [props.tabBarHost, tabBarContainer]);
   const browserProfiles = useBrowserDefaults().profiles;
   const { resolvedTheme } = useTheme();
-  const tabListRef = useRef<HTMLDivElement>(null);
+  const { tabListRef, tabScrollState, scrollTabs } = useTabOverflow(props.activeSurfaceId);
   const [renamingDevice, setRenamingDevice] = useState<string | null>(null);
   const [addSurfaceMenuOpen, setAddSurfaceMenuOpen] = useState(false);
-  const [tabScrollState, setTabScrollState] = useState({
-    hasOverflow: false,
-    canScrollLeft: false,
-    canScrollRight: false,
-  });
-
-  const updateTabScrollState = useCallback(() => {
-    const viewport = tabScrollViewport(tabListRef.current);
-    if (!viewport) return;
-
-    const hasOverflow = viewport.scrollWidth - viewport.clientWidth > TAB_SCROLL_EDGE_TOLERANCE;
-    const canScrollLeft = hasOverflow && viewport.scrollLeft > TAB_SCROLL_EDGE_TOLERANCE;
-    const canScrollRight =
-      hasOverflow &&
-      viewport.scrollLeft + viewport.clientWidth < viewport.scrollWidth - TAB_SCROLL_EDGE_TOLERANCE;
-    setTabScrollState((current) => {
-      if (
-        current.hasOverflow === hasOverflow &&
-        current.canScrollLeft === canScrollLeft &&
-        current.canScrollRight === canScrollRight
-      ) {
-        return current;
-      }
-      return { hasOverflow, canScrollLeft, canScrollRight };
-    });
-  }, []);
-
-  const scrollTabs = useCallback((direction: -1 | 1) => {
-    const viewport = tabScrollViewport(tabListRef.current);
-    if (!viewport) return;
-    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    viewport.scrollBy({
-      left: direction * Math.max(120, viewport.clientWidth * 0.75),
-      behavior: reduceMotion ? "auto" : "smooth",
-    });
-  }, []);
-
   const codeWorkspace = useCodeWorkspace();
   const addSurfaceActions = [
     {
@@ -1107,51 +1065,6 @@ export function RightPanelTabs(props: RightPanelTabsProps) {
     },
     [props],
   );
-
-  useEffect(() => {
-    if (!props.activeSurfaceId || !tabScrollState.hasOverflow) return;
-    const activeTab = tabListRef.current?.querySelector<HTMLElement>("[data-active-tab='true']");
-    activeTab?.scrollIntoView({ block: "nearest", inline: "nearest" });
-  }, [props.activeSurfaceId, tabScrollState.hasOverflow]);
-
-  useEffect(() => {
-    const viewport = tabScrollViewport(tabListRef.current);
-    if (!viewport) return;
-
-    const content = viewport.firstElementChild;
-    const resizeObserver = new ResizeObserver(updateTabScrollState);
-    resizeObserver.observe(viewport);
-    if (content) resizeObserver.observe(content);
-    viewport.addEventListener("scroll", updateTabScrollState, { passive: true });
-    updateTabScrollState();
-
-    return () => {
-      resizeObserver.disconnect();
-      viewport.removeEventListener("scroll", updateTabScrollState);
-    };
-  }, [updateTabScrollState]);
-
-  useEffect(() => {
-    const viewport = tabScrollViewport(tabListRef.current);
-    if (!viewport) return;
-
-    const handleWheel = (event: WheelEvent) => {
-      if (event.ctrlKey) return;
-      let delta = Math.abs(event.deltaX) > Math.abs(event.deltaY) ? event.deltaX : event.deltaY;
-      if (event.deltaMode === WheelEvent.DOM_DELTA_LINE) delta *= 16;
-      if (event.deltaMode === WheelEvent.DOM_DELTA_PAGE) delta *= viewport.clientWidth;
-      if (delta === 0) return;
-
-      const previousScrollLeft = viewport.scrollLeft;
-      viewport.scrollLeft += delta;
-      if (viewport.scrollLeft === previousScrollLeft) return;
-      event.preventDefault();
-      updateTabScrollState();
-    };
-
-    viewport.addEventListener("wheel", handleWheel, { passive: false });
-    return () => viewport.removeEventListener("wheel", handleWheel);
-  }, [updateTabScrollState]);
 
   const tabBar = (
     <div
@@ -1347,7 +1260,7 @@ export function RightPanelTabs(props: RightPanelTabsProps) {
               </div>
             );
           })}
-          {props.surfaces.length > 0 ? (
+          {props.surfaces.length > 0 && addSurfaceActions.some((action) => action.available) ? (
             <Menu open={addSurfaceMenuOpen} onOpenChange={setAddSurfaceMenuOpen}>
               <Tooltip>
                 <TooltipTrigger
@@ -1457,9 +1370,10 @@ export function RightPanelTabs(props: RightPanelTabsProps) {
                 <span className="inline-flex">
                   <Button
                     aria-label="Scroll tabs left"
+                    data-workspace-panel-action={props.tabBarHost !== undefined ? "" : undefined}
                     disabled={!tabScrollState.canScrollLeft}
                     onClick={() => scrollTabs(-1)}
-                    size="icon-xs"
+                    size={props.tabBarHost !== undefined ? "icon-sm" : "icon-xs"}
                     variant="ghost"
                   >
                     <ChevronLeft />
@@ -1475,9 +1389,10 @@ export function RightPanelTabs(props: RightPanelTabsProps) {
                 <span className="inline-flex">
                   <Button
                     aria-label="Scroll tabs right"
+                    data-workspace-panel-action={props.tabBarHost !== undefined ? "" : undefined}
                     disabled={!tabScrollState.canScrollRight}
                     onClick={() => scrollTabs(1)}
-                    size="icon-xs"
+                    size={props.tabBarHost !== undefined ? "icon-sm" : "icon-xs"}
                     variant="ghost"
                   >
                     <ChevronRight />

@@ -1,6 +1,6 @@
 import type { EnvironmentId } from "@t3tools/contracts";
 import { squashAtomCommandFailure } from "@t3tools/client-runtime/state/runtime";
-import { RotateCcwIcon } from "~/icons";
+import { RotateCcwIcon, ChannelIcon } from "~/icons";
 import { useMemo, useRef, useState } from "react";
 import { useEnvironments } from "../../state/environments";
 import { useProjects } from "../../state/entities";
@@ -13,23 +13,34 @@ import { SettingsRow, SettingsSection } from "./settingsLayout";
 
 export function ArchivedAgentsSection({
   environmentIds,
+  channels = false,
 }: {
   environmentIds: ReadonlyArray<EnvironmentId>;
+  channels?: boolean;
 }) {
   const projects = useProjects();
   const { environments } = useEnvironments();
   const agents = useMemo(() => {
     const scope = new Set(environmentIds);
     return projects
-      .filter((project) => scope.has(project.environmentId) && project.agentProfile?.archived)
+      .filter(
+        (project) =>
+          scope.has(project.environmentId) &&
+          project.agentProfile?.archived &&
+          !!project.agentProfile.group === channels,
+      )
       .toSorted((a, b) => a.title.localeCompare(b.title));
-  }, [environmentIds, projects]);
+  }, [environmentIds, projects, channels]);
   return (
-    <SettingsSection title="Archived agents">
+    <SettingsSection title={channels ? "Archived channels" : "Archived agents"}>
       {agents.length === 0 ? (
         <SettingsRow
-          title="No archived agents"
-          description="Archived agents will appear here. Their conversations and memory are preserved."
+          title={channels ? "No archived channels" : "No archived agents"}
+          description={
+            channels
+              ? "Archived channels will appear here. Their conversations are preserved."
+              : "Archived agents will appear here. Their conversations and memory are preserved."
+          }
         />
       ) : (
         agents.map((project) => (
@@ -76,7 +87,11 @@ function ArchivedAgentRow({ project, connected }: { project: Project; connected:
     <SettingsRow
       title={
         <span className="inline-flex items-center gap-2">
-          <AgentAvatar avatar={profile.avatar} />
+          {profile.group ? (
+            <ChannelIcon className="size-4" />
+          ) : (
+            <AgentAvatar avatar={profile.avatar} />
+          )}
           {project.title}
         </span>
       }

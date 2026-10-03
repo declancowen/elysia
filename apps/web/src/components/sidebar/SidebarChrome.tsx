@@ -13,10 +13,12 @@ import {
   BotIcon,
   ClockIcon,
   FolderIcon,
-  RotateCwIcon,
 } from "~/icons";
 import type { ReactNode } from "react";
 import { memo, useCallback } from "react";
+import { useAtomValue } from "@effect/atom-react";
+import { primaryServerKeybindingsAtom } from "../../state/server";
+import { shortcutLabelForCommand } from "../../keybindings";
 import { Link, useLocation, useNavigate } from "@tanstack/react-router";
 
 import {
@@ -102,13 +104,20 @@ export const SidebarChromeHeader = memo(function SidebarChromeHeader({
         )}
       >
         {SINGLE_PROVIDER_UI ? (
-          <h2 className="truncate pl-1.5 text-base font-medium">{title ?? "Workspace"}</h2>
+          <h2 className="min-w-0 flex-1 truncate pl-1.5 text-base font-medium">
+            {title ?? "Workspace"}
+          </h2>
         ) : (
           <SidebarBrand onBackdrop={backdropVariant !== null} />
         )}
-        <div className="[-webkit-app-region:no-drag] flex min-w-0 flex-1 items-center justify-end gap-1">
-          {SINGLE_PROVIDER_UI && !title ? <SidebarThreadViewSwitcher /> : null}
+        <div
+          className={cn(
+            "[-webkit-app-region:no-drag] flex items-center justify-end gap-1",
+            SINGLE_PROVIDER_UI ? "shrink-0" : "min-w-0 flex-1",
+          )}
+        >
           {search}
+          {SINGLE_PROVIDER_UI && !title ? <SidebarThreadViewSwitcher /> : null}
         </div>
       </div>
       {pillLabel ? (
@@ -165,9 +174,26 @@ function SidebarBrand({ onBackdrop }: { onBackdrop: boolean }) {
   );
 }
 
+export function SidebarCommandShortcut({
+  shortcutLabel,
+}: {
+  shortcutLabel?: string | null | undefined;
+}) {
+  const keybindings = useAtomValue(primaryServerKeybindingsAtom);
+  const label = shortcutLabel ?? shortcutLabelForCommand(keybindings, "commandPalette.toggle");
+  return label ? (
+    <CommandDialogTrigger
+      render={<Button variant="ghost" size="xs" aria-label="Open command palette" />}
+    >
+      <Kbd>{label}</Kbd>
+    </CommandDialogTrigger>
+  ) : null;
+}
+
 export function SidebarHeaderSearch({ shortcutLabel }: { shortcutLabel?: string | null }) {
   return (
     <div className="flex items-center gap-1">
+      <SidebarCommandShortcut shortcutLabel={shortcutLabel} />
       <CommandDialogTrigger
         render={
           <Button
@@ -180,34 +206,36 @@ export function SidebarHeaderSearch({ shortcutLabel }: { shortcutLabel?: string 
       >
         <SearchIcon />
       </CommandDialogTrigger>
-      {shortcutLabel ? (
-        <CommandDialogTrigger
-          render={<Button variant="ghost" size="xs" aria-label="Open command palette" />}
-        >
-          <Kbd>{shortcutLabel}</Kbd>
-        </CommandDialogTrigger>
-      ) : null}
     </div>
   );
 }
 
-export function SidebarNewChatButton() {
+export function SidebarNewChatButton({ iconOnly = false }: { iconOnly?: boolean }) {
   const environmentId = usePrimaryEnvironmentId();
   const { scratchEnvironmentId, startScratchThread } = useScratchProject();
   const { setExpanded } = useRecentThreadsExpansion();
   const { isMobile, setOpenMobile } = useSidebar();
   const target = scratchEnvironmentId(environmentId);
+  const createChat = () => {
+    if (target === null) return;
+    setExpanded(true);
+    if (isMobile) setOpenMobile(false);
+    void startScratchThread(target);
+  };
+  if (iconOnly)
+    return (
+      <Button
+        variant="ghost-muted"
+        size="icon-sm"
+        aria-label="New chat"
+        disabled={target === null}
+        onClick={createChat}
+      >
+        <SquarePenIcon />
+      </Button>
+    );
   return (
-    <SidebarMenuButton
-      aria-label="New chat"
-      disabled={target === null}
-      onClick={() => {
-        if (target === null) return;
-        setExpanded(true);
-        if (isMobile) setOpenMobile(false);
-        void startScratchThread(target);
-      }}
-    >
+    <SidebarMenuButton aria-label="New chat" disabled={target === null} onClick={createChat}>
       <SquarePenIcon />
       <span>New chat</span>
     </SidebarMenuButton>
@@ -355,13 +383,7 @@ export const SidebarChromeFooter = memo(function SidebarChromeFooter() {
       <SidebarThreadUndoNotice />
       {!SINGLE_PROVIDER_UI ? <SidebarProviderUpdatePill /> : null}
       <SidebarUpdateArchitectureWarning />
-      {SINGLE_PROVIDER_UI && !isMobile ? (
-        <SidebarMenu>
-          <SidebarUpdatePill />
-        </SidebarMenu>
-      ) : (
-        <SidebarUtilityMenu />
-      )}
+      {!SINGLE_PROVIDER_UI || isMobile ? <SidebarUtilityMenu /> : null}
     </SidebarFooter>
   );
 });
@@ -470,15 +492,6 @@ export const AppNavigationRail = memo(function AppNavigationRail() {
             }}
           />
         ) : null}
-        <AppRailButton
-          label="Stats"
-          icon={<ChartNoAxesColumnIncreasingIcon className="size-5" />}
-          active={pathname === "/usage"}
-          onClick={() => {
-            setAgentSidebarActive(false);
-            void navigate({ to: "/usage" });
-          }}
-        />
       </nav>
       <div aria-label="Workspace controls" className="flex flex-col items-center gap-2">
         <AppRailButton
@@ -500,10 +513,17 @@ export const AppNavigationRail = memo(function AppNavigationRail() {
           }
         />
         <AppRailButton
-          label="Refresh"
-          icon={<RotateCwIcon className="size-5" />}
-          onClick={() => window.location.reload()}
+          label="Stats"
+          icon={<ChartNoAxesColumnIncreasingIcon className="size-5" />}
+          active={pathname === "/usage"}
+          onClick={() => {
+            setAgentSidebarActive(false);
+            void navigate({ to: "/usage" });
+          }}
         />
+        <ul className="flex size-10 items-center justify-center">
+          <SidebarUpdatePill />
+        </ul>
       </div>
     </aside>
   );

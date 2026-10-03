@@ -1,3 +1,5 @@
+import { ScrollArea as ScrollAreaPrimitive } from "@base-ui/react/scroll-area";
+import { ScrollBar } from "../ui/scroll-area";
 import { agentTaskHandoff } from "@t3tools/shared/agentMentions";
 import { AgentMessageBubble } from "../agents/AgentMessageBubble";
 import { AgentAvatar, type AgentAvatarValue } from "../agents/AgentAvatar";
@@ -490,6 +492,7 @@ interface MessagesTimelineProps {
   onManualNavigation: () => void;
   cancelPositionRestoreRef?: React.RefObject<(() => void) | null>;
   hideEmptyPlaceholder?: boolean;
+  emptyPlaceholder?: ReactNode;
   topFadeEnabled?: boolean;
   historyControls?: MessagesTimelineHistoryControls;
   /** Non-null when older turns exist beyond the loaded window. */
@@ -553,44 +556,17 @@ export const MessagesTimeline = memo(function MessagesTimeline({
   onManualNavigation,
   cancelPositionRestoreRef,
   hideEmptyPlaceholder = false,
+  emptyPlaceholder,
   topFadeEnabled = false,
   historyControls,
   loadEarlier = null,
   agentAvatar,
 }: MessagesTimelineProps) {
   const listIdentityKey = displayThreadKey ?? routeThreadKey;
-  const [agentLanding, setAgentLanding] = useState<{ key: string; messageId: MessageId | null }>({
-    key: listIdentityKey,
-    messageId: null,
-  });
-  const latestMessage =
-    agentAvatar &&
-    timelineEntries.findLast(
-      (entry) =>
-        entry.kind === "message" &&
-        (entry.message.text.trim().length > 0 || entry.message.attachments?.length),
-    );
-  const savedAgentLanding = agentLanding.key === listIdentityKey ? agentLanding.messageId : null;
-  const capturingAgentLanding = Boolean(
-    agentAvatar && !savedAgentLanding && latestMessage?.kind === "message",
+  const rememberedPosition = useMemo(
+    () => readTimelinePosition(listIdentityKey),
+    [listIdentityKey],
   );
-  const agentLandingMessageId = agentAvatar
-    ? (savedAgentLanding ?? (latestMessage?.kind === "message" ? latestMessage.message.id : null))
-    : null;
-  if (agentLanding.key !== listIdentityKey || capturingAgentLanding)
-    setAgentLanding({ key: listIdentityKey, messageId: agentLandingMessageId });
-  const rememberedPosition = useMemo(() => {
-    const saved = readTimelinePosition(listIdentityKey);
-    return agentLandingMessageId
-      ? {
-          ...saved,
-          rowId: agentLandingMessageId,
-          offsetWithinRow: 0,
-          scrollOffset: 0,
-          atEnd: false,
-        }
-      : saved;
-  }, [listIdentityKey, agentLandingMessageId]);
   const [expandedRunIds, setExpandedRunIds] = useState<ReadonlySet<RunId>>(
     () => rememberedPosition?.disclosures?.runs ?? new Set(),
   );
@@ -603,8 +579,6 @@ export const MessagesTimeline = memo(function MessagesTimeline({
   const [positionedThreadKey, setPositionedThreadKey] = useState<string | null>(() =>
     rememberedPosition?.atEnd === false ? null : listIdentityKey,
   );
-  if (capturingAgentLanding && positionedThreadKey === listIdentityKey)
-    setPositionedThreadKey(null);
   const restoringThreadPosition = positionedThreadKey !== listIdentityKey;
   const prefersReducedMotion = useMediaQuery("(prefers-reduced-motion: reduce)");
   const listIdentityRef = useRef(listIdentityKey);
@@ -1001,20 +975,9 @@ export const MessagesTimeline = memo(function MessagesTimeline({
   const anchoredEndSpace = useMemo(() => {
     const config = resolveChatListAnchoredEndSpace(
       rows,
-      anchorMessageId ?? agentLandingMessageId,
-      (row) =>
-        row.kind === "message" &&
-        (anchorMessageId === null && agentLandingMessageId !== null
-          ? row.message.id === agentLandingMessageId
-          : row.message.role === "user")
-          ? row.message.id
-          : null,
-      {
-        anchorOffset:
-          anchorMessageId === null && agentLandingMessageId !== null
-            ? 0
-            : CHAT_TIMELINE_ANCHOR_OFFSET,
-      },
+      anchorMessageId,
+      (row) => (row.kind === "message" && row.message.role === "user" ? row.message.id : null),
+      { anchorOffset: CHAT_TIMELINE_ANCHOR_OFFSET },
     );
     return config
       ? { ...config, onReady: handleAnchorReady, onSizeChanged: handleAnchorSizeChanged }
@@ -1366,9 +1329,11 @@ export const MessagesTimeline = memo(function MessagesTimeline({
     }
     return (
       <div className="flex h-full items-center justify-center">
-        <p className="text-sm text-muted-foreground/30">
-          Send a message to start the conversation.
-        </p>
+        {emptyPlaceholder ?? (
+          <p className="text-sm text-muted-foreground/30">
+            Send a message to start the conversation.
+          </p>
+        )}
       </div>
     );
   }
@@ -1388,48 +1353,73 @@ export const MessagesTimeline = memo(function MessagesTimeline({
               onCite={onCiteAssistantText}
             />
           ) : null}
-          <LegendList<MessagesTimelineRow>
-            ref={setTimelineList}
-            data={rows}
-            extraData={`${listIdentityKey}:${rows.length}`}
-            keyExtractor={keyExtractor}
-            getItemType={getItemType}
-            renderItem={renderItem}
-            estimatedItemSize={90}
-            initialScrollAtEnd={citationRequest === null && rememberedPosition?.atEnd !== false}
-            // Legend needs a data refresh to mount new pins without a scroll event.
-            dataVersion={readyCitationRequest?.key ?? listIdentityKey}
-            {...(alwaysRender ? { alwaysRender } : {})}
-            onLoad={onCitationListLoad}
-            {...(anchoredEndSpace ? { anchoredEndSpace } : {})}
-            contentInsetEndAdjustment={anchoredEndSpace ? contentInsetEndAdjustment : 0}
-            maintainScrollAtEnd={
-              citationPositioning ||
-              (restoringThreadPosition && rememberedPosition?.atEnd === false) ||
-              anchoredEndSpace ||
-              !liveFollowEnabled ||
-              disclosureToggleSettling
-                ? false
-                : isWorking && !prefersReducedMotion && settlingListIdentity === null
-                  ? TIMELINE_MAINTAIN_SCROLL_AT_END_SMOOTH
-                  : TIMELINE_MAINTAIN_SCROLL_AT_END
-            }
-            maintainVisibleContentPosition={
-              citationPositioning ||
-              (restoringThreadPosition && rememberedPosition?.atEnd === false)
-                ? false
-                : maintainVisibleContentPosition
-            }
-            maintainScrollAtEndThreshold={1}
-            onScroll={handleScroll}
-            onItemSizeChanged={reportContentOverflow}
-            className={cn(
-              "messages-timeline-scroll scrollbar-gutter-both h-full min-h-0 overflow-x-hidden overscroll-y-contain [overflow-anchor:none]",
-              topFadeEnabled && "topbar-scroll-fade",
-            )}
-            ListHeaderComponent={listHeader}
-            ListFooterComponent={timelineListFooter}
-          />
+          <ScrollAreaPrimitive.Root className="h-full min-h-0">
+            <ScrollAreaPrimitive.Viewport
+              render={({
+                ref: viewportRef,
+                onScroll: viewportOnScroll,
+                style: viewportStyle,
+                ...viewportProps
+              }) => (
+                <LegendList<MessagesTimelineRow>
+                  {...viewportProps}
+                  data-slot="scroll-area-viewport"
+                  style={viewportStyle ?? {}}
+                  refScrollView={(view) => {
+                    const element =
+                      view instanceof HTMLElement ? view : (view?.getScrollableNode() ?? null);
+                    if (typeof viewportRef === "function") viewportRef(element);
+                    else if (viewportRef) viewportRef.current = element;
+                  }}
+                  {...(viewportOnScroll ? { onScrollCapture: viewportOnScroll } : {})}
+                  ref={setTimelineList}
+                  data={rows}
+                  extraData={`${listIdentityKey}:${rows.length}`}
+                  keyExtractor={keyExtractor}
+                  getItemType={getItemType}
+                  renderItem={renderItem}
+                  estimatedItemSize={90}
+                  initialScrollAtEnd={
+                    citationRequest === null && rememberedPosition?.atEnd !== false
+                  }
+                  // Legend needs a data refresh to mount new pins without a scroll event.
+                  dataVersion={readyCitationRequest?.key ?? listIdentityKey}
+                  {...(alwaysRender ? { alwaysRender } : {})}
+                  onLoad={onCitationListLoad}
+                  {...(anchoredEndSpace ? { anchoredEndSpace } : {})}
+                  contentInsetEndAdjustment={anchoredEndSpace ? contentInsetEndAdjustment : 0}
+                  maintainScrollAtEnd={
+                    citationPositioning ||
+                    (restoringThreadPosition && rememberedPosition?.atEnd === false) ||
+                    anchoredEndSpace ||
+                    !liveFollowEnabled ||
+                    disclosureToggleSettling
+                      ? false
+                      : isWorking && !prefersReducedMotion && settlingListIdentity === null
+                        ? TIMELINE_MAINTAIN_SCROLL_AT_END_SMOOTH
+                        : TIMELINE_MAINTAIN_SCROLL_AT_END
+                  }
+                  maintainVisibleContentPosition={
+                    citationPositioning ||
+                    (restoringThreadPosition && rememberedPosition?.atEnd === false)
+                      ? false
+                      : maintainVisibleContentPosition
+                  }
+                  maintainScrollAtEndThreshold={1}
+                  onScroll={handleScroll}
+                  onItemSizeChanged={reportContentOverflow}
+                  className={cn(
+                    "messages-timeline-scroll h-full min-h-0 overflow-x-hidden overscroll-y-contain [overflow-anchor:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
+                    viewportProps.className,
+                    topFadeEnabled && "topbar-scroll-fade",
+                  )}
+                  ListHeaderComponent={listHeader}
+                  ListFooterComponent={timelineListFooter}
+                />
+              )}
+            />
+            <ScrollBar />
+          </ScrollAreaPrimitive.Root>
           <TimelineMinimap
             items={minimapItems}
             hasPersistentGutter={minimapHasPersistentGutter}

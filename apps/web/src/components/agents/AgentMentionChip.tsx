@@ -7,7 +7,7 @@ import {
 } from "@t3tools/contracts";
 import { scopeProjectRef } from "@t3tools/client-runtime/environment";
 import { useMemo } from "react";
-import { CircleCheckIcon, CircleAlertIcon, SquareIcon, UsersIcon } from "~/icons";
+import { CircleCheckIcon, CircleAlertIcon, SquareIcon, ChannelIcon } from "~/icons";
 import { delegatedAgentsFromTurnItems } from "@t3tools/shared/agentMentions";
 import { useDelegatedAgents } from "./useDelegatedAgents";
 import { useProject, useThreadProjection } from "~/state/entities";
@@ -46,7 +46,7 @@ export function AgentMentionChip({
   }
   const working = status === "working" || status === "queued";
   const icon = project.agentProfile.group ? (
-    <UsersIcon aria-hidden className="size-[1em]" />
+    <ChannelIcon aria-hidden className="size-[1em]" />
   ) : (
     <AgentAvatar avatar={project.agentProfile.avatar} className="size-[1em]" working={working} />
   );

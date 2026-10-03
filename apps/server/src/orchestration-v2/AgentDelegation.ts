@@ -324,6 +324,15 @@ const delegateToPersistentAgentImpl = Effect.fn("delegateToPersistentAgent")(fun
       typeof retainedSource.payload.originExcerpt === "string"
         ? ["Original handoff context (reference only):", retainedSource.payload.originExcerpt]
         : []),
+      ...(group
+        ? [
+            "Channel description:",
+            sourceProject.value.agentProfile!.instructions,
+            ...(group.workspaceRoot
+              ? [`Linked channel folder (reference only): ${group.workspaceRoot}`]
+              : []),
+          ]
+        : []),
       "Recent excerpt (reference only):",
       recent
         .map((message) => `${message.role}: ${stripRouting(message.text).slice(-2000)}`)

@@ -104,10 +104,9 @@ it("navigates rail pages and keeps the thread switcher in Workspace", async () =
       "Scheduled",
       "Projects",
       "Git",
-      "Stats",
       "Settings",
       "Code workspace · Switch to Work",
-      "Refresh",
+      "Stats",
       "Switch to Thread view",
     ]);
     expect(button("Stats").getAttribute("aria-current")).toBe("page");

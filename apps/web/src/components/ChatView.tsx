@@ -425,6 +425,7 @@ import { DraftHeroHeadline } from "./chat/DraftHeroHeadline";
 import { ExpandedImageDialog } from "./chat/ExpandedImageDialog";
 import { PullRequestThreadDialog } from "./PullRequestThreadDialog";
 import type { AssistantCitationRequest } from "./chat/AssistantCitationSource";
+import { AgentConversationWelcome } from "./agents/AgentConversationWelcome";
 import { MessagesTimeline, type MessagesTimelineHistoryControls } from "./chat/MessagesTimeline";
 import { ProviderSubagentBar } from "./chat/ProviderSubagentBar";
 import { getTriggerDisplayModelName } from "./chat/providerIconUtils";
@@ -699,6 +700,7 @@ const TYPE_TO_FOCUS_EDITABLE_SELECTOR = [
   '[role="textbox"]',
 ].join(",");
 const TYPE_TO_FOCUS_INTERACTIVE_SELECTOR = [
+  "[data-sidebar-sortable]",
   "button",
   "a[href]",
   "summary",
@@ -4013,7 +4015,9 @@ export default function ChatView(props: ChatViewProps) {
 
   const gitCwd = activeProject
     ? projectScriptCwd({
-        project: { cwd: activeProject.workspaceRoot },
+        project: {
+          cwd: activeProject.agentProfile?.group?.workspaceRoot ?? activeProject.workspaceRoot,
+        },
         worktreePath: activeThread?.worktreePath ?? null,
       })
     : null;
@@ -4588,7 +4592,9 @@ export default function ChatView(props: ChatViewProps) {
           cwd: cwdForOpen,
           ...(activeThreadWorktreePath != null ? { worktreePath: activeThreadWorktreePath } : {}),
           env: projectScriptRuntimeEnv({
-            project: { cwd: activeProject.workspaceRoot },
+            project: {
+              cwd: activeProject.agentProfile?.group?.workspaceRoot ?? activeProject.workspaceRoot,
+            },
             worktreePath: activeThreadWorktreePath,
           }),
         },
@@ -4634,7 +4640,9 @@ export default function ChatView(props: ChatViewProps) {
           cwd: cwdForOpen,
           ...(activeThreadWorktreePath != null ? { worktreePath: activeThreadWorktreePath } : {}),
           env: projectScriptRuntimeEnv({
-            project: { cwd: activeProject.workspaceRoot },
+            project: {
+              cwd: activeProject.agentProfile?.group?.workspaceRoot ?? activeProject.workspaceRoot,
+            },
             worktreePath: activeThreadWorktreePath,
           }),
         },
@@ -4673,7 +4681,9 @@ export default function ChatView(props: ChatViewProps) {
         cwd: cwdForOpen,
         ...(activeThreadWorktreePath != null ? { worktreePath: activeThreadWorktreePath } : {}),
         env: projectScriptRuntimeEnv({
-          project: { cwd: activeProject.workspaceRoot },
+          project: {
+            cwd: activeProject.agentProfile?.group?.workspaceRoot ?? activeProject.workspaceRoot,
+          },
           worktreePath: activeThreadWorktreePath,
         }),
       },
@@ -5541,7 +5551,9 @@ export default function ChatView(props: ChatViewProps) {
         cwd,
         ...(activeThreadWorktreePath != null ? { worktreePath: activeThreadWorktreePath } : {}),
         env: projectScriptRuntimeEnv({
-          project: { cwd: activeProject.workspaceRoot },
+          project: {
+            cwd: activeProject.agentProfile?.group?.workspaceRoot ?? activeProject.workspaceRoot,
+          },
           worktreePath: activeThreadWorktreePath,
         }),
       },
@@ -5580,7 +5592,9 @@ export default function ChatView(props: ChatViewProps) {
           cwd,
           ...(activeThreadWorktreePath != null ? { worktreePath: activeThreadWorktreePath } : {}),
           env: projectScriptRuntimeEnv({
-            project: { cwd: activeProject.workspaceRoot },
+            project: {
+              cwd: activeProject.agentProfile?.group?.workspaceRoot ?? activeProject.workspaceRoot,
+            },
             worktreePath: activeThreadWorktreePath,
           }),
         },
@@ -10738,7 +10752,8 @@ export default function ChatView(props: ChatViewProps) {
           showGit:
             codeWorkspace &&
             activeProject !== null &&
-            !isScratchProject(activeProject, serverConfig?.scratchWorkspaceRoot),
+            !isScratchProject(activeProject, serverConfig?.scratchWorkspaceRoot) &&
+            (!activeProject.agentProfile || !!activeProject.agentProfile.group?.workspaceRoot),
           changes:
             isServerThread && isGitRepo && gitStatusQuery.data
               ? {
@@ -10835,7 +10850,7 @@ export default function ChatView(props: ChatViewProps) {
           ref={threadPanelPopoverAnchorRef}
           className={cn(
             "flex min-h-0 min-w-0 flex-col overflow-x-hidden",
-            SINGLE_PROVIDER_UI && "relative bg-background md:rounded-r-xl workspace-panel-frame",
+            SINGLE_PROVIDER_UI && "relative bg-background md:rounded-xl workspace-panel-frame",
             rightPanelMaximized ? "w-0 flex-none" : "flex-1",
           )}
           data-chat-column-maximized-away={rightPanelMaximized ? "true" : "false"}
@@ -10982,6 +10997,11 @@ export default function ChatView(props: ChatViewProps) {
                   onToolOutputCollapsedAtEnd={onToolOutputCollapsedAtEnd}
                   onManualNavigation={cancelTimelineLiveFollowForUserNavigation}
                   cancelPositionRestoreRef={cancelPositionRestoreRef}
+                  emptyPlaceholder={
+                    activeProject?.agentProfile ? (
+                      <AgentConversationWelcome project={activeProject} />
+                    ) : undefined
+                  }
                   hideEmptyPlaceholder={isDraftHeroState || threadDetailLoading}
                   topFadeEnabled={!hasTimelineTopBanner}
                   {...(paintOnlyDisplayedTimeline || threadHistoryControls === undefined

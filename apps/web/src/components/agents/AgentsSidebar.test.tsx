@@ -60,6 +60,7 @@ vi.mock("../sidebar/SidebarChrome", () => ({
     </div>
   ),
   SidebarChromeFooter: () => <p>Elysia footer</p>,
+  SidebarCommandShortcut: () => null,
 }));
 vi.mock("../ui/sidebar", () => ({
   SidebarContent: ({ children }: { children: ReactNode }) => <div>{children}</div>,
@@ -230,11 +231,11 @@ it("opens an agent or group from the conversation roster, filters roles and crea
     await click("Toggle agent search");
     expect(host.querySelector('[aria-label="Search agents"]')).toBeNull();
     expect(host.querySelector('[aria-label="Open Team chat"]')).not.toBeNull();
-    await click("New agent or channel");
+    await click("New agent, channel or section");
     await click("New channel");
     expect(document.querySelector('[role="dialog"][aria-label="New channel"]')).not.toBeNull();
     await click("Cancel group");
-    await click("New agent or channel");
+    await click("New agent, channel or section");
     await click("New agent");
     expect(useAgentDialogStore.getState().target).toEqual({ projectRef: null });
     state.previews.clear();

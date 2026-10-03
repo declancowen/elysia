@@ -1,3 +1,6 @@
+import { useConversationRowClick } from "../hooks/useConversationRowClick";
+import { currentConversationTabsStore } from "../conversationTabsStore";
+import { useAgents } from "./agents/useAgents";
 import { useSupportsMultiplePullRequests } from "~/hooks/useSupportsMultiplePullRequests";
 import { resolveThreadCurrentPullRequestLink } from "@t3tools/shared/threadPullRequests";
 import { Spinner } from "~/components/ui/spinner";
@@ -192,7 +195,6 @@ import {
   isSidebarNestedLinkClick,
   isTrailingDoubleClick,
   resolveProjectStatusIndicator,
-  resolveThreadRowClassName,
   resolveThreadLastVisitedAt,
   resolveThreadStatusPill,
   orderItemsByPreferredIds,
@@ -211,7 +213,8 @@ import {
   SidebarNewChatButton,
 } from "./sidebar/SidebarChrome";
 import { RecentThreadsHeader, useRecentThreadsExpansion } from "./sidebar/RecentThreadsHeader";
-import { AgentRoster } from "./agents/AgentRoster";
+import { WorkspacePinnedAgents, AgentRoster } from "./agents/AgentRoster";
+import { SidebarOrderedList, SidebarOrderedRow } from "./sidebar/SidebarOrderedList";
 import { SidebarSectionHeader, useSidebarSectionExpansion } from "./sidebar/SidebarSectionHeader";
 import { selectNonAgentProjectItems, selectRegularProjects } from "../agentPresentation";
 import { useCopyToClipboard } from "~/hooks/useCopyToClipboard";
@@ -376,10 +379,13 @@ interface SidebarThreadRowProps {
     threadRef?: ScopedThreadRef,
   ) => boolean;
   onFileDropThreads: (threadRef: ScopedThreadRef, files: File[]) => void;
+  sortable?: boolean;
 }
 
 const SidebarThreadRow = memo(function SidebarThreadRow(props: SidebarThreadRowProps) {
   const codeWorkspace = useCodeWorkspace();
+  const dragKey = scopedThreadKey(scopeThreadRef(props.thread.environmentId, props.thread.id));
+  const sortable = useSortable({ id: dragKey, disabled: !props.sortable });
   const {
     orderedProjectThreadKeys,
     isActive,
@@ -552,10 +558,24 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: SidebarThreadRowP
       // archive buttons) — only the row body should enter inline rename.
       if ((event.target as HTMLElement).closest("button, a")) return;
       event.preventDefault();
+      if (SINGLE_PROVIDER_UI) {
+        currentConversationTabsStore().getState().open({ kind: "server", threadRef }, true);
+        void navigateToThread(threadRef);
+        return;
+      }
       startThreadRename(threadKey, thread.title);
     },
-    [isMobile, renamingThreadKey, startThreadRename, threadKey, thread.title],
+    [
+      isMobile,
+      renamingThreadKey,
+      startThreadRename,
+      threadKey,
+      thread.title,
+      threadRef,
+      navigateToThread,
+    ],
   );
+  const conversationClick = useConversationRowClick(handleRowClick, handleRowDoubleClick);
   const handleRowKeyDown = useCallback(
     (event: React.KeyboardEvent) => {
       if (event.key !== "Enter" && event.key !== " ") return;
@@ -726,8 +746,20 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: SidebarThreadRowP
 
   return (
     <SidebarMenuSubItem
-      ref={rowRef}
-      className="w-full"
+      ref={(node) => {
+        rowRef(node);
+        sortable.setNodeRef(node);
+      }}
+      style={
+        props.sortable
+          ? {
+              transform: CSS.Translate.toString(sortable.transform),
+              transition: sortable.transition,
+            }
+          : undefined
+      }
+      className={cn("w-full", sortable.isDragging && "z-30")}
+      data-dragging={sortable.isDragging || undefined}
       data-thread-item
       {...fileDropHandlers}
       onMouseLeave={handleMouseLeave}
@@ -742,6 +774,8 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: SidebarThreadRowP
         data-slot="sidebar-menu-sub-button"
         data-sidebar="menu-sub-button"
         data-size="sm"
+        {...(props.sortable ? sortable.attributes : {})}
+        {...(props.sortable ? sortable.listeners : {})}
         data-testid={`thread-row-${thread.id}`}
         className={cn(
           "relative isolate flex h-8 w-full min-w-0 cursor-pointer select-none items-center gap-2 overflow-hidden rounded-md px-2.5 text-left text-xs outline-hidden focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring group-data-[collapsible=icon]:hidden [&>span:last-child]:truncate [&>svg:not([class*='size-'])]:size-4 [&>svg]:shrink-0 [&>svg]:text-sidebar-foreground",
@@ -753,9 +787,19 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: SidebarThreadRowP
               : "text-sidebar-foreground hover:bg-sidebar-row-hover",
           isFileDragOver && "ring-1 ring-inset ring-primary/70",
         )}
-        onClick={handleRowClick}
-        onDoubleClick={handleRowDoubleClick}
-        onKeyDown={handleRowKeyDown}
+        onClick={conversationClick.onClick}
+        onDoubleClick={conversationClick.onDoubleClick}
+        onKeyDown={(event) => {
+          if (props.sortable && event.key === " ") {
+            sortable.listeners?.onKeyDown?.(event);
+            return;
+          }
+          if (sortable.isDragging) {
+            sortable.listeners?.onKeyDown?.(event);
+            return;
+          }
+          handleRowKeyDown(event);
+        }}
         onContextMenu={handleRowContextMenu}
       >
         <div className="flex min-w-0 flex-1 items-center gap-1.5 text-left">
@@ -1128,42 +1172,59 @@ const SidebarProjectThreadList = memo(function SidebarProjectThreadList(
             </div>
           </SidebarMenuSubItem>
         ) : null}
-        {shouldShowThreadPanel &&
-          renderedThreads.map((thread) => {
-            const threadKey = scopedThreadKey(scopeThreadRef(thread.environmentId, thread.id));
-            return (
-              <SidebarThreadRow
-                key={threadKey}
-                thread={thread}
-                indented={indented}
-                orderedProjectThreadKeys={orderedProjectThreadKeys}
-                isActive={activeRouteThreadKey === threadKey}
-                openPullRequestsInRightPanel={openPullRequestsInRightPanel}
-                jumpLabel={threadJumpLabelByKey.get(threadKey) ?? null}
-                appSettingsConfirmThreadArchive={appSettingsConfirmThreadArchive}
-                renamingThreadKey={renamingThreadKey}
-                renamingTitle={renamingTitle}
-                setRenamingTitle={setRenamingTitle}
-                startThreadRename={startThreadRename}
-                renamingInputRef={renamingInputRef}
-                renamingCommittedRef={renamingCommittedRef}
-                confirmingArchiveThreadKey={confirmingArchiveThreadKey}
-                setConfirmingArchiveThreadKey={setConfirmingArchiveThreadKey}
-                confirmArchiveButtonRefs={confirmArchiveButtonRefs}
-                handleThreadClick={handleThreadClick}
-                navigateToThread={navigateToThread}
-                onFileDropThreads={onFileDropThreads}
-                handleMultiSelectContextMenu={handleMultiSelectContextMenu}
-                handleThreadContextMenu={handleThreadContextMenu}
-                clearSelection={clearSelection}
-                commitRename={commitRename}
-                cancelRename={cancelRename}
-                attemptArchiveThread={attemptArchiveThread}
-                toggleThreadPin={toggleThreadPin}
-                openPrLink={openPrLink}
-              />
-            );
-          })}
+        {shouldShowThreadPanel && (
+          <SidebarOrderedList
+            ids={renderedThreads.map((thread) =>
+              scopedThreadKey(scopeThreadRef(thread.environmentId, thread.id)),
+            )}
+            onReorder={(keys) => {
+              if (SINGLE_PROVIDER_UI)
+                useUiStateStore.setState((s) => ({
+                  sidebarThreadOrder: [
+                    ...keys,
+                    ...(s.sidebarThreadOrder ?? []).filter((key) => !keys.includes(key)),
+                  ],
+                }));
+            }}
+          >
+            {renderedThreads.map((thread) => {
+              const threadKey = scopedThreadKey(scopeThreadRef(thread.environmentId, thread.id));
+              return (
+                <SidebarThreadRow
+                  key={threadKey}
+                  sortable={SINGLE_PROVIDER_UI}
+                  thread={thread}
+                  indented={indented}
+                  orderedProjectThreadKeys={orderedProjectThreadKeys}
+                  isActive={activeRouteThreadKey === threadKey}
+                  openPullRequestsInRightPanel={openPullRequestsInRightPanel}
+                  jumpLabel={threadJumpLabelByKey.get(threadKey) ?? null}
+                  appSettingsConfirmThreadArchive={appSettingsConfirmThreadArchive}
+                  renamingThreadKey={renamingThreadKey}
+                  renamingTitle={renamingTitle}
+                  setRenamingTitle={setRenamingTitle}
+                  startThreadRename={startThreadRename}
+                  renamingInputRef={renamingInputRef}
+                  renamingCommittedRef={renamingCommittedRef}
+                  confirmingArchiveThreadKey={confirmingArchiveThreadKey}
+                  setConfirmingArchiveThreadKey={setConfirmingArchiveThreadKey}
+                  confirmArchiveButtonRefs={confirmArchiveButtonRefs}
+                  handleThreadClick={handleThreadClick}
+                  navigateToThread={navigateToThread}
+                  onFileDropThreads={onFileDropThreads}
+                  handleMultiSelectContextMenu={handleMultiSelectContextMenu}
+                  handleThreadContextMenu={handleThreadContextMenu}
+                  clearSelection={clearSelection}
+                  commitRename={commitRename}
+                  cancelRename={cancelRename}
+                  attemptArchiveThread={attemptArchiveThread}
+                  toggleThreadPin={toggleThreadPin}
+                  openPrLink={openPrLink}
+                />
+              );
+            })}
+          </SidebarOrderedList>
+        )}
 
         {projectExpanded && hasOverflowingThreads && !isThreadListExpanded && (
           <SidebarMenuSubItem className="w-full">
@@ -1407,18 +1468,32 @@ const SidebarProjectItem = memo(function SidebarProjectItem(props: SidebarProjec
     return counts;
   }, [memberProjectByScopedKey, project.memberProjects, projectThreads]);
 
+  const manualThreadOrder = useUiStateStore((s) => s.sidebarThreadOrder);
   const { visibleProjectThreads, orderedProjectThreadKeys } = useMemo(() => {
     const visible = projectThreads.filter((thread) => thread.archivedAt === null);
-    const visibleProjectThreads = pinnedOnly
+    const sortedProjectThreads = pinnedOnly
       ? sortPinnedThreadsForSidebar(visible)
       : sortThreads(visible, threadSortOrder);
+    const ranks = new Map(
+      (SINGLE_PROVIDER_UI ? (manualThreadOrder ?? []) : []).map((key, index) => [key, index]),
+    );
+    const visibleProjectThreads =
+      ranks.size && !pinnedOnly
+        ? sortedProjectThreads.toSorted(
+            (a, b) =>
+              (ranks.get(scopedThreadKey(scopeThreadRef(a.environmentId, a.id))) ??
+                Number.MAX_SAFE_INTEGER) -
+              (ranks.get(scopedThreadKey(scopeThreadRef(b.environmentId, b.id))) ??
+                Number.MAX_SAFE_INTEGER),
+          )
+        : sortedProjectThreads;
     return {
       orderedProjectThreadKeys: visibleProjectThreads.map((thread) =>
         scopedThreadKey(scopeThreadRef(thread.environmentId, thread.id)),
       ),
       visibleProjectThreads,
     };
-  }, [projectThreads, threadSortOrder, pinnedOnly]);
+  }, [projectThreads, threadSortOrder, pinnedOnly, manualThreadOrder]);
 
   const pinnedCollapsedThread = useMemo(() => {
     if (projectExpanded || activeRouteThreadKey === null) return null;
@@ -3023,6 +3098,13 @@ const SidebarProjectsContent = memo(function SidebarProjectsContent(
   const pinnedProjects = sortedProjects.filter((project) =>
     project.memberProjectRefs.some((ref) => projectsWithPins.has(scopedProjectKey(ref))),
   );
+  const hasPinnedAgents = useAgents().some(
+    ({ project, thread }) => !project.agentProfile?.archived && thread?.pinnedAt,
+  );
+  const savedSectionOrder = useUiStateStore((s) => s.sidebarSectionOrder);
+  const sectionOrder = [
+    ...new Set([...(savedSectionOrder ?? []), "agents", "chats", "projects"]),
+  ].filter((id) => ["agents", "chats", "projects"].includes(id));
   const primaryEnvironmentId = usePrimaryEnvironmentId();
   const recentProjects = sortedProjects.filter((project) =>
     isScratchProject(project, scratchWorkspaceRootFor(project.environmentId)),
@@ -3114,8 +3196,7 @@ const SidebarProjectsContent = memo(function SidebarProjectsContent(
         </SidebarGroup>
       ) : null}
       <LocalSecondaryStatus />
-      <AgentRoster />
-      {pinnedProjects.length > 0 && (
+      {(pinnedProjects.length > 0 || hasPinnedAgents) && (
         <SidebarGroup>
           <SidebarSectionHeader
             label="Pinned"
@@ -3124,6 +3205,7 @@ const SidebarProjectsContent = memo(function SidebarProjectsContent(
           />
           {pinnedExpanded && (
             <SidebarMenu>
+              <WorkspacePinnedAgents />
               {pinnedProjects.map((project) => (
                 <SidebarProjectListRow
                   key={project.projectKey}
@@ -3138,92 +3220,120 @@ const SidebarProjectsContent = memo(function SidebarProjectsContent(
           )}
         </SidebarGroup>
       )}
-      <SidebarGroup>
-        <RecentThreadsHeader environmentId={primaryEnvironmentId} />
-        <SidebarMenu>
-          {recentProjects.map((project) => (
-            <SidebarProjectListRow key={project.projectKey} {...projectItemProps(project, null)} />
+      <SidebarOrderedList
+        ids={sectionOrder}
+        onReorder={(sidebarSectionOrder) => useUiStateStore.setState({ sidebarSectionOrder })}
+      >
+        <div role="list" className="[&>[role=listitem]>[data-sidebar=group]]:pt-0">
+          {sectionOrder.map((id) => (
+            <SidebarOrderedRow key={id} id={id}>
+              {id === "agents" ? (
+                <AgentRoster />
+              ) : id === "chats" ? (
+                <SidebarGroup>
+                  <RecentThreadsHeader environmentId={primaryEnvironmentId} />
+                  <SidebarMenu>
+                    {recentProjects.map((project) => (
+                      <SidebarProjectListRow
+                        key={project.projectKey}
+                        {...projectItemProps(project, null)}
+                      />
+                    ))}
+                  </SidebarMenu>
+                  {recentExpanded && recentProjects.length === 0 ? (
+                    <p className="px-2.5 py-2 text-xs text-sidebar-muted-foreground">
+                      No chats yet
+                    </p>
+                  ) : null}
+                </SidebarGroup>
+              ) : (
+                <SidebarGroup>
+                  <div>
+                    <SidebarSectionHeader
+                      label="Projects"
+                      expanded={projectsExpanded}
+                      onToggle={() => setProjectsExpanded(!projectsExpanded)}
+                    >
+                      <ProjectSortMenu
+                        projectSortOrder={projectSortOrder}
+                        threadSortOrder={threadSortOrder}
+                        threadPreviewCount={threadPreviewCount}
+                        onProjectSortOrderChange={handleProjectSortOrderChange}
+                        onThreadSortOrderChange={handleThreadSortOrderChange}
+                        onThreadPreviewCountChange={handleThreadPreviewCountChange}
+                      />
+                      <Tooltip>
+                        <TooltipTrigger
+                          render={
+                            <Button
+                              size="icon-xs"
+                              variant="ghost"
+                              aria-label="Add project"
+                              data-testid="sidebar-add-project-trigger"
+                              onClick={() => {
+                                setProjectsExpanded(true);
+                                openAddProject();
+                              }}
+                            />
+                          }
+                        >
+                          <FolderPlusIcon className="size-3.5" />
+                        </TooltipTrigger>
+                        <TooltipPopup side="right">Add project</TooltipPopup>
+                      </Tooltip>
+                    </SidebarSectionHeader>
+                  </div>
+                  {projectsExpanded &&
+                    (isManualProjectSorting ? (
+                      <DndContext
+                        sensors={projectDnDSensors}
+                        collisionDetection={projectCollisionDetection}
+                        modifiers={[restrictToVerticalAxis, restrictToFirstScrollableAncestor]}
+                        onDragStart={handleProjectDragStart}
+                        onDragEnd={handleProjectDragEnd}
+                        onDragCancel={handleProjectDragCancel}
+                      >
+                        <SidebarMenu>
+                          <SortableContext
+                            items={folderProjects.map((project) => project.projectKey)}
+                            strategy={verticalListSortingStrategy}
+                          >
+                            {folderProjects.map((project) => (
+                              <SortableProjectItem
+                                key={project.projectKey}
+                                projectId={project.projectKey}
+                              >
+                                {(dragHandleProps) => (
+                                  <SidebarProjectItem
+                                    {...projectItemProps(project, dragHandleProps)}
+                                  />
+                                )}
+                              </SortableProjectItem>
+                            ))}
+                          </SortableContext>
+                        </SidebarMenu>
+                      </DndContext>
+                    ) : (
+                      <SidebarMenu ref={attachProjectListAutoAnimateRef}>
+                        {folderProjects.map((project) => (
+                          <SidebarProjectListRow
+                            key={project.projectKey}
+                            {...projectItemProps(project, null)}
+                          />
+                        ))}
+                      </SidebarMenu>
+                    ))}
+                  {projectsExpanded && folderProjects.length === 0 && (
+                    <p className="px-2.5 py-2 text-xs text-sidebar-muted-foreground">
+                      No projects yet
+                    </p>
+                  )}
+                </SidebarGroup>
+              )}
+            </SidebarOrderedRow>
           ))}
-        </SidebarMenu>
-        {recentExpanded && recentProjects.length === 0 ? (
-          <p className="px-2.5 py-2 text-xs text-sidebar-muted-foreground">No chats yet</p>
-        ) : null}
-        <div className="mt-4">
-          <SidebarSectionHeader
-            label="Projects"
-            expanded={projectsExpanded}
-            onToggle={() => setProjectsExpanded(!projectsExpanded)}
-          >
-            <ProjectSortMenu
-              projectSortOrder={projectSortOrder}
-              threadSortOrder={threadSortOrder}
-              threadPreviewCount={threadPreviewCount}
-              onProjectSortOrderChange={handleProjectSortOrderChange}
-              onThreadSortOrderChange={handleThreadSortOrderChange}
-              onThreadPreviewCountChange={handleThreadPreviewCountChange}
-            />
-            <Tooltip>
-              <TooltipTrigger
-                render={
-                  <Button
-                    size="icon-xs"
-                    variant="ghost"
-                    aria-label="Add project"
-                    data-testid="sidebar-add-project-trigger"
-                    onClick={() => {
-                      setProjectsExpanded(true);
-                      openAddProject();
-                    }}
-                  />
-                }
-              >
-                <FolderPlusIcon className="size-3.5" />
-              </TooltipTrigger>
-              <TooltipPopup side="right">Add project</TooltipPopup>
-            </Tooltip>
-          </SidebarSectionHeader>
         </div>
-
-        {projectsExpanded &&
-          (isManualProjectSorting ? (
-            <DndContext
-              sensors={projectDnDSensors}
-              collisionDetection={projectCollisionDetection}
-              modifiers={[restrictToVerticalAxis, restrictToFirstScrollableAncestor]}
-              onDragStart={handleProjectDragStart}
-              onDragEnd={handleProjectDragEnd}
-              onDragCancel={handleProjectDragCancel}
-            >
-              <SidebarMenu>
-                <SortableContext
-                  items={folderProjects.map((project) => project.projectKey)}
-                  strategy={verticalListSortingStrategy}
-                >
-                  {folderProjects.map((project) => (
-                    <SortableProjectItem key={project.projectKey} projectId={project.projectKey}>
-                      {(dragHandleProps) => (
-                        <SidebarProjectItem {...projectItemProps(project, dragHandleProps)} />
-                      )}
-                    </SortableProjectItem>
-                  ))}
-                </SortableContext>
-              </SidebarMenu>
-            </DndContext>
-          ) : (
-            <SidebarMenu ref={attachProjectListAutoAnimateRef}>
-              {folderProjects.map((project) => (
-                <SidebarProjectListRow
-                  key={project.projectKey}
-                  {...projectItemProps(project, null)}
-                />
-              ))}
-            </SidebarMenu>
-          ))}
-
-        {projectsExpanded && folderProjects.length === 0 && (
-          <p className="px-2.5 py-2 text-xs text-sidebar-muted-foreground">No projects yet</p>
-        )}
-      </SidebarGroup>
+      </SidebarOrderedList>
     </SidebarContent>
   );
 });
@@ -3469,7 +3579,7 @@ export default function LegacySidebar() {
 
   const handleProjectDragEnd = useCallback(
     (event: DragEndEvent) => {
-      if (sidebarProjectSortOrder !== "manual") {
+      if (!SINGLE_PROVIDER_UI && sidebarProjectSortOrder !== "manual") {
         dragInProgressRef.current = false;
         return;
       }
@@ -3484,13 +3594,14 @@ export default function LegacySidebar() {
       );
       const overMemberKeys = overProject.memberProjects.map((member) => member.physicalProjectKey);
       reorderProjects(orderedProjects.map(getProjectOrderKey), activeMemberKeys, overMemberKeys);
+      if (SINGLE_PROVIDER_UI) updateSettings({ sidebarProjectSortOrder: "manual" });
     },
-    [orderedProjects, sidebarProjectSortOrder, reorderProjects, sidebarProjects],
+    [orderedProjects, sidebarProjectSortOrder, reorderProjects, sidebarProjects, updateSettings],
   );
 
   const handleProjectDragStart = useCallback(
     (_event: DragStartEvent) => {
-      if (sidebarProjectSortOrder !== "manual") {
+      if (!SINGLE_PROVIDER_UI && sidebarProjectSortOrder !== "manual") {
         return;
       }
       dragInProgressRef.current = true;
@@ -3561,7 +3672,7 @@ export default function LegacySidebar() {
     scratchWorkspaceRootFor,
     visibleThreads,
   ]);
-  const isManualProjectSorting = sidebarProjectSortOrder === "manual";
+  const isManualProjectSorting = SINGLE_PROVIDER_UI || sidebarProjectSortOrder === "manual";
   const visibleSidebarThreadKeys = useMemo(
     () => [
       ...(pinnedExpanded

@@ -134,7 +134,7 @@ async function render(current = true, roster = false) {
   );
 }
 function button(label: string) {
-  return [...document.querySelectorAll<HTMLButtonElement>("button")].find(
+  return [...document.querySelectorAll<HTMLButtonElement>('button, [role="menuitem"]')].find(
     (button) => button.getAttribute("aria-label") === label || button.textContent?.trim() === label,
   )!;
 }
@@ -288,7 +288,8 @@ it("shows agent management only for the current agent and keeps create/archive a
   await render(false);
   expect(host.querySelector("button")).toBeNull();
   await render(false, true);
-  await click("Create new agent");
+  await click("New agent, channel or section");
+  await click("New agent");
   expect(useAgentDialogStore.getState().target).toEqual({ projectRef: null });
   closeAgentDialog();
   await render();
@@ -311,7 +312,8 @@ it("collapses Agents even when empty, persists across remounts, and expands when
   await act(async () => root.render(null));
   await render(false, true);
   expect(button("Agents").getAttribute("aria-expanded")).toBe("false");
-  await click("Create new agent");
+  await click("New agent, channel or section");
+  await click("New agent");
   expect(button("Agents").getAttribute("aria-expanded")).toBe("true");
   expect(host.textContent).toContain("No agents yet");
   expect(useAgentDialogStore.getState().target).toEqual({ projectRef: null });
@@ -374,8 +376,8 @@ it("archives only the profile once while pending, preserving the linked conversa
   await render();
   await click("Manage Alex");
   await act(async () => {
-    button("Archive").click();
-    button("Archive").click();
+    button("Archive agent").click();
+    button("Archive agent").click();
   });
   expect(state.update).toHaveBeenCalledOnce();
   expect(state.update).toHaveBeenCalledWith({
@@ -389,7 +391,7 @@ it("archives only the profile once while pending, preserving the linked conversa
   );
   expect(document.querySelector('[data-slot="popover-popup"]')).not.toBeNull();
   state.update.mockResolvedValue(AsyncResult.success(undefined));
-  await click("Archive");
+  await click("Archive agent");
   expect(state.update).toHaveBeenCalledTimes(2);
   expect(document.querySelector('[data-slot="popover-popup"]')).toBeNull();
   expect(state.unarchive).not.toHaveBeenCalled();
@@ -411,9 +413,9 @@ it("blocks archiving during native work", async () => {
   ];
   await render();
   await click("Manage Alex");
-  expect(button("Archive").disabled).toBe(true);
+  expect(button("Archive agent").disabled).toBe(true);
   expect(document.body.textContent).toContain("Wait for the current task to finish");
-  await click("Archive");
+  await click("Archive agent");
   expect(state.update).not.toHaveBeenCalled();
 });
 
@@ -477,7 +479,8 @@ it("dismisses the narrow sidebar when creating from either entry point or editin
   state.mobile = true;
   state.sidebarOpen = true;
   await render(false, true);
-  await click("Create new agent");
+  await click("New agent, channel or section");
+  await click("New agent");
   expect(useAgentDialogStore.getState().target).toEqual({ projectRef: null });
   expect(state.sidebarOpen).toBe(false);
 
@@ -545,3 +548,7 @@ it("keeps the current agent visible while Agents is collapsed and hides it after
   await click("Agents");
   expect(host.textContent).toContain("Alex");
 });
+
+vi.mock("../../hooks/useThreadActions", () => ({
+  useThreadActions: () => ({ pinThread: vi.fn(), confirmAndUnpinThread: vi.fn() }),
+}));

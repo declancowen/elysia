@@ -1,4 +1,6 @@
 import { useCodeWorkspace } from "~/hooks/useSettings";
+import { useAgents } from "../agents/useAgents";
+import { useAgentSidebarPreferences } from "../agents/agentSidebarPreferences";
 import { ArchivedAgentsSection } from "./ArchivedAgentsSection";
 import { Spinner } from "~/components/ui/spinner";
 import { NotificationSettings } from "./NotificationSettings";
@@ -8,6 +10,7 @@ import {
   ArchiveX,
   CheckIcon,
   MessageCircle,
+  FolderIcon,
   SettingsIcon,
 } from "~/icons";
 import { Link, useNavigate } from "@tanstack/react-router";
@@ -21,6 +24,8 @@ import {
   type ScopedThreadRef,
 } from "@t3tools/contracts";
 import { scopeThreadRef } from "@t3tools/client-runtime/environment";
+import { isScratchProject } from "@t3tools/client-runtime/state/projects";
+import { useEnvironments } from "../../state/environments";
 import { presentThreadShell } from "@t3tools/client-runtime/state/shell";
 import {
   isAtomCommandInterrupted,
@@ -394,6 +399,7 @@ function AboutVersionSection() {
 }
 
 export function useSettingsRestore(onRestored?: () => void) {
+  const hideEmptyAgents = useAgentSidebarPreferences((s) => s.hideEmptySection);
   const {
     theme,
     setTheme,
@@ -414,6 +420,7 @@ export function useSettingsRestore(onRestored?: () => void) {
 
   const changedSettingLabels = useMemo(
     () => [
+      ...(SINGLE_PROVIDER_UI && hideEmptyAgents ? ["Hide agents section"] : []),
       ...(theme !== "system" ? ["Theme"] : []),
       ...(!followSystem ? ["Follow system"] : []),
       ...(themeHalves !== null ? ["Theme mix"] : []),
@@ -593,6 +600,7 @@ export function useSettingsRestore(onRestored?: () => void) {
       settings.notificationMode,
       settings.inAppNotificationsEnabled,
       settings.wordWrap,
+      hideEmptyAgents,
       followSystem,
       theme,
       themeHalves,
@@ -726,6 +734,7 @@ export function useSettingsRestore(onRestored?: () => void) {
       // rather than discovering it later.
       enableAgentBrowserAccess: DEFAULT_UNIFIED_SETTINGS.enableAgentBrowserAccess,
     });
+    if (SINGLE_PROVIDER_UI) useAgentSidebarPreferences.setState({ hideEmptySection: false });
     onRestored?.();
   }, [
     changedSettingLabels,
@@ -1903,10 +1912,33 @@ function AutoSettleDaysInput({
 }
 
 function WorkspacePreferencesSection() {
+  const hasAgents = useAgents().some(({ project }) => !project.agentProfile?.archived);
+  const hideEmptySection = useAgentSidebarPreferences((s) => s.hideEmptySection);
   const settings = useScopedSettings();
   const updateSettings = useUpdateScopedSettings();
   return (
     <SettingsSection id="legacy-features" title="Workspace preferences">
+      {SINGLE_PROVIDER_UI ? (
+        <SettingsRow
+          title="Hide agents section"
+          description={
+            hasAgents
+              ? "Archive your agents before hiding the section in Home."
+              : "Hide the empty agents section in Home. Creating an agent shows it again."
+          }
+          control={
+            <Switch
+              aria-label="Hide agents section"
+              checked={hideEmptySection && !hasAgents}
+              disabled={hasAgents}
+              onCheckedChange={(checked) => {
+                if (!hasAgents)
+                  useAgentSidebarPreferences.setState({ hideEmptySection: Boolean(checked) });
+              }}
+            />
+          }
+        />
+      ) : null}
       <SettingsRow
         {...searchableSetting("legacy-plan-mode")}
         description="Restore Build/Plan, /plan, /default, and Shift+Tab. Off uses build mode."
@@ -3059,6 +3091,13 @@ function GeneralSettingsContent({ scopeActions }: { scopeActions: ReactNode }) {
 }
 
 export function ArchivedThreadsPanel() {
+  const { environments } = useEnvironments();
+  const isChatProject = (project: { environmentId: string; workspaceRoot: string }) =>
+    isScratchProject(
+      project,
+      environments.find((entry) => entry.environmentId === project.environmentId)?.serverConfig
+        ?.scratchWorkspaceRoot,
+    );
   const { scope } = useSettingsScope();
   const [sort, setSort] = useState<ArchivedThreadSort>("project");
   const { unarchiveThread, confirmAndDeleteThread } = useThreadActions();
@@ -3195,6 +3234,7 @@ export function ArchivedThreadsPanel() {
   return (
     <SettingsPageContainer>
       <ArchivedAgentsSection environmentIds={scope.environmentIds} />
+      <ArchivedAgentsSection environmentIds={scope.environmentIds} channels />
       {archivedGroups.length === 0 ? (
         <SettingsSection
           id={isLoadingArchive ? undefined : searchableSetting("archive").id}
@@ -3236,10 +3276,14 @@ export function ArchivedThreadsPanel() {
                   : "chats"
             }
             id={index === 0 ? searchableSetting("archive").id : undefined}
-            title={project?.title ?? "Chats"}
+            title={!project || isChatProject(project) ? "Chats" : project.title}
             icon={
-              project ? (
-                <ProjectFavicon project={project} />
+              project && !isChatProject(project) ? (
+                SINGLE_PROVIDER_UI ? (
+                  <FolderIcon className="size-3.5" />
+                ) : (
+                  <ProjectFavicon project={project} />
+                )
               ) : (
                 <MessageCircle className="size-3.5" />
               )

@@ -239,6 +239,7 @@ import UserLockIconAsset from "@hugeicons/core-free-icons/UserLock01Icon";
 import UserPlusIconAsset from "@hugeicons/core-free-icons/UserPlusIcon";
 import UserRoundIconAsset from "@hugeicons/core-free-icons/UserRoundIcon";
 import UserRoundXIconAsset from "@hugeicons/core-free-icons/UserRoundXIcon";
+import ChannelIconAsset from "@hugeicons/core-free-icons/HashtagIcon";
 import UsersIconAsset from "@hugeicons/core-free-icons/UsersIcon";
 import Volume2Asset from "@hugeicons/core-free-icons/VolumeHighIcon";
 import VolumeOffAsset from "@hugeicons/core-free-icons/VolumeOffIcon";
@@ -685,3 +686,5 @@ export const AlignBoxMiddleLeftIcon = /* @__PURE__ */ createIcon(
   AlignBoxMiddleLeftIconAsset,
   "align-box-middle-left",
 );
+
+export const ChannelIcon = /* @__PURE__ */ createIcon(ChannelIconAsset, "channel");

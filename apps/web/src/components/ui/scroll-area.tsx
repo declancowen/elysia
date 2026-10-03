@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef, useState } from "react";
 import { ScrollArea as ScrollAreaPrimitive } from "@base-ui/react/scroll-area";
 
 import { cn } from "~/lib/utils";
@@ -86,10 +87,40 @@ function ScrollBar({
   orientation = "vertical",
   ...props
 }: ScrollAreaPrimitive.Scrollbar.Props) {
+  const [track, setTrack] = useState<HTMLDivElement | null>(null);
+  const thumbRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!track || orientation !== "vertical") return;
+    const viewport = track.parentElement?.querySelector<HTMLElement>(
+      '[data-slot="scroll-area-viewport"]',
+    );
+    if (!viewport) return;
+    // Base UI positions its proportional thumb. Our compact thumb needs the
+    // same scroll fraction over its own travel distance, including at the end.
+    const updateOffset = () => {
+      const thumb = thumbRef.current;
+      if (!thumb) return;
+      const range = viewport.scrollHeight - viewport.clientHeight;
+      const fraction = range > 0 ? Math.max(0, Math.min(1, viewport.scrollTop / range)) : 0;
+      const travel = Math.max(0, track.clientHeight - thumb.offsetHeight);
+      thumb.style.setProperty("--compact-scroll-offset", `${fraction * travel}px`);
+    };
+    const observer = new ResizeObserver(updateOffset);
+    observer.observe(viewport);
+    observer.observe(track);
+    if (viewport.firstElementChild) observer.observe(viewport.firstElementChild);
+    viewport.addEventListener("scroll", updateOffset, { passive: true });
+    updateOffset();
+    return () => {
+      observer.disconnect();
+      viewport.removeEventListener("scroll", updateOffset);
+    };
+  }, [track, orientation]);
   return (
     <ScrollAreaPrimitive.Scrollbar
+      ref={setTrack}
       className={cn(
-        "flex opacity-0 transition-opacity delay-300 data-[orientation=horizontal]:mx-1 data-[orientation=horizontal]:mb-px data-[orientation=horizontal]:h-1.5 data-[orientation=vertical]:my-1 data-[orientation=vertical]:mr-px data-[orientation=vertical]:w-1.5 data-[orientation=horizontal]:flex-col data-hovering:opacity-100 data-scrolling:opacity-100 data-hovering:delay-0 data-scrolling:delay-0 data-hovering:duration-100 data-scrolling:duration-100",
+        "flex opacity-0 transition-opacity delay-300 data-[orientation=horizontal]:mx-1 data-[orientation=horizontal]:mb-px data-[orientation=horizontal]:h-[var(--app-scrollbar-width)] data-[orientation=vertical]:my-1 data-[orientation=vertical]:mr-px data-[orientation=vertical]:w-[var(--app-scrollbar-width)] data-[orientation=horizontal]:flex-col data-hovering:opacity-100 data-scrolling:opacity-100 data-hovering:delay-0 data-scrolling:delay-0 data-hovering:duration-100 data-scrolling:duration-100",
         className,
       )}
       data-slot="scroll-area-scrollbar"
@@ -97,7 +128,13 @@ function ScrollBar({
       {...props}
     >
       <ScrollAreaPrimitive.Thumb
-        className="relative flex-1 rounded-full bg-[var(--app-scrollbar-thumb)] transition-colors hover:bg-[var(--app-scrollbar-thumb-hover)]"
+        ref={thumbRef}
+        className="data-[orientation=vertical]:[transform:translateY(var(--compact-scroll-offset,0px))]! relative shrink-0 data-[orientation=vertical]:w-full data-[orientation=horizontal]:h-full rounded-full bg-[var(--app-scrollbar-thumb)] transition-colors hover:bg-[var(--app-scrollbar-thumb-hover)]"
+        style={
+          orientation === "vertical"
+            ? { height: "min(24px, var(--scroll-area-thumb-height))" }
+            : undefined
+        }
         data-slot="scroll-area-thumb"
       />
     </ScrollAreaPrimitive.Scrollbar>

@@ -1,3 +1,4 @@
+import { SidebarSectionDragHandle } from "./SidebarOrderedList";
 import type { ReactNode } from "react";
 import { ChevronDownIcon, ChevronRightIcon } from "~/icons";
 
@@ -44,6 +45,7 @@ export function SidebarSectionHeader({
         )}
       </button>
       <div className="absolute top-1/2 right-0.5 flex -translate-y-1/2 items-center gap-1">
+        <SidebarSectionDragHandle label={label} />
         {children}
       </div>
     </div>

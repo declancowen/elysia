@@ -16,7 +16,7 @@ import {
   isAtomCommandInterrupted,
   squashAtomCommandFailure,
 } from "@t3tools/client-runtime/state/runtime";
-import { ChevronDownIcon, FolderClosedIcon, MessageCircleIcon, UsersIcon } from "~/icons";
+import { ChevronDownIcon, FolderClosedIcon, MessageCircleIcon, ChannelIcon } from "~/icons";
 import {
   memo,
   useCallback,
@@ -57,6 +57,7 @@ import {
 } from "../WorkspaceBreadcrumb";
 import { cn } from "~/lib/utils";
 import { ThreadOverviewPanel, type ThreadOverviewPanelProps } from "./ThreadOverviewPanel";
+import { ConversationTabs } from "./ConversationTabs";
 import { useChatHeaderColumn } from "./useChatHeaderColumn";
 
 interface ChatHeaderProps {
@@ -295,10 +296,14 @@ export const ChatHeader = memo(function ChatHeader({
       if ((event.target as HTMLElement).closest("[data-chat-header-actions]")) return;
       if (activeProject?.agentProfile) {
         event.preventDefault();
-        void showAgentContextMenu(scopeProjectRef(activeProject.environmentId, activeProject.id), {
-          x: event.clientX,
-          y: event.clientY,
-        });
+        void showAgentContextMenu(
+          scopeProjectRef(activeProject.environmentId, activeProject.id),
+          {
+            x: event.clientX,
+            y: event.clientY,
+          },
+          !!activeProject.agentProfile.group,
+        );
         return;
       }
       if (!isServerThread && onOpenProjectSettings === undefined) return;
@@ -352,8 +357,16 @@ export const ChatHeader = memo(function ChatHeader({
     [commitRename],
   );
   const codeWorkspace = useCodeWorkspace();
+  const channelWorkspace = activeProject?.agentProfile?.group?.workspaceRoot;
+  const showWorkspaceFiles = !activeProject?.agentProfile || !!channelWorkspace;
   const workspaceContent = (
     <div className="flex min-w-0 flex-col gap-1">
+      {channelWorkspace ? (
+        <div className="flex items-center gap-2.5 py-1.5 text-sm">
+          <FolderClosedIcon className="size-4" />
+          <span className="truncate">{channelWorkspace}</span>
+        </div>
+      ) : null}
       {activeProject ? (
         <button
           type="button"
@@ -367,7 +380,7 @@ export const ChatHeader = memo(function ChatHeader({
         >
           {activeProject.agentProfile ? (
             activeProject.agentProfile.group ? (
-              <UsersIcon aria-hidden className="size-4" />
+              <ChannelIcon aria-hidden className="size-4" />
             ) : (
               <AgentAvatar avatar={activeProject.agentProfile.avatar} className="size-4" />
             )
@@ -381,17 +394,20 @@ export const ChatHeader = memo(function ChatHeader({
           <span className="truncate">{activeProjectName}</span>
         </button>
       ) : null}
-      {showOpenInPicker ? (
+      {showOpenInPicker && showWorkspaceFiles ? (
         <OpenInPicker
           displayMode="panel"
           environmentId={activeThreadEnvironmentId}
           keybindings={keybindings}
           availableEditors={availableEditors}
-          openInCwd={openInCwd}
+          openInCwd={channelWorkspace ?? openInCwd}
           enableShortcut={false}
         />
       ) : null}
-      {codeWorkspace && activeProjectScripts ? (
+      {codeWorkspace &&
+      showWorkspaceFiles &&
+      !activeProject?.agentProfile &&
+      activeProjectScripts ? (
         <ProjectScriptsControl
           displayMode="panel"
           scripts={activeProjectScripts}
@@ -407,7 +423,7 @@ export const ChatHeader = memo(function ChatHeader({
     </div>
   );
   const versionControlContent =
-    codeWorkspace && activeProject && gitCwd && !projectless ? (
+    codeWorkspace && showWorkspaceFiles && activeProject && gitCwd && !projectless ? (
       <div className="flex min-w-0 flex-col gap-1">
         {workspaceBranchControls}
         <GitActionsControl
@@ -430,95 +446,95 @@ export const ChatHeader = memo(function ChatHeader({
         data-chat-header-main
         className={cn(
           "relative flex h-full min-w-0 items-center gap-2 pr-3 pl-5",
-          SINGLE_PROVIDER_UI &&
-            inlinePanel &&
-            !mainColumnHidden &&
-            "after:absolute after:top-2 after:bottom-2 after:left-[calc(100%+2px)] after:w-px after:-translate-x-1/2 after:bg-workspace-panel-border",
           inlinePanel ? "shrink-0" : "flex-1",
           mainColumnHidden && "hidden",
         )}
         style={mainColumnWidth === null ? undefined : { width: mainColumnWidth }}
       >
-        <WorkspaceBreadcrumb
-          ariaLabel="Thread breadcrumb"
-          className={cn(
-            "flex-1 overflow-clip [overflow-clip-margin:2px]",
-            mainColumnHidden && "hidden",
-          )}
-        >
-          {activeProject?.agentProfile ? (
-            <WorkspaceBreadcrumbItem current className="min-w-0 flex-1">
-              <button
-                type="button"
-                onClick={() =>
-                  openAgentDialog(scopeProjectRef(activeProject.environmentId, activeProject.id))
-                }
-                className="inline-flex min-w-0 max-w-full cursor-pointer items-center gap-2 rounded-sm text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
-              >
-                {activeProject.agentProfile.group ? (
-                  <UsersIcon aria-hidden className="size-4" />
-                ) : (
-                  <AgentAvatar avatar={activeProject.agentProfile.avatar} className="size-4" />
-                )}
-                <WorkspaceBreadcrumbText>{activeProjectName}</WorkspaceBreadcrumbText>
-              </button>
-            </WorkspaceBreadcrumbItem>
-          ) : null}
-          {!activeProject?.agentProfile && (
-            <WorkspaceBreadcrumbItem current className="min-w-10 flex-1">
-              {renamingTitle !== null ? (
-                <input
-                  autoFocus
-                  aria-label="Thread title"
-                  className="min-w-0 flex-1 rounded-sm bg-transparent text-sm font-medium text-foreground outline-none ring-1 ring-ring/50 focus:ring-ring"
-                  defaultValue={renamingTitle}
-                  onBlur={(event) => {
-                    if (renameCommittedRef.current) return;
-                    commitRename(event.currentTarget.value);
-                  }}
-                  onFocus={(event) => event.currentTarget.select()}
-                  onKeyDown={handleRenameKeyDown}
-                />
-              ) : isServerThread ? (
-                <Tooltip>
-                  <TooltipTrigger
-                    render={
-                      <button
-                        ref={titleButtonRef}
-                        type="button"
-                        aria-label={`Thread actions for ${activeThreadTitle}`}
-                        aria-haspopup="menu"
-                        onClick={openMenuFromTitle}
-                        onDoubleClick={handleTitleDoubleClick}
-                        onBlur={cancelPendingTitleMenu}
-                        className="group/thread-title inline-flex min-w-0 max-w-full cursor-pointer items-center gap-1 rounded-sm text-left focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
+        {SINGLE_PROVIDER_UI ? (
+          <ConversationTabs />
+        ) : (
+          <WorkspaceBreadcrumb
+            ariaLabel="Thread breadcrumb"
+            className={cn(
+              "flex-1 overflow-clip [overflow-clip-margin:2px]",
+              mainColumnHidden && "hidden",
+            )}
+          >
+            {activeProject?.agentProfile ? (
+              <WorkspaceBreadcrumbItem current className="min-w-0 flex-1">
+                <button
+                  type="button"
+                  onClick={() =>
+                    openAgentDialog(scopeProjectRef(activeProject.environmentId, activeProject.id))
+                  }
+                  className="inline-flex min-w-0 max-w-full cursor-pointer items-center gap-2 rounded-sm text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  {activeProject.agentProfile.group ? (
+                    <ChannelIcon aria-hidden className="size-4" />
+                  ) : (
+                    <AgentAvatar avatar={activeProject.agentProfile.avatar} className="size-4" />
+                  )}
+                  <WorkspaceBreadcrumbText>{activeProjectName}</WorkspaceBreadcrumbText>
+                </button>
+              </WorkspaceBreadcrumbItem>
+            ) : null}
+            {!activeProject?.agentProfile && (
+              <WorkspaceBreadcrumbItem current className="min-w-10 flex-1">
+                {renamingTitle !== null ? (
+                  <input
+                    autoFocus
+                    aria-label="Thread title"
+                    className="min-w-0 flex-1 rounded-sm bg-transparent text-sm font-medium text-foreground outline-none ring-1 ring-ring/50 focus:ring-ring"
+                    defaultValue={renamingTitle}
+                    onBlur={(event) => {
+                      if (renameCommittedRef.current) return;
+                      commitRename(event.currentTarget.value);
+                    }}
+                    onFocus={(event) => event.currentTarget.select()}
+                    onKeyDown={handleRenameKeyDown}
+                  />
+                ) : isServerThread ? (
+                  <Tooltip>
+                    <TooltipTrigger
+                      render={
+                        <button
+                          ref={titleButtonRef}
+                          type="button"
+                          aria-label={`Thread actions for ${activeThreadTitle}`}
+                          aria-haspopup="menu"
+                          onClick={openMenuFromTitle}
+                          onDoubleClick={handleTitleDoubleClick}
+                          onBlur={cancelPendingTitleMenu}
+                          className="group/thread-title inline-flex min-w-0 max-w-full cursor-pointer items-center gap-1 rounded-sm text-left focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
+                        />
+                      }
+                    >
+                      <h2 className="min-w-0">
+                        <WorkspaceBreadcrumbText>{activeThreadTitle}</WorkspaceBreadcrumbText>
+                      </h2>
+                      <ChevronDownIcon
+                        aria-hidden
+                        data-thread-title-chevron
+                        className="size-3.5 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover/thread-title:opacity-100 group-focus-visible/thread-title:opacity-100"
                       />
-                    }
-                  >
-                    <h2 className="min-w-0">
+                    </TooltipTrigger>
+                    <TooltipPopup side="top">{activeThreadTitle}</TooltipPopup>
+                  </Tooltip>
+                ) : (
+                  <Tooltip>
+                    <TooltipTrigger
+                      render={<h2 aria-label={activeThreadTitle} className="min-w-0 flex-1" />}
+                    >
                       <WorkspaceBreadcrumbText>{activeThreadTitle}</WorkspaceBreadcrumbText>
-                    </h2>
-                    <ChevronDownIcon
-                      aria-hidden
-                      data-thread-title-chevron
-                      className="size-3.5 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover/thread-title:opacity-100 group-focus-visible/thread-title:opacity-100"
-                    />
-                  </TooltipTrigger>
-                  <TooltipPopup side="top">{activeThreadTitle}</TooltipPopup>
-                </Tooltip>
-              ) : (
-                <Tooltip>
-                  <TooltipTrigger
-                    render={<h2 aria-label={activeThreadTitle} className="min-w-0 flex-1" />}
-                  >
-                    <WorkspaceBreadcrumbText>{activeThreadTitle}</WorkspaceBreadcrumbText>
-                  </TooltipTrigger>
-                  <TooltipPopup side="top">{activeThreadTitle}</TooltipPopup>
-                </Tooltip>
-              )}
-            </WorkspaceBreadcrumbItem>
-          )}
-        </WorkspaceBreadcrumb>
+                    </TooltipTrigger>
+                    <TooltipPopup side="top">{activeThreadTitle}</TooltipPopup>
+                  </Tooltip>
+                )}
+              </WorkspaceBreadcrumbItem>
+            )}
+          </WorkspaceBreadcrumb>
+        )}
         {!mainColumnHidden && (activeProject?.agentProfile || overview || mainLayoutControls) ? (
           <div
             data-chat-header-actions

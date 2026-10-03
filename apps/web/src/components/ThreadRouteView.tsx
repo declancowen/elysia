@@ -1,9 +1,11 @@
 import { scopedThreadKey } from "@t3tools/client-runtime/environment";
 import type { ScopedThreadRef } from "@t3tools/contracts";
+import { SINGLE_PROVIDER_UI } from "@t3tools/contracts";
 import { useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 
 import ChatView from "./ChatView";
+import { currentConversationTabsStore } from "../conversationTabsStore";
 import { resolveDraftPromotionNavigationTarget, threadHasStarted } from "./ChatView.logic";
 import { waitForDraftHeroTransition } from "./chat/draftHeroTransition";
 import { SidebarInset } from "./ui/sidebar";
@@ -19,6 +21,7 @@ import { useEnvironmentQuery } from "../state/query";
 import { environmentShell } from "../state/shell";
 import {
   buildThreadRouteParams,
+  buildDraftThreadRouteParams,
   resolveThreadRouteRenderState,
   type ThreadRouteTarget,
 } from "../threadRoutes";
@@ -108,6 +111,23 @@ export function ThreadRouteView({ target }: { target: ThreadRouteTarget }) {
   const environmentHasAnyThreads = environmentThreadRefs.length > 0 || environmentHasDraftThreads;
 
   useEffect(() => {
+    if (!SINGLE_PROVIDER_UI) return;
+    const tabs = currentConversationTabsStore().getState();
+    if (target.kind === "draft") {
+      if (canonicalThreadRef) {
+        const promoted = { kind: "server" as const, threadRef: canonicalThreadRef };
+        tabs.retarget(target, promoted);
+        tabs.open(promoted);
+      } else if (draftSession) {
+        tabs.open(target);
+      }
+    } else if (renderState !== "missing") {
+      if (promotedDraftId) tabs.retarget({ kind: "draft", draftId: promotedDraftId }, target);
+      tabs.open(target);
+    }
+  }, [canonicalThreadRef, draftSession, promotedDraftId, renderState, target]);
+
+  useEffect(() => {
     if (!inferredThreadRef || draftSession?.promotedTo) {
       return;
     }
@@ -138,8 +158,25 @@ export function ThreadRouteView({ target }: { target: ThreadRouteTarget }) {
     if (target.kind !== "draft" || draftSession || canonicalThreadRef) {
       return;
     }
-    void navigate({ to: "/", replace: true });
-  }, [canonicalThreadRef, draftSession, navigate, target.kind]);
+    const next = SINGLE_PROVIDER_UI
+      ? currentConversationTabsStore().getState().forget(target)
+      : null;
+    if (next?.kind === "server") {
+      void navigate({
+        to: "/$environmentId/$threadId",
+        params: buildThreadRouteParams(next.threadRef),
+        replace: true,
+      });
+    } else if (next?.kind === "draft") {
+      void navigate({
+        to: "/draft/$draftId",
+        params: buildDraftThreadRouteParams(next.draftId),
+        replace: true,
+      });
+    } else {
+      void navigate({ to: "/", replace: true });
+    }
+  }, [canonicalThreadRef, draftSession, navigate, target]);
 
   useEffect(() => {
     if (target.kind !== "server" || !bootstrapComplete) {
@@ -151,7 +188,22 @@ export function ThreadRouteView({ target }: { target: ThreadRouteTarget }) {
     if (renderState === "missing") {
       const { clearPendingFileDropsForThread } = useSidebarPendingFileDropStore.getState();
       clearPendingFileDropsForThread(target.threadRef);
-      if (environmentHasAnyThreads) {
+      const next = SINGLE_PROVIDER_UI
+        ? currentConversationTabsStore().getState().forget(target)
+        : null;
+      if (next?.kind === "server") {
+        void navigate({
+          to: "/$environmentId/$threadId",
+          params: buildThreadRouteParams(next.threadRef),
+          replace: true,
+        });
+      } else if (next?.kind === "draft") {
+        void navigate({
+          to: "/draft/$draftId",
+          params: buildDraftThreadRouteParams(next.draftId),
+          replace: true,
+        });
+      } else if (SINGLE_PROVIDER_UI || environmentHasAnyThreads) {
         void navigate({ to: "/", replace: true });
       }
     }

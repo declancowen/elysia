@@ -1,3 +1,5 @@
+import * as ChannelDelegation from "../orchestration-v2/AgentDelegation.ts";
+import * as ChannelProjects from "../orchestration-v2/ProjectStore.ts";
 import * as NodeCrypto from "@effect/platform-node/NodeCrypto";
 import { assert, expect, it } from "@effect/vitest";
 import {
@@ -116,7 +118,16 @@ it.effect.each(["on time", "after restart"])(
       const workers = Layer.mergeAll(
         ScheduledTasks.layer,
         UsageLimitRecoveryWorker.workerLive,
-      ).pipe(Layer.provide(dependencies), Layer.provide(Scheduler.layer));
+      ).pipe(
+        Layer.provide(dependencies),
+        Layer.provide(
+          Layer.mergeAll(
+            Scheduler.layer,
+            Layer.mock(ChannelProjects.ProjectStoreV2)({ get: () => Effect.succeedNone }),
+            Layer.mock(ChannelDelegation.AgentDelegation)({}),
+          ),
+        ),
+      );
       yield* Effect.gen(function* () {
         const tasks = yield* ScheduledTasks.ScheduledTaskService;
         const { task } = yield* tasks.upsert({

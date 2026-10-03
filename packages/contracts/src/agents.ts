@@ -75,6 +75,8 @@ export const AgentProfile = Schema.Struct({
         Schema.isMaxLength(32),
       ),
       leadProjectId: ProjectId,
+      workspaceRoot: Schema.optional(TrimmedNonEmptyString),
+      linkedProjectId: Schema.optional(ProjectId),
     }).check(
       Schema.makeFilter(
         (group) =>

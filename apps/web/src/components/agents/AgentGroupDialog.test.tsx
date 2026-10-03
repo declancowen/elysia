@@ -21,6 +21,7 @@ const state = vi.hoisted(() => ({
   router: { latestLocation: { href: "/agents" } },
 }));
 const environmentId = EnvironmentId.make("local");
+vi.mock("../../state/entities", () => ({ useProjects: () => [] }));
 vi.mock("../../state/environments", () => ({ usePrimaryEnvironmentId: () => environmentId }));
 vi.mock("../../state/projects", () => ({
   projectEnvironment: { createAgent: "create", update: "update" },

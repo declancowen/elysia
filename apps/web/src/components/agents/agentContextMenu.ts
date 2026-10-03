@@ -7,13 +7,14 @@ import { openAgentDialog } from "./agentDialogStore";
 export async function showAgentContextMenu(
   projectRef: ScopedProjectRef,
   position: { x: number; y: number },
+  channel = false,
 ) {
   const api = readLocalApi();
   if (!api) return false;
   try {
     const show = SINGLE_PROVIDER_UI ? showContextMenuFallback : api.contextMenu.show;
     const action = await show(
-      [{ id: "edit-agent", label: "Edit agent", icon: "edit-03" }],
+      [{ id: "edit-agent", label: channel ? "Edit channel" : "Edit agent", icon: "edit-03" }],
       position,
     );
     if (action === "edit-agent") {

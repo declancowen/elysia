@@ -318,7 +318,7 @@ function Sidebar({
         >
           <div
             className={cn(
-              "flex h-full w-full flex-col bg-sidebar group-data-[variant=floating]:rounded-lg group-data-[variant=floating]:border group-data-[variant=floating]:border-sidebar-border group-data-[variant=floating]:shadow-sm/5 group-data-[variant=panel]:overflow-hidden group-data-[variant=panel]:rounded-l-xl group-data-[variant=panel]:relative group-data-[variant=panel]:bg-workspace-sidebar",
+              "flex h-full w-full flex-col bg-sidebar group-data-[variant=floating]:rounded-lg group-data-[variant=floating]:border group-data-[variant=floating]:border-sidebar-border group-data-[variant=floating]:shadow-sm/5 group-data-[variant=panel]:overflow-hidden group-data-[variant=panel]:rounded-xl group-data-[variant=panel]:relative group-data-[variant=panel]:bg-workspace-sidebar",
               variant !== "panel" && "surface-grain",
               variant === "panel" && "workspace-panel-frame",
             )}
@@ -571,7 +571,7 @@ function SidebarInset({
         "relative flex min-w-0 w-full flex-1 flex-col bg-background",
         !SINGLE_PROVIDER_UI && "surface-grain",
         SINGLE_PROVIDER_UI
-          ? "md:[--workspace-fixed-controls-top:var(--workspace-controls-top)] md:me-2 md:w-auto md:max-h-full md:overflow-hidden md:rounded-r-xl md:peer-data-[state=collapsed]:ms-2 md:peer-data-[state=collapsed]:rounded-xl md:peer-data-[state=collapsed]:[&_[data-chat-column]]:rounded-xl"
+          ? "md:[--workspace-fixed-controls-top:var(--workspace-controls-top)] md:me-2 md:w-auto md:max-h-full md:overflow-hidden md:rounded-xl md:ms-1 md:peer-data-[state=collapsed]:ms-0 md:peer-data-[state=collapsed]:rounded-xl md:peer-data-[state=collapsed]:[&_[data-chat-column]]:rounded-xl"
           : "md:peer-data-[variant=inset]:peer-data-[state=collapsed]:ms-2 md:peer-data-[variant=inset]:m-2 md:peer-data-[variant=inset]:ms-0 md:peer-data-[variant=inset]:rounded-xl md:peer-data-[variant=inset]:shadow-sm/5",
         SINGLE_PROVIDER_UI && variant !== "split" && "workspace-panel-frame",
         SINGLE_PROVIDER_UI && variant === "standalone" && "md:ms-0 md:rounded-xl",
@@ -619,7 +619,7 @@ function SidebarContent({
       {/* Rows take focus on click. Scroll padding would make the browser nudge
           the list whenever a focused row sits under the fade. */}
       <ScrollArea
-        hideScrollbars
+        hideScrollbars={!SINGLE_PROVIDER_UI}
         scrollFade
         scrollFadePadding={false}
         // Thread rows provide keyboard access to this scroll region. Keeping
@@ -776,7 +776,10 @@ function SidebarMenuSub({ className, ...props }: React.ComponentProps<"ul">) {
 function SidebarMenuSubItem({ className, ...props }: React.ComponentProps<"li">) {
   return (
     <li
-      className={cn("group/menu-sub-item relative", className)}
+      className={cn(
+        "group/menu-sub-item relative data-[dragging=true]:opacity-90 data-[dragging=true]:shadow-lg data-[dragging=true]:bg-sidebar-control-surface",
+        className,
+      )}
       data-sidebar="menu-sub-item"
       data-slot="sidebar-menu-sub-item"
       {...props}

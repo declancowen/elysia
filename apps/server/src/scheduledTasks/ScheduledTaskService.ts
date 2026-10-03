@@ -28,6 +28,9 @@ import * as Schema from "effect/Schema";
 import * as Stream from "effect/Stream";
 import * as SqlClient from "effect/unstable/sql/SqlClient";
 
+import { formatAgentMention } from "@t3tools/shared/agentMentions";
+import * as ProjectStore from "../orchestration-v2/ProjectStore.ts";
+import * as AgentDelegation from "../orchestration-v2/AgentDelegation.ts";
 import * as ThreadLaunchService from "../orchestration-v2/ThreadLaunchService.ts";
 import * as ThreadManagementService from "../orchestration-v2/ThreadManagementService.ts";
 import * as Scheduler from "../scheduling/Scheduler.ts";
@@ -209,6 +212,8 @@ export const layer = Layer.effect(
     const crypto = yield* Crypto.Crypto;
     const threadLaunch = yield* ThreadLaunchService.ThreadLaunchService;
     const threadManagement = yield* ThreadManagementService.ThreadManagementService;
+    const projects = yield* ProjectStore.ProjectStoreV2;
+    const delegation = yield* AgentDelegation.AgentDelegation;
     const scheduler = yield* Scheduler.Scheduler;
     const activeRuns = yield* Ref.make<ReadonlySet<ScheduledTaskId>>(new Set());
     // Sliding(1) coalesces the dirty-signal: every notification triggers a
@@ -514,42 +519,65 @@ export const layer = Layer.effect(
         // Effect.exit (not Effect.result) so defects and interruptions in the
         // dispatch are also captured and recorded as a failed run instead of
         // aborting before markCompleted.
-        const result =
-          active.threadId === null
-            ? yield* Effect.exit(
-                threadLaunch.launch({
-                  commandId,
-                  projectId: active.projectId,
-                  title: active.title,
-                  modelSelection: active.modelSelection,
-                  runtimeMode: active.runtimeMode,
-                  interactionMode: active.interactionMode,
-                  workspaceStrategy: active.workspaceStrategy,
-                  initialMessage: {
-                    messageId,
-                    scheduledTaskId: active.id,
-                    text: prompt,
-                    attachments: [],
-                  },
-                  createdBy: active.createdBy,
-                  creationSource: active.creationSource,
-                }),
+        const result = yield* Effect.exit(
+          Effect.gen(function* () {
+            const project = yield* projects.get(active.projectId);
+            const channel = Option.isSome(project) ? project.value.agentProfile?.group : undefined;
+            if (channel) {
+              if (
+                Option.isNone(project) ||
+                project.value.agentProfile?.archived ||
+                !active.threadId ||
+                project.value.agentProfile?.conversationThreadId !== active.threadId
               )
-            : yield* Effect.exit(
-                threadManagement.sendToThread({
-                  projectId: active.projectId,
-                  commandId,
-                  threadId: ThreadId.make(active.threadId),
+                return yield* taskError("The scheduled channel chat is unavailable.", {
+                  taskId: active.id,
+                });
+              const lead = yield* projects.get(channel.leadProjectId);
+              if (Option.isNone(lead) || lead.value.agentProfile?.archived)
+                return yield* taskError("The channel lead is unavailable.", { taskId: active.id });
+              return yield* delegation.delegate({
+                commandId,
+                sourceThreadId: ThreadId.make(active.threadId),
+                agentProjectId: channel.leadProjectId,
+                messageId,
+                text: `${prompt}\n\nScheduled channel lead: ${formatAgentMention(channel.leadProjectId, lead.value.title)}`,
+                attachments: [],
+              });
+            }
+            if (active.threadId === null)
+              return yield* threadLaunch.launch({
+                commandId,
+                projectId: active.projectId,
+                title: active.title,
+                modelSelection: active.modelSelection,
+                runtimeMode: active.runtimeMode,
+                interactionMode: active.interactionMode,
+                workspaceStrategy: active.workspaceStrategy,
+                initialMessage: {
                   messageId,
                   scheduledTaskId: active.id,
                   text: prompt,
                   attachments: [],
-                  modelSelection: active.modelSelection,
-                  mode: "auto",
-                  createdBy: active.createdBy,
-                  creationSource: active.creationSource,
-                }),
-              );
+                },
+                createdBy: active.createdBy,
+                creationSource: active.creationSource,
+              });
+            return yield* threadManagement.sendToThread({
+              projectId: active.projectId,
+              commandId,
+              threadId: ThreadId.make(active.threadId),
+              messageId,
+              scheduledTaskId: active.id,
+              text: prompt,
+              attachments: [],
+              modelSelection: active.modelSelection,
+              mode: "auto",
+              createdBy: active.createdBy,
+              creationSource: active.creationSource,
+            });
+          }),
+        );
 
         const completedAt = yield* localNow;
         const runSucceeded = result._tag === "Success";

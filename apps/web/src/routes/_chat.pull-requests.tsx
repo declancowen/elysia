@@ -2091,7 +2091,7 @@ function PullRequestsRouteView() {
         {SINGLE_PROVIDER_UI && isDesktop && topbarHost
           ? createPortal(
               <div
-                className="flex h-full min-w-0 flex-1 items-center gap-1 px-3"
+                className="flex h-full min-w-0 flex-1 items-center gap-1 pl-5 pr-3"
                 ref={setTabBarHost}
               >
                 {!rightPanelPresent && <h1 className="text-sm font-medium">Pull requests</h1>}

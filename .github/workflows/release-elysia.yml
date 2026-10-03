@@ -229,6 +229,11 @@ jobs:
             apps/web/src/components/agents/agentDialogStore.test.ts \
             apps/web/src/components/agents/AgentEditorPage.test.tsx \
             apps/web/src/components/agents/AgentControls.test.tsx \
+            apps/web/src/components/agents/AgentGroupDialog.test.tsx \
+            apps/web/src/components/agents/AgentsSidebar.test.tsx \
+            apps/web/src/components/agents/agentSidebarPreferences.test.ts \
+            apps/web/src/conversationTabsStore.test.ts \
+            apps/web/src/hooks/useConversationRowClick.test.tsx \
             apps/web/src/components/agents/useDelegatedAgents.test.tsx \
             apps/web/src/components/agents/AgentAvatarPicker.test.tsx \
             apps/web/src/components/settings/ArchivedAgentsSection.test.tsx \

@@ -8,10 +8,10 @@ import {
   THREAD_SIDEBAR_MIN_WIDTH,
 } from "./threadSidebarWidth";
 
-it("restores a saved narrow sidebar after moving footer controls into the rail", () => {
+it("clamps a saved narrow sidebar to keep title and header controls readable", () => {
   for (const viewportWidth of [800, 1440]) {
     const restoredWidth = resolveInitialThreadSidebarWidth(208, viewportWidth);
-    expect(restoredWidth).toBe(208);
+    expect(restoredWidth).toBe(THREAD_SIDEBAR_MIN_WIDTH);
     expect(resolveThreadSidebarMaximumWidth(viewportWidth)).toBeGreaterThanOrEqual(restoredWidth);
   }
 });

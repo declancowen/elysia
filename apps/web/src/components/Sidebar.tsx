@@ -1,3 +1,5 @@
+import { currentConversationTabsStore } from "../conversationTabsStore";
+import { useConversationRowClick } from "../hooks/useConversationRowClick";
 function SidebarProjectIcon({
   projectless,
   className,
@@ -1456,10 +1458,16 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: {
       }
       if ((event.target as HTMLElement).closest("button, a, input")) return;
       event.preventDefault();
+      if (SINGLE_PROVIDER_UI) {
+        currentConversationTabsStore().getState().open({ kind: "server", threadRef }, true);
+        onThreadActivate(threadRef);
+        return;
+      }
       onStartRename(threadRef, thread.title);
     },
-    [isRenaming, onStartRename, thread.title, threadRef],
+    [isRenaming, onStartRename, onThreadActivate, thread.title, threadRef],
   );
+  const conversationClick = useConversationRowClick(handleClick, handleDoubleClick);
   const [isFileDragOver, setIsFileDragOver] = useState(false);
   const fileDropHandlers = useMemo(
     () =>
@@ -1788,8 +1796,8 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: {
                 data-testid="sidebar-row-slim"
                 aria-busy={isRegeneratingTitle || undefined}
                 className={cn(rowSurfaceClassName, "flex h-9 items-center gap-2.5 px-2.5")}
-                onClick={handleClick}
-                onDoubleClick={handleDoubleClick}
+                onClick={conversationClick.onClick}
+                onDoubleClick={conversationClick.onDoubleClick}
                 onKeyDown={handleKeyDown}
                 onContextMenu={handleContextMenu}
               />

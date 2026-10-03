@@ -1,3 +1,4 @@
+import { useConversationRowClick } from "../../hooks/useConversationRowClick";
 import { scopedProjectKey, scopeProjectRef } from "@t3tools/client-runtime/environment";
 import type { AgentConversationPreviewsResult } from "@t3tools/contracts";
 import { useParams } from "@tanstack/react-router";
@@ -9,6 +10,7 @@ import { Button } from "../ui/button";
 import { Menu, MenuItem, MenuPopup, MenuTrigger } from "../ui/menu";
 import { Spinner } from "../ui/spinner";
 import { useSidebar } from "../ui/sidebar";
+import { AgentSidebarSections, AgentOrganizationMenuItems } from "./AgentSidebarOrganization";
 import { AgentGroupAvatar } from "./AgentGroupAvatar";
 import { AgentAvatar } from "./AgentAvatar";
 import { openAgentDialog } from "./agentDialogStore";
@@ -67,18 +69,21 @@ export function AgentConversationList({
       </p>
     );
   return (
-    <div className="space-y-1">
-      {active.map((agent) => (
+    <AgentSidebarSections
+      agents={active}
+      updatedAt={(agent) =>
+        previewFor(agent)?.updatedAt ?? agent.thread?.updatedAt ?? agent.project.updatedAt
+      }
+      renderRow={(agent) => (
         <AgentConversationRow
-          key={`${agent.project.environmentId}:${agent.project.id}`}
           agent={agent}
           agents={agents}
           preview={previewFor(agent)}
           loading={loading}
           failed={failed}
         />
-      ))}
-    </div>
+      )}
+    />
   );
 }
 
@@ -101,6 +106,20 @@ function AgentConversationRow({
   const params = useParams({ strict: false });
   const { isMobile, setOpenMobile } = useSidebar();
   const selected = params.environmentId === project.environmentId && params.threadId === thread?.id;
+  const conversationClick = useConversationRowClick(
+    () => {
+      setAgentSidebarActive(true);
+      void openConversation().then((opened) => {
+        if (opened && isMobile) setOpenMobile(false);
+      });
+    },
+    () => {
+      setAgentSidebarActive(true);
+      void openConversation({ newTab: true }).then((opened) => {
+        if (opened && isMobile) setOpenMobile(false);
+      });
+    },
+  );
   const memberIds = profile.group?.memberProjectIds;
   const members = memberIds
     ? agents.filter(
@@ -118,7 +137,7 @@ function AgentConversationRow({
     <div
       data-agent-avatar-hover
       className={cn(
-        "group/agent-row relative flex min-w-0 items-center rounded-xl px-2.5 py-3 hover:bg-sidebar-row-hover focus-within:bg-sidebar-row-hover",
+        "group/agent-row relative flex min-w-0 items-center rounded-xl p-2.5 hover:bg-sidebar-row-hover focus-within:bg-sidebar-row-hover",
         selected &&
           "bg-sidebar-row-active hover:bg-sidebar-row-active focus-within:bg-sidebar-row-active",
       )}
@@ -127,13 +146,8 @@ function AgentConversationRow({
         type="button"
         aria-label={`Open ${project.title} chat`}
         aria-current={selected ? "page" : undefined}
-        onClick={() => {
-          setAgentSidebarActive(true);
-          void openConversation().then((opened) => {
-            if (opened && isMobile) setOpenMobile(false);
-          });
-        }}
-        disabled={!thread || pending}
+        {...conversationClick}
+        disabled={!thread}
         className="flex min-w-0 flex-1 cursor-pointer items-center gap-3 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-default"
       >
         {profile.group ? (
@@ -177,6 +191,7 @@ function AgentConversationRow({
             <MoreHorizontalIcon />
           </MenuTrigger>
           <MenuPopup align="end">
+            <AgentOrganizationMenuItems agent={agent} />
             <MenuItem
               onClick={() => openAgentDialog(scopeProjectRef(project.environmentId, project.id))}
             >

@@ -1,3 +1,6 @@
+import * as Option from "effect/Option";
+import * as ProjectStore from "../orchestration-v2/ProjectStore.ts";
+import * as AgentDelegation from "../orchestration-v2/AgentDelegation.ts";
 import * as Scheduler from "../scheduling/Scheduler.ts";
 import * as NodeUtil from "node:util";
 
@@ -211,6 +214,10 @@ it.effect(
                     ),
                 }),
                 Layer.mock(ThreadManagementService.ThreadManagementService)({}),
+                Layer.mock(ProjectStore.ProjectStoreV2)({
+                  get: () => Effect.succeed(Option.none()),
+                }),
+                Layer.mock(AgentDelegation.AgentDelegation)({}),
                 NodeCrypto.layer,
                 Scheduler.layer,
               ),
@@ -316,6 +323,10 @@ it.effect(
                     ),
                 }),
                 Layer.mock(ThreadManagementService.ThreadManagementService)({}),
+                Layer.mock(ProjectStore.ProjectStoreV2)({
+                  get: () => Effect.succeed(Option.none()),
+                }),
+                Layer.mock(AgentDelegation.AgentDelegation)({}),
                 NodeCrypto.layer,
                 Scheduler.layer,
               ),

@@ -83,8 +83,8 @@ html[data-mobile-composer-route-transition="true"]::view-transition-old(t3-mobil
   --appearance-contrast-boost: 0%;
   --appearance-contrast-border-boost: 0%;
   --appearance-contrast-target: black;
-  --app-scrollbar-thumb: rgb(217 217 217);
-  --app-scrollbar-thumb-hover: rgb(191 191 191);
+  --app-scrollbar-thumb: color-mix(in srgb, var(--foreground) 28%, transparent);
+  --app-scrollbar-thumb-hover: color-mix(in srgb, var(--foreground) 42%, transparent);
   /*
    * Compact UI geometry. Keep these values semantic so sidebar, palette,
    * tooltip, and toolbar controls cannot quietly drift apart.
@@ -131,8 +131,6 @@ html[data-mobile-composer-route-transition="true"]::view-transition-old(t3-mobil
 
   @variant dark {
     --appearance-contrast-target: white;
-    --app-scrollbar-thumb: rgb(255 255 255 / 8%);
-    --app-scrollbar-thumb-hover: rgb(255 255 255 / 12%);
     --glass-blur: 16px;
     --glass-saturation: 1.08;
   }
@@ -1276,7 +1274,7 @@ html[data-theme-id]:not([data-theme-id=""]) {
   --update-surface: var(--app-theme-update-surface);
   --border: var(--app-theme-border);
   --input: var(--app-theme-input);
-  --ring: var(--app-theme-focus);
+  --ring: oklch(from var(--app-theme-text) l 0 0 / 0.45);
   --sidebar: var(--app-theme-sidebar);
   --sidebar-foreground: var(--app-theme-sidebar-foreground);
   --sidebar-muted-foreground: var(--app-theme-sidebar-muted-foreground);
@@ -1430,6 +1428,15 @@ html[data-theme-id] [data-chat-header] [data-slot="separator"] {
 }
 
 /* Hosted panel actions keep their ghost treatment inside the chat header. */
+html[data-theme-id] [data-app-topbar] [data-workspace-header-action],
+html[data-theme-id] [data-chat-header] [data-workspace-header-action] {
+  background-color: transparent;
+  border-color: transparent;
+}
+html[data-theme-id] [data-app-topbar] [data-workspace-header-action]:hover,
+html[data-theme-id] [data-chat-header] [data-workspace-header-action]:hover {
+  background-color: var(--sidebar-row-hover);
+}
 html[data-theme-id] [data-chat-header] [data-workspace-panel-tabbar] [data-workspace-panel-action] {
   background-color: transparent;
   border-color: transparent;
@@ -1571,13 +1578,15 @@ html[data-theme-id="default"]
   animation-play-state: var(--visible-animation-state, paused);
 }
 .agent-avatar[data-animated="true"][data-working="true"] .agent-avatar-figure {
-  animation-name: elysia-agent-working;
+  animation: elysia-agent-working 1.2s ease-in-out 3;
+  animation-play-state: var(--visible-animation-state, paused);
 }
 .agent-avatar[data-animated="true"]:hover .agent-avatar-figure,
 [data-agent-avatar-hover]:is(:hover, :focus-within)
   .agent-avatar[data-animated="true"]
   .agent-avatar-figure {
-  animation-name: elysia-agent-hover;
+  animation: elysia-agent-hover 600ms ease-in-out 1;
+  animation-play-state: var(--visible-animation-state, paused);
 }
 @media (prefers-reduced-motion: reduce) {
   .agent-avatar .agent-avatar-figure,
@@ -2478,18 +2487,6 @@ code {
     pointer-events: none;
     border: var(--workspace-panel-outline-width) solid var(--workspace-panel-border);
     border-radius: inherit;
-  }
-  [data-slot="sidebar-inset"].workspace-panel-frame::after,
-  [data-chat-column]::after {
-    border-left: 0;
-  }
-  [data-slot="sidebar"][data-state="collapsed"]
-    ~ [data-slot="sidebar-inset"].workspace-panel-frame::after,
-  [data-slot="sidebar"][data-state="collapsed"]
-    ~ [data-slot="sidebar-inset"]
-    [data-chat-column]::after,
-  [data-slot="sidebar-inset"][data-panel-layout="standalone"]::after {
-    border-left: var(--workspace-panel-outline-width) solid var(--workspace-panel-border);
   }
 }
 

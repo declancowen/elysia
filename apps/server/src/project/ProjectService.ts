@@ -1,3 +1,4 @@
+import type { AgentProfile } from "@t3tools/contracts";
 import {
   CommandId,
   type OrchestrationProjectShell,
@@ -377,8 +378,36 @@ export const make = Effect.gen(function* () {
     return Option.isNone(row) ? Option.none() : Option.some(yield* hydrate(row.value));
   });
 
+  const normalizeChannelLink = Effect.fn("ProjectService.normalizeChannelLink")(function* (
+    profile: AgentProfile | undefined,
+    previous?: AgentProfile,
+  ) {
+    const group = profile?.group;
+    if (
+      !profile ||
+      !group ||
+      (previous?.group?.workspaceRoot === group.workspaceRoot &&
+        previous?.group?.linkedProjectId === group.linkedProjectId)
+    )
+      return profile;
+    let root = group.workspaceRoot;
+    if (group.linkedProjectId) {
+      const linked = yield* readRow(group.linkedProjectId);
+      if (Option.isNone(linked) || linked.value.deletedAt !== null || linked.value.agentProfile)
+        return yield* new ProjectOperationError({
+          operation: "read-project",
+          cause: "Choose an available workspace project.",
+        });
+      root = linked.value.workspaceRoot;
+    }
+    if (!root) return profile;
+    const workspaceRoot = yield* normalizeWorkspaceRoot({ workspaceRoot: root });
+    return { ...profile, group: { ...group, workspaceRoot } };
+  });
+
   const create: ProjectService["Service"]["create"] = Effect.fn("ProjectService.create")(
     function* (input) {
+      const agentProfile = yield* normalizeChannelLink(input.agentProfile);
       const workspaceRoot = yield* normalizeWorkspaceRoot({
         projectId: input.projectId,
         workspaceRoot: input.workspaceRoot,
@@ -389,7 +418,7 @@ export const make = Effect.gen(function* () {
         commandId: input.commandId,
         projectId: input.projectId,
         title: input.title,
-        ...(input.agentProfile === undefined ? {} : { agentProfile: input.agentProfile }),
+        ...(agentProfile === undefined ? {} : { agentProfile }),
         workspaceRoot,
         ...(input.scripts === undefined ? {} : { scripts: input.scripts }),
       });
@@ -404,6 +433,10 @@ export const make = Effect.gen(function* () {
       if (Option.isNone(existing)) {
         return yield* new ProjectNotFoundError({ projectId: input.projectId });
       }
+      const agentProfile = yield* normalizeChannelLink(
+        input.agentProfile,
+        existing.value.agentProfile ?? undefined,
+      );
       const previousRoot = existing.value.workspaceRoot;
       const workspaceRoot =
         input.workspaceRoot === undefined
@@ -416,7 +449,7 @@ export const make = Effect.gen(function* () {
         type: "project.meta.update",
         commandId: input.commandId,
         projectId: input.projectId,
-        ...(input.agentProfile === undefined ? {} : { agentProfile: input.agentProfile }),
+        ...(agentProfile === undefined ? {} : { agentProfile }),
         ...(input.title === undefined ? {} : { title: input.title }),
         ...(workspaceRoot === previousRoot ? {} : { workspaceRoot }),
         ...(input.defaultModelSelection === undefined

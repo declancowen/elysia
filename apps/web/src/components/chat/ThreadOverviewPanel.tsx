@@ -29,7 +29,7 @@ import {
   LinkIcon,
   AlignBoxMiddleLeftIcon,
   PlusIcon,
-  UsersIcon,
+  ChannelIcon,
 } from "~/icons";
 import { cn } from "~/lib/utils";
 import { buildThreadRouteParams } from "~/threadRoutes";
@@ -46,6 +46,7 @@ import { AgentMessageBubble } from "../agents/AgentMessageBubble";
 import ChatMarkdown from "../ChatMarkdown";
 import { AgentAvatar } from "../agents/AgentAvatar";
 import { Spinner } from "../ui/spinner";
+import { useAgents } from "../agents/useAgents";
 import { groupDelegatedAgents, useDelegatedAgents } from "../agents/useDelegatedAgents";
 
 export interface ThreadOverviewPanelProps {
@@ -101,6 +102,19 @@ function OverviewPopover({
   wide,
 }: ThreadOverviewPanelProps & { wide: boolean }) {
   const codeWorkspace = useCodeWorkspace();
+  const roster = useAgents();
+  const currentChannel = roster.find(
+    ({ thread }) =>
+      !!sourceThreadRef &&
+      !!thread &&
+      thread.id === sourceThreadRef.threadId &&
+      thread.environmentId === sourceThreadRef.environmentId,
+  )?.project;
+  const memberIds = currentChannel?.agentProfile?.group?.memberProjectIds;
+  const channelMembers = roster.filter(
+    ({ project }) =>
+      project.environmentId === sourceThreadRef?.environmentId && memberIds?.includes(project.id),
+  );
   const target = useThreadOverviewStore((state) => state.target);
   const toggle = useThreadOverviewStore((state) => state.toggle);
   const [open, setOpen] = useState(false);
@@ -330,7 +344,7 @@ function OverviewPopover({
                   className="flex min-w-0 flex-1 items-center gap-2 rounded-sm focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
                 >
                   {selectedAgent.project?.agentProfile?.group ? (
-                    <UsersIcon aria-hidden className="size-6 shrink-0" />
+                    <ChannelIcon aria-hidden className="size-6 shrink-0" />
                   ) : selectedAgent.project?.agentProfile ? (
                     <AgentAvatar
                       avatar={selectedAgent.project.agentProfile.avatar}
@@ -422,6 +436,19 @@ function OverviewPopover({
                       />
                     </section>
                   ) : null}
+                  {memberIds ? (
+                    <section>
+                      <h3 className="mb-2 text-xs text-muted-foreground">Members</h3>
+                      <ul className="space-y-2">
+                        {channelMembers.map(({ project }) => (
+                          <li key={project.id} className="flex items-center gap-2.5 text-sm">
+                            <AgentAvatar avatar={project.agentProfile!.avatar} className="size-5" />
+                            {project.title}
+                          </li>
+                        ))}
+                      </ul>
+                    </section>
+                  ) : null}
                   {showAgents && grouped.length > 0 ? (
                     <section>
                       <h3 className="mb-1 flex justify-between text-xs text-muted-foreground">
@@ -447,7 +474,7 @@ function OverviewPopover({
                               }
                             >
                               {agent.project?.agentProfile?.group ? (
-                                <UsersIcon aria-hidden className="size-5" />
+                                <ChannelIcon aria-hidden className="size-5" />
                               ) : agent.project?.agentProfile ? (
                                 <AgentAvatar
                                   avatar={agent.project.agentProfile.avatar}

@@ -1,3 +1,6 @@
+import { useScheduledTabsStore, scheduledTabKey } from "../../scheduledTabsStore";
+import { useConversationRowClick } from "../../hooks/useConversationRowClick";
+import { WorkspaceTabStrip, WorkspaceTab } from "../workspace/WorkspaceTabStrip";
 import { useAppTopbarHost } from "../AppTopbar";
 import {
   Clock3Icon,
@@ -30,6 +33,7 @@ import { useSettingsScope } from "./SettingsScopeContext";
 import { WEEKDAY_LABELS, matchesScheduledTaskScope } from "./scheduledTasksSettings.logic";
 import { WorkspaceSidebarContent } from "../sidebar/WorkspaceSidebarContent";
 import { SettingsScopeSentence } from "./SettingsScopeSentence";
+import { SidebarCommandShortcut } from "../sidebar/SidebarChrome";
 import { SidebarContent, useSidebar } from "../ui/sidebar";
 import { WorkspacePageHeader } from "../WorkspacePageHeader";
 import { cn } from "../../lib/utils";
@@ -187,10 +191,12 @@ function ScheduledTasksWorkspace(target: ScheduledTasksTarget) {
   const { isMobile, setOpenMobile, setOpen } = useSidebar();
   const desktopHeader = useMediaQuery("(min-width: 768px)");
   const headerHost = useAppTopbarHost();
-  const [editor, setEditor] = useState<{
-    environmentId: EnvironmentId;
-    task: ScheduledTask | null;
-  } | null>(null);
+  const { tabs, activeId, open, activate, close, retarget } = useScheduledTabsStore();
+  const activeTab = tabs.find((tab) => tab.id === activeId);
+  const editor = activeTab?.target.kind === "task" ? activeTab.target : null;
+  useEffect(() => {
+    if (!useScheduledTabsStore.getState().tabs.length) open({ kind: "empty" });
+  }, [open]);
   const defaultEnvironment = environment ?? connectedEnvironments[0];
   const linkedEnvironment = environments.find(
     (entry) => entry.environmentId === (target.environmentId ?? defaultEnvironment?.environmentId),
@@ -211,43 +217,57 @@ function ScheduledTasksWorkspace(target: ScheduledTasksTarget) {
       linkedEnvironment &&
       matchesScheduledTaskScope(scope, linkedEnvironment.environmentId, task.projectId),
   );
-  const openedLink = useRef(false);
+  const openedLink = useRef<string | null>(null);
   const openForEdit = useCallback(
-    (environmentId: EnvironmentId, task: ScheduledTask) => {
-      setEditor({ environmentId, task });
+    (environmentId: EnvironmentId, task: ScheduledTask, newTab = false) => {
+      open({ kind: "task", environmentId, task }, newTab);
       if (isMobile) setOpenMobile(false);
     },
-    [isMobile, setOpenMobile],
+    [isMobile, setOpenMobile, open],
   );
   const createTask = () => {
     if (!defaultEnvironment) return;
-    setEditor({ environmentId: defaultEnvironment.environmentId, task: null });
+    open({ kind: "task", environmentId: defaultEnvironment.environmentId, task: null });
     if (isMobile) setOpenMobile(false);
   };
   useEffect(() => {
-    if (!openedLink.current && linkedTask && linkedEnvironment) {
-      openedLink.current = true;
+    if (
+      linkedTask &&
+      linkedEnvironment &&
+      openedLink.current !== `${linkedEnvironment.environmentId}:${linkedTask.id}`
+    ) {
+      openedLink.current = `${linkedEnvironment.environmentId}:${linkedTask.id}`;
       openForEdit(linkedEnvironment.environmentId, linkedTask);
     }
   }, [linkedTask, linkedEnvironment, openForEdit]);
   const header = (
-    <WorkspacePageHeader
-      className={cn(
-        "relative w-full",
-        editor &&
-          "md:before:absolute md:before:-left-px md:before:top-2 md:before:bottom-2 md:before:w-px md:before:bg-workspace-panel-border",
-      )}
-    >
-      <h1 className="truncate text-sm font-medium">
-        {editor?.task?.title ?? (editor ? "New task" : "")}
-      </h1>
+    <WorkspacePageHeader className="relative w-full">
+      <WorkspaceTabStrip
+        tabs={tabs}
+        activeId={activeId}
+        label="Scheduled"
+        onSelect={(tab) => activate(tab.id)}
+        onClose={(tab) => {
+          close(tab.id);
+        }}
+        renderTab={(tab, controls) => (
+          <WorkspaceTab
+            {...controls}
+            title={
+              tab.target.kind === "empty" ? "Scheduled" : (tab.target.task?.title ?? "New task")
+            }
+            icon={<Clock3Icon aria-hidden className="size-4 shrink-0" />}
+          />
+        )}
+      />
     </WorkspacePageHeader>
   );
   return (
     <>
       <WorkspaceSidebarContent>
-        <div className="flex shrink-0 items-center justify-between px-3 py-2">
-          <h2 className="pl-1.5 text-base font-medium">Scheduled</h2>
+        <div className="flex shrink-0 items-center gap-2 px-3 py-2">
+          <h2 className="min-w-0 flex-1 truncate pl-1.5 text-base font-medium">Scheduled</h2>
+          <SidebarCommandShortcut />
           <Button
             variant="ghost"
             size="icon-sm"
@@ -258,7 +278,7 @@ function ScheduledTasksWorkspace(target: ScheduledTasksTarget) {
             <PlusIcon />
           </Button>
         </div>
-        <div className="min-w-0 shrink-0 px-3 pb-3">
+        <div className="min-w-0 shrink-0 px-2 pb-3">
           <SettingsScopeSentence compact />
         </div>
         <SidebarContent>
@@ -283,6 +303,7 @@ function ScheduledTasksWorkspace(target: ScheduledTasksTarget) {
                     : undefined
                 }
                 onEdit={openForEdit}
+                onEditInNewTab={(environmentId, task) => openForEdit(environmentId, task, true)}
                 compact
                 selectedTaskId={
                   editor?.environmentId === entry.environmentId ? editor.task?.id : undefined
@@ -293,34 +314,46 @@ function ScheduledTasksWorkspace(target: ScheduledTasksTarget) {
         </SidebarContent>
       </WorkspaceSidebarContent>
       {headerHost && desktopHeader ? createPortal(header, headerHost) : header}
-      {editor ? (
-        <ScheduledTaskEditor
-          key={`${editor.environmentId}:${editor.task?.id ?? "new"}`}
-          initialEnvironmentId={editor.environmentId}
-          task={editor.task}
-          onClose={() => setEditor(null)}
-          inline
-        />
-      ) : (
-        <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 p-6 text-center">
-          <Clock3Icon className="size-8 text-muted-foreground" />
-          <h2 className="text-base font-medium">
-            {target.taskId && linkedTasks.data && !linkedTask
-              ? "Task unavailable"
-              : "Choose a scheduled task"}
-          </h2>
-          <p className="text-sm text-muted-foreground">
-            Select a task from the sidebar to edit it, or create a new task.
-          </p>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => (isMobile ? setOpenMobile(true) : setOpen(true))}
-          >
-            Show tasks
-          </Button>
+      {tabs.map((tab) => (
+        <div
+          key={`${tab.id}:${scheduledTabKey(tab.target)}`}
+          className={cn("min-h-0 flex-1 flex-col", tab.id === activeId ? "flex" : "hidden")}
+        >
+          {tab.target.kind === "task" ? (
+            <ScheduledTaskEditor
+              initialEnvironmentId={tab.target.environmentId}
+              task={tab.target.task}
+              onSaved={(environmentId, task) =>
+                retarget(tab.target, { kind: "task", environmentId, task })
+              }
+              onClose={() => {
+                if (tabs[0]?.id === tab.id) retarget(tab.target, { kind: "empty" });
+                else close(tab.id);
+              }}
+              inline
+            />
+          ) : (
+            <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 p-6 text-center">
+              <Clock3Icon className="size-8 text-muted-foreground" />
+              <h2 className="text-base font-medium">
+                {target.taskId && linkedTasks.data && !linkedTask
+                  ? "Task unavailable"
+                  : "Choose a scheduled task"}
+              </h2>
+              <p className="text-sm text-muted-foreground">
+                Select a task from the sidebar to edit it, or create a new task.
+              </p>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => (isMobile ? setOpenMobile(true) : setOpen(true))}
+              >
+                Show tasks
+              </Button>
+            </div>
+          )}
         </div>
-      )}
+      ))}
     </>
   );
 }
@@ -330,9 +363,13 @@ function ScheduledTaskEnvironmentSection({
   showEnvironmentHeading,
   taskId,
   onEdit,
+  onEditInNewTab,
   compact = false,
   selectedTaskId,
 }: {
+  readonly onEditInNewTab?:
+    | ((environmentId: EnvironmentId, task: ScheduledTask) => void)
+    | undefined;
   readonly compact?: boolean;
   readonly selectedTaskId?: ScheduledTaskId | undefined;
   readonly environment: EnvironmentPresentation;
@@ -423,6 +460,9 @@ function ScheduledTaskEnvironmentSection({
                 environmentId={environment.environmentId}
                 task={task}
                 onEdit={() => onEdit(environment.environmentId, task)}
+                onEditInNewTab={
+                  onEditInNewTab ? () => onEditInNewTab(environment.environmentId, task) : undefined
+                }
                 compact={compact}
                 selected={task.id === selectedTaskId}
               />
@@ -456,6 +496,7 @@ function ScheduledTaskRow({
   environmentId,
   task,
   onEdit,
+  onEditInNewTab,
   compact = false,
   selected = false,
 }: {
@@ -464,7 +505,9 @@ function ScheduledTaskRow({
   readonly selected?: boolean;
   readonly task: ScheduledTask;
   readonly onEdit: () => void;
+  readonly onEditInNewTab?: (() => void) | undefined;
 }) {
+  const conversationClick = useConversationRowClick(onEdit, onEditInNewTab ?? onEdit);
   const [busy, setBusy] = useState(false);
   const toggle = useAtomCommand(serverEnvironment.setScheduledTaskEnabled, {
     label: "scheduled task enabled",
@@ -548,7 +591,7 @@ function ScheduledTaskRow({
           type="button"
           aria-label={`Edit ${task.title}`}
           aria-current={selected ? "true" : undefined}
-          onClick={onEdit}
+          {...conversationClick}
           className="flex min-w-0 flex-1 cursor-pointer flex-col gap-1 py-2 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           <span className="truncate text-sm font-medium">{task.title}</span>

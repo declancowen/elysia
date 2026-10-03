@@ -6,7 +6,7 @@ import {
   selectProjectGroupingSettings,
 } from "../../logicalProject";
 import { useNavigate } from "@tanstack/react-router";
-import { ArchiveIcon, ArchiveX, BotIcon, ClockIcon, Edit03Icon } from "~/icons";
+import { ArchiveIcon, ArchiveX, BotIcon, ClockIcon, Edit03Icon, ChannelIcon } from "~/icons";
 import { useLayoutEffect, useRef, useState, type RefObject } from "react";
 import { Button } from "../ui/button";
 import { Popover, PopoverPopup, PopoverTitle, PopoverTrigger } from "../ui/popover";
@@ -47,7 +47,11 @@ export function AgentDetailsPopover({
           />
         }
       >
-        <BotIcon className="size-4" />
+        {current.project.agentProfile?.group ? (
+          <ChannelIcon className="size-4" />
+        ) : (
+          <BotIcon className="size-4" />
+        )}
       </PopoverTrigger>
       {threadBoundaryRef ? (
         <span
@@ -86,7 +90,7 @@ export function AgentDetailsPopover({
               }}
             >
               <ArchiveX />
-              Archived agents
+              {current.project.agentProfile?.group ? "Archived channels" : "Archived agents"}
             </Button>
           </div>
         </div>
@@ -98,6 +102,11 @@ export function AgentDetailsPopover({
 function AgentDetails({ agent, onClose }: { agent: AgentRosterEntry; onClose: () => void }) {
   const { project, busy } = agent;
   const profile = project.agentProfile!;
+  const members = useAgents().filter(
+    ({ project: member }) =>
+      member.environmentId === project.environmentId &&
+      profile.group?.memberProjectIds.includes(member.id),
+  );
   const { pending, archive } = useAgentActions(agent);
   const navigate = useNavigate();
   const grouping = useClientSettings(selectProjectGroupingSettings);
@@ -119,11 +128,15 @@ function AgentDetails({ agent, onClose }: { agent: AgentRosterEntry; onClose: ()
     <>
       <div className="flex items-center gap-3" data-agent-avatar-hover>
         <div className="flex shrink-0 items-center justify-center">
-          <AgentAvatar
-            avatar={profile.avatar}
-            style={{ width: avatarSize, height: avatarSize }}
-            working={busy}
-          />
+          {profile.group ? (
+            <ChannelIcon className="size-5" />
+          ) : (
+            <AgentAvatar
+              avatar={profile.avatar}
+              style={{ width: avatarSize, height: avatarSize }}
+              working={busy}
+            />
+          )}
         </div>
         <div ref={labelRef} className="flex min-w-0 flex-1 flex-col gap-2 break-words">
           <PopoverTitle>{project.title}</PopoverTitle>
@@ -134,14 +147,28 @@ function AgentDetails({ agent, onClose }: { agent: AgentRosterEntry; onClose: ()
           ) : null}
         </div>
       </div>
-      {project.defaultModelSelection ? (
+      {profile.group ? (
+        <div className="space-y-2">
+          <p className="text-xs text-muted-foreground">Members</p>
+          <ul className="space-y-2">
+            {members.map(({ project: member }) => (
+              <li key={member.id} className="flex items-center gap-2 text-sm">
+                <AgentAvatar avatar={member.agentProfile!.avatar} className="size-5" />
+                {member.title}
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : project.defaultModelSelection ? (
         <div className="space-y-1">
           <p className="text-xs text-muted-foreground">Default model</p>
           <p className="break-words text-sm">{project.defaultModelSelection.model}</p>
         </div>
       ) : null}
       <div className="space-y-1">
-        <p className="text-xs text-muted-foreground">Instructions</p>
+        <p className="text-xs text-muted-foreground">
+          {profile.group ? "Channel description" : "Instructions"}
+        </p>
         <p className="max-h-40 overflow-y-auto whitespace-pre-wrap break-words text-sm">
           {profile.instructions}
         </p>
@@ -157,7 +184,7 @@ function AgentDetails({ agent, onClose }: { agent: AgentRosterEntry; onClose: ()
           }}
         >
           <Edit03Icon />
-          Edit agent
+          {profile.group ? "Edit channel" : "Edit agent"}
         </Button>
         <Button
           size="sm"
@@ -170,7 +197,7 @@ function AgentDetails({ agent, onClose }: { agent: AgentRosterEntry; onClose: ()
           }}
         >
           <ArchiveIcon />
-          {pending ? "Archiving…" : "Archive"}
+          {pending ? "Archiving…" : profile.group ? "Archive channel" : "Archive agent"}
         </Button>
         <Button
           size="sm"

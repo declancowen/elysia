@@ -1,6 +1,7 @@
+import { formatAgentMention } from "@t3tools/shared/agentMentions";
 import { useAtomValue } from "@effect/atom-react";
 import { scopeThreadRef } from "@t3tools/client-runtime/environment";
-import { type ReactNode, useMemo, useRef, useState } from "react";
+import { type ReactNode, useMemo, useRef, useState, useId } from "react";
 import type {
   EnvironmentId,
   ModelSelection,
@@ -104,7 +105,7 @@ function Field({
   children,
 }: {
   label: string;
-  hint?: string;
+  hint?: string | undefined;
   htmlFor?: string;
   children: ReactNode;
 }) {
@@ -147,13 +148,16 @@ export function ScheduledTaskEditor({
   initialEnvironmentId,
   task,
   onClose,
+  onSaved,
   inline = false,
 }: {
   readonly initialEnvironmentId: EnvironmentId;
   readonly task: ScheduledTask | null;
   readonly onClose: () => void;
+  readonly onSaved?: ((environmentId: EnvironmentId, task: ScheduledTask) => void) | undefined;
   readonly inline?: boolean;
 }) {
+  const formId = useId();
   const { scope, connectedEnvironments } = useSettingsScope();
   const codeWorkspace = useCodeWorkspace();
   const [environmentId, setEnvironmentId] = useState(initialEnvironmentId);
@@ -319,7 +323,13 @@ export function ScheduledTaskEditor({
       }
       return;
     }
-    onClose();
+    if (onSaved) {
+      setDraft(taskToDraft(result.value.task));
+      submissionPending.current = false;
+      onSaved(environmentId, result.value.task);
+    } else {
+      onClose();
+    }
   };
 
   const fields = (
@@ -328,7 +338,7 @@ export function ScheduledTaskEditor({
         <p className="text-sm text-destructive">Reconnect this environment before saving.</p>
       ) : null}
       {CONNECTIONS_ENABLED && (
-        <Field label="Runs on" htmlFor="scheduled-task-environment">
+        <Field label="Runs on" htmlFor={`${formId}-scheduled-task-environment`}>
           <Select
             value={environmentId}
             disabled={task !== null || saving}
@@ -347,7 +357,7 @@ export function ScheduledTaskEditor({
               }));
             }}
           >
-            <SelectTrigger id="scheduled-task-environment" size="sm">
+            <SelectTrigger id={`${formId}-scheduled-task-environment`} size="sm">
               <SelectValue>
                 <span className="flex items-center gap-2">
                   <EnvironmentMachineIcon
@@ -382,9 +392,9 @@ export function ScheduledTaskEditor({
           This scheduled task no longer exists.
         </p>
       ) : null}
-      <Field label="Name" htmlFor="scheduled-task-title">
+      <Field label="Name" htmlFor={`${formId}-scheduled-task-title`}>
         <Input
-          id="scheduled-task-title"
+          id={`${formId}-scheduled-task-title`}
           placeholder="e.g. Check for Sentry issues"
           value={draft.title}
           onChange={(event) => setDraft((current) => ({ ...current, title: event.target.value }))}
@@ -392,7 +402,7 @@ export function ScheduledTaskEditor({
       </Field>
 
       <div className={showWorkspaceControls ? "grid gap-3 sm:grid-cols-2" : "grid gap-3"}>
-        <Field label="Project" htmlFor="scheduled-task-project">
+        <Field label="Project, agent or channel" htmlFor={`${formId}-scheduled-task-project`}>
           <Select
             value={selectedProjectId}
             onValueChange={(projectId) =>
@@ -403,7 +413,7 @@ export function ScheduledTaskEditor({
               }))
             }
           >
-            <SelectTrigger size="sm" id="scheduled-task-project">
+            <SelectTrigger size="sm" id={`${formId}-scheduled-task-project`}>
               <SelectValue placeholder="Select a project">{selectedProject?.title}</SelectValue>
             </SelectTrigger>
             <SelectPopup>
@@ -417,14 +427,14 @@ export function ScheduledTaskEditor({
         </Field>
 
         {showWorkspaceControls && (
-          <Field label="Workspace" htmlFor="scheduled-task-workspace">
+          <Field label="Workspace" htmlFor={`${formId}-scheduled-task-workspace`}>
             <Select
               value={draft.workspaceMode}
               onValueChange={(value) =>
                 setDraft((current) => ({ ...current, workspaceMode: value as WorkspaceMode }))
               }
             >
-              <SelectTrigger size="sm" id="scheduled-task-workspace">
+              <SelectTrigger size="sm" id={`${formId}-scheduled-task-workspace`}>
                 <SelectValue>{WORKSPACE_MODE_LABELS[draft.workspaceMode]}</SelectValue>
               </SelectTrigger>
               <SelectPopup>
@@ -438,10 +448,10 @@ export function ScheduledTaskEditor({
       </div>
 
       {showWorkspaceControls && draft.workspaceMode === "worktree" ? (
-        <Field label="Base branch" htmlFor="scheduled-task-base-ref">
+        <Field label="Base branch" htmlFor={`${formId}-scheduled-task-base-ref`}>
           <WorktreeBaseBranchPicker
             key={`${environmentId}:${selectedProjectId}`}
-            id="scheduled-task-base-ref"
+            id={`${formId}-scheduled-task-base-ref`}
             environmentId={environmentId}
             cwd={selectedProject?.workspaceRoot ?? null}
             value={draft.baseRef}
@@ -455,9 +465,9 @@ export function ScheduledTaskEditor({
         </Field>
       ) : null}
       {showWorkspaceControls && draft.workspaceMode === "existing_worktree" ? (
-        <Field label="Checkout path" htmlFor="scheduled-task-checkout">
+        <Field label="Checkout path" htmlFor={`${formId}-scheduled-task-checkout`}>
           <Input
-            id="scheduled-task-checkout"
+            id={`${formId}-scheduled-task-checkout`}
             value={draft.existingWorktreePath}
             placeholder="/path/to/checkout"
             onChange={(event) =>
@@ -470,31 +480,69 @@ export function ScheduledTaskEditor({
         </Field>
       ) : null}
 
-      <Field label="Prompt" htmlFor="scheduled-task-prompt">
+      <Field
+        label="Prompt"
+        htmlFor={`${formId}-scheduled-task-prompt`}
+        hint={agentProfile?.group ? "Runs through the lead agent" : undefined}
+      >
         <Textarea
-          id="scheduled-task-prompt"
+          id={`${formId}-scheduled-task-prompt`}
           className="max-h-64 overflow-y-auto"
           placeholder="What should the agent do each time this runs?"
           value={draft.prompt}
           onChange={(event) => setDraft((current) => ({ ...current, prompt: event.target.value }))}
         />
+        {agentProfile ? (
+          <div className="flex flex-wrap gap-1" aria-label="Mention agents">
+            {allProjects
+              .filter(
+                (project) =>
+                  project.environmentId === environmentId &&
+                  project.agentProfile &&
+                  !project.agentProfile.archived &&
+                  !project.agentProfile.group &&
+                  (!agentProfile.group || agentProfile.group.memberProjectIds.includes(project.id)),
+              )
+              .map((project) => (
+                <Button
+                  key={project.id}
+                  size="xs"
+                  variant="ghost"
+                  onClick={() =>
+                    setDraft((current) => ({
+                      ...current,
+                      prompt: `${current.prompt}${current.prompt ? " " : ""}${formatAgentMention(project.id, project.title)}`,
+                    }))
+                  }
+                >
+                  @{project.title}
+                </Button>
+              ))}
+          </div>
+        ) : null}
       </Field>
 
-      <Field label="Model">
-        <ProviderModelPicker
-          disabled={Boolean(agentProfile) || saving || !connected}
-          activeInstanceId={activeInstanceId}
-          model={activeModel}
-          lockedProvider={null}
-          instanceEntries={instanceEntries}
-          modelOptionsByInstance={modelOptionsByInstance}
-          isComposerOwned={false}
-          triggerClassName={SETTINGS_PICKER_TRIGGER_CLASSNAME}
-          onInstanceModelChange={(instanceId, model) =>
-            setDraft((current) => ({ ...current, modelKey: `${instanceId}:${model}` }))
-          }
-        />
-      </Field>
+      {agentProfile?.group ? (
+        <p className="text-sm text-muted-foreground">
+          Channel members use their own selected models.
+        </p>
+      ) : (
+        <Field label="Model">
+          <ProviderModelPicker
+            disabled={Boolean(agentProfile) || saving || !connected}
+            activeInstanceId={activeInstanceId}
+            model={activeModel}
+            lockedProvider={null}
+            instanceEntries={instanceEntries}
+            modelOptionsByInstance={modelOptionsByInstance}
+            isComposerOwned={false}
+            triggerClassName={SETTINGS_PICKER_TRIGGER_CLASSNAME}
+            onInstanceModelChange={(instanceId, model) =>
+              setDraft((current) => ({ ...current, modelKey: `${instanceId}:${model}` }))
+            }
+          />
+        </Field>
+      )}
 
       <div className="space-y-3">
         {task?.schedule.type === "interval" &&
@@ -523,10 +571,10 @@ export function ScheduledTaskEditor({
         {draft.scheduleMode === "fixed" ? (
           <div className="flex flex-wrap items-center gap-3">
             <div className="flex items-center gap-2">
-              <Label htmlFor="scheduled-task-time">Run at</Label>
+              <Label htmlFor={`${formId}-scheduled-task-time`}>Run at</Label>
               <Input
                 type="time"
-                id="scheduled-task-time"
+                id={`${formId}-scheduled-task-time`}
                 nativeInput
                 className="w-32"
                 value={draft.timeOfDay}
@@ -559,10 +607,10 @@ export function ScheduledTaskEditor({
           </div>
         ) : (
           <div className="flex items-center gap-2">
-            <Label htmlFor="scheduled-task-interval">Run every</Label>
+            <Label htmlFor={`${formId}-scheduled-task-interval`}>Run every</Label>
             <Input
               type="number"
-              id="scheduled-task-interval"
+              id={`${formId}-scheduled-task-interval`}
               nativeInput
               min={1}
               step="any"
@@ -579,13 +627,16 @@ export function ScheduledTaskEditor({
 
       <div className="flex items-center justify-between gap-4">
         <div className="min-w-0 space-y-1">
-          <Label htmlFor="scheduled-task-enabled">Enabled</Label>
-          <p id="scheduled-task-enabled-description" className="text-sm text-muted-foreground">
+          <Label htmlFor={`${formId}-scheduled-task-enabled`}>Enabled</Label>
+          <p
+            id={`${formId}-scheduled-task-enabled-description`}
+            className="text-sm text-muted-foreground"
+          >
             Disabled tasks stay saved but do not run.
           </p>
         </div>
         <Switch
-          id="scheduled-task-enabled"
+          id={`${formId}-scheduled-task-enabled`}
           aria-describedby="scheduled-task-enabled-description"
           checked={draft.enabled}
           onCheckedChange={(enabled) => setDraft((current) => ({ ...current, enabled }))}

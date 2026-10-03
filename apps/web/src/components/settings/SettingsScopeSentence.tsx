@@ -2,7 +2,7 @@ import { scopeProjectRef } from "@t3tools/client-runtime/environment";
 import { SINGLE_PROVIDER_UI, resolveEnvironmentMachineKind } from "@t3tools/contracts";
 import { isScratchProject } from "@t3tools/client-runtime/state/projects";
 import { useLocation } from "@tanstack/react-router";
-import { ChevronDownIcon, LayersIcon, MessageCircleIcon } from "~/icons";
+import { ChevronDownIcon, FolderIcon, LayersIcon, MessageCircleIcon } from "~/icons";
 import type { ReactNode } from "react";
 
 import type { SidebarProjectSnapshot } from "../../sidebarProjectGrouping";
@@ -11,7 +11,7 @@ import { EnvironmentMachineIcon } from "../EnvironmentMachineIcon";
 import { AgentAvatar } from "../agents/AgentAvatar";
 import { AgentDetailsPopover } from "../agents/AgentDetailsPopover";
 import { ProjectFavicon } from "../ProjectFavicon";
-import { InlineButton } from "../ui/button";
+import { Button, InlineButton } from "../ui/button";
 import {
   Menu,
   MenuGroup,
@@ -104,7 +104,9 @@ function ScopeMenu({
   icon,
   label,
   children,
+  compact = false,
 }: {
+  compact?: boolean;
   ariaLabel: string;
   icon: ReactNode;
   label: string;
@@ -114,15 +116,23 @@ function ScopeMenu({
     <Menu>
       <MenuTrigger
         aria-label={`${ariaLabel}: ${label}`}
-        render={<InlineButton tone="picker" />}
+        render={compact ? <Button variant="ghost" size="sm" /> : <InlineButton tone="picker" />}
         className="min-w-0 max-w-72"
       >
-        {icon}
+        {icon ? <ScopeIconSlot>{icon}</ScopeIconSlot> : null}
         <span className="min-w-0 truncate">{label}</span>
         <ChevronDownIcon aria-hidden className="size-3.5 shrink-0 text-muted-foreground" />
       </MenuTrigger>
       <MenuPopup align="start">{children}</MenuPopup>
     </Menu>
+  );
+}
+
+function ScopeIconSlot({ children }: { children: ReactNode }) {
+  return (
+    <span className="flex size-4 shrink-0 items-center justify-center [&_svg]:mx-0">
+      {children}
+    </span>
   );
 }
 
@@ -221,18 +231,36 @@ function ProjectScopeMenu({
           ?.scratchWorkspaceRoot,
       ) ? (
       <MessageCircleIcon aria-hidden className="size-3.5 shrink-0" />
+    ) : SINGLE_PROVIDER_UI ? (
+      <FolderIcon aria-hidden className="size-3.5 shrink-0" />
     ) : (
       <ProjectFavicon project={group} className="size-3.5 shrink-0" />
     );
+  const projectLabel = (group: SidebarProjectSnapshot) =>
+    isScratchProject(
+      group,
+      environments.find((entry) => entry.environmentId === group.environmentId)?.serverConfig
+        ?.scratchWorkspaceRoot,
+    )
+      ? "Chats"
+      : group.displayName;
   return (
     <ScopeMenu
+      compact={allProjectsLabel === "All tasks"}
       ariaLabel={SINGLE_PROVIDER_UI ? "Settings scope" : "Project scope"}
-      icon={selected ? projectIcon(selected) : null}
+      icon={
+        selected ? (
+          projectIcon(selected)
+        ) : allProjectsLabel ? (
+          <LayersIcon aria-hidden className="size-3.5" />
+        ) : null
+      }
       label={
-        selected?.displayName ??
-        (value.project
-          ? "Unavailable project"
-          : (allProjectsLabel ?? (SINGLE_PROVIDER_UI ? "App defaults" : "All projects")))
+        selected
+          ? projectLabel(selected)
+          : value.project
+            ? "Unavailable project"
+            : (allProjectsLabel ?? (SINGLE_PROVIDER_UI ? "App defaults" : "All projects"))
       }
     >
       <MenuRadioGroup
@@ -243,6 +271,9 @@ function ProjectScopeMenu({
       >
         <MenuRadioItem value={ALL_PROJECTS_VALUE}>
           <span className="flex min-w-0 items-center gap-2">
+            <ScopeIconSlot>
+              <LayersIcon aria-hidden className="size-3.5" />
+            </ScopeIconSlot>
             <span className="min-w-0 flex-1 truncate">
               {allProjectsLabel ?? (SINGLE_PROVIDER_UI ? "App defaults" : "All projects")}
             </span>
@@ -255,8 +286,8 @@ function ProjectScopeMenu({
           .map((group) => (
             <MenuRadioItem key={group.projectKey} value={group.projectKey}>
               <span className="flex min-w-0 items-center gap-2">
-                {projectIcon(group)}
-                <span className="min-w-0 flex-1 truncate">{group.displayName}</span>
+                <ScopeIconSlot>{projectIcon(group)}</ScopeIconSlot>
+                <span className="min-w-0 flex-1 truncate">{projectLabel(group)}</span>
                 <MenuRadioItemIndicator />
               </span>
             </MenuRadioItem>
@@ -270,8 +301,8 @@ function ProjectScopeMenu({
               .map((group) => (
                 <MenuRadioItem key={group.projectKey} value={group.projectKey}>
                   <span className="flex min-w-0 items-center gap-2">
-                    {projectIcon(group)}
-                    <span className="min-w-0 flex-1 truncate">{group.displayName}</span>
+                    <ScopeIconSlot>{projectIcon(group)}</ScopeIconSlot>
+                    <span className="min-w-0 flex-1 truncate">{projectLabel(group)}</span>
                     <MenuRadioItemIndicator />
                   </span>
                 </MenuRadioItem>

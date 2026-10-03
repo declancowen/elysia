@@ -849,6 +849,60 @@ it.effect(
         workspaceRoot: "/work/team",
         agentProfile: initialProfile,
       });
+      const linked = ProjectId.make("linked-workspace");
+      yield* service.create({
+        commandId: CommandId.make("create-linked-workspace"),
+        projectId: linked,
+        title: "Workspace",
+        workspaceRoot: "/work/linked",
+      });
+      yield* service.update({
+        commandId: CommandId.make("link-folder"),
+        projectId: team,
+        agentProfile: {
+          ...initialProfile,
+          group: { ...initialProfile.group, workspaceRoot: "/work/local/" },
+        },
+      });
+      assert.equal(
+        Option.getOrThrow(yield* service.getById(team)).agentProfile?.group?.workspaceRoot,
+        "/work/local",
+      );
+      yield* service.update({
+        commandId: CommandId.make("link-project"),
+        projectId: team,
+        agentProfile: {
+          ...initialProfile,
+          group: {
+            ...initialProfile.group,
+            linkedProjectId: linked,
+            workspaceRoot: "/untrusted-client-path",
+          },
+        },
+      });
+      assert.equal(
+        Option.getOrThrow(yield* service.getById(team)).agentProfile?.group?.workspaceRoot,
+        "/work/linked",
+      );
+      yield* service
+        .update({
+          commandId: CommandId.make("reject-agent-link"),
+          projectId: team,
+          agentProfile: {
+            ...initialProfile,
+            group: { ...initialProfile.group, linkedProjectId: a },
+          },
+        })
+        .pipe(Effect.flip);
+      yield* service.update({
+        commandId: CommandId.make("unlink-project"),
+        projectId: team,
+        agentProfile: initialProfile,
+      });
+      assert.deepEqual(
+        Option.getOrThrow(yield* service.getById(team)).agentProfile?.group,
+        initialProfile.group,
+      );
       for (const [name, group] of [
         ["missing", { memberProjectIds: [a, ProjectId.make("missing")], leadProjectId: a }],
         ["archived", { memberProjectIds: [a, c], leadProjectId: a }],

@@ -1,9 +1,10 @@
-import { useCanGoBack, useLocation } from "@tanstack/react-router";
+import { useCanGoBack } from "@tanstack/react-router";
 import { useLayoutEffect, useState, type ReactNode } from "react";
 import { ArrowLeftIcon, ArrowRightIcon } from "~/icons";
 import { isElectron } from "~/env";
 import { cn } from "~/lib/utils";
 import { Button } from "./ui/button";
+import { SidebarNewChatButton } from "./sidebar/SidebarChrome";
 import { ElysiaIcon } from "./Icons";
 import { useSidebarVisibility } from "./ui/sidebar";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "./ui/tooltip";
@@ -22,19 +23,11 @@ export function useAppTopbarHost() {
 export function AppTopbar({ sidebarControl }: { sidebarControl: ReactNode }) {
   const canGoBack = useCanGoBack();
   const sidebarVisible = useSidebarVisibility();
-  const pathname = useLocation({ select: (location) => location.pathname });
-  const showWorkspaceDivider =
-    pathname !== "/agents" &&
-    !pathname.startsWith("/agents/") &&
-    !pathname.startsWith("/settings") &&
-    pathname !== "/projects" &&
-    pathname !== "/usage" &&
-    pathname !== "/pull-requests";
   return (
     <header
       data-app-topbar=""
       className={cn(
-        "relative mt-1 hidden h-[var(--workspace-topbar-height)] shrink-0 items-center gap-3 md:flex",
+        "relative mt-1 hidden h-[var(--workspace-topbar-height)] shrink-0 items-center gap-4 md:flex",
         isElectron && "drag-region",
       )}
       style={{
@@ -43,12 +36,12 @@ export function AppTopbar({ sidebarControl }: { sidebarControl: ReactNode }) {
       }}
     >
       <div
-        className="[-webkit-app-region:no-drag] flex min-w-0 shrink-0 items-center"
+        className="[-webkit-app-region:no-drag] flex min-w-max shrink-0 items-center"
         style={
           sidebarVisible
             ? {
                 width:
-                  "calc(var(--app-navigation-rail-width) + var(--workspace-sidebar-width, var(--sidebar-width)) - var(--workspace-controls-left) - 0.75rem)",
+                  "calc(var(--app-navigation-rail-width) + var(--workspace-sidebar-width, var(--sidebar-width)) - var(--workspace-controls-left) - 1rem)",
               }
             : undefined
         }
@@ -66,11 +59,13 @@ export function AppTopbar({ sidebarControl }: { sidebarControl: ReactNode }) {
         </div>
         <div className="flex items-center gap-1">
           {sidebarControl}
+          {!sidebarVisible ? <SidebarNewChatButton iconOnly /> : null}
           <Tooltip>
             <TooltipTrigger
               render={
                 <Button
                   aria-label="Back"
+                  data-workspace-header-action=""
                   disabled={!canGoBack}
                   variant="ghost-muted"
                   size="icon-sm"
@@ -87,6 +82,7 @@ export function AppTopbar({ sidebarControl }: { sidebarControl: ReactNode }) {
               render={
                 <Button
                   aria-label="Forward"
+                  data-workspace-header-action=""
                   variant="ghost-muted"
                   size="icon-sm"
                   onClick={() => window.history.forward()}
@@ -102,12 +98,7 @@ export function AppTopbar({ sidebarControl }: { sidebarControl: ReactNode }) {
       <div
         id={TOPBAR_CONTENT_ID}
         data-app-topbar-content=""
-        className={cn(
-          "relative flex h-full min-w-0 flex-1 items-center bg-sidebar",
-          sidebarControl !== null &&
-            showWorkspaceDivider &&
-            "before:absolute before:-left-px before:top-2 before:bottom-2 before:w-px before:bg-workspace-panel-border",
-        )}
+        className="relative flex h-full min-w-0 flex-1 items-center bg-sidebar"
       />
     </header>
   );

@@ -11,9 +11,7 @@ import {
 import { cn } from "~/lib/utils";
 import { Button } from "../ui/button";
 import { SidebarInput, SidebarMenuButton } from "../ui/sidebar";
-import { CommandDialogTrigger } from "../ui/command";
-import { Kbd } from "../ui/kbd";
-import { SidebarNewChatButton } from "./SidebarChrome";
+import { SidebarCommandShortcut, SidebarNewChatButton } from "./SidebarChrome";
 import { Popover, PopoverPopup, PopoverTrigger } from "../ui/popover";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
 
@@ -61,6 +59,7 @@ export function SidebarThreadSearch({
   const activeResultExists = resultsVisible && activeSearchResultIndex < searchResultCount;
   return (
     <div ref={searchFieldRef} className="flex h-8 items-center gap-1">
+      <SidebarCommandShortcut shortcutLabel={shortcutLabel} />
       <Popover>
         <PopoverTrigger
           render={<Button variant="ghost" size="icon-sm" aria-label="Search threads" />}
@@ -107,13 +106,6 @@ export function SidebarThreadSearch({
           </div>
         </PopoverPopup>
       </Popover>
-      {shortcutLabel ? (
-        <CommandDialogTrigger
-          render={<Button size="xs" variant="ghost" aria-label="Open command palette" />}
-        >
-          <Kbd>{shortcutLabel}</Kbd>
-        </CommandDialogTrigger>
-      ) : null}
     </div>
   );
 }

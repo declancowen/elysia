@@ -41,8 +41,8 @@ export function shouldContinueDesktopUpdateCheckAnimation({
 
 function DesktopUpdateAvailableIcon() {
   return (
-    <span className="relative grid size-4 place-items-center">
-      <DownloadIcon className="size-4" />
+    <span className="relative grid size-5 place-items-center">
+      <DownloadIcon className="size-5" />
       <span
         aria-hidden="true"
         className="absolute -top-0.5 -right-0.5 size-1.5 rounded-full bg-current ring-2 ring-sidebar-control-surface"
@@ -83,15 +83,15 @@ function DesktopUpdateDownloadingIcon({ percent }: { readonly percent: number | 
           className="transition-[stroke-dashoffset] duration-300 ease-out motion-reduce:transition-none"
         />
       </svg>
-      <DownloadIcon className="size-4" />
+      <DownloadIcon className="size-5" />
     </span>
   );
 }
 
 function DesktopUpdateDownloadedIcon() {
   return (
-    <span className="relative grid size-4 place-items-center">
-      <RotateCwIcon className="size-4" />
+    <span className="relative grid size-5 place-items-center">
+      <RotateCwIcon className="size-5" />
       <span className="absolute -right-1 -bottom-1 grid size-2.5 place-items-center rounded-full bg-foreground text-background ring-2 ring-background">
         <CheckIcon className="size-2" strokeWidth={3} />
       </span>
@@ -118,7 +118,7 @@ export function DesktopUpdateStatusIcon({
 
   return (
     <RefreshIcon
-      className="size-4"
+      size="lg"
       refreshing={status === "checking" && isCheckAnimating === true}
       onAnimationIteration={onCheckAnimationIteration}
     />

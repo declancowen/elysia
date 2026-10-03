@@ -1,8 +1,34 @@
 # Elysia
 
-This is the company Elysia fork. Call the app **Elysia** in UI text and agent responses. It wraps the native Elysia CLI through Claude Code. Other providers, connection management, upstream analytics, and prerelease update channels are disabled by this fork's runtime policy; retain their dormant implementations for upstream merges. Credential protection must preserve native routing, compression, slash commands, and LangSmith tracing.
+This repository is **Elysia**, the company fork of **T3 Code**. T3 Code supplies the underlying application infrastructure; Elysia owns the shipped product, UI design, branding, and native CLI integration. Call the app **Elysia** in UI text and agent responses. Internal upstream names and identifiers may remain where renaming would create compatibility or merge churn.
 
-The upstream development guidance follows below. Its product history and remote/multiple-provider defaults describe T3 Code; the Elysia fork policy takes precedence for this app.
+These Elysia instructions take precedence over the upstream guidance below, including guidance brought in by future pull requests or merges. An upstream default is not authorization to change Elysia's product policy.
+
+## Preserve Elysia's product
+
+- Preserve Elysia's current navigation, workspace and agent experiences, tabs, pane layout, themes, iconography, and settings design. Bring useful upstream behavior into these existing surfaces; do not replace them with upstream UI or undo deliberate Elysia design decisions while resolving conflicts.
+- Keep the native **Elysia CLI (`elysia-code`)** integration through Claude Code. The enabled internal driver is `claudeAgent`; this does not mean the shipped product should become generic Claude Code or expose other agent harnesses. Models available through the Elysia gateway are not separate provider integrations.
+- Preserve native model routing, compression, slash commands, skills, session continuity, and LangSmith tracing. Credential protection must continue to work without bypassing or breaking those native capabilities. Keep the isolated Elysia provider profile and the existing orchestration-v2 integration.
+- Preserve Elysia branding, stable updates, and its release/signing pipeline. Do not switch releases to upstream repositories, update feeds, analytics, or prerelease channels.
+
+## Retain upstream capabilities without enabling them
+
+Continue bringing in useful upstream fixes and infrastructure, including connection/environment management, remote and relay support, and other provider/harness adapters. Keep their implementations, contracts, and relevant tests available for future merges, even when Elysia does not expose or run them. Do not delete them merely because they are dormant in this fork.
+
+[Fork policy](packages/contracts/src/forkPolicy.ts) is the central source of truth for the existing runtime gates. The shipped app remains Elysia-only: connection management, other harnesses, external usage sources, and upstream analytics stay disabled; updates stay on the Elysia stable channel. Preserve environment-scoped contracts and authenticated app communication used by active features. Retaining connection code does not mean enabling connection onboarding, pairing, relay services, or their settings.
+
+Enforce these boundaries in the existing server/runtime policy as well as the UI. Hiding a control alone is insufficient, and legacy or custom settings must not reactivate a disabled capability. New upstream entry points must respect the same gates. Enabling a dormant capability or replacing Elysia's UI/CLI policy requires explicit product direction.
+
+## Upstream pull requests and merges
+
+1. Inspect the upstream intent and the corresponding Elysia implementation before resolving conflicts. Preserve Elysia's product behavior while incorporating compatible correctness, security, performance, orchestration, and platform improvements.
+2. Keep shared fixes in their existing owners. Prefer the existing fork policy and adapter boundaries over duplicated services, scattered Elysia conditionals, or a second implementation of the upstream subsystem.
+3. Adapt upstream UI changes to Elysia's components and design. If a feature depends on a disabled capability, retain its implementation behind the existing policy instead of exposing it in Elysia.
+4. Check all connected entry points: UI, settings, command palette, keybindings, RPC/HTTP, MCP, scheduled tasks, and persisted settings. Preserve both the active Elysia path and dormant upstream compatibility.
+5. Run focused checks for the affected behavior and fork boundaries. Relevant guards include `ElysiaPolicy.test.ts`, `ElysiaCli.test.ts`, `ElysiaAgentProtection.test.ts`, and orchestration-v2 `RuntimePolicy.test.ts`. Follow the verification guidance below for UI/native checks; do not claim an untested surface works.
+6. In the merge or PR summary, identify which upstream changes were adopted, which remain gated, and any deliberate Elysia divergence. Do not claim upstream behavior is enabled merely because its code merged.
+
+The upstream development guidance follows below. Its product history, branding, and remote/multiple-provider defaults describe T3 Code; the Elysia policy above governs this app.
 
 # T3 Code
 

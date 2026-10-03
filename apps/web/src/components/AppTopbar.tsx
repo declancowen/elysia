@@ -26,8 +26,10 @@ export function AppTopbar({ sidebarControl }: { sidebarControl: ReactNode }) {
   return (
     <header
       data-app-topbar=""
+      data-sidebar-visible={sidebarVisible}
       className={cn(
-        "relative mt-1 hidden h-[var(--workspace-topbar-height)] shrink-0 items-center gap-4 md:flex",
+        "relative mt-1 hidden h-[var(--workspace-topbar-height)] shrink-0 items-center md:flex",
+        sidebarVisible ? "gap-4" : "gap-1",
         isElectron && "drag-region",
       )}
       style={{

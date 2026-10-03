@@ -15,6 +15,7 @@ import {
   type PlanId,
   type ProjectId,
   type ProjectIconOverride,
+  type ProjectMutation,
   type ProjectScript,
   type ProviderApprovalDecision,
   type ProviderInteractionMode,
@@ -49,7 +50,7 @@ export interface CreateProjectInput extends CommandMetadata {
 }
 
 export interface UpdateProjectInput extends CommandMetadata {
-  readonly agentProfile?: import("@t3tools/contracts").AgentProfile | null;
+  readonly agentProfile?: import("@t3tools/contracts").AgentProfile;
   readonly projectId: ProjectId;
   readonly title?: string;
   readonly workspaceRoot?: string;
@@ -304,32 +305,7 @@ const persistAttachments = Effect.fn("EnvironmentCommands.persistAttachments")(f
 });
 
 const mutateProject = Effect.fn("EnvironmentCommands.mutateProject")(function* (
-  mutation:
-    | {
-        readonly type: "project.create";
-        readonly commandId: CommandId;
-        readonly projectId: ProjectId;
-        readonly title: string;
-        readonly workspaceRoot: string;
-        readonly createWorkspaceRootIfMissing?: boolean;
-        readonly defaultModelSelection?: ModelSelection | null;
-        readonly scripts?: ReadonlyArray<ProjectScript>;
-      }
-    | {
-        readonly type: "project.update";
-        readonly commandId: CommandId;
-        readonly projectId: ProjectId;
-        readonly title?: string;
-        readonly workspaceRoot?: string;
-        readonly defaultModelSelection?: ModelSelection | null;
-        readonly scripts?: ReadonlyArray<ProjectScript>;
-      }
-    | {
-        readonly type: "project.delete";
-        readonly commandId: CommandId;
-        readonly projectId: ProjectId;
-        readonly force?: boolean;
-      },
+  mutation: ProjectMutation,
 ) {
   return yield* request(WS_METHODS.projectsMutate, mutation);
 });
@@ -361,6 +337,7 @@ export const updateProject = Effect.fn("EnvironmentCommands.updateProject")(func
     commandId: yield* allocateCommandId(input),
     projectId: input.projectId,
     ...(input.title === undefined ? {} : { title: input.title }),
+    ...(input.agentProfile === undefined ? {} : { agentProfile: input.agentProfile }),
     ...(input.workspaceRoot === undefined ? {} : { workspaceRoot: input.workspaceRoot }),
     ...(input.defaultModelSelection === undefined
       ? {}

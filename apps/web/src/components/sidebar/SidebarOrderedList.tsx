@@ -16,8 +16,6 @@ import {
 import { restrictToVerticalAxis, restrictToFirstScrollableAncestor } from "@dnd-kit/modifiers";
 import { CSS } from "@dnd-kit/utilities";
 import { createContext, use, type ReactNode } from "react";
-import { Button } from "../ui/button";
-import { GripVerticalIcon } from "../../icons";
 import { cn } from "../../lib/utils";
 
 /** Reordering changes presentation only; callers retain project/thread ownership. */
@@ -54,21 +52,39 @@ export function SidebarOrderedList({
 }
 const SectionDragContext = createContext<ReturnType<typeof useSortable> | null>(null);
 
-export function SidebarSectionDragHandle({ label }: { label: string }) {
+export function SidebarSectionDragLabel({
+  label,
+  expanded,
+  onClick,
+  className,
+  children,
+}: {
+  label: string;
+  expanded?: boolean;
+  onClick?: () => void;
+  className: string;
+  children?: ReactNode;
+}) {
   const drag = use(SectionDragContext);
-  if (!drag) return null;
   return (
-    <Button
-      ref={drag.setActivatorNodeRef}
-      {...drag.attributes}
-      {...drag.listeners}
-      variant="ghost"
-      size="icon-xs"
-      aria-label={`Reorder ${label} section`}
-      data-sidebar-sortable
+    <button
+      type="button"
+      ref={drag?.setActivatorNodeRef}
+      {...drag?.attributes}
+      {...drag?.listeners}
+      aria-label={label}
+      aria-expanded={expanded}
+      onClick={onClick}
+      data-sidebar-sortable={drag ? "" : undefined}
+      className={cn(
+        className,
+        "hover:bg-sidebar-row-hover focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring",
+        drag && "touch-none",
+        drag?.isDragging && "bg-sidebar-row-hover",
+      )}
     >
-      <GripVerticalIcon />
-    </Button>
+      {children ?? label}
+    </button>
   );
 }
 
@@ -93,7 +109,7 @@ export function SidebarOrderedRow({
         style={{ transform: CSS.Translate.toString(transform), transition }}
         className={cn(
           "relative rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-ring",
-          isDragging && "z-30 bg-sidebar-control-surface shadow-lg opacity-90",
+          isDragging && "z-30",
         )}
         role="listitem"
       >

@@ -19,6 +19,7 @@ import {
   type OrchestrationV2ThreadLaunchInput,
   type OrchestrationV2ThreadProjection,
   type ProjectMutation,
+  type AgentProfile,
 } from "@t3tools/contracts";
 import { describe, expect, it } from "@effect/vitest";
 import * as Crypto from "effect/Crypto";
@@ -215,6 +216,49 @@ describe("V2 environment commands", () => {
         },
       ]);
     }).pipe(Effect.provide(TEST_CRYPTO_LAYER)),
+  );
+
+  it.effect(
+    "sends agent and channel archive, restore, and profile edits through the project transport",
+    () =>
+      Effect.gen(function* () {
+        const projects: ProjectMutation[] = [];
+        const supervisor = yield* makeSupervisor({ commands: [], projects });
+        const projectId = ProjectId.make("agent-1");
+        const agentProfile: AgentProfile = {
+          instructions: "Keep the conversation history.",
+          avatar: { preset: "brain", color: "#C9FCED" },
+          archived: false,
+          notificationsEnabled: true,
+          conversationThreadId: ThreadId.make("agent-chat"),
+        };
+        const channelProfile: AgentProfile = {
+          ...agentProfile,
+          group: {
+            memberProjectIds: [projectId, ProjectId.make("agent-2")],
+            leadProjectId: projectId,
+          },
+        };
+        const updates = [
+          { ...agentProfile, archived: true },
+          agentProfile,
+          { ...channelProfile, archived: true },
+          { ...channelProfile, instructions: "Updated channel description." },
+        ];
+        for (const agentProfile of updates) {
+          yield* updateProject({ projectId, agentProfile }).pipe(
+            Effect.provideService(EnvironmentSupervisor.EnvironmentSupervisor, supervisor),
+          );
+        }
+        expect(projects).toEqual(
+          updates.map((agentProfile) => ({
+            type: "project.update",
+            commandId: "00000000-0000-4000-8000-000000000000",
+            projectId,
+            agentProfile,
+          })),
+        );
+      }).pipe(Effect.provide(TEST_CRYPTO_LAYER)),
   );
 
   it.effect("preserves caller command ids for idempotent V2 commands", () =>

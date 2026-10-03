@@ -1,5 +1,11 @@
 import { assert, it } from "@effect/vitest";
-import { CommandId, ProjectId, type Project } from "@t3tools/contracts";
+import {
+  CommandId,
+  ProjectId,
+  ThreadId,
+  type AgentProfile,
+  type Project,
+} from "@t3tools/contracts";
 import * as Effect from "effect/Effect";
 import * as Ref from "effect/Ref";
 
@@ -7,6 +13,17 @@ import { projectMutationOperation } from "./ProjectMutation.ts";
 import { type ProjectService } from "./ProjectService.ts";
 
 const projectId = ProjectId.make("project:mutation-mapping");
+const agentProfile: AgentProfile = {
+  instructions: "Channel description",
+  avatar: { preset: "brain", color: "#C9FCED" },
+  notificationsEnabled: true,
+  archived: false,
+  conversationThreadId: ThreadId.make("channel-chat"),
+  group: {
+    memberProjectIds: [ProjectId.make("agent-1"), ProjectId.make("agent-2")],
+    leadProjectId: ProjectId.make("agent-1"),
+  },
+};
 const project = {
   id: projectId,
   title: "Mapping",
@@ -40,6 +57,7 @@ it.effect("preserves every project mutation field", () =>
       commandId: CommandId.make("command:create"),
       projectId,
       title: "Created",
+      agentProfile,
       workspaceRoot: "/work/created",
       createWorkspaceRootIfMissing: true,
       defaultModelSelection: null,
@@ -50,6 +68,7 @@ it.effect("preserves every project mutation field", () =>
       commandId: CommandId.make("command:update"),
       projectId,
       title: "Updated",
+      agentProfile: { ...agentProfile, archived: true },
       workspaceRoot: "/work/updated",
       defaultModelSelection: null,
       autoPull: false,
@@ -70,6 +89,7 @@ it.effect("preserves every project mutation field", () =>
         commandId: "command:create",
         projectId,
         title: "Created",
+        agentProfile,
         workspaceRoot: "/work/created",
         createWorkspaceRootIfMissing: true,
         defaultModelSelection: null,
@@ -79,6 +99,7 @@ it.effect("preserves every project mutation field", () =>
         commandId: "command:update",
         projectId,
         title: "Updated",
+        agentProfile: { ...agentProfile, archived: true },
         workspaceRoot: "/work/updated",
         defaultModelSelection: null,
         autoPull: false,

@@ -440,7 +440,7 @@ export const AppNavigationRail = memo(function AppNavigationRail() {
     >
       <nav aria-label="Workspace pages" className="flex flex-col items-center gap-2">
         <AppRailButton
-          label="Home"
+          label="Workspace"
           icon={<Home className="size-5" />}
           active={
             !agentsActive &&

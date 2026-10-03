@@ -141,7 +141,7 @@ export function ProjectsPage() {
                   />
                 </InputGroup>
               </div>
-              <Button size="sm" onClick={() => openCommandPalette({ open: "add-project" })}>
+              <Button onClick={() => openCommandPalette({ open: "add-project" })}>
                 <PlusIcon />
                 Create project
               </Button>

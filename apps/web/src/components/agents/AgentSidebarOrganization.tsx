@@ -24,7 +24,7 @@ import { Input } from "../ui/input";
 import {
   SidebarOrderedList,
   SidebarOrderedRow,
-  SidebarSectionDragHandle,
+  SidebarSectionDragLabel,
 } from "../sidebar/SidebarOrderedList";
 import {
   orderAgents,
@@ -160,13 +160,19 @@ export function AgentSidebarSections({
     return (
       <section className="space-y-1" aria-label={section.name || "Agents"}>
         {section.name ? (
-          <div className="flex min-h-8 items-center pl-2.5">
-            <span className="min-w-0 flex-1 truncate text-xs text-sidebar-muted-foreground">
-              {section.name}
-            </span>
+          <div className="flex min-h-8 items-center">
+            {section.id === "pinned" ? (
+              <span className="min-w-0 flex-1 truncate pl-2.5 text-xs text-sidebar-muted-foreground">
+                {section.name}
+              </span>
+            ) : (
+              <SidebarSectionDragLabel
+                label={section.name}
+                className="flex h-8 min-w-0 flex-1 cursor-pointer items-center truncate rounded-md px-2.5 text-left text-xs text-sidebar-muted-foreground"
+              />
+            )}
             {section.id !== "pinned" ? (
               <>
-                <SidebarSectionDragHandle label={section.name} />
                 <Menu>
                   <MenuTrigger
                     render={

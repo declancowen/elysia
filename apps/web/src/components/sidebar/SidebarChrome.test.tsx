@@ -99,7 +99,7 @@ it("navigates rail pages and keeps the thread switcher in Workspace", async () =
         .map((el) => el.getAttribute("aria-label"))
         .filter(Boolean),
     ).toEqual([
-      "Home",
+      "Workspace",
       "Agents",
       "Scheduled",
       "Projects",
@@ -115,16 +115,16 @@ it("navigates rail pages and keeps the thread switcher in Workspace", async () =
     state.pathname = "/local/agent-thread";
     await act(async () => render());
     expect(button("Agents").getAttribute("aria-current")).toBe("page");
-    expect(button("Home").getAttribute("aria-current")).toBeNull();
+    expect(button("Workspace").getAttribute("aria-current")).toBeNull();
     await act(async () => button("Scheduled").click());
     expect(state.navigate).toHaveBeenLastCalledWith({ to: "/settings/scheduled-tasks" });
     expect(useAgentSidebarStore.getState().active).toBe(false);
     await act(async () => button("Projects").click());
     expect(state.navigate).toHaveBeenLastCalledWith({ to: "/projects" });
-    await act(async () => button("Home").click());
+    await act(async () => button("Workspace").click());
     expect(state.navigate).toHaveBeenLastCalledWith({ href: "/" });
     expect(useAgentSidebarStore.getState().active).toBe(false);
-    expect(button("Home").getAttribute("aria-current")).toBe("page");
+    expect(button("Workspace").getAttribute("aria-current")).toBe("page");
     await act(async () => button("Switch to Thread view").click());
     expect(state.settings.legacySidebarEnabled).toBe(false);
     expect(button("Switch to Project view")).not.toBeNull();

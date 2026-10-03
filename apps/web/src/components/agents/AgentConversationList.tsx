@@ -137,7 +137,7 @@ function AgentConversationRow({
     <div
       data-agent-avatar-hover
       className={cn(
-        "group/agent-row relative flex min-w-0 items-center rounded-xl p-2.5 hover:bg-sidebar-row-hover focus-within:bg-sidebar-row-hover",
+        "group/agent-row relative flex h-14 min-w-0 items-center rounded-xl px-2.5 py-2 hover:bg-sidebar-row-hover focus-within:bg-sidebar-row-hover",
         selected &&
           "bg-sidebar-row-active hover:bg-sidebar-row-active focus-within:bg-sidebar-row-active",
       )}
@@ -153,11 +153,12 @@ function AgentConversationRow({
         {profile.group ? (
           <AgentGroupAvatar
             avatars={members.map(({ project: member }) => member.agentProfile!.avatar)}
+            className="size-9"
           />
         ) : (
-          <AgentAvatar avatar={profile.avatar} className="size-11" working={busy} />
+          <AgentAvatar avatar={profile.avatar} className="size-9" working={busy} />
         )}
-        <span className="flex min-w-0 flex-1 flex-col gap-1">
+        <span className="flex min-w-0 flex-1 flex-col gap-0.5">
           <span className="flex min-w-0 items-center gap-2">
             <span className="min-w-0 flex-1 flex items-center gap-2">
               <span className="max-w-full shrink-0 truncate text-sm font-medium">

@@ -1380,6 +1380,13 @@ html[data-theme-id] [data-app-topbar-content] [data-chat-header] {
   background-color: transparent;
 }
 
+/* Collapsed navigation and every page's tabs share the controls' own gap. */
+[data-app-topbar][data-sidebar-visible="false"] [data-app-topbar-content] > header,
+[data-app-topbar][data-sidebar-visible="false"] [data-app-topbar-content] > div,
+[data-app-topbar][data-sidebar-visible="false"] [data-chat-header-main] {
+  padding-inline-start: 0;
+}
+
 html[data-theme-id] [data-chat-header] [data-slot="button"],
 html[data-theme-id] [data-chat-header] [data-slot="menu-trigger"],
 html[data-theme-id] [data-chat-header] [data-toolbar-control] {

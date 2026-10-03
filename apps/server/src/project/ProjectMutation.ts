@@ -14,6 +14,7 @@ export const projectMutationOperation = Effect.fn("projectMutationOperation")(fu
       return yield* projects.create({
         commandId: mutation.commandId,
         projectId: mutation.projectId,
+        ...(mutation.agentProfile === undefined ? {} : { agentProfile: mutation.agentProfile }),
         title: mutation.title,
         workspaceRoot: mutation.workspaceRoot,
         ...(mutation.createWorkspaceRootIfMissing === undefined
@@ -29,6 +30,7 @@ export const projectMutationOperation = Effect.fn("projectMutationOperation")(fu
       return yield* projects.update({
         commandId: mutation.commandId,
         projectId: mutation.projectId,
+        ...(mutation.agentProfile === undefined ? {} : { agentProfile: mutation.agentProfile }),
         ...(mutation.title === undefined ? {} : { title: mutation.title }),
         ...(mutation.workspaceRoot === undefined ? {} : { workspaceRoot: mutation.workspaceRoot }),
         ...(mutation.defaultModelSelection === undefined

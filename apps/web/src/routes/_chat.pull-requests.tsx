@@ -2530,7 +2530,7 @@ function PullRequestsColumn({
     return (
       <div className="flex min-h-0 flex-1 flex-col">
         <div className="flex h-11 shrink-0 items-center justify-between px-3">
-          <h2 className="min-w-0 truncate text-base font-medium">Pull requests</h2>
+          <h2 className="min-w-0 truncate pl-1.5 text-base font-medium">Pull requests</h2>
           <div className="flex shrink-0 items-center gap-1">
             {sortMenu}
             {filtersMenu}

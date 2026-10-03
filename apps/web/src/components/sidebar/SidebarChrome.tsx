@@ -102,7 +102,7 @@ export const SidebarChromeHeader = memo(function SidebarChromeHeader({
         )}
       >
         {SINGLE_PROVIDER_UI ? (
-          <h2 className="truncate text-base font-medium">{title ?? "Workspace"}</h2>
+          <h2 className="truncate pl-1.5 text-base font-medium">{title ?? "Workspace"}</h2>
         ) : (
           <SidebarBrand onBackdrop={backdropVariant !== null} />
         )}

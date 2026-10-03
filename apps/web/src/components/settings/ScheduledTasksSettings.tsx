@@ -247,7 +247,7 @@ function ScheduledTasksWorkspace(target: ScheduledTasksTarget) {
     <>
       <WorkspaceSidebarContent>
         <div className="flex shrink-0 items-center justify-between px-3 py-2">
-          <h2 className="text-base font-medium">Scheduled</h2>
+          <h2 className="pl-1.5 text-base font-medium">Scheduled</h2>
           <Button
             variant="ghost"
             size="icon-sm"

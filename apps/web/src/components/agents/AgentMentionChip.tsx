@@ -104,21 +104,25 @@ export function SentAgentMentionChip(
   );
 }
 
-/** Progress belongs beside the source bubble, never inside the agent mention. */
+/** Progress belongs beside the acknowledgment for its source request. */
 export function AgentMessageStatus({
   sourceThreadRef,
   sourceMessageId,
+  agentProjectId,
 }: {
   sourceThreadRef: ScopedThreadRef | null;
   sourceMessageId: MessageId;
+  agentProjectId?: ProjectId;
 }) {
   const source = useThreadProjection(sourceThreadRef);
   const jobs = useMemo(
     () =>
       delegatedAgentsFromTurnItems(source?.projection.turnItems ?? []).filter(
-        (job) => job.sourceMessageId === sourceMessageId,
+        (job) =>
+          job.sourceMessageId === sourceMessageId &&
+          (agentProjectId === undefined || job.agentProjectId === agentProjectId),
       ),
-    [source?.projection.turnItems, sourceMessageId],
+    [source?.projection.turnItems, sourceMessageId, agentProjectId],
   );
   const agents = useDelegatedAgents(sourceThreadRef, jobs);
   if (!agents.length) return null;

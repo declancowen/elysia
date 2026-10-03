@@ -4396,3 +4396,114 @@ it.layer(TestLayer)("persistent agent result admission", (it) => {
       }),
     );
 });
+
+it.layer(TestLayer)("persistent agent fork admission", (it) => {
+  for (const creationSource of ["web", "mcp"] as const)
+    it.effect(
+      `rejects persistent agent forks before creating a transfer or thread: ${creationSource}`,
+      () =>
+        Effect.gen(function* () {
+          const orchestrator = yield* Orchestrator.OrchestratorV2;
+          const projects = yield* ProjectStore.ProjectStoreV2;
+          const events = yield* EventSink.EventSinkV2;
+          const outbox = yield* EffectOutbox.EffectOutboxV2;
+          const at = yield* DateTime.now;
+          const projectId = ProjectId.make(`persistent-fork-project:${creationSource}`);
+          const threadId = ThreadId.make(`persistent-fork-source:${creationSource}`);
+          const targetThreadId = ThreadId.make(`persistent-fork-target:${creationSource}`);
+          const runId = RunId.make(`persistent-fork-run:${creationSource}`);
+          const commandId = CommandId.make(`persistent-fork-command:${creationSource}`);
+          yield* seedProject({
+            projectId,
+            title: "Alex",
+            workspaceRoot: process.cwd(),
+            defaultModelSelection: modelSelection,
+            createdAt: DateTime.formatIso(at),
+          });
+          yield* projects.apply({
+            sequence: 0,
+            eventId: EventId.make(`persistent-fork-profile:${creationSource}`),
+            aggregateKind: "project",
+            aggregateId: projectId,
+            occurredAt: DateTime.formatIso(at),
+            commandId: null,
+            causationEventId: null,
+            correlationId: null,
+            metadata: {},
+            type: "project.meta-updated",
+            payload: {
+              projectId,
+              agentProfile: {
+                instructions: "Help with tasks.",
+                avatar: { preset: "brain", color: "blue" },
+                archived: false,
+                notificationsEnabled: true,
+                conversationThreadId: threadId,
+              },
+              updatedAt: DateTime.formatIso(at),
+            },
+          });
+          yield* orchestrator.dispatch({
+            type: "thread.create",
+            commandId: CommandId.make(`persistent-fork-create:${creationSource}`),
+            threadId,
+            projectId,
+            title: "Alex",
+            modelSelection,
+            runtimeMode: "full-access",
+            interactionMode: "default",
+            branch: null,
+            worktreePath: null,
+            createdBy: "user",
+            creationSource: "web",
+          });
+          yield* events.write({
+            events: [
+              {
+                id: EventId.make(`persistent-fork-completed-run:${creationSource}`),
+                type: "run.updated",
+                threadId,
+                occurredAt: at,
+                payload: {
+                  id: runId,
+                  threadId,
+                  ordinal: 1,
+                  providerInstanceId: modelSelection.instanceId,
+                  modelSelection,
+                  providerThreadId: null,
+                  userMessageId: MessageId.make(`persistent-fork-ask:${creationSource}`),
+                  rootNodeId: null,
+                  activeAttemptId: null,
+                  status: "completed",
+                  requestedAt: at,
+                  startedAt: at,
+                  completedAt: at,
+                  checkpointId: null,
+                  contextHandoffId: null,
+                },
+              },
+            ],
+          });
+          const before = yield* orchestrator.getThreadProjection(threadId);
+          const error = yield* orchestrator
+            .dispatch({
+              type: "thread.fork",
+              commandId,
+              sourceThreadId: threadId,
+              targetThreadId,
+              sourcePoint: { type: "run", runId },
+              createdBy: creationSource === "mcp" ? "agent" : "user",
+              creationSource,
+            })
+            .pipe(Effect.flip);
+          assert.equal(error._tag, "OrchestratorDispatchError");
+          assert.equal(error.cause, "Persistent agent chats cannot be forked.");
+          assert.deepEqual(
+            (yield* orchestrator.getThreadProjection(threadId)).contextTransfers,
+            before.contextTransfers,
+          );
+          assert.deepEqual(yield* outbox.listByCommandId(commandId), []);
+          assert.isNull(yield* orchestrator.getThreadShell(targetThreadId));
+        }),
+    );
+});

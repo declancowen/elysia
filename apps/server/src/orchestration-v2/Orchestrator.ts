@@ -3177,6 +3177,16 @@ const makeOrchestrator = Effect.fn("orchestrationV2.Orchestrator.layer")(functio
         ),
       );
 
+    const sourceProject = yield* projects
+      .get(sourceProjection.thread.projectId)
+      .pipe(mapDispatchError(command));
+    if (Option.isSome(sourceProject) && sourceProject.value.agentProfile) {
+      return yield* new OrchestratorDispatchError({
+        commandId: command.commandId,
+        commandType: command.type,
+        cause: "Persistent agent chats cannot be forked.",
+      });
+    }
     const sourceRun = runForSourcePoint(sourceProjection, command.sourcePoint);
 
     if (sourceRun === null) {

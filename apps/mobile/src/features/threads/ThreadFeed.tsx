@@ -1,6 +1,7 @@
 import { AgentDelegationResponseSheet, DelegatedAgentWork } from "../agents/DelegatedAgentWork";
 import { delegatedAgentsFromTurnItems, type DelegatedAgent } from "@t3tools/shared/agentMentions";
 import { environmentThreadDetails } from "../../state/threads";
+import { useAtomValue } from "@effect/atom-react";
 import { ThreadContextDivider } from "./thread-context-divider";
 import { ThreadHandoffRow } from "./thread-handoff-row";
 import {
@@ -11,7 +12,8 @@ import {
 import * as Haptics from "expo-haptics";
 import { KeyboardAwareLegendList } from "@legendapp/list/keyboard";
 import { useViewabilityAmount, type LegendListRef } from "@legendapp/list/react-native";
-import { scopeThreadRef } from "@t3tools/client-runtime/environment";
+import { scopeProjectRef, scopeThreadRef } from "@t3tools/client-runtime/environment";
+import { useProject, useThreadShell } from "../../state/entities";
 import { resolveUserMessagePresentation } from "@t3tools/client-runtime/user-message";
 import { canForkProjectedAssistantItem } from "@t3tools/client-runtime/state/thread-workflows";
 import {
@@ -320,12 +322,19 @@ function AssistantForkButton(props: {
     sourceThreadId: props.projectedItem.sourceThreadId,
     sourceItemId: props.projectedItem.sourceItemId,
   });
+  const source = useThreadShell(
+    scopeThreadRef(props.environmentId, props.projectedItem.sourceThreadId),
+  );
+  const project = useProject(
+    source ? scopeProjectRef(props.environmentId, source.projectId) : null,
+  );
   const forkFromRun = useAtomCommand(threadEnvironment.forkFromRun, "fork from response");
   const navigation = useNavigation();
   const [busy, setBusy] = useState(false);
   const canFork = canForkProjectedAssistantItem({
     projectedItem: props.projectedItem,
     capabilities: support.providerSession?.capabilities,
+    isAgentThread: Boolean(project?.agentProfile),
   });
   const runId = props.projectedItem.item.runId;
 
@@ -1503,6 +1512,7 @@ function renderFeedEntry(
     readonly workGroupScrollPositions: Map<string, ThreadWorkGroupScrollPosition>;
     readonly terminalAssistantMessageIds: ReadonlySet<string>;
     readonly unsettledTurnId: RunId | null;
+    readonly queuedRunIds: ReadonlySet<RunId>;
     readonly failedRunIds: ReadonlySet<RunId>;
     readonly onCopyWorkRow: (rowId: string, value: string) => void;
     readonly onToggleWorkGroup: (groupId: string, anchorKey?: string) => void;
@@ -1649,7 +1659,10 @@ function renderFeedEntry(
 
     if (isUser) {
       const enterAnimated = isFreshTimestamp(message.createdAt);
-      const intentBadge = resolveUserMessageIntentBadge(message.inputIntent);
+      const intentBadge = resolveUserMessageIntentBadge(
+        message.inputIntent,
+        message.runId && props.queuedRunIds.has(message.runId) ? "queued" : undefined,
+      );
       const referenceIds = new Set(
         collectComposerContextReferences(message.text).map((reference) => reference.contextId),
       );
@@ -2488,6 +2501,13 @@ export const ThreadFeed = memo(function ThreadFeed(props: ThreadFeedProps) {
   );
   const reviewCommentColors = useReviewCommentColors();
   const unsettledTurnId = threadFeedRunIsUnsettled(props.latestRun) ? props.latestRun.runId : null;
+  const queueWorkflow = useAtomValue(
+    environmentThreadDetails.queueWorkflowAtom(scopeThreadRef(props.environmentId, props.threadId)),
+  );
+  const queuedRunIds = useMemo(
+    () => new Set(queueWorkflow?.queuedRuns.map(({ run }) => run.id)),
+    [queueWorkflow],
+  );
   // LegendList does not invalidate visible rows when only the renderItem closure changes.
   // Include turn completion so unchanged message rows reveal their footer and spacing
   // even when the final message update arrives before the turn settles.
@@ -2497,6 +2517,7 @@ export const ThreadFeed = memo(function ThreadFeed(props: ThreadFeedProps) {
       setupWorkingStartedAt: props.setupWorkingStartedAt,
       dispatchingMessageId: props.dispatchingMessageId,
       unsettledTurnId,
+      queuedRunIds,
       copiedRowId,
       expandedWorkGroups,
       expandedWorkRows,
@@ -2513,6 +2534,7 @@ export const ThreadFeed = memo(function ThreadFeed(props: ThreadFeedProps) {
       props.setupWorkingStartedAt,
       props.dispatchingMessageId,
       unsettledTurnId,
+      queuedRunIds,
       copiedRowId,
       expandedWorkGroups,
       expandedWorkRows,
@@ -2962,6 +2984,7 @@ export const ThreadFeed = memo(function ThreadFeed(props: ThreadFeedProps) {
             workGroupScrollPositions,
             terminalAssistantMessageIds,
             unsettledTurnId,
+            queuedRunIds,
             failedRunIds,
             onCopyWorkRow,
             onToggleWorkGroup,
@@ -3008,6 +3031,7 @@ export const ThreadFeed = memo(function ThreadFeed(props: ThreadFeedProps) {
       workGroupScrollPositions,
       terminalAssistantMessageIds,
       unsettledTurnId,
+      queuedRunIds,
       failedRunIds,
       iconSubtleColor,
       screenColor,

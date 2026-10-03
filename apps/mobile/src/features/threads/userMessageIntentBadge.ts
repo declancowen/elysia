@@ -1,4 +1,8 @@
-import type { OrchestrationV2UserMessageInputIntent } from "@t3tools/contracts";
+import type {
+  OrchestrationV2UserMessageInputIntent,
+  OrchestrationV2RunStatus,
+} from "@t3tools/contracts";
+import { resolveUserMessageIntentMarker } from "@t3tools/client-runtime/user-message";
 
 export interface UserMessageIntentBadgePresentation {
   readonly label: string;
@@ -8,8 +12,9 @@ export interface UserMessageIntentBadgePresentation {
 
 export function resolveUserMessageIntentBadge(
   intent: OrchestrationV2UserMessageInputIntent | undefined,
+  runStatus?: OrchestrationV2RunStatus,
 ): UserMessageIntentBadgePresentation | null {
-  switch (intent) {
+  switch (resolveUserMessageIntentMarker(intent, runStatus)) {
     case "queued_turn":
       return {
         label: "queued",
@@ -28,8 +33,7 @@ export function resolveUserMessageIntentBadge(
         accessibilityLabel: "Originally queued, then promoted to steer the active turn",
         tone: "steer",
       };
-    case "turn_start":
-    case undefined:
+    case null:
       return null;
   }
 }

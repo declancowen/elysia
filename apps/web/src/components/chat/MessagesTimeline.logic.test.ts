@@ -1,4 +1,4 @@
-import { ThreadId, type WorktreeSetupSnapshot } from "@t3tools/contracts";
+import { ProjectId, ThreadId, type WorktreeSetupSnapshot } from "@t3tools/contracts";
 import {
   CheckpointRef,
   NodeId,
@@ -19,7 +19,6 @@ import type { TurnDiffSummary } from "../../types";
 import { describe, expect, it } from "vite-plus/test";
 import { MessageId, RunId } from "@t3tools/contracts";
 import {
-  isWorkWorkspaceEntry,
   computeStableMessagesTimelineRows,
   computeMessageDurationStart,
   deriveMessagesTimelineRows,
@@ -37,6 +36,70 @@ import {
   workEntryIsVisibleInGroup,
 } from "./MessagesTimeline.logic";
 import type { WorkLogEntry } from "../../session-logic";
+
+describe("persistent agent acknowledgments", () => {
+  it("anchors delayed acknowledgments to their requests without losing multi-agent or paged notices", () => {
+    const fixture = makeStreamingTimelineFixture("Latest reply");
+    const notice = (id: string, message: string): OrchestrationV2ProjectedTurnItem => ({
+      ...fixture.visibleTurnItems[0]!,
+      sourceItemId: TurnItemId.make(id),
+      item: {
+        ...fixture.visibleTurnItems[0]!.item,
+        id: TurnItemId.make(id),
+        type: "system_notice",
+        runId: null,
+        providerThreadId: null,
+        providerTurnId: null,
+        message: "Task delegated",
+        agentDelegation: {
+          agentProjectId: ProjectId.make(id),
+          agentThreadId: ThreadId.make(`chat-${id}`),
+          agentName: id,
+          sourceMessageId: MessageId.make(message),
+          targetMessageId: MessageId.make(`target-${id}`),
+          targetTurnId: null,
+        },
+      },
+    });
+    const visible = [
+      ...fixture.visibleTurnItems,
+      notice("ack-latest", "live-user"),
+      notice("ack-earlier", "history-user"),
+      notice("ack-second-agent", "history-user"),
+      notice("ack-unloaded", "unloaded-request"),
+    ];
+    const entries = deriveTimelineEntriesFromVisibleTurnItems({
+      visibleTurnItems: visible,
+      optimisticMessages: [],
+    });
+    const rows = deriveMessagesTimelineRows({
+      timelineEntries: entries,
+      isWorking: false,
+      turnDiffSummaries: [],
+      supportsConversationRollback: false,
+    });
+    const ids = rows.map((row) => row.id);
+    const original = rows.findIndex(
+      (row) => row.kind === "message" && row.message.id === "history-user",
+    );
+    const latest = rows.findIndex(
+      (row) => row.kind === "message" && row.message.id === "live-user",
+    );
+    const noticeId = (id: string) =>
+      entries.find(
+        (entry) => entry.kind === "work" && entry.entry.agentDelegation?.agentProjectId === id,
+      )!.id;
+    expect(ids.slice(original + 1, original + 3)).toEqual([
+      noticeId("ack-earlier"),
+      noticeId("ack-second-agent"),
+    ]);
+    expect(ids[latest + 1]).toBe(noticeId("ack-latest"));
+    expect(ids.at(-1)).toBe(noticeId("ack-unloaded"));
+    for (const id of ["ack-latest", "ack-earlier", "ack-second-agent", "ack-unloaded"])
+      expect(ids.filter((value) => value === noticeId(id))).toHaveLength(1);
+    expect(entries.at(-2)?.id).toBe(noticeId("ack-second-agent"));
+  });
+});
 
 describe("expanded tool group scrolling", () => {
   const entries = [{ id: "first" }, { id: "second" }];
@@ -3358,14 +3421,14 @@ describe("computeStableMessagesTimelineRows", () => {
 describe("resolveTimelineToolPresentation", () => {
   it("pretty prints Claude and Cursor T3 MCP tool names", () => {
     expect(resolveTimelineToolPresentation("mcp__t3-code__t3_thread_read")).toEqual({
-      displayName: "Read a T3 thread",
+      displayName: "Read an Elysia chat",
       logo: "t3-code",
     });
   });
 
   it("pretty prints Codex T3 MCP tool names", () => {
     expect(resolveTimelineToolPresentation("t3-code.create_threads")).toEqual({
-      displayName: "Create T3 threads",
+      displayName: "Create Elysia chats",
       logo: "t3-code",
     });
   });

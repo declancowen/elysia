@@ -27,6 +27,7 @@ import {
   type EnvironmentId,
   type MessageId,
   type OrchestrationV2TurnItem,
+  type OrchestrationV2Run,
   type RunAttemptId,
   type ScopedThreadRef,
   type ServerProvider,
@@ -35,7 +36,11 @@ import {
   type ThreadId,
   type ToolActivityIcon,
 } from "@t3tools/contracts";
-import { parseScopedThreadKey, scopeThreadRef } from "@t3tools/client-runtime/environment";
+import {
+  parseScopedThreadKey,
+  scopeProjectRef,
+  scopeThreadRef,
+} from "@t3tools/client-runtime/environment";
 import { useAtomValue } from "@effect/atom-react";
 import { environmentThreadDetails } from "../../state/threads";
 import { resolveUserMessagePresentation } from "@t3tools/client-runtime/user-message";
@@ -191,6 +196,7 @@ import {
   type MessagesTimelineRowsProjection,
   liveWorkEntryLabel,
   resolveAssistantMessageCopyState,
+  resolveUserMessageIntentMarker,
   resolveTimelineIsAtEnd,
   resolveTimelineMinimapHasPersistentGutter,
   resolveTimelineMinimapCurrentIndex,
@@ -340,6 +346,7 @@ interface TimelineRowActivityState {
   activeTurnInProgress: boolean;
   isPreparingWorktree: boolean;
   latestRunId: RunId | null;
+  queuedRunIds: ReadonlySet<RunId>;
   /**
    * A worktree setup whose script is still running after the agent took
    * over. The working header shows it as a chip with a popover; the stage
@@ -461,7 +468,7 @@ interface MessagesTimelineProps {
   workspaceRoot: string | undefined;
   skills?: ReadonlyArray<Pick<ServerProviderSkill, "name" | "displayName">>;
   providerStatuses: ReadonlyArray<ServerProvider>;
-  runs: ReadonlyArray<HandoffTimelineRun>;
+  runs: ReadonlyArray<HandoffTimelineRun & Pick<OrchestrationV2Run, "status">>;
   anchorMessageId: MessageId | null;
   onAnchorReady: (messageId: MessageId, anchorIndex: number) => void;
   onAnchorSizeChanged: (messageId: MessageId, size: number) => void;
@@ -1264,6 +1271,10 @@ export const MessagesTimeline = memo(function MessagesTimeline({
     latestRun?.startedAt != null
       ? worktreeSetup
       : null;
+  const queuedRunIds = useMemo(
+    () => new Set(runsProp.filter((run) => run.status === "queued").map((run) => run.id)),
+    [runsProp],
+  );
   const activityState = useMemo<TimelineRowActivityState>(
     () => ({
       isWorking,
@@ -1273,6 +1284,7 @@ export const MessagesTimeline = memo(function MessagesTimeline({
       activeTurnInProgress,
       isPreparingWorktree,
       latestRunId: latestRun?.runId ?? null,
+      queuedRunIds,
     }),
     [
       compactionAwaitingRow,
@@ -1282,6 +1294,7 @@ export const MessagesTimeline = memo(function MessagesTimeline({
       isRevertingCheckpoint,
       isWorking,
       latestRun?.runId,
+      queuedRunIds,
     ],
   );
   const listHeader = useMemo(() => {
@@ -1990,7 +2003,7 @@ function AgentDelegationRow({
 }) {
   const { threadRef } = use(TimelineRowCtx);
   return (
-    <div className="flex items-start py-1 text-sm text-muted-foreground">
+    <div className="min-w-0 py-1 text-sm leading-relaxed text-muted-foreground">
       <SentAgentMentionChip
         environmentId={threadRef?.environmentId ?? null}
         contextId={delegation.agentProjectId}
@@ -2000,6 +2013,13 @@ function AgentDelegationRow({
         allowArchived
       />
       <span>{": I got it. I’ll continue in my chat."}</span>
+      <span className="ml-2 inline-flex align-middle">
+        <AgentMessageStatus
+          sourceThreadRef={threadRef}
+          sourceMessageId={delegation.sourceMessageId}
+          agentProjectId={delegation.agentProjectId}
+        />
+      </span>
     </div>
   );
 }
@@ -2028,6 +2048,11 @@ function AgentTaskReceivedHeading({
 
 function UserTimelineRow({ row }: { row: Extract<TimelineRow, { kind: "message" }> }) {
   const ctx = use(TimelineRowCtx);
+  const { queuedRunIds } = use(TimelineRowActivityCtx);
+  const markerIntent = resolveUserMessageIntentMarker(
+    row.message.inputIntent,
+    row.message.runId && queuedRunIds.has(row.message.runId) ? "queued" : undefined,
+  );
   const { onImageExpand, onFileOpen } = ctx;
   const senderThreadId = row.message.senderThreadId;
   const resources = useMemo(
@@ -2191,7 +2216,12 @@ function UserTimelineRow({ row }: { row: Extract<TimelineRow, { kind: "message" 
   );
 
   return (
-    <div className={cn("group flex flex-col gap-1", handoff ? "items-start px-1" : "items-end")}>
+    <div
+      className={cn(
+        "group flex flex-col gap-1",
+        handoff ? "items-start pl-4 sm:pl-7" : "items-end",
+      )}
+    >
       {userMessage.isAutomation ? (
         <p
           className="me-1 text-2xs text-muted-foreground/70"
@@ -2227,9 +2257,7 @@ function UserTimelineRow({ row }: { row: Extract<TimelineRow, { kind: "message" 
           )}
         </p>
       ) : null}
-      {row.message.inputIntent && row.message.inputIntent !== "turn_start" ? (
-        <UserMessageIntentMarker intent={row.message.inputIntent} />
-      ) : null}
+      {markerIntent ? <UserMessageIntentMarker intent={markerIntent} /> : null}
       <div className="relative max-w-[80%] rounded-2xl bg-message p-3 text-message-foreground">
         {handoff ? (
           <AgentTaskReceivedHeading
@@ -2354,16 +2382,6 @@ function UserTimelineRow({ row }: { row: Extract<TimelineRow, { kind: "message" 
                     avatar={ctx.agentAvatar}
                     className="absolute right-full bottom-[0.5lh] mr-4 size-3 translate-y-1/2 sm:mr-5 sm:size-5"
                   />
-                ) : null}
-                {collectComposerContextReferences(resolvedContext.text).some(
-                  (reference) => reference.kind === "agent",
-                ) ? (
-                  <div className="absolute right-full bottom-[0.5lh] mr-6 flex translate-y-1/2">
-                    <AgentMessageStatus
-                      sourceThreadRef={ctx.threadRef}
-                      sourceMessageId={row.message.id}
-                    />
-                  </div>
                 ) : null}
               </>
             }
@@ -2675,9 +2693,16 @@ function AssistantForkButton({
     sourceThreadId: projectedItem.sourceThreadId,
     sourceItemId: projectedItem.sourceItemId,
   });
+  const source = useThreadShell(
+    scopeThreadRef(ctx.activeThreadEnvironmentId, projectedItem.sourceThreadId),
+  );
+  const project = useProject(
+    source ? scopeProjectRef(ctx.activeThreadEnvironmentId, source.projectId) : null,
+  );
   const canFork = canForkProjectedAssistantItem({
     projectedItem,
     capabilities: support.providerSession?.capabilities,
+    isAgentThread: Boolean(ctx.agentAvatar || project?.agentProfile),
   });
 
   if (!canFork || projectedItem.item.runId === null) return null;

@@ -376,6 +376,19 @@ describe("thread workflows", () => {
       }),
     ).toBe(true);
     expect(canForkProjectedAssistantItem({ projectedItem })).toBe(true);
+    for (const support of [
+      undefined,
+      capabilities({ nativeFork: true }),
+      capabilities({ portableFork: true }),
+    ]) {
+      expect(
+        canForkProjectedAssistantItem({
+          projectedItem,
+          capabilities: support,
+          isAgentThread: true,
+        }),
+      ).toBe(false);
+    }
     expect(
       canForkProjectedAssistantItem({
         projectedItem: {

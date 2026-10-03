@@ -9,11 +9,14 @@ describe("user message intent badge", () => {
   });
 
   it("labels messages waiting behind the active turn", () => {
-    expect(resolveUserMessageIntentBadge("queued_turn")).toEqual({
+    expect(resolveUserMessageIntentBadge("queued_turn", "queued")).toEqual({
       label: "queued",
       accessibilityLabel: "Queued behind the active turn",
       tone: "queued",
     });
+    expect(resolveUserMessageIntentBadge("queued_turn", "running")).toBeNull();
+    expect(resolveUserMessageIntentBadge("queued_turn", "completed")).toBeNull();
+    expect(resolveUserMessageIntentBadge("queued_turn")).toBeNull();
   });
 
   it("labels messages that steer the active turn", () => {

@@ -1,7 +1,7 @@
 import { ScheduledTaskId } from "@t3tools/contracts";
 import { describe, expect, it } from "vite-plus/test";
 
-import { resolveUserMessagePresentation } from "./userMessage.ts";
+import { resolveUserMessageIntentMarker, resolveUserMessagePresentation } from "./userMessage.ts";
 
 describe("resolveUserMessagePresentation", () => {
   const legacyText = "[Triggered by schedule task: Daily audit]\n\nCheck for crashes.\n";
@@ -66,5 +66,37 @@ describe("resolveUserMessagePresentation", () => {
         scheduledTaskId: "task:daily-audit",
       });
     }
+  });
+});
+
+describe("user message queue presentation", () => {
+  it("removes the pending queue marker as the same queued request is sent and answered", () => {
+    // V2 retains queued_turn on the delivered user item, including completed history.
+    const intent = "queued_turn";
+    expect(resolveUserMessageIntentMarker(intent, "queued")).toBe("queued_turn");
+    expect(resolveUserMessageIntentMarker(intent, "starting")).toBeNull();
+    expect(resolveUserMessageIntentMarker(intent, "running")).toBeNull();
+    expect(resolveUserMessageIntentMarker(intent, "waiting")).toBeNull();
+    expect(resolveUserMessageIntentMarker(intent, "completed")).toBeNull();
+  });
+
+  it("does not call cancelled, failed or unloaded historical requests queued", () => {
+    expect(resolveUserMessageIntentMarker("queued_turn", "cancelled")).toBeNull();
+    expect(resolveUserMessageIntentMarker("queued_turn", "failed")).toBeNull();
+    expect(resolveUserMessageIntentMarker("queued_turn", "interrupted")).toBeNull();
+    expect(resolveUserMessageIntentMarker("queued_turn", "rolled_back")).toBeNull();
+    expect(resolveUserMessageIntentMarker("queued_turn", undefined)).toBeNull();
+  });
+
+  it("keeps steering provenance distinct from pending queue state", () => {
+    expect(resolveUserMessageIntentMarker("promoted_queued_to_steer", "running")).toBe(
+      "promoted_queued_to_steer",
+    );
+    expect(resolveUserMessageIntentMarker("promoted_queued_to_steer", "completed")).toBe(
+      "promoted_queued_to_steer",
+    );
+    expect(resolveUserMessageIntentMarker("steer", "completed")).toBe("steer");
+    expect(resolveUserMessageIntentMarker("turn_start", "queued")).toBeNull();
+    expect(resolveUserMessageIntentMarker(undefined, "queued")).toBeNull();
   });
 });

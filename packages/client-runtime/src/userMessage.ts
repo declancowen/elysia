@@ -1,4 +1,18 @@
-import { type OrchestrationV2Actor, ScheduledTaskId } from "@t3tools/contracts";
+import {
+  type OrchestrationV2Actor,
+  type OrchestrationV2RunStatus,
+  type OrchestrationV2UserMessageInputIntent,
+  ScheduledTaskId,
+} from "@t3tools/contracts";
+
+/** Queue provenance survives delivery; only a live queued run is still queued. */
+export function resolveUserMessageIntentMarker(
+  intent: OrchestrationV2UserMessageInputIntent | undefined,
+  runStatus: OrchestrationV2RunStatus | undefined,
+) {
+  if (intent === "queued_turn") return runStatus === "queued" ? intent : null;
+  return intent === "steer" || intent === "promoted_queued_to_steer" ? intent : null;
+}
 
 const LEGACY_AUTOMATION_PREFIX = /^\[Triggered by schedule task: [^\r\n]+\]\r?\n\r?\n/;
 const LEGACY_AUTOMATION_MESSAGE_ID = /^scheduled-task-message:(.+):\d+:(?:scheduled|manual)$/;

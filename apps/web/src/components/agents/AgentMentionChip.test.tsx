@@ -4,7 +4,6 @@ import { act } from "react";
 import { createRoot } from "react-dom/client";
 import {
   EnvironmentId,
-  EventId,
   MessageId,
   ProjectId,
   ThreadId,
@@ -16,6 +15,7 @@ import { expect, it, vi } from "vite-plus/test";
 
 const state = vi.hoisted(() => ({
   status: "working" as AgentGetDelegationResult["status"],
+  statusByAgent: {} as Record<string, AgentGetDelegationResult["status"]>,
   activities: [] as OrchestrationV2TurnItem[],
   project: {
     title: "Friday",
@@ -39,8 +39,13 @@ vi.mock("./useDelegatedAgents", () => ({
     jobs.map((job) => ({
       job,
       name: job.agentName,
-      working: state.status === "working",
-      data: { ...job, status: state.status, messages: [], truncated: false },
+      working: (state.statusByAgent[job.agentProjectId] ?? state.status) === "working",
+      data: {
+        ...job,
+        status: state.statusByAgent[job.agentProjectId] ?? state.status,
+        messages: [],
+        truncated: false,
+      },
     })),
 }));
 import { useThreadOverviewStore } from "../chat/threadOverviewStore";
@@ -132,7 +137,7 @@ it("shows plain clickable agent names and task-specific status in sent messages"
   const host = document.createElement("div");
   document.body.append(host);
   const root = createRoot(host);
-  const render = () =>
+  const render = (agentProjectId?: ProjectId) =>
     root.render(
       <>
         <div data-bubble>
@@ -145,7 +150,11 @@ it("shows plain clickable agent names and task-specific status in sent messages"
             allowArchived
           />
         </div>
-        <AgentMessageStatus sourceThreadRef={source} sourceMessageId={MessageId.make("request")} />
+        <AgentMessageStatus
+          sourceThreadRef={source}
+          sourceMessageId={MessageId.make("request")}
+          {...(agentProjectId ? { agentProjectId } : {})}
+        />
       </>,
     );
   try {
@@ -169,10 +178,15 @@ it("shows plain clickable agent names and task-specific status in sent messages"
     state.status = "interrupted";
     await act(async () => render());
     expect(host.querySelector('[aria-label="Agents stopped"]')).not.toBeNull();
+    state.statusByAgent = { friday: "completed", other: "working" };
+    await act(async () => render(ProjectId.make("friday")));
+    expect(host.querySelector('[aria-label="Agents finished"]')).not.toBeNull();
+    expect(host.querySelector('[aria-label="Agents working"]')).toBeNull();
     state.activities = [activity("older", "friday"), activity("another-request", "other")];
     await act(async () => render());
     expect(host.querySelector('[aria-label="Agents finished"]')).toBeNull();
   } finally {
+    state.statusByAgent = {};
     useThreadOverviewStore.setState({ target: null });
     await act(async () => root.unmount());
     host.remove();

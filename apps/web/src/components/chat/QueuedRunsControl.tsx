@@ -13,7 +13,7 @@ import {
   CornerUpRightIcon,
   GripVerticalIcon,
   ListOrderedIcon,
-  PencilIcon,
+  Edit03Icon,
 } from "~/icons";
 import { useId, useImperativeHandle, useMemo, useRef, useState, type Ref } from "react";
 
@@ -436,7 +436,7 @@ export function QueuedRunsControl({
                               />
                             }
                           >
-                            <PencilIcon />
+                            <Edit03Icon />
                           </TooltipTrigger>
                           <TooltipPopup>
                             {`Edit in the composer${item.serverIndex === queued.length - 1 && props.editShortcutLabel ? ` (${props.editShortcutLabel})` : ""}`}

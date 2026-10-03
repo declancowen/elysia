@@ -58,6 +58,8 @@ import {
 } from "@t3tools/shared/toolActivity";
 import { isWindowsAbsolutePath } from "@t3tools/shared/path";
 
+export { resolveUserMessageIntentMarker } from "@t3tools/client-runtime/user-message";
+
 function timelineEntryRunId(entry: TimelineEntry): RunId | null {
   if (entry.kind === "message") {
     return entry.message.role === "assistant" ? (entry.message.runId ?? null) : null;
@@ -1735,8 +1737,32 @@ export function deriveMessagesTimelineRows(input: {
     });
   }
 
-  const result = attachTrailingToolGroupsToAssistant(
+  const settledRows = attachTrailingToolGroupsToAssistant(
     attachCreatedThreadSummaries(nextRows, timelineEntries),
+  );
+  // Acceptance can arrive after later prompts. Keep each acknowledgment with
+  // its originating user message; retain unanchored notices in paged history.
+  const sourceMessageIds = new Set(
+    settledRows.flatMap((row) =>
+      row.kind === "message" && row.message.role === "user" ? [row.message.id] : [],
+    ),
+  );
+  const acknowledgments = new Map<MessageId, MessagesTimelineRow[]>();
+  const anchoredRowIds = new Set<string>();
+  for (const row of settledRows) {
+    const delegation = row.kind === "work" && row.groupedEntries[0]?.agentDelegation;
+    if (!delegation || !sourceMessageIds.has(delegation.sourceMessageId)) continue;
+    const siblings = acknowledgments.get(delegation.sourceMessageId) ?? [];
+    siblings.push(row);
+    acknowledgments.set(delegation.sourceMessageId, siblings);
+    anchoredRowIds.add(row.id);
+  }
+  const result = settledRows.flatMap((row) =>
+    anchoredRowIds.has(row.id)
+      ? []
+      : row.kind === "message"
+        ? [row, ...(acknowledgments.get(row.message.id) ?? [])]
+        : [row],
   );
   return result.map((row, index) =>
     timelineRowIsWorkLog(row) && timelineRowIsWorkLog(result[index + 1])

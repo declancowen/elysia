@@ -76,6 +76,7 @@ interface ChatHeaderProps {
   gitCwd: string | null;
   overview?: ThreadOverviewPanelProps;
   workspaceBranchControls?: ReactNode;
+  mainLayoutControls?: ReactNode;
   layoutControls?: ReactNode;
   onTabBarHostChange?: (node: HTMLDivElement | null) => void;
   inlinePanel?: boolean;
@@ -148,6 +149,7 @@ export const ChatHeader = memo(function ChatHeader({
   gitCwd,
   overview,
   workspaceBranchControls,
+  mainLayoutControls,
   layoutControls,
   onTabBarHostChange,
   inlinePanel = false,
@@ -513,7 +515,7 @@ export const ChatHeader = memo(function ChatHeader({
             </WorkspaceBreadcrumbItem>
           )}
         </WorkspaceBreadcrumb>
-        {activeProject?.agentProfile || overview ? (
+        {activeProject?.agentProfile || overview || mainLayoutControls ? (
           <div
             data-chat-header-actions
             className="flex shrink-0 items-center gap-1 [-webkit-app-region:no-drag]"
@@ -535,25 +537,28 @@ export const ChatHeader = memo(function ChatHeader({
                 transient={rightPanelOpen}
               />
             )}
+            {mainLayoutControls}
           </div>
         ) : null}
       </div>
-      <div
-        data-chat-header-actions
-        className={cn(
-          "flex min-w-0 items-center gap-1 [-webkit-app-region:no-drag]",
-          inlinePanel ? "flex-1" : "shrink-0",
-        )}
-      >
-        {onTabBarHostChange ? (
-          <div
-            ref={onTabBarHostChange}
-            className={cn("min-w-0 flex-1", !inlinePanel && "hidden")}
-            data-topbar-panel-tabs
-          />
-        ) : null}
-        {layoutControls}
-      </div>
+      {inlinePanel || layoutControls ? (
+        <div
+          data-chat-header-actions
+          className={cn(
+            "flex min-w-0 items-center gap-1 [-webkit-app-region:no-drag]",
+            inlinePanel ? "flex-1" : "shrink-0",
+          )}
+        >
+          {onTabBarHostChange ? (
+            <div
+              ref={onTabBarHostChange}
+              className={cn("min-w-0 flex-1", !inlinePanel && "hidden")}
+              data-topbar-panel-tabs
+            />
+          ) : null}
+          {layoutControls}
+        </div>
+      ) : null}
     </div>
   );
 });

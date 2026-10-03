@@ -10468,9 +10468,13 @@ export default function ChatView(props: ChatViewProps) {
     return <NoActiveThreadState />;
   }
 
-  const panelToggleControls = (
+  const panelToggleControls = ({
+    showTerminalControl = false,
+    showRightPanelControl = true,
+  } = {}) => (
     <PanelLayoutControls
-      showTerminalControl={codeWorkspace}
+      showTerminalControl={showTerminalControl}
+      showRightPanelControl={showRightPanelControl}
       terminalAvailable={codeWorkspace && activeProject !== null}
       terminalOpen={terminalUiState.terminalOpen}
       terminalShortcutLabel={shortcutLabelForCommand(keybindings, "terminal.toggle")}
@@ -10497,7 +10501,7 @@ export default function ChatView(props: ChatViewProps) {
           onToggle={toggleRightPanelMaximized}
         />
       ) : null}
-      {panelToggleControls}
+      {panelToggleControls()}
     </div>
   );
   const rightPanelContent = activeThreadRef ? (
@@ -10728,7 +10732,11 @@ export default function ChatView(props: ChatViewProps) {
         activeThreadId={activeThread.id}
         {...(routeKind === "draft" && draftId ? { draftId } : {})}
         activeThreadTitle={activeThread.title}
-        layoutControls={panelLayoutControls}
+        mainLayoutControls={panelToggleControls({
+          showTerminalControl: codeWorkspace,
+          showRightPanelControl: !rightPanelOpen,
+        })}
+        layoutControls={rightPanelOpen && !shouldUsePlanSidebarSheet ? panelLayoutControls : null}
         onTabBarHostChange={setRightPanelTabsHost}
         inlinePanel={rightPanelOpen && !shouldUsePlanSidebarSheet}
         workspaceBranchControls={workspaceBranchControls}

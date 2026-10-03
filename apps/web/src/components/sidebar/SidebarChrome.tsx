@@ -9,6 +9,11 @@ import {
   PanelLeftIcon,
   SearchIcon,
   SquarePenIcon,
+  Home,
+  BotIcon,
+  CalendarClockIcon,
+  FolderIcon,
+  RotateCwIcon,
 } from "~/icons";
 import type { ReactNode } from "react";
 import { memo, useCallback } from "react";
@@ -49,6 +54,11 @@ import { isSidebarUtilityPage, useNavigateToMainApp } from "./mainAppLocation";
 import { SidebarThreadUndoNotice } from "./SidebarThreadUndoNotice";
 import { SidebarProviderUpdatePill } from "./SidebarProviderUpdatePill";
 import { SidebarUpdateArchitectureWarning, SidebarUpdatePill } from "./SidebarUpdatePill";
+import {
+  agentSidebarActiveForPath,
+  setAgentSidebarActive,
+  useAgentSidebarStore,
+} from "../agents/agentSidebarStore";
 import { PullRequestGlyph } from "~/components/pullRequest/pullRequestIcons";
 
 export const SidebarChromeHeader = memo(function SidebarChromeHeader({
@@ -70,11 +80,11 @@ export const SidebarChromeHeader = memo(function SidebarChromeHeader({
       : null;
 
   return (
-    // The titlebar row, not a padded SidebarHeader: it aligns to the window controls.
     <div
       className={cn(
-        "@container/sidebar-header relative flex h-[var(--workspace-topbar-height)] shrink-0 flex-row items-center gap-2 px-3 md:px-0",
-        isElectron && "drag-region",
+        "@container/sidebar-header relative flex h-[var(--workspace-topbar-height)] shrink-0 flex-row items-center gap-2 px-3",
+        SINGLE_PROVIDER_UI ? "md:h-11" : "md:px-0",
+        isElectron && !SINGLE_PROVIDER_UI && "drag-region",
       )}
     >
       {backdropVariant ? <SidebarStageBackdrop variant={backdropVariant} /> : null}
@@ -83,7 +93,12 @@ export const SidebarChromeHeader = memo(function SidebarChromeHeader({
         variant={backdropVariant ? "media-navigation" : "ghost"}
         className="relative top-auto z-10 translate-y-0 md:hidden"
       />
-      <div className="@container/sidebar-brand relative z-10 flex min-w-0 flex-1 items-center gap-2 md:ml-[var(--workspace-titlebar-content-left)]">
+      <div
+        className={cn(
+          "@container/sidebar-brand relative z-10 flex min-w-0 flex-1 items-center gap-2",
+          !SINGLE_PROVIDER_UI && "md:ml-[var(--workspace-titlebar-content-left)]",
+        )}
+      >
         <SidebarBrand onBackdrop={backdropVariant !== null} />
         <div className="[-webkit-app-region:no-drag] flex min-w-0 flex-1 justify-end pr-2">
           {search}
@@ -108,10 +123,12 @@ function SidebarBrand({ onBackdrop }: { onBackdrop: boolean }) {
     <Link
       aria-label="Go to threads"
       className={cn(
-        "relative z-10 hidden h-7 w-fit shrink-0 items-center rounded-md outline-hidden ring-ring focus-visible:ring-2 md:@[10rem]/sidebar-brand:flex",
+        "relative z-10 h-7 w-fit shrink-0 items-center rounded-md outline-hidden ring-ring focus-visible:ring-2",
+        SINGLE_PROVIDER_UI ? "flex" : "hidden md:@[10rem]/sidebar-brand:flex",
         onBackdrop ? "text-white" : "text-foreground",
       )}
       to="/"
+      onClick={() => setAgentSidebarActive(false)}
     >
       <ElysiaWordmark aria-label="Elysia" className="h-5 w-auto shrink-0" />
     </Link>
@@ -242,7 +259,9 @@ export const SidebarUtilityMenu = memo(function SidebarUtilityMenu() {
   }, [closeMobileSidebar, navigateToMainApp]);
 
   return (
-    <SidebarMenu className="flex-row items-center justify-between">
+    <SidebarMenu
+      className={cn("flex-row items-center justify-between", SINGLE_PROVIDER_UI && "md:hidden")}
+    >
       {isOnUtilityPage ? (
         <SidebarMenuItem className="min-w-0 flex-1">
           <SidebarMenuButton onClick={handleBackClick}>
@@ -300,12 +319,174 @@ export const SidebarUtilityMenu = memo(function SidebarUtilityMenu() {
 });
 
 export const SidebarChromeFooter = memo(function SidebarChromeFooter() {
+  const { isMobile } = useSidebar();
   return (
     <SidebarFooter>
       <SidebarThreadUndoNotice />
       {!SINGLE_PROVIDER_UI ? <SidebarProviderUpdatePill /> : null}
       <SidebarUpdateArchitectureWarning />
-      <SidebarUtilityMenu />
+      {SINGLE_PROVIDER_UI && !isMobile ? (
+        <SidebarMenu>
+          <SidebarUpdatePill />
+        </SidebarMenu>
+      ) : (
+        <SidebarUtilityMenu />
+      )}
     </SidebarFooter>
+  );
+});
+
+function AppRailButton({
+  label,
+  icon,
+  active = false,
+  onClick,
+}: {
+  label: string;
+  icon: ReactNode;
+  active?: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <Tooltip>
+      <TooltipTrigger
+        render={
+          <Button
+            aria-label={label}
+            aria-current={active ? "page" : undefined}
+            size="icon-xl"
+            variant={active ? "secondary" : "ghost-muted"}
+            onClick={onClick}
+          >
+            {icon}
+          </Button>
+        }
+      />
+      <TooltipPopup side="right">{label}</TooltipPopup>
+    </Tooltip>
+  );
+}
+
+export const AppNavigationRail = memo(function AppNavigationRail() {
+  const navigate = useNavigate();
+  const { setOpen } = useSidebar();
+  const navigateToMainApp = useNavigateToMainApp();
+  const pathname = useLocation({ select: (location) => location.pathname });
+  const codeWorkspace = useCodeWorkspace();
+  const agentSidebarSelected = useAgentSidebarStore((state) => state.active);
+  const agentsActive = agentSidebarActiveForPath(pathname, agentSidebarSelected);
+  const projectSidebar = useClientSettings((settings) => settings.legacySidebarEnabled);
+  const updateClientSettings = useUpdateClientSettings();
+  const { environments } = useEnvironments();
+  const pullRequestsSupported = environments.some(
+    (environment) => environment.serverConfig?.environment.capabilities.pullRequests === true,
+  );
+
+  return (
+    <aside
+      aria-label="App navigation"
+      className="relative z-20 hidden w-[var(--app-navigation-rail-width)] shrink-0 flex-col items-center justify-between gap-2 bg-sidebar py-2 md:flex"
+    >
+      <nav aria-label="Workspace pages" className="flex flex-col items-center gap-2">
+        <AppRailButton
+          label="Home"
+          icon={<Home className="size-5" />}
+          active={
+            !agentsActive &&
+            !isSidebarUtilityPage(pathname) &&
+            pathname !== "/agents" &&
+            !pathname.startsWith("/agents/")
+          }
+          onClick={() => {
+            setAgentSidebarActive(false);
+            void navigateToMainApp();
+          }}
+        />
+        <AppRailButton
+          label="Agents"
+          icon={<BotIcon className="size-5" />}
+          active={agentsActive}
+          onClick={() => {
+            setAgentSidebarActive(true);
+            setOpen(true);
+            void navigate({ to: "/agents", search: {} });
+          }}
+        />
+        <AppRailButton
+          label="Scheduled"
+          icon={<CalendarClockIcon className="size-5" />}
+          active={pathname === "/settings/scheduled-tasks"}
+          onClick={() => {
+            setAgentSidebarActive(false);
+            void navigate({ to: "/settings/scheduled-tasks" });
+          }}
+        />
+        <AppRailButton
+          label="Projects"
+          icon={<FolderIcon className="size-5" />}
+          active={pathname === "/projects" || pathname.startsWith("/projects/")}
+          onClick={() => {
+            setAgentSidebarActive(false);
+            void navigate({ to: "/projects" });
+          }}
+        />
+        {codeWorkspace && pullRequestsSupported ? (
+          <AppRailButton
+            label="Git"
+            icon={<PullRequestGlyph.pullRequest className="size-5" />}
+            active={pathname === "/pull-requests"}
+            onClick={() => {
+              setAgentSidebarActive(false);
+              void navigate({ to: "/pull-requests", search: readPullRequestListPreferences() });
+            }}
+          />
+        ) : null}
+        <AppRailButton
+          label="Stats"
+          icon={<ChartNoAxesColumnIncreasingIcon className="size-5" />}
+          active={pathname === "/usage"}
+          onClick={() => {
+            setAgentSidebarActive(false);
+            void navigate({ to: "/usage" });
+          }}
+        />
+      </nav>
+      <div aria-label="Workspace controls" className="flex flex-col items-center gap-2">
+        <AppRailButton
+          label="Settings"
+          icon={<SettingsIcon className="size-5" />}
+          active={pathname.startsWith("/settings") && pathname !== "/settings/scheduled-tasks"}
+          onClick={() => {
+            setAgentSidebarActive(false);
+            void navigate({ to: "/settings" });
+          }}
+        />
+        <AppRailButton
+          label={
+            codeWorkspace ? "Code workspace · Switch to Work" : "Work workspace · Switch to Code"
+          }
+          icon={codeWorkspace ? <Code2 className="size-5" /> : <BriefcaseIcon className="size-5" />}
+          onClick={() =>
+            void updateClientSettings({ workspaceMode: codeWorkspace ? "work" : "code" })
+          }
+        />
+        <AppRailButton
+          label={projectSidebar ? "Switch to Thread view" : "Switch to Project view"}
+          icon={
+            projectSidebar ? (
+              <Columns2Icon className="size-5" />
+            ) : (
+              <PanelLeftIcon className="size-5" />
+            )
+          }
+          onClick={() => void updateClientSettings({ legacySidebarEnabled: !projectSidebar })}
+        />
+        <AppRailButton
+          label="Refresh"
+          icon={<RotateCwIcon className="size-5" />}
+          onClick={() => window.location.reload()}
+        />
+      </div>
+    </aside>
   );
 });

@@ -68,6 +68,21 @@ export const AgentProfile = Schema.Struct({
   notificationsEnabled: Schema.Boolean,
   archived: Schema.Boolean,
   conversationThreadId: Schema.optional(ThreadId),
+  group: Schema.optional(
+    Schema.Struct({
+      memberProjectIds: Schema.Array(ProjectId).check(
+        Schema.isMinLength(2),
+        Schema.isMaxLength(32),
+      ),
+      leadProjectId: ProjectId,
+    }).check(
+      Schema.makeFilter(
+        (group) =>
+          new Set(group.memberProjectIds).size === group.memberProjectIds.length &&
+          group.memberProjectIds.includes(group.leadProjectId),
+      ),
+    ),
+  ),
 });
 export type AgentProfile = typeof AgentProfile.Type;
 
@@ -151,3 +166,17 @@ export const AgentGetDelegationResult = Schema.Struct({
   truncated: Schema.Boolean,
 });
 export type AgentGetDelegationResult = typeof AgentGetDelegationResult.Type;
+
+export const AgentConversationPreviewsInput = Schema.Struct({
+  projectIds: Schema.Array(ProjectId).check(Schema.isMaxLength(100)),
+});
+export type AgentConversationPreviewsInput = typeof AgentConversationPreviewsInput.Type;
+export const AgentConversationPreviewsResult = Schema.Array(
+  Schema.Struct({
+    projectId: ProjectId,
+    threadId: ThreadId,
+    text: Schema.String.check(Schema.isMaxLength(240)),
+    updatedAt: IsoDateTime,
+  }),
+);
+export type AgentConversationPreviewsResult = typeof AgentConversationPreviewsResult.Type;

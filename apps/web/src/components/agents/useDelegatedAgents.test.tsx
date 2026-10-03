@@ -3,9 +3,15 @@ import { EnvironmentId, EventId, MessageId, ProjectId, ThreadId } from "@t3tools
 import type { AgentGetDelegationResult } from "@t3tools/contracts";
 import { act } from "react";
 import { create, type ReactTestRenderer } from "react-test-renderer";
-import { afterEach, expect, it, vi } from "vite-plus/test";
+import { afterAll, afterEach, beforeEach, expect, it, vi } from "vite-plus/test";
+import { makeThreadFixture } from "../../test-fixtures";
+import type { Project, SidebarThreadSummary } from "../../types";
 
-const state = vi.hoisted(() => ({ load: vi.fn<() => Promise<AgentGetDelegationResult>>() }));
+const state = vi.hoisted(() => ({
+  load: vi.fn<() => Promise<AgentGetDelegationResult>>(),
+  projects: [] as Project[],
+  shells: [] as SidebarThreadSummary[],
+}));
 vi.mock("../../rpc/atomRegistry", async () => {
   const { AtomRegistry } = await import("effect/unstable/reactivity");
   return { appAtomRegistry: AtomRegistry.make() };
@@ -20,8 +26,15 @@ vi.mock("../../state/projects", async () => {
   return { projectEnvironment: { getAgentDelegation: () => query } };
 });
 vi.mock("../../state/entities", () => ({
-  useProjects: () => [],
-  useThreadShellsForProjectRefs: () => [],
+  useProjects: () => state.projects,
+  useThreadShellsForProjectRefs: (
+    refs: ReadonlyArray<{ environmentId: string; projectId: string }>,
+  ) =>
+    state.shells.filter((shell) =>
+      refs.some(
+        (ref) => ref.environmentId === shell.environmentId && ref.projectId === shell.projectId,
+      ),
+    ),
 }));
 
 import { appAtomRegistry } from "../../rpc/atomRegistry";
@@ -56,11 +69,17 @@ function Watcher() {
   return <p>{useDelegatedAgents(source, jobs)[0]?.data?.status ?? "loading"}</p>;
 }
 let renderer: ReactTestRenderer | null = null;
+beforeEach(() => {
+  state.load.mockReset();
+  state.projects = [];
+  state.shells = [];
+});
 afterEach(async () => {
   await act(() => renderer?.unmount());
-  appAtomRegistry.dispose();
+  appAtomRegistry.reset();
   vi.unstubAllGlobals();
 });
+afterAll(() => appAtomRegistry.dispose());
 const mount = async () => {
   await act(async () => {
     renderer = create(
@@ -82,6 +101,88 @@ it("refreshes a retained working job when reopening after it finished", async ()
   await mount();
   expect(state.load).toHaveBeenCalledTimes(initialReads + 1);
   expect(renderer!.root.findByType("p").children).toEqual(["completed"]);
+});
+
+it("follows group member lifecycle changes without waiting for a group response", async () => {
+  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+  const lead = ProjectId.make("lead");
+  const member = ProjectId.make("member");
+  state.projects = [
+    {
+      id: jobs[0]!.agentProjectId,
+      environmentId: source.environmentId,
+      title: "Friday group",
+      workspaceRoot: "/agents/friday",
+      repositoryIdentity: null,
+      scripts: [],
+      defaultModelSelection: null,
+      createdAt: "2026-10-03T00:00:00Z",
+      updatedAt: "2026-10-03T00:00:00Z",
+      agentProfile: {
+        instructions: "Coordinate the team.",
+        avatar: { preset: "circle", color: "#28B4FF" },
+        notificationsEnabled: true,
+        archived: false,
+        conversationThreadId: jobs[0]!.agentThreadId,
+        group: { memberProjectIds: [lead, member], leadProjectId: lead },
+      },
+    },
+  ];
+  const groupShell = makeThreadFixture({
+    environmentId: source.environmentId,
+    id: jobs[0]!.agentThreadId,
+    projectId: jobs[0]!.agentProjectId,
+  });
+  const leadShell = makeThreadFixture({
+    environmentId: source.environmentId,
+    id: ThreadId.make("lead-chat"),
+    projectId: lead,
+  });
+  const otherEnvironment = { ...leadShell, environmentId: EnvironmentId.make("other") };
+  state.shells = [groupShell, leadShell, otherEnvironment];
+  state.load.mockResolvedValue(response);
+  await mount();
+  const initialReads = state.load.mock.calls.length;
+  state.load.mockResolvedValue({ ...response, status: "waiting" });
+  // Native status can change with the same timestamp; the group never starts a provider session.
+  state.shells = [groupShell, { ...leadShell, hasPendingApprovals: true }, otherEnvironment];
+  await act(async () =>
+    renderer!.update(
+      <RegistryContext.Provider value={appAtomRegistry}>
+        <Watcher />
+      </RegistryContext.Provider>,
+    ),
+  );
+  expect(state.load).toHaveBeenCalledTimes(initialReads + 1);
+  expect(renderer!.root.findByType("p").children).toEqual(["waiting"]);
+  state.shells = [groupShell, state.shells[1]!, { ...otherEnvironment, hasPendingUserInput: true }];
+  await act(async () =>
+    renderer!.update(
+      <RegistryContext.Provider value={appAtomRegistry}>
+        <Watcher />
+      </RegistryContext.Provider>,
+    ),
+  );
+  expect(state.load).toHaveBeenCalledTimes(initialReads + 1);
+  state.load.mockResolvedValue({ ...response, status: "completed" });
+  state.shells = [groupShell, { ...leadShell, hasPendingUserInput: true }];
+  await act(async () =>
+    renderer!.update(
+      <RegistryContext.Provider value={appAtomRegistry}>
+        <Watcher />
+      </RegistryContext.Provider>,
+    ),
+  );
+  expect(renderer!.root.findByType("p").children).toEqual(["completed"]);
+  state.shells = [groupShell, leadShell];
+  await act(async () =>
+    renderer!.update(
+      <RegistryContext.Provider value={appAtomRegistry}>
+        <Watcher />
+      </RegistryContext.Provider>,
+    ),
+  );
+  expect(state.load).toHaveBeenCalledTimes(initialReads + 2);
 });
 
 it("counts each agent once while retaining every linked job and any active status", () => {

@@ -1670,3 +1670,44 @@ it("renders automatic completion as a work entry instead of a user bubble", () =
     })[0]?.kind,
   ).toBe("message");
 });
+
+describe("shared group reply author", () => {
+  it("preserves the member identity when rebuilding a committed assistant timeline", () => {
+    const now = DateTime.makeUnsafe("2026-10-03T12:00:00Z");
+    const threadId = ThreadId.make("group-chat");
+    const senderThreadId = ThreadId.make("member-chat");
+    const item: OrchestrationV2TurnItem = {
+      id: TurnItemId.make("group-reply"),
+      threadId,
+      runId: null,
+      nodeId: null,
+      providerThreadId: null,
+      providerTurnId: null,
+      nativeItemRef: null,
+      parentItemId: null,
+      ordinal: 1,
+      status: "completed",
+      title: null,
+      startedAt: now,
+      completedAt: now,
+      updatedAt: now,
+      type: "assistant_message",
+      messageId: MessageId.make("group-reply-message"),
+      text: "The release plan is ready.",
+      streaming: false,
+      senderThreadId,
+    };
+    const entries = deriveTimelineEntriesFromVisibleTurnItems({
+      visibleTurnItems: [
+        { position: 0, visibility: "local", sourceThreadId: threadId, sourceItemId: item.id, item },
+      ],
+      optimisticMessages: [],
+    });
+    expect(entries).toHaveLength(1);
+    expect(entries[0]?.kind).toBe("message");
+    if (entries[0]?.kind === "message") {
+      expect(entries[0].message.senderThreadId).toBe(senderThreadId);
+      expect(entries[0].message.text).toBe(item.text);
+    }
+  });
+});

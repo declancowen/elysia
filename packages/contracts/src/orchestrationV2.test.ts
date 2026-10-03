@@ -1248,3 +1248,39 @@ describe("limit recovery choice updates", () => {
     expect(decode({ ...identity, ...choice })).toEqual({ ...identity, ...choice });
   });
 });
+
+it("round-trips optional assistant sender identity through runtime and public JSON schemas", () => {
+  const base = {
+    id: "group-result",
+    threadId: "group-chat",
+    runId: null,
+    nodeId: null,
+    providerThreadId: null,
+    providerTurnId: null,
+    nativeItemRef: null,
+    parentItemId: null,
+    ordinal: 1,
+    status: "completed",
+    title: null,
+    startedAt: now,
+    completedAt: now,
+    updatedAt: now,
+    type: "assistant_message",
+    messageId: "group-result-message",
+    text: "Member result",
+    streaming: false,
+  };
+  for (const sender of [undefined, ThreadId.make("member-chat")]) {
+    const runtime = decodeOrchestrationV2TurnItem({
+      ...base,
+      ...(sender ? { senderThreadId: sender } : {}),
+    });
+    const wire = encodeOrchestrationV2TurnItemJson(runtime);
+    const restored = decodeOrchestrationV2TurnItemJson(wire);
+    expect(restored).toEqual(runtime);
+    if (sender) {
+      expect(wire).toMatchObject({ senderThreadId: sender });
+      expect(restored).toMatchObject({ senderThreadId: sender });
+    } else expect(restored).not.toHaveProperty("senderThreadId");
+  }
+});

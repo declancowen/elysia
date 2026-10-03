@@ -25,6 +25,7 @@ import {
   decodeProjectCommandRejection,
   encodeProjectCommandRejection,
   planProjectCommand,
+  ProjectCommandInvariantError,
   type ProjectCommand,
 } from "../orchestration-v2/ProjectCommands.ts";
 import * as ProjectStore from "../orchestration-v2/ProjectStore.ts";
@@ -246,6 +247,47 @@ export const make = Effect.gen(function* () {
         now,
       });
       if (Result.isSuccess(planned)) {
+        const group = command.type === "project.delete" ? undefined : command.agentProfile?.group;
+        const previousGroup = project?.agentProfile?.group;
+        if (
+          group &&
+          (!previousGroup ||
+            group.leadProjectId !== previousGroup.leadProjectId ||
+            group.memberProjectIds.length !== previousGroup.memberProjectIds.length ||
+            group.memberProjectIds.some((id) => !previousGroup.memberProjectIds.includes(id)))
+        ) {
+          let valid =
+            group.memberProjectIds.length >= 2 &&
+            group.memberProjectIds.length <= 32 &&
+            new Set(group.memberProjectIds).size === group.memberProjectIds.length &&
+            group.memberProjectIds.includes(group.leadProjectId);
+          for (const memberId of group.memberProjectIds) {
+            const member = yield* readRow(memberId);
+            if (
+              Option.isNone(member) ||
+              member.value.deletedAt !== null ||
+              !member.value.agentProfile?.conversationThreadId ||
+              member.value.agentProfile.archived ||
+              member.value.agentProfile.group ||
+              memberId === projectId
+            )
+              valid = false;
+          }
+          if (!valid)
+            return yield* eventSink.commitRejectedProjectCommand({
+              commandId: command.commandId,
+              projectId,
+              commandType: command.type,
+              rejectedAt: now,
+              error: encodeProjectCommandRejection(
+                new ProjectCommandInvariantError({
+                  commandType: command.type,
+                  detail:
+                    "Channels need at least two distinct available individual agents and a lead who belongs to the channel.",
+                }),
+              ),
+            });
+        }
         const { receipt } = yield* eventSink.commitProjectCommand({
           commandId: command.commandId,
           projectId,

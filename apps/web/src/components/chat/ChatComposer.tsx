@@ -2593,12 +2593,17 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
     if (!composerTrigger) return [];
     if (composerTrigger.kind === "path") {
       const query = composerTrigger.query.trim().toLowerCase();
+      const sourceGroup = agents.find(
+        ({ project, thread }) =>
+          project.environmentId === environmentId && thread?.id === activeThreadId,
+      )?.project.agentProfile?.group;
       const agentItems = props.isServerThread
         ? agents
             .filter(
               ({ project, thread }) =>
                 project.environmentId === environmentId &&
                 !project.agentProfile?.archived &&
+                (!sourceGroup || sourceGroup.memberProjectIds.includes(project.id)) &&
                 thread &&
                 thread.id !== activeThreadId &&
                 project.title.toLowerCase().includes(query),
@@ -2608,10 +2613,15 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
               type: "agent" as const,
               projectId: project.id,
               avatar: project.agentProfile!.avatar,
+              isGroup: Boolean(project.agentProfile!.group),
               label: project.title,
-              description: busy
-                ? "Working — try again when finished"
-                : "Delegate a task to this agent",
+              description: sourceGroup
+                ? "Ask this agent"
+                : busy
+                  ? "Working — try again when finished"
+                  : project.agentProfile!.group
+                    ? "Send a task to this channel"
+                    : "Delegate a task to this agent",
             }))
         : [];
       return [

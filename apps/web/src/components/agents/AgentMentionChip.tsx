@@ -7,7 +7,7 @@ import {
 } from "@t3tools/contracts";
 import { scopeProjectRef } from "@t3tools/client-runtime/environment";
 import { useMemo } from "react";
-import { CircleCheckIcon, CircleAlertIcon, SquareIcon } from "~/icons";
+import { CircleCheckIcon, CircleAlertIcon, SquareIcon, UsersIcon } from "~/icons";
 import { delegatedAgentsFromTurnItems } from "@t3tools/shared/agentMentions";
 import { useDelegatedAgents } from "./useDelegatedAgents";
 import { useProject, useThreadProjection } from "~/state/entities";
@@ -45,6 +45,11 @@ export function AgentMentionChip({
     );
   }
   const working = status === "working" || status === "queued";
+  const icon = project.agentProfile.group ? (
+    <UsersIcon aria-hidden className="size-[1em]" />
+  ) : (
+    <AgentAvatar avatar={project.agentProfile.avatar} className="size-[1em]" working={working} />
+  );
   if (onOpen)
     return (
       <button
@@ -54,21 +59,21 @@ export function AgentMentionChip({
         data-markdown-copy={copyMarkdown}
         className="inline-flex max-w-full cursor-pointer items-center gap-1 align-middle rounded-sm font-semibold text-inherit focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring [&>svg]:size-[1em]"
       >
-        <AgentAvatar
-          avatar={project.agentProfile.avatar}
-          className="size-[1em]"
-          working={working}
-        />
+        {icon}
         <span>{project.title}</span>
       </button>
     );
   return (
     <ContextChipShell
       kind="mention"
-      icon={<AgentAvatar avatar={project.agentProfile.avatar} working={working} />}
+      icon={icon}
       label={project.title}
       data-markdown-copy={copyMarkdown}
-      tooltip="This task continues in the agent’s own chat."
+      tooltip={
+        project.agentProfile.group
+          ? "This task continues in the channel’s shared chat."
+          : "This task continues in the agent’s own chat."
+      }
     />
   );
 }

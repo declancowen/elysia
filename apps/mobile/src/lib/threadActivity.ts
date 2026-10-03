@@ -1702,6 +1702,7 @@ export function buildThreadFeed(
           ...(item.type === "user_message" && item.context ? { context: item.context } : {}),
           attachments: item.attachments ?? [],
           runId: item.runId,
+          ...(item.senderThreadId ? { senderThreadId: item.senderThreadId } : {}),
           streaming: item.type === "assistant_message" && item.streaming,
           ...(item.type === "user_message"
             ? {
@@ -1709,7 +1710,6 @@ export function buildThreadFeed(
                 createdBy: item.createdBy,
                 creationSource: item.creationSource,
                 ...(item.scheduledTaskId ? { scheduledTaskId: item.scheduledTaskId } : {}),
-                ...(item.senderThreadId ? { senderThreadId: item.senderThreadId } : {}),
               }
             : {}),
           visibility: row.visibility,

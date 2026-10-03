@@ -312,7 +312,7 @@ const SettingsContentStack = createNativeStackNavigator({
       screen: SettingsScheduledTasksRouteScreen,
       linking: "scheduled-tasks",
       options: {
-        title: "Scheduled Tasks",
+        title: "Scheduled",
         // Leave room to center UIKit's title beside the two trailing actions.
         headerTitleStyle: { fontSize: 16, fontWeight: "800" },
       },

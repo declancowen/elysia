@@ -1,5 +1,11 @@
 import {
+  channelConversationItems,
+  channelWorkStartedAt,
+  delegatedAgentsFromTurnItems,
+} from "@t3tools/shared/agentMentions";
+import {
   ContextHandoffId,
+  ProjectId,
   MessageId,
   CheckpointId,
   CheckpointScopeId,
@@ -303,6 +309,15 @@ describe("buildThreadFeed", () => {
         },
         0,
       ),
+    ]);
+    const messageEntry = feed.find((entry) => entry.type === "message");
+    expect(messageEntry?.message.senderThreadId).toBe(sourceThreadId);
+    expect(messageEntry?.message.sourceThreadId).toBe(threadId);
+  });
+
+  it("preserves the member sender of a shared group assistant reply", () => {
+    const feed = buildThreadFeed([
+      projected({ ...assistantMessage(), senderThreadId: sourceThreadId }, 0),
     ]);
     const messageEntry = feed.find((entry) => entry.type === "message");
     expect(messageEntry?.message.senderThreadId).toBe(sourceThreadId);
@@ -1262,7 +1277,7 @@ describe("buildThreadFeed", () => {
     expect(activity?.workEntry.viewedImagePath).toBe("/workspace/reference.png");
   });
 
-  it("pretty prints T3 MCP dynamic tool activities and attaches the product logo", () => {
+  it("pretty prints Elysia MCP dynamic tool activities and attaches the product logo", () => {
     const toolItem: OrchestrationV2TurnItem = {
       ...base("item-t3-tool", "2026-06-20T00:00:04.000Z", 3),
       type: "dynamic_tool",
@@ -1274,9 +1289,9 @@ describe("buildThreadFeed", () => {
     const feed = buildThreadFeed([projected(toolItem, 0)]);
     const activity = feed[0]?.type === "activity-group" ? feed[0].activities[0] : null;
 
-    expect(activity?.summary).toBe("Read a T3 thread");
+    expect(activity?.summary).toBe("Read an Elysia chat");
     expect(activity?.logo).toBe("t3-code");
-    expect(activity?.getCopyText().split("\n")[0]).toBe("Read a T3 thread");
+    expect(activity?.getCopyText().split("\n")[0]).toBe("Read an Elysia chat");
   });
 
   it("uses the CUA action title in the mobile feed", () => {
@@ -2290,3 +2305,59 @@ it.each(["provider_error", "usage_limit"] as const)(
     });
   },
 );
+
+it("keeps channel user/member conversation and normal working status without delegation cards", () => {
+  const at = "2026-10-03T00:00:00.000Z";
+  const user = { ...userMessage(at), runId: null };
+  const ack: OrchestrationV2TurnItem = {
+    ...base("channel-ack", at, 1),
+    runId: null,
+    type: "system_notice",
+    message: "I got it",
+    agentDelegation: {
+      agentProjectId: ProjectId.make("member"),
+      agentThreadId: ThreadId.make("member-chat"),
+      agentName: "Friday",
+      sourceMessageId: user.messageId,
+      targetMessageId: MessageId.make("member-ask"),
+      targetTurnId: null,
+    },
+  };
+  const reply = {
+    ...assistantMessage(at),
+    runId: null,
+    senderThreadId: ThreadId.make("member-chat"),
+  };
+  const items = [projected(user, 0), projected(ack, 1), projected(reply, 2)];
+  const feed = buildThreadFeed(channelConversationItems(items, true));
+  expect(feed.map((entry) => entry.type)).toEqual(["message", "message"]);
+  expect(
+    feed.flatMap((entry) =>
+      entry.type === "message" && entry.message.role === "assistant"
+        ? [entry.message.senderThreadId]
+        : [],
+    ),
+  ).toEqual(["member-chat"]);
+  expect(
+    buildThreadFeed(channelConversationItems(items, false)).some(
+      (entry) =>
+        entry.type === "activity-group" &&
+        entry.activities.some((activity) => activity.workEntry.agentDelegation),
+    ),
+  ).toBe(true);
+  const job = delegatedAgentsFromTurnItems([ack])[0]!;
+  const started = channelWorkStartedAt(items, [{ job, working: true }]);
+  expect(
+    deriveThreadFeedPresentation(feed, null, new Set(), new Set(), started, true).at(-1)?.type,
+  ).toBe("thinking");
+  expect(
+    deriveThreadFeedPresentation(
+      feed,
+      null,
+      new Set(),
+      new Set(),
+      channelWorkStartedAt(items, [{ job, working: false }]),
+      false,
+    ).map((entry) => entry.type),
+  ).toEqual(["message", "message"]);
+});

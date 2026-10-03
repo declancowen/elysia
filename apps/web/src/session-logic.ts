@@ -644,12 +644,12 @@ export function deriveTimelineEntriesFromVisibleTurnItems(
             }
           : {}),
         runId: item.runId,
+        ...(item.senderThreadId !== undefined ? { senderThreadId: item.senderThreadId } : {}),
         streaming: item.type === "assistant_message" && item.streaming,
         ...(item.type === "user_message"
           ? {
               createdBy: item.createdBy,
               creationSource: item.creationSource,
-              ...(item.senderThreadId !== undefined ? { senderThreadId: item.senderThreadId } : {}),
               ...(item.scheduledTaskId !== undefined
                 ? { scheduledTaskId: item.scheduledTaskId }
                 : {}),

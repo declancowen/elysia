@@ -155,68 +155,75 @@ it.layer(TestLayer)("RuntimePolicyV2", (it) => {
   );
 });
 
-for (const archived of [false, true]) {
-  it.effect(
-    `preserves named agent identity and memory at provider admission; archived=${archived}`,
-    () =>
-      Effect.gen(function* () {
-        const policy = yield* RuntimePolicy.RuntimePolicyV2;
-        const thread = makeThread({
-          now: yield* DateTime.now,
-          worktreePath: "/provisioned-worktree",
+for (const state of ["active", "archived", "group"] as const) {
+  const archived = state === "archived";
+  it.effect(`preserves named agent identity and memory at provider admission; state=${state}`, () =>
+    Effect.gen(function* () {
+      const policy = yield* RuntimePolicy.RuntimePolicyV2;
+      const thread = makeThread({
+        now: yield* DateTime.now,
+        worktreePath: "/provisioned-worktree",
+      });
+      if (archived || state === "group") {
+        const error = yield* policy.resolve({ thread, modelSelection }).pipe(Effect.flip);
+        assert.equal(error._tag, "RuntimePolicyResolveError");
+      } else {
+        const resolved = yield* policy.resolve({ thread, modelSelection });
+        assert.equal(resolved.cwd, "/provisioned-worktree");
+        assert.deepEqual(resolved.persistentAgent, {
+          name: "Alex",
+          title: "Research assistant",
+          instructions: "Remember prior work.",
+          memoryDirectory: "/agent-owned/.claude/memory",
         });
-        if (archived) {
-          const error = yield* policy.resolve({ thread, modelSelection }).pipe(Effect.flip);
-          assert.equal(error._tag, "RuntimePolicyResolveError");
-        } else {
-          const resolved = yield* policy.resolve({ thread, modelSelection });
-          assert.equal(resolved.cwd, "/provisioned-worktree");
-          assert.deepEqual(resolved.persistentAgent, {
-            name: "Alex",
-            title: "Research assistant",
-            instructions: "Remember prior work.",
-            memoryDirectory: "/agent-owned/.claude/memory",
-          });
-        }
-      }).pipe(
-        Effect.provide(
-          RuntimePolicy.layerFromProjectStore.pipe(
-            Layer.provide(
-              Layer.mock(ProjectStore.ProjectStoreV2)({
-                get: () =>
-                  Effect.succeed(
-                    Option.some({
-                      projectId,
-                      title: "Alex",
-                      workspaceRoot: "/agent-owned",
-                      defaultModelSelection: modelSelection,
-                      defaultThreadEnvMode: null,
-                      autoPull: false,
-                      faviconPath: null,
-                      projectIcon: null,
-                      scripts: [],
-                      createdAt: "2026-10-02T00:00:00Z",
-                      updatedAt: "2026-10-02T00:00:00Z",
-                      deletedAt: null,
-                      agentProfile: {
-                        instructions: "Remember prior work.",
-                        title: "Research assistant",
-                        avatar: { preset: "brain", color: "blue" },
-                        notificationsEnabled: true,
-                        archived,
-                        conversationThreadId: ThreadId.make("thread:runtime-policy"),
-                      },
-                    }),
-                  ),
-              }),
-            ),
-            Layer.provide(
-              Layer.mock(ProviderInstanceRegistry.ProviderInstanceRegistry)({
-                getInstance: (instanceId) => Effect.succeed(providerInstanceFor(instanceId)),
-              }),
-            ),
+      }
+    }).pipe(
+      Effect.provide(
+        RuntimePolicy.layerFromProjectStore.pipe(
+          Layer.provide(
+            Layer.mock(ProjectStore.ProjectStoreV2)({
+              get: () =>
+                Effect.succeed(
+                  Option.some({
+                    projectId,
+                    title: "Alex",
+                    workspaceRoot: "/agent-owned",
+                    defaultModelSelection: modelSelection,
+                    defaultThreadEnvMode: null,
+                    autoPull: false,
+                    faviconPath: null,
+                    projectIcon: null,
+                    scripts: [],
+                    createdAt: "2026-10-02T00:00:00Z",
+                    updatedAt: "2026-10-02T00:00:00Z",
+                    deletedAt: null,
+                    agentProfile: {
+                      instructions: "Remember prior work.",
+                      title: "Research assistant",
+                      avatar: { preset: "brain", color: "blue" },
+                      notificationsEnabled: true,
+                      archived,
+                      conversationThreadId: ThreadId.make("thread:runtime-policy"),
+                      ...(state === "group"
+                        ? {
+                            group: {
+                              memberProjectIds: [ProjectId.make("one"), ProjectId.make("two")],
+                              leadProjectId: ProjectId.make("one"),
+                            },
+                          }
+                        : {}),
+                    },
+                  }),
+                ),
+            }),
+          ),
+          Layer.provide(
+            Layer.mock(ProviderInstanceRegistry.ProviderInstanceRegistry)({
+              getInstance: (instanceId) => Effect.succeed(providerInstanceFor(instanceId)),
+            }),
           ),
         ),
       ),
+    ),
   );
 }

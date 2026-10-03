@@ -17,8 +17,20 @@ export function useDelegatedAgents(
   const projects = useProjects();
   const refs = useMemo(
     () =>
-      source ? jobs.map((job) => scopeProjectRef(source.environmentId, job.agentProjectId)) : [],
-    [source, jobs],
+      source
+        ? jobs.flatMap((job) => {
+            const project = projects.find(
+              (candidate) =>
+                candidate.environmentId === source.environmentId &&
+                candidate.id === job.agentProjectId,
+            );
+            return [
+              job.agentProjectId,
+              ...(project?.agentProfile?.group?.memberProjectIds ?? []),
+            ].map((projectId) => scopeProjectRef(source.environmentId, projectId));
+          })
+        : [],
+    [source, jobs, projects],
   );
   const shells = useThreadShellsForProjectRefs(refs);
   const queries = useMemo(
@@ -45,9 +57,31 @@ export function useDelegatedAgents(
       const result = results[index];
       if (!source || !query || !result) return;
       const key = `${source.environmentId}:${source.threadId}:${job.activityId}`;
-      const shell = shells.find((shell) => shell.id === job.agentThreadId);
-      const value = shell
-        ? `${shell.updatedAt}:${shell.latestRun?.runId}:${shell.latestRun?.status}:${shell.runtime?.status}:${shell.runtime?.activeRunId}:${shell.hasPendingApprovals}:${shell.hasPendingUserInput}`
+      const project = projects.find(
+        (candidate) =>
+          candidate.environmentId === source.environmentId && candidate.id === job.agentProjectId,
+      );
+      const members = project?.agentProfile?.group?.memberProjectIds ?? [];
+      const watched = shells.filter(
+        (shell) =>
+          shell.environmentId === source.environmentId &&
+          (shell.id === job.agentThreadId || members.includes(shell.projectId)),
+      );
+      const value = watched.length
+        ? JSON.stringify(
+            watched
+              .toSorted((a, b) => a.id.localeCompare(b.id))
+              .map((shell) => [
+                shell.id,
+                shell.updatedAt,
+                shell.latestRun?.runId,
+                shell.latestRun?.status,
+                shell.runtime?.status,
+                shell.runtime?.activeRunId,
+                shell.hasPendingApprovals,
+                shell.hasPendingUserInput,
+              ]),
+          )
         : undefined;
       const previous = revisions.current.get(key);
       const data = Option.getOrNull(AsyncResult.value(result));
@@ -68,23 +102,28 @@ export function useDelegatedAgents(
         appAtomRegistry.refresh(query);
       }
     });
-  }, [jobs, queries, results, shells, source]);
-  return jobs.map((job, index) => {
-    const result = results[index];
-    const data = result ? Option.getOrNull(AsyncResult.value(result)) : null;
-    const project = projects.find(
-      (candidate) =>
-        candidate.environmentId === source?.environmentId && candidate.id === job.agentProjectId,
-    );
-    const failed = result?._tag === "Failure";
-    return {
-      job,
-      data,
-      project,
-      name: project?.title ?? job.agentName,
-      working: !failed && (!data || isAgentDelegationActive(data.status)),
-    };
-  });
+  }, [jobs, projects, queries, results, shells, source]);
+  return useMemo(
+    () =>
+      jobs.map((job, index) => {
+        const result = results[index];
+        const data = result ? Option.getOrNull(AsyncResult.value(result)) : null;
+        const project = projects.find(
+          (candidate) =>
+            candidate.environmentId === source?.environmentId &&
+            candidate.id === job.agentProjectId,
+        );
+        const failed = result?._tag === "Failure";
+        return {
+          job,
+          data,
+          project,
+          name: project?.title ?? job.agentName,
+          working: !failed && (!data || isAgentDelegationActive(data.status)),
+        };
+      }),
+    [jobs, projects, results, source],
+  );
 }
 
 export type DelegatedAgentView = ReturnType<typeof useDelegatedAgents>[number];

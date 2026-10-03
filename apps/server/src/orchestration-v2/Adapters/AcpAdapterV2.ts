@@ -5377,8 +5377,8 @@ export function makeAcpAdapterV2(
               Effect.fail(
                 EffectAcpErrors.AcpRequestError.internalError(
                   disposition === "ask"
-                    ? `The active T3 runtime policy requires approval for ${operation}. Request permission with session/request_permission before retrying.`
-                    : `The active T3 runtime policy does not allow ${operation}.`,
+                    ? `The active Elysia runtime policy requires approval for ${operation}. Request permission with session/request_permission before retrying.`
+                    : `The active Elysia runtime policy does not allow ${operation}.`,
                 ),
               ),
             ),

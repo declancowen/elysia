@@ -1,56 +1,14 @@
+import { useDelegatedWork } from "./useDelegatedAgents";
 import type { AgentGetDelegationResult, EnvironmentId, ThreadId } from "@t3tools/contracts";
 import { isAgentDelegationActive, type DelegatedAgent } from "@t3tools/shared/agentMentions";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Modal, Platform, Pressable, ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AppText as Text } from "../../components/AppText";
-import { useProject, useThreadShell } from "../../state/entities";
-import { projectEnvironment } from "../../state/projects";
-import { useEnvironmentQuery } from "../../state/query";
+import { SymbolView } from "../../components/AppSymbol";
+import { useProject } from "../../state/entities";
 import { AgentAvatar } from "./AgentAvatar";
-import {
-  delegatedAgentStatusLabel,
-  delegatedAgentsStatusLabel,
-  delegationShellRevision,
-  delegationShellRevisionToRefresh,
-} from "./delegatedAgentWork.logic";
-
-function useDelegatedWork(
-  environmentId: EnvironmentId,
-  sourceThreadId: ThreadId,
-  delegation: DelegatedAgent,
-) {
-  const { data, error, isPending, refresh } = useEnvironmentQuery(
-    projectEnvironment.getAgentDelegation({
-      environmentId,
-      input: { sourceThreadId, activityId: delegation.activityId },
-    }),
-  );
-  const shell = useThreadShell({ environmentId, threadId: delegation.agentThreadId });
-  const revision = delegationShellRevision(shell);
-  const observedRevision = useRef(revision);
-  const status = data?.status ?? null;
-  // The shared atom may retain an active result while this source chat is closed.
-  const cachedActiveOnMount = useRef(
-    status !== null && isAgentDelegationActive(status) && !isPending,
-  );
-  useEffect(() => {
-    if (
-      delegationShellRevisionToRefresh({
-        previousRevision: observedRevision.current,
-        currentRevision: revision,
-        status,
-        pending: isPending,
-        cachedActiveOnMount: cachedActiveOnMount.current,
-      })
-    ) {
-      observedRevision.current = revision;
-      cachedActiveOnMount.current = false;
-      refresh();
-    }
-  }, [revision, status, isPending, refresh]);
-  return { data, error, isPending, refresh };
-}
+import { delegatedAgentStatusLabel, delegatedAgentsStatusLabel } from "./delegatedAgentWork.logic";
 
 function DelegatedAvatar(props: {
   environmentId: EnvironmentId;
@@ -71,11 +29,15 @@ function DelegatedAvatar(props: {
   const name = project?.title ?? props.delegation.agentName;
   return (
     <View className="flex-row items-center gap-2">
-      <AgentAvatar
-        avatar={project?.agentProfile?.avatar ?? { preset: "circle", color: "#28B4FF" }}
-        size={22}
-        working={isAgentDelegationActive(status)}
-      />
+      {project?.agentProfile?.group ? (
+        <SymbolView name="person.2" size={22} tintColorClassName="foreground" type="monochrome" />
+      ) : (
+        <AgentAvatar
+          avatar={project?.agentProfile?.avatar ?? { preset: "circle", color: "#28B4FF" }}
+          size={22}
+          working={isAgentDelegationActive(status)}
+        />
+      )}
       {props.single ? (
         <Text className="min-w-0 flex-1 text-sm text-foreground" numberOfLines={1}>
           {name}{" "}
@@ -120,11 +82,20 @@ export function AgentDelegationResponseSheet(props: {
           style={Platform.OS === "android" ? { marginTop: insets.top + 24 } : undefined}
         >
           <View className="flex-row items-center gap-3 border-b border-border px-4 pb-2 pt-4">
-            <AgentAvatar
-              avatar={project?.agentProfile?.avatar ?? { preset: "circle", color: "#28B4FF" }}
-              size={30}
-              working={isAgentDelegationActive(status)}
-            />
+            {project?.agentProfile?.group ? (
+              <SymbolView
+                name="person.2"
+                size={30}
+                tintColorClassName="foreground"
+                type="monochrome"
+              />
+            ) : (
+              <AgentAvatar
+                avatar={project?.agentProfile?.avatar ?? { preset: "circle", color: "#28B4FF" }}
+                size={30}
+                working={isAgentDelegationActive(status)}
+              />
+            )}
             <View className="min-w-0 flex-1">
               <Text className="font-t3-semibold text-base text-foreground" numberOfLines={2}>
                 {project?.title ?? props.delegation.agentName}

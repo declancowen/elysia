@@ -144,7 +144,7 @@ it("offers an agent avatar and name, selects its existing project scope and open
   });
   expect(named("button", "Settings scope: Alex").querySelector("svg")).not.toBeNull();
   expect(document.body.textContent).toContain(agent.agentProfile!.instructions);
-  await click(named("button", "Scheduled tasks"));
+  await click(named("button", "Scheduled"));
   expect(state.navigate).toHaveBeenCalledWith({
     to: "/settings/scheduled-tasks",
     search: {

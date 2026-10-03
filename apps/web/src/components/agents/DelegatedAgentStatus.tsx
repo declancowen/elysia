@@ -1,3 +1,4 @@
+import { UsersIcon } from "~/icons";
 import { AgentAvatar } from "./AgentAvatar";
 import { groupDelegatedAgents, type DelegatedAgentView } from "./useDelegatedAgents";
 
@@ -32,7 +33,9 @@ export function DelegatedAgentStatus({
         {visible
           .slice(0, 3)
           .map(({ job, project, working }) =>
-            project?.agentProfile ? (
+            project?.agentProfile?.group ? (
+              <UsersIcon key={job.activityId} className="size-4" />
+            ) : project?.agentProfile ? (
               <AgentAvatar
                 key={job.activityId}
                 avatar={project.agentProfile.avatar}

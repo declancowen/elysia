@@ -7,7 +7,16 @@ export function delegationShellRevision(
     EnvironmentThreadShell,
     "updatedAt" | "latestRun" | "runtime" | "hasPendingApprovals" | "hasPendingUserInput"
   > | null,
+  memberShells: ReadonlyArray<EnvironmentThreadShell> = [],
 ): string | null {
+  if (memberShells.length > 0) {
+    return JSON.stringify([
+      delegationShellRevision(shell),
+      [...memberShells]
+        .sort((a, b) => a.id.localeCompare(b.id))
+        .map((member) => [member.id, delegationShellRevision(member)]),
+    ]);
+  }
   return shell === null
     ? null
     : JSON.stringify([

@@ -1,5 +1,6 @@
-import { ProviderInstanceId, RunId } from "@t3tools/contracts";
+import { ProviderInstanceId, RunId, ThreadId } from "@t3tools/contracts";
 import { describe, expect, it } from "vite-plus/test";
+import { makeThreadShellFixture } from "../../test-fixtures";
 import {
   delegatedAgentsStatusLabel,
   delegationShellRevisionToRefresh,
@@ -7,6 +8,22 @@ import {
 } from "./delegatedAgentWork.logic";
 
 describe("source delegated work", () => {
+  it("follows member approval changes while the group's canonical conversation stays idle", () => {
+    const group = makeThreadShellFixture({ id: ThreadId.make("group") });
+    const lead = makeThreadShellFixture({ id: ThreadId.make("lead") });
+    const member = makeThreadShellFixture({ id: ThreadId.make("member") });
+    const previousRevision = delegationShellRevision(group, [lead, member]);
+    expect(delegationShellRevision(group, [member, lead])).toBe(previousRevision);
+    const currentRevision = delegationShellRevision(group, [
+      { ...lead, hasPendingApprovals: true },
+      member,
+    ]);
+    expect(delegationShellRevision(group)).toBe(delegationShellRevision({ ...group }));
+    const input = { previousRevision, currentRevision, status: "working" as const, pending: false };
+    expect(delegationShellRevisionToRefresh(input)).toBe(true);
+    expect(delegationShellRevisionToRefresh({ ...input, pending: true })).toBe(false);
+    expect(delegationShellRevisionToRefresh({ ...input, status: "completed" })).toBe(false);
+  });
   it("rereads a retained active result on remount once, without duplicating initial or pending reads", () => {
     const input = {
       previousRevision: "already-completed-shell",

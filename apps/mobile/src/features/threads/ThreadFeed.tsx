@@ -1,3 +1,4 @@
+import { AgentAvatar } from "../agents/AgentAvatar";
 import { AgentDelegationResponseSheet, DelegatedAgentWork } from "../agents/DelegatedAgentWork";
 import { delegatedAgentsFromTurnItems, type DelegatedAgent } from "@t3tools/shared/agentMentions";
 import { environmentThreadDetails } from "../../state/threads";
@@ -1463,6 +1464,35 @@ function useMarkdownStyles(
   ]);
 }
 
+function GroupReplyAuthor({
+  environmentId,
+  senderThreadId,
+}: {
+  environmentId: EnvironmentId;
+  senderThreadId: ThreadId;
+}) {
+  const sender = useThreadShell(scopeThreadRef(environmentId, senderThreadId));
+  const project = useProject(sender ? scopeProjectRef(environmentId, sender.projectId) : null);
+  const navigation = useNavigation();
+  if (!project?.agentProfile) return null;
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`Open ${project.title} chat`}
+      className="mb-2 flex-row items-center gap-2"
+      onPress={() =>
+        navigation.navigate("Thread", {
+          environmentId: String(environmentId),
+          threadId: String(senderThreadId),
+        })
+      }
+    >
+      <AgentAvatar avatar={project.agentProfile.avatar} size={20} animated={false} />
+      <Text className="font-t3-semibold text-base text-foreground">{project.title}</Text>
+    </Pressable>
+  );
+}
+
 function AgentMessageAttribution(props: {
   readonly environmentId: EnvironmentId;
   readonly senderThreadId?: ThreadId;
@@ -1868,6 +1898,12 @@ function renderFeedEntry(
         )}
         {...(enterAnimated ? { entering: FadeIn.duration(220) } : {})}
       >
+        {message.senderThreadId ? (
+          <GroupReplyAuthor
+            environmentId={props.environmentId}
+            senderThreadId={message.senderThreadId}
+          />
+        ) : null}
         {renderedText.trim().length > 0 ? (
           <MarkdownImageAvailableWidthContext value={props.markdownContentWidth}>
             <AssistantMarkdownContent

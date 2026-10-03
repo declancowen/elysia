@@ -55,14 +55,19 @@ export function AgentDialogHost() {
   useEffect(() => {
     if (
       !target ||
-      !consumeAgentEditorIntent(target, location.href, location.pathname === "/agents")
+      !consumeAgentEditorIntent(
+        target,
+        location.href,
+        location.pathname === "/agents" &&
+          (location.search.create === true || Boolean(location.search.projectId)),
+      )
     )
       return;
     void navigate({
       to: "/agents",
       search: target.projectRef
         ? { environmentId: target.projectRef.environmentId, projectId: target.projectRef.projectId }
-        : {},
+        : { create: true },
     });
   }, [target, location.href, location.pathname, navigate]);
   return null;

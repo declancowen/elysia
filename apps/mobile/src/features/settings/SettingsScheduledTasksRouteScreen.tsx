@@ -291,7 +291,7 @@ export function SettingsScheduledTasksRouteScreen() {
         ]}
       />
       <SettingsScreen
-        title="Scheduled Tasks"
+        title="Scheduled"
         trailing={
           <View className="flex-row items-center">
             <AndroidSettingsEnvironmentFilter />

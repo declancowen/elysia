@@ -94,3 +94,22 @@ it("accepts character shapes and preserves saved icon presets", () => {
     }),
   );
 });
+
+it("preserves group identity and rejects ambiguous memberships on the public wire", () => {
+  const profile = {
+    ...profileWithColor("blue"),
+    group: { memberProjectIds: ["lead", "member"], leadProjectId: "lead" },
+  };
+  assert.deepEqual(decodeProfile(profile).group, profile.group);
+  for (const group of [
+    { memberProjectIds: ["lead"], leadProjectId: "lead" },
+    { memberProjectIds: ["lead", "lead"], leadProjectId: "lead" },
+    { memberProjectIds: ["lead", "member"], leadProjectId: "outsider" },
+    {
+      memberProjectIds: Array.from({ length: 33 }, (_, index) => String(index)),
+      leadProjectId: "0",
+    },
+  ])
+    assert.throws(() => decodeProfile({ ...profile, group }));
+  assert.isUndefined(decodeProfile(profileWithColor("blue")).group);
+});

@@ -25,11 +25,18 @@ export function composerAgentMentionItems(input: {
     )
   )
     return [];
+  const source = input.threads.find(
+    (thread) => thread.environmentId === input.environmentId && thread.id === input.sourceThreadId,
+  );
+  const group = input.projects.find(
+    (project) => project.environmentId === input.environmentId && project.id === source?.projectId,
+  )?.agentProfile?.group;
   const query = input.query.trim().toLocaleLowerCase();
   return selectAgentRoster(input.projects, input.threads).flatMap(({ project, conversation }) => {
     if (
       project.environmentId !== input.environmentId ||
       !conversation ||
+      (group && !group.memberProjectIds.includes(project.id)) ||
       conversation.id !== project.agentProfile.conversationThreadId ||
       conversation.id === input.sourceThreadId ||
       (query &&
@@ -44,8 +51,13 @@ export function composerAgentMentionItems(input: {
         type: "agent" as const,
         projectId: project.id,
         avatar: project.agentProfile.avatar,
+        isGroup: Boolean(project.agentProfile.group),
         label: project.title,
-        description: project.agentProfile.title ?? "Agent",
+        description: group
+          ? "Ask this agent"
+          : project.agentProfile.group
+            ? "Channel"
+            : (project.agentProfile.title ?? "Agent"),
       },
     ];
   });

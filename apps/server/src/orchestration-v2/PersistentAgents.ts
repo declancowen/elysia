@@ -1,5 +1,7 @@
 import {
   type AgentCreateInput,
+  type AgentConversationPreviewsInput,
+  type AgentConversationPreviewsResult,
   type AgentCreateResult,
   CommandId,
   DEFAULT_PROVIDER_INTERACTION_MODE,
@@ -15,12 +17,15 @@ import * as Context from "effect/Context";
 import * as Layer from "effect/Layer";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
+import * as SqlClient from "effect/unstable/sql/SqlClient";
+import * as Option from "effect/Option";
 
 import { ServerConfig } from "../config.ts";
 import { ProviderRegistry } from "../provider/Services/ProviderRegistry.ts";
 import { ServerSettingsService } from "../serverSettings.ts";
 import * as ProjectService from "../project/ProjectService.ts";
 import * as ThreadManagement from "./ThreadManagementService.ts";
+import * as ProjectStore from "./ProjectStore.ts";
 
 const createPersistentAgentImpl = Effect.fn("createPersistentAgent")(function* (
   input: AgentCreateInput,
@@ -31,6 +36,42 @@ const createPersistentAgentImpl = Effect.fn("createPersistentAgent")(function* (
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
   const crypto = yield* Crypto.Crypto;
+  const group = input.agentProfile.group;
+  if (group) {
+    if (
+      group.memberProjectIds.length < 2 ||
+      group.memberProjectIds.length > 32 ||
+      new Set(group.memberProjectIds).size !== group.memberProjectIds.length ||
+      !group.memberProjectIds.includes(group.leadProjectId)
+    ) {
+      return yield* new OrchestrationDispatchCommandError({
+        message: "Choose distinct agents and a lead who belongs to the channel.",
+      });
+    }
+    const store = yield* ProjectStore.ProjectStoreV2;
+    for (const memberId of group.memberProjectIds) {
+      const member = yield* store.get(memberId).pipe(
+        Effect.mapError(
+          (cause) =>
+            new OrchestrationDispatchCommandError({
+              message: "Could not read the channel's agents.",
+              cause,
+            }),
+        ),
+      );
+      if (
+        Option.isNone(member) ||
+        member.value.deletedAt !== null ||
+        !member.value.agentProfile?.conversationThreadId ||
+        member.value.agentProfile.archived ||
+        member.value.agentProfile.group
+      ) {
+        return yield* new OrchestrationDispatchCommandError({
+          message: "Groups need at least two available individual agents.",
+        });
+      }
+    }
+  }
   const providers = yield* (yield* ProviderRegistry).getProviders;
   const provider = providers.find(
     (entry) => entry.instanceId === input.defaultModelSelection.instanceId,
@@ -163,18 +204,71 @@ const createPersistentAgentImpl = Effect.fn("createPersistentAgent")(function* (
   );
 });
 
+const conversationPreviewsImpl = Effect.fn("PersistentAgents.conversationPreviews")(function* (
+  input: AgentConversationPreviewsInput,
+) {
+  if (input.projectIds.length > 100)
+    return yield* new OrchestrationDispatchCommandError({
+      message: "Request at most 100 agent previews at a time.",
+    });
+  if (input.projectIds.length === 0) return [];
+  const sql = yield* SqlClient.SqlClient;
+  const rows = yield* sql<AgentConversationPreviewsResult[number]>`
+    SELECT project.project_id AS projectId, thread.thread_id AS threadId,
+      SUBSTR(COALESCE((
+        SELECT json_extract(record.value, '$.payload.handoff.ask')
+        FROM json_each(message.payload_json, '$.context.records') record
+        WHERE json_extract(record.value, '$.kind') = 'elysia-agent-delegation-source'
+          AND json_type(record.value, '$.payload.handoff.ask') = 'text'
+        LIMIT 1
+      ), json_extract(message.payload_json, '$.text')), 1, 240) AS text,
+      json_extract(message.payload_json, '$.updatedAt') AS updatedAt
+    FROM projection_projects project
+    JOIN orchestration_v2_projection_threads thread
+      ON thread.thread_id = json_extract(project.agent_profile_json, '$.conversationThreadId')
+      AND thread.project_id = project.project_id AND thread.deleted_at IS NULL
+    JOIN orchestration_v2_projection_messages message
+      ON message.thread_id = thread.thread_id
+      AND message.message_id = (
+        SELECT json_extract(item.payload_json, '$.messageId')
+        FROM orchestration_v2_projection_turn_items item
+        LEFT JOIN orchestration_v2_projection_runs run ON run.thread_id = item.thread_id AND run.run_id = item.run_id
+        WHERE item.thread_id = thread.thread_id AND item.type IN ('user_message', 'assistant_message')
+          AND (item.run_id IS NULL OR run.status != 'rolled_back')
+          AND LENGTH(TRIM(json_extract(item.payload_json, '$.text'))) > 0
+        ORDER BY item.ordinal DESC LIMIT 1
+      )
+    WHERE project.project_id IN ${sql.in([...new Set(input.projectIds)])}
+      AND project.deleted_at IS NULL AND project.agent_profile_json IS NOT NULL
+  `.pipe(
+    Effect.mapError(
+      (cause) =>
+        new OrchestrationDispatchCommandError({
+          message: "Could not read agent previews. Try again.",
+          cause,
+        }),
+    ),
+  );
+  return rows.map((row) => ({ ...row, text: row.text.slice(0, 240) }));
+});
+
 export class PersistentAgents extends Context.Service<
   PersistentAgents,
   {
+    readonly conversationPreviews: (
+      input: AgentConversationPreviewsInput,
+    ) => Effect.Effect<AgentConversationPreviewsResult, OrchestrationDispatchCommandError>;
     readonly create: (
       input: AgentCreateInput,
     ) => Effect.Effect<AgentCreateResult, OrchestrationDispatchCommandError>;
   }
 >()("t3/orchestration-v2/PersistentAgents") {}
 const make = Effect.gen(function* () {
-  const context =
-    yield* Effect.context<Effect.Services<ReturnType<typeof createPersistentAgentImpl>>>();
+  const context = yield* Effect.context<
+    Effect.Services<ReturnType<typeof createPersistentAgentImpl>> | SqlClient.SqlClient
+  >();
   return PersistentAgents.of({
+    conversationPreviews: (input) => conversationPreviewsImpl(input).pipe(Effect.provide(context)),
     create: (input) => createPersistentAgentImpl(input).pipe(Effect.provide(context)),
   });
 });
@@ -184,3 +278,9 @@ export const createPersistentAgent = Effect.fn("PersistentAgents.create")(functi
 ) {
   return yield* (yield* PersistentAgents).create(input);
 });
+
+export const getAgentConversationPreviews = Effect.fn("PersistentAgents.conversationPreviews")(
+  function* (input: AgentConversationPreviewsInput) {
+    return yield* (yield* PersistentAgents).conversationPreviews(input);
+  },
+);

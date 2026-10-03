@@ -83,6 +83,51 @@ function thread(
 }
 
 describe("mobile agent presentation", () => {
+  it("offers groups from ordinary chats and only individual members inside a group", () => {
+    const lead = project("lead", { ...profile, conversationThreadId: ThreadId.make("lead-chat") });
+    const member = project("member", {
+      ...profile,
+      conversationThreadId: ThreadId.make("member-chat"),
+    });
+    const outsider = project("outsider", {
+      ...profile,
+      conversationThreadId: ThreadId.make("outsider-chat"),
+    });
+    const group = project("team", {
+      ...profile,
+      conversationThreadId: ThreadId.make("group-chat"),
+      group: { memberProjectIds: [lead.id, member.id], leadProjectId: lead.id },
+    });
+    const sourceOwner = project("source");
+    const projects = [lead, member, outsider, group, sourceOwner];
+    const threads = [
+      thread("lead-chat", lead),
+      thread("member-chat", member),
+      thread("outsider-chat", outsider),
+      thread("group-chat", group),
+      thread("source-chat", sourceOwner),
+    ];
+    const input = {
+      projects,
+      threads,
+      environmentId: local,
+      sourceThreadId: ThreadId.make("source-chat"),
+      query: "",
+    };
+    const ordinary = composerAgentMentionItems(input);
+    expect(ordinary.map((item) => item.projectId)).toEqual([
+      lead.id,
+      member.id,
+      outsider.id,
+      group.id,
+    ]);
+    expect(ordinary.find((item) => item.projectId === group.id)?.isGroup).toBe(true);
+    expect(
+      composerAgentMentionItems({ ...input, sourceThreadId: ThreadId.make("group-chat") }).map(
+        (item) => item.projectId,
+      ),
+    ).toEqual([lead.id, member.id]);
+  });
   it("offers only active linked agents on the source environment, excluding self and unsaved source chats", () => {
     const sourceOwner = project("source");
     const source = thread("source-chat", sourceOwner);

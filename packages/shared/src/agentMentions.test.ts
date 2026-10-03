@@ -11,6 +11,8 @@ import {
 import { describe, expect, it } from "vite-plus/test";
 import {
   agentTaskHandoff,
+  agentGroupResponder,
+  agentHandoffTargets,
   delegatedAgentsFromTurnItems,
   formatAgentMention,
   isAgentDelegationActive,
@@ -18,6 +20,56 @@ import {
 } from "./agentMentions.ts";
 
 describe("agent mentions", () => {
+  it("routes a tagged group once, retaining its member tags without duplicate individual work", () => {
+    const lead = ProjectId.make("lead");
+    const member = ProjectId.make("member");
+    const id = ProjectId.make("team");
+    const groups = [{ id, group: { memberProjectIds: [lead, member], leadProjectId: lead } }];
+    expect(agentHandoffTargets(formatAgentMention(lead, "Lead"), groups)).toEqual([lead]);
+    expect(
+      agentHandoffTargets(
+        `${formatAgentMention(id, "Team")} ${formatAgentMention(member, "Member")}`,
+        groups,
+      ),
+    ).toEqual([id]);
+    expect(
+      agentHandoffTargets(
+        `${formatAgentMention(id, "Team")} ${formatAgentMention(ProjectId.make("other"), "Other")}`,
+        groups,
+      ),
+    ).toBeNull();
+    expect(
+      agentHandoffTargets(
+        `${formatAgentMention(id, "Team")} ${formatAgentMention(ProjectId.make("other-team"), "Other team")}`,
+        [...groups, { ...groups[0]!, id: ProjectId.make("other-team") }],
+      ),
+    ).toBeNull();
+  });
+  it("routes group work to its lead or one explicitly addressed member and rejects outsiders", () => {
+    const lead = ProjectId.make("lead");
+    const specialist = ProjectId.make("specialist");
+    const group = { memberProjectIds: [lead, specialist], leadProjectId: lead };
+    expect(agentGroupResponder(group, "Plan the work")).toBe(lead);
+    expect(agentGroupResponder(group, formatAgentMention(specialist, "Research"))).toBe(specialist);
+    expect(
+      agentGroupResponder(
+        group,
+        `${formatAgentMention(lead, "Lead")} ${formatAgentMention(specialist, "Research")}`,
+      ),
+    ).toBe(specialist);
+    expect(
+      agentGroupResponder(
+        group,
+        `${formatAgentMention(lead, "Lead")} ${formatAgentMention(specialist, "Research")} ${formatAgentMention(lead, "Lead")}`,
+      ),
+    ).toBe(lead);
+    expect(
+      agentGroupResponder(group, formatAgentMention(ProjectId.make("outsider"), "Other")),
+    ).toBeNull();
+    expect(
+      agentGroupResponder({ ...group, leadProjectId: ProjectId.make("missing") }, "Plan the work"),
+    ).toBeNull();
+  });
   it("preserves identity across renamed, repeated and escaped labels without treating prose or files as agents", () => {
     const id = ProjectId.make("7104a0e1-476e-492d-8912-18b18eab607b");
     const mention = formatAgentMention(id, "Friday [Research]");
@@ -97,4 +149,12 @@ it("displays only a delegated ask with its source, preferring durable metadata o
   };
   expect(agentTaskHandoff(message)?.ask).toContain("Ask containing");
   expect(agentTaskHandoff(message)?.sourceThreadTitle).toBe("Release checks");
+  const groupAsk = {
+    ...message,
+    text: "Plain shared group ask",
+    senderThreadId: ThreadId.make("source"),
+  };
+  expect(agentTaskHandoff(groupAsk)?.sourceThreadTitle).toBe("Release checks");
+  expect(agentTaskHandoff({ ...groupAsk, senderThreadId: ThreadId.make("other") })).toBeNull();
+  expect(agentTaskHandoff({ ...message, text: "Ordinary message" })).toBeNull();
 });

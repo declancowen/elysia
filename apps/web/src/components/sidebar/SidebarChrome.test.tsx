@@ -6,8 +6,15 @@ import { expect, it, vi } from "vite-plus/test";
 
 import { SidebarProvider } from "../ui/sidebar";
 import { RECENT_THREADS_EXPANSION_KEY, RecentThreadsHeader } from "./RecentThreadsHeader";
-import { SidebarHeaderSearch, SidebarNewChatButton, SidebarUtilityMenu } from "./SidebarChrome";
+import {
+  AppNavigationRail,
+  SidebarChromeFooter,
+  SidebarHeaderSearch,
+  SidebarNewChatButton,
+  SidebarUtilityMenu,
+} from "./SidebarChrome";
 import { useUiStateStore } from "~/uiStateStore";
+import { useAgentSidebarStore } from "../agents/agentSidebarStore";
 import { CommandDialog } from "../ui/command";
 import { SidebarThreadSearch } from "./SidebarThreadHeader";
 
@@ -17,6 +24,8 @@ const state = vi.hoisted(() => ({
   connected: true,
   startScratchThread: vi.fn(),
   updateSettings: vi.fn(),
+  navigate: vi.fn(),
+  pullRequestsSupported: true,
   listeners: new Set<() => void>(),
 }));
 
@@ -35,7 +44,7 @@ vi.mock("~/hooks/useSettings", () => ({
 }));
 
 vi.mock("@tanstack/react-router", () => ({
-  useNavigate: () => vi.fn(),
+  useNavigate: () => state.navigate,
   useLocation: (options: { select: (location: { pathname: string }) => unknown }) =>
     options.select({ pathname: useSyncExternalStore(subscribe, () => state.pathname) }),
   Link: () => null,
@@ -43,10 +52,99 @@ vi.mock("@tanstack/react-router", () => ({
 
 vi.mock("~/state/environments", () => ({
   usePrimaryEnvironmentId: () => EnvironmentId.make("local"),
-  useEnvironments: () => ({
-    environments: [{ serverConfig: { environment: { capabilities: { pullRequests: true } } } }],
-  }),
+  useEnvironments: () => {
+    const pullRequests = useSyncExternalStore(subscribe, () => state.pullRequestsSupported);
+    return {
+      environments: [{ serverConfig: { environment: { capabilities: { pullRequests } } } }],
+    };
+  },
 }));
+
+it("navigates rail pages and preserves both workspace switches on utility pages", async () => {
+  vi.stubGlobal("cookieStore", { set: vi.fn(async () => {}) });
+  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+  vi.stubGlobal("matchMedia", () => ({
+    matches: false,
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+  }));
+  state.pathname = "/usage";
+  state.settings = { workspaceMode: "code", legacySidebarEnabled: true };
+  state.pullRequestsSupported = true;
+  state.navigate.mockReset();
+  state.updateSettings.mockImplementation((patch: Partial<typeof state.settings>) => {
+    state.settings = { ...state.settings, ...patch };
+    for (const listener of state.listeners) listener();
+  });
+  const container = document.createElement("div");
+  document.body.append(container);
+  const root = createRoot(container);
+  const render = () => {
+    for (const listener of state.listeners) listener();
+    root.render(
+      <SidebarProvider>
+        <AppNavigationRail />
+        <SidebarChromeFooter />
+      </SidebarProvider>,
+    );
+  };
+  const button = (label: string) =>
+    container.querySelector<HTMLButtonElement>(`button[aria-label="${label}"]`)!;
+  try {
+    await act(async () => render());
+    expect(
+      [...container.querySelectorAll("button")].map((el) => el.getAttribute("aria-label")),
+    ).toEqual([
+      "Home",
+      "Agents",
+      "Scheduled",
+      "Projects",
+      "Git",
+      "Stats",
+      "Settings",
+      "Code workspace · Switch to Work",
+      "Switch to Thread view",
+      "Refresh",
+    ]);
+    expect(button("Stats").getAttribute("aria-current")).toBe("page");
+    await act(async () => button("Agents").click());
+    expect(state.navigate).toHaveBeenLastCalledWith({ to: "/agents", search: {} });
+    state.pathname = "/local/agent-thread";
+    await act(async () => render());
+    expect(button("Agents").getAttribute("aria-current")).toBe("page");
+    expect(button("Home").getAttribute("aria-current")).toBeNull();
+    await act(async () => button("Scheduled").click());
+    expect(state.navigate).toHaveBeenLastCalledWith({ to: "/settings/scheduled-tasks" });
+    expect(useAgentSidebarStore.getState().active).toBe(false);
+    await act(async () => button("Projects").click());
+    expect(state.navigate).toHaveBeenLastCalledWith({ to: "/projects" });
+    await act(async () => button("Home").click());
+    expect(state.navigate).toHaveBeenLastCalledWith({ href: "/" });
+    expect(useAgentSidebarStore.getState().active).toBe(false);
+    expect(button("Home").getAttribute("aria-current")).toBe("page");
+    await act(async () => button("Switch to Thread view").click());
+    expect(state.settings.legacySidebarEnabled).toBe(false);
+    expect(button("Switch to Project view")).not.toBeNull();
+    await act(async () => button("Code workspace · Switch to Work").click());
+    expect(state.settings.workspaceMode).toBe("work");
+    expect(container.querySelector('[aria-label="Git"]')).toBeNull();
+    state.pathname = "/settings";
+    await act(async () => render());
+    expect(button("Work workspace · Switch to Code")).not.toBeNull();
+    expect(button("Switch to Project view")).not.toBeNull();
+    expect(button("Settings").getAttribute("aria-current")).toBe("page");
+    await act(async () => button("Work workspace · Switch to Code").click());
+    expect(button("Git")).not.toBeNull();
+    state.pullRequestsSupported = false;
+    await act(async () => render());
+    expect(container.querySelector('[aria-label="Git"]')).toBeNull();
+  } finally {
+    await act(async () => root.unmount());
+    container.remove();
+    state.pullRequestsSupported = true;
+    vi.unstubAllGlobals();
+  }
+});
 
 vi.mock("~/hooks/useScratchProject", () => ({
   useScratchProject: () => ({
@@ -60,6 +158,8 @@ vi.mock("./SidebarUpdatePill", () => ({
   SidebarUpdatePill: () => null,
   SidebarUpdateArchitectureWarning: () => null,
 }));
+
+vi.mock("./SidebarThreadUndoNotice", () => ({ SidebarThreadUndoNotice: () => null }));
 
 it("keeps Work/Code beside Settings, preserves sidebar layout, and hides both switches in Settings and Stats", async () => {
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);

@@ -220,6 +220,9 @@ export function planProjectCommand(input: {
             : {
                 agentProfile: {
                   ...command.agentProfile,
+                  ...(command.agentProfile.group === undefined && project.agentProfile?.group
+                    ? { group: project.agentProfile.group }
+                    : {}),
                   ...(project.agentProfile?.conversationThreadId
                     ? { conversationThreadId: project.agentProfile.conversationThreadId }
                     : {}),

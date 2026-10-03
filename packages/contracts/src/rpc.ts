@@ -137,6 +137,8 @@ import {
   AgentDelegateResult,
   AgentGetDelegationInput,
   AgentGetDelegationResult,
+  AgentConversationPreviewsInput,
+  AgentConversationPreviewsResult,
 } from "./agents.ts";
 import { ElysiaStatsSnapshot } from "./elysiaStats.ts";
 import { KeybindingsConfigError } from "./keybindings.ts";
@@ -359,6 +361,7 @@ export const WS_METHODS = {
   agentsCreate: "agents.create",
   agentsDelegate: "agents.delegate",
   agentsGetDelegation: "agents.getDelegation",
+  agentsConversationPreviews: "agents.conversationPreviews",
   projectsCreateNew: "projects.createNew",
 
   // Shell methods
@@ -1208,6 +1211,12 @@ const WsAgentsGetDelegationRpc = Rpc.make(WS_METHODS.agentsGetDelegation, {
   error: Schema.Union([OrchestrationDispatchCommandError, EnvironmentAuthorizationError]),
 });
 
+const WsAgentsConversationPreviewsRpc = Rpc.make(WS_METHODS.agentsConversationPreviews, {
+  payload: AgentConversationPreviewsInput,
+  success: AgentConversationPreviewsResult,
+  error: Schema.Union([OrchestrationDispatchCommandError, EnvironmentAuthorizationError]),
+});
+
 const WsShellOpenInEditorRpc = Rpc.make(WS_METHODS.shellOpenInEditor, {
   payload: LaunchEditorInput,
   error: Schema.Union([ExternalLauncherError, EnvironmentAuthorizationError]),
@@ -1823,6 +1832,7 @@ export const WsRpcGroup = RpcGroup.make(
   WsAgentsCreateRpc,
   WsAgentsDelegateRpc,
   WsAgentsGetDelegationRpc,
+  WsAgentsConversationPreviewsRpc,
   WsProjectsCreateNewRpc,
   WsProjectsWriteFileRpc,
   WsProjectsMutateRpc,

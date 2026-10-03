@@ -1,6 +1,12 @@
 import { assert, it } from "@effect/vitest";
 import * as NodeServices from "@effect/platform-node/NodeServices";
-import { CommandId, type Project, ProjectId, ProviderInstanceId } from "@t3tools/contracts";
+import {
+  CommandId,
+  type Project,
+  ProjectId,
+  ProviderInstanceId,
+  ThreadId,
+} from "@t3tools/contracts";
 import * as Deferred from "effect/Deferred";
 import * as Effect from "effect/Effect";
 import * as Fiber from "effect/Fiber";
@@ -802,4 +808,139 @@ it.effect("rejects an update that waited on the lock while its project was delet
       "Update race",
     );
   }).pipe(Effect.provide(ProjectServiceDependenciesLayer)),
+);
+
+it.effect(
+  "validates changed group membership durably while allowing unchanged archive metadata",
+  () =>
+    Effect.gen(function* () {
+      const service = yield* ProjectService.ProjectService;
+      const a = ProjectId.make("member-a"),
+        b = ProjectId.make("member-b"),
+        c = ProjectId.make("member-c");
+      const team = ProjectId.make("team");
+      const profile = {
+        instructions: "Help",
+        avatar: { preset: "brain", color: "blue" },
+        archived: false,
+        notificationsEnabled: true,
+      } as const;
+      for (const projectId of [a, b, c])
+        yield* service.create({
+          commandId: CommandId.make(`create:${projectId}`),
+          projectId,
+          title: projectId,
+          workspaceRoot: `/work/${projectId}`,
+          agentProfile: {
+            ...profile,
+            conversationThreadId: ThreadId.make(`chat:${projectId}`),
+            archived: projectId === c,
+          },
+        });
+      const initialProfile = {
+        ...profile,
+        conversationThreadId: ThreadId.make("team-chat"),
+        group: { memberProjectIds: [a, b], leadProjectId: a },
+      };
+      yield* service.create({
+        commandId: CommandId.make("create-team"),
+        projectId: team,
+        title: "Team",
+        workspaceRoot: "/work/team",
+        agentProfile: initialProfile,
+      });
+      for (const [name, group] of [
+        ["missing", { memberProjectIds: [a, ProjectId.make("missing")], leadProjectId: a }],
+        ["archived", { memberProjectIds: [a, c], leadProjectId: a }],
+        ["nested", { memberProjectIds: [a, team], leadProjectId: a }],
+        ["duplicate", { memberProjectIds: [a, a], leadProjectId: a }],
+        ["foreign-lead", { memberProjectIds: [a, b], leadProjectId: c }],
+      ] as const) {
+        const failure = yield* service
+          .update({
+            commandId: CommandId.make(`invalid:${name}`),
+            projectId: team,
+            agentProfile: { ...initialProfile, group },
+          })
+          .pipe(Effect.flip);
+        assert.equal(failure._tag, "ProjectOperationError");
+        const createdId = ProjectId.make(`invalid-group:${name}`);
+        yield* service
+          .create({
+            commandId: CommandId.make(`invalid-create:${name}`),
+            projectId: createdId,
+            title: "Invalid group",
+            workspaceRoot: `/work/${createdId}`,
+            agentProfile: {
+              ...initialProfile,
+              conversationThreadId: ThreadId.make(`chat:${createdId}`),
+              group,
+            },
+          })
+          .pipe(Effect.flip);
+        assert.isTrue(Option.isNone(yield* service.getById(createdId)));
+        assert.deepEqual(
+          Option.getOrThrow(yield* service.getById(team)).agentProfile?.group,
+          initialProfile.group,
+        );
+      }
+      // A rejected receipt stays rejected even after the referenced agent becomes available.
+      yield* service.update({
+        commandId: CommandId.make("restore-c"),
+        projectId: c,
+        agentProfile: { ...profile, conversationThreadId: ThreadId.make(`chat:${c}`) },
+      });
+      const rejectedCreate = ProjectId.make("invalid-group:archived");
+      yield* service
+        .create({
+          commandId: CommandId.make("invalid-create:archived"),
+          projectId: rejectedCreate,
+          title: "Invalid group",
+          workspaceRoot: `/work/${rejectedCreate}`,
+          agentProfile: {
+            ...initialProfile,
+            conversationThreadId: ThreadId.make(`chat:${rejectedCreate}`),
+            group: { memberProjectIds: [a, c], leadProjectId: a },
+          },
+        })
+        .pipe(Effect.flip);
+      assert.isTrue(Option.isNone(yield* service.getById(rejectedCreate)));
+      yield* service
+        .update({
+          commandId: CommandId.make("invalid:archived"),
+          projectId: team,
+          agentProfile: {
+            ...initialProfile,
+            group: { memberProjectIds: [a, c], leadProjectId: a },
+          },
+        })
+        .pipe(Effect.flip);
+      const changedProfile = {
+        ...initialProfile,
+        group: { memberProjectIds: [a, c], leadProjectId: c },
+      };
+      yield* service.update({
+        commandId: CommandId.make("valid-members"),
+        projectId: team,
+        agentProfile: changedProfile,
+      });
+      yield* service.update({
+        commandId: CommandId.make("archive-c"),
+        projectId: c,
+        agentProfile: {
+          ...profile,
+          archived: true,
+          conversationThreadId: ThreadId.make(`chat:${c}`),
+        },
+      });
+      yield* service.update({
+        commandId: CommandId.make("archive-team"),
+        projectId: team,
+        agentProfile: { ...changedProfile, archived: true },
+      });
+      const archived = Option.getOrThrow(yield* service.getById(team));
+      assert.equal(archived.agentProfile?.archived, true);
+      assert.deepEqual(archived.agentProfile?.group, changedProfile.group);
+      assert.equal(archived.agentProfile?.conversationThreadId, "team-chat");
+    }).pipe(Effect.provide(TestLayer)),
 );

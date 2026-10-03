@@ -224,7 +224,7 @@ export function ScheduledTasksSettings(target: {
   return (
     <SettingsPageContainer>
       <SettingsSection
-        title="Scheduled tasks"
+        title="Scheduled"
         variant="plain"
         headerAction={
           <Button

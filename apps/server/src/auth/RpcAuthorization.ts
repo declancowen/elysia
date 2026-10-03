@@ -142,6 +142,7 @@ export const RPC_REQUIRED_SCOPES = {
   [WS_METHODS.agentsCreate]: AuthOrchestrationOperateScope,
   [WS_METHODS.agentsDelegate]: AuthOrchestrationOperateScope,
   [WS_METHODS.agentsGetDelegation]: AuthOrchestrationReadScope,
+  [WS_METHODS.agentsConversationPreviews]: AuthOrchestrationReadScope,
   [WS_METHODS.projectsCreateNew]: AuthOrchestrationOperateScope,
   [WS_METHODS.shellOpenInEditor]: AuthOrchestrationOperateScope,
   [WS_METHODS.filesystemBrowse]: AuthOrchestrationReadScope,

@@ -122,7 +122,10 @@ import * as ThreadManagementService from "./orchestration-v2/ThreadManagementSer
 import * as ProviderSessionManager from "./orchestration-v2/ProviderSessionManager.ts";
 import * as ThreadLaunchService from "./orchestration-v2/ThreadLaunchService.ts";
 import * as ThreadMessageIntake from "./orchestration-v2/ThreadMessageIntake.ts";
-import { createPersistentAgent } from "./orchestration-v2/PersistentAgents.ts";
+import {
+  createPersistentAgent,
+  getAgentConversationPreviews,
+} from "./orchestration-v2/PersistentAgents.ts";
 import {
   delegateToPersistentAgent,
   getAgentDelegation,
@@ -1427,7 +1430,7 @@ const makeWsRpcLayer = (
               if (racedImport !== null) return { threadId, imported: false } as const;
               return yield* new AcpRegistryOperationError({
                 reason: "session_import_failed",
-                message: "Could not create a T3 thread for the ACP session.",
+                message: "Could not create an Elysia thread for the ACP session.",
                 cause: launched.failure,
               });
             }
@@ -1468,7 +1471,8 @@ const makeWsRpcLayer = (
             if (importedThread !== null) {
               return yield* new AcpRegistryOperationError({
                 reason: "session_delete_failed",
-                message: "Delete the imported T3 thread before deleting its native ACP session.",
+                message:
+                  "Delete the imported Elysia thread before deleting its native ACP session.",
               });
             }
             yield* manager.deleteSession({
@@ -2967,6 +2971,14 @@ const makeWsRpcLayer = (
           observeRpcEffect(WS_METHODS.agentsDelegate, delegateToPersistentAgent(input), {
             "rpc.aggregate": "orchestration",
           }),
+        [WS_METHODS.agentsConversationPreviews]: (input) =>
+          observeRpcEffect(
+            WS_METHODS.agentsConversationPreviews,
+            getAgentConversationPreviews(input),
+            {
+              "rpc.aggregate": "orchestration",
+            },
+          ),
         [WS_METHODS.agentsGetDelegation]: (input) =>
           observeRpcEffect(WS_METHODS.agentsGetDelegation, getAgentDelegation(input), {
             "rpc.aggregate": "orchestration",

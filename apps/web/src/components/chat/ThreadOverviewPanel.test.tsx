@@ -417,54 +417,65 @@ it.each([false, true])(
   },
 );
 
-it("shows one task avatar and one response avatar across progress and final messages", async () => {
-  const agent = workingAgent("Friday");
-  state.delegated = [
-    {
-      ...agent,
-      project: {
-        environmentId: EnvironmentId.make("local"),
-        id: agent.job.agentProjectId,
-        title: "Friday",
-        workspaceRoot: "/agents/friday",
-        repositoryIdentity: null,
-        defaultModelSelection: null,
-        scripts: [],
-        createdAt: "2026-10-02T00:00:00Z",
-        updatedAt: "2026-10-02T00:00:00Z",
-        agentProfile: {
-          instructions: "Assist with tasks.",
-          avatar: { preset: "brain", color: "#28B4FF" },
-          archived: false,
-          notificationsEnabled: true,
+it.each([false, true])(
+  "shows one task identity and one response identity across progress and final messages (group=%s)",
+  async (group) => {
+    const agent = workingAgent("Friday");
+    state.delegated = [
+      {
+        ...agent,
+        project: {
+          environmentId: EnvironmentId.make("local"),
+          id: agent.job.agentProjectId,
+          title: "Friday",
+          workspaceRoot: "/agents/friday",
+          repositoryIdentity: null,
+          defaultModelSelection: null,
+          scripts: [],
+          createdAt: "2026-10-02T00:00:00Z",
+          updatedAt: "2026-10-02T00:00:00Z",
+          agentProfile: {
+            instructions: "Assist with tasks.",
+            avatar: { preset: "brain", color: "#28B4FF" },
+            ...(group
+              ? {
+                  group: {
+                    memberProjectIds: [ProjectId.make("lead"), ProjectId.make("member")],
+                    leadProjectId: ProjectId.make("lead"),
+                  },
+                }
+              : {}),
+            archived: false,
+            notificationsEnabled: true,
+          },
+        },
+        data: {
+          ...agent.data!,
+          messages: ["**Task:** Check it.", "First progress", "Next progress", "Final result"].map(
+            (text) => ({
+              id: MessageId.make(text),
+              role: "assistant" as const,
+              text,
+              turnId: agent.job.targetTurnId,
+              streaming: false,
+              createdAt: "2026-10-02T00:00:00Z",
+              updatedAt: "2026-10-02T00:00:00Z",
+            }),
+          ),
         },
       },
-      data: {
-        ...agent.data!,
-        messages: ["**Task:** Check it.", "First progress", "Next progress", "Final result"].map(
-          (text) => ({
-            id: MessageId.make(text),
-            role: "assistant" as const,
-            text,
-            turnId: agent.job.targetTurnId,
-            streaming: false,
-            createdAt: "2026-10-02T00:00:00Z",
-            updatedAt: "2026-10-02T00:00:00Z",
-          }),
-        ),
-      },
-    },
-  ];
-  await render({ delegatedAgents: [agent.job] });
-  const body = document.querySelector<HTMLElement>("[data-agent-panel-scroll]")!;
-  expect(body.querySelectorAll(".agent-avatar")).toHaveLength(2);
-  for (const text of ["Check it.", "First progress", "Next progress", "Final result"])
-    expect(body.textContent).toContain(text);
-  await click("Expand agent responses");
-  expect(body.querySelectorAll(".agent-avatar")).toHaveLength(2);
-  await click("Collapse agent responses");
-  expect(body.querySelectorAll(".agent-avatar")).toHaveLength(2);
-});
+    ];
+    await render({ delegatedAgents: [agent.job] });
+    const body = document.querySelector<HTMLElement>("[data-agent-panel-scroll]")!;
+    expect(body.querySelectorAll(group ? '[data-icon="users"]' : ".agent-avatar")).toHaveLength(2);
+    for (const text of ["Check it.", "First progress", "Next progress", "Final result"])
+      expect(body.textContent).toContain(text);
+    await click("Expand agent responses");
+    expect(body.querySelectorAll(group ? '[data-icon="users"]' : ".agent-avatar")).toHaveLength(2);
+    await click("Collapse agent responses");
+    expect(body.querySelectorAll(group ? '[data-icon="users"]' : ".agent-avatar")).toHaveLength(2);
+  },
+);
 
 it("opens the agent chat in its source environment and dismisses the floating view", async () => {
   const agent = workingAgent("Friday");
@@ -633,4 +644,79 @@ it("reveals large V2 child rosters one page at a time without losing failed resu
   expect(document.body.textContent).toContain("A retained failure");
   await click("Back to subagents");
   expect(document.body.textContent).toContain("Child 19");
+});
+
+it("retains an unsaved workspace action and Git selection across collapse and responsive resizing", async () => {
+  state.wide = true;
+  const controls = {
+    workspaceContent: <textarea aria-label="Action draft" defaultValue="Saved action" />,
+    versionControlContent: <input aria-label="Git selection" defaultValue="main" />,
+  };
+  await render(controls);
+  await click("Thread overview");
+  expect(document.body.textContent).toContain("Workspace");
+  const action = document.querySelector<HTMLTextAreaElement>('[aria-label="Action draft"]')!;
+  const git = document.querySelector<HTMLInputElement>('[aria-label="Git selection"]')!;
+  action.value = "Unsaved action";
+  git.value = "feature";
+  await click("Hide Git");
+  await click("Show Git");
+  expect(document.querySelector('[aria-label="Git selection"]')).toBe(git);
+  expect(git.value).toBe("feature");
+  state.wide = false;
+  await render(controls);
+  expect(document.querySelector('[role="dialog"]')).toBeNull();
+  await click("Thread overview");
+  expect(document.querySelector('[aria-label="Action draft"]')).toBe(action);
+  expect(action.value).toBe("Unsaved action");
+  expect(document.querySelector<HTMLInputElement>('[aria-label="Git selection"]')?.value).toBe(
+    "feature",
+  );
+});
+
+it("keeps a header-mounted agent view inside its original thread column", async () => {
+  state.delegated = [workingAgent("Friday")];
+  host.setAttribute("data-chat-header", "");
+  vi.spyOn(host, "getBoundingClientRect").mockReturnValue(new DOMRect(0, 0, 1200, 52));
+  const column = document.createElement("div");
+  vi.spyOn(column, "getBoundingClientRect").mockReturnValue(new DOMRect(300, 52, 260, 180));
+  await render({
+    delegatedAgents: state.delegated.map(({ job }) => job),
+    threadBoundaryRef: { current: column },
+  });
+  const panel = document.querySelector<HTMLElement>('[role="dialog"]')!;
+  expect(panel.style.width).toBe("236px");
+  expect(panel.style.height).toBe("156px");
+  expect(document.querySelector('[aria-label="Expand agent responses"]')).toBeNull();
+});
+
+it("keeps Workspace usable within the thread frame when the right panel is maximized", async () => {
+  host.setAttribute("data-chat-header", "");
+  const workspace = document.createElement("div");
+  workspace.setAttribute("data-chat-workspace-panels", "");
+  const column = document.createElement("div");
+  column.setAttribute("data-chat-column-maximized-away", "true");
+  workspace.appendChild(column);
+  vi.spyOn(workspace, "getBoundingClientRect").mockReturnValue(new DOMRect(300, 52, 700, 500));
+  vi.spyOn(column, "getBoundingClientRect").mockReturnValue(new DOMRect(300, 52, 0, 500));
+  await render({ threadBoundaryRef: { current: column } });
+  await click("Thread overview");
+  const panel = document.querySelector<HTMLElement>('[role="dialog"]')!;
+  expect(panel.style.width).toBe("320px");
+  expect(panel.style.maxWidth).toBe("676px");
+  expect(document.body.textContent).toContain("Workspace");
+});
+
+it("keeps workspace and sources available without the agent section in agent and channel chats", async () => {
+  await render({
+    showAgents: false,
+    showGit: false,
+    workspaceContent: <button>Open in Finder</button>,
+  });
+  await click("Thread overview");
+  expect(document.body.textContent).toContain("Open in Finder");
+  expect(document.body.textContent).toContain("Sources");
+  expect(document.body.textContent).not.toContain("1 working");
+  expect(document.body.textContent).not.toContain("2 done");
+  expect(document.body.textContent).not.toContain("Version Control");
 });

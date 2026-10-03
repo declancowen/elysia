@@ -4114,6 +4114,13 @@ const makeOrchestrator = Effect.fn("orchestrationV2.Orchestrator.layer")(functio
       const project = yield* projects
         .get(projection.thread.projectId)
         .pipe(mapDispatchError(command));
+      if (Option.isSome(project) && project.value.agentProfile?.group) {
+        return yield* new OrchestratorDispatchError({
+          commandId: command.commandId,
+          commandType: command.type,
+          cause: "Send channel messages to one of its member agents.",
+        });
+      }
       if (Option.isSome(project) && project.value.agentProfile?.archived) {
         return yield* new OrchestratorDispatchError({
           commandId: command.commandId,

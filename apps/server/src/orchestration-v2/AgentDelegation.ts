@@ -12,6 +12,7 @@ import {
   TurnId,
   TurnItemId,
   RunId,
+  ProjectId,
   OrchestrationDispatchCommandError,
   OrchestrationV2ConversationMessageJson,
   OrchestrationV2TurnItemJson,
@@ -22,6 +23,9 @@ import {
   replaceComposerContextReferences,
   remapComposerContextAttachments,
 } from "@t3tools/shared/composerContextReferences";
+import { agentGroupResponder } from "@t3tools/shared/agentMentions";
+import * as FileSystem from "effect/FileSystem";
+import * as ServerConfig from "../config.ts";
 import * as Crypto from "effect/Crypto";
 import * as DateTime from "effect/DateTime";
 import * as Encoding from "effect/Encoding";
@@ -60,11 +64,22 @@ const SourceCutoff = Schema.Struct({
   requestedAt: IsoDateTime,
 });
 const decodeSource = Schema.decodeUnknownOption(
-  Schema.Struct({ attachments: Schema.Array(ChatAttachment), sourceCutoff: SourceCutoff }),
+  Schema.Struct({
+    attachments: Schema.Array(ChatAttachment),
+    sourceCutoff: SourceCutoff,
+    groupMemberProjectId: Schema.optional(ProjectId),
+  }),
 );
 const stripRouting = (text: string) =>
   replaceComposerContextReferences(text, (reference) =>
     reference.kind === "agent" ? reference.label : reference.source,
+  );
+
+const stripGroupRouting = (text: string, groupProjectId: ProjectId) =>
+  replaceComposerContextReferences(text, (reference) =>
+    reference.kind === "agent" && String(reference.contextId) === groupProjectId
+      ? reference.label
+      : reference.source,
   );
 
 // Both history and reply reads are bounded in SQL before decoding transcript payloads.
@@ -85,7 +100,20 @@ const readMessages = Effect.fn("AgentDelegation.readMessages")(function* (
 
 const delegateToPersistentAgentImpl = Effect.fn("delegateToPersistentAgent")(function* (
   input: AgentDelegateInput,
-) {
+): Effect.fn.Return<
+  AgentDelegateResult,
+  OrchestrationDispatchCommandError,
+  | ProjectStore.ProjectStoreV2
+  | ThreadManagement.ThreadManagementService
+  | ProjectionStore.ProjectionStoreV2
+  | CommandReceiptStore.CommandReceiptStoreV2
+  | EventSink.EventSinkV2
+  | ThreadCommandExecutor.ThreadCommandExecutor
+  | FileSystem.FileSystem
+  | ServerConfig.ServerConfig
+  | Crypto.Crypto
+  | SqlClient.SqlClient
+> {
   const projects = yield* ProjectStore.ProjectStoreV2;
   const threads = yield* ThreadManagement.ThreadManagementService;
   const projections = yield* ProjectionStore.ProjectionStoreV2;
@@ -96,10 +124,15 @@ const delegateToPersistentAgentImpl = Effect.fn("delegateToPersistentAgent")(fun
     Effect.mapError(readError),
   );
   const agentOption = yield* projects.get(input.agentProjectId).pipe(Effect.mapError(readError));
-  if (Option.isNone(agentOption) || !agentOption.value.agentProfile?.conversationThreadId) {
+  if (
+    Option.isNone(agentOption) ||
+    !agentOption.value.agentProfile?.conversationThreadId ||
+    agentOption.value.deletedAt !== null
+  ) {
     return yield* fail("This agent's linked chat is unavailable.");
   }
   const agent = agentOption.value;
+  const targetGroup = agent.agentProfile!.group;
   const targetThreadId = agent.agentProfile!.conversationThreadId!;
   if (targetThreadId === input.sourceThreadId)
     return yield* fail("You are already in this agent's chat. Send the message directly.");
@@ -125,9 +158,29 @@ const delegateToPersistentAgentImpl = Effect.fn("delegateToPersistentAgent")(fun
     sourceProject.value.agentProfile?.archived
   )
     return yield* fail("The source chat is unavailable.");
+  const group = sourceProject.value.agentProfile?.group;
+  if (group && targetGroup)
+    return yield* fail("A channel cannot send a message to another channel.");
   const sourceRecords = yield* projections
     .getThreadRecords(input.sourceThreadId, ["messages"], { messageIds: [input.messageId] })
     .pipe(Effect.mapError(readError));
+  const retainedSource = sourceRecords.messages[0]?.context?.records.find(
+    (record) => record.kind === SOURCE_FILES_KIND && "payload" in record,
+  );
+  const retainedRouting =
+    retainedSource && "payload" in retainedSource
+      ? decodeSource(retainedSource.payload)
+      : Option.none();
+  if (
+    group &&
+    (sourceProject.value.agentProfile?.conversationThreadId !== input.sourceThreadId ||
+      !group.memberProjectIds.includes(input.agentProjectId) ||
+      (Option.isSome(retainedRouting) && retainedRouting.value.groupMemberProjectId
+        ? retainedRouting.value.groupMemberProjectId
+        : agentGroupResponder(group, stripGroupRouting(input.text, source.projectId))) !==
+        input.agentProjectId)
+  )
+    return yield* fail("Choose an agent who belongs to this channel.");
   const existingRequest = sourceRecords.messages[0];
   if (existingRequest && (existingRequest.role !== "user" || existingRequest.text !== input.text))
     return yield* fail("This request message was already used for a different task.");
@@ -153,16 +206,39 @@ const delegateToPersistentAgentImpl = Effect.fn("delegateToPersistentAgent")(fun
       .getThreadRecords(targetThreadId, ["messages"], { messageIds: [targetMessageId] })
       .pipe(Effect.mapError(readError));
     accepted = records.messages[0];
-    if (!accepted?.text.startsWith(`${provenance}\n\n`))
-      return yield* fail(
-        "This handoff request was already used for a different task. Send a new request.",
-      );
     // Source copies are already durable if the acknowledgment committed. A retry does not claim them again.
   } else {
     if (agent.agentProfile?.archived)
       return yield* fail("Restore this agent before delegating work.");
     if (!input.text.trim() && !input.attachments?.length)
       return yield* fail("Add a task or attachment to delegate.");
+    const groupMemberProjectId = targetGroup
+      ? agentGroupResponder(targetGroup, stripGroupRouting(input.text, agent.projectId))
+      : undefined;
+    if (targetGroup) {
+      if (!groupMemberProjectId) return yield* fail("Choose an agent who belongs to this channel.");
+      const member = yield* projects.get(groupMemberProjectId).pipe(Effect.mapError(readError));
+      if (
+        Option.isNone(member) ||
+        member.value.deletedAt !== null ||
+        !member.value.agentProfile?.conversationThreadId ||
+        member.value.agentProfile.group ||
+        member.value.agentProfile.archived
+      )
+        return yield* fail(
+          "The selected channel member is unavailable. Restore or edit the channel.",
+        );
+      const memberThread = yield* threads
+        .getThreadShell(member.value.agentProfile.conversationThreadId)
+        .pipe(Effect.mapError(readError));
+      if (
+        !memberThread ||
+        memberThread.deletedAt !== null ||
+        memberThread.archivedAt !== null ||
+        memberThread.projectId !== member.value.projectId
+      )
+        return yield* fail("The selected channel member's chat is unavailable.");
+    }
     // Sample caller ownership before entering the target's queue. The target's
     // accepted context retains this cutoff so a retry cannot adopt newer user work.
     const sourceCutoff = yield* commands.withLock(
@@ -229,7 +305,7 @@ const delegateToPersistentAgentImpl = Effect.fn("delegateToPersistentAgent")(fun
       Effect.mapError(readError),
     );
     preparedTarget = targetClaim;
-    const recent = yield* readMessages(input.sourceThreadId, undefined, 2).pipe(
+    const recent = yield* readMessages(input.sourceThreadId, undefined, group ? 12 : 2).pipe(
       Effect.mapError(readError),
     );
     const text = [
@@ -239,6 +315,15 @@ const delegateToPersistentAgentImpl = Effect.fn("delegateToPersistentAgent")(fun
       `Origin workspace (reference only): ${source.worktreePath ?? sourceProject.value.workspaceRoot}`,
       "Continue in your own agent chat, workspace and memory. The originating workspace and transcript are references; they do not change your working directory.",
       "Before using tools, send a separate, brief assistant message summarising the current request. Start it with **Task:**. Carry out the task and send the result in a subsequent response.",
+      ...(group &&
+      retainedSource &&
+      "payload" in retainedSource &&
+      typeof retainedSource.payload === "object" &&
+      retainedSource.payload !== null &&
+      "originExcerpt" in retainedSource.payload &&
+      typeof retainedSource.payload.originExcerpt === "string"
+        ? ["Original handoff context (reference only):", retainedSource.payload.originExcerpt]
+        : []),
       "Recent excerpt (reference only):",
       recent
         .map((message) => `${message.role}: ${stripRouting(message.text).slice(-2000)}`)
@@ -246,12 +331,12 @@ const delegateToPersistentAgentImpl = Effect.fn("delegateToPersistentAgent")(fun
       "Current request:",
       stripRouting(input.text),
     ].join("\n\n");
-    yield* ThreadMessageIntake.dispatchCommand({
+    const dispatch = {
       type: "message.dispatch",
       commandId: targetCommandId,
       threadId: targetThreadId,
       messageId: targetMessageId,
-      text,
+      text: targetGroup ? input.text : text,
       attachments: targetClaim.attachments,
       context: {
         version: 1,
@@ -269,6 +354,8 @@ const delegateToPersistentAgentImpl = Effect.fn("delegateToPersistentAgent")(fun
             label: "Original request attachments",
             payload: {
               sourceCutoff,
+              ...(groupMemberProjectId ? { groupMemberProjectId } : {}),
+              ...(targetGroup ? { originExcerpt: text } : {}),
               attachments: sourceAttachments,
               handoff: {
                 sourceThreadId: input.sourceThreadId,
@@ -283,7 +370,98 @@ const delegateToPersistentAgentImpl = Effect.fn("delegateToPersistentAgent")(fun
       creationSource: "web",
       dispatchMode: { type: "queue_after_active" },
       senderThreadId: input.sourceThreadId,
-    }).pipe(
+    } as const;
+    const deliver = targetGroup
+      ? commands
+          .withLock(
+            targetThreadId,
+            Effect.gen(function* () {
+              const retained = yield* projections
+                .getThreadRecords(targetThreadId, ["messages"], {
+                  messageIds: [targetMessageId],
+                })
+                .pipe(Effect.mapError(readError));
+              if (
+                retained.messages[0] &&
+                !retained.messages[0].context?.records.some(
+                  (record) =>
+                    record.kind === SOURCE_FILES_KIND &&
+                    record.contextId === `handoff_source_${fingerprint}`,
+                )
+              )
+                return yield* fail(
+                  "This handoff request was already used for a different task. Send a new request.",
+                );
+              const now = yield* DateTime.now;
+              return yield* sink.commitCommand({
+                commandId: targetCommandId,
+                threadId: targetThreadId,
+                commandType: "agent-group.handoff",
+                acceptedAt: now,
+                effects: [],
+                events: [
+                  {
+                    id: EventId.make(`${targetCommandId}:message`),
+                    type: "message.updated",
+                    threadId: targetThreadId,
+                    occurredAt: now,
+                    payload: {
+                      id: targetMessageId,
+                      threadId: targetThreadId,
+                      runId: null,
+                      nodeId: null,
+                      role: "user",
+                      text: dispatch.text,
+                      attachments: dispatch.attachments,
+                      context: dispatch.context,
+                      senderThreadId: input.sourceThreadId,
+                      streaming: false,
+                      createdAt: now,
+                      updatedAt: now,
+                      createdBy: "user",
+                      creationSource: "web",
+                    },
+                  },
+                  {
+                    id: EventId.make(`${targetCommandId}:item`),
+                    type: "turn-item.updated",
+                    threadId: targetThreadId,
+                    occurredAt: now,
+                    payload: {
+                      id: TurnItemId.make(`${targetCommandId}:item`),
+                      threadId: targetThreadId,
+                      runId: null,
+                      nodeId: null,
+                      providerThreadId: null,
+                      providerTurnId: null,
+                      nativeItemRef: null,
+                      parentItemId: null,
+                      ordinal: 0,
+                      status: "completed",
+                      title: null,
+                      startedAt: now,
+                      completedAt: now,
+                      updatedAt: now,
+                      type: "user_message",
+                      messageId: targetMessageId,
+                      text: dispatch.text,
+                      attachments: dispatch.attachments,
+                      context: dispatch.context,
+                      createdBy: "user",
+                      creationSource: "web",
+                      inputIntent: "turn_start",
+                    },
+                  },
+                ],
+              });
+            }),
+          )
+          .pipe(Effect.mapError(readError), Effect.asVoid)
+      : ThreadMessageIntake.dispatchCommand(dispatch).pipe(
+          Effect.mapError(readError),
+          Effect.asVoid,
+        );
+    yield* deliver.pipe(
       Effect.tapError(() =>
         receipts.getByCommandId(targetCommandId).pipe(
           Effect.flatMap((result) =>
@@ -304,7 +482,21 @@ const delegateToPersistentAgentImpl = Effect.fn("delegateToPersistentAgent")(fun
       .pipe(Effect.mapError(readError));
     accepted = records.messages[0];
   }
-  if (!accepted?.runId) return yield* fail("The agent task has no accepted run. Try again.");
+  if (!accepted || (!targetGroup && !accepted.runId))
+    return yield* fail("The agent task has no accepted run. Try again.");
+  if (
+    targetGroup
+      ? accepted?.text !== input.text ||
+        !accepted.context?.records.some(
+          (record) =>
+            record.kind === SOURCE_FILES_KIND &&
+            record.contextId === `handoff_source_${fingerprint}`,
+        )
+      : !accepted?.text.startsWith(`${provenance}\n\n`)
+  )
+    return yield* fail(
+      "This handoff request was already used for a different task. Send a new request.",
+    );
   const sourceRecord = accepted.context?.records.find(
     (record) => record.kind === SOURCE_FILES_KIND && "payload" in record,
   );
@@ -329,6 +521,34 @@ const delegateToPersistentAgentImpl = Effect.fn("delegateToPersistentAgent")(fun
   )
     yield* AttachmentClaims.releaseClaimedAttachments(preparedSource.claimedPaths);
 
+  let targetRunId = accepted.runId;
+  if (targetGroup) {
+    const memberProjectId = original.value.groupMemberProjectId;
+    if (!memberProjectId) return yield* fail("The selected channel member is unavailable.");
+    const memberCommandId = CommandId.make(`agent-group:member:${key}`);
+    yield* delegateToPersistentAgentImpl({
+      commandId: memberCommandId,
+      sourceThreadId: targetThreadId,
+      agentProjectId: memberProjectId,
+      messageId: targetMessageId,
+      text: accepted.text,
+      attachments: accepted.attachments,
+      context: accepted.context,
+    });
+    const sql = yield* SqlClient.SqlClient;
+    const rows = yield* sql<{
+      payload_json: string;
+    }>`SELECT payload_json FROM orchestration_v2_projection_turn_items
+      WHERE thread_id = ${targetThreadId} AND turn_item_id = ${`agent-delegate:ack:${memberCommandId}:${memberProjectId}`} LIMIT 1`.pipe(
+      Effect.mapError(readError),
+    );
+    const notice = rows[0]
+      ? yield* decodeTurnItem(rows[0].payload_json).pipe(Effect.mapError(readError))
+      : undefined;
+    if (notice?.type !== "system_notice" || !notice.agentDelegation?.targetTurnId)
+      return yield* fail("The channel message has no accepted member run. Try again.");
+    targetRunId = RunId.make(notice.agentDelegation.targetTurnId);
+  }
   const identity = {
     agentProjectId: agent.projectId,
     agentThreadId: targetThreadId,
@@ -338,7 +558,7 @@ const delegateToPersistentAgentImpl = Effect.fn("delegateToPersistentAgent")(fun
     sourceTurnItemOrdinal: original.value.sourceCutoff.turnItemOrdinal,
     sourceRequestedAt: original.value.sourceCutoff.requestedAt,
     targetMessageId,
-    targetTurnId: TurnId.make(accepted.runId),
+    targetTurnId: TurnId.make(targetRunId!),
   };
   const requestedAt = DateTime.makeUnsafe(original.value.sourceCutoff.requestedAt);
   const ackId = EventId.make(`agent-delegate:ack:${key}`);
@@ -480,7 +700,14 @@ const yieldCryptoDigest = Effect.fnUntraced(function* (encoded: string) {
 
 const getAgentDelegationImpl = Effect.fn("getAgentDelegation")(function* (
   input: AgentGetDelegationInput,
-) {
+): Effect.fn.Return<
+  AgentGetDelegationResult,
+  OrchestrationDispatchCommandError,
+  | ProjectionStore.ProjectionStoreV2
+  | ThreadManagement.ThreadManagementService
+  | ProjectStore.ProjectStoreV2
+  | SqlClient.SqlClient
+> {
   const projections = yield* ProjectionStore.ProjectionStoreV2;
   const threads = yield* ThreadManagement.ThreadManagementService;
   const projects = yield* ProjectStore.ProjectStoreV2;
@@ -520,6 +747,25 @@ const getAgentDelegationImpl = Effect.fn("getAgentDelegation")(function* (
     return result;
   const request = target.messages[0];
   if (!request) return result;
+  if (agent.value.agentProfile?.group) {
+    const nested = yield* sql<{ turn_item_id: string }>`SELECT turn_item_id
+      FROM orchestration_v2_projection_turn_items WHERE thread_id = ${identity.agentThreadId}
+      AND type = 'system_notice'
+      AND json_extract(payload_json, '$.agentDelegation.sourceMessageId') = ${identity.targetMessageId}
+      AND json_extract(payload_json, '$.agentDelegation.targetTurnId') = ${identity.targetTurnId ?? null}
+      ORDER BY ordinal LIMIT 1`.pipe(Effect.mapError(readError));
+    if (!nested[0]) return result;
+    const member = yield* getAgentDelegationImpl({
+      sourceThreadId: identity.agentThreadId,
+      activityId: EventId.make(nested[0].turn_item_id),
+    });
+    return {
+      ...result,
+      status: member.status,
+      messages: member.messages,
+      truncated: member.truncated,
+    };
+  }
   if (!request.runId) {
     const legacy = yield* threads
       .getLegacyTaskResult(identity.agentThreadId, identity.targetMessageId)
@@ -563,12 +809,18 @@ const reconcileImpl = Effect.fn("AgentDelegation.reconcile")(function* () {
   const threads = yield* ThreadManagement.ThreadManagementService;
   const commands = yield* ThreadCommandExecutor.ThreadCommandExecutor;
   const receipts = yield* CommandReceiptStore.CommandReceiptStoreV2;
+  const sink = yield* EventSink.EventSinkV2;
   const candidates = yield* sql<{ thread_id: string; turn_item_id: string; payload_json: string }>`
     SELECT item.thread_id, item.turn_item_id, item.payload_json
     FROM orchestration_v2_projection_turn_items item
+    LEFT JOIN orchestration_v2_projection_turn_items member
+      ON member.thread_id = json_extract(item.payload_json, '$.agentDelegation.agentThreadId')
+      AND member.type = 'system_notice'
+      AND json_extract(member.payload_json, '$.agentDelegation.sourceMessageId') = json_extract(item.payload_json, '$.agentDelegation.targetMessageId')
+      AND json_extract(member.payload_json, '$.agentDelegation.targetTurnId') = json_extract(item.payload_json, '$.agentDelegation.targetTurnId')
     JOIN orchestration_v2_projection_runs run
       ON run.run_id = json_extract(item.payload_json, '$.agentDelegation.targetTurnId')
-      AND run.thread_id = json_extract(item.payload_json, '$.agentDelegation.agentThreadId')
+      AND run.thread_id = COALESCE(json_extract(member.payload_json, '$.agentDelegation.agentThreadId'), json_extract(item.payload_json, '$.agentDelegation.agentThreadId'))
     WHERE item.type = 'system_notice' AND run.status IN ('completed', 'failed', 'cancelled', 'interrupted', 'rolled_back')
       AND NOT EXISTS (SELECT 1 FROM orchestration_command_receipts receipt WHERE receipt.command_id = 'agent-delegate:result:' || item.turn_item_id)
     ORDER BY item.ordinal ASC, item.turn_item_id ASC LIMIT 100
@@ -604,7 +856,7 @@ const reconcileImpl = Effect.fn("AgentDelegation.reconcile")(function* () {
         Option.isNone(project) ||
         project.value.deletedAt !== null ||
         project.value.agentProfile?.archived ||
-        newer.length > 0
+        (newer.length > 0 && !project.value.agentProfile?.group)
       ) {
         const now = yield* DateTime.now;
         yield* commands.withLock(
@@ -631,6 +883,79 @@ const reconcileImpl = Effect.fn("AgentDelegation.reconcile")(function* () {
         .map((message) => message.text)
         .join("\n\n")
         .slice(-24_000);
+      if (project.value.agentProfile?.group) {
+        // Group history records each member's result without starting a second
+        // provider turn in the shared conversation or replacing the agent's memory.
+        const now = yield* DateTime.now;
+        yield* commands.withLock(
+          notice.threadId,
+          sink
+            .commitCommand({
+              commandId,
+              threadId: notice.threadId,
+              commandType: "agent-group.result",
+              acceptedAt: now,
+              effects: [],
+              events: [
+                {
+                  id: EventId.make(`${commandId}:message`),
+                  type: "message.updated",
+                  threadId: notice.threadId,
+                  occurredAt: now,
+                  payload: {
+                    id: MessageId.make(`${commandId}:message`),
+                    threadId: notice.threadId,
+                    runId: null,
+                    nodeId: null,
+                    role: "assistant",
+                    text:
+                      reply ||
+                      `${identity.agentName}'s task ended (${result.status}) without a response.`,
+                    attachments: [],
+                    senderThreadId: identity.agentThreadId,
+                    createdBy: "agent",
+                    creationSource: "server",
+                    streaming: false,
+                    createdAt: now,
+                    updatedAt: now,
+                  },
+                },
+                {
+                  id: EventId.make(`${commandId}:item`),
+                  type: "turn-item.updated",
+                  threadId: notice.threadId,
+                  occurredAt: now,
+                  payload: {
+                    id: TurnItemId.make(`${commandId}:item`),
+                    threadId: notice.threadId,
+                    runId: null,
+                    nodeId: null,
+                    providerThreadId: null,
+                    providerTurnId: null,
+                    nativeItemRef: null,
+                    parentItemId: null,
+                    ordinal: 0,
+                    status: "completed",
+                    title: null,
+                    startedAt: now,
+                    completedAt: now,
+                    updatedAt: now,
+                    type: "assistant_message",
+                    messageId: MessageId.make(`${commandId}:message`),
+                    senderThreadId: identity.agentThreadId,
+                    text:
+                      reply ||
+                      `${identity.agentName}'s task ended (${result.status}) without a response.`,
+                    attachments: [],
+                    streaming: false,
+                  },
+                },
+              ],
+            })
+            .pipe(Effect.mapError(readError)),
+        );
+        return;
+      }
       yield* threads
         .dispatch({
           type: "message.dispatch",

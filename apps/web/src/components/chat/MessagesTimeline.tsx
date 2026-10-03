@@ -2623,13 +2623,22 @@ function AttemptFoldTimelineRow({ row }: { row: Extract<TimelineRow, { kind: "at
 
 function AssistantTimelineRow({ row }: { row: Extract<TimelineRow, { kind: "message" }> }) {
   const ctx = use(TimelineRowCtx);
+  const sender = useThreadShell(
+    row.message.senderThreadId && ctx.threadRef
+      ? scopeThreadRef(ctx.threadRef.environmentId, row.message.senderThreadId)
+      : null,
+  );
+  const senderProject = useProject(
+    sender && ctx.threadRef ? scopeProjectRef(ctx.threadRef.environmentId, sender.projectId) : null,
+  );
+  const senderProfile = senderProject?.agentProfile;
   const messageText = row.message.text || (row.message.streaming ? "" : "(empty response)");
   const taskSummary = ctx.agentAvatar && /^\*\*Task:\*\*\s*/i.test(messageText);
 
   return (
     <>
       <div className="relative min-w-0 px-1 py-0.5">
-        {!ctx.agentAvatar && <MessageAuthorHeading>Elysia</MessageAuthorHeading>}
+        {!ctx.agentAvatar && !senderProfile && <MessageAuthorHeading>Elysia</MessageAuthorHeading>}
         <AssistantCitationSource
           messageId={row.message.id}
           {...(ctx.threadRef ? { threadRef: ctx.threadRef } : {})}
@@ -2637,7 +2646,20 @@ function AssistantTimelineRow({ row }: { row: Extract<TimelineRow, { kind: "mess
           request={ctx.citationRequest}
           listRef={ctx.listRef}
         >
-          {taskSummary ? (
+          {senderProfile ? (
+            <AgentMessageBubble avatar={senderProfile.avatar} bubble={false}>
+              <p className="mb-1 text-sm font-medium text-foreground">{senderProject.title}</p>
+              <ChatMarkdown
+                text={messageText}
+                cwd={ctx.markdownCwd}
+                threadRef={ctx.threadRef ?? undefined}
+                isStreaming={Boolean(row.message.streaming)}
+                lineBreaks={shouldPreserveAssistantLineBreaks(messageText)}
+                headingLevelOffset={MESSAGE_HEADING_LEVEL}
+                onImageExpand={ctx.onImageExpand}
+              />
+            </AgentMessageBubble>
+          ) : taskSummary ? (
             <AgentMessageBubble avatar={ctx.agentAvatar} working={row.message.streaming}>
               <ChatMarkdown
                 text={messageText.replace(/^\*\*Task:\*\*\s*/i, "")}

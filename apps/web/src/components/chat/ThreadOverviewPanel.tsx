@@ -1,7 +1,15 @@
 import { resolveThreadLineageWindow } from "@t3tools/client-runtime/state/thread-relationships";
 import { Popover as PopoverPrimitive } from "@base-ui/react/popover";
 import { Link } from "@tanstack/react-router";
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type ReactNode,
+  type RefObject,
+} from "react";
+import { createPortal } from "react-dom";
 import { useThreadOverviewStore } from "./threadOverviewStore";
 import { scopeThreadRef } from "@t3tools/client-runtime/environment";
 import type { ScopedThreadRef } from "@t3tools/contracts";
@@ -21,6 +29,7 @@ import {
   LinkIcon,
   LeftToRightListTriangleIcon,
   PlusIcon,
+  UsersIcon,
 } from "~/icons";
 import { cn } from "~/lib/utils";
 import { buildThreadRouteParams } from "~/threadRoutes";
@@ -42,7 +51,11 @@ import { groupDelegatedAgents, useDelegatedAgents } from "../agents/useDelegated
 export interface ThreadOverviewPanelProps {
   threadKey: string;
   label: string;
+  workspaceContent?: ReactNode;
+  versionControlContent?: ReactNode;
+  threadBoundaryRef?: RefObject<HTMLElement | null>;
   showGit?: boolean;
+  showAgents?: boolean;
   changes: { additions: number; deletions: number } | null;
   agents: { working: number; done: number };
   sources: ReadonlyArray<ChatAttachment>;
@@ -68,8 +81,12 @@ const rowClassName =
 
 function OverviewPopover({
   label,
+  workspaceContent,
+  versionControlContent,
+  threadBoundaryRef,
   changes,
   showGit = changes !== null,
+  showAgents = true,
   agents,
   sources,
   onToggleChanges,
@@ -87,6 +104,13 @@ function OverviewPopover({
   const target = useThreadOverviewStore((state) => state.target);
   const toggle = useThreadOverviewStore((state) => state.toggle);
   const [open, setOpen] = useState(false);
+  const [previousWide, setPreviousWide] = useState(wide);
+  const [workspaceHost] = useState(() => document.createElement("div"));
+  const [versionControlHost] = useState(() => document.createElement("div"));
+  if (previousWide !== wide) {
+    setPreviousWide(wide);
+    setOpen(false);
+  }
   const anchorRef = useRef<HTMLSpanElement>(null);
   const [sourcesExpanded, setSourcesExpanded] = useState(true);
   const [gitExpanded, setGitExpanded] = useState(true);
@@ -134,10 +158,14 @@ function OverviewPopover({
   }, [open, view, selectedAgent, expanded, availableSize]);
   useLayoutEffect(() => {
     if (!open) return;
-    const column = anchorRef.current?.closest("[data-chat-column-maximized-away]");
+    const column =
+      threadBoundaryRef?.current ?? anchorRef.current?.closest("[data-chat-column-maximized-away]");
     const header = anchorRef.current?.closest("[data-chat-header]");
+    const workspace = column?.closest("[data-chat-workspace-panels]");
     const measure = () => {
-      const bounds = column?.getBoundingClientRect();
+      const boundary =
+        column?.getAttribute("data-chat-column-maximized-away") === "true" ? workspace : column;
+      const bounds = boundary?.getBoundingClientRect();
       const headerBounds = header?.getBoundingClientRect();
       const x = Math.max(0, bounds?.left ?? headerBounds?.left ?? 0) + 12;
       const y =
@@ -161,13 +189,14 @@ function OverviewPopover({
     const observer = new ResizeObserver(measure);
     const boundaryElement = column ?? header;
     if (boundaryElement) observer.observe(boundaryElement);
+    if (workspace && workspace !== boundaryElement) observer.observe(workspace);
     if (composerElement) observer.observe(composerElement);
     window.addEventListener("resize", measure);
     return () => {
       observer.disconnect();
       window.removeEventListener("resize", measure);
     };
-  }, [open, composerElement]);
+  }, [open, composerElement, threadBoundaryRef]);
   useEffect(() => {
     if (!sourceHistoryReady) return;
     initialJobs.current ??= new Set(delegated.map(({ job }) => job.activityId));
@@ -220,6 +249,8 @@ function OverviewPopover({
         setOpen(nextOpen);
       }}
     >
+      {createPortal(workspaceContent, workspaceHost)}
+      {createPortal(versionControlContent, versionControlHost)}
       <PopoverTrigger
         render={
           <Button
@@ -253,6 +284,7 @@ function OverviewPopover({
           {/* This feature frame follows the composer surface rather than a menu surface. */}
           <PopoverPrimitive.Popup
             data-slot="popover-popup"
+            data-chat-header-actions
             initialFocus={wide ? false : undefined}
             style={{
               height:
@@ -296,7 +328,9 @@ function OverviewPopover({
                   onClick={() => setOpen(false)}
                   className="flex min-w-0 flex-1 items-center gap-2 rounded-sm focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
                 >
-                  {selectedAgent.project?.agentProfile ? (
+                  {selectedAgent.project?.agentProfile?.group ? (
+                    <UsersIcon aria-hidden className="size-6 shrink-0" />
+                  ) : selectedAgent.project?.agentProfile ? (
                     <AgentAvatar
                       avatar={selectedAgent.project.agentProfile.avatar}
                       working={selectedAgent.working}
@@ -314,7 +348,7 @@ function OverviewPopover({
                     <span className="block truncate">
                       {selectedAgent?.name ??
                         selectedSubagent?.title ??
-                        (view?.kind === "subagents" ? "Subagents" : label)}
+                        (view?.kind === "subagents" ? "Subagents" : "Workspace")}
                     </span>
                   </PopoverTitle>
                 </>
@@ -338,7 +372,7 @@ function OverviewPopover({
                           : "Unavailable"}
                 </span>
               ) : null}
-              {(view ? expanded || expandedWidth > collapsedWidth : showChanges) ? (
+              {view && (expanded || expandedWidth > collapsedWidth) ? (
                 <Button
                   variant="ghost"
                   size="icon-xs"
@@ -373,25 +407,16 @@ function OverviewPopover({
             >
               {view === null ? (
                 <div className="flex flex-col gap-2.5 [&>section:not(:first-child)]:border-t [&>section:not(:first-child)]:border-border/50 [&>section:not(:first-child)]:pt-2.5">
-                  {showChanges && gitExpanded && (
-                    <section>
-                      <button
-                        type="button"
-                        className={rowClassName}
-                        onClick={() => openView(onToggleChanges)}
-                      >
-                        <FileDiffIcon aria-hidden className="size-4 shrink-0" />
-                        <span className="flex-1 text-sm">Changes</span>
-                        <span className="text-xs tabular-nums text-success">
-                          +{(changes?.additions ?? 0).toLocaleString()}
-                        </span>
-                        <span className="text-xs tabular-nums text-destructive">
-                          −{(changes?.deletions ?? 0).toLocaleString()}
-                        </span>
-                      </button>
+                  {workspaceContent ? (
+                    <section aria-label={label}>
+                      <div
+                        ref={(node) => {
+                          if (node) node.appendChild(workspaceHost);
+                        }}
+                      />
                     </section>
-                  )}
-                  {grouped.length > 0 ? (
+                  ) : null}
+                  {showAgents && grouped.length > 0 ? (
                     <section>
                       <h3 className="mb-1 flex justify-between text-xs text-muted-foreground">
                         <span>Agents</span>
@@ -415,7 +440,9 @@ function OverviewPopover({
                                 />
                               }
                             >
-                              {agent.project?.agentProfile ? (
+                              {agent.project?.agentProfile?.group ? (
+                                <UsersIcon aria-hidden className="size-5" />
+                              ) : agent.project?.agentProfile ? (
                                 <AgentAvatar
                                   avatar={agent.project.agentProfile.avatar}
                                   working={agent.working}
@@ -434,18 +461,61 @@ function OverviewPopover({
                       </div>
                     </section>
                   ) : null}
-                  <section>
-                    <h3 className="mb-1 text-xs text-muted-foreground">Subagents</h3>
-                    <button
-                      type="button"
-                      className={rowClassName}
-                      onClick={() => setView({ kind: "subagents" })}
-                    >
-                      <BotIcon aria-hidden className="size-4 shrink-0 text-primary" />
-                      <span className="flex-1 text-sm">{agents.working} working</span>
-                      <span className="text-sm text-muted-foreground">{agents.done} done</span>
-                    </button>
-                  </section>
+                  {showAgents ? (
+                    <section>
+                      <h3 className="mb-1 text-xs text-muted-foreground">Subagents</h3>
+                      <button
+                        type="button"
+                        className={rowClassName}
+                        onClick={() => setView({ kind: "subagents" })}
+                      >
+                        <BotIcon aria-hidden className="size-4 shrink-0 text-primary" />
+                        <span className="flex-1 text-sm">{agents.working} working</span>
+                        <span className="text-sm text-muted-foreground">{agents.done} done</span>
+                      </button>
+                    </section>
+                  ) : null}
+                  {showChanges ? (
+                    <section>
+                      <button
+                        type="button"
+                        aria-expanded={gitExpanded}
+                        aria-label={gitExpanded ? "Hide Git" : "Show Git"}
+                        className="mb-1 flex w-full cursor-pointer items-center justify-between text-xs text-muted-foreground"
+                        onClick={() => setGitExpanded(!gitExpanded)}
+                      >
+                        Version Control
+                        <ChevronDownIcon
+                          aria-hidden
+                          className={cn("size-3", !gitExpanded && "-rotate-90")}
+                        />
+                      </button>
+                      <div hidden={!gitExpanded}>
+                        {versionControlContent ? (
+                          <div
+                            ref={(node) => {
+                              if (node) node.appendChild(versionControlHost);
+                            }}
+                          />
+                        ) : gitExpanded ? (
+                          <button
+                            type="button"
+                            className={rowClassName}
+                            onClick={() => openView(onToggleChanges)}
+                          >
+                            <FileDiffIcon aria-hidden className="size-4 shrink-0" />
+                            <span className="flex-1 text-sm">Changes</span>
+                            <span className="text-xs tabular-nums text-success">
+                              +{(changes?.additions ?? 0).toLocaleString()}
+                            </span>
+                            <span className="text-xs tabular-nums text-destructive">
+                              −{(changes?.deletions ?? 0).toLocaleString()}
+                            </span>
+                          </button>
+                        ) : null}
+                      </div>
+                    </section>
+                  ) : null}
                   <section>
                     <div
                       className={cn(
@@ -553,6 +623,7 @@ function OverviewPopover({
                       >
                         <AgentMessageBubble
                           avatar={project?.agentProfile?.avatar}
+                          group={Boolean(project?.agentProfile?.group)}
                           working={working}
                         >
                           <div aria-label="Task summary">
@@ -575,6 +646,7 @@ function OverviewPopover({
                           <div data-agent-panel-message={results.at(-1)?.id}>
                             <AgentMessageBubble
                               avatar={project?.agentProfile?.avatar}
+                              group={Boolean(project?.agentProfile?.group)}
                               working={working}
                               bubble={false}
                             >
@@ -689,5 +761,5 @@ function OverviewPopover({
 export function ThreadOverviewPanel(props: ThreadOverviewPanelProps) {
   const wide = useMediaQuery("xl") && !props.transient;
   // Resizing into the narrow layout or navigating starts with its transient overlay closed.
-  return <OverviewPopover key={`${props.threadKey}:${wide}`} {...props} wide={wide} />;
+  return <OverviewPopover key={props.threadKey} {...props} wide={wide} />;
 }

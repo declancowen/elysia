@@ -16,7 +16,7 @@ import {
   isAtomCommandInterrupted,
   squashAtomCommandFailure,
 } from "@t3tools/client-runtime/state/runtime";
-import { ChevronDownIcon, EllipsisIcon, FolderClosedIcon, MessageCircleIcon } from "~/icons";
+import { ChevronDownIcon, FolderClosedIcon, MessageCircleIcon, UsersIcon } from "~/icons";
 import {
   memo,
   useCallback,
@@ -24,10 +24,10 @@ import {
   useMemo,
   useRef,
   useState,
+  type ReactNode,
   type KeyboardEvent as ReactKeyboardEvent,
   type MouseEvent as ReactMouseEvent,
 } from "react";
-import { createPortal } from "react-dom";
 import GitActionsControl from "../GitActionsControl";
 import { isTrailingDoubleClick } from "../Sidebar.logic";
 import { type DraftId } from "~/composerDraftStore";
@@ -45,7 +45,6 @@ import { useThreadActionMenu } from "~/hooks/useThreadActionMenu";
 import { readLocalApi } from "~/localApi";
 import { threadEnvironment } from "../../state/threads";
 import { useAtomCommand } from "../../state/use-atom-command";
-import { observeResponsiveBreakpointFade, usePanelAnimationSettings } from "../../panelAnimations";
 import { ProjectFavicon } from "../ProjectFavicon";
 import { AgentAvatar } from "../agents/AgentAvatar";
 import { AgentDetailsPopover } from "../agents/AgentDetailsPopover";
@@ -54,13 +53,9 @@ import { openAgentDialog } from "../agents/agentDialogStore";
 import {
   WorkspaceBreadcrumb,
   WorkspaceBreadcrumbItem,
-  WorkspaceBreadcrumbSeparator,
   WorkspaceBreadcrumbText,
 } from "../WorkspaceBreadcrumb";
 import { cn } from "~/lib/utils";
-import { useIsMobile } from "~/hooks/useMediaQuery";
-import { Button } from "../ui/button";
-import { Menu, MenuPopup, MenuSeparator, MenuTrigger } from "../ui/menu";
 import { ThreadOverviewPanel, type ThreadOverviewPanelProps } from "./ThreadOverviewPanel";
 
 interface ChatHeaderProps {
@@ -79,6 +74,9 @@ interface ChatHeaderProps {
   rightPanelOpen: boolean;
   gitCwd: string | null;
   overview?: ThreadOverviewPanelProps;
+  workspaceBranchControls?: ReactNode;
+  layoutControls?: ReactNode;
+  onTabBarHostChange?: (node: HTMLDivElement | null) => void;
   readonly onOpenPullRequest?: ((number: number) => void) | undefined;
   onNewThreadInProject: () => void;
   onOpenProjectSettings?: (() => void) | undefined;
@@ -112,8 +110,6 @@ export function resolveRenameCommit(input: {
 // events (the second click dismisses it and dblclick still fires), so it
 // opens immediately.
 const TITLE_MENU_OPEN_DELAY_MS = 500;
-// Matches the @3xl/header-actions container breakpoint owned by this header.
-const HEADER_ACTIONS_EXPANDED_BREAKPOINT_REM = 48;
 
 export function shouldShowOpenInPicker(input: {
   readonly activeProjectName: string | undefined;
@@ -149,6 +145,9 @@ export const ChatHeader = memo(function ChatHeader({
   rightPanelOpen,
   gitCwd,
   overview,
+  workspaceBranchControls,
+  layoutControls,
+  onTabBarHostChange,
   onOpenPullRequest,
   onNewThreadInProject,
   onOpenProjectSettings,
@@ -160,55 +159,6 @@ export const ChatHeader = memo(function ChatHeader({
   const serverConfig = useAtomValue(serverEnvironment.configValueAtom(activeThreadEnvironmentId));
   const projectless =
     !!activeProject && isScratchProject(activeProject, serverConfig?.scratchWorkspaceRoot);
-  const { active: panelAnimationsActive, durationMs: panelAnimationDurationMs } =
-    usePanelAnimationSettings();
-  const headerActionsRef = useRef<HTMLDivElement | null>(null);
-  useEffect(() => {
-    const actions = headerActionsRef.current;
-    const container = actions?.parentElement;
-    if (!actions || !container) return;
-    return observeResponsiveBreakpointFade({
-      target: actions,
-      container,
-      active: panelAnimationsActive,
-      durationMs: panelAnimationDurationMs,
-      breakpoint: { value: HEADER_ACTIONS_EXPANDED_BREAKPOINT_REM, unit: "rem" },
-    });
-  }, [panelAnimationDurationMs, panelAnimationsActive]);
-  const isMobile = useIsMobile();
-  // Side panels can leave a desktop header narrower than a phone.
-  const [isNarrowHeader, setIsNarrowHeader] = useState(false);
-  useEffect(() => {
-    const container = headerActionsRef.current?.parentElement;
-    if (!container) return;
-    const update = () => setIsNarrowHeader(container.clientWidth < 512);
-    update();
-    const observer = new ResizeObserver(update);
-    observer.observe(container);
-    return () => observer.disconnect();
-  }, []);
-  const actionsCollapsed = isMobile || isNarrowHeader;
-  const [actionsOpen, setActionsOpen] = useState(false);
-  const [actionsContainer] = useState(() => {
-    const container = document.createElement("div");
-    container.className = "contents";
-    return container;
-  });
-  // Reparent the DOM host, not the React controls: rotating a phone or resizing
-  // a window must not discard an unsaved script or Git dialog.
-  const mountInlineActions = useCallback(
-    (node: HTMLDivElement | null) => {
-      if (node && !actionsCollapsed) node.appendChild(actionsContainer);
-    },
-    [actionsContainer, actionsCollapsed],
-  );
-  const mountMenuActions = useCallback(
-    (node: HTMLDivElement | null) => {
-      if (node && actionsCollapsed) node.appendChild(actionsContainer);
-    },
-    [actionsContainer, actionsCollapsed],
-  );
-  if (!actionsCollapsed && actionsOpen) setActionsOpen(false);
   const primaryEnvironmentId = usePrimaryEnvironmentId();
   const activeProjectName = projectless ? "Chats" : activeProject?.title;
   const activeProjectCwd = activeProject?.workspaceRoot ?? null;
@@ -393,121 +343,100 @@ export const ChatHeader = memo(function ChatHeader({
     [commitRename],
   );
   const codeWorkspace = useCodeWorkspace();
-  const headerActions = (
-    <>
-      {codeWorkspace && activeProjectScripts && (
-        <>
-          <ProjectScriptsControl
-            onRequestMenuClose={() => setActionsOpen(false)}
-            presentation={actionsCollapsed ? "menu" : "toolbar"}
-            scripts={activeProjectScripts}
-            fileScripts={fileScripts}
-            keybindings={keybindings}
-            preferredScriptId={preferredScriptId}
-            onRunScript={onRunProjectScript}
-            onAddScript={onAddProjectScript}
-            onUpdateScript={onUpdateProjectScript}
-            onDeleteScript={onDeleteProjectScript}
-          />
-        </>
-      )}
-      {showOpenInPicker && (
-        <>
-          {actionsCollapsed && codeWorkspace && activeProjectScripts && <MenuSeparator />}
-          <OpenInPicker
-            presentation={actionsCollapsed ? "menu" : "toolbar"}
-            environmentId={activeThreadEnvironmentId}
-            keybindings={keybindings}
-            availableEditors={availableEditors}
-            openInCwd={openInCwd}
-            enableShortcut={false}
-          />
-        </>
-      )}
-      {codeWorkspace &&
-        activeProjectName &&
-        gitCwd &&
-        activeProject &&
-        serverConfig !== null &&
-        !activeProject.agentProfile &&
-        !isScratchProject(activeProject, serverConfig?.scratchWorkspaceRoot) && (
-          <>
-            {actionsCollapsed && (activeProjectScripts || showOpenInPicker) && <MenuSeparator />}
-            <GitActionsControl
-              presentation={actionsCollapsed ? "menu" : "toolbar"}
-              gitCwd={gitCwd}
-              activeThreadRef={scopeThreadRef(activeThreadEnvironmentId, activeThreadId)}
-              onOpenPullRequest={onOpenPullRequest}
-              {...(draftId ? { draftId } : {})}
-            />
-          </>
-        )}
-    </>
+  const workspaceContent = (
+    <div className="flex min-w-0 flex-col gap-1">
+      {activeProject ? (
+        <button
+          type="button"
+          onClick={
+            activeProject.agentProfile
+              ? () =>
+                  openAgentDialog(scopeProjectRef(activeProject.environmentId, activeProject.id))
+              : onNewThreadInProject
+          }
+          className="mb-1 flex min-w-0 cursor-pointer items-center gap-2 rounded-sm py-1 text-left text-sm focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          {activeProject.agentProfile ? (
+            activeProject.agentProfile.group ? (
+              <UsersIcon aria-hidden className="size-4" />
+            ) : (
+              <AgentAvatar avatar={activeProject.agentProfile.avatar} className="size-4" />
+            )
+          ) : projectless ? (
+            <MessageCircleIcon aria-hidden className="size-4" />
+          ) : SINGLE_PROVIDER_UI ? (
+            <FolderClosedIcon aria-hidden className="size-4" />
+          ) : (
+            <ProjectFavicon project={activeProject} className="size-4" />
+          )}
+          <span className="truncate">{activeProjectName}</span>
+        </button>
+      ) : null}
+      {showOpenInPicker ? (
+        <OpenInPicker
+          displayMode="panel"
+          environmentId={activeThreadEnvironmentId}
+          keybindings={keybindings}
+          availableEditors={availableEditors}
+          openInCwd={openInCwd}
+          enableShortcut={false}
+        />
+      ) : null}
+      {codeWorkspace && activeProjectScripts ? (
+        <ProjectScriptsControl
+          displayMode="panel"
+          scripts={activeProjectScripts}
+          fileScripts={fileScripts}
+          keybindings={keybindings}
+          preferredScriptId={preferredScriptId}
+          onRunScript={onRunProjectScript}
+          onAddScript={onAddProjectScript}
+          onUpdateScript={onUpdateProjectScript}
+          onDeleteScript={onDeleteProjectScript}
+        />
+      ) : null}
+    </div>
   );
+  const versionControlContent =
+    codeWorkspace && activeProject && gitCwd && !projectless ? (
+      <div className="flex min-w-0 flex-col gap-1">
+        {workspaceBranchControls}
+        <GitActionsControl
+          displayMode="panel"
+          gitCwd={gitCwd}
+          activeThreadRef={activeThreadRef}
+          onOpenPullRequest={onOpenPullRequest}
+          {...(overview ? { onOpenChanges: overview.onToggleChanges } : {})}
+          {...(draftId ? { draftId } : {})}
+        />
+      </div>
+    ) : null;
   return (
     <div
-      className="@container/header-actions flex min-w-0 flex-1 items-center gap-2 sm:gap-3"
+      className="relative flex min-w-0 flex-1 items-center gap-2"
       onContextMenu={handleHeaderContextMenu}
     >
       <WorkspaceBreadcrumb
         ariaLabel="Thread breadcrumb"
         className="flex-1 overflow-clip [overflow-clip-margin:2px]"
       >
-        {/* The project always leads the header: knowing which project a
-            thread lives in is priority zero, and the thread title alone
-            doesn't answer it. */}
-        {activeProject ? (
-          <>
-            <WorkspaceBreadcrumbItem
-              current={Boolean(activeProject.agentProfile)}
-              className="shrink"
+        {activeProject?.agentProfile ? (
+          <WorkspaceBreadcrumbItem current className="min-w-0 flex-1">
+            <button
+              type="button"
+              onClick={() =>
+                openAgentDialog(scopeProjectRef(activeProject.environmentId, activeProject.id))
+              }
+              className="inline-flex min-w-0 max-w-full cursor-pointer items-center gap-2 rounded-sm text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
             >
-              <Tooltip>
-                <TooltipTrigger
-                  render={
-                    <button
-                      type="button"
-                      aria-label={
-                        activeProject.agentProfile
-                          ? `Edit ${activeProjectName}`
-                          : `New thread in ${activeProjectName}`
-                      }
-                      onClick={
-                        activeProject.agentProfile
-                          ? () =>
-                              openAgentDialog(
-                                scopeProjectRef(activeProject.environmentId, activeProject.id),
-                              )
-                          : onNewThreadInProject
-                      }
-                      className="inline-flex min-w-0 max-w-full cursor-pointer items-center gap-1.5 rounded-sm text-foreground transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
-                    />
-                  }
-                >
-                  {activeProject.agentProfile ? (
-                    <AgentAvatar avatar={activeProject.agentProfile.avatar} className="size-4" />
-                  ) : projectless ? (
-                    <MessageCircleIcon aria-hidden className="size-3.5" />
-                  ) : SINGLE_PROVIDER_UI ? (
-                    <FolderClosedIcon aria-hidden className="size-3.5" />
-                  ) : (
-                    <ProjectFavicon project={activeProject} className="size-3.5" />
-                  )}
-                  <WorkspaceBreadcrumbText className="max-w-40">
-                    {activeProjectName}
-                  </WorkspaceBreadcrumbText>
-                </TooltipTrigger>
-                <TooltipPopup side="top">
-                  {activeProject.agentProfile ? "Edit agent" : `New thread in ${activeProjectName}`}
-                </TooltipPopup>
-              </Tooltip>
-            </WorkspaceBreadcrumbItem>
-            {!activeProject.agentProfile && (
-              <WorkspaceBreadcrumbSeparator>
-                <WorkspaceBreadcrumbText>/</WorkspaceBreadcrumbText>
-              </WorkspaceBreadcrumbSeparator>
-            )}
-          </>
+              {activeProject.agentProfile.group ? (
+                <UsersIcon aria-hidden className="size-4" />
+              ) : (
+                <AgentAvatar avatar={activeProject.agentProfile.avatar} className="size-4" />
+              )}
+              <WorkspaceBreadcrumbText>{activeProjectName}</WorkspaceBreadcrumbText>
+            </button>
+          </WorkspaceBreadcrumbItem>
         ) : null}
         {!activeProject?.agentProfile && (
           <WorkspaceBreadcrumbItem current className="min-w-10 flex-1">
@@ -565,49 +494,12 @@ export const ChatHeader = memo(function ChatHeader({
         )}
       </WorkspaceBreadcrumb>
       <div
-        ref={headerActionsRef}
         data-chat-header-actions
         className={cn(
-          "flex shrink-0 items-center justify-end gap-2 @3xl/header-actions:gap-3",
-          // Work has one panel toggle; Code also has the terminal toggle.
-          // The page header adds 8px more right padding at sm.
-          rightPanelOpen ? "pr-0" : codeWorkspace ? "pr-18.25 sm:pr-14.25" : "pr-9.25 sm:pr-6.25",
-          // The frame and Windows resize insets already reserve part of this space.
-          SINGLE_PROVIDER_UI &&
-            !rightPanelOpen && [
-              "md:[--header-controls-padding:calc(var(--header-controls-space)-var(--desktop-window-right-resize-inset))] md:pr-(--header-controls-padding)",
-              codeWorkspace
-                ? "md:[--header-controls-space:--spacing(12.25)] md:wco:[--header-controls-space:--spacing(14.25)]"
-                : "md:[--header-controls-space:--spacing(4.25)] md:wco:[--header-controls-space:--spacing(6.25)]",
-            ],
-          "[[data-panel-animations=true]_&]:motion-safe:transition-[padding-right] [[data-panel-animations=true]_&]:motion-safe:duration-(--panel-animation-duration) [[data-panel-animations=true]_&]:motion-safe:ease-out",
+          "flex min-w-0 items-center gap-1 [-webkit-app-region:no-drag]",
+          rightPanelOpen && onTabBarHostChange ? "flex-1" : "shrink-0",
         )}
       >
-        <Menu open={actionsCollapsed && actionsOpen} onOpenChange={setActionsOpen}>
-          <MenuTrigger
-            className={
-              actionsCollapsed &&
-              (showOpenInPicker ||
-                (codeWorkspace && (activeProjectScripts || (activeProjectName && gitCwd))))
-                ? undefined
-                : "hidden"
-            }
-            render={<Button size="icon-sm" variant="ghost" aria-label="More header actions" />}
-          >
-            <EllipsisIcon className="size-4" />
-          </MenuTrigger>
-          <div ref={mountInlineActions} className="contents" />
-          <MenuPopup
-            data-chat-header-actions
-            keepMounted
-            aria-label="Header actions"
-            align="end"
-            finalFocus={actionsCollapsed ? undefined : false}
-          >
-            <div ref={mountMenuActions} className="contents" />
-            {createPortal(headerActions, actionsContainer)}
-          </MenuPopup>
-        </Menu>
         {activeProject?.agentProfile || overview ? (
           <div className="flex shrink-0 items-center gap-1">
             {activeProject?.agentProfile ? (
@@ -616,9 +508,24 @@ export const ChatHeader = memo(function ChatHeader({
                 projectRef={scopeProjectRef(activeProject.environmentId, activeProject.id)}
               />
             ) : null}
-            {overview && <ThreadOverviewPanel {...overview} transient={rightPanelOpen} />}
+            {overview && (
+              <ThreadOverviewPanel
+                {...overview}
+                workspaceContent={workspaceContent}
+                versionControlContent={versionControlContent}
+                transient={rightPanelOpen}
+              />
+            )}
           </div>
         ) : null}
+        {onTabBarHostChange ? (
+          <div
+            ref={onTabBarHostChange}
+            className={cn("min-w-0 flex-1", !rightPanelOpen && "hidden")}
+            data-topbar-panel-tabs
+          />
+        ) : null}
+        {layoutControls}
       </div>
     </div>
   );

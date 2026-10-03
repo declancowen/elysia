@@ -1,5 +1,6 @@
 import { useAtomValue } from "@effect/atom-react";
 import * as Schema from "effect/Schema";
+import { SINGLE_PROVIDER_UI } from "@t3tools/contracts";
 import {
   useEffect,
   useState,
@@ -34,15 +35,23 @@ import {
 import LegacyThreadSidebar from "./LegacySidebar";
 import { useThreadVisitedMigration } from "../hooks/useThreadVisitedMigration";
 import ThreadSidebar from "./Sidebar";
+import { AgentsSidebar } from "./agents/AgentsSidebar";
+import {
+  agentSidebarActiveForPath,
+  setAgentSidebarActive,
+  useAgentSidebarStore,
+} from "./agents/agentSidebarStore";
 import { SettingsSidebarNav } from "./settings/SettingsSidebarNav";
-import { SidebarChromeHeader } from "./sidebar/SidebarChrome";
-import { MainAppLocationTracker } from "./sidebar/mainAppLocation";
+import { AppNavigationRail, SidebarChromeHeader } from "./sidebar/SidebarChrome";
+import { AppTopbar } from "./AppTopbar";
+import { MainAppLocationTracker, isSidebarUtilityPage } from "./sidebar/mainAppLocation";
 import { useSidebarStageBackdropVariant } from "./SidebarStageBackdrop";
 import { useProjects } from "../state/entities";
 import {
   resolveInitialThreadSidebarWidth,
   resolveThreadSidebarMaximumWidth,
   THREAD_MAIN_CONTENT_MIN_WIDTH,
+  APP_NAVIGATION_RAIL_WIDTH,
   THREAD_SIDEBAR_MIN_WIDTH,
   THREAD_SIDEBAR_WIDTH_STORAGE_KEY,
 } from "./threadSidebarWidth";
@@ -127,11 +136,12 @@ function SidebarControl() {
   }, [keybindings, toggleSidebar, usagePageOpen]);
 
   return (
-    // The right-side layout controls carry mr-px (border compensation inside
-    // the panel), so the trigger mirrors it: both clusters sit one extra pixel
-    // off their edge and the titlebar reads symmetric.
     <div
-      className="pointer-events-none fixed left-[var(--workspace-controls-left)] top-[var(--workspace-controls-top)] z-50 ml-px flex h-[var(--workspace-topbar-height)] items-center"
+      className={cn(
+        "flex items-center",
+        !SINGLE_PROVIDER_UI &&
+          "pointer-events-none fixed left-[var(--workspace-controls-left)] top-[var(--workspace-controls-top)] z-50 ml-px h-[var(--workspace-topbar-height)]",
+      )}
       data-sidebar-control=""
     >
       <Tooltip>
@@ -228,12 +238,22 @@ export function AppSidebarLayout({ children }: { children: ReactNode }) {
   const panelAnimationsSuppressed = usePanelNavigationSuppression(pathname);
   const routePanelAnimationsActive = panelAnimationsActive && !panelAnimationsSuppressed;
   const isOnSettings = pathname === "/settings" || pathname.startsWith("/settings/");
+  const isProjectsPage = pathname === "/projects";
+  const agentSidebarSelected = useAgentSidebarStore((state) => state.active);
+  const showAgentsSidebar =
+    SINGLE_PROVIDER_UI && agentSidebarActiveForPath(pathname, agentSidebarSelected);
+  useEffect(() => {
+    if (!SINGLE_PROVIDER_UI) return;
+    if (pathname === "/agents" || pathname.startsWith("/agents/")) setAgentSidebarActive(true);
+    else if (isSidebarUtilityPage(pathname)) setAgentSidebarActive(false);
+  }, [pathname]);
   const isMacosDesktop = isElectron && isMacPlatform(navigator.platform);
   const [sidebarWidth, setSidebarWidth] = useState(readInitialThreadSidebarWidth);
   // Subscribed rather than read once: the clamp must track live window size,
   // and a clamped drag ends with an unchanged width, which skips the re-render
   // that would otherwise refresh a render-time snapshot.
   const viewportWidth = useSyncExternalStore(subscribeToViewportWidth, readViewportWidth);
+  const hideThreadSidebar = isProjectsPage && viewportWidth >= 768;
   const sidebarMaximumWidth = resolveThreadSidebarMaximumWidth(viewportWidth);
   const resetSidebarWidth = () => {
     try {
@@ -251,6 +271,9 @@ export function AppSidebarLayout({ children }: { children: ReactNode }) {
   });
   const sidebarProviderStyle = {
     "--sidebar-width": `${sidebarWidth}px`,
+    "--workspace-sidebar-width": hideThreadSidebar ? "0px" : "var(--sidebar-width)",
+    "--workspace-mobile-header-inset": "calc(var(--workspace-controls-left) + 2.5rem)",
+    "--app-navigation-rail-width": `${APP_NAVIGATION_RAIL_WIDTH}px`,
     "--panel-animation-duration": `${panelAnimationDurationMs}ms`,
     ...(isMacosDesktop && !isWindowFullscreen
       ? { "--workspace-controls-left": MACOS_TRAFFIC_LIGHTS_LEFT_INSET }
@@ -297,42 +320,75 @@ export function AppSidebarLayout({ children }: { children: ReactNode }) {
   return (
     <PanelAnimationSuppressionProvider value={panelAnimationsSuppressed}>
       <SidebarProvider
-        className="h-dvh! min-h-0!"
+        className={cn("h-dvh! min-h-0!", SINGLE_PROVIDER_UI && "md:flex-col")}
         data-panel-animations={routePanelAnimationsActive ? "true" : "false"}
         defaultOpen
         style={sidebarProviderStyle}
       >
         <ProjectProjectionRetention />
-        <Sidebar
-          side="left"
-          collapsible="offcanvas"
-          data-app-sidebar=""
-          role="navigation"
-          aria-label={isOnSettings ? "Settings" : "Threads"}
-          resizable={{
-            maxWidth: sidebarMaximumWidth,
-            minWidth: THREAD_SIDEBAR_MIN_WIDTH,
-            shouldAcceptWidth: ({ currentWidth, nextWidth, wrapper }) =>
-              nextWidth <= currentWidth ||
-              wrapper.clientWidth - nextWidth >= THREAD_MAIN_CONTENT_MIN_WIDTH,
-            storageKey: THREAD_SIDEBAR_WIDTH_STORAGE_KEY,
-            onResize: setSidebarWidth,
-          }}
-        >
-          {isOnSettings ? (
-            <>
-              <SidebarChromeHeader isElectron={isElectron} />
-              <SettingsSidebarNav pathname={pathname} />
-            </>
-          ) : legacySidebarEnabled ? (
-            <LegacyThreadSidebar />
-          ) : (
-            <ThreadSidebar />
+        {SINGLE_PROVIDER_UI ? (
+          <AppTopbar sidebarControl={hideThreadSidebar ? null : <SidebarControl />} />
+        ) : null}
+        {SINGLE_PROVIDER_UI ? (
+          <div
+            data-mobile-sidebar-control
+            className="fixed left-[var(--workspace-controls-left)] top-[var(--workspace-controls-top)] z-50 flex h-[var(--workspace-topbar-height)] items-center md:hidden"
+          >
+            <Tooltip>
+              <TooltipTrigger render={<SidebarTrigger aria-label="Toggle main sidebar" />} />
+              <TooltipPopup side="bottom">Toggle main sidebar</TooltipPopup>
+            </Tooltip>
+          </div>
+        ) : null}
+        <div
+          className={cn(
+            "flex min-h-0 min-w-0 flex-1",
+            SINGLE_PROVIDER_UI &&
+              "md:h-[calc(100dvh-var(--workspace-topbar-height))] md:[&>[data-slot=sidebar-inset]]:h-full",
           )}
-          <SidebarRail onDoubleClick={resetSidebarWidth} />
-        </Sidebar>
-        {children}
-        <SidebarControl />
+        >
+          {SINGLE_PROVIDER_UI ? <AppNavigationRail /> : null}
+          {!hideThreadSidebar ? (
+            <Sidebar
+              className={
+                SINGLE_PROVIDER_UI
+                  ? "md:top-[var(--workspace-topbar-height)] md:left-[var(--app-navigation-rail-width)] md:h-[calc(100dvh-var(--workspace-topbar-height))] md:group-data-[collapsible=offcanvas]:left-[calc(var(--app-navigation-rail-width)-var(--sidebar-width))]"
+                  : undefined
+              }
+              side="left"
+              collapsible="offcanvas"
+              data-app-sidebar=""
+              role="navigation"
+              aria-label={isOnSettings ? "Settings" : showAgentsSidebar ? "Agents" : "Threads"}
+              resizable={{
+                maxWidth: sidebarMaximumWidth,
+                minWidth: THREAD_SIDEBAR_MIN_WIDTH,
+                shouldAcceptWidth: ({ currentWidth, nextWidth, wrapper }) =>
+                  nextWidth <= currentWidth ||
+                  wrapper.clientWidth - nextWidth - APP_NAVIGATION_RAIL_WIDTH >=
+                    THREAD_MAIN_CONTENT_MIN_WIDTH,
+                storageKey: THREAD_SIDEBAR_WIDTH_STORAGE_KEY,
+                onResize: setSidebarWidth,
+              }}
+            >
+              {isOnSettings ? (
+                <>
+                  <SidebarChromeHeader isElectron={isElectron} />
+                  <SettingsSidebarNav pathname={pathname} />
+                </>
+              ) : showAgentsSidebar ? (
+                <AgentsSidebar />
+              ) : legacySidebarEnabled ? (
+                <LegacyThreadSidebar />
+              ) : (
+                <ThreadSidebar />
+              )}
+              <SidebarRail onDoubleClick={resetSidebarWidth} />
+            </Sidebar>
+          ) : null}
+          {children}
+        </div>
+        {!SINGLE_PROVIDER_UI ? <SidebarControl /> : null}
         <NavigationHistoryShortcuts />
         <MainAppLocationTracker />
       </SidebarProvider>

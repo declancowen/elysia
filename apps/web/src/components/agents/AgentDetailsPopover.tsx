@@ -161,7 +161,7 @@ function AgentDetails({ agent, onClose }: { agent: AgentRosterEntry; onClose: ()
           }}
         >
           <CalendarClockIcon />
-          Scheduled tasks
+          Scheduled
         </Button>
       </div>
       {busy ? (

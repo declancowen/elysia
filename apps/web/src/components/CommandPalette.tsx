@@ -2289,6 +2289,17 @@ function OpenCommandPaletteDialog(props: {
 
   actionItems.push({
     kind: "action",
+    value: "action:projects",
+    searchTerms: ["projects", "folders", "workspaces", "browse"],
+    title: "Open projects",
+    icon: <FolderIcon className={ITEM_ICON_CLASS} />,
+    run: async () => {
+      await navigate({ to: "/projects" });
+    },
+  });
+
+  actionItems.push({
+    kind: "action",
     value: "action:usage",
     searchTerms: ["elysia", "compression", "savings", "usage", "tokens", "stats", "dashboard"],
     title: "Open stats",

@@ -118,7 +118,8 @@ export const layerFromProjectStore: Layer.Layer<
         );
         if (
           (Option.isNone(projectOption) && input.thread.worktreePath === null) ||
-          (Option.isSome(projectOption) && projectOption.value.agentProfile?.archived)
+          (Option.isSome(projectOption) &&
+            (projectOption.value.agentProfile?.archived || projectOption.value.agentProfile?.group))
         ) {
           return yield* new RuntimePolicyResolveError({
             projectId: input.thread.projectId,

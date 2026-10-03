@@ -211,7 +211,7 @@ it("opens current-agent details and edits through the global dialog without chan
 it("opens scheduled tasks scoped to the current agent and closes the profile", async () => {
   await render();
   await click("Manage Alex");
-  await click("Scheduled tasks");
+  await click("Scheduled");
   expect(state.navigate).toHaveBeenCalledWith({
     to: "/settings/scheduled-tasks",
     search: {

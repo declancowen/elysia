@@ -107,6 +107,12 @@ export function createProjectEnvironmentAtoms<R, E>(
           JSON.stringify([environmentId, input.commandId, input.agentProjectId]),
       },
     }),
+    agentConversationPreviews: createEnvironmentRpcQueryAtomFamily(runtime, {
+      label: "environment-data:agents:conversation-previews",
+      tag: WS_METHODS.agentsConversationPreviews,
+      staleTimeMs: 15_000,
+      idleTtlMs: 30_000,
+    }),
     getAgentDelegation: createEnvironmentRpcQueryAtomFamily(runtime, {
       label: "environment-data:agents:get-delegation",
       tag: WS_METHODS.agentsGetDelegation,

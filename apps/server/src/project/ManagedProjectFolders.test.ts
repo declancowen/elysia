@@ -359,6 +359,7 @@ it.effect("starts a named project as a committed repository, and suffixes a take
           path.join(first.workspaceRoot, "README.md"),
         );
         assert.include(readme, "# Pinball Stats");
+        assert.include(readme, "Created in [Elysia](https://github.com/declancowen/elysia).");
         assert.include(readme, `src="assets/icon.svg"`);
         const icon = yield* fileSystem.readFileString(
           path.join(first.workspaceRoot, "assets", "icon.svg"),

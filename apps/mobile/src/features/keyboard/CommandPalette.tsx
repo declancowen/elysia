@@ -230,7 +230,7 @@ export function CommandPalette(props: {
       {
         key: "scheduledTasks",
         kind: "action",
-        title: "Scheduled tasks",
+        title: "Scheduled",
         searchTerms: ["schedule", "automations", "recurring"],
         run: () =>
           navigation.navigate("SettingsSheet", {

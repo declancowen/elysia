@@ -1,4 +1,11 @@
-import { mentionedAgentProjectIds } from "@t3tools/shared/agentMentions";
+import {
+  agentGroupResponder,
+  agentHandoffTargets,
+  channelConversationItems,
+  channelWorkStartedAt,
+  delegatedAgentsFromTurnItems,
+} from "@t3tools/shared/agentMentions";
+import { useDelegatedAgents } from "../features/agents/useDelegatedAgents";
 import { squashAtomCommandFailure } from "@t3tools/client-runtime/state/runtime";
 import type { ComposerTextPaste } from "../native/T3ComposerEditor.types";
 import { useAtomValue } from "@effect/atom-react";
@@ -206,6 +213,44 @@ export function useThreadComposerState() {
   } = useThreadSelection();
   const selectedThreadProjection = useSelectedThreadProjection();
   const selectedThreadVisibleTurnItems = useSelectedThreadVisibleTurnItems();
+  const channelProject = projects.find(
+    (project) =>
+      project.environmentId === selectedThreadShell?.environmentId &&
+      project.id === selectedThreadShell?.projectId &&
+      project.agentProfile?.group,
+  );
+  const channelEnvironmentId = selectedThreadShell?.environmentId;
+  const channelThreadId = selectedThreadShell?.id;
+  const channelSource = useMemo(
+    () =>
+      channelProject && channelEnvironmentId && channelThreadId
+        ? {
+            environmentId: channelEnvironmentId,
+            threadId: channelThreadId,
+          }
+        : null,
+    [channelProject, channelEnvironmentId, channelThreadId],
+  );
+  const channelJobs = useMemo(
+    () =>
+      channelProject
+        ? delegatedAgentsFromTurnItems(selectedThreadProjection?.projection.turnItems ?? [])
+        : [],
+    [channelProject, selectedThreadProjection?.projection.turnItems],
+  );
+  const channelMembers = useDelegatedAgents(channelSource, channelJobs);
+  const channelWorkingStartedAt = channelProject?.agentProfile?.archived
+    ? null
+    : channelWorkStartedAt(selectedThreadVisibleTurnItems, channelMembers);
+  const conversationVisibleTurnItems = useMemo(
+    () =>
+      channelConversationItems(
+        selectedThreadVisibleTurnItems,
+        channelProject !== undefined,
+        channelMembers,
+      ),
+    [selectedThreadVisibleTurnItems, channelProject, channelMembers],
+  );
   const composerDrafts = useAtomValue(composerDraftsAtom);
   const acknowledgedMessages = useAtomValue(acknowledgedThreadMessagesAtom);
   const queuedMessagesByThreadKey = useThreadOutboxMessages();
@@ -286,7 +331,7 @@ export function useThreadComposerState() {
       !selectedThreadMessages?.some((message) => message.id === pendingCreationMessage.messageId)
         ? [pendingThreadCreationMessage(pendingCreationMessage)]
         : [];
-    const feed = buildThreadFeed(selectedThreadVisibleTurnItems, {
+    const feed = buildThreadFeed(conversationVisibleTurnItems, {
       anchoredMessages: pendingCreation,
       attempts: selectedThreadAttempts,
       nodes: selectedThreadNodes,
@@ -304,7 +349,7 @@ export function useThreadComposerState() {
     selectedThreadMessages,
     selectedThreadAttempts,
     selectedThreadNodes,
-    selectedThreadVisibleTurnItems,
+    conversationVisibleTurnItems,
     pendingCreationMessage,
     selectedThreadKey,
     selectedThreadQueuedMessages,
@@ -435,10 +480,18 @@ export function useThreadComposerState() {
       resolveThreadWorkingStartedAt({
         latestRun: selectedThreadActivityRun,
         runtime: selectedThreadRuntime,
-      }) ?? runlessWorkStartedAt
+      }) ??
+      runlessWorkStartedAt ??
+      channelWorkingStartedAt
     );
-  }, [selectedThreadActivityRun, runlessWorkStartedAt, selectedThreadRuntime, selectedThreadShell]);
-  const runlessWorkActive = runlessWorkStartedAt !== null;
+  }, [
+    selectedThreadActivityRun,
+    runlessWorkStartedAt,
+    channelWorkingStartedAt,
+    selectedThreadRuntime,
+    selectedThreadShell,
+  ]);
+  const runlessWorkActive = runlessWorkStartedAt !== null || channelWorkingStartedAt !== null;
 
   const providerSubagentStatus = useMemo(
     () =>
@@ -627,7 +680,31 @@ export function useThreadComposerState() {
         return null;
       }
 
-      const agentIds = mentionedAgentProjectIds(text);
+      const group = projects.find(
+        (project) =>
+          project.environmentId === selectedThreadShell.environmentId &&
+          project.id === selectedThreadShell.projectId,
+      )?.agentProfile?.group;
+      const responder = group ? agentGroupResponder(group, text) : null;
+      if (group && responder === null) {
+        Alert.alert("Channel member unavailable", "Choose an agent who belongs to this channel.");
+        return null;
+      }
+      const agentIds = responder
+        ? [responder]
+        : agentHandoffTargets(
+            text,
+            projects.flatMap((project) =>
+              project.environmentId === selectedThreadShell.environmentId &&
+              project.agentProfile?.group
+                ? [{ id: project.id, group: project.agentProfile.group }]
+                : [],
+            ),
+          );
+      if (agentIds === null) {
+        Alert.alert("Choose one channel", "Send work to one channel and its members at a time.");
+        return null;
+      }
       if (agentIds.length > 0) {
         const availableAgents = composerAgentMentionItems({
           projects,

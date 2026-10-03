@@ -19,6 +19,7 @@ import {
   PackageIcon,
   SettingsIcon,
   UserRoundIcon,
+  UsersIcon,
   type LucideIcon,
 } from "~/icons";
 import { memo, useLayoutEffect, useRef } from "react";
@@ -38,6 +39,7 @@ export type ComposerCommandItem =
       type: "agent";
       projectId: ProjectId;
       avatar: AgentProfile["avatar"];
+      isGroup?: boolean;
       label: string;
       description: string;
     }
@@ -198,7 +200,13 @@ const ComposerCommandMenuItem = memo(function ComposerCommandMenuItem(props: {
         props.onSelect(props.item);
       }}
     >
-      {props.item.type === "agent" ? <AgentAvatar avatar={props.item.avatar} /> : null}
+      {props.item.type === "agent" ? (
+        props.item.isGroup ? (
+          <UsersIcon aria-hidden className="size-4 shrink-0" />
+        ) : (
+          <AgentAvatar avatar={props.item.avatar} />
+        )
+      ) : null}
       {props.item.type === "path" ? (
         <PierreEntryIcon
           pathValue={props.item.path}

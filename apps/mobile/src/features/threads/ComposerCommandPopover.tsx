@@ -25,6 +25,7 @@ export type ComposerCommandItem =
       readonly type: "agent";
       readonly projectId: ProjectId;
       readonly avatar: AgentProfile["avatar"];
+      readonly isGroup?: boolean;
       readonly label: string;
       readonly description: string;
     }
@@ -172,7 +173,11 @@ const CommandRow = memo(function CommandRow(props: {
       style={{ borderBottomWidth: props.isLast ? 0 : StyleSheet.hairlineWidth }}
     >
       {props.item.type === "agent" ? (
-        <AgentAvatar avatar={props.item.avatar} size={16} animated={false} />
+        props.item.isGroup ? (
+          <SymbolView name="person.2" size={16} tintColorClassName="foreground" type="monochrome" />
+        ) : (
+          <AgentAvatar avatar={props.item.avatar} size={16} animated={false} />
+        )
       ) : props.item.type === "path" ? (
         <PierreEntryIcon path={props.item.path} kind={props.item.kind} size={16} />
       ) : iconName ? (

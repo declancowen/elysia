@@ -56,7 +56,7 @@ interface SettingsScopeMenuProps {
  * the same project on every environment, so the environment alone decides
  * where a project override is written.
  */
-export function SettingsScopeSentence() {
+export function SettingsScopeSentence({ compact = false }: { compact?: boolean } = {}) {
   const scope = useOptionalSettingsScope();
   const pathname = useLocation({ select: (location) => location.pathname });
   const { environments } = useEnvironments();
@@ -71,6 +71,7 @@ export function SettingsScopeSentence() {
     environments,
     onChange: scope.selectScope,
   };
+  if (compact) return <ProjectScopeMenu {...props} allProjectsLabel="All tasks" />;
   return (
     <p className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1 px-3 text-base text-muted-foreground sm:px-4">
       {/* Each connective stays with its picker so a wrap never strands "on". */}
@@ -203,7 +204,13 @@ function EnvironmentScopeMenu({
   );
 }
 
-function ProjectScopeMenu({ value, groups, environments, onChange }: SettingsScopeMenuProps) {
+function ProjectScopeMenu({
+  value,
+  groups,
+  environments,
+  onChange,
+  allProjectsLabel,
+}: SettingsScopeMenuProps & { allProjectsLabel?: string }) {
   const selected = groups.find((group) => group.projectKey === value.project);
   const projectIcon = (group: SidebarProjectSnapshot) =>
     group.agentProfile ? (
@@ -225,9 +232,7 @@ function ProjectScopeMenu({ value, groups, environments, onChange }: SettingsSco
         selected?.displayName ??
         (value.project
           ? "Unavailable project"
-          : SINGLE_PROVIDER_UI
-            ? "App defaults"
-            : "All projects")
+          : (allProjectsLabel ?? (SINGLE_PROVIDER_UI ? "App defaults" : "All projects")))
       }
     >
       <MenuRadioGroup
@@ -239,7 +244,7 @@ function ProjectScopeMenu({ value, groups, environments, onChange }: SettingsSco
         <MenuRadioItem value={ALL_PROJECTS_VALUE}>
           <span className="flex min-w-0 items-center gap-2">
             <span className="min-w-0 flex-1 truncate">
-              {SINGLE_PROVIDER_UI ? "App defaults" : "All projects"}
+              {allProjectsLabel ?? (SINGLE_PROVIDER_UI ? "App defaults" : "All projects")}
             </span>
             <MenuRadioItemIndicator />
           </span>

@@ -1170,6 +1170,7 @@ export function RightPanelTabs(props: RightPanelTabsProps) {
         ownsDesktopTitleBar && props.maximized && COLLAPSED_SIDEBAR_TITLEBAR_INSET_CLASS,
       )}
       data-right-panel-tabbar
+      data-workspace-panel-tabbar={props.tabBarHost !== undefined ? "" : undefined}
     >
       <ScrollArea
         radius="none"
@@ -1204,12 +1205,14 @@ export function RightPanelTabs(props: RightPanelTabsProps) {
                   "cursor-pointer group/tab flex h-6 max-w-36 shrink-0 items-center gap-0.5 rounded-md pr-2 pl-1.5 text-xs",
                   ownsDesktopTitleBar && "[-webkit-app-region:no-drag]",
                   props.tabBarHost !== undefined &&
-                    "h-8 max-w-52 gap-2 rounded-lg border px-2 text-sm",
+                    "workspace-topbar-tab h-[calc(var(--workspace-topbar-height)-0.5rem)] max-w-52 gap-2 rounded-lg px-2 text-sm",
                   active
                     ? props.tabBarHost !== undefined
-                      ? "border-border bg-accent text-foreground"
+                      ? "bg-workspace-tab-active text-workspace-tab-foreground"
                       : "bg-accent text-foreground"
-                    : "border-transparent text-muted-foreground hover:bg-accent/60 hover:text-foreground",
+                    : props.tabBarHost !== undefined
+                      ? "bg-transparent text-muted-foreground hover:text-workspace-tab-foreground"
+                      : "border-transparent text-muted-foreground hover:bg-accent/60 hover:text-foreground",
                 )}
               >
                 {props.tabBarHost !== undefined ? (
@@ -1346,18 +1349,28 @@ export function RightPanelTabs(props: RightPanelTabsProps) {
           })}
           {props.surfaces.length > 0 ? (
             <Menu open={addSurfaceMenuOpen} onOpenChange={setAddSurfaceMenuOpen}>
-              <MenuTrigger
-                render={
-                  <Button
-                    aria-label="Add panel surface"
-                    className="shrink-0"
-                    size="icon-xs"
-                    variant="ghost-muted"
-                  />
-                }
-              >
-                <Plus className="size-3.5" />
-              </MenuTrigger>
+              <Tooltip>
+                <TooltipTrigger
+                  render={
+                    <MenuTrigger
+                      render={
+                        <Button
+                          aria-label="Add panel surface"
+                          data-workspace-panel-action={
+                            props.tabBarHost !== undefined ? "" : undefined
+                          }
+                          className="shrink-0"
+                          size={props.tabBarHost !== undefined ? "icon-sm" : "icon-xs"}
+                          variant="ghost-muted"
+                        />
+                      }
+                    >
+                      <Plus />
+                    </MenuTrigger>
+                  }
+                />
+                <TooltipPopup>Add panel surface</TooltipPopup>
+              </Tooltip>
               <MenuPopup
                 align="start"
                 side="bottom"

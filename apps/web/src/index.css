@@ -78,7 +78,7 @@ html[data-mobile-composer-route-transition="true"]::view-transition-old(t3-mobil
 }
 
 :root {
-  --app-scrollbar-width: 6px;
+  --app-scrollbar-width: 4px;
   --appearance-contrast-base: 100%;
   --appearance-contrast-boost: 0%;
   --appearance-contrast-border-boost: 0%;
@@ -104,7 +104,9 @@ html[data-mobile-composer-route-transition="true"]::view-transition-old(t3-mobil
   --glass-opacity: 80%;
   --glass-saturation: 1.14;
   --desktop-window-right-resize-inset: 0px;
-  --workspace-topbar-height: 52px;
+  --workspace-panel-border: oklch(from var(--app-theme-text, var(--foreground)) l 0 0 / 0.16);
+  --workspace-panel-outline-width: 1px;
+  --workspace-topbar-height: 40px;
   --workspace-controls-top: 0px;
   --workspace-controls-left: calc(env(safe-area-inset-left) + 0.75rem);
   --workspace-controls-right: calc(env(safe-area-inset-right) + 0.75rem);
@@ -137,7 +139,7 @@ html[data-mobile-composer-route-transition="true"]::view-transition-old(t3-mobil
 }
 
 .wco {
-  --workspace-topbar-height: env(titlebar-area-height, 52px);
+  --workspace-topbar-height: env(titlebar-area-height, 40px);
   --workspace-controls-top: env(titlebar-area-y, 0px);
   --workspace-controls-left: calc(env(titlebar-area-x, 0px) + 0.75rem);
   --workspace-controls-right: calc(
@@ -256,7 +258,18 @@ html[data-mobile-composer-route-transition="true"]::view-transition-old(t3-mobil
   --color-message-action: var(--message-action);
   --color-message-action-foreground: var(--message-action-foreground);
   --color-message-action-hover: var(--message-action-hover);
+  --color-workspace-tab-active: var(--workspace-tab-active-surface, var(--accent));
+  --color-workspace-tab-foreground: var(--workspace-tab-foreground, var(--foreground));
+  --color-workspace-panel-border: var(--workspace-panel-border);
   --color-sidebar: var(--sidebar);
+  --color-workspace-sidebar: var(
+    --workspace-sidebar-surface,
+    color-mix(
+      in srgb,
+      var(--app-theme-canvas, var(--background)) 75%,
+      var(--app-theme-sidebar, var(--sidebar)) 25%
+    )
+  );
   --color-sidebar-foreground: var(--contrast-sidebar-foreground);
   --color-sidebar-muted-foreground: var(--contrast-sidebar-muted-foreground);
   --color-sidebar-control-surface: var(--sidebar-control-surface);
@@ -1360,6 +1373,15 @@ html[data-theme-id] [data-chat-header] {
   color: var(--contrast-toolbar-foreground);
 }
 
+/* The shared desktop header belongs to the navigation surface. */
+html[data-theme-id] [data-app-topbar-content] [data-chat-header] {
+  --toolbar-control: transparent;
+  --toolbar-control-hover: var(--sidebar-row-hover);
+  --contrast-toolbar-foreground: var(--contrast-sidebar-foreground);
+  --contrast-toolbar-border: var(--contrast-sidebar-border);
+  background-color: transparent;
+}
+
 html[data-theme-id] [data-chat-header] [data-slot="button"],
 html[data-theme-id] [data-chat-header] [data-slot="menu-trigger"],
 html[data-theme-id] [data-chat-header] [data-toolbar-control] {
@@ -1405,6 +1427,22 @@ html[data-theme-id] [data-chat-header] [data-toolbar-control][data-pressed] {
 
 html[data-theme-id] [data-chat-header] [data-slot="separator"] {
   background-color: var(--contrast-toolbar-border);
+}
+
+/* Hosted panel actions keep their ghost treatment inside the chat header. */
+html[data-theme-id] [data-chat-header] [data-workspace-panel-tabbar] [data-workspace-panel-action] {
+  background-color: transparent;
+  border-color: transparent;
+}
+html[data-theme-id]
+  [data-chat-header]
+  [data-workspace-panel-tabbar]
+  [data-workspace-panel-action]:hover,
+html[data-theme-id]
+  [data-chat-header]
+  [data-workspace-panel-tabbar]
+  [data-workspace-panel-action][data-pressed] {
+  background-color: var(--sidebar-row-hover);
 }
 
 /* Chat code blocks join the other code surfaces on the code tokens. The
@@ -1575,22 +1613,33 @@ html[data-theme-id] [data-chat-header] [data-thread-overview-trigger][aria-expan
 
 html[data-theme-id] [data-app-sidebar] {
   --background: var(--app-theme-sidebar);
-  --foreground: var(--app-theme-sidebar-foreground);
+  --foreground: var(--workspace-sidebar-foreground, var(--app-theme-sidebar-foreground));
+  --contrast-sidebar-foreground: var(--foreground);
+  --contrast-sidebar-muted-foreground: var(
+    --workspace-sidebar-muted,
+    var(--app-theme-sidebar-muted-foreground)
+  );
   --card: var(--app-theme-surface);
   --card-foreground: var(--app-theme-text);
   --accent: var(--app-theme-accent-surface);
   --accent-foreground: var(--app-theme-accent-surface-foreground);
   --muted: var(--app-theme-muted);
-  --muted-foreground: var(--app-theme-muted-foreground);
+  --muted-foreground: var(--workspace-sidebar-muted, var(--app-theme-muted-foreground));
   --border: var(--app-theme-border);
   --input: var(--app-theme-input);
   --sidebar: var(--app-theme-sidebar);
-  --sidebar-foreground: var(--app-theme-sidebar-foreground);
-  --sidebar-muted-foreground: var(--app-theme-sidebar-muted-foreground);
-  --sidebar-control-surface: var(--app-theme-sidebar-control-surface);
-  --sidebar-row-hover: var(--app-theme-sidebar-row-hover);
-  --sidebar-row-active: var(--app-theme-sidebar-row-active);
-  --sidebar-row-selected: var(--app-theme-sidebar-row-selected);
+  --sidebar-foreground: var(--foreground);
+  --sidebar-muted-foreground: var(
+    --workspace-sidebar-muted,
+    var(--app-theme-sidebar-muted-foreground)
+  );
+  --sidebar-control-surface: var(
+    --workspace-sidebar-control,
+    var(--app-theme-sidebar-control-surface)
+  );
+  --sidebar-row-hover: var(--workspace-sidebar-hover, var(--app-theme-sidebar-row-hover));
+  --sidebar-row-active: var(--workspace-sidebar-active, var(--app-theme-sidebar-row-active));
+  --sidebar-row-selected: var(--workspace-sidebar-selected, var(--app-theme-sidebar-row-selected));
   --sidebar-border: var(--app-theme-sidebar-border);
   --sidebar-stage-fade: var(--app-theme-sidebar);
   border-color: color-mix(in srgb, var(--contrast-sidebar-foreground) 10%, transparent);
@@ -1835,6 +1884,7 @@ code {
 /* Scrollbar styling */
 ::-webkit-scrollbar {
   width: var(--app-scrollbar-width);
+  height: var(--app-scrollbar-width);
 }
 
 ::-webkit-scrollbar-track {
@@ -2416,4 +2466,65 @@ code {
       );
     }
   }
+}
+
+/* One frame treatment for sidebar, main view and preview panes. */
+@media (min-width: 768px) {
+  .workspace-panel-frame::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: 30;
+    pointer-events: none;
+    border: var(--workspace-panel-outline-width) solid var(--workspace-panel-border);
+    border-radius: inherit;
+  }
+  [data-slot="sidebar-inset"].workspace-panel-frame::after,
+  [data-chat-column]::after {
+    border-left: 0;
+  }
+  [data-slot="sidebar"][data-state="collapsed"]
+    ~ [data-slot="sidebar-inset"].workspace-panel-frame::after,
+  [data-slot="sidebar"][data-state="collapsed"]
+    ~ [data-slot="sidebar-inset"]
+    [data-chat-column]::after,
+  [data-slot="sidebar-inset"][data-panel-layout="standalone"]::after {
+    border-left: var(--workspace-panel-outline-width) solid var(--workspace-panel-border);
+  }
+}
+
+@media (hover: hover) and (pointer: fine) {
+  [data-slot="sidebar-wrapper"] *::-webkit-scrollbar-thumb {
+    background: transparent;
+  }
+  [data-slot="sidebar-wrapper"] *:hover::-webkit-scrollbar-thumb,
+  [data-slot="sidebar-wrapper"] *:focus-within::-webkit-scrollbar-thumb {
+    background: var(--app-scrollbar-thumb);
+  }
+  [data-slot="sidebar-wrapper"] *::-webkit-scrollbar-thumb:hover {
+    background: var(--app-scrollbar-thumb-hover);
+  }
+}
+
+.workspace-panel-outline {
+  border: var(--workspace-panel-outline-width) solid var(--workspace-panel-border);
+}
+
+.workspace-topbar-tab {
+  position: relative;
+  border: 0.5px solid transparent;
+}
+.workspace-topbar-tab[data-active-tab="true"] {
+  border-color: var(--workspace-panel-border);
+}
+.workspace-topbar-tab[data-active-tab="false"]
+  + .workspace-topbar-tab[data-active-tab="false"]::before {
+  content: "";
+  position: absolute;
+  left: -3px;
+  top: 50%;
+  height: 12px;
+  width: 0.5px;
+  transform: translateY(-50%);
+  background: var(--workspace-panel-border);
 }

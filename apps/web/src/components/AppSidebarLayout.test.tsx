@@ -4,7 +4,11 @@ import { createRoot } from "react-dom/client";
 import { expect, it, vi } from "vite-plus/test";
 import { AppSidebarLayout } from "./AppSidebarLayout";
 import { setAgentSidebarActive } from "./agents/agentSidebarStore";
-const state = vi.hoisted(() => ({ pathname: "/", legacy: false }));
+const state = vi.hoisted(() => ({
+  pathname: "/",
+  legacy: false,
+  widths: {} as Record<string, number>,
+}));
 
 vi.mock("@effect/atom-react", () => ({ useAtomValue: () => [] }));
 vi.mock("@tanstack/react-router", () => ({
@@ -21,8 +25,10 @@ vi.mock("../hooks/useSettings", () => ({
 }));
 vi.mock("../hooks/useThreadVisitedMigration", () => ({ useThreadVisitedMigration: () => {} }));
 vi.mock("../hooks/useLocalStorage", () => ({
-  getLocalStorageItem: () => null,
-  removeLocalStorageItem: () => {},
+  getLocalStorageItem: (key: string) => state.widths[key] ?? null,
+  removeLocalStorageItem: (key: string) => {
+    delete state.widths[key];
+  },
   setLocalStorageItem: () => {},
 }));
 vi.mock("../state/entities", () => ({ useProjects: () => [] }));
@@ -164,7 +170,8 @@ it("retains Agents beside its conversations and restores each Home sidebar and u
     expect(host.textContent).toContain("Conversation body");
     state.pathname = "/usage";
     await render();
-    expect(host.textContent).toContain("Project navigation");
+    expect(host.querySelector("[data-app-sidebar]")).toBeNull();
+    expect(host.textContent).toContain("Conversation body");
     state.pathname = "/local/agent-chat";
     await render();
     expect(host.textContent).not.toContain("Agent navigation");
@@ -174,6 +181,65 @@ it("retains Agents beside its conversations and restores each Home sidebar and u
     setAgentSidebarActive(false);
     state.pathname = "/";
     state.legacy = false;
+    vi.unstubAllGlobals();
+  }
+});
+
+it("restores each surface width and resets only the current surface", async () => {
+  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+  vi.stubGlobal("innerWidth", 1440);
+  vi.stubGlobal("matchMedia", () => ({
+    matches: false,
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+  }));
+  state.widths = {
+    chat_thread_sidebar_width: 360,
+    chat_thread_sidebar_width_agents: 320,
+    chat_thread_sidebar_width_scheduled: 280,
+    "chat_thread_sidebar_width_pull-requests": 400,
+  };
+  const host = document.createElement("div");
+  document.body.append(host);
+  const root = createRoot(host);
+  const render = (pathname: string) => {
+    state.pathname = pathname;
+    return act(async () =>
+      root.render(
+        <AppSidebarLayout>
+          <p>{pathname}</p>
+        </AppSidebarLayout>,
+      ),
+    );
+  };
+  const width = () =>
+    host
+      .querySelector<HTMLElement>("[data-slot=sidebar-wrapper]")!
+      .style.getPropertyValue("--sidebar-width");
+  try {
+    await render("/agents");
+    expect(width()).toBe("320px");
+    await render("/settings/scheduled-tasks");
+    expect(width()).toBe("280px");
+    await render("/pull-requests");
+    expect(width()).toBe("400px");
+    await act(async () =>
+      host
+        .querySelector('[aria-label="Resize Sidebar"]')!
+        .dispatchEvent(new MouseEvent("dblclick", { bubbles: true })),
+    );
+    expect(width()).toBe("256px");
+    await render("/");
+    expect(width()).toBe("360px");
+    await render("/agents");
+    expect(width()).toBe("320px");
+    expect(state.widths.chat_thread_sidebar_width_scheduled).toBe(280);
+  } finally {
+    await act(async () => root.unmount());
+    host.remove();
+    state.pathname = "/";
+    state.widths = {};
+    setAgentSidebarActive(false);
     vi.unstubAllGlobals();
   }
 });

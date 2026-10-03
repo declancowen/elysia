@@ -1778,7 +1778,10 @@ export default function GitActionsControl({
           disabled={initAction.isPending}
           onClick={initializeGit}
         >
-          <GitBranchPlusIcon className="size-3.5" aria-hidden />
+          <GitBranchPlusIcon
+            className={isPanel ? THREAD_DETAILS_PANEL_ICON_CLASS : "size-3.5"}
+            aria-hidden
+          />
           <span className="ml-0.5">
             {initAction.isPending ? "Initializing..." : "Initialize Git"}
           </span>

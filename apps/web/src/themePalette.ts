@@ -1,3 +1,4 @@
+import { SINGLE_PROVIDER_UI } from "@t3tools/contracts";
 import * as Equal from "effect/Equal";
 import * as Schema from "effect/Schema";
 import "culori/css";
@@ -1498,6 +1499,72 @@ export function getThemeColorVariable(role: ThemeColorRole): string {
   return APP_THEME_VARIABLES[role];
 }
 
+/** Workspace lists sit closer to the conversation canvas than the navigation rail. */
+export function getWorkspaceThemeColors(colors: ThemeColors) {
+  const canvas = parseThemeRgbColor(colors.canvas, THEME_WHITE_FOREGROUND);
+  const surface = mixThemeRgbColors(canvas, parseThemeRgbColor(colors.sidebar, canvas), 0.25);
+  const preferred = parseThemeRgbColor(colors.sidebarForeground, readableThemeForeground(surface));
+  const foreground =
+    themeContrastRatio(preferred, surface) >= 4.6 ? preferred : readableThemeForeground(surface);
+  const stateSurface = (value: string, amount: number) => {
+    const parsed = parseThemeColor(value);
+    const candidate = parsed
+      ? mixThemeRgbColors(surface, themeOklchToRgb(parsed.color), parsed.alpha)
+      : surface;
+    return parsed && themeContrastRatio(candidate, foreground) >= 4.6
+      ? value
+      : themeRgbToThemeColor(
+          themeContrastRatio(mixThemeRgbColors(surface, foreground, amount), foreground) >= 4.6
+            ? mixThemeRgbColors(surface, foreground, amount)
+            : surface,
+        );
+  };
+  const navigation = parseThemeRgbColor(colors.sidebar, canvas);
+  const tab = mixThemeRgbColors(
+    navigation,
+    THEME_WHITE_FOREGROUND,
+    themeRelativeLuminance(navigation) < 0.179 ? 0.05 : 0.65,
+  );
+  const tabText = parseThemeRgbColor(colors.sidebarForeground, readableThemeForeground(tab));
+  return {
+    tab: themeRgbToThemeColor(tab),
+    tabForeground: themeRgbToThemeColor(
+      themeContrastRatio(tab, tabText) >= 4.6 ? tabText : readableThemeForeground(tab),
+    ),
+    surface: themeRgbToThemeColor(surface),
+    foreground: themeRgbToThemeColor(foreground),
+    muted: themeRgbToThemeColor(standardMutedThemeText(surface, foreground)),
+    control: stateSurface(colors.sidebarControlSurface, 0.05),
+    hover: stateSurface(colors.sidebarRowHover, 0.08),
+    active: stateSurface(colors.sidebarRowActive, 0.11),
+    selected: stateSurface(colors.sidebarRowSelected, 0.11),
+  };
+}
+
+const WORKSPACE_THEME_VARIABLES = {
+  tab: "--workspace-tab-active-surface",
+  tabForeground: "--workspace-tab-foreground",
+  surface: "--workspace-sidebar-surface",
+  foreground: "--workspace-sidebar-foreground",
+  muted: "--workspace-sidebar-muted",
+  control: "--workspace-sidebar-control",
+  hover: "--workspace-sidebar-hover",
+  active: "--workspace-sidebar-active",
+  selected: "--workspace-sidebar-selected",
+} as const;
+
+function applyWorkspaceTheme(root: HTMLElement, colors: ThemeColors) {
+  if (
+    !SINGLE_PROVIDER_UI ||
+    ![colors.canvas, colors.sidebar, colors.sidebarForeground].every(isThemeColor)
+  )
+    return;
+  const workspace = getWorkspaceThemeColors(colors);
+  for (const role of Object.keys(WORKSPACE_THEME_VARIABLES) as Array<keyof typeof workspace>) {
+    root.style.setProperty(WORKSPACE_THEME_VARIABLES[role], workspace[role]);
+  }
+}
+
 /** Marks the document as wearing an unsaved draft rather than a stored theme. */
 export const THEME_PREVIEW_ID = "__preview";
 
@@ -1520,6 +1587,7 @@ export function applyThemeColorPreview(colors: ThemeColors, appearance: ThemeApp
     // A half-typed hex keeps the last good value instead of blanking the role.
     if (isThemeColor(value)) root.style.setProperty(APP_THEME_VARIABLES[role], value);
   }
+  applyWorkspaceTheme(root, colors);
 }
 
 export function applyThemePalette(theme: ThemePreference, appearance?: ThemeAppearance): void {
@@ -1538,11 +1606,15 @@ export function applyThemePalette(theme: ThemePreference, appearance?: ThemeAppe
     for (const [role, value] of Object.entries(colors) as Array<[ThemeColorRole, string]>) {
       root.style.setProperty(APP_THEME_VARIABLES[role], value);
     }
+    applyWorkspaceTheme(root, colors);
     return;
   }
 
   delete root.dataset.themeId;
-  for (const variable of Object.values(APP_THEME_VARIABLES)) {
+  for (const variable of [
+    ...Object.values(APP_THEME_VARIABLES),
+    ...Object.values(WORKSPACE_THEME_VARIABLES),
+  ]) {
     root.style.removeProperty(variable);
   }
 }

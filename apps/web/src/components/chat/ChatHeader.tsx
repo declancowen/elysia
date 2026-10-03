@@ -363,7 +363,7 @@ export const ChatHeader = memo(function ChatHeader({
                   openAgentDialog(scopeProjectRef(activeProject.environmentId, activeProject.id))
               : onNewThreadInProject
           }
-          className="mb-1 flex min-w-0 cursor-pointer items-center gap-2 rounded-sm py-1 text-left text-sm focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
+          className="-mx-2.5 mb-1 flex min-w-0 w-[calc(100%+1.25rem)] cursor-pointer items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-left text-sidebar-section hover:bg-accent/50 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
         >
           {activeProject.agentProfile ? (
             activeProject.agentProfile.group ? (
@@ -423,15 +423,19 @@ export const ChatHeader = memo(function ChatHeader({
   return (
     <div
       ref={headerRef}
-      className={cn("relative flex min-w-0 flex-1 items-center", inlinePanel ? "gap-2" : "gap-1")}
+      className={cn("relative flex h-full min-w-0 flex-1 items-center", "gap-1")}
       onContextMenu={handleHeaderContextMenu}
     >
       <div
         data-chat-header-main
         className={cn(
-          "relative flex min-w-0 items-center gap-2",
+          "relative flex h-full min-w-0 items-center gap-2 pr-3 pl-5",
+          SINGLE_PROVIDER_UI &&
+            inlinePanel &&
+            !mainColumnHidden &&
+            "after:absolute after:top-2 after:bottom-2 after:left-[calc(100%+2px)] after:w-px after:-translate-x-1/2 after:bg-workspace-panel-border",
           inlinePanel ? "shrink-0" : "flex-1",
-          mainColumnHidden && "shrink-0",
+          mainColumnHidden && "hidden",
         )}
         style={mainColumnWidth === null ? undefined : { width: mainColumnWidth }}
       >
@@ -515,7 +519,7 @@ export const ChatHeader = memo(function ChatHeader({
             </WorkspaceBreadcrumbItem>
           )}
         </WorkspaceBreadcrumb>
-        {activeProject?.agentProfile || overview || mainLayoutControls ? (
+        {!mainColumnHidden && (activeProject?.agentProfile || overview || mainLayoutControls) ? (
           <div
             data-chat-header-actions
             className="flex shrink-0 items-center gap-1 [-webkit-app-region:no-drag]"
@@ -545,14 +549,14 @@ export const ChatHeader = memo(function ChatHeader({
         <div
           data-chat-header-actions
           className={cn(
-            "flex min-w-0 items-center gap-1 [-webkit-app-region:no-drag]",
+            "flex h-full min-w-0 items-center gap-1 pr-2 pl-3 [-webkit-app-region:no-drag]",
             inlinePanel ? "flex-1" : "shrink-0",
           )}
         >
           {onTabBarHostChange ? (
             <div
               ref={onTabBarHostChange}
-              className={cn("min-w-0 flex-1", !inlinePanel && "hidden")}
+              className={cn("h-full min-w-0 flex-1", !inlinePanel && "hidden")}
               data-topbar-panel-tabs
             />
           ) : null}

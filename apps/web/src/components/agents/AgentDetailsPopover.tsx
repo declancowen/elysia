@@ -6,7 +6,7 @@ import {
   selectProjectGroupingSettings,
 } from "../../logicalProject";
 import { useNavigate } from "@tanstack/react-router";
-import { ArchiveIcon, ArchiveX, BotIcon, CalendarClockIcon, Edit03Icon } from "~/icons";
+import { ArchiveIcon, ArchiveX, BotIcon, ClockIcon, Edit03Icon } from "~/icons";
 import { useLayoutEffect, useRef, useState, type RefObject } from "react";
 import { Button } from "../ui/button";
 import { Popover, PopoverPopup, PopoverTitle, PopoverTrigger } from "../ui/popover";
@@ -30,6 +30,7 @@ export function AgentDetailsPopover({
       project.environmentId === projectRef?.environmentId && project.id === projectRef.projectId,
   );
   const [open, setOpen] = useState(defaultOpen);
+  const anchorRef = useRef<HTMLSpanElement>(null);
   const navigate = useNavigate();
   const close = () => setOpen(false);
   if (!current) return null;
@@ -48,9 +49,17 @@ export function AgentDetailsPopover({
       >
         <BotIcon className="size-4" />
       </PopoverTrigger>
+      {threadBoundaryRef ? (
+        <span
+          ref={anchorRef}
+          aria-hidden
+          className="pointer-events-none absolute top-full right-(--workspace-gutter-end) size-0"
+        />
+      ) : null}
       <PopoverPopup
         width="md"
         align="end"
+        {...(threadBoundaryRef ? { anchor: anchorRef, sideOffset: 12 } : {})}
         {...(threadBoundaryRef?.current
           ? {
               collisionBoundary:
@@ -178,7 +187,7 @@ function AgentDetails({ agent, onClose }: { agent: AgentRosterEntry; onClose: ()
             });
           }}
         >
-          <CalendarClockIcon />
+          <ClockIcon />
           Scheduled
         </Button>
       </div>

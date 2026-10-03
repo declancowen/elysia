@@ -1,3 +1,4 @@
+import { useAppTopbarHost } from "./AppTopbar";
 import { toggleThreadOverview } from "./chat/threadOverviewStore";
 import { ChatCanvas } from "./chat/ChatCanvas";
 import { usageLimitRecoveryBannerItem } from "./chat/UsageLimitRecoveryBanner";
@@ -241,7 +242,6 @@ import { useTurnDiffSummaries } from "../hooks/useTurnDiffSummaries";
 import { useElementWidth } from "../hooks/useElementWidth";
 import { usePreviewPanelInlineSize } from "../hooks/usePreviewPanelInlineSize";
 import { RIGHT_PANEL_INLINE_LAYOUT_MEDIA_QUERY } from "../rightPanelLayout";
-import { PopoverCreateHandle } from "./ui/popover";
 import {
   pullRequestSurface,
   selectActiveRightPanel,
@@ -1870,7 +1870,7 @@ export default function ChatView(props: ChatViewProps) {
   const isTopbarMobileViewport = useMediaQuery("max-md");
   const [workspaceLayoutRef, workspaceLayoutWidth] = useElementWidth<HTMLDivElement>();
   const threadPanelPopoverAnchorRef = useRef<HTMLDivElement | null>(null);
-  const [topbarHost, setTopbarHost] = useState<HTMLElement | null>(null);
+  const topbarHost = useAppTopbarHost();
   const [rightPanelTabsHost, setRightPanelTabsHost] = useState<HTMLDivElement | null>(null);
   const localChatHeaderHostRef = useRef<HTMLDivElement | null>(null);
   const [chatHeaderContainer] = useState(() => {
@@ -1878,9 +1878,6 @@ export default function ChatView(props: ChatViewProps) {
     container.className = "contents";
     return container;
   });
-  useLayoutEffect(() => {
-    setTopbarHost(document.getElementById("elysia-app-topbar-content"));
-  }, []);
   // Tracks whether the user explicitly dismissed the sidebar for the active turn.
   // When set, the thread-change reset effect will open the sidebar instead of closing it.
   // Used by "Implement in a new thread" to carry the sidebar-open intent across navigation.
@@ -2971,11 +2968,6 @@ export default function ChatView(props: ChatViewProps) {
     hasMultipleRegisteredEnvironments && activeThread
       ? `${environmentById.get(activeThread.environmentId)?.label ?? serverConfig?.environment.label ?? activeThread.environmentId} server`
       : "server";
-  const handleDismissVersionMismatch = useCallback(() => {
-    if (!versionMismatchDismissKey) return;
-    dismissVersionMismatch(versionMismatchDismissKey);
-    setDismissedVersionMismatchKey(versionMismatchDismissKey);
-  }, [setDismissedVersionMismatchKey, versionMismatchDismissKey]);
   const serverUpdateEnvironmentId = activeThread?.environmentId ?? null;
   const versionMismatchSelfUpdate = resolveServerSelfUpdateCapability(serverConfig);
   const versionMismatchDesktopAppUpdate = supportsDesktopAppUpdate(serverConfig);
@@ -5290,7 +5282,6 @@ export default function ChatView(props: ChatViewProps) {
         linkedThreadPullRequest.number,
       ])
     : null;
-  const threadRepository = linkedThreadPullRequest?.repository ?? activeProjectRepository;
   const threadPrRelinkKeysRef = useRef(new Map<string, string>());
   const threadPrRelinkWriteRef = useRef(Promise.resolve());
   useEffect(() => {
@@ -10844,7 +10835,7 @@ export default function ChatView(props: ChatViewProps) {
           ref={threadPanelPopoverAnchorRef}
           className={cn(
             "flex min-h-0 min-w-0 flex-col overflow-x-hidden",
-            SINGLE_PROVIDER_UI && "bg-background md:rounded-xl",
+            SINGLE_PROVIDER_UI && "relative bg-background md:rounded-r-xl workspace-panel-frame",
             rightPanelMaximized ? "w-0 flex-none" : "flex-1",
           )}
           data-chat-column-maximized-away={rightPanelMaximized ? "true" : "false"}

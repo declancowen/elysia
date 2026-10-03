@@ -1,3 +1,4 @@
+import { useAppTopbarHost } from "../components/AppTopbar";
 import { RefreshIcon } from "~/components/ui/refresh-icon";
 import { Spinner } from "~/components/ui/spinner";
 import {
@@ -121,6 +122,9 @@ import {
   WorkspaceBreadcrumbItem,
   WorkspaceBreadcrumbSeparator,
 } from "../components/WorkspaceBreadcrumb";
+import { createPortal } from "react-dom";
+import { useMediaQuery } from "../hooks/useMediaQuery";
+import { WorkspaceSidebarContent } from "../components/sidebar/WorkspaceSidebarContent";
 import { WorkspacePageContainer } from "../components/WorkspacePageContainer";
 import { WorkspacePageHeader } from "../components/WorkspacePageHeader";
 import { isCommandPaletteOpen } from "../commandPaletteBus";
@@ -130,7 +134,7 @@ import { isTerminalFocused } from "../lib/terminalFocus";
 import { PanelLayoutControls } from "../components/chat/PanelLayoutControls";
 import { Button } from "../components/ui/button";
 import { Menu, MenuPopup, MenuRadioGroup, MenuRadioItem, MenuTrigger } from "../components/ui/menu";
-import { SidebarInset } from "../components/ui/sidebar";
+import { SidebarInset, useSidebar } from "../components/ui/sidebar";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../components/ui/tooltip";
 import { useLiveRefresh } from "../hooks/useLiveRefresh";
 import { useOpenPanelPullRequestUrl } from "../hooks/useOpenPanelPullRequestUrl";
@@ -346,6 +350,7 @@ export const Route = createFileRoute("/_chat/pull-requests")({
 
 function PullRequestsRouteView() {
   useEscapeToGoBack();
+  const { isMobile, setOpenMobile } = useSidebar();
   const search = Route.useSearch();
   const sort = search.sort ?? "ready";
   const statsPolicy: PullRequestStatsPolicy =
@@ -508,6 +513,9 @@ function PullRequestsRouteView() {
     rightPanelRef?.threadId ?? null,
     panelAnimationDurationMs,
   );
+  const isDesktop = useMediaQuery("(min-width: 768px)");
+  const topbarHost = useAppTopbarHost();
+  const [tabBarHost, setTabBarHost] = useState<HTMLDivElement | null>(null);
   const rightPanelPresent = rightPanelPresence.present;
   const renderedPullRequestSurface = rightPanelPresence.value?.activeSurface ?? null;
   const renderedRightPanelSurfaces = rightPanelPresence.value?.surfaces ?? [];
@@ -1694,6 +1702,7 @@ function PullRequestsRouteView() {
       // The surface carries the row's own server, which is what its detail reads and acts on.
       if (rightPanelRef === null) return;
       useRightPanelStore.getState().openPullRequest(rightPanelRef, entry);
+      if (SINGLE_PROVIDER_UI && isMobile) setOpenMobile(false);
       updateSearch({
         repository: entry.repository,
         number: entry.number,
@@ -1702,7 +1711,7 @@ function PullRequestsRouteView() {
         selectedHost: entry.host,
       });
     },
-    [rightPanelRef, updateSearch],
+    [rightPanelRef, updateSearch, isMobile, setOpenMobile],
   );
 
   const searchInput = (
@@ -1787,7 +1796,7 @@ function PullRequestsRouteView() {
       ) : (
         <div className="space-y-3">
           {displayGroups.map((group) => (
-            <div key={group.key} className="space-y-0.5">
+            <div key={group.key} className={SINGLE_PROVIDER_UI ? "space-y-1" : "space-y-0.5"}>
               {group.label ? <PullRequestGroupHeader group={group} /> : null}
               {group.entries.map((entry) => {
                 const entryKey = pullRequestEntryKey(entry);
@@ -1890,6 +1899,7 @@ function PullRequestsRouteView() {
       label="Sort pull requests"
       triggerIcon={<ArrowDownUpIcon aria-hidden className="size-4" />}
       triggerLabel="Sort"
+      iconOnly={SINGLE_PROVIDER_UI}
       outlined
       value={sort}
       options={SORT_OPTIONS}
@@ -1898,6 +1908,7 @@ function PullRequestsRouteView() {
   );
   const filtersMenu = (
     <PullRequestFiltersMenu
+      iconOnly={SINGLE_PROVIDER_UI}
       onOpenChange={setFiltersOpen}
       state={search.state}
       stateOptions={STATE_TABS}
@@ -2077,12 +2088,39 @@ function PullRequestsRouteView() {
   return (
     <SidebarInset className="h-dvh min-h-0 overflow-hidden overscroll-y-none">
       <div className={cn("relative flex min-h-0 flex-1", SINGLE_PROVIDER_UI && "bg-sidebar")}>
-        {pullRequestsSupported && rightPanelPresent ? openPanelControls : null}
-        <PullRequestsColumn {...columnProps} />
+        {SINGLE_PROVIDER_UI && isDesktop && topbarHost
+          ? createPortal(
+              <div
+                className="flex h-full min-w-0 flex-1 items-center gap-1 px-3"
+                ref={setTabBarHost}
+              >
+                {!rightPanelPresent && <h1 className="text-sm font-medium">Pull requests</h1>}
+              </div>,
+              topbarHost,
+            )
+          : null}
+        {!SINGLE_PROVIDER_UI && pullRequestsSupported && rightPanelPresent
+          ? openPanelControls
+          : null}
+        {SINGLE_PROVIDER_UI ? (
+          <WorkspaceSidebarContent>
+            <PullRequestsColumn {...columnProps} />
+          </WorkspaceSidebarContent>
+        ) : (
+          <PullRequestsColumn {...columnProps} />
+        )}
+        {SINGLE_PROVIDER_UI && !rightPanelPresent ? (
+          <div className="flex min-h-0 flex-1 items-center justify-center bg-background p-6 text-sm text-muted-foreground">
+            Select a pull request to view its details.
+          </div>
+        ) : null}
 
         {rightPanelPresent && renderedPullRequestSurface && panelEnvironmentId !== null ? (
           <RightPanelTabs
-            mode="inline"
+            mode={SINGLE_PROVIDER_UI ? "sidebar" : "inline"}
+            {...(SINGLE_PROVIDER_UI
+              ? { maximized: true, ...(isDesktop ? { tabBarHost } : {}) }
+              : {})}
             open={rightPanelState.isOpen}
             widthStorageKey="t3code:pull-request-panel-width"
             // Default to roughly half the viewport: the PR list needs more
@@ -2237,32 +2275,58 @@ function CompactFilterMenu<Value extends string>({
   if (!current) return null;
   return (
     <Menu>
-      <MenuTrigger
-        aria-label={triggerLabel || iconOnly ? `${label}: ${current.label}` : label}
-        title={iconOnly ? `${label}: ${current.label}` : undefined}
-        render={
-          outlined ? (
-            <Button variant="outline" size={iconOnly ? "icon" : "default"} />
-          ) : (
-            <Button variant="ghost-muted" size="sm" />
-          )
-        }
-        className={cn("min-w-0", className)}
-      >
-        {iconOnly ? (
-          <current.Icon aria-hidden className="size-4" />
-        ) : triggerLabel ? (
-          <>
-            {triggerIcon}
-            <span>{triggerLabel}</span>
-          </>
-        ) : (
-          <>
-            <span className="truncate">{current.label}</span>
-            <ChevronDownIcon aria-hidden className="size-3 shrink-0 text-muted-foreground/70" />
-          </>
-        )}
-      </MenuTrigger>
+      <Tooltip>
+        <TooltipTrigger
+          render={
+            <MenuTrigger
+              aria-label={triggerLabel || iconOnly ? `${label}: ${current.label}` : label}
+              render={
+                outlined ? (
+                  <Button
+                    variant={
+                      SINGLE_PROVIDER_UI && iconOnly
+                        ? "ghost"
+                        : SINGLE_PROVIDER_UI
+                          ? "secondary"
+                          : "outline"
+                    }
+                    size={
+                      SINGLE_PROVIDER_UI && iconOnly ? "icon-xs" : iconOnly ? "icon" : "default"
+                    }
+                  />
+                ) : (
+                  <Button variant="ghost-muted" size="sm" />
+                )
+              }
+              className={cn("min-w-0", className)}
+            >
+              {iconOnly ? (
+                triggerLabel === "Sort" ? (
+                  triggerIcon
+                ) : (
+                  <current.Icon aria-hidden className="size-4" />
+                )
+              ) : triggerLabel ? (
+                <>
+                  {triggerIcon}
+                  <span>{triggerLabel}</span>
+                </>
+              ) : (
+                <>
+                  <span className="truncate">{current.label}</span>
+                  <ChevronDownIcon
+                    aria-hidden
+                    className="size-3 shrink-0 text-muted-foreground/70"
+                  />
+                </>
+              )}
+            </MenuTrigger>
+          }
+        />
+        <TooltipPopup>
+          {label}: {current.label}
+        </TooltipPopup>
+      </Tooltip>
       <MenuPopup align="start" side="bottom">
         <MenuRadioGroup value={value} onValueChange={(next) => onChange(next as Value)}>
           {options.map((option) => {
@@ -2462,6 +2526,36 @@ function PullRequestsColumn({
     input.setSelectionRange(input.value.length, input.value.length);
   }, [condensed]);
 
+  if (SINGLE_PROVIDER_UI) {
+    return (
+      <div className="flex min-h-0 flex-1 flex-col">
+        <div className="flex h-11 shrink-0 items-center justify-between px-3">
+          <h2 className="min-w-0 truncate text-base font-medium">Pull requests</h2>
+          <div className="flex shrink-0 items-center gap-1">
+            {sortMenu}
+            {filtersMenu}
+            <CompactFilterMenu
+              label="Filter by provider"
+              outlined
+              iconOnly
+              triggerLabel="All"
+              value={host ?? ""}
+              options={hostMenuOptions}
+              onChange={(next) => onHost(next === "" ? undefined : next)}
+            />
+            <PullRequestRefreshControl compact refreshing={refreshing} onRefresh={onRefresh} />
+          </div>
+        </div>
+        <div ref={inFlowSearchRef} className="shrink-0 px-3 pt-2 pb-4">
+          {searchInput}
+        </div>
+        <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto px-2 pb-3">
+          {listBody}
+        </div>
+      </div>
+    );
+  }
+
   return (
     // Painted flat like the chat column: the inset underneath carries the chrome grain, and a
     // content surface that lets it show reads as a different background than every thread.
@@ -2592,14 +2686,21 @@ function PullRequestRefreshControl({
   onRefresh: () => void;
 }) {
   return (
-    <Button
-      size={compact ? "icon-sm" : "icon"}
-      variant={compact ? "ghost" : "outline"}
-      aria-label="Refresh pull requests"
-      onClick={onRefresh}
-      disabled={refreshing}
-    >
-      <RefreshIcon size="md" refreshing={refreshing} />
-    </Button>
+    <Tooltip>
+      <TooltipTrigger
+        render={
+          <Button
+            size={SINGLE_PROVIDER_UI && compact ? "icon-xs" : compact ? "icon-sm" : "icon"}
+            variant={SINGLE_PROVIDER_UI || compact ? "ghost" : "outline"}
+            aria-label="Refresh pull requests"
+            onClick={onRefresh}
+            disabled={refreshing}
+          >
+            <RefreshIcon size="md" refreshing={refreshing} />
+          </Button>
+        }
+      />
+      <TooltipPopup>Refresh pull requests</TooltipPopup>
+    </Tooltip>
   );
 }

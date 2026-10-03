@@ -344,6 +344,25 @@ it("archives directly from the roster without opening the chat and blocks the ac
   expect(state.update).toHaveBeenCalledOnce();
 });
 
+it("allows archiving the only starter agent and leaves an empty roster without losing its chat", async () => {
+  const starter = { ...project, title: "Your First Agent" };
+  state.projects = [starter];
+  await render(false, true);
+  expect(button("Archive Your First Agent").disabled).toBe(false);
+  await click("Archive Your First Agent");
+  expect(state.update).toHaveBeenCalledWith({
+    environmentId,
+    input: { projectId, agentProfile: { ...profile, archived: true } },
+  });
+  state.projects = [{ ...starter, agentProfile: { ...profile, archived: true } }];
+  await render(false, true);
+  expect(host.textContent).toContain("No agents yet");
+  expect(button("Archive Your First Agent")).toBeUndefined();
+  expect(state.threads).toEqual([thread]);
+  expect(state.unarchive).not.toHaveBeenCalled();
+  expect(state.navigate).not.toHaveBeenCalled();
+});
+
 it("archives only the profile once while pending, preserving the linked conversation and retrying failures", async () => {
   let complete!: (result: AtomCommandResult<void, Error>) => void;
   state.update.mockImplementation(

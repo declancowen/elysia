@@ -9,6 +9,7 @@ import type { AgentRosterEntry } from "./useAgents";
 const state = vi.hoisted(() => ({
   agents: [] as AgentRosterEntry[],
   active: "",
+  routeListeners: new Set<() => void>(),
   previews: new Map<
     string,
     { projectId: ProjectId; threadId: ThreadId; text: string; updatedAt: string }
@@ -35,12 +36,29 @@ vi.mock("./useAgentActions", () => ({
     archive: state.archive,
   }),
 }));
-vi.mock("@tanstack/react-router", () => ({
-  useNavigate: () => state.navigate,
-  useParams: () => ({ environmentId: "local", threadId: state.active }),
-}));
+vi.mock("@tanstack/react-router", async () => {
+  const { useSyncExternalStore } = await import("react");
+  return {
+    useNavigate: () => state.navigate,
+    useParams: () => ({
+      environmentId: "local",
+      threadId: useSyncExternalStore(
+        (listener) => {
+          state.routeListeners.add(listener);
+          return () => state.routeListeners.delete(listener);
+        },
+        () => state.active,
+      ),
+    }),
+  };
+});
 vi.mock("../sidebar/SidebarChrome", () => ({
-  SidebarChromeHeader: () => <p>Elysia header</p>,
+  SidebarChromeHeader: ({ search }: { search?: ReactNode }) => (
+    <div>
+      <p>Elysia header</p>
+      {search}
+    </div>
+  ),
   SidebarChromeFooter: () => <p>Elysia footer</p>,
 }));
 vi.mock("../ui/sidebar", () => ({
@@ -143,12 +161,17 @@ it("opens an agent or group from the conversation roster, filters roles and crea
   ]);
   state.open.mockImplementation(async (entry: AgentRosterEntry) => {
     state.active = entry.thread!.id;
+    for (const listener of state.routeListeners) listener();
     return true;
   });
   const host = document.createElement("div");
   document.body.append(host);
   const root = createRoot(host);
-  const render = () => act(async () => root.render(<AgentsSidebar />));
+  const render = () =>
+    act(async () => {
+      state.agents = [...state.agents];
+      root.render(<AgentsSidebar />);
+    });
   const click = (label: string) =>
     act(async () => {
       const target = [...document.querySelectorAll<HTMLElement>('button, [role="menuitem"]')].find(
@@ -185,6 +208,8 @@ it("opens an agent or group from the conversation roster, filters roles and crea
     expect(host.querySelector('[aria-label="Open Team chat"]')?.getAttribute("aria-current")).toBe(
       "page",
     );
+    expect(host.querySelector('[aria-label="Search agents"]')).toBeNull();
+    await click("Toggle agent search");
     const input = host.querySelector<HTMLInputElement>('[aria-label="Search agents"]')!;
     await act(async () => {
       Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(
@@ -202,6 +227,9 @@ it("opens an agent or group from the conversation roster, filters roles and crea
       input.dispatchEvent(new Event("input", { bubbles: true }));
     });
     expect(host.querySelector('[aria-label="Open Team chat"]')).toBeNull();
+    await click("Toggle agent search");
+    expect(host.querySelector('[aria-label="Search agents"]')).toBeNull();
+    expect(host.querySelector('[aria-label="Open Team chat"]')).not.toBeNull();
     await click("New agent or channel");
     await click("New channel");
     expect(document.querySelector('[role="dialog"][aria-label="New channel"]')).not.toBeNull();

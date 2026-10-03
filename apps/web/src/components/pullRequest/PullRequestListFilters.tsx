@@ -1,3 +1,4 @@
+import { SINGLE_PROVIDER_UI } from "@t3tools/contracts";
 import { Spinner } from "~/components/ui/spinner";
 import type {
   EnvironmentId,
@@ -105,7 +106,10 @@ export function PullRequestSearchInput({
   onChange: (value: string) => void;
 }) {
   return (
-    <InputGroup className="min-w-0 flex-1 **:[input]:h-9 sm:**:[input]:h-8">
+    <InputGroup
+      variant={SINGLE_PROVIDER_UI ? "filled" : "default"}
+      className="min-w-0 flex-1 **:[input]:h-9 sm:**:[input]:h-8"
+    >
       <InputGroupAddon>
         {busy ? <Spinner aria-hidden /> : <SearchIcon aria-hidden />}
       </InputGroupAddon>
@@ -386,6 +390,7 @@ function PullRequestLabelFilter({
 }
 
 export function PullRequestFiltersMenu({
+  iconOnly = false,
   onOpenChange,
   state,
   stateOptions,
@@ -409,6 +414,7 @@ export function PullRequestFiltersMenu({
   unavailable,
   onProject,
 }: {
+  iconOnly?: boolean;
   onOpenChange?: (open: boolean) => void;
   state: PullRequestListState;
   stateOptions: ReadonlyArray<PullRequestFilterOption<PullRequestListState>>;
@@ -499,15 +505,30 @@ export function PullRequestFiltersMenu({
   ];
   return (
     <Menu onOpenChange={onOpenChange}>
-      <MenuTrigger render={<Button variant="outline" />}>
-        <ListFilterIcon className="size-4" />
-        <span>Filters</span>
-        {filterCount > 0 ? (
-          <span className="rounded-full bg-muted px-1.5 text-xs text-muted-foreground tabular-nums">
-            {filterCount}
-          </span>
-        ) : null}
-      </MenuTrigger>
+      <Tooltip>
+        <TooltipTrigger
+          render={
+            <MenuTrigger
+              render={
+                <Button
+                  aria-label="Filters"
+                  variant={iconOnly ? "ghost" : SINGLE_PROVIDER_UI ? "secondary" : "outline"}
+                  size={iconOnly ? "icon-xs" : SINGLE_PROVIDER_UI ? "sm" : "default"}
+                />
+              }
+            >
+              <ListFilterIcon className="size-4" />
+              {!iconOnly && <span>Filters</span>}
+              {filterCount > 0 && !iconOnly ? (
+                <span className="rounded-full bg-muted px-1.5 text-xs text-muted-foreground tabular-nums">
+                  {filterCount}
+                </span>
+              ) : null}
+            </MenuTrigger>
+          }
+        />
+        <TooltipPopup>Filters</TooltipPopup>
+      </Tooltip>
       <MenuPopup align="end" side="bottom">
         <PullRequestFilterRadioSubmenu
           label="State"

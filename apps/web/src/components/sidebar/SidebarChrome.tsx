@@ -11,7 +11,7 @@ import {
   SquarePenIcon,
   Home,
   BotIcon,
-  CalendarClockIcon,
+  ClockIcon,
   FolderIcon,
   RotateCwIcon,
 } from "~/icons";
@@ -64,18 +64,20 @@ import { PullRequestGlyph } from "~/components/pullRequest/pullRequestIcons";
 export const SidebarChromeHeader = memo(function SidebarChromeHeader({
   isElectron,
   search,
+  title,
 }: {
   isElectron: boolean;
   search?: ReactNode;
+  title?: string;
 }) {
   const stageLabel = useEnvironmentStageLabel();
   const environmentIdentificationMode = useEnvironmentIdentificationMode();
   const backdropVariant = resolveSidebarStageBackdropVariant(
     stageLabel,
-    environmentIdentificationMode === "artwork",
+    !SINGLE_PROVIDER_UI && environmentIdentificationMode === "artwork",
   );
   const pillLabel =
-    environmentIdentificationMode === "pill"
+    !SINGLE_PROVIDER_UI && environmentIdentificationMode === "pill"
       ? resolveEnvironmentIdentificationPillLabel(stageLabel)
       : null;
 
@@ -99,8 +101,13 @@ export const SidebarChromeHeader = memo(function SidebarChromeHeader({
           !SINGLE_PROVIDER_UI && "md:ml-[var(--workspace-titlebar-content-left)]",
         )}
       >
-        <SidebarBrand onBackdrop={backdropVariant !== null} />
-        <div className="[-webkit-app-region:no-drag] flex min-w-0 flex-1 justify-end pr-2">
+        {SINGLE_PROVIDER_UI ? (
+          <h2 className="truncate text-base font-medium">{title ?? "Workspace"}</h2>
+        ) : (
+          <SidebarBrand onBackdrop={backdropVariant !== null} />
+        )}
+        <div className="[-webkit-app-region:no-drag] flex min-w-0 flex-1 items-center justify-end gap-1">
+          {SINGLE_PROVIDER_UI && !title ? <SidebarThreadViewSwitcher /> : null}
           {search}
         </div>
       </div>
@@ -117,6 +124,29 @@ export const SidebarChromeHeader = memo(function SidebarChromeHeader({
     </div>
   );
 });
+
+function SidebarThreadViewSwitcher() {
+  const projectSidebar = useClientSettings((settings) => settings.legacySidebarEnabled);
+  const updateClientSettings = useUpdateClientSettings();
+  const label = projectSidebar ? "Switch to Thread view" : "Switch to Project view";
+  return (
+    <Tooltip>
+      <TooltipTrigger
+        render={
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            aria-label={label}
+            onClick={() => void updateClientSettings({ legacySidebarEnabled: !projectSidebar })}
+          >
+            {projectSidebar ? <Columns2Icon /> : <PanelLeftIcon />}
+          </Button>
+        }
+      />
+      <TooltipPopup>{label}</TooltipPopup>
+    </Tooltip>
+  );
+}
 
 function SidebarBrand({ onBackdrop }: { onBackdrop: boolean }) {
   return (
@@ -375,7 +405,6 @@ export const AppNavigationRail = memo(function AppNavigationRail() {
   const codeWorkspace = useCodeWorkspace();
   const agentSidebarSelected = useAgentSidebarStore((state) => state.active);
   const agentsActive = agentSidebarActiveForPath(pathname, agentSidebarSelected);
-  const projectSidebar = useClientSettings((settings) => settings.legacySidebarEnabled);
   const updateClientSettings = useUpdateClientSettings();
   const { environments } = useEnvironments();
   const pullRequestsSupported = environments.some(
@@ -385,7 +414,7 @@ export const AppNavigationRail = memo(function AppNavigationRail() {
   return (
     <aside
       aria-label="App navigation"
-      className="relative z-20 hidden w-[var(--app-navigation-rail-width)] shrink-0 flex-col items-center justify-between gap-2 bg-sidebar py-2 md:flex"
+      className="relative z-20 hidden w-[var(--app-navigation-rail-width)] shrink-0 flex-col items-center justify-between gap-2 bg-sidebar pt-2 md:flex"
     >
       <nav aria-label="Workspace pages" className="flex flex-col items-center gap-2">
         <AppRailButton
@@ -414,7 +443,7 @@ export const AppNavigationRail = memo(function AppNavigationRail() {
         />
         <AppRailButton
           label="Scheduled"
-          icon={<CalendarClockIcon className="size-5" />}
+          icon={<ClockIcon className="size-5" />}
           active={pathname === "/settings/scheduled-tasks"}
           onClick={() => {
             setAgentSidebarActive(false);
@@ -469,17 +498,6 @@ export const AppNavigationRail = memo(function AppNavigationRail() {
           onClick={() =>
             void updateClientSettings({ workspaceMode: codeWorkspace ? "work" : "code" })
           }
-        />
-        <AppRailButton
-          label={projectSidebar ? "Switch to Thread view" : "Switch to Project view"}
-          icon={
-            projectSidebar ? (
-              <Columns2Icon className="size-5" />
-            ) : (
-              <PanelLeftIcon className="size-5" />
-            )
-          }
-          onClick={() => void updateClientSettings({ legacySidebarEnabled: !projectSidebar })}
         />
         <AppRailButton
           label="Refresh"

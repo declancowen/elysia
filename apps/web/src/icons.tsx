@@ -1,3 +1,4 @@
+import AlignBoxMiddleLeftIconAsset from "@hugeicons/core-free-icons/AlignBoxMiddleLeftIcon";
 import UnplugIconV2Asset from "@hugeicons/core-free-icons/UnplugIcon";
 import CalendarClockIconV2Asset from "@hugeicons/core-free-icons/CalendarClockIcon";
 import ListOrderedIconV2Asset from "@hugeicons/core-free-icons/ListOrderedIcon";
@@ -29,8 +30,7 @@ import BatteryIconAsset from "@hugeicons/core-free-icons/BatteryIcon";
 import BlocksIconAsset from "@hugeicons/core-free-icons/BlocksIcon";
 import BookOpenIconAsset from "@hugeicons/core-free-icons/BookOpen01Icon";
 import BookmarkIconAsset from "@hugeicons/core-free-icons/Bookmark01Icon";
-import BotAsset from "@hugeicons/core-free-icons/BotIcon";
-import BotIconAsset from "@hugeicons/core-free-icons/BotIcon";
+import DroneIconAsset from "@hugeicons/core-free-icons/DroneIcon";
 import BoxAsset from "@hugeicons/core-free-icons/PackageIcon";
 import BracesAsset from "@hugeicons/core-free-icons/FirstBracketIcon";
 import BrainIconAsset from "@hugeicons/core-free-icons/BrainIcon";
@@ -299,8 +299,9 @@ export const BatteryIcon = /* @__PURE__ */ createIcon(BatteryIconAsset, "battery
 export const BlocksIcon = /* @__PURE__ */ createIcon(BlocksIconAsset, "blocks");
 export const BookOpenIcon = /* @__PURE__ */ createIcon(BookOpenIconAsset, "book-open");
 export const BookmarkIcon = /* @__PURE__ */ createIcon(BookmarkIconAsset, "bookmark");
-export const Bot = /* @__PURE__ */ createIcon(BotAsset, "bot");
-export const BotIcon = /* @__PURE__ */ createIcon(BotIconAsset, "bot");
+export const DroneIcon = /* @__PURE__ */ createIcon(DroneIconAsset, "drone");
+export const Bot = DroneIcon;
+export const BotIcon = DroneIcon;
 export const Box = /* @__PURE__ */ createIcon(BoxAsset, "box");
 export const Braces = /* @__PURE__ */ createIcon(BracesAsset, "braces");
 export const BrainIcon = /* @__PURE__ */ createIcon(BrainIconAsset, "brain");
@@ -679,3 +680,8 @@ export const CalendarClockIcon = /* @__PURE__ */ createIcon(
 );
 
 export const UnplugIcon = /* @__PURE__ */ createIcon(UnplugIconV2Asset, "UnplugIcon");
+
+export const AlignBoxMiddleLeftIcon = /* @__PURE__ */ createIcon(
+  AlignBoxMiddleLeftIconAsset,
+  "align-box-middle-left",
+);

@@ -1,9 +1,15 @@
 import { useCodeWorkspace } from "~/hooks/useSettings";
-import { SettingsGroup } from "./SettingsGroup";
 import { ArchivedAgentsSection } from "./ArchivedAgentsSection";
 import { Spinner } from "~/components/ui/spinner";
 import { NotificationSettings } from "./NotificationSettings";
-import { ArchiveIcon, ArchiveX, CheckIcon, MessageCircle, SettingsIcon } from "~/icons";
+import {
+  RotateCcwIcon,
+  ArchiveIcon,
+  ArchiveX,
+  CheckIcon,
+  MessageCircle,
+  SettingsIcon,
+} from "~/icons";
 import { Link, useNavigate } from "@tanstack/react-router";
 import type { CSSProperties, ReactNode } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -1945,6 +1951,29 @@ function WorkspacePreferencesSection() {
 }
 
 export function GeneralSettingsPanel() {
+  const [restoreSignal, setRestoreSignal] = useState(0);
+  const { changedSettingLabels, restoreDefaults } = useSettingsRestore(() =>
+    setRestoreSignal((value) => value + 1),
+  );
+  return (
+    <GeneralSettingsContent
+      key={restoreSignal}
+      scopeActions={
+        <Button
+          size="xs"
+          variant="ghost"
+          disabled={changedSettingLabels.length === 0}
+          onClick={() => void restoreDefaults()}
+        >
+          <RotateCcwIcon className="mx-1 size-3.5" />
+          Restore device defaults
+        </Button>
+      }
+    />
+  );
+}
+
+function GeneralSettingsContent({ scopeActions }: { scopeActions: ReactNode }) {
   const modifierLabel = isMacPlatform(navigator.platform) ? "⌘" : "Ctrl";
   const sendShortcutOptions = [
     { value: "enter", label: "Enter" },
@@ -2029,7 +2058,7 @@ export function GeneralSettingsPanel() {
   );
 
   return (
-    <SettingsPageContainer>
+    <SettingsPageContainer scopeActions={scopeActions}>
       <ProjectDefaultsSettings category="general" />
       <WorkspacePreferencesSection />
       <SettingsSection id="organization" title="Organization">

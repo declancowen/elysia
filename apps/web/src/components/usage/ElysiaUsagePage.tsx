@@ -4,16 +4,13 @@ import { useContext, useState } from "react";
 import { isEnabledProviderDriver } from "@t3tools/contracts";
 import type { ElysiaStatsTotals } from "@t3tools/contracts";
 
-import { isElectron } from "../../env";
 import { useEscapeToGoBack } from "../../hooks/useNavigateBack";
 import { usePrimaryEnvironmentId } from "../../state/environments";
 import { useEnvironmentQuery } from "../../state/query";
 import { primaryServerProvidersAtom, serverEnvironment } from "../../state/server";
-import { ElysiaIcon } from "../Icons";
 import { Button } from "../ui/button";
 import { SidebarInset } from "../ui/sidebar";
 import { WorkspacePageContainer } from "../WorkspacePageContainer";
-import { WorkspacePageHeader } from "../WorkspacePageHeader";
 
 const numberFormat = new Intl.NumberFormat();
 const savingsFormat = new Intl.NumberFormat(undefined, {
@@ -55,7 +52,7 @@ function SavingsSummary({
         {values.map(([label, value]) => (
           <div
             key={label}
-            className="min-w-0 rounded-xl border border-border bg-background px-5 py-4"
+            className="min-w-0 rounded-xl workspace-panel-outline bg-background px-5 py-4"
           >
             <dt className="text-sm text-muted-foreground">{label}</dt>
             <dd className="mt-2 text-xl font-medium tabular-nums">{value}</dd>
@@ -106,67 +103,63 @@ export function ElysiaUsagePage() {
         ? "Elysia stats could not be loaded. Check your connection, then refresh."
         : "Connect Elysia in Providers to view your compression savings.";
   return (
-    <SidebarInset>
-      <WorkspacePageHeader electron={isElectron}>
-        <span className="text-sm font-medium">Stats</span>
-      </WorkspacePageHeader>
-      <WorkspacePageContainer width="expanded">
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <ElysiaIcon className="size-8" />
-            <h1 className="text-xl font-medium">Elysia stats</h1>
+    <SidebarInset variant="standalone" className="min-h-0 overflow-hidden">
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        <WorkspacePageContainer width="surface">
+          <div className="flex min-h-8 items-center justify-between gap-3">
+            <h1 className="text-xl font-medium">Stats</h1>
+            <Button
+              variant="secondary"
+              size="sm"
+              disabled={!environmentId || !provider || query.isPending}
+              onClick={refresh}
+            >
+              {query.isPending ? "Refreshing…" : "Refresh"}
+            </Button>
           </div>
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={!environmentId || !provider || query.isPending}
-            onClick={refresh}
-          >
-            {query.isPending ? "Refreshing…" : "Refresh"}
-          </Button>
-        </div>
-        <p className="text-sm text-muted-foreground">
-          Savings reported by your local Elysia CLI. Cost savings are estimates in US dollars. Reads
-          local usage data without sending a model request.
-        </p>
-        <p className="text-sm text-muted-foreground">
-          Last updated:{" "}
-          {lastUpdated?.key === targetKey ? (
-            <time dateTime={new Date(lastUpdated.time).toISOString()}>
-              {new Date(lastUpdated.time).toLocaleString()}
-            </time>
-          ) : (
-            "Not refreshed yet"
-          )}
-        </p>
-        {snapshot?.status === "available" ? (
-          <div className="space-y-6">
-            <SavingsSummary
-              title="Current session"
-              totals={snapshot.session}
-              savingsPercent={snapshot.session.savingsPercent}
-            />
-            {snapshot.lifetime ? (
-              <SavingsSummary title="Lifetime" totals={snapshot.lifetime} />
-            ) : null}
-          </div>
-        ) : query.isPending ? (
-          <p role="status" className="text-sm text-muted-foreground">
-            Reading Elysia stats…
+          <p className="text-sm text-muted-foreground">
+            Savings reported by your local Elysia CLI. Cost savings are estimates in US dollars.
+            Reads local usage data without sending a model request.
           </p>
-        ) : requestedTarget !== targetKey && statsAtom ? (
-          <p role="status" className="text-sm text-muted-foreground">
-            Click Refresh to view your compression stats.
+          <p className="text-sm text-muted-foreground">
+            Last updated:{" "}
+            {lastUpdated?.key === targetKey ? (
+              <time dateTime={new Date(lastUpdated.time).toISOString()}>
+                {new Date(lastUpdated.time).toLocaleString()}
+              </time>
+            ) : (
+              "Not refreshed yet"
+            )}
           </p>
-        ) : (
-          <section className="space-y-3">
+          {snapshot?.status === "available" ? (
+            <div className="space-y-6">
+              <SavingsSummary
+                title="Current session"
+                totals={snapshot.session}
+                savingsPercent={snapshot.session.savingsPercent}
+              />
+              {snapshot.lifetime ? (
+                <SavingsSummary title="Lifetime" totals={snapshot.lifetime} />
+              ) : null}
+            </div>
+          ) : query.isPending ? (
             <p role="status" className="text-sm text-muted-foreground">
-              {unavailableMessage}
+              Reading Elysia stats…
             </p>
-            <Button render={<Link to="/settings/providers" />}>Open Providers</Button>
-          </section>
-        )}
-      </WorkspacePageContainer>
+          ) : requestedTarget !== targetKey && statsAtom ? (
+            <p role="status" className="text-sm text-muted-foreground">
+              Click Refresh to view your compression stats.
+            </p>
+          ) : (
+            <section className="space-y-3">
+              <p role="status" className="text-sm text-muted-foreground">
+                {unavailableMessage}
+              </p>
+              <Button render={<Link to="/settings/providers" />}>Open Providers</Button>
+            </section>
+          )}
+        </WorkspacePageContainer>
+      </div>
     </SidebarInset>
   );
 }

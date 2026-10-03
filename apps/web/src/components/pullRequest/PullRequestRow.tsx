@@ -1,3 +1,4 @@
+import { SINGLE_PROVIDER_UI } from "@t3tools/contracts";
 import { SearchIcon } from "~/icons";
 import { PullRequestStackPopover } from "./PullRequestStackPopover";
 import { memo, type RefCallback } from "react";
@@ -115,12 +116,19 @@ function PullRequestRowImpl({
       className={cn(
         PULL_REQUEST_ROW_CLASS,
         PAGE_ROW_CLASS,
+        SINGLE_PROVIDER_UI && "px-2.5 rounded-xl",
         "cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
         // Offscreen rows are skipped for style, layout and paint: a long list costs what the
         // viewport shows, not what the pages have loaded. The intrinsic size keeps the
         // scrollbar honest while a row is skipped.
         "[content-visibility:auto]",
-        selected ? "bg-accent" : "hover:bg-accent/60",
+        SINGLE_PROVIDER_UI
+          ? selected
+            ? "bg-sidebar-row-active"
+            : "hover:bg-sidebar-row-hover"
+          : selected
+            ? "bg-accent"
+            : "hover:bg-accent/60",
       )}
     >
       <PullRequestRowGlyph

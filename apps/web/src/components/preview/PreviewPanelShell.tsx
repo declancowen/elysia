@@ -1,14 +1,6 @@
 import { SINGLE_PROVIDER_UI } from "@t3tools/contracts";
-import {
-  type ReactNode,
-  type RefObject,
-  useEffect,
-  useLayoutEffect,
-  useRef,
-  useState,
-} from "react";
+import { type ReactNode, type RefObject, useLayoutEffect, useRef, useState } from "react";
 
-import { isElectron } from "~/env";
 import {
   getPreviewPanelMaxWidth,
   type PreviewPanelInlineSize,
@@ -68,7 +60,6 @@ function PreviewPanelShellFrame(
     hostRef?: RefObject<HTMLDivElement | null>;
   },
 ) {
-  const useDragRegion = isElectron && props.mode !== "sheet" && props.mode !== "embedded";
   const isInline = props.mode === "inline";
   const collapsible = isInline && props.open !== undefined;
   const open = props.open ?? true;
@@ -121,7 +112,7 @@ function PreviewPanelShellFrame(
         isInline ? (maximized ? "flex-1" : "shrink-0") : "w-full",
         isInline &&
           (SINGLE_PROVIDER_UI
-            ? cn("rounded-xl", open && !maximized && "ml-2")
+            ? cn("rounded-xl workspace-panel-frame", open && !maximized && "ml-1")
             : "border-l border-border"),
         collapsible &&
           "[[data-panel-animations=true]_&]:transition-[width,margin-left] [[data-panel-animations=true]_&]:duration-(--panel-animation-duration) [[data-panel-animations=true]_&]:ease-out",
@@ -160,55 +151,4 @@ function PreviewPanelShellFrame(
       </div>
     </div>
   );
-}
-
-/**
- * Track viewport and flex-row widths to derive an upper bound for the panel.
- * Resize-aware so dragging the OS window narrower (or expanding the app
- * sidebar) re-clamps the stored width on the next render (the hook's clamp
- * picks this up automatically). The row is observed rather than the panel
- * itself because the panel competes with its sibling column for row space.
- * Row measurement only runs when `enabled`; modes without a resize handle
- * never apply the resulting width, so they skip the observer entirely.
- */
-function useClampedMaxWidth(hostRef: RefObject<HTMLDivElement | null>, enabled: boolean): number {
-  const [vw, setVw] = useState(() => (typeof window === "undefined" ? 1280 : window.innerWidth));
-  const [containerWidth, setContainerWidth] = useState<number | undefined>(undefined);
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    let frame = 0;
-    const onResize = () => {
-      // Coalesce rapid resize events into one rAF tick.
-      if (frame !== 0) return;
-      frame = window.requestAnimationFrame(() => {
-        frame = 0;
-        setVw(window.innerWidth);
-      });
-    };
-    window.addEventListener("resize", onResize);
-    return () => {
-      window.removeEventListener("resize", onResize);
-      if (frame !== 0) window.cancelAnimationFrame(frame);
-    };
-  }, []);
-  useLayoutEffect(() => {
-    if (!enabled) return;
-    const parent = hostRef.current?.parentElement;
-    if (!parent) return;
-    // Measure before first paint: the persisted width must be clamped
-    // against the row on the initial render, not one observer tick later
-    // (the panel would flash over-wide on every mount). clientWidth is
-    // integral, so sub-pixel resize deltas bail out of re-rendering.
-    const measure = () => {
-      setContainerWidth(parent.clientWidth - (SINGLE_PROVIDER_UI ? 8 : 0));
-    };
-    measure();
-    if (typeof ResizeObserver === "undefined") return;
-    const observer = new ResizeObserver(measure);
-    observer.observe(parent);
-    return () => {
-      observer.disconnect();
-    };
-  }, [hostRef, enabled]);
-  return getPreviewPanelMaxWidth(vw, containerWidth);
 }

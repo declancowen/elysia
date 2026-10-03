@@ -9,6 +9,7 @@ import { RECENT_THREADS_EXPANSION_KEY, RecentThreadsHeader } from "./RecentThrea
 import {
   AppNavigationRail,
   SidebarChromeFooter,
+  SidebarChromeHeader,
   SidebarHeaderSearch,
   SidebarNewChatButton,
   SidebarUtilityMenu,
@@ -60,7 +61,7 @@ vi.mock("~/state/environments", () => ({
   },
 }));
 
-it("navigates rail pages and preserves both workspace switches on utility pages", async () => {
+it("navigates rail pages and keeps the thread switcher in Workspace", async () => {
   vi.stubGlobal("cookieStore", { set: vi.fn(async () => {}) });
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   vi.stubGlobal("matchMedia", () => ({
@@ -84,6 +85,7 @@ it("navigates rail pages and preserves both workspace switches on utility pages"
     root.render(
       <SidebarProvider>
         <AppNavigationRail />
+        <SidebarChromeHeader isElectron={false} />
         <SidebarChromeFooter />
       </SidebarProvider>,
     );
@@ -93,7 +95,9 @@ it("navigates rail pages and preserves both workspace switches on utility pages"
   try {
     await act(async () => render());
     expect(
-      [...container.querySelectorAll("button")].map((el) => el.getAttribute("aria-label")),
+      [...container.querySelectorAll("button")]
+        .map((el) => el.getAttribute("aria-label"))
+        .filter(Boolean),
     ).toEqual([
       "Home",
       "Agents",
@@ -103,8 +107,8 @@ it("navigates rail pages and preserves both workspace switches on utility pages"
       "Stats",
       "Settings",
       "Code workspace · Switch to Work",
-      "Switch to Thread view",
       "Refresh",
+      "Switch to Thread view",
     ]);
     expect(button("Stats").getAttribute("aria-current")).toBe("page");
     await act(async () => button("Agents").click());

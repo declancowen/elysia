@@ -1,6 +1,6 @@
-import { CalendarClockIcon } from "~/icons";
+import { ClockIcon } from "~/icons";
 import { useCodeWorkspace } from "~/hooks/useSettings";
-import { CONNECTIONS_ENABLED } from "@t3tools/contracts";
+import { CONNECTIONS_ENABLED, SINGLE_PROVIDER_UI } from "@t3tools/contracts";
 import {
   lazy,
   Suspense,
@@ -77,7 +77,7 @@ const SETTINGS_SECTION_ICONS: Readonly<
   "/settings/snap-shot": SnapShotIcon,
   "/settings/providers": BotIcon,
   "/settings/integrations": BlocksIcon,
-  "/settings/scheduled-tasks": CalendarClockIcon,
+  "/settings/scheduled-tasks": ClockIcon,
   "/settings/source-control": GitBranchIcon,
   "/settings/storage": HardDriveIcon,
   "/settings/connections": Link2Icon,
@@ -108,6 +108,7 @@ export function SettingsSidebarNav({ pathname }: { pathname: string }) {
   const navItems = SETTINGS_NAV_ITEMS.filter(
     (item) =>
       item.to !== "/settings/connections" &&
+      (!SINGLE_PROVIDER_UI || item.to !== "/settings/scheduled-tasks") &&
       isSettingsPathVisibleInWorkspace(item.to, codeWorkspace) &&
       (item.to !== "/settings/projects" || isSettingsOverviewVisible(scopeSearch)),
   );

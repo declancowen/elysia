@@ -1,8 +1,5 @@
 import { Navigate, Outlet, createFileRoute, redirect, useLocation } from "@tanstack/react-router";
-import { useState, type ReactNode } from "react";
-import { RotateCcwIcon } from "~/icons";
-import { Button } from "../components/ui/button";
-import { useSettingsRestore } from "../components/settings/SettingsPanels";
+import type { ReactNode } from "react";
 
 import { SettingsBreadcrumb } from "../components/settings/SettingsBreadcrumb";
 import { SidebarInset } from "../components/ui/sidebar";
@@ -34,21 +31,6 @@ import {
   isSettingsPathVisibleInWorkspace,
   isSettingsTargetVisibleInWorkspace,
 } from "../components/settings/settingsWorkspace";
-
-function RestoreDeviceDefaultsButton({ onRestored }: { onRestored: () => void }) {
-  const { changedSettingLabels, restoreDefaults } = useSettingsRestore(onRestored);
-  return (
-    <Button
-      size="xs"
-      variant="ghost"
-      disabled={changedSettingLabels.length === 0}
-      onClick={() => void restoreDefaults()}
-    >
-      <RotateCcwIcon className="mx-1 size-3.5" />
-      Restore device defaults
-    </Button>
-  );
-}
 
 function SettingsScopeBoundary({ pathname, children }: { pathname: string; children: ReactNode }) {
   const codeWorkspace = useCodeWorkspace();
@@ -137,28 +119,27 @@ function SettingsContentLayout() {
   const navigateToMainApp = useNavigateToMainApp();
   useEscapeToGoBack(navigateToMainApp);
   const { search } = useSettingsScope();
-  const [restoreSignal, setRestoreSignal] = useState(0);
+
+  if (SINGLE_PROVIDER_UI && location.pathname === "/settings/scheduled-tasks") {
+    return (
+      <SidebarInset className="min-h-0 overflow-hidden">
+        <div key={JSON.stringify(search)} className="flex min-h-0 flex-1 flex-col">
+          <Outlet />
+        </div>
+      </SidebarInset>
+    );
+  }
 
   return (
     <SidebarInset className="h-dvh min-h-0 overflow-hidden overscroll-y-none isolate">
       <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-background text-foreground">
-        <WorkspacePageHeader electron={isElectron}>
-          <div className="flex w-full items-center gap-3">
+        {!SINGLE_PROVIDER_UI && (
+          <WorkspacePageHeader electron={isElectron}>
             <SettingsBreadcrumb pathname={location.pathname} />
-            {location.pathname === "/settings/general" ? (
-              <div className="ms-auto flex shrink-0 items-center">
-                <RestoreDeviceDefaultsButton
-                  onRestored={() => setRestoreSignal((value) => value + 1)}
-                />
-              </div>
-            ) : null}
-          </div>
-        </WorkspacePageHeader>
+          </WorkspacePageHeader>
+        )}
 
-        <div
-          key={`${JSON.stringify(search)}:${restoreSignal}`}
-          className="min-h-0 flex flex-1 flex-col"
-        >
+        <div key={JSON.stringify(search)} className="min-h-0 flex flex-1 flex-col">
           <SettingsScopeBoundary pathname={location.pathname}>
             <Outlet />
           </SettingsScopeBoundary>

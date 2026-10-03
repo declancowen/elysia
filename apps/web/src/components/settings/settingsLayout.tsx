@@ -536,8 +536,10 @@ export function SettingsPageContainer({
   children,
   className,
   width = "readable",
+  scopeActions,
 }: {
   children: ReactNode;
+  scopeActions?: ReactNode;
   className?: string;
   width?: WorkspacePageWidth;
 }) {
@@ -568,7 +570,14 @@ export function SettingsPageContainer({
         data-settings-page-scroll
       >
         <WorkspacePageContainer width={width} className={cn("gap-8", className)}>
-          <SettingsScopeSentence />
+          {scopeActions ? (
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <SettingsScopeSentence />
+              <div className="pr-3 sm:pr-4">{scopeActions}</div>
+            </div>
+          ) : (
+            <SettingsScopeSentence />
+          )}
           {children}
         </WorkspacePageContainer>
       </div>

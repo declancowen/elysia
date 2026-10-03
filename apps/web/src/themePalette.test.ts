@@ -2,6 +2,7 @@ import { DEFAULT_THEME, ELYSIA_THEMES, BUILT_IN_THEMES } from "@t3tools/shared/t
 import { describe, expect, it, vi } from "vite-plus/test";
 
 import {
+  getWorkspaceThemeColors,
   applyThemeColorPreview,
   applyThemePalette,
   getThemeColorsForMode,
@@ -1140,5 +1141,30 @@ it("keeps the distinct GitHub and Notion palettes available in both appearances"
         contrastRatio(colors[foreground], colors[background]),
         `${theme.label}: ${foreground} on ${background}`,
       ).toBeGreaterThanOrEqual(4.5);
+  }
+});
+
+it("keeps workspace sidebar text readable across every native theme and custom mixed surfaces", () => {
+  const palettes = ELYSIA_THEMES.flatMap((theme) => [
+    theme.colors,
+    ...Object.values(theme.variants ?? {}),
+  ]);
+  palettes.push({
+    ...getDefaultThemeColors("light"),
+    canvas: "#000000",
+    sidebar: "#ffffff",
+    sidebarForeground: "#000000",
+  });
+  palettes.push({
+    ...getDefaultThemeColors("dark"),
+    canvas: "#ffffff",
+    sidebar: "#000000",
+    sidebarForeground: "#ffffff",
+  });
+  for (const palette of palettes) {
+    const colors = getWorkspaceThemeColors(palette);
+    expect(contrastRatio(colors.tab, colors.tabForeground)).toBeGreaterThanOrEqual(4.5);
+    expect(contrastRatio(colors.surface, colors.foreground)).toBeGreaterThanOrEqual(4.5);
+    expect(contrastRatio(colors.surface, colors.muted)).toBeGreaterThanOrEqual(4.5);
   }
 });

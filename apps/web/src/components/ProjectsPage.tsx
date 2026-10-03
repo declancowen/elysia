@@ -11,7 +11,6 @@ import { Link, useNavigate } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 
 import { openCommandPalette } from "../commandPaletteBus";
-import { isElectron } from "../env";
 import { useNewThreadHandler } from "../hooks/useHandleNewThread";
 import { useEscapeToGoBack } from "../hooks/useNavigateBack";
 import { useScratchProject } from "../hooks/useScratchProject";
@@ -24,7 +23,7 @@ import {
   FolderOpenIcon,
   MessageCircle,
   MoreHorizontalIcon,
-  PencilIcon,
+  Edit03Icon,
   PinIcon,
   PinOffIcon,
   PlusIcon,
@@ -51,8 +50,6 @@ import { SidebarInset } from "./ui/sidebar";
 import { Spinner } from "./ui/spinner";
 import { stackedThreadToast, toastManager } from "./ui/toast";
 import { WorkspacePageContainer } from "./WorkspacePageContainer";
-import { WorkspacePageHeader } from "./WorkspacePageHeader";
-import { ElysiaWordmark } from "./Icons";
 
 function reportProjectActionFailure(title: string, error: unknown) {
   toastManager.add(
@@ -124,17 +121,14 @@ export function ProjectsPage() {
   };
 
   return (
-    <SidebarInset className="h-dvh min-h-0 overflow-hidden">
-      <WorkspacePageHeader electron={isElectron}>
-        <ElysiaWordmark aria-label="Elysia" className="h-5 w-auto shrink-0" />
-      </WorkspacePageHeader>
+    <SidebarInset variant="standalone" className="min-h-0 overflow-hidden">
       <div className="min-h-0 flex-1 overflow-y-auto">
-        <WorkspacePageContainer width="expanded">
+        <WorkspacePageContainer width="surface">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <h1 className="text-xl font-medium">Projects</h1>
             <div className="flex min-w-0 flex-wrap items-center gap-2">
               <div className="w-60 max-w-full">
-                <InputGroup>
+                <InputGroup variant="filled">
                   <InputGroupAddon>
                     <SearchIcon className="size-4" />
                   </InputGroupAddon>
@@ -232,7 +226,7 @@ export function ProjectsPage() {
                           </MenuTrigger>
                           <MenuPopup align="end">
                             <MenuItem onClick={() => newChat(project)}>
-                              <PencilIcon />
+                              <Edit03Icon />
                               New chat
                             </MenuItem>
                             <MenuItem onClick={() => openProject(project)}>
@@ -247,7 +241,7 @@ export function ProjectsPage() {
                           aria-label={`New chat in ${project.displayName}`}
                           onClick={() => newChat(project)}
                         >
-                          <PencilIcon />
+                          <Edit03Icon />
                         </Button>
                       </div>
                     </div>

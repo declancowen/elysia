@@ -25,7 +25,7 @@ export function AgentRoster({ inset = true }: { inset?: boolean }) {
     if (isMobile) setOpenMobile(false);
   };
   return (
-    <section aria-label="Agents" className={cn("pb-3", inset && "px-2")}>
+    <section aria-label="Agents" className={cn("flex flex-col gap-1 pb-3", inset && "px-2")}>
       <SidebarSectionHeader
         label="Agents"
         expanded={expanded}

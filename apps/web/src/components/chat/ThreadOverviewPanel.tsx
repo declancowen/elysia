@@ -27,7 +27,7 @@ import {
   FileDiffIcon,
   FileIcon,
   LinkIcon,
-  LeftToRightListTriangleIcon,
+  AlignBoxMiddleLeftIcon,
   PlusIcon,
   UsersIcon,
 } from "~/icons";
@@ -77,7 +77,7 @@ const NO_ITEMS: ReadonlyArray<never> = [];
 const NO_DELEGATIONS: ReadonlyArray<DelegatedAgent> = [];
 
 const rowClassName =
-  "-mx-2 flex w-[calc(100%+1rem)] cursor-pointer items-center gap-3 rounded-lg px-2 py-1.5 text-left transition-colors hover:bg-accent/50 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-default";
+  "-mx-2.5 flex w-[calc(100%+1.25rem)] cursor-pointer items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-left transition-colors hover:bg-accent/50 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-default";
 
 function OverviewPopover({
   label,
@@ -263,7 +263,7 @@ function OverviewPopover({
           />
         }
       >
-        <LeftToRightListTriangleIcon className="size-4" />
+        <AlignBoxMiddleLeftIcon className="size-4" />
       </PopoverTrigger>
       <span
         ref={anchorRef}
@@ -301,7 +301,7 @@ function OverviewPopover({
               width: view && expanded ? expandedWidth : collapsedWidth,
               maxWidth: availableSize.width,
             }}
-            className="flex max-h-(--available-height) flex-col overflow-hidden rounded-3xl border border-(--app-theme-toolbar-border,var(--border)) text-foreground outline-none [--overview-surface:var(--app-theme-surface-raised,var(--card))] dark:[--overview-surface:var(--app-theme-surface-raised,var(--surface-raised))] bg-(--overview-surface)/(--glass-opacity) backdrop-blur-(--glass-blur) backdrop-saturate-(--glass-saturation) not-supports-[((backdrop-filter:blur(1px))_or_(-webkit-backdrop-filter:blur(1px)))]:bg-(--overview-surface)"
+            className="flex max-h-(--available-height) flex-col overflow-hidden rounded-3xl workspace-panel-outline text-foreground outline-none [--overview-surface:var(--app-theme-surface-raised,var(--card))] dark:[--overview-surface:var(--app-theme-surface-raised,var(--surface-raised))] bg-(--overview-surface)/(--glass-opacity) backdrop-blur-(--glass-blur) backdrop-saturate-(--glass-saturation) not-supports-[((backdrop-filter:blur(1px))_or_(-webkit-backdrop-filter:blur(1px)))]:bg-(--overview-surface)"
           >
             <header className="flex shrink-0 items-center gap-2 px-5 pt-5 pb-2">
               {view ? (
@@ -346,7 +346,12 @@ function OverviewPopover({
                 <>
                   {selectedSubagent ? <BotIcon aria-hidden className="size-5" /> : null}
                   <PopoverTitle className="min-w-0 flex-1">
-                    <span className="block truncate">
+                    <span
+                      className={cn(
+                        "block truncate",
+                        view === null && "text-xs font-normal text-muted-foreground",
+                      )}
+                    >
                       {selectedAgent?.name ??
                         selectedSubagent?.title ??
                         (view?.kind === "subagents" ? "Subagents" : "Workspace")}

@@ -190,7 +190,7 @@ function Sidebar({
   ...props
 }: React.ComponentProps<"div"> & {
   side?: "left" | "right";
-  variant?: "sidebar" | "floating" | "inset";
+  variant?: "sidebar" | "floating" | "inset" | "panel";
   collapsible?: "offcanvas" | "icon" | "none";
   resizable?: boolean | SidebarResizableOptions;
 }) {
@@ -219,7 +219,9 @@ function Sidebar({
       <SidebarInstanceContext value={instanceContextValue}>
         <div
           className={cn(
-            "flex h-full w-(--sidebar-width) flex-col bg-sidebar surface-grain text-sidebar-foreground",
+            "flex h-full w-(--sidebar-width) flex-col bg-sidebar text-sidebar-foreground",
+            variant !== "panel" && "surface-grain",
+            variant === "panel" && "bg-workspace-sidebar",
             className,
           )}
           data-slot="sidebar"
@@ -237,7 +239,9 @@ function Sidebar({
         <Sheet onOpenChange={setOpenMobile} open={openMobile}>
           <SheetPopup
             className={cn(
-              "w-(--sidebar-width) max-w-none bg-sidebar surface-grain p-0 text-sidebar-foreground",
+              "w-(--sidebar-width) max-w-none bg-sidebar p-0 text-sidebar-foreground",
+              variant !== "panel" && "surface-grain",
+              variant === "panel" && "bg-workspace-sidebar",
               className,
             )}
             data-mobile="true"
@@ -313,7 +317,11 @@ function Sidebar({
           {...props}
         >
           <div
-            className="flex h-full w-full flex-col bg-sidebar surface-grain group-data-[variant=floating]:rounded-lg group-data-[variant=floating]:border group-data-[variant=floating]:border-sidebar-border group-data-[variant=floating]:shadow-sm/5"
+            className={cn(
+              "flex h-full w-full flex-col bg-sidebar group-data-[variant=floating]:rounded-lg group-data-[variant=floating]:border group-data-[variant=floating]:border-sidebar-border group-data-[variant=floating]:shadow-sm/5 group-data-[variant=panel]:overflow-hidden group-data-[variant=panel]:rounded-l-xl group-data-[variant=panel]:relative group-data-[variant=panel]:bg-workspace-sidebar",
+              variant !== "panel" && "surface-grain",
+              variant === "panel" && "workspace-panel-frame",
+            )}
             data-sidebar="sidebar"
             data-slot="sidebar-inner"
           >
@@ -552,17 +560,25 @@ function SidebarInput({ className, ...props }: Omit<InputProps, "unstyled" | "va
   );
 }
 
-function SidebarInset({ className, ...props }: React.ComponentProps<"main">) {
+function SidebarInset({
+  className,
+  variant = "workspace",
+  ...props
+}: React.ComponentProps<"main"> & { variant?: "workspace" | "standalone" | "split" }) {
   return (
     <main
       className={cn(
-        "relative flex min-w-0 w-full flex-1 flex-col bg-background surface-grain",
+        "relative flex min-w-0 w-full flex-1 flex-col bg-background",
+        !SINGLE_PROVIDER_UI && "surface-grain",
         SINGLE_PROVIDER_UI
-          ? "md:[--workspace-fixed-controls-top:calc(var(--workspace-controls-top)+0.5rem)] md:my-2 md:me-2 md:w-auto md:max-h-[calc(100dvh-1rem)] md:overflow-hidden md:rounded-xl md:peer-data-[state=collapsed]:ms-2"
+          ? "md:[--workspace-fixed-controls-top:var(--workspace-controls-top)] md:me-2 md:w-auto md:max-h-full md:overflow-hidden md:rounded-r-xl md:peer-data-[state=collapsed]:ms-2 md:peer-data-[state=collapsed]:rounded-xl md:peer-data-[state=collapsed]:[&_[data-chat-column]]:rounded-xl"
           : "md:peer-data-[variant=inset]:peer-data-[state=collapsed]:ms-2 md:peer-data-[variant=inset]:m-2 md:peer-data-[variant=inset]:ms-0 md:peer-data-[variant=inset]:rounded-xl md:peer-data-[variant=inset]:shadow-sm/5",
+        SINGLE_PROVIDER_UI && variant !== "split" && "workspace-panel-frame",
+        SINGLE_PROVIDER_UI && variant === "standalone" && "md:ms-0 md:rounded-xl",
         className,
       )}
       data-slot="sidebar-inset"
+      data-panel-layout={variant}
       {...props}
     />
   );

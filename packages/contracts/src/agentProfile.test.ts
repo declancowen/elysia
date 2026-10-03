@@ -2,6 +2,7 @@ import { assert, it } from "@effect/vitest";
 import * as Schema from "effect/Schema";
 
 import { AgentCreateInput, AgentProfile } from "./agents.ts";
+import { ProjectId } from "./baseSchemas.ts";
 
 const decodeProfile = Schema.decodeUnknownSync(AgentProfile);
 
@@ -98,7 +99,10 @@ it("accepts character shapes and preserves saved icon presets", () => {
 it("preserves group identity and rejects ambiguous memberships on the public wire", () => {
   const profile = {
     ...profileWithColor("blue"),
-    group: { memberProjectIds: ["lead", "member"], leadProjectId: "lead" },
+    group: {
+      memberProjectIds: [ProjectId.make("lead"), ProjectId.make("member")],
+      leadProjectId: ProjectId.make("lead"),
+    },
   };
   assert.deepEqual(decodeProfile(profile).group, profile.group);
   for (const group of [

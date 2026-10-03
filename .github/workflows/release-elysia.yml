@@ -237,7 +237,7 @@ jobs:
             apps/web/src/components/ThreadNotificationCoordinator.badge.test.tsx
           vp test run --config vite.config.ts \
             apps/web/src/components/ChatView.logic.test.ts \
-            --testNamePattern 'preserves a newer handoff draft'
+            --testNamePattern 'resolveDraftPromotionNavigationTarget|draft hero submission transition'
 
       - uses: ./.github/actions/setup-apt-mirrors
 

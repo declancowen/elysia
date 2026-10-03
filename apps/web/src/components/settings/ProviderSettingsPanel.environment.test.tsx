@@ -12,6 +12,12 @@ import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import { visitElements } from "../../test/reactElementTree";
 import { reactHookHarness as hooks } from "../../test/reactHookHarness";
 
+// Retained upstream account-routing fixtures; production still permits only Elysia.
+vi.mock("../../../../../packages/contracts/src/forkPolicy.ts", async (importOriginal) => ({
+  ...(await importOriginal<Pick<typeof import("@t3tools/contracts"), "isEnabledProviderDriver">>()),
+  isEnabledProviderDriver: () => true,
+}));
+
 const atoms = vi.hoisted(() => ({
   providers: null as ReadonlyArray<ServerProvider> | null,
   providersAtom: Symbol("providers"),
@@ -194,7 +200,7 @@ async function flushPromises(): Promise<void> {
   await Promise.resolve();
 }
 
-describe("EnvironmentProviderSettings routing", () => {
+describe("EnvironmentProviderSettings retained upstream routing", () => {
   beforeEach(() => {
     hooks.reset();
     atoms.providers = null;
@@ -223,7 +229,7 @@ describe("EnvironmentProviderSettings routing", () => {
       expect(
         visitElements(
           panel,
-          (element) => element.props.instanceId === driver && element.props.mode === "list",
+          (element) => element.props.instanceId === driver && element.props.mode === "editor",
         ),
       ).not.toBeNull();
     }
@@ -231,7 +237,7 @@ describe("EnvironmentProviderSettings routing", () => {
       expect(
         visitElements(
           panel,
-          (element) => element.props.instanceId === driver && element.props.mode === "list",
+          (element) => element.props.instanceId === driver && element.props.mode === "editor",
         ),
       ).toBeNull();
     }
@@ -249,7 +255,7 @@ describe("EnvironmentProviderSettings routing", () => {
     expect(
       visitElements(
         panel,
-        (element) => element.props.instanceId === grokId && element.props.mode === "list",
+        (element) => element.props.instanceId === grokId && element.props.mode === "editor",
       ),
     ).not.toBeNull();
   });
@@ -270,7 +276,7 @@ describe("EnvironmentProviderSettings routing", () => {
     expect(
       visitElements(
         panel,
-        (element) => element.props.instanceId === "grok" && element.props.mode === "list",
+        (element) => element.props.instanceId === "grok" && element.props.mode === "editor",
       ),
     ).not.toBeNull();
   });
@@ -310,7 +316,7 @@ describe("EnvironmentProviderSettings routing", () => {
     });
   });
 
-  it("opens the requested provider instance instead of the first provider", () => {
+  it("shows configured accounts together without substituting their identities", () => {
     settingsState.value = {
       ...DEFAULT_UNIFIED_SETTINGS,
       providerInstances: {
@@ -319,8 +325,12 @@ describe("EnvironmentProviderSettings routing", () => {
     };
     atoms.providers = [provider()];
     const panel = renderPanel({ targetInstanceId: customId });
-    const editor = visitElements(panel, (element) => element.props.mode === "editor");
+    const editor = visitElements(
+      panel,
+      (element) => element.props.mode === "editor" && element.props.instanceId === customId,
+    );
     expect(editor?.props.instanceId).toBe(customId);
+    expect(visitElements(panel, (element) => element.props.instanceId === codexId)).not.toBeNull();
   });
 
   it.each([
@@ -350,11 +360,13 @@ describe("EnvironmentProviderSettings routing", () => {
   it("does not substitute another account when the requested instance was removed", () => {
     atoms.providers = [provider()];
     const panel = renderPanel({ targetInstanceId: customId });
-    expect(visitElements(panel, (element) => element.props.mode === "editor")).toBeNull();
+    expect(visitElements(panel, (element) => element.props.instanceId === customId)).toBeNull();
+    expect(commands.updateProvider).not.toHaveBeenCalled();
+    expect(settingsState.mutateProviderInstance).not.toHaveBeenCalled();
     expect(settingsState.updateSettings).not.toHaveBeenCalled();
   });
 
-  it("keeps provider selection available while write controls are read only", () => {
+  it("keeps configured accounts visible while write controls are read only", () => {
     settingsState.value = {
       ...DEFAULT_UNIFIED_SETTINGS,
       providerInstances: {
@@ -365,25 +377,17 @@ describe("EnvironmentProviderSettings routing", () => {
       },
     };
     atoms.providers = [provider()];
-    let panel = renderPanel({ readOnly: true });
+    const panel = renderPanel({ readOnly: true });
 
     const inertWrapper = visitElements(panel, (element) => element.props.inert === true);
     expect(inertWrapper).not.toBeNull();
 
     const customRow = visitElements(
       panel,
-      (element) => element.props.instanceId === customId && element.props.mode === "list",
-    );
-    expect(customRow?.props.readOnly).toBe(true);
-    expect(customRow?.props.onSelect).toBeTypeOf("function");
-    (customRow?.props.onSelect as (() => void) | undefined)?.();
-
-    panel = renderPanel({ readOnly: true });
-    const customEditor = visitElements(
-      panel,
       (element) => element.props.instanceId === customId && element.props.mode === "editor",
     );
-    expect(customEditor).not.toBeNull();
+    expect(customRow?.props.readOnly).toBe(true);
+    expect(customRow).not.toBeNull();
 
     const notice = visitElements(panel, (element) => element.props.title === "Limited permissions");
     expect(notice).not.toBeNull();
@@ -400,7 +404,7 @@ describe("EnvironmentProviderSettings routing", () => {
       visitElements(panel, (element) => element.props.title === "Limited permissions"),
     ).toBeNull();
     expect(visitElements(panel, isRefreshButton)).not.toBeNull();
-    expect(visitElements(panel, isAddProviderButton)).not.toBeNull();
+    expect(visitElements(panel, isAddProviderButton)).toBeNull();
   });
 
   it("keeps Advanced visible when search targets the provider health interval", () => {
@@ -436,13 +440,7 @@ describe("EnvironmentProviderSettings routing", () => {
       },
       favorites: [{ provider: customId, model: "favorite" }],
     };
-    let panel = renderPanel();
-    const customRow = visitElements(
-      panel,
-      (element) => element.props.instanceId === customId && element.props.mode === "list",
-    );
-    (customRow?.props.onSelect as (() => void) | undefined)?.();
-    panel = renderPanel();
+    const panel = renderPanel();
     const customCard = visitElements(
       panel,
       (element) => element.props.instanceId === customId && element.props.mode === "editor",
@@ -457,12 +455,6 @@ describe("EnvironmentProviderSettings routing", () => {
     });
 
     settingsState.mutateProviderInstance.mockClear();
-    const defaultRow = visitElements(
-      panel,
-      (element) => element.props.instanceId === codexId && element.props.mode === "list",
-    );
-    (defaultRow?.props.onSelect as (() => void) | undefined)?.();
-    panel = renderPanel();
     const defaultCard = visitElements(
       panel,
       (element) => element.props.instanceId === codexId && element.props.mode === "editor",
@@ -525,13 +517,7 @@ describe("EnvironmentProviderSettings routing", () => {
         [secondId]: registryInstance,
       },
     };
-    let panel = renderPanel();
-    const row = visitElements(
-      panel,
-      (element) => element.props.instanceId === firstId && element.props.mode === "list",
-    );
-    (row?.props.onSelect as (() => void) | undefined)?.();
-    panel = renderPanel();
+    const panel = renderPanel();
     const card = visitElements(
       panel,
       (element) => element.props.instanceId === firstId && element.props.mode === "editor",

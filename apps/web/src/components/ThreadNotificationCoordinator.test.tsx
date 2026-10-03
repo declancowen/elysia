@@ -90,7 +90,7 @@ function mockThreadShell() {
 vi.mock("@effect/atom-react", () => ({
   useAtomValue: () => ({
     status: state.live ? "live" : "disconnected",
-    snapshot: Option.some({ threads: [mockThreadShell()] }),
+    snapshot: Option.some({ projects: [], threads: [mockThreadShell()] }),
   }),
 }));
 vi.mock("@tanstack/react-router", () => ({

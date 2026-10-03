@@ -95,7 +95,7 @@ const RIGHT_PANEL_STORAGE_KEY = "t3code:right-panel-state:v2";
 // v10 keys pull-request surfaces by reference instead of a singleton tab.
 // v11 stops persisting the pull-request list's shared panel, so a restart opens the page fresh.
 // v12 adds the device surface.
-// v14 removes the agents surface; lineage lives in the thread title bar.
+// v14 upstream removed agents; Elysia retains the agent surface.
 const RIGHT_PANEL_STORAGE_VERSION = 14;
 
 /** A fixed workspace-level ref: each PR surface carries its own real environment. */
@@ -464,7 +464,7 @@ export function migratePersistedRightPanelState(persistedState: unknown): {
                 threadState && typeof threadState === "object" ? threadState : null;
               const surfaces = Array.isArray(validThreadState?.surfaces)
                 ? validThreadState.surfaces.flatMap<RightPanelSurface>((surface) => {
-                    // Removed surfaces: plans render inline, agents in thread lineage.
+                    // Plans render inline; Elysia retains agent panels.
                     const kind = (surface as { kind?: string }).kind;
                     if (kind === "plan") return [];
                     if (surface.kind === "file") {
@@ -551,8 +551,7 @@ export function migratePersistedRightPanelState(persistedState: unknown): {
                   : persistedActiveSurfaceId !== null);
               // An open panel needs an active surface: if migration dropped
               // the persisted one (e.g. plan was active), fall back to the
-              // first survivor instead of rendering an open empty panel. Removed
-              // agents selections also keep a survivor ready while the panel is closed.
+              // first survivor instead of rendering an open empty panel.
               const activeSurfaceId =
                 persistedActiveSurfaceId ??
                 (isOpen || rawActiveSurfaceId === "agents" ? (surfaces[0]?.id ?? null) : null);

@@ -356,22 +356,22 @@ describe("buildMultiSelectThreadContextMenuItems", () => {
 });
 
 describe("resolveSidebarStageBadgeLabel", () => {
-  it("returns Nightly for nightly primary server versions", () => {
+  it("hides upstream nightly badges", () => {
     expect(
       resolveSidebarStageBadgeLabel({
         primaryServerVersion: "0.0.28-nightly.20260616.12",
         fallbackStageLabel: "Alpha",
       }),
-    ).toBe("Nightly");
+    ).toBe("");
   });
 
-  it("returns the fallback label for stable primary server versions", () => {
+  it("hides upstream release-stage badges for stable versions", () => {
     expect(
       resolveSidebarStageBadgeLabel({
         primaryServerVersion: "0.0.27",
         fallbackStageLabel: "Alpha",
       }),
-    ).toBe("Alpha");
+    ).toBe("");
   });
 
   it("returns the fallback label when the primary server version is missing", () => {
@@ -383,13 +383,13 @@ describe("resolveSidebarStageBadgeLabel", () => {
     ).toBe("Dev");
   });
 
-  it("returns the fallback label for malformed nightly prerelease versions", () => {
+  it("hides upstream release-stage badges for malformed versions", () => {
     expect(
       resolveSidebarStageBadgeLabel({
         primaryServerVersion: "0.0.28-nightly.20260616",
         fallbackStageLabel: "Alpha",
       }),
-    ).toBe("Alpha");
+    ).toBe("");
   });
 });
 

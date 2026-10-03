@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
-import { resolveChatHeaderMainColumnWidth, resolveRenameCommit } from "./ChatHeader";
+import { resolveRenameCommit } from "./ChatHeader";
+import { resolveChatHeaderMainColumnWidth } from "./useChatHeaderColumn";
 
 describe("resolveRenameCommit", () => {
   it("commits a trimmed changed title", () => {

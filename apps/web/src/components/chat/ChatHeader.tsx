@@ -21,7 +21,6 @@ import {
   memo,
   useCallback,
   useEffect,
-  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -58,6 +57,7 @@ import {
 } from "../WorkspaceBreadcrumb";
 import { cn } from "~/lib/utils";
 import { ThreadOverviewPanel, type ThreadOverviewPanelProps } from "./ThreadOverviewPanel";
+import { useChatHeaderColumn } from "./useChatHeaderColumn";
 
 interface ChatHeaderProps {
   activeThreadEnvironmentId: EnvironmentId;
@@ -132,13 +132,6 @@ export function shouldShowOpenInPicker(input: {
   return input.remoteOpenMode !== "local-exec";
 }
 
-export function resolveChatHeaderMainColumnWidth(
-  header: Pick<DOMRect, "left" | "width">,
-  column: Pick<DOMRect, "right">,
-): number {
-  return Math.max(0, Math.min(header.width, column.right - header.left));
-}
-
 export const ChatHeader = memo(function ChatHeader({
   activeThreadEnvironmentId,
   activeThreadId,
@@ -166,39 +159,10 @@ export const ChatHeader = memo(function ChatHeader({
   onUpdateProjectScript,
   onDeleteProjectScript,
 }: ChatHeaderProps) {
-  const headerRef = useRef<HTMLDivElement>(null);
-  const [mainColumnWidth, setMainColumnWidth] = useState<number | null>(null);
-  const [mainColumnHidden, setMainColumnHidden] = useState(false);
-  useLayoutEffect(() => {
-    const header = headerRef.current;
-    const column = overview?.threadBoundaryRef?.current;
-    if (!inlinePanel || !header || !column) {
-      setMainColumnWidth(null);
-      setMainColumnHidden(false);
-      return;
-    }
-    const measure = () => {
-      const hidden = column.getAttribute("data-chat-column-maximized-away") === "true";
-      const headerBounds = header.getBoundingClientRect();
-      setMainColumnHidden(hidden);
-      setMainColumnWidth(
-        hidden
-          ? null
-          : resolveChatHeaderMainColumnWidth(headerBounds, column.getBoundingClientRect()),
-      );
-    };
-    measure();
-    const observer = new ResizeObserver(measure);
-    observer.observe(header);
-    observer.observe(column);
-    const workspace = column.closest("[data-chat-workspace-panels]");
-    if (workspace) observer.observe(workspace);
-    window.addEventListener("resize", measure);
-    return () => {
-      observer.disconnect();
-      window.removeEventListener("resize", measure);
-    };
-  }, [inlinePanel, overview?.threadBoundaryRef]);
+  const { headerRef, mainColumnWidth, mainColumnHidden } = useChatHeaderColumn(
+    inlinePanel,
+    overview?.threadBoundaryRef,
+  );
   const serverConfig = useAtomValue(serverEnvironment.configValueAtom(activeThreadEnvironmentId));
   const projectless =
     !!activeProject && isScratchProject(activeProject, serverConfig?.scratchWorkspaceRoot);

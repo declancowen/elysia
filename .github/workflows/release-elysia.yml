@@ -134,13 +134,15 @@ jobs:
             apps/server/src/provider/ElysiaCli.test.ts \
             apps/server/src/provider/Drivers/ElysiaDriver.test.ts \
             apps/server/src/provider/ElysiaPolicy.test.ts \
+            apps/server/src/provider/ElysiaNativeSessions.test.ts \
             apps/server/src/elysiaConnections.test.ts \
             apps/server/src/provider/ProviderCredentialStore.test.ts \
             apps/server/src/provider/ProviderAuthFlow.test.ts \
             apps/server/src/provider/ElysiaStats.test.ts \
             apps/server/src/auth/RpcAuthorization.test.ts \
             apps/server/src/mcp/toolkits/repository/handlers.test.ts \
-            apps/server/src/provider/Drivers/ClaudeSkillDispatch.test.ts
+            apps/server/src/provider/Drivers/ClaudeSkillDispatch.test.ts \
+            apps/server/src/provider/Drivers/ElysiaSlashCommands.test.ts
 
       - name: Test Elysia client and onboarding
         run: |
@@ -152,8 +154,10 @@ jobs:
             apps/web/src/components/ProjectFavicon.test.tsx \
             packages/shared/src/projectIcon.test.ts \
             apps/web/src/rightPanelStore.test.ts \
+            apps/web/src/components/threadSidebarWidth.test.ts \
             apps/web/src/components/chat/ThreadOverviewPanel.test.tsx \
             apps/web/src/components/chat/PanelLayoutControls.test.tsx \
+            apps/web/src/components/chat/OpenInPicker.test.ts \
             apps/web/src/components/sidebar/SidebarChrome.test.tsx \
             apps/web/src/components/usage/ElysiaUsagePage.test.tsx \
             apps/web/src/components/uploadedSources.test.ts \
@@ -165,6 +169,8 @@ jobs:
             apps/web/src/components/settings/ProviderSettingsPanel.environment.test.tsx \
             apps/web/src/components/settings/ElysiaSetupSection.test.tsx \
             apps/web/src/components/settings/settingsWorkspace.test.ts \
+            apps/web/src/components/settings/scheduledTasksSettings.logic.test.ts \
+            apps/web/src/components/settings/SettingsScopeSentence.test.tsx \
             apps/web/src/state/desktopUpdate.test.ts \
             apps/web/src/components/desktopUpdate.logic.test.ts \
             apps/web/src/components/sidebar/SidebarUpdatePill.test.tsx
@@ -191,17 +197,31 @@ jobs:
             packages/contracts/src/agentDelegation.test.ts \
             packages/shared/src/agentAvatar.test.ts \
             packages/shared/src/agentMentions.test.ts \
-            apps/server/src/orchestration/PersistentAgents.test.ts \
-            apps/server/src/orchestration/AgentDelegation.test.ts \
-            apps/server/src/orchestration/decider.pinned.test.ts \
-            apps/server/src/orchestration/projector.pinned.test.ts \
-            apps/server/src/orchestration/Layers/ProjectionSnapshotQuery.test.ts \
-            apps/server/src/orchestration/threadDetailCursor.test.ts \
+            apps/server/src/orchestration-v2/PersistentAgents.test.ts \
+            apps/server/src/orchestration-v2/AgentDelegation.test.ts \
+            apps/server/src/orchestration-v2/RuntimePolicy.test.ts \
+            apps/server/src/orchestration-v2/runtimeLayer.test.ts \
+            apps/server/src/orchestration-v2/ThreadMessageIntake.test.ts \
+            apps/server/src/orchestration-v2/ThreadLaunchService.test.ts \
+            apps/server/src/scheduledTasks/ScheduledTaskService.test.ts \
+            apps/server/src/scheduledTasks/ScheduledTaskService.schedule.test.ts \
+            apps/server/src/scheduling/Scheduler.integration.test.ts \
+            apps/server/src/orchestration-v2/ProjectionStore.test.ts \
+            apps/server/src/orchestration-v2/threadHistoryPaging.test.ts \
+            apps/server/src/orchestration-v2/V1ImportBoundary.test.ts \
+            apps/server/src/orchestration-v2/legacy/LegacyV1ThreadImporter.test.ts \
+            apps/server/src/persistence/reconcileV2PreviewMigration.test.ts \
             apps/server/src/provider/ElysiaAgentProtection.test.ts \
             apps/server/src/provider/RuntimeInstructions.test.ts \
-            apps/server/src/provider/Layers/ProviderService.test.ts \
-            apps/server/src/provider/Layers/ClaudeAdapter.test.ts \
-            apps/server/src/orchestration/Layers/CheckpointReactor.test.ts \
+            apps/server/src/orchestration-v2/Adapters/ElysiaAdapterV2.test.ts \
+            apps/server/src/orchestration-v2/CheckpointCaptureService.test.ts \
+            apps/server/src/orchestration-v2/CheckpointRollbackService.test.ts \
+            apps/server/src/orchestration-v2/CheckpointRestoreSafety.test.ts \
+            packages/client-runtime/src/userMessage.test.ts \
+            packages/client-runtime/src/state/threadWorkflows.test.ts \
+            apps/web/src/components/chat/MessagesTimeline.logic.test.ts \
+            apps/web/src/components/agents/AgentMentionChip.test.tsx \
+            apps/web/src/components/chat/QueuedRunsControl.test.tsx \
             apps/web/src/agentPresentation.test.ts \
             apps/web/src/components/threadActionMenu.logic.test.ts \
             apps/web/src/components/chat/ContextWindowMeter.logic.test.ts \

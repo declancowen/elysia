@@ -268,6 +268,7 @@ export type ThreadManagementError = typeof ThreadManagementError.Type;
 type ThreadManagementFailure = ThreadManagementError | Orchestrator.OrchestratorV2Error;
 
 export interface ThreadManagementServiceShape {
+  readonly getLegacyTaskResult: LegacyV1ThreadImporter.LegacyV1ThreadImporterShape["getTaskResult"];
   readonly ensureLegacyTranscript: (
     threadId: ThreadId,
   ) => Effect.Effect<void, LegacyV1ThreadImporter.LegacyV1ThreadImportError>;
@@ -709,6 +710,7 @@ const make = Effect.gen(function* () {
     });
 
   return ThreadManagementService.of({
+    getLegacyTaskResult: legacyImporter.getTaskResult,
     ensureLegacyTranscript,
     dispatch,
     getTimelinePage: (threadId, options) =>
@@ -745,6 +747,7 @@ const make = Effect.gen(function* () {
 const legacyV1ThreadImporterNoopLayer = Layer.succeed(
   LegacyV1ThreadImporter.LegacyV1ThreadImporter,
   LegacyV1ThreadImporter.LegacyV1ThreadImporter.of({
+    getTaskResult: () => Effect.succeed(null),
     pendingThreadCount: Effect.succeed(0),
     reconcileShells: Effect.succeed({ importedThreadCount: 0, importedMessageCount: 0 }),
     ensureTranscript: () => Effect.succeed({ importedThreadCount: 0, importedMessageCount: 0 }),

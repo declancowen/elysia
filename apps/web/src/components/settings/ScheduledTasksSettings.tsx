@@ -1,4 +1,5 @@
 import { useAtomValue } from "@effect/atom-react";
+import { scopeThreadRef } from "@t3tools/client-runtime/environment";
 import {
   Clock3Icon,
   MoreHorizontalIcon,
@@ -11,7 +12,6 @@ import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } fro
 import type {
   EnvironmentId,
   ModelSelection,
-  OrchestrationV2ThreadLaunchWorkspaceStrategy,
   ProjectId,
   ScheduledTask,
   ScheduledTaskId,
@@ -21,6 +21,7 @@ import type {
 } from "@t3tools/contracts";
 import {
   MIN_SCHEDULED_TASK_INTERVAL_MS,
+  CONNECTIONS_ENABLED,
   ProviderInstanceId,
   resolveEnvironmentMachineKind,
 } from "@t3tools/contracts";
@@ -30,7 +31,7 @@ import {
 } from "@t3tools/client-runtime/state/runtime";
 
 import { formatRelativeTime } from "../../timestampFormat";
-import { useEnvironmentSettings } from "../../hooks/useSettings";
+import { useCodeWorkspace, useEnvironmentSettings } from "../../hooks/useSettings";
 import { getCustomModelOptionsByInstance } from "../../modelSelection";
 import {
   applyProviderInstanceSettings,
@@ -38,7 +39,7 @@ import {
   sortProviderInstanceEntries,
 } from "../../providerInstances";
 import { useEnvironment, type EnvironmentPresentation } from "../../state/environments";
-import { useProjects } from "../../state/entities";
+import { useProjects, useThreadShell } from "../../state/entities";
 import { useEnvironmentQuery } from "../../state/query";
 import { EMPTY_SERVER_PROVIDERS, serverEnvironment } from "../../state/server";
 import { useAtomCommand } from "../../state/use-atom-command";
@@ -48,6 +49,7 @@ import { useSettingsScope } from "./SettingsScopeContext";
 import {
   matchesScheduledTaskScope,
   scheduledTaskDefaultModel,
+  scheduledTaskWorkspaceStrategy,
   taskToDraft,
   type DraftState,
   type WorkspaceMode,
@@ -480,6 +482,7 @@ function ScheduledTaskEditorDialog({
   readonly onClose: () => void;
 }) {
   const { scope, connectedEnvironments } = useSettingsScope();
+  const codeWorkspace = useCodeWorkspace();
   const [environmentId, setEnvironmentId] = useState(initialEnvironmentId);
   const environment = useEnvironment(environmentId);
   const connected =
@@ -521,13 +524,22 @@ function ScheduledTaskEditorDialog({
     !tasksQuery.data.tasks.some((entry) => entry.id === draft.editingId);
   const selectedProjectId = draft.projectId || projects[0]?.id || "";
   const selectedProject = projects.find((project) => project.id === selectedProjectId);
+  const agentProfile = selectedProject?.agentProfile;
+  const agentThread = useThreadShell(
+    agentProfile?.conversationThreadId
+      ? scopeThreadRef(environmentId, agentProfile.conversationThreadId)
+      : null,
+  );
+  const showWorkspaceControls = codeWorkspace && !agentProfile;
 
   // The real model picker is keyed by a `${instanceId}:${model}` string, which
   // is exactly how the draft stores its selection.
   const firstInstance = instanceEntries[0];
-  const activeSelection = draft.modelKey
-    ? splitModelKey(draft.modelKey)
-    : scheduledTaskDefaultModel(settings, selectedProject ?? null, instanceEntries);
+  const activeSelection =
+    agentThread?.modelSelection ??
+    (draft.modelKey
+      ? splitModelKey(draft.modelKey)
+      : scheduledTaskDefaultModel(settings, selectedProject ?? null, instanceEntries));
   const activeInstanceId =
     activeSelection?.instanceId ?? firstInstance?.instanceId ?? ("" as ProviderInstanceId);
   const activeModel = activeSelection?.model ?? "";
@@ -556,6 +568,10 @@ function ScheduledTaskEditorDialog({
     )
       return;
     const selection = activeSelection;
+    if (agentProfile && (agentProfile.archived || !agentThread)) {
+      reportFailure("Agent chat is unavailable", "Open the agent chat before scheduling a task.");
+      return;
+    }
     if (
       !draft.title.trim() ||
       !draft.prompt.trim() ||
@@ -573,28 +589,24 @@ function ScheduledTaskEditorDialog({
       reportFailure("Invalid interval", "Enter an interval of at least one minute.");
       return;
     }
-    if (draft.workspaceMode === "existing_worktree" && !draft.existingWorktreePath.trim()) {
+    if (
+      showWorkspaceControls &&
+      draft.workspaceMode === "existing_worktree" &&
+      !draft.existingWorktreePath.trim()
+    ) {
       reportFailure("Checkout path is required", "Enter the path of the checkout to run in.");
       return;
     }
     // Keep the original selection object (with provider options) when the
     // picker still points at the same instance+model.
     const modelSelection =
-      draft.baseModelSelection !== null &&
+      agentThread?.modelSelection ??
+      (draft.baseModelSelection !== null &&
       draft.baseModelSelection.instanceId === selection.instanceId &&
       draft.baseModelSelection.model === selection.model
         ? draft.baseModelSelection
-        : selection;
-    const workspaceStrategy: OrchestrationV2ThreadLaunchWorkspaceStrategy =
-      draft.workspaceMode === "root"
-        ? { type: "root" }
-        : draft.workspaceMode === "existing_worktree"
-          ? { type: "existing_worktree", worktreePath: draft.existingWorktreePath.trim() }
-          : {
-              type: "worktree",
-              baseRef: draft.baseRef.trim() || "main",
-              startFromOrigin: draft.startFromOrigin,
-            };
+        : selection);
+    const workspaceStrategy = scheduledTaskWorkspaceStrategy(draft, showWorkspaceControls);
     const input: ScheduledTaskUpsertInput = {
       ...(draft.editingId ? { id: draft.editingId as ScheduledTaskId, requireExisting: true } : {}),
       title: draft.title.trim(),
@@ -602,11 +614,11 @@ function ScheduledTaskEditorDialog({
       enabled: draft.enabled,
       schedule,
       projectId: selectedProjectId as ProjectId,
-      threadId: draft.threadId ? (draft.threadId as ThreadId) : null,
+      threadId: agentThread?.id ?? (draft.threadId ? (draft.threadId as ThreadId) : null),
       workspaceStrategy,
       modelSelection,
-      runtimeMode: draft.runtimeMode,
-      interactionMode: draft.interactionMode,
+      runtimeMode: agentThread?.runtimeMode ?? draft.runtimeMode,
+      interactionMode: agentThread?.interactionMode ?? draft.interactionMode,
       creationSource: "web",
     };
     // Lock before React renders, and keep successful creates locked until the form closes.
@@ -644,49 +656,51 @@ function ScheduledTaskEditorDialog({
             {!connected ? (
               <p className="text-sm text-destructive">Reconnect this environment before saving.</p>
             ) : null}
-            <Field label="Runs on" htmlFor="scheduled-task-environment">
-              <Select
-                value={environmentId}
-                disabled={task !== null || saving}
-                onValueChange={(id) => {
-                  const next = connectedEnvironments.find((entry) => entry.environmentId === id);
-                  if (!next) return;
-                  setEnvironmentId(next.environmentId);
-                  setDraft((current) => ({
-                    ...current,
-                    projectId: "",
-                    modelKey: "",
-                    baseModelSelection: null,
-                    baseRef: "main",
-                    startFromOrigin: true,
-                    existingWorktreePath: "",
-                  }));
-                }}
-              >
-                <SelectTrigger id="scheduled-task-environment" size="sm">
-                  <SelectValue>
-                    <span className="flex items-center gap-2">
-                      <EnvironmentMachineIcon
-                        kind={resolveEnvironmentMachineKind(environment?.serverConfig ?? null)}
-                        className="size-4"
-                      />
-                      {environment?.label ?? "Unavailable environment"}
-                    </span>
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectPopup>
-                  {connectedEnvironments.map((entry) => (
-                    <SelectItem key={entry.environmentId} value={entry.environmentId}>
-                      <EnvironmentMachineIcon
-                        kind={resolveEnvironmentMachineKind(entry.serverConfig)}
-                        className="size-4"
-                      />
-                      {entry.label}
-                    </SelectItem>
-                  ))}
-                </SelectPopup>
-              </Select>
-            </Field>
+            {CONNECTIONS_ENABLED && (
+              <Field label="Runs on" htmlFor="scheduled-task-environment">
+                <Select
+                  value={environmentId}
+                  disabled={task !== null || saving}
+                  onValueChange={(id) => {
+                    const next = connectedEnvironments.find((entry) => entry.environmentId === id);
+                    if (!next) return;
+                    setEnvironmentId(next.environmentId);
+                    setDraft((current) => ({
+                      ...current,
+                      projectId: "",
+                      modelKey: "",
+                      baseModelSelection: null,
+                      baseRef: "main",
+                      startFromOrigin: true,
+                      existingWorktreePath: "",
+                    }));
+                  }}
+                >
+                  <SelectTrigger id="scheduled-task-environment" size="sm">
+                    <SelectValue>
+                      <span className="flex items-center gap-2">
+                        <EnvironmentMachineIcon
+                          kind={resolveEnvironmentMachineKind(environment?.serverConfig ?? null)}
+                          className="size-4"
+                        />
+                        {environment?.label ?? "Unavailable environment"}
+                      </span>
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectPopup>
+                    {connectedEnvironments.map((entry) => (
+                      <SelectItem key={entry.environmentId} value={entry.environmentId}>
+                        <EnvironmentMachineIcon
+                          kind={resolveEnvironmentMachineKind(entry.serverConfig)}
+                          className="size-4"
+                        />
+                        {entry.label}
+                      </SelectItem>
+                    ))}
+                  </SelectPopup>
+                </Select>
+              </Field>
+            )}
             {tasksQuery.error ? (
               <p className="text-sm text-destructive" role="status">
                 {tasksQuery.error}
@@ -708,12 +722,16 @@ function ScheduledTaskEditorDialog({
               />
             </Field>
 
-            <div className="grid gap-3 sm:grid-cols-2">
+            <div className={showWorkspaceControls ? "grid gap-3 sm:grid-cols-2" : "grid gap-3"}>
               <Field label="Project" htmlFor="scheduled-task-project">
                 <Select
                   value={selectedProjectId}
                   onValueChange={(projectId) =>
-                    setDraft((current) => ({ ...current, projectId: projectId ?? "" }))
+                    setDraft((current) => ({
+                      ...current,
+                      projectId: projectId ?? "",
+                      threadId: "",
+                    }))
                   }
                 >
                   <SelectTrigger size="sm" id="scheduled-task-project">
@@ -731,26 +749,28 @@ function ScheduledTaskEditorDialog({
                 </Select>
               </Field>
 
-              <Field label="Workspace" htmlFor="scheduled-task-workspace">
-                <Select
-                  value={draft.workspaceMode}
-                  onValueChange={(value) =>
-                    setDraft((current) => ({ ...current, workspaceMode: value as WorkspaceMode }))
-                  }
-                >
-                  <SelectTrigger size="sm" id="scheduled-task-workspace">
-                    <SelectValue>{WORKSPACE_MODE_LABELS[draft.workspaceMode]}</SelectValue>
-                  </SelectTrigger>
-                  <SelectPopup>
-                    <SelectItem value="worktree">Create a new worktree</SelectItem>
-                    <SelectItem value="root">Use the project checkout</SelectItem>
-                    <SelectItem value="existing_worktree">Use a specific checkout</SelectItem>
-                  </SelectPopup>
-                </Select>
-              </Field>
+              {showWorkspaceControls && (
+                <Field label="Workspace" htmlFor="scheduled-task-workspace">
+                  <Select
+                    value={draft.workspaceMode}
+                    onValueChange={(value) =>
+                      setDraft((current) => ({ ...current, workspaceMode: value as WorkspaceMode }))
+                    }
+                  >
+                    <SelectTrigger size="sm" id="scheduled-task-workspace">
+                      <SelectValue>{WORKSPACE_MODE_LABELS[draft.workspaceMode]}</SelectValue>
+                    </SelectTrigger>
+                    <SelectPopup>
+                      <SelectItem value="worktree">Create a new worktree</SelectItem>
+                      <SelectItem value="root">Use the project checkout</SelectItem>
+                      <SelectItem value="existing_worktree">Use a specific checkout</SelectItem>
+                    </SelectPopup>
+                  </Select>
+                </Field>
+              )}
             </div>
 
-            {draft.workspaceMode === "worktree" ? (
+            {showWorkspaceControls && draft.workspaceMode === "worktree" ? (
               <Field label="Base branch" htmlFor="scheduled-task-base-ref">
                 <WorktreeBaseBranchPicker
                   key={`${environmentId}:${selectedProjectId}`}
@@ -767,7 +787,7 @@ function ScheduledTaskEditorDialog({
                 />
               </Field>
             ) : null}
-            {draft.workspaceMode === "existing_worktree" ? (
+            {showWorkspaceControls && draft.workspaceMode === "existing_worktree" ? (
               <Field label="Checkout path" htmlFor="scheduled-task-checkout">
                 <Input
                   id="scheduled-task-checkout"
@@ -797,7 +817,7 @@ function ScheduledTaskEditorDialog({
 
             <Field label="Model">
               <ProviderModelPicker
-                disabled={saving || !connected}
+                disabled={Boolean(agentProfile) || saving || !connected}
                 activeInstanceId={activeInstanceId}
                 model={activeModel}
                 lockedProvider={null}

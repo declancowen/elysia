@@ -5,8 +5,6 @@ import {
   type AgentDelegateResult,
   ChatAttachment,
   IsoDateTime,
-  OrchestrationMessage,
-  OrchestrationMessageContext,
   CommandId,
   ComposerContextId,
   EventId,
@@ -55,13 +53,6 @@ const decodeAttachments = Schema.decodeUnknownEffect(Schema.Array(ChatAttachment
 const decodeTurnItem = Schema.decodeUnknownEffect(
   Schema.fromJsonString(OrchestrationV2TurnItemJson),
 );
-const decodeLegacyAttachments = Schema.decodeUnknownEffect(
-  Schema.fromJsonString(Schema.Array(ChatAttachment)),
-);
-const decodeLegacyContext = Schema.decodeUnknownEffect(
-  Schema.fromJsonString(OrchestrationMessageContext),
-);
-const decodeLegacyMessage = Schema.decodeUnknownEffect(OrchestrationMessage);
 const SOURCE_FILES_KIND = "elysia-agent-delegation-source";
 const SourceCutoff = Schema.Struct({
   runOrdinal: Schema.Int,
@@ -530,57 +521,10 @@ const getAgentDelegationImpl = Effect.fn("getAgentDelegation")(function* (
   const request = target.messages[0];
   if (!request) return result;
   if (!request.runId) {
-    const sql = yield* SqlClient.SqlClient;
-    const turns = yield* sql<{ turn_id: string | null; state: string }>`
-      SELECT turn_id, state FROM projection_turns WHERE thread_id = ${identity.agentThreadId}
-        AND pending_message_id = ${identity.targetMessageId} LIMIT 1
-    `.pipe(Effect.mapError(readError));
-    const turn = turns[0];
-    if (!turn?.turn_id) return result;
-    const rows = yield* sql<{
-      message_id: string;
-      role: string;
-      text: string;
-      turn_id: string | null;
-      attachments_json: string | null;
-      context_json: string | null;
-      is_streaming: number;
-      created_at: string;
-      updated_at: string;
-    }>`
-      SELECT message_id, role, text, turn_id, attachments_json, context_json, is_streaming, created_at, updated_at
-      FROM projection_thread_messages WHERE thread_id = ${identity.agentThreadId} AND turn_id = ${turn.turn_id} AND role = 'assistant'
-      ORDER BY created_at DESC, message_id DESC LIMIT 33
-    `.pipe(Effect.mapError(readError));
-    const messages = yield* Effect.forEach(rows.toReversed().slice(-32), (row) =>
-      Effect.gen(function* () {
-        const attachments = row.attachments_json
-          ? yield* decodeLegacyAttachments(row.attachments_json)
-          : undefined;
-        const context = row.context_json ? yield* decodeLegacyContext(row.context_json) : undefined;
-        return yield* decodeLegacyMessage({
-          id: row.message_id,
-          role: row.role,
-          text: row.text,
-          turnId: row.turn_id,
-          streaming: false,
-          createdAt: row.created_at,
-          updatedAt: row.updated_at,
-          ...(attachments ? { attachments } : {}),
-          ...(context ? { context } : {}),
-        });
-      }),
-    ).pipe(Effect.mapError(readError));
-    return {
-      ...result,
-      targetTurnId: TurnId.make(turn.turn_id),
-      messages,
-      truncated: rows.length > 32,
-      status:
-        turn.state === "completed" || turn.state === "error" || turn.state === "interrupted"
-          ? turn.state
-          : "unavailable",
-    } satisfies AgentGetDelegationResult;
+    const legacy = yield* threads
+      .getLegacyTaskResult(identity.agentThreadId, identity.targetMessageId)
+      .pipe(Effect.mapError(readError));
+    return legacy ? { ...result, ...legacy } : result;
   }
   const run = target.runs.find((item) => item.id === request.runId);
   if (!run) return result;

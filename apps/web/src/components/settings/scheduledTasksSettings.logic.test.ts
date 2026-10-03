@@ -18,11 +18,36 @@ import { resolveSettingsScope, type SettingsScopeSearch } from "./settingsScope"
 import { deriveProviderInstanceEntries } from "../../providerInstances";
 import {
   scheduledTaskDefaultModel,
+  scheduledTaskWorkspaceStrategy,
   matchesScheduledTaskScope,
   taskToDraft,
 } from "./scheduledTasksSettings.logic";
 
 const laptopId = EnvironmentId.make("laptop");
+
+it("runs Work tasks in the project folder without hidden Git or checkout requirements", () => {
+  const draft = {
+    workspaceMode: "worktree" as const,
+    baseRef: "release",
+    startFromOrigin: true,
+    existingWorktreePath: "",
+  };
+  expect(scheduledTaskWorkspaceStrategy(draft, false)).toEqual({ type: "root" });
+  expect(
+    scheduledTaskWorkspaceStrategy({ ...draft, workspaceMode: "existing_worktree" }, false),
+  ).toEqual({ type: "root" });
+  expect(scheduledTaskWorkspaceStrategy(draft, true)).toEqual({
+    type: "worktree",
+    baseRef: "release",
+    startFromOrigin: true,
+  });
+  expect(
+    scheduledTaskWorkspaceStrategy(
+      { ...draft, workspaceMode: "existing_worktree", existingWorktreePath: " /repo/checkout " },
+      true,
+    ),
+  ).toEqual({ type: "existing_worktree", worktreePath: "/repo/checkout" });
+});
 const serverId = EnvironmentId.make("server");
 const environments = [
   { environmentId: laptopId, label: "Laptop" },
@@ -169,7 +194,7 @@ describe("editing scheduled task branch settings", () => {
 });
 
 describe("scheduled task model defaults", () => {
-  const instanceId = ProviderInstanceId.make("codex");
+  const instanceId = ProviderInstanceId.make("claudeAgent");
   const projectId = ProjectId.make("project");
   const environmentSelection = {
     instanceId,
@@ -182,8 +207,8 @@ describe("scheduled task model defaults", () => {
     providers: [
       {
         instanceId,
-        driver: "codex",
-        displayName: "Codex",
+        driver: "claudeAgent",
+        displayName: "Elysia",
         enabled: true,
         installed: true,
         status: "ready",

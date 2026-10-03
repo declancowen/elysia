@@ -16,6 +16,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, expect, it, vi } from "vite-plus/test";
 import Edit03Icon from "@hugeicons/core-free-icons/Edit03Icon";
 import ArchiveOff03Icon from "@hugeicons/core-free-icons/ArchiveOff03Icon";
+import { derivePhysicalProjectKey } from "../../logicalProject";
 import type { Project, SidebarThreadSummary } from "../../types";
 import { useUiStateStore } from "../../uiStateStore";
 import { dismissContextMenu } from "../../contextMenuFallback";
@@ -205,6 +206,22 @@ it("opens current-agent details and edits through the global dialog without chan
   );
   expect(document.querySelector('[data-slot="popover-popup"]')).toBeNull();
   expect(state.navigate).not.toHaveBeenCalled();
+});
+
+it("opens scheduled tasks scoped to the current agent and closes the profile", async () => {
+  await render();
+  await click("Manage Alex");
+  await click("Scheduled tasks");
+  expect(state.navigate).toHaveBeenCalledWith({
+    to: "/settings/scheduled-tasks",
+    search: {
+      project: derivePhysicalProjectKey(project),
+      machine: environmentId,
+      checkout: undefined,
+    },
+  });
+  expect(document.querySelector('[data-slot="popover-popup"]')).toBeNull();
+  expect(state.update).not.toHaveBeenCalled();
 });
 
 it("fits the popover avatar to changing name and role height without unbounded growth", async () => {

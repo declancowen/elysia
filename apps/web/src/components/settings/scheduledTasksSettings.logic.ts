@@ -7,6 +7,7 @@ import {
   type RuntimeMode,
   type ProviderInteractionMode,
   type ServerSettings,
+  type OrchestrationV2ThreadLaunchWorkspaceStrategy,
 } from "@t3tools/contracts";
 
 import {
@@ -16,6 +17,20 @@ import {
 import type { ProviderInstanceEntry } from "../../providerInstances";
 
 import type { ResolvedSettingsScope } from "./settingsScope";
+
+export function scheduledTaskWorkspaceStrategy(
+  draft: Pick<DraftState, "workspaceMode" | "existingWorktreePath" | "baseRef" | "startFromOrigin">,
+  codeWorkspace: boolean,
+): OrchestrationV2ThreadLaunchWorkspaceStrategy {
+  if (!codeWorkspace || draft.workspaceMode === "root") return { type: "root" };
+  return draft.workspaceMode === "existing_worktree"
+    ? { type: "existing_worktree", worktreePath: draft.existingWorktreePath.trim() }
+    : {
+        type: "worktree",
+        baseRef: draft.baseRef.trim() || "main",
+        startFromOrigin: draft.startFromOrigin,
+      };
+}
 
 /** Project IDs belong to an environment, including when a grouped project spans machines. */
 export function matchesScheduledTaskScope(

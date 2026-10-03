@@ -1,4 +1,6 @@
-import { useRegularProjects } from "../../hooks/useRegularProjects";
+import { SINGLE_PROVIDER_UI } from "@t3tools/contracts";
+import { useProjects } from "../../state/entities";
+import { selectRegularProjects } from "../../agentPresentation";
 import { useMemo } from "react";
 import { isScratchProject } from "@t3tools/client-runtime/state/projects";
 
@@ -9,14 +11,16 @@ import { useEnvironments, usePrimaryEnvironmentId } from "../../state/environmen
 
 /** Settings uses the same logical projects as the sidebar, sorted by display name. */
 export function useSettingsProjectGroups() {
-  const projects = useRegularProjects();
+  const projects = useProjects();
   const settings = useClientSettings(selectProjectGroupingSettings);
   const primaryEnvironmentId = usePrimaryEnvironmentId();
   const { environments } = useEnvironments();
   return useMemo(() => {
     const labels = new Map(environments.map((entry) => [entry.environmentId, entry.label]));
     return buildSidebarProjectSnapshots({
-      projects,
+      projects: SINGLE_PROVIDER_UI
+        ? projects.filter((project) => !project.agentProfile?.archived)
+        : selectRegularProjects(projects),
       settings,
       primaryEnvironmentId,
       resolveEnvironmentLabel: (id) => labels.get(id) ?? null,

@@ -24,6 +24,7 @@ import {
   ProviderThreadId,
   ProviderTurnId,
   RunId,
+  ScheduledTaskId,
   ThreadId,
 } from "@t3tools/contracts";
 import * as Effect from "effect/Effect";
@@ -4395,6 +4396,105 @@ it.layer(TestLayer)("persistent agent result admission", (it) => {
         assert.isFalse(projection.messages.some((message) => message.id === planned.messageId));
       }),
     );
+});
+
+it.layer(TestLayer)("scheduled agent model admission", (it) => {
+  for (const target of ["agent", "ordinary", "different agent chat"] as const) {
+    it.effect(`uses current model for bound scheduled agent work: ${target}`, () =>
+      Effect.gen(function* () {
+        const orchestrator = yield* Orchestrator.OrchestratorV2;
+        const projects = yield* ProjectStore.ProjectStoreV2;
+        const at = DateTime.formatIso(yield* DateTime.now);
+        const projectId = ProjectId.make(`scheduled-model-project:${target}`);
+        const threadId = ThreadId.make(`scheduled-model-thread:${target}`);
+        const currentModel = {
+          ...modelSelection,
+          model: "gpt-5.5",
+          options: [{ id: "reasoningEffort", value: "high" }],
+        };
+        yield* seedProject({
+          projectId,
+          title: target,
+          workspaceRoot: process.cwd(),
+          defaultModelSelection: modelSelection,
+          createdAt: at,
+        });
+        if (target !== "ordinary") {
+          yield* projects.apply({
+            sequence: 0,
+            eventId: EventId.make(`scheduled-model-profile:${target}`),
+            aggregateKind: "project",
+            aggregateId: projectId,
+            occurredAt: at,
+            commandId: null,
+            causationEventId: null,
+            correlationId: null,
+            metadata: {},
+            type: "project.meta-updated",
+            payload: {
+              projectId,
+              agentProfile: {
+                instructions: "Help with tasks.",
+                avatar: { preset: "brain", color: "blue" },
+                archived: false,
+                notificationsEnabled: true,
+                conversationThreadId:
+                  target === "agent" ? threadId : ThreadId.make("other-agent-chat"),
+              },
+              updatedAt: at,
+            },
+          });
+        }
+        yield* orchestrator.dispatch({
+          type: "thread.create",
+          commandId: CommandId.make(`scheduled-model-create:${target}`),
+          threadId,
+          projectId,
+          title: target,
+          modelSelection,
+          runtimeMode: "full-access",
+          interactionMode: "default",
+          branch: null,
+          worktreePath: null,
+          createdBy: "user",
+          creationSource: "web",
+        });
+        yield* orchestrator.dispatch({
+          type: "thread.model-selection.set",
+          commandId: CommandId.make(`scheduled-model-change:${target}`),
+          threadId,
+          modelSelection: currentModel,
+        });
+        const dispatch = orchestrator.dispatch({
+          type: "message.dispatch",
+          commandId: CommandId.make(`scheduled-model-message:${target}`),
+          threadId,
+          messageId: MessageId.make(`scheduled-model-message:${target}`),
+          scheduledTaskId: ScheduledTaskId.make(`scheduled-model-task:${target}`),
+          modelSelection,
+          text: "Run the saved schedule.",
+          attachments: [],
+          dispatchMode: { type: "start_immediately" },
+          createdBy: "user",
+          creationSource: "web",
+        });
+        if (target === "different agent chat") {
+          const error = yield* dispatch.pipe(Effect.flip);
+          assert.equal(error._tag, "OrchestratorDispatchError");
+          assert.equal(error.cause, "Scheduled agent work must use the agent's existing chat.");
+          assert.equal((yield* orchestrator.getThreadProjection(threadId)).messages.length, 0);
+          return;
+        }
+        yield* dispatch;
+        const projection = yield* orchestrator.getThreadProjection(threadId);
+        const expectedModel = target === "agent" ? currentModel : modelSelection;
+        assert.deepEqual(projection.thread.modelSelection, expectedModel);
+        assert.deepEqual(projection.runs[0]?.modelSelection, expectedModel);
+        assert.equal(projection.messages.length, 1);
+        assert.equal(projection.messages[0]?.scheduledTaskId, `scheduled-model-task:${target}`);
+      }),
+    );
+  }
 });
 
 it.layer(TestLayer)("persistent agent fork admission", (it) => {

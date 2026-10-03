@@ -5,7 +5,7 @@ import { resolveProjectSettings } from "@t3tools/shared/projectSettings";
 import {
   CommandId,
   type ChatAttachment,
-  type MessageId,
+  MessageId,
   type ModelSelection,
   type OrchestrationV2Actor,
   type OrchestrationV2CreationSource,
@@ -626,6 +626,47 @@ const make = Effect.gen(function* () {
           }),
         ),
       );
+      const scheduledMessage = input.initialMessage;
+      if (scheduledMessage?.scheduledTaskId && project.agentProfile) {
+        const agentThreadId = project.agentProfile.conversationThreadId;
+        if (project.agentProfile.archived || !agentThreadId) {
+          return yield* mapError(
+            input,
+            "resolve-project",
+          )("Restore the agent and its existing chat before scheduling work.");
+        }
+        if (input.threadId !== undefined && input.threadId !== agentThreadId) {
+          return yield* mapError(
+            input,
+            "resolve-project",
+            input.threadId,
+          )("Scheduled agent work must use the agent's existing chat.");
+        }
+        // An agent owns one durable conversation. Schedules resume it even
+        // when an older client omitted the binding or requested a worktree.
+        yield* threads
+          .sendToThread({
+            projectId: input.projectId,
+            threadId: agentThreadId,
+            commandId: CommandId.make(`${input.commandId}:initial-message`),
+            messageId:
+              scheduledMessage.messageId ?? MessageId.make(`${input.commandId}:initial-message`),
+            scheduledTaskId: scheduledMessage.scheduledTaskId,
+            ...(scheduledMessage.senderThreadId
+              ? { senderThreadId: scheduledMessage.senderThreadId }
+              : {}),
+            text: scheduledMessage.text,
+            attachments: scheduledMessage.attachments,
+            mode: "auto",
+            createdBy: input.createdBy,
+            creationSource: input.creationSource,
+          })
+          .pipe(Effect.mapError(mapError(input, "dispatch-message", agentThreadId)));
+        const projection = yield* threads
+          .getThreadProjection(agentThreadId)
+          .pipe(Effect.mapError(mapError(input, "dispatch-message", agentThreadId)));
+        return { threadId: agentThreadId, projection, resumed: true };
+      }
       if (input.reuseExistingThread === true && input.threadId === undefined) {
         return yield* mapError(
           input,

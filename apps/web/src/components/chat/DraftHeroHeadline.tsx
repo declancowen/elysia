@@ -10,7 +10,6 @@ import { useCallback, useEffect, useMemo, useRef } from "react";
 
 import { openCommandPalette } from "~/commandPaletteBus";
 import { shortcutLabelForCommand } from "~/keybindings";
-import { projectIconColorClassName } from "~/projectIconColors";
 import { primaryServerKeybindingsAtom } from "~/state/server";
 import { useScratchProject } from "~/hooks/useScratchProject";
 import { useClientSettings } from "~/hooks/useSettings";
@@ -271,9 +270,9 @@ export function DraftHeroHeadline({
                 {/* Boxed like ProjectFavicon so the label lines up with project rows. */}
                 <span
                   aria-hidden="true"
-                  className={`inline-flex size-4 shrink-0 ${projectIconColorClassName("gray")}`}
+                  className="inline-flex size-4 shrink-0 items-center justify-center text-inherit"
                 >
-                  <MessageCircleIcon className="size-full" />
+                  <MessageCircleIcon className="size-full text-inherit" />
                 </span>
                 Chats
               </span>
@@ -304,8 +303,15 @@ export function DraftHeroHeadline({
         </MenuRadioGroup>
         {projectPickerEntries.length > 0 ? <MenuSeparator /> : null}
         <MenuItem onClick={openAddProject}>
-          <FolderPlusIcon />
-          Add project
+          <span className="flex min-w-0 items-center gap-2">
+            <span
+              aria-hidden="true"
+              className="inline-flex size-4 shrink-0 items-center justify-center text-inherit"
+            >
+              <FolderPlusIcon className="size-full text-inherit" />
+            </span>
+            Add project
+          </span>
         </MenuItem>
       </MenuPopup>
     </Menu>

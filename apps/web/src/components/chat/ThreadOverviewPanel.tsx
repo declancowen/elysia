@@ -531,7 +531,7 @@ function OverviewPopover({
                 </div>
               ) : selectedAgent ? (
                 <div
-                  className="flex flex-col gap-5 pl-8"
+                  className="flex flex-col gap-5 pl-2 sm:pl-0.5"
                   aria-label={`${selectedAgent.name} responses`}
                 >
                   {selectedAgent.jobs.map(({ job, data, project, working }) => {

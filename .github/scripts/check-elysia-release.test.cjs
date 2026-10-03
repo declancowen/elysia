@@ -1,6 +1,17 @@
 const assert = require("node:assert/strict");
 const test = require("node:test");
+const { existsSync, readFileSync } = require("node:fs");
+const { resolve } = require("node:path");
 const { resolveElysiaReleaseVersion, resolveElysiaRelease } = require("./check-elysia-release.cjs");
+
+test("release workflow test filters resolve to existing test owners", () => {
+  const root = resolve(__dirname, "../..");
+  const workflow = readFileSync(resolve(root, ".github/workflows/release-elysia.yml"), "utf8");
+  const paths = [...workflow.matchAll(/(?:apps|packages|scripts)\/[\w./-]+\.test\.[cm]?[jt]sx?/g)];
+  assert.ok(paths.length > 0);
+  for (const [path] of paths)
+    assert.ok(existsSync(resolve(root, path)), `Missing release test: ${path}`);
+});
 
 test("accepts the first Elysia stable release without inheriting upstream versions", () => {
   assert.equal(resolveElysiaReleaseVersion("v0.0.1", []), "0.0.1");

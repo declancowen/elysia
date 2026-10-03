@@ -1,7 +1,12 @@
 import { scopeProjectRef } from "@t3tools/client-runtime/environment";
 import type { ScopedProjectRef } from "@t3tools/contracts";
+import { useClientSettings } from "../../hooks/useSettings";
+import {
+  deriveLogicalProjectKeyFromSettings,
+  selectProjectGroupingSettings,
+} from "../../logicalProject";
 import { useNavigate } from "@tanstack/react-router";
-import { ArchiveIcon, ArchiveX, BotIcon, Edit03Icon } from "~/icons";
+import { ArchiveIcon, ArchiveX, BotIcon, CalendarClockIcon, Edit03Icon } from "~/icons";
 import { useLayoutEffect, useRef, useState } from "react";
 import { Button } from "../ui/button";
 import { Popover, PopoverPopup, PopoverTitle, PopoverTrigger } from "../ui/popover";
@@ -10,13 +15,19 @@ import { openAgentDialog } from "./agentDialogStore";
 import { useAgentActions } from "./useAgentActions";
 import { useAgents, type AgentRosterEntry } from "./useAgents";
 
-export function AgentDetailsPopover({ projectRef }: { projectRef: ScopedProjectRef | null }) {
+export function AgentDetailsPopover({
+  projectRef,
+  defaultOpen = false,
+}: {
+  projectRef: ScopedProjectRef | null;
+  defaultOpen?: boolean;
+}) {
   const agents = useAgents();
   const current = agents.find(
     ({ project }) =>
       project.environmentId === projectRef?.environmentId && project.id === projectRef.projectId,
   );
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(defaultOpen);
   const navigate = useNavigate();
   const close = () => setOpen(false);
   if (!current) return null;
@@ -61,6 +72,8 @@ function AgentDetails({ agent, onClose }: { agent: AgentRosterEntry; onClose: ()
   const { project, busy } = agent;
   const profile = project.agentProfile!;
   const { pending, archive } = useAgentActions(agent);
+  const navigate = useNavigate();
+  const grouping = useClientSettings(selectProjectGroupingSettings);
   const labelRef = useRef<HTMLDivElement>(null);
   const [avatarSize, setAvatarSize] = useState(profile.title ? 34 : 14);
   useLayoutEffect(() => {
@@ -106,7 +119,7 @@ function AgentDetails({ agent, onClose }: { agent: AgentRosterEntry; onClose: ()
           {profile.instructions}
         </p>
       </div>
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         <Button
           size="sm"
           variant="outline"
@@ -131,6 +144,24 @@ function AgentDetails({ agent, onClose }: { agent: AgentRosterEntry; onClose: ()
         >
           <ArchiveIcon />
           {pending ? "Archiving…" : "Archive"}
+        </Button>
+        <Button
+          size="sm"
+          variant="ghost"
+          onClick={() => {
+            onClose();
+            void navigate({
+              to: "/settings/scheduled-tasks",
+              search: {
+                project: deriveLogicalProjectKeyFromSettings(project, grouping),
+                machine: project.environmentId,
+                checkout: undefined,
+              },
+            });
+          }}
+        >
+          <CalendarClockIcon />
+          Scheduled tasks
         </Button>
       </div>
       {busy ? (

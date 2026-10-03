@@ -1,3 +1,4 @@
+import "../testUtils/upstreamForkPolicy.ts";
 import * as Scheduler from "../scheduling/Scheduler.ts";
 import * as WorktreeSetupTracker from "../project/WorktreeSetupTracker.ts";
 import * as ProjectCloneTracker from "../project/ProjectCloneTracker.ts";
@@ -11,6 +12,7 @@ import { assert, it, vi } from "@effect/vitest";
 import * as NodeCrypto from "@effect/platform-node/NodeCrypto";
 import {
   ChatAttachmentId,
+  type AgentProfile,
   ComposerContextId,
   type ChatAttachment,
   CommandId,
@@ -95,6 +97,7 @@ const adapter = {
 } as ProviderAdapterV2Shape;
 
 interface HarnessOptions {
+  readonly agentProfile?: AgentProfile;
   readonly managedFolders?: Layer.Layer<ManagedProjectFolders.ManagedProjectFolders>;
   readonly createWorktree?: GitWorkflow.GitWorkflowService["Service"]["createWorktree"];
   readonly fetchRemote?: GitWorkflow.GitWorkflowService["Service"]["fetchRemote"];
@@ -148,7 +151,10 @@ function makeHarness(options: HarnessOptions = {}) {
       getById: (id) =>
         Effect.succeed(
           id === projectId
-            ? Option.some(project)
+            ? Option.some({
+                ...project,
+                ...(options.agentProfile ? { agentProfile: options.agentProfile } : {}),
+              })
             : id === otherProjectId
               ? Option.some(otherProject)
               : Option.none(),
@@ -328,6 +334,137 @@ for (const target of ["new", "existing"] as const) {
       },
     );
   }
+}
+
+const scheduledAgentChat = ThreadId.make("thread:scheduled-agent");
+const scheduledAgentProfile: AgentProfile = {
+  instructions: "Help finish work.",
+  avatar: { preset: "brain", color: "blue" },
+  notificationsEnabled: true,
+  archived: false,
+  conversationThreadId: scheduledAgentChat,
+};
+
+function scheduledAgentLaunch(workspaceStrategy: ThreadLaunch.ThreadLaunchWorkspaceStrategy) {
+  return {
+    commandId: CommandId.make("command:scheduled-agent"),
+    projectId,
+    title: "Agent audit",
+    modelSelection,
+    runtimeMode: "full-access" as const,
+    interactionMode: "default" as const,
+    workspaceStrategy,
+    initialMessage: {
+      text: "Continue the audit.",
+      attachments: [],
+      scheduledTaskId: ScheduledTaskId.make("scheduled-task:agent"),
+    },
+    createdBy: "user" as const,
+    creationSource: "web" as const,
+  };
+}
+
+function scheduledAgentHarness(agentProfile: AgentProfile) {
+  return makeHarness({
+    agentProfile,
+    createWorktree: () => Effect.die("Agent schedules must not create worktrees."),
+    fetchRemote: () => Effect.die("Agent schedules must not fetch Git branches."),
+    renameBranch: () => Effect.die("Agent schedules must not rename Git branches."),
+    runSetup: () => Effect.die("Agent schedules must resume their prepared chat."),
+    managedFolders: Layer.mock(ManagedProjectFolders.ManagedProjectFolders)({
+      namedProjectsRoot: "/unused-agent-projects",
+      folderForThread: () => Effect.die("Agent schedules must not create another folder."),
+    }),
+  });
+}
+
+for (const workspaceStrategy of [
+  { type: "root" },
+  { type: "worktree", baseRef: "main" },
+] as const) {
+  it.effect(
+    `resumes scheduled agent work in its existing chat without ${workspaceStrategy.type} provisioning`,
+    () => {
+      const harness = scheduledAgentHarness(scheduledAgentProfile);
+      return Effect.gen(function* () {
+        const launches = yield* ThreadLaunch.ThreadLaunchService;
+        const threads = yield* ThreadManagement.ThreadManagementService;
+        yield* threads.dispatch({
+          type: "thread.create",
+          commandId: CommandId.make("command:scheduled-agent:create"),
+          threadId: scheduledAgentChat,
+          projectId,
+          title: "Existing agent chat",
+          modelSelection,
+          runtimeMode: "full-access",
+          interactionMode: "default",
+          branch: null,
+          worktreePath: null,
+          createdBy: "user",
+          creationSource: "web",
+        });
+        const input = {
+          ...scheduledAgentLaunch(workspaceStrategy),
+          modelSelection: { ...modelSelection, model: "outdated-schedule-model" },
+        };
+        const first = yield* launches.launch(input);
+        const retried = yield* launches.launch(input);
+        assert.equal(first.threadId, scheduledAgentChat);
+        assert.isTrue(first.resumed);
+        assert.equal(retried.threadId, scheduledAgentChat);
+        const projection = yield* threads.getThreadProjection(scheduledAgentChat);
+        assert.equal(projection.thread.title, "Existing agent chat");
+        assert.deepEqual(projection.thread.modelSelection, modelSelection);
+        assert.isNull(projection.thread.branch);
+        assert.isNull(projection.thread.worktreePath);
+        assert.equal(projection.messages.length, 1);
+        assert.equal(projection.messages[0]?.text, input.initialMessage.text);
+        assert.equal(projection.messages[0]?.scheduledTaskId, input.initialMessage.scheduledTaskId);
+        assert.deepEqual(
+          (yield* threads.listProjectThreads({ projectId, includeSubagents: false })).map(
+            (thread) => thread.id,
+          ),
+          [scheduledAgentChat],
+        );
+      }).pipe(Effect.provide(harness.layer));
+    },
+  );
+}
+
+for (const unavailable of [
+  "archived",
+  "missing binding",
+  "missing chat",
+  "conflicting identity",
+] as const) {
+  it.effect(`rejects scheduled agent work with ${unavailable} instead of creating a chat`, () => {
+    const profile: AgentProfile = {
+      instructions: scheduledAgentProfile.instructions,
+      avatar: scheduledAgentProfile.avatar,
+      notificationsEnabled: scheduledAgentProfile.notificationsEnabled,
+      archived: unavailable === "archived",
+      ...(unavailable !== "missing binding" ? { conversationThreadId: scheduledAgentChat } : {}),
+    };
+    const harness = scheduledAgentHarness(profile);
+    return Effect.gen(function* () {
+      const launches = yield* ThreadLaunch.ThreadLaunchService;
+      const threads = yield* ThreadManagement.ThreadManagementService;
+      const input = scheduledAgentLaunch({ type: "root" });
+      const failure = yield* launches
+        .launch({
+          ...input,
+          ...(unavailable === "conflicting identity"
+            ? { threadId: ThreadId.make("thread:wrong") }
+            : {}),
+        })
+        .pipe(Effect.flip);
+      assert.equal(failure._tag, "ThreadLaunchError");
+      assert.deepEqual(
+        yield* threads.listProjectThreads({ projectId, includeSubagents: false }),
+        [],
+      );
+    }).pipe(Effect.provide(harness.layer));
+  });
 }
 
 it.effect("retains automation and sender attribution while a message waits in the queue", () => {

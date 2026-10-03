@@ -24,6 +24,8 @@ import { createPendingAttachmentId, resolveAttachmentPath } from "../attachmentS
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
+import * as SqlClient from "effect/unstable/sql/SqlClient";
+import * as LegacyV1ThreadImporter from "./legacy/LegacyV1ThreadImporter.ts";
 import { ServerConfig } from "../config.ts";
 import { SqlitePersistenceMemory } from "../persistence/Layers/Sqlite.ts";
 import {
@@ -62,9 +64,11 @@ const threads = Layer.unwrap(
   Effect.gen(function* () {
     const projections = yield* ProjectionStore.ProjectionStoreV2;
     const events = yield* EventSink.EventSinkV2;
+    const importer = yield* LegacyV1ThreadImporter.LegacyV1ThreadImporter;
     return Layer.mock(ThreadManagement.ThreadManagementService)({
       getThreadShell: (id) => projections.getThreadShell(id).pipe(Effect.orDie),
       ensureLegacyTranscript: () => Effect.void,
+      getLegacyTaskResult: importer.getTaskResult,
       dispatch: (command) =>
         Effect.gen(function* () {
           if (command.type !== "message.dispatch")
@@ -135,7 +139,7 @@ const threads = Layer.unwrap(
         }),
     });
   }),
-).pipe(Layer.provide(sink));
+).pipe(Layer.provide(LegacyV1ThreadImporter.layer.pipe(Layer.provide(sink))), Layer.provide(sink));
 const dependencies = Layer.mergeAll(
   sink,
   threads,
@@ -153,6 +157,7 @@ describe("V2 persistent delegation", () => {
     "attachments",
     "source-admission-race",
     "existing-request-race",
+    "legacy",
   ] as const)
     it.effect(`returns original results durably; source state ${scenario}`, () =>
       Effect.gen(function* () {
@@ -642,6 +647,43 @@ describe("V2 persistent delegation", () => {
             })),
           ],
         });
+        if (scenario === "legacy") {
+          const sql = yield* SqlClient.SqlClient;
+          yield* sql`INSERT INTO projection_turns
+            (thread_id, turn_id, pending_message_id, state, requested_at, checkpoint_files_json)
+            VALUES (${agentThreadId}, 'legacy-task-turn', ${notice.agentDelegation.targetMessageId},
+              'completed', ${DateTime.formatIso(at)}, '[]')`;
+          for (const [id, turnId, text] of [
+            ["legacy-task-reply", "legacy-task-turn", "Original result"],
+            ["legacy-other-reply", "other-legacy-turn", "Unrelated old reply"],
+          ]) {
+            yield* sql`INSERT INTO projection_thread_messages
+              (message_id, thread_id, turn_id, role, text, is_streaming, created_at, updated_at, attachments_json)
+              VALUES (${id}, ${agentThreadId}, ${turnId}, 'assistant', ${text}, 0,
+                ${DateTime.formatIso(at)}, ${DateTime.formatIso(at)}, '[]')`;
+          }
+          yield* events.write({
+            events: [
+              {
+                id: EventId.make("legacy-target-message"),
+                type: "message.updated",
+                threadId: agentThreadId,
+                occurredAt: at,
+                payload: { ...target.messages[0]!, runId: null },
+              },
+              {
+                id: EventId.make("legacy-source-notice"),
+                type: "turn-item.updated",
+                threadId: sourceId,
+                occurredAt: at,
+                payload: {
+                  ...notice,
+                  agentDelegation: { ...notice.agentDelegation, targetTurnId: null },
+                },
+              },
+            ],
+          });
+        }
         const result = yield* getAgentDelegation({
           sourceThreadId: sourceId,
           activityId: EventId.make(notice.id),
@@ -651,7 +693,21 @@ describe("V2 persistent delegation", () => {
           result.messages.map((message) => message.text),
           ["Original result"],
         );
-        assert.equal(result.targetTurnId, notice.agentDelegation.targetTurnId);
+        assert.equal(
+          result.targetTurnId,
+          scenario === "legacy" ? "legacy-task-turn" : notice.agentDelegation.targetTurnId,
+        );
+        if (scenario === "legacy") {
+          const sql = yield* SqlClient.SqlClient;
+          yield* sql`UPDATE projection_thread_messages SET attachments_json = '{invalid'
+            WHERE message_id = 'legacy-task-reply'`;
+          const failure = yield* getAgentDelegation({
+            sourceThreadId: sourceId,
+            activityId: EventId.make(notice.id),
+          }).pipe(Effect.flip);
+          assert.equal(failure.message, "Could not read the agent conversation. Try again.");
+          return;
+        }
         if (scenario === "archive") {
           const sourceThread = (yield* projections.getThreadProjection(sourceId)).thread;
           yield* events.write({

@@ -4121,6 +4121,22 @@ const makeOrchestrator = Effect.fn("orchestrationV2.Orchestrator.layer")(functio
           cause: "Restore this agent before starting work.",
         });
       }
+      if (
+        command.scheduledTaskId !== undefined &&
+        Option.isSome(project) &&
+        project.value.agentProfile
+      ) {
+        if (project.value.agentProfile.conversationThreadId !== command.threadId) {
+          return yield* new OrchestratorDispatchError({
+            commandId: command.commandId,
+            commandType: command.type,
+            cause: "Scheduled agent work must use the agent's existing chat.",
+          });
+        }
+        // Agent schedules inherit the durable chat's current configuration;
+        // a saved task must not switch it back to an older model or options.
+        command = { ...command, modelSelection: projection.thread.modelSelection };
+      }
       const agentResult =
         command.creationSource === "server" && command.createdBy === "agent"
           ? command.context?.records.find((record) => record.kind === "elysia-agent-result")

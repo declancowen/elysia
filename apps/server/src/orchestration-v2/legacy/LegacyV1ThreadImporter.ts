@@ -4,6 +4,9 @@ import {
 } from "@t3tools/shared/threadPullRequests";
 import {
   ChatAttachment,
+  type AgentGetDelegationResult,
+  OrchestrationMessage,
+  TurnId,
   AgentDelegationActivityPayload,
   OrchestrationMessageContext,
   DEFAULT_MODEL,
@@ -106,7 +109,16 @@ export class LegacyV1ThreadImportError extends Schema.TaggedError<LegacyV1Thread
   }
 }
 
+export type LegacyTaskResult = Pick<
+  AgentGetDelegationResult,
+  "targetTurnId" | "messages" | "status" | "truncated"
+>;
+
 export interface LegacyV1ThreadImporterShape {
+  readonly getTaskResult: (
+    threadId: ThreadId,
+    targetMessageId: MessageId,
+  ) => Effect.Effect<LegacyTaskResult | null, LegacyV1ThreadImportError>;
   readonly pendingThreadCount: Effect.Effect<number, LegacyV1ThreadImportError>;
   readonly reconcileShells: Effect.Effect<LegacyV1ImportSummary, LegacyV1ThreadImportError>;
   readonly ensureTranscript: (
@@ -119,6 +131,14 @@ export class LegacyV1ThreadImporter extends Context.Service<
   LegacyV1ThreadImporter,
   LegacyV1ThreadImporterShape
 >()("t3/orchestration-v2/legacy/LegacyV1ThreadImporter") {}
+
+const decodeLegacyAttachments = Schema.decodeUnknownEffect(
+  Schema.fromJsonString(Schema.Array(ChatAttachment)),
+);
+const decodeLegacyContext = Schema.decodeUnknownEffect(
+  Schema.fromJsonString(OrchestrationMessageContext),
+);
+const decodeLegacyMessage = Schema.decodeUnknownEffect(OrchestrationMessage);
 
 const decodeModelSelection = Schema.decodeUnknownOption(ModelSelection);
 const decodeAttachments = Schema.decodeUnknownOption(Schema.Array(ChatAttachment));
@@ -866,7 +886,70 @@ const make = Effect.gen(function* () {
     ),
   );
 
+  // Imported transcript messages have no run association. Retain exact legacy
+  // task identity here rather than guessing from neighboring message timestamps.
+  const getTaskResult = (threadId: ThreadId, targetMessageId: MessageId) =>
+    Effect.gen(function* () {
+      const turns = yield* sql<{ turn_id: string | null; state: string }>`
+      SELECT turn_id, state FROM projection_turns WHERE thread_id = ${threadId}
+        AND pending_message_id = ${targetMessageId} LIMIT 1
+    `;
+      const turn = turns[0];
+      if (!turn?.turn_id) return null;
+      const rows = yield* sql<{
+        message_id: string;
+        role: string;
+        text: string;
+        turn_id: string | null;
+        attachments_json: string | null;
+        context_json: string | null;
+        is_streaming: number;
+        created_at: string;
+        updated_at: string;
+      }>`
+      SELECT message_id, role, text, turn_id, attachments_json, context_json, is_streaming, created_at, updated_at
+      FROM projection_thread_messages WHERE thread_id = ${threadId} AND turn_id = ${turn.turn_id} AND role = 'assistant'
+      ORDER BY created_at DESC, message_id DESC LIMIT 33
+    `;
+      const messages = yield* Effect.forEach(rows.toReversed().slice(-32), (row) =>
+        Effect.gen(function* () {
+          const attachments = row.attachments_json
+            ? yield* decodeLegacyAttachments(row.attachments_json)
+            : undefined;
+          const context = row.context_json
+            ? yield* decodeLegacyContext(row.context_json)
+            : undefined;
+          return yield* decodeLegacyMessage({
+            id: row.message_id,
+            role: row.role,
+            text: row.text,
+            turnId: row.turn_id,
+            streaming: false,
+            createdAt: row.created_at,
+            updatedAt: row.updated_at,
+            ...(attachments ? { attachments } : {}),
+            ...(context ? { context } : {}),
+          });
+        }),
+      );
+      return {
+        targetTurnId: TurnId.make(turn.turn_id),
+        messages,
+        truncated: rows.length > 32,
+        status:
+          turn.state === "completed" || turn.state === "error" || turn.state === "interrupted"
+            ? turn.state
+            : "unavailable",
+      } satisfies LegacyTaskResult;
+    }).pipe(
+      Effect.mapError(
+        (cause) =>
+          new LegacyV1ThreadImportError({ operation: "read task result", threadId, cause }),
+      ),
+    );
+
   return LegacyV1ThreadImporter.of({
+    getTaskResult,
     pendingThreadCount,
     reconcileShells,
     ensureTranscript,

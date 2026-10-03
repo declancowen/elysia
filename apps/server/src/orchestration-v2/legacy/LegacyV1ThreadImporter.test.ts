@@ -1,5 +1,5 @@
 import { assert, it } from "@effect/vitest";
-import { EventId, ThreadId } from "@t3tools/contracts";
+import { EventId, MessageId, ThreadId } from "@t3tools/contracts";
 import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -33,6 +33,55 @@ const TestLayer = Layer.mergeAll(
 );
 
 it.layer(TestLayer)("LegacyV1ThreadImporter", (it) => {
+  it.effect("preserves exact legacy task replies, bounded history and terminal status", () =>
+    Effect.gen(function* () {
+      const sql = yield* SqlClient.SqlClient;
+      const importer = yield* LegacyV1ThreadImporter.LegacyV1ThreadImporter;
+      const threadId = ThreadId.make("legacy-task-results");
+      const targetId = MessageId.make("legacy-task-ask");
+      yield* sql`INSERT INTO projection_turns
+        (thread_id, turn_id, pending_message_id, state, requested_at, checkpoint_files_json)
+        VALUES (${threadId}, 'legacy-task', ${targetId}, 'completed', '2026-01-01T00:00:00Z', '[]')`;
+      for (let index = 0; index < 34; index++) {
+        const id = `legacy-task-reply:${String(index).padStart(2, "0")}`;
+        yield* sql`INSERT INTO projection_thread_messages
+          (message_id, thread_id, turn_id, role, text, is_streaming, created_at, updated_at, attachments_json)
+          VALUES (${id}, ${threadId}, 'legacy-task', 'assistant', ${id}, 1,
+            '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z', '[]')`;
+      }
+      yield* sql`INSERT INTO projection_thread_messages
+        (message_id, thread_id, turn_id, role, text, is_streaming, created_at, updated_at, attachments_json)
+        VALUES ('legacy-unrelated-reply', ${threadId}, 'another-task', 'assistant', 'Do not include', 0,
+          '2026-01-02T00:00:00Z', '2026-01-02T00:00:00Z', '[]')`;
+      const result = yield* importer.getTaskResult(threadId, targetId);
+      assert.isNotNull(result);
+      assert.equal(result!.targetTurnId, "legacy-task");
+      assert.equal(result!.status, "completed");
+      assert.isTrue(result!.truncated);
+      assert.lengthOf(result!.messages, 32);
+      assert.equal(result!.messages[0]!.id, "legacy-task-reply:02");
+      assert.equal(result!.messages.at(-1)!.id, "legacy-task-reply:33");
+      assert.isTrue(
+        result!.messages.every((message) => message.turnId === "legacy-task" && !message.streaming),
+      );
+      for (const state of ["error", "interrupted", "running"]) {
+        yield* sql`UPDATE projection_turns SET state = ${state} WHERE thread_id = ${threadId}`;
+        assert.equal(
+          (yield* importer.getTaskResult(threadId, targetId))!.status,
+          state === "running" ? "unavailable" : state,
+        );
+      }
+      assert.isNull(yield* importer.getTaskResult(threadId, MessageId.make("missing-task")));
+      assert.isNull(yield* importer.getTaskResult(ThreadId.make("wrong-task-thread"), targetId));
+      yield* sql`UPDATE projection_thread_messages SET attachments_json = '{invalid'
+        WHERE message_id = 'legacy-task-reply:33'`;
+      const failure = yield* importer.getTaskResult(threadId, targetId).pipe(Effect.flip);
+      assert.equal(failure._tag, "LegacyV1ThreadImportError");
+      assert.equal(failure.operation, "read task result");
+      assert.equal(failure.threadId, threadId);
+    }),
+  );
+
   it.effect("uses the created-thread index for startup migration checks", () =>
     Effect.gen(function* () {
       const sql = yield* SqlClient.SqlClient;

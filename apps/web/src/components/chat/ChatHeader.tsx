@@ -393,9 +393,9 @@ export const ChatHeader = memo(function ChatHeader({
     [commitRename],
   );
   const codeWorkspace = useCodeWorkspace();
-  const headerActions = codeWorkspace && (
+  const headerActions = (
     <>
-      {activeProjectScripts && (
+      {codeWorkspace && activeProjectScripts && (
         <>
           <ProjectScriptsControl
             onRequestMenuClose={() => setActionsOpen(false)}
@@ -413,17 +413,19 @@ export const ChatHeader = memo(function ChatHeader({
       )}
       {showOpenInPicker && (
         <>
-          {actionsCollapsed && activeProjectScripts && <MenuSeparator />}
+          {actionsCollapsed && codeWorkspace && activeProjectScripts && <MenuSeparator />}
           <OpenInPicker
             presentation={actionsCollapsed ? "menu" : "toolbar"}
             environmentId={activeThreadEnvironmentId}
             keybindings={keybindings}
             availableEditors={availableEditors}
             openInCwd={openInCwd}
+            enableShortcut={false}
           />
         </>
       )}
-      {activeProjectName &&
+      {codeWorkspace &&
+        activeProjectName &&
         gitCwd &&
         activeProject &&
         serverConfig !== null &&
@@ -584,9 +586,9 @@ export const ChatHeader = memo(function ChatHeader({
         <Menu open={actionsCollapsed && actionsOpen} onOpenChange={setActionsOpen}>
           <MenuTrigger
             className={
-              codeWorkspace &&
               actionsCollapsed &&
-              (activeProjectScripts || showOpenInPicker || (activeProjectName && gitCwd))
+              (showOpenInPicker ||
+                (codeWorkspace && (activeProjectScripts || (activeProjectName && gitCwd))))
                 ? undefined
                 : "hidden"
             }

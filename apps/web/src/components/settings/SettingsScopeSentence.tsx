@@ -1,3 +1,4 @@
+import { scopeProjectRef } from "@t3tools/client-runtime/environment";
 import { SINGLE_PROVIDER_UI, resolveEnvironmentMachineKind } from "@t3tools/contracts";
 import { isScratchProject } from "@t3tools/client-runtime/state/projects";
 import { useLocation } from "@tanstack/react-router";
@@ -7,10 +8,14 @@ import type { ReactNode } from "react";
 import type { SidebarProjectSnapshot } from "../../sidebarProjectGrouping";
 import { useEnvironments, type EnvironmentPresentation } from "../../state/environments";
 import { EnvironmentMachineIcon } from "../EnvironmentMachineIcon";
+import { AgentAvatar } from "../agents/AgentAvatar";
+import { AgentDetailsPopover } from "../agents/AgentDetailsPopover";
 import { ProjectFavicon } from "../ProjectFavicon";
 import { InlineButton } from "../ui/button";
 import {
   Menu,
+  MenuGroup,
+  MenuGroupLabel,
   MenuPopup,
   MenuRadioGroup,
   MenuRadioItem,
@@ -56,6 +61,9 @@ export function SettingsScopeSentence() {
   const pathname = useLocation({ select: (location) => location.pathname });
   const { environments } = useEnvironments();
   if (scope === null || SETTINGS_DEVICE_ONLY_PATHS.has(pathname)) return null;
+  const selectedAgent = scope.groups.find(
+    (group) => group.projectKey === scope.search.project && group.agentProfile,
+  );
   const props: SettingsScopeMenuProps = {
     value: scope.search,
     singleEnvironment: scope.singleEnvironment,
@@ -69,6 +77,13 @@ export function SettingsScopeSentence() {
       <span className="flex min-w-0 items-center gap-1.5">
         <span className="shrink-0">Applying settings for</span>
         <ProjectScopeMenu {...props} />
+        {selectedAgent ? (
+          <AgentDetailsPopover
+            key={selectedAgent.projectKey}
+            projectRef={scopeProjectRef(selectedAgent.environmentId, selectedAgent.id)}
+            defaultOpen={pathname !== "/settings/scheduled-tasks"}
+          />
+        ) : null}
       </span>
       {!SINGLE_PROVIDER_UI && (
         <span className="flex min-w-0 items-center gap-1.5">
@@ -191,11 +206,13 @@ function EnvironmentScopeMenu({
 function ProjectScopeMenu({ value, groups, environments, onChange }: SettingsScopeMenuProps) {
   const selected = groups.find((group) => group.projectKey === value.project);
   const projectIcon = (group: SidebarProjectSnapshot) =>
-    isScratchProject(
-      group,
-      environments.find((entry) => entry.environmentId === group.environmentId)?.serverConfig
-        ?.scratchWorkspaceRoot,
-    ) ? (
+    group.agentProfile ? (
+      <AgentAvatar avatar={group.agentProfile.avatar} className="size-3.5 shrink-0" />
+    ) : isScratchProject(
+        group,
+        environments.find((entry) => entry.environmentId === group.environmentId)?.serverConfig
+          ?.scratchWorkspaceRoot,
+      ) ? (
       <MessageCircleIcon aria-hidden className="size-3.5 shrink-0" />
     ) : (
       <ProjectFavicon project={group} className="size-3.5 shrink-0" />
@@ -228,15 +245,34 @@ function ProjectScopeMenu({ value, groups, environments, onChange }: SettingsSco
           </span>
         </MenuRadioItem>
         <MenuSeparator />
-        {groups.map((group) => (
-          <MenuRadioItem key={group.projectKey} value={group.projectKey}>
-            <span className="flex min-w-0 items-center gap-2">
-              {projectIcon(group)}
-              <span className="min-w-0 flex-1 truncate">{group.displayName}</span>
-              <MenuRadioItemIndicator />
-            </span>
-          </MenuRadioItem>
-        ))}
+        {groups
+          .filter((group) => !group.agentProfile)
+          .map((group) => (
+            <MenuRadioItem key={group.projectKey} value={group.projectKey}>
+              <span className="flex min-w-0 items-center gap-2">
+                {projectIcon(group)}
+                <span className="min-w-0 flex-1 truncate">{group.displayName}</span>
+                <MenuRadioItemIndicator />
+              </span>
+            </MenuRadioItem>
+          ))}
+        {groups.some((group) => group.agentProfile) ? (
+          <MenuGroup>
+            <MenuSeparator />
+            <MenuGroupLabel>Agents</MenuGroupLabel>
+            {groups
+              .filter((group) => group.agentProfile)
+              .map((group) => (
+                <MenuRadioItem key={group.projectKey} value={group.projectKey}>
+                  <span className="flex min-w-0 items-center gap-2">
+                    {projectIcon(group)}
+                    <span className="min-w-0 flex-1 truncate">{group.displayName}</span>
+                    <MenuRadioItemIndicator />
+                  </span>
+                </MenuRadioItem>
+              ))}
+          </MenuGroup>
+        ) : null}
       </MenuRadioGroup>
     </ScopeMenu>
   );

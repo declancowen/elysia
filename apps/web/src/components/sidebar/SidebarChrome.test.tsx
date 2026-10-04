@@ -103,7 +103,7 @@ it("navigates rail pages and keeps the thread switcher in Workspace", async () =
       "Agents",
       "Scheduled",
       "Projects",
-      "Git",
+      "Pull requests",
       "Settings",
       "Code workspace · Switch to Work",
       "Stats",
@@ -130,17 +130,17 @@ it("navigates rail pages and keeps the thread switcher in Workspace", async () =
     expect(button("Switch to Project view")).not.toBeNull();
     await act(async () => button("Code workspace · Switch to Work").click());
     expect(state.settings.workspaceMode).toBe("work");
-    expect(container.querySelector('[aria-label="Git"]')).toBeNull();
+    expect(container.querySelector('[aria-label="Pull requests"]')).toBeNull();
     state.pathname = "/settings";
     await act(async () => render());
     expect(button("Work workspace · Switch to Code")).not.toBeNull();
     expect(button("Switch to Project view")).not.toBeNull();
     expect(button("Settings").getAttribute("aria-current")).toBe("page");
     await act(async () => button("Work workspace · Switch to Code").click());
-    expect(button("Git")).not.toBeNull();
+    expect(button("Pull requests")).not.toBeNull();
     state.pullRequestsSupported = false;
     await act(async () => render());
-    expect(container.querySelector('[aria-label="Git"]')).toBeNull();
+    expect(container.querySelector('[aria-label="Pull requests"]')).toBeNull();
   } finally {
     await act(async () => root.unmount());
     container.remove();

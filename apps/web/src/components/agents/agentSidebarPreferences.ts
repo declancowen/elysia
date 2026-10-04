@@ -67,6 +67,15 @@ export function toggleAgentPinned(key: string) {
     pinned: s.pinned.includes(key) ? s.pinned.filter((k) => k !== key) : [...s.pinned, key],
   }));
 }
+/** Reorders the visible pins without losing archived or search-hidden pins. */
+export function reorderAgentPins(ids: readonly string[]) {
+  useAgentSidebarPreferences.setState((state) => {
+    const moved = new Set(ids);
+    if (moved.size !== ids.length || ids.some((id) => !state.pinned.includes(id))) return state;
+    let index = 0;
+    return { pinned: state.pinned.map((id) => (moved.has(id) ? ids[index++]! : id)) };
+  });
+}
 export function removeAgentSection(id: string) {
   useAgentSidebarPreferences.setState((s) => ({
     sections: s.sections.filter((section) => section.id !== id),

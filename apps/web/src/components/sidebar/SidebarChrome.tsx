@@ -483,7 +483,7 @@ export const AppNavigationRail = memo(function AppNavigationRail() {
         />
         {codeWorkspace && pullRequestsSupported ? (
           <AppRailButton
-            label="Git"
+            label="Pull requests"
             icon={<PullRequestGlyph.pullRequest className="size-5" />}
             active={pathname === "/pull-requests"}
             onClick={() => {

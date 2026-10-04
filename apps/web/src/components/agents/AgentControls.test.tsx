@@ -68,6 +68,11 @@ vi.mock("../ui/toast", () => ({ toastManager: { add: state.toast } }));
 
 import { AgentDetailsPopover } from "./AgentDetailsPopover";
 import { AgentRoster } from "./AgentRoster";
+import { AgentConversationList } from "./AgentConversationList";
+import { useAgentSidebarPreferences } from "./agentSidebarPreferences";
+vi.mock("./useAgentConversationPreviews", () => ({
+  useAgentConversationPreviews: () => ({ previews: new Map(), loading: false, failed: false }),
+}));
 import { closeAgentDialog, useAgentDialogStore } from "./agentDialogStore";
 
 const environmentId = EnvironmentId.make("local");
@@ -180,6 +185,7 @@ beforeEach(() => {
     return 0;
   });
   closeAgentDialog();
+  useAgentSidebarPreferences.setState({ pinned: [], sections: [], assignment: {} });
   host = document.createElement("div");
   document.body.append(host);
   root = createRoot(host);
@@ -552,3 +558,75 @@ it("keeps the current agent visible while Agents is collapsed and hides it after
 vi.mock("../../hooks/useThreadActions", () => ({
   useThreadActions: () => ({ pinThread: vi.fn(), confirmAndUnpinThread: vi.fn() }),
 }));
+
+async function renderConversations(channel = false) {
+  const entry = {
+    project: channel
+      ? {
+          ...project,
+          agentProfile: {
+            ...profile,
+            group: {
+              memberProjectIds: [projectId, ProjectId.make("second-member")],
+              leadProjectId: projectId,
+            },
+          },
+        }
+      : project,
+    thread,
+    busy: false,
+  };
+  await act(async () => root.render(<AgentConversationList agents={[entry]} ready />));
+}
+async function rightClickConversation() {
+  await act(async () =>
+    button("Open Alex chat").dispatchEvent(
+      new MouseEvent("contextmenu", { bubbles: true, clientX: 80, clientY: 100 }),
+    ),
+  );
+}
+it.each([false, true])(
+  "right-click pins and unpins an agent or channel without navigating (channel=%s)",
+  async (channel) => {
+    await renderConversations(channel);
+    await rightClickConversation();
+    const kind = channel ? "channel" : "agent";
+    expect(button(`Edit ${kind}`)).toBeDefined();
+    expect(button(`Archive ${kind}`)).toBeDefined();
+    await click(`Pin ${kind}`);
+    const pinned = document.querySelector('[aria-label="Pinned agents and channels"]');
+    expect(pinned?.querySelector('[aria-label="Open Alex chat"]')).not.toBeNull();
+    expect(document.querySelectorAll('[aria-label="Open Alex chat"]')).toHaveLength(1);
+    expect(state.navigate).not.toHaveBeenCalled();
+    await rightClickConversation();
+    await click(`Unpin ${kind}`);
+    expect(document.querySelector('[aria-label="Pinned agents and channels"]')).toBeNull();
+    expect(button("Open Alex chat")).toBeDefined();
+  },
+);
+it("opens the same edit dialog from a conversation's right-click menu", async () => {
+  await renderConversations();
+  await rightClickConversation();
+  await click("Edit agent");
+  expect(useAgentDialogStore.getState().target?.projectRef).toEqual(
+    scopeProjectRef(environmentId, projectId),
+  );
+  expect(state.navigate).not.toHaveBeenCalled();
+});
+
+it.each([false, true])(
+  "archives through the conversation right-click menu (channel=%s)",
+  async (channel) => {
+    await renderConversations(channel);
+    await rightClickConversation();
+    await click(channel ? "Archive channel" : "Archive agent");
+    expect(state.update).toHaveBeenCalledWith({
+      environmentId,
+      input: {
+        projectId,
+        agentProfile: expect.objectContaining({ archived: true, conversationThreadId: threadId }),
+      },
+    });
+    expect(state.navigate).not.toHaveBeenCalled();
+  },
+);

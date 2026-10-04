@@ -113,6 +113,14 @@ function PullRequestRowImpl({
       type="button"
       aria-current={selected ? "true" : undefined}
       onClick={() => onSelect(entry)}
+      onContextMenu={(event) => {
+        event.preventDefault();
+        void showPullRequestLinkContextMenu({
+          url: entry.url,
+          openLabel: openOnHostLabel(entry.provider),
+          position: { x: event.clientX, y: event.clientY },
+        });
+      }}
       className={cn(
         PULL_REQUEST_ROW_CLASS,
         PAGE_ROW_CLASS,

@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useConversationRowClick } from "../../hooks/useConversationRowClick";
 import { scopedProjectKey, scopeProjectRef } from "@t3tools/client-runtime/environment";
 import type { AgentConversationPreviewsResult } from "@t3tools/contracts";
@@ -10,6 +11,7 @@ import { Button } from "../ui/button";
 import { Menu, MenuItem, MenuPopup, MenuTrigger } from "../ui/menu";
 import { Spinner } from "../ui/spinner";
 import { useSidebar } from "../ui/sidebar";
+import { useSidebarRowDrag } from "../sidebar/SidebarOrderedList";
 import { AgentSidebarSections, AgentOrganizationMenuItems } from "./AgentSidebarOrganization";
 import { AgentGroupAvatar } from "./AgentGroupAvatar";
 import { AgentAvatar } from "./AgentAvatar";
@@ -74,13 +76,14 @@ export function AgentConversationList({
       updatedAt={(agent) =>
         previewFor(agent)?.updatedAt ?? agent.thread?.updatedAt ?? agent.project.updatedAt
       }
-      renderRow={(agent) => (
+      renderRow={(agent, pinned) => (
         <AgentConversationRow
           agent={agent}
           agents={agents}
           preview={previewFor(agent)}
           loading={loading}
           failed={failed}
+          pinned={pinned}
         />
       )}
     />
@@ -93,13 +96,18 @@ function AgentConversationRow({
   preview: conversationPreview,
   loading,
   failed,
+  pinned = false,
 }: {
+  pinned?: boolean;
   agent: AgentRosterEntry;
   agents: readonly AgentRosterEntry[];
   preview: AgentConversationPreviewsResult[number] | undefined;
   loading: boolean;
   failed: boolean;
 }) {
+  const drag = useSidebarRowDrag();
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [contextPoint, setContextPoint] = useState<{ x: number; y: number } | null>(null);
   const { project, thread, busy } = agent;
   const profile = project.agentProfile!;
   const { pending, openConversation, archive } = useAgentActions(agent);
@@ -134,51 +142,92 @@ function AgentConversationRow({
     (loading ? "Loading…" : failed ? "Preview unavailable" : "No messages yet");
   const updatedAt = conversationPreview?.updatedAt ?? thread?.updatedAt ?? project.updatedAt;
   return (
-    <div
-      data-agent-avatar-hover
-      className={cn(
-        "group/agent-row relative flex h-14 min-w-0 items-center rounded-xl px-2.5 py-2 hover:bg-sidebar-row-hover focus-within:bg-sidebar-row-hover",
-        selected &&
-          "bg-sidebar-row-active hover:bg-sidebar-row-active focus-within:bg-sidebar-row-active",
-      )}
+    <Menu
+      open={menuOpen}
+      onOpenChange={(open) => {
+        setMenuOpen(open);
+        if (!open) setContextPoint(null);
+      }}
     >
-      <button
-        type="button"
-        aria-label={`Open ${project.title} chat`}
-        aria-current={selected ? "page" : undefined}
-        {...conversationClick}
-        disabled={!thread}
-        className="flex min-w-0 flex-1 cursor-pointer items-center gap-3 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-default"
-      >
-        {profile.group ? (
-          <AgentGroupAvatar
-            avatars={members.map(({ project: member }) => member.agentProfile!.avatar)}
-            className="size-9"
-          />
-        ) : (
-          <AgentAvatar avatar={profile.avatar} className="size-9" working={busy} />
+      <div
+        data-agent-avatar-hover
+        onContextMenu={(event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          if (pending) return;
+          setContextPoint({ x: event.clientX, y: event.clientY });
+          setMenuOpen(true);
+        }}
+        className={cn(
+          "group/agent-row relative flex min-w-0 rounded-xl hover:bg-sidebar-row-hover focus-within:bg-sidebar-row-hover",
+          pinned ? "h-22 items-start px-1.5 py-1.5" : "h-14 items-center px-2.5 py-2",
+          pinned && drag?.isDragging && "bg-sidebar-row-hover",
+          selected &&
+            "bg-sidebar-row-active hover:bg-sidebar-row-active focus-within:bg-sidebar-row-active",
         )}
-        <span className="flex min-w-0 flex-1 flex-col gap-0.5">
-          <span className="flex min-w-0 items-center gap-2">
-            <span className="min-w-0 flex-1 flex items-center gap-2">
-              <span className="max-w-full shrink-0 truncate text-sm font-medium">
-                {project.title}
-              </span>
+      >
+        <button
+          type="button"
+          ref={pinned ? drag?.setActivatorNodeRef : undefined}
+          {...(pinned ? drag?.attributes : undefined)}
+          {...(pinned ? drag?.listeners : undefined)}
+          aria-label={`Open ${project.title} chat`}
+          aria-current={selected ? "page" : undefined}
+          {...conversationClick}
+          disabled={!thread}
+          className={cn(
+            "flex min-w-0 flex-1 cursor-pointer items-center outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-default",
+            pinned ? "touch-none flex-col gap-1 text-center" : "gap-3 text-left",
+          )}
+        >
+          {profile.group ? (
+            <AgentGroupAvatar
+              avatars={members.map(({ project: member }) => member.agentProfile!.avatar)}
+              className={pinned ? "size-8" : "size-9"}
+            />
+          ) : (
+            <AgentAvatar
+              avatar={profile.avatar}
+              className={pinned ? "size-8" : "size-9"}
+              working={busy}
+            />
+          )}
+          {pinned ? (
+            <span className="flex w-full min-w-0 flex-col items-center gap-0.5">
+              <span className="w-full truncate text-sm font-medium">{project.title}</span>
               {profile.title && !profile.group ? (
-                <span className="min-w-0 truncate rounded-md bg-foreground/15 px-1.5 py-0.5 text-xs text-foreground">
+                <span className="max-w-full truncate rounded-md bg-foreground/15 px-1.5 text-xs text-foreground">
                   {profile.title}
                 </span>
               ) : null}
             </span>
-            <time className="shrink-0 text-xs text-muted-foreground" dateTime={updatedAt}>
-              {dateFormat.format(new Date(updatedAt))}
-            </time>
-          </span>
-          <span className="truncate pr-5 text-xs text-muted-foreground">{preview}</span>
-        </span>
-      </button>
-      <div className="absolute bottom-1.5 right-2.5 opacity-0 group-hover/agent-row:opacity-100 group-focus-within/agent-row:opacity-100 has-[[data-popup-open]]:opacity-100 max-md:opacity-100">
-        <Menu>
+          ) : (
+            <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+              <span className="flex min-w-0 items-center gap-2">
+                <span className="min-w-0 flex-1 flex items-center gap-2">
+                  <span className="max-w-full shrink-0 truncate text-sm font-medium">
+                    {project.title}
+                  </span>
+                  {profile.title && !profile.group ? (
+                    <span className="min-w-0 truncate rounded-md bg-foreground/15 px-1.5 py-0.5 text-xs text-foreground">
+                      {profile.title}
+                    </span>
+                  ) : null}
+                </span>
+                <time className="shrink-0 text-xs text-muted-foreground" dateTime={updatedAt}>
+                  {dateFormat.format(new Date(updatedAt))}
+                </time>
+              </span>
+              <span className="truncate pr-5 text-xs text-muted-foreground">{preview}</span>
+            </span>
+          )}
+        </button>
+        <div
+          className={cn(
+            "absolute opacity-0 group-hover/agent-row:opacity-100 group-focus-within/agent-row:opacity-100 has-[[data-popup-open]]:opacity-100 max-md:opacity-100",
+            pinned ? "right-0 top-0" : "bottom-1.5 right-2.5",
+          )}
+        >
           <MenuTrigger
             render={
               <Button
@@ -191,7 +240,16 @@ function AgentConversationRow({
           >
             <MoreHorizontalIcon />
           </MenuTrigger>
-          <MenuPopup align="end">
+          <MenuPopup
+            align={contextPoint ? "start" : "end"}
+            anchor={
+              contextPoint
+                ? {
+                    getBoundingClientRect: () => new DOMRect(contextPoint.x, contextPoint.y, 0, 0),
+                  }
+                : undefined
+            }
+          >
             <AgentOrganizationMenuItems agent={agent} />
             <MenuItem
               onClick={() => openAgentDialog(scopeProjectRef(project.environmentId, project.id))}
@@ -204,8 +262,8 @@ function AgentConversationRow({
               {profile.group ? "Archive channel" : "Archive agent"}
             </MenuItem>
           </MenuPopup>
-        </Menu>
+        </div>
       </div>
-    </div>
+    </Menu>
   );
 }

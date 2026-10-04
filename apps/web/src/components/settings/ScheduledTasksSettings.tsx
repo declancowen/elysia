@@ -33,8 +33,8 @@ import { useSettingsScope } from "./SettingsScopeContext";
 import { WEEKDAY_LABELS, matchesScheduledTaskScope } from "./scheduledTasksSettings.logic";
 import { WorkspaceSidebarContent } from "../sidebar/WorkspaceSidebarContent";
 import { SettingsScopeSentence } from "./SettingsScopeSentence";
-import { SidebarCommandShortcut } from "../sidebar/SidebarChrome";
-import { SidebarContent, useSidebar } from "../ui/sidebar";
+import { SidebarChromeHeader, SidebarCommandShortcut } from "../sidebar/SidebarChrome";
+import { SidebarContent, SidebarGroup, useSidebar } from "../ui/sidebar";
 import { WorkspacePageHeader } from "../WorkspacePageHeader";
 import { cn } from "../../lib/utils";
 import { useMediaQuery } from "../../hooks/useMediaQuery";
@@ -265,23 +265,31 @@ function ScheduledTasksWorkspace(target: ScheduledTasksTarget) {
   return (
     <>
       <WorkspaceSidebarContent>
-        <div className="flex shrink-0 items-center gap-2 px-3 py-2">
-          <h2 className="min-w-0 flex-1 truncate pl-1.5 text-base font-medium">Scheduled</h2>
-          <SidebarCommandShortcut />
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            aria-label="New task"
-            disabled={!defaultEnvironment}
-            onClick={createTask}
-          >
-            <PlusIcon />
-          </Button>
-        </div>
-        <div className="min-w-0 shrink-0 px-2 pb-3">
-          <SettingsScopeSentence compact />
-        </div>
-        <SidebarContent>
+        <SidebarChromeHeader
+          isElectron={false}
+          title="Scheduled"
+          search={
+            <>
+              <SidebarCommandShortcut />
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                aria-label="New task"
+                disabled={!defaultEnvironment}
+                onClick={createTask}
+              >
+                <PlusIcon />
+              </Button>
+            </>
+          }
+        />
+        <SidebarContent
+          fixedHeader={
+            <SidebarGroup>
+              <SettingsScopeSentence compact />
+            </SidebarGroup>
+          }
+        >
           {scope.kind === "unavailable" ? (
             <p className="px-3 py-2 text-sm text-muted-foreground">
               Choose another project or agent to view its tasks.

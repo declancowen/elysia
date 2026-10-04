@@ -1,6 +1,7 @@
 import { beforeEach, expect, it } from "vite-plus/test";
 import {
   orderAgents,
+  reorderAgentPins,
   parseAgentSidebarPreferences,
   removeAgentSection,
   toggleAgentPinned,
@@ -37,4 +38,38 @@ it("keeps agents ordered by activity with stable ties", () => {
     { key: "c", name: "Edna", updated: "3" },
   ];
   expect(orderAgents(entries).map((x) => x.key)).toEqual(["c", "a", "b"]);
+});
+
+it("reorders visible pins while retaining hidden and archived pins in their slots", () => {
+  useAgentSidebarPreferences.setState({ pinned: ["a", "hidden", "b", "archived", "c"] });
+  reorderAgentPins(["c", "a", "b"]);
+  expect(useAgentSidebarPreferences.getState().pinned).toEqual([
+    "c",
+    "hidden",
+    "a",
+    "archived",
+    "b",
+  ]);
+  expect(parseAgentSidebarPreferences(useAgentSidebarPreferences.getState()).pinned).toEqual([
+    "c",
+    "hidden",
+    "a",
+    "archived",
+    "b",
+  ]);
+  toggleAgentPinned("new");
+  expect(useAgentSidebarPreferences.getState().pinned).toEqual([
+    "c",
+    "hidden",
+    "a",
+    "archived",
+    "b",
+    "new",
+  ]);
+});
+it("ignores a stale drag or duplicate pin identities instead of losing other pins", () => {
+  useAgentSidebarPreferences.setState({ pinned: ["a", "b"] });
+  reorderAgentPins(["missing", "a"]);
+  reorderAgentPins(["a", "a"]);
+  expect(useAgentSidebarPreferences.getState().pinned).toEqual(["a", "b"]);
 });

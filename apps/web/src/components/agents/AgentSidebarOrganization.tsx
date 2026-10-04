@@ -29,6 +29,7 @@ import {
 import {
   orderAgents,
   removeAgentSection,
+  reorderAgentPins,
   toggleAgentPinned,
   useAgentSidebarPreferences,
   type AgentSection,
@@ -136,7 +137,7 @@ export function AgentSidebarSections({
   updatedAt,
 }: {
   agents: readonly AgentRosterEntry[];
-  renderRow: (agent: AgentRosterEntry) => ReactNode;
+  renderRow: (agent: AgentRosterEntry, pinned: boolean) => ReactNode;
   updatedAt?: (agent: AgentRosterEntry) => string;
 }) {
   const prefs = useAgentSidebarPreferences();
@@ -147,92 +148,105 @@ export function AgentSidebarSections({
     name: agent.project.title,
     updated: updatedAt?.(agent) ?? agent.thread?.updatedAt ?? agent.project.updatedAt,
   }));
+  const entriesByKey = new Map(entries.map((item) => [item.key, item]));
+  const pinned = prefs.pinned.flatMap((key) => {
+    const item = entriesByKey.get(key);
+    return item ? [item] : [];
+  });
   const renderSection = (section: { id: string; name: string }) => {
     const rows = orderAgents(
-      entries.filter((item) =>
-        section.id === "pinned"
-          ? prefs.pinned.includes(item.key)
-          : !prefs.pinned.includes(item.key) && (prefs.assignment[item.key] ?? "") === section.id,
+      entries.filter(
+        (item) =>
+          !prefs.pinned.includes(item.key) && (prefs.assignment[item.key] ?? "") === section.id,
       ),
     );
     if (!rows.length && !section.name) return null;
-    if (!rows.length && section.id === "pinned") return null;
     return (
       <section className="space-y-1" aria-label={section.name || "Agents"}>
         {section.name ? (
-          <div className="flex min-h-8 items-center">
-            {section.id === "pinned" ? (
-              <span className="min-w-0 flex-1 truncate pl-2.5 text-xs text-sidebar-muted-foreground">
-                {section.name}
-              </span>
-            ) : (
-              <SidebarSectionDragLabel
-                label={section.name}
-                className="flex h-8 min-w-0 flex-1 cursor-pointer items-center truncate rounded-md px-2.5 text-left text-xs text-sidebar-muted-foreground"
-              />
-            )}
-            {section.id !== "pinned" ? (
-              <>
-                <Menu>
-                  <MenuTrigger
-                    render={
-                      <Button
-                        variant="ghost"
-                        size="icon-xs"
-                        aria-label={`Manage ${section.name}`}
-                      />
-                    }
-                  >
-                    <MoreHorizontalIcon />
-                  </MenuTrigger>
-                  <MenuPopup align="end">
-                    <MenuItem
-                      onClick={() =>
-                        setEditing(prefs.sections.find((item) => item.id === section.id) ?? null)
-                      }
-                    >
-                      <Edit03Icon />
-                      Rename section
-                    </MenuItem>
-                    <MenuItem onClick={() => removeAgentSection(section.id)}>
-                      <Trash2Icon />
-                      Delete section
-                    </MenuItem>
-                  </MenuPopup>
-                </Menu>
-              </>
-            ) : null}
+          <div className="flex min-h-8 items-center rounded-md hover:bg-sidebar-row-hover focus-within:bg-sidebar-row-hover has-[[data-sidebar-dragging]]:bg-sidebar-row-hover">
+            <SidebarSectionDragLabel
+              label={section.name}
+              className="flex h-8 min-w-0 flex-1 cursor-pointer items-center truncate rounded-md px-2.5 text-left text-xs text-sidebar-muted-foreground"
+            />
+            <Menu>
+              <MenuTrigger
+                render={
+                  <Button variant="ghost" size="icon-xs" aria-label={`Manage ${section.name}`} />
+                }
+              >
+                <MoreHorizontalIcon />
+              </MenuTrigger>
+              <MenuPopup align="end">
+                <MenuItem
+                  onClick={() =>
+                    setEditing(prefs.sections.find((item) => item.id === section.id) ?? null)
+                  }
+                >
+                  <Edit03Icon />
+                  Rename section
+                </MenuItem>
+                <MenuItem onClick={() => removeAgentSection(section.id)}>
+                  <Trash2Icon />
+                  Delete section
+                </MenuItem>
+              </MenuPopup>
+            </Menu>
           </div>
         ) : null}
         <div className="space-y-1">
           {rows.map((item) => (
-            <div key={item.key}>{renderRow(item.agent)}</div>
+            <div key={item.key}>{renderRow(item.agent, false)}</div>
           ))}
         </div>
       </section>
     );
   };
   return (
-    <>
-      {renderSection({ id: "pinned", name: "Pinned" })}
+    <div className="flex flex-col gap-4">
+      {pinned.length ? (
+        <SidebarOrderedList
+          ids={pinned.map((item) => item.key)}
+          onReorder={reorderAgentPins}
+          layout="grid"
+        >
+          <section
+            aria-label="Pinned agents and channels"
+            role="list"
+            className="@container/agent-pins flex flex-wrap justify-center gap-y-2 pt-2"
+          >
+            {pinned.map((item) => (
+              <SidebarOrderedRow
+                id={item.key}
+                key={item.key}
+                className="min-w-0 basis-1/3 px-1 @[24rem]/agent-pins:basis-1/4 @[30rem]/agent-pins:basis-1/5"
+              >
+                {renderRow(item.agent, true)}
+              </SidebarOrderedRow>
+            ))}
+          </section>
+        </SidebarOrderedList>
+      ) : null}
       {renderSection({ id: "", name: "" })}
-      <SidebarOrderedList
-        ids={prefs.sections.map((section) => section.id)}
-        onReorder={(ids) =>
-          useAgentSidebarPreferences.setState((state) => ({
-            sections: ids.flatMap((id) => state.sections.filter((section) => section.id === id)),
-          }))
-        }
-      >
-        <div className="space-y-2" role="list">
-          {prefs.sections.map((section) => (
-            <SidebarOrderedRow id={section.id} key={section.id}>
-              {renderSection(section)}
-            </SidebarOrderedRow>
-          ))}
-        </div>
-      </SidebarOrderedList>
+      {prefs.sections.length ? (
+        <SidebarOrderedList
+          ids={prefs.sections.map((section) => section.id)}
+          onReorder={(ids) =>
+            useAgentSidebarPreferences.setState((state) => ({
+              sections: ids.flatMap((id) => state.sections.filter((section) => section.id === id)),
+            }))
+          }
+        >
+          <div className="space-y-2" role="list">
+            {prefs.sections.map((section) => (
+              <SidebarOrderedRow id={section.id} key={section.id}>
+                {renderSection(section)}
+              </SidebarOrderedRow>
+            ))}
+          </div>
+        </SidebarOrderedList>
+      ) : null}
       {editing ? <AgentSectionDialog section={editing} onClose={() => setEditing(null)} /> : null}
-    </>
+    </div>
   );
 }

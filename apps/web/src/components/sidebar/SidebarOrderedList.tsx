@@ -12,6 +12,7 @@ import {
   sortableKeyboardCoordinates,
   useSortable,
   verticalListSortingStrategy,
+  rectSortingStrategy,
 } from "@dnd-kit/sortable";
 import { restrictToVerticalAxis, restrictToFirstScrollableAncestor } from "@dnd-kit/modifiers";
 import { CSS } from "@dnd-kit/utilities";
@@ -23,7 +24,9 @@ export function SidebarOrderedList({
   ids,
   onReorder,
   children,
+  layout = "list",
 }: {
+  layout?: "list" | "grid";
   ids: string[];
   onReorder: (ids: string[]) => void;
   children: ReactNode;
@@ -36,7 +39,11 @@ export function SidebarOrderedList({
     <DndContext
       sensors={sensors}
       collisionDetection={closestCorners}
-      modifiers={[restrictToVerticalAxis, restrictToFirstScrollableAncestor]}
+      modifiers={
+        layout === "grid"
+          ? [restrictToFirstScrollableAncestor]
+          : [restrictToVerticalAxis, restrictToFirstScrollableAncestor]
+      }
       onDragEnd={({ active, over }) => {
         if (!over || active.id === over.id) return;
         const from = ids.indexOf(String(active.id));
@@ -44,13 +51,20 @@ export function SidebarOrderedList({
         if (from >= 0 && to >= 0) onReorder(arrayMove(ids, from, to));
       }}
     >
-      <SortableContext items={ids} strategy={verticalListSortingStrategy}>
+      <SortableContext
+        items={ids}
+        strategy={layout === "grid" ? rectSortingStrategy : verticalListSortingStrategy}
+      >
         {children}
       </SortableContext>
     </DndContext>
   );
 }
-const SectionDragContext = createContext<ReturnType<typeof useSortable> | null>(null);
+const SidebarRowDragContext = createContext<ReturnType<typeof useSortable> | null>(null);
+
+export function useSidebarRowDrag() {
+  return use(SidebarRowDragContext);
+}
 
 export function SidebarSectionDragLabel({
   label,
@@ -65,7 +79,7 @@ export function SidebarSectionDragLabel({
   className: string;
   children?: ReactNode;
 }) {
-  const drag = use(SectionDragContext);
+  const drag = useSidebarRowDrag();
   return (
     <button
       type="button"
@@ -76,6 +90,7 @@ export function SidebarSectionDragLabel({
       aria-expanded={expanded}
       onClick={onClick}
       data-sidebar-sortable={drag ? "" : undefined}
+      data-sidebar-dragging={drag?.isDragging ? "" : undefined}
       className={cn(
         className,
         "hover:bg-sidebar-row-hover focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring",
@@ -92,7 +107,9 @@ export function SidebarOrderedRow({
   id,
   children,
   disabled = false,
+  className,
 }: {
+  className?: string;
   id: string;
   children: ReactNode;
   disabled?: boolean;
@@ -103,18 +120,19 @@ export function SidebarOrderedRow({
   });
   const { setNodeRef, transform, transition, isDragging } = sortable;
   return (
-    <SectionDragContext value={sortable}>
+    <SidebarRowDragContext value={sortable}>
       <div
         ref={setNodeRef}
         style={{ transform: CSS.Translate.toString(transform), transition }}
         className={cn(
           "relative rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-ring",
           isDragging && "z-30",
+          className,
         )}
         role="listitem"
       >
         {children}
       </div>
-    </SectionDragContext>
+    </SidebarRowDragContext>
   );
 }

@@ -121,6 +121,52 @@ function totalOutputTokens(summary: { buckets: readonly { totals: { outputTokens
 }
 
 describe("UsageService", () => {
+  it.live("reads only the isolated Elysia profile and preserves dated model costs", () =>
+    Effect.gen(function* () {
+      const { home, settings, transcript } = yield* setup;
+      yield* Effect.promise(() => NodeFSP.writeFile(transcript, claudeLine(1, 999)));
+      const summary = yield* Effect.gen(function* () {
+        const config = yield* ServerConfig.ServerConfig;
+        const nativeDirectory = NodePath.join(
+          config.stateDir,
+          "providers",
+          "elysia-claudeAgent",
+          ".claude",
+          "projects",
+          "native",
+        );
+        yield* Effect.promise(() => NodeFSP.mkdir(nativeDirectory, { recursive: true }));
+        yield* Effect.promise(() =>
+          NodeFSP.writeFile(
+            NodePath.join(nativeDirectory, "session.jsonl"),
+            claudeLine(2, 7, "deepseek-v4.1-flash"),
+          ),
+        );
+        const service = yield* UsageService.make;
+        return yield* service.readSummary({
+          ...WINDOW,
+          elysiaInstanceId: ProviderInstanceId.make("claudeAgent"),
+        });
+      }).pipe(
+        Effect.provide(
+          serviceLayers({
+            prefix: "elysia-isolated-usage",
+            home,
+            settings,
+            ratesDocument: {
+              "deepseek-v4.1-flash": { input_cost_per_token: 0.01, output_cost_per_token: 0.02 },
+            },
+          }),
+        ),
+      );
+      assert.equal(totalOutputTokens(summary), 7);
+      assert.equal(summary.sources.length, 1);
+      assert.equal(summary.buckets[0]?.day, "2026-08-01");
+      assert.equal(summary.buckets[0]?.model, "deepseek-v4.1-flash");
+      assert.closeTo(summary.buckets[0]!.costUsd, 0.24, 0.000001);
+    }).pipe(Effect.scoped),
+  );
+
   for (const explicitDefault of [true, false]) {
     it.live(
       `reads shared managed ${explicitDefault ? "explicit" : "legacy"} default and disabled extra account history once`,

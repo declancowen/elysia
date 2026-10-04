@@ -86,6 +86,7 @@ export function useUsage(
   const windowKey = useMemo(
     () =>
       JSON.stringify({
+        elysiaInstanceId: input.elysiaInstanceId,
         sinceDay: input.sinceDay,
         untilDay: input.untilDay,
         timeZone: input.timeZone,
@@ -94,6 +95,7 @@ export function useUsage(
         untilTime: input.untilTime,
       }),
     [
+      input.elysiaInstanceId,
       input.sinceDay,
       input.untilDay,
       input.timeZone,

@@ -20,6 +20,7 @@ const PLOT_TOP = 8;
 export type UsageChartMetric = "tokens" | "cost";
 
 interface UsageProviderChartProps {
+  readonly providerLabel?: string;
   readonly providers: readonly UsageProviderKind[];
   readonly days: readonly string[];
   readonly daily: readonly DailyTotals[];
@@ -171,6 +172,7 @@ export function niceScale(peak: number, count: number): { max: number; ticks: re
 }
 
 export function UsageProviderChart({
+  providerLabel,
   providers,
   days,
   daily,
@@ -415,10 +417,10 @@ export function UsageProviderChart({
                     <span className="flex items-center gap-1.5 text-muted-foreground">
                       <ProviderInstanceIcon
                         driverKind={driverKind}
-                        displayName={label}
+                        displayName={providerLabel ?? label}
                         iconClassName="size-3"
                       />
-                      {label}
+                      {providerLabel ?? label}
                     </span>
                     <span className="text-foreground tabular-nums">
                       {format(

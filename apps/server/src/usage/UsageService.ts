@@ -260,7 +260,32 @@ export const make = Effect.gen(function* () {
   const resolveTranscriptDirs = Effect.fn("UsageService.resolveTranscriptDirs")(function* (
     settings: ServerSettingsValue,
     retentionCutoffMs: number,
+    elysiaInstanceId?: ProviderInstanceId,
   ) {
+    if (elysiaInstanceId !== undefined) {
+      const instance = settings.providerInstances[elysiaInstanceId];
+      if (instance ? instance.driver !== "claudeAgent" : elysiaInstanceId !== "claudeAgent") {
+        return yield* new UsageReadError({
+          reason: "scanFailed",
+          detail: "Not an Elysia CLI profile.",
+        });
+      }
+      const directory = path.join(
+        config.stateDir,
+        "providers",
+        `elysia-${elysiaInstanceId}`,
+        ".claude",
+        "projects",
+      );
+      const dir = yield* fileSystem.realPath(directory).pipe(Effect.orElseSucceed(() => directory));
+      return [
+        {
+          provider: "claude" as const,
+          dir,
+          volumeId: yield* Effect.promise(() => readDirectoryVolumeId(dir)),
+        },
+      ];
+    }
     const dirs: Array<{
       provider: UsageProviderKind;
       dir: string;
@@ -477,10 +502,11 @@ export const make = Effect.gen(function* () {
     windowStartMs: number,
     settings: ServerSettingsValue,
     retentionCutoffMs: number,
+    elysiaInstanceId?: ProviderInstanceId,
   ) {
     // The home resolvers ask for `Path` themselves; satisfy them from the
     // instance we already hold so the scan stays context-free.
-    const dirs = yield* resolveTranscriptDirs(settings, retentionCutoffMs).pipe(
+    const dirs = yield* resolveTranscriptDirs(settings, retentionCutoffMs, elysiaInstanceId).pipe(
       Effect.provideService(Path.Path, path),
     );
     const scanned: ScannedDir[] = [];
@@ -503,6 +529,7 @@ export const make = Effect.gen(function* () {
       scanned.push({ provider, dir, volumeId, files: parsedFiles });
     }
 
+    if (elysiaInstanceId !== undefined) return scanned;
     const home = NodeOS.homedir();
     const envRoots = Effect.fnUntraced(function* (key: string, defaults: readonly string[]) {
       const roots = hostEnvironment[key]
@@ -727,7 +754,10 @@ export const make = Effect.gen(function* () {
     // loads while transcripts stream instead of gating them: a cold rates
     // fetch on a slow network no longer delays the scan by its own timeout.
     const [, scannedDirs] = yield* Effect.all(
-      [ensureRates(false), collectDirs(windowStartMs, settings, retentionCutoffMs)],
+      [
+        ensureRates(false),
+        collectDirs(windowStartMs, settings, retentionCutoffMs, input.elysiaInstanceId),
+      ],
       { concurrency: 2 },
     );
 
@@ -852,6 +882,7 @@ export const make = Effect.gen(function* () {
     cursorKeychainUsageEnabled: boolean,
   ): string =>
     JSON.stringify([
+      input.elysiaInstanceId ?? null,
       input.timeZone,
       input.sinceDay,
       input.untilDay,

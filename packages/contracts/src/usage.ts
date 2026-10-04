@@ -10,6 +10,7 @@
  * @module usage
  */
 import * as Schema from "effect/Schema";
+import { ProviderInstanceId } from "./providerInstance.ts";
 
 import { ForwardCompatibleArray, NonNegativeInt, TrimmedNonEmptyString } from "./baseSchemas.ts";
 
@@ -179,6 +180,8 @@ export const UsagePricing = Schema.Struct({
 export type UsagePricing = typeof UsagePricing.Type;
 
 export const UsageSummaryInput = Schema.Struct({
+  /** Limit native reads to this isolated Elysia CLI profile. */
+  elysiaInstanceId: Schema.optional(ProviderInstanceId),
   /** Inclusive first day of the window, in `timeZone`. */
   sinceDay: UsageDay,
   /** Inclusive last day of the window, in `timeZone`. */

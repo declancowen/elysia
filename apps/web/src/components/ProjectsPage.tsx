@@ -128,7 +128,7 @@ export function ProjectsPage() {
             <h1 className="pl-3 text-xl font-medium">Projects</h1>
             <div className="flex min-w-0 flex-wrap items-center gap-2">
               <div className="w-60 max-w-full">
-                <InputGroup variant="filled">
+                <InputGroup>
                   <InputGroupAddon>
                     <SearchIcon className="size-4" />
                   </InputGroupAddon>
@@ -141,7 +141,7 @@ export function ProjectsPage() {
                   />
                 </InputGroup>
               </div>
-              <Button onClick={() => openCommandPalette({ open: "add-project" })}>
+              <Button variant="outline" onClick={() => openCommandPalette({ open: "add-project" })}>
                 <PlusIcon />
                 Create project
               </Button>

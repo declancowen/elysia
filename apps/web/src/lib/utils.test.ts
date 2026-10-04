@@ -1,5 +1,15 @@
 import { describe, assert, it } from "vite-plus/test";
-import { getLocalFileManagerName, isWindowsPlatform } from "./utils";
+import { cn, getLocalFileManagerName, isWindowsPlatform } from "./utils";
+
+describe("cn", () => {
+  it("keeps the section font size while replacing its text color", () => {
+    assert.strictEqual(
+      cn("text-sidebar-section text-sidebar-foreground", "text-sidebar-muted-foreground/65"),
+      "text-sidebar-section text-sidebar-muted-foreground/65",
+    );
+    assert.strictEqual(cn("text-sm", "text-sidebar-section"), "text-sidebar-section");
+  });
+});
 
 describe("getLocalFileManagerName", () => {
   it.each([

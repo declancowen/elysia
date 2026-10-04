@@ -64,7 +64,6 @@ import { Select, SelectItem, SelectPopup, SelectTrigger, SelectValue } from "../
 import { Switch } from "../ui/switch";
 import { Textarea } from "../ui/textarea";
 import { stackedThreadToast, toastManager } from "../ui/toast";
-import { SETTINGS_PICKER_TRIGGER_CLASSNAME } from "./settingsLayout";
 
 /** JS day-of-week (0 = Sunday) rendered Monday-first, matching how people read a week. */
 const WEEKDAY_ORDER = [1, 2, 3, 4, 5, 6, 0] as const;
@@ -110,7 +109,7 @@ function Field({
   children: ReactNode;
 }) {
   return (
-    <div className="space-y-1.5">
+    <div className="grid gap-2">
       <Label className="flex items-baseline justify-between" htmlFor={htmlFor}>
         <span>{label}</span>
         {hint ? (
@@ -527,7 +526,8 @@ export function ScheduledTaskEditor({
           Channel members use their own selected models.
         </p>
       ) : (
-        <Field label="Model">
+        <div className="flex items-center justify-between gap-4">
+          <Label>Model</Label>
           <ProviderModelPicker
             disabled={Boolean(agentProfile) || saving || !connected}
             activeInstanceId={activeInstanceId}
@@ -536,12 +536,13 @@ export function ScheduledTaskEditor({
             instanceEntries={instanceEntries}
             modelOptionsByInstance={modelOptionsByInstance}
             isComposerOwned={false}
-            triggerClassName={SETTINGS_PICKER_TRIGGER_CLASSNAME}
+            triggerVariant="outline"
+            triggerAriaLabel="Scheduled task model"
             onInstanceModelChange={(instanceId, model) =>
               setDraft((current) => ({ ...current, modelKey: `${instanceId}:${model}` }))
             }
           />
-        </Field>
+        </div>
       )}
 
       <div className="space-y-3">
@@ -569,88 +570,94 @@ export function ScheduledTaskEditor({
         </div>
 
         {draft.scheduleMode === "fixed" ? (
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="flex items-center gap-2">
-              <Label htmlFor={`${formId}-scheduled-task-time`}>Run at</Label>
-              <Input
-                type="time"
-                id={`${formId}-scheduled-task-time`}
-                nativeInput
-                className="w-32"
-                value={draft.timeOfDay}
-                onChange={(event) =>
-                  setDraft((current) => ({ ...current, timeOfDay: event.target.value }))
-                }
-              />
-              <span className="text-xs text-muted-foreground">on</span>
+          <div className="flex items-center justify-between gap-4">
+            <Label className="shrink-0" htmlFor={`${formId}-scheduled-task-time`}>
+              Run at
+            </Label>
+            <div className="flex min-w-0 flex-wrap items-center justify-end gap-3">
+              <div className="flex items-center gap-2">
+                <Input
+                  type="time"
+                  id={`${formId}-scheduled-task-time`}
+                  nativeInput
+                  className="w-32"
+                  value={draft.timeOfDay}
+                  onChange={(event) =>
+                    setDraft((current) => ({ ...current, timeOfDay: event.target.value }))
+                  }
+                />
+                <span className="text-xs text-muted-foreground">on</span>
+              </div>
+              <ToggleGroup
+                multiple
+                variant="outline"
+                size="sm"
+                aria-label="Days to run"
+                value={[...draft.weekdays].map(String)}
+                onValueChange={(values) => {
+                  if (values.length === 0) return;
+                  setDraft((current) => ({
+                    ...current,
+                    weekdays: new Set(values.map(Number)),
+                  }));
+                }}
+              >
+                {WEEKDAY_ORDER.map((day) => (
+                  <Toggle key={day} value={String(day)} aria-label={WEEKDAY_LABELS[day]}>
+                    {WEEKDAY_SHORT[day]}
+                  </Toggle>
+                ))}
+              </ToggleGroup>
             </div>
-            <ToggleGroup
-              multiple
-              variant="outline"
-              size="sm"
-              aria-label="Days to run"
-              value={[...draft.weekdays].map(String)}
-              onValueChange={(values) => {
-                if (values.length === 0) return;
-                setDraft((current) => ({
-                  ...current,
-                  weekdays: new Set(values.map(Number)),
-                }));
-              }}
-            >
-              {WEEKDAY_ORDER.map((day) => (
-                <Toggle key={day} value={String(day)} aria-label={WEEKDAY_LABELS[day]}>
-                  {WEEKDAY_SHORT[day]}
-                </Toggle>
-              ))}
-            </ToggleGroup>
           </div>
         ) : (
-          <div className="flex items-center gap-2">
+          <div className="flex items-center justify-between gap-4">
             <Label htmlFor={`${formId}-scheduled-task-interval`}>Run every</Label>
-            <Input
-              type="number"
-              id={`${formId}-scheduled-task-interval`}
-              nativeInput
-              min={1}
-              step="any"
-              className="w-24"
-              value={draft.intervalMinutes}
-              onChange={(event) =>
-                setDraft((current) => ({ ...current, intervalMinutes: event.target.value }))
-              }
-            />
-            <span className="text-xs text-muted-foreground">minutes</span>
+            <div className="flex items-center gap-2">
+              <Input
+                type="number"
+                id={`${formId}-scheduled-task-interval`}
+                nativeInput
+                min={1}
+                step="any"
+                className="w-24"
+                value={draft.intervalMinutes}
+                onChange={(event) =>
+                  setDraft((current) => ({ ...current, intervalMinutes: event.target.value }))
+                }
+              />
+              <span className="text-xs text-muted-foreground">minutes</span>
+            </div>
           </div>
         )}
       </div>
 
-      <div className="flex items-center justify-between gap-4">
-        <div className="min-w-0 space-y-1">
+      <div className="space-y-2">
+        <div className="flex items-center justify-between gap-4">
           <Label htmlFor={`${formId}-scheduled-task-enabled`}>Enabled</Label>
-          <p
-            id={`${formId}-scheduled-task-enabled-description`}
-            className="text-sm text-muted-foreground"
-          >
-            Disabled tasks stay saved but do not run.
-          </p>
+          <Switch
+            id={`${formId}-scheduled-task-enabled`}
+            aria-describedby={`${formId}-scheduled-task-enabled-description`}
+            checked={draft.enabled}
+            onCheckedChange={(enabled) => setDraft((current) => ({ ...current, enabled }))}
+          />
         </div>
-        <Switch
-          id={`${formId}-scheduled-task-enabled`}
-          aria-describedby="scheduled-task-enabled-description"
-          checked={draft.enabled}
-          onCheckedChange={(enabled) => setDraft((current) => ({ ...current, enabled }))}
-        />
+        <p
+          id={`${formId}-scheduled-task-enabled-description`}
+          className="text-sm text-muted-foreground/65"
+        >
+          Disabled tasks stay saved but do not run.
+        </p>
       </div>
     </fieldset>
   );
   const actions = (
     <>
-      <Button variant="outline" size="sm" disabled={saving} onClick={onClose}>
+      <Button variant="outline" disabled={saving} onClick={onClose}>
         Cancel
       </Button>
       <Button
-        size="sm"
+        variant="outline"
         disabled={saving || editingTaskMissing || !connected || !tasksQuery.data}
         onClick={() => void submit()}
       >

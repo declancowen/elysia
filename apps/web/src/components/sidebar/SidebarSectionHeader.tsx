@@ -1,6 +1,6 @@
 import { SidebarSectionDragLabel } from "./SidebarOrderedList";
 import type { ReactNode } from "react";
-import { ChevronDownIcon, ChevronRightIcon } from "~/icons";
+import { ChevronRightIcon } from "~/icons";
 
 import { resolveProjectExpanded, useUiStateStore } from "~/uiStateStore";
 
@@ -24,9 +24,9 @@ export function SidebarSectionHeader({
   children?: ReactNode;
 }) {
   const labelClassName =
-    "flex h-9 w-full items-center gap-1.5 rounded-md px-2.5 text-left text-sidebar-section font-normal text-sidebar-foreground";
+    "flex h-9 w-full items-center gap-1.5 rounded-md px-2.5 text-left text-sidebar-section font-normal text-sidebar-muted-foreground/65";
   return (
-    <div className="group/section-header relative mb-1">
+    <div className="relative mb-1">
       <SidebarSectionDragLabel
         label={label}
         expanded={expanded}
@@ -34,14 +34,7 @@ export function SidebarSectionHeader({
         className={`${labelClassName} cursor-pointer`}
       >
         <span className="saturate-0">{label}</span>
-        {expanded ? (
-          <ChevronDownIcon
-            aria-hidden
-            className="size-3.5 saturate-0 opacity-0 group-hover/section-header:opacity-100 group-focus-within/section-header:opacity-100"
-          />
-        ) : (
-          <ChevronRightIcon aria-hidden className="size-3.5 saturate-0" />
-        )}
+        {!expanded && <ChevronRightIcon aria-hidden className="size-3.5 saturate-0" />}
       </SidebarSectionDragLabel>
       <div className="absolute top-1/2 right-0.5 flex -translate-y-1/2 items-center gap-1">
         {children}

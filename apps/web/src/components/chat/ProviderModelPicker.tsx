@@ -6,6 +6,7 @@ import {
 } from "@t3tools/contracts";
 import { memo, useEffect, useMemo, useState } from "react";
 import { Badge } from "../ui/badge";
+import { Button } from "../ui/button";
 import { Popover, PopoverPopup, PopoverTrigger } from "../ui/popover";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
 import { cn } from "~/lib/utils";
@@ -50,6 +51,7 @@ export const ProviderModelPicker = memo(function ProviderModelPicker(props: {
   terminalOpen?: boolean;
   open?: boolean;
   triggerClassName?: string;
+  triggerVariant?: "composer" | "outline";
   /** Aggregate settings can show a neutral value without claiming one provider is selected. */
   triggerLabel?: string;
   triggerAriaLabel?: string;
@@ -204,19 +206,29 @@ export const ProviderModelPicker = memo(function ProviderModelPicker(props: {
     >
       <PopoverTrigger
         render={
-          <ComposerControl
-            aria-label={props.triggerAriaLabel ?? allModelNames}
-            size={size}
-            data-chat-provider-model-picker="true"
-            className={cn(
-              "min-w-0 shrink justify-between whitespace-nowrap",
-              props.compact
-                ? "max-w-42 shrink-0"
-                : !props.isComposerOwned && "max-w-48 sm:max-w-56",
-              props.triggerClassName,
-            )}
-            disabled={props.disabled}
-          />
+          props.triggerVariant === "outline" ? (
+            <Button
+              variant="outline"
+              aria-label={props.triggerAriaLabel ?? allModelNames}
+              data-chat-provider-model-picker="true"
+              className="min-w-0 max-w-48 shrink sm:max-w-56"
+              disabled={props.disabled}
+            />
+          ) : (
+            <ComposerControl
+              aria-label={props.triggerAriaLabel ?? allModelNames}
+              size={size}
+              data-chat-provider-model-picker="true"
+              className={cn(
+                "min-w-0 shrink justify-between whitespace-nowrap",
+                props.compact
+                  ? "max-w-42 shrink-0"
+                  : !props.isComposerOwned && "max-w-48 sm:max-w-56",
+                props.triggerClassName,
+              )}
+              disabled={props.disabled}
+            />
+          )
         }
       >
         <span

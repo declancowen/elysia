@@ -376,7 +376,7 @@ function AgentEditor({ project }: { project: Project | null }) {
           </p>
         </div>
         <div className="min-w-0 space-y-4">
-          <fieldset disabled={pending || busy} className="space-y-4">
+          <fieldset disabled={pending || busy} className="min-w-0 space-y-4">
             <AgentAvatarPicker avatar={avatar} onChange={setAvatar} />
             <div className="grid gap-4 sm:grid-cols-2">
               <label className="grid gap-1.5">
@@ -411,8 +411,8 @@ function AgentEditor({ project }: { project: Project | null }) {
                 placeholder="Describe what this agent should help with and how it should work."
               />
             </label>
-            <div className="space-y-1.5">
-              <span className="text-sm font-medium">Default model</span>
+            <div className="flex items-center justify-between gap-4">
+              <span className="shrink-0 text-sm font-medium text-foreground">Default model</span>
               {model ? (
                 <ProviderModelPicker
                   activeInstanceId={model.instanceId}
@@ -423,6 +423,7 @@ function AgentEditor({ project }: { project: Project | null }) {
                   isComposerOwned={false}
                   disabled={pending || busy}
                   triggerAriaLabel="Agent default model"
+                  triggerVariant="outline"
                   onInstanceModelChange={(instanceId, slug) =>
                     setModel(createModelSelection(instanceId, slug))
                   }
@@ -433,11 +434,11 @@ function AgentEditor({ project }: { project: Project | null }) {
                 </p>
               )}
             </div>
-            <label className="flex items-center justify-between gap-4 text-sm">
+            <label className="flex min-h-8 items-center justify-between gap-4 text-sm font-medium text-foreground">
               <span>Notifications</span>
               <Switch checked={notificationsEnabled} onCheckedChange={setNotificationsEnabled} />
             </label>
-            <label className="flex items-center justify-between gap-4 text-sm">
+            <label className="flex min-h-8 items-center justify-between gap-4 text-sm font-medium text-foreground">
               <span>Browser access</span>
               <Switch
                 checked={browserEnabled}

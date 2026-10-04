@@ -116,7 +116,13 @@ function ScopeMenu({
     <Menu>
       <MenuTrigger
         aria-label={`${ariaLabel}: ${label}`}
-        render={compact ? <Button variant="ghost" size="sm" /> : <InlineButton tone="picker" />}
+        render={
+          compact ? (
+            <Button variant="ghost" size="sm" contentAlign="start" />
+          ) : (
+            <InlineButton tone="picker" />
+          )
+        }
         className="min-w-0 max-w-72"
       >
         {icon ? <ScopeIconSlot>{icon}</ScopeIconSlot> : null}

@@ -21,6 +21,13 @@ describe("channel replies", () => {
         rootMessageId: parent.id,
       });
   });
+  it("starts a topic at the agent response when its prompt was not a reply", () => {
+    const response = { ...answer, runId: parent.runId };
+    expect(channelReplyTarget(response, [parent, response], runs)).toEqual({
+      replyToMessageId: response.id,
+      rootMessageId: response.id,
+    });
+  });
   it("replaces a reference without losing unrelated context and ignores malformed payloads", () => {
     const old = withChannelReply(undefined, {
       replyToMessageId: parent.id,

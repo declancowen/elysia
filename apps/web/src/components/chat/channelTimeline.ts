@@ -13,14 +13,15 @@ export function groupChannelTimeline(
   const rootsByRun = new Map(
     runs.map((run) => [
       run.id,
-      readChannelReply(messagesById.get(run.userMessageId)?.context)?.rootMessageId ??
-        run.userMessageId,
+      readChannelReply(messagesById.get(run.userMessageId)?.context)?.rootMessageId,
     ]),
   );
   const replies = new Map<MessageId, MessagesTimelineRow[]>();
   const top: MessagesTimelineRow[] = [];
   for (const row of rows) {
-    const message = row.kind === "message" || row.kind === "assistant-meta" ? row.message : null;
+    // Channel metadata is rendered with the message, not as a separate child.
+    if (row.kind === "assistant-meta") continue;
+    const message = row.kind === "message" ? row.message : null;
     const runId =
       message?.runId ??
       ("runId" in row

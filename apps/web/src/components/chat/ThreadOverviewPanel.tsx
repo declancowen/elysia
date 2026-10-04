@@ -44,7 +44,6 @@ import { Popover, PopoverTitle, PopoverTrigger } from "../ui/popover";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
 import { AgentMessageBubble } from "../agents/AgentMessageBubble";
 import ChatMarkdown from "../ChatMarkdown";
-import { ClearAgentChatButton, type AgentChatResetTarget } from "../agents/ClearAgentChatButton";
 import { AgentAvatar } from "../agents/AgentAvatar";
 import { Spinner } from "../ui/spinner";
 import { useAgents } from "../agents/useAgents";
@@ -67,7 +66,9 @@ export interface ThreadOverviewPanelProps {
   onAddSources: () => void;
   onOpenSource: (sourceId: string) => void;
   transient?: boolean;
-  chatResetTarget?: AgentChatResetTarget;
+  onOpenChange?: (open: boolean) => void;
+  dismissKey?: number;
+  panelOffset?: number;
   sourceThreadRef?: ScopedThreadRef | null;
   delegatedAgents?: ReadonlyArray<DelegatedAgent>;
   sourceHistoryReady?: boolean;
@@ -86,7 +87,9 @@ const rowClassName =
 function OverviewPopover({
   label,
   workspaceContent,
-  chatResetTarget,
+  onOpenChange,
+  dismissKey = 0,
+  panelOffset = 0,
   versionControlContent,
   threadBoundaryRef,
   onDockedChange,
@@ -136,6 +139,8 @@ function OverviewPopover({
     onDockedChange?.(open && wide);
     return () => onDockedChange?.(false);
   }, [open, wide, onDockedChange]);
+  useLayoutEffect(() => onOpenChange?.(open), [open, onOpenChange]);
+  useEffect(() => setOpen(false), [dismissKey]);
   const anchorRef = useRef<HTMLSpanElement>(null);
   const [sourcesExpanded, setSourcesExpanded] = useState(true);
   const [gitExpanded, setGitExpanded] = useState(true);
@@ -156,25 +161,6 @@ function OverviewPopover({
   const showChanges = codeWorkspace && showGit;
   const selectedAgent =
     view?.kind === "agent" ? grouped.find(({ job }) => job.agentProjectId === view.id) : null;
-  const selectedRosterAgent = selectedAgent
-    ? roster.find(
-        ({ project }) =>
-          project.id === selectedAgent.job.agentProjectId &&
-          project.environmentId === sourceThreadRef?.environmentId,
-      )
-    : null;
-  const selectedResetTarget =
-    selectedRosterAgent?.thread && selectedRosterAgent.project.agentProfile
-      ? {
-          projectId: selectedRosterAgent.project.id,
-          threadRef: {
-            environmentId: selectedRosterAgent.thread.environmentId,
-            threadId: selectedRosterAgent.thread.id,
-          },
-          name: selectedRosterAgent.project.title,
-          channel: !!selectedRosterAgent.project.agentProfile.group,
-        }
-      : null;
   const selectedSubagent =
     view?.kind === "subagent" ? subagents.find(({ id }) => id === view.id) : null;
   const collapsedWidth = Math.min(320, availableSize.width);
@@ -240,7 +226,7 @@ function OverviewPopover({
       observer.disconnect();
       window.removeEventListener("resize", measure);
     };
-  }, [open, composerElement, threadBoundaryRef]);
+  }, [open, composerElement, threadBoundaryRef, panelOffset]);
   useEffect(() => {
     if (!sourceHistoryReady || memberIds) return;
     initialJobs.current ??= new Set(delegated.map(({ job }) => job.activityId));
@@ -317,6 +303,7 @@ function OverviewPopover({
         ref={anchorRef}
         aria-hidden
         className="pointer-events-none absolute top-full right-(--workspace-gutter-end) size-0"
+        style={panelOffset ? { top: `calc(100% + ${panelOffset}px)` } : undefined}
       />
       <PopoverPrimitive.Portal>
         <PopoverPrimitive.Positioner
@@ -426,18 +413,6 @@ function OverviewPopover({
                           : "Unavailable"}
                 </span>
               ) : null}
-              {selectedResetTarget ? (
-                <ClearAgentChatButton
-                  key={selectedResetTarget.threadRef.threadId}
-                  target={selectedResetTarget}
-                  iconOnly
-                  className="flex size-6 cursor-pointer items-center justify-center rounded-md hover:bg-accent/50"
-                  onCleared={() => {
-                    setView(null);
-                    setOpen(false);
-                  }}
-                />
-              ) : null}
               {view && (expanded || expandedWidth > collapsedWidth) ? (
                 <Button
                   variant="ghost"
@@ -479,15 +454,6 @@ function OverviewPopover({
                         ref={(node) => {
                           if (node) node.appendChild(workspaceHost);
                         }}
-                      />
-                    </section>
-                  ) : null}
-                  {chatResetTarget ? (
-                    <section>
-                      <ClearAgentChatButton
-                        key={chatResetTarget.threadRef.threadId}
-                        target={chatResetTarget}
-                        className={rowClassName}
                       />
                     </section>
                   ) : null}

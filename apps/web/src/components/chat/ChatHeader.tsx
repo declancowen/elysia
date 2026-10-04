@@ -1,3 +1,4 @@
+import { useMediaQuery } from "~/hooks/useMediaQuery";
 import { useCodeWorkspace } from "~/hooks/useSettings";
 import {
   SINGLE_PROVIDER_UI,
@@ -58,6 +59,7 @@ import {
 import { cn } from "~/lib/utils";
 import { ThreadOverviewPanel, type ThreadOverviewPanelProps } from "./ThreadOverviewPanel";
 import { ConversationTabs } from "./ConversationTabs";
+import { useChatHeaderPanels } from "./useChatHeaderPanels";
 import { useChatHeaderColumn } from "./useChatHeaderColumn";
 
 interface ChatHeaderProps {
@@ -165,6 +167,12 @@ export const ChatHeader = memo(function ChatHeader({
   const { headerRef, mainColumnWidth, mainColumnHidden } = useChatHeaderColumn(
     inlinePanel,
     overview?.threadBoundaryRef,
+  );
+  const widePanels = useMediaQuery("xl") && !rightPanelOpen;
+  const panels = useChatHeaderPanels(
+    activeProject ? `${activeProject.environmentId}:${activeProject.id}` : undefined,
+    widePanels,
+    overview?.onDockedChange,
   );
   const serverConfig = useAtomValue(serverEnvironment.configValueAtom(activeThreadEnvironmentId));
   const projectless =
@@ -544,6 +552,10 @@ export const ChatHeader = memo(function ChatHeader({
               <AgentDetailsPopover
                 key={`${activeProject.environmentId}:${activeProject.id}`}
                 projectRef={scopeProjectRef(activeProject.environmentId, activeProject.id)}
+                wide={widePanels}
+                open={panels.detailsOpen}
+                onOpenChange={panels.detailsChanged}
+                onHeightChange={panels.setDetailsHeight}
                 {...(overview?.threadBoundaryRef
                   ? { threadBoundaryRef: overview.threadBoundaryRef }
                   : {})}
@@ -552,6 +564,10 @@ export const ChatHeader = memo(function ChatHeader({
             {overview && (
               <ThreadOverviewPanel
                 {...overview}
+                onOpenChange={panels.overviewChanged}
+                onDockedChange={panels.setOverviewDocked}
+                dismissKey={panels.dismissOverview}
+                panelOffset={panels.panelOffset}
                 workspaceContent={workspaceContent}
                 versionControlContent={versionControlContent}
                 transient={rightPanelOpen}

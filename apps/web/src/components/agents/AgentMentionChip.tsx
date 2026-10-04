@@ -11,7 +11,7 @@ import { CircleCheckIcon, CircleAlertIcon, SquareIcon, ChannelIcon } from "~/ico
 import { delegatedAgentsFromTurnItems } from "@t3tools/shared/agentMentions";
 import { useDelegatedAgents } from "./useDelegatedAgents";
 import { useProject, useThreadProjection, useThreadShell } from "~/state/entities";
-import { ContextChipShell, UnresolvedChip } from "../contextChipParts";
+import { UnresolvedChip } from "../contextChipParts";
 import { openThreadOverviewAgent } from "../chat/threadOverviewStore";
 import { AgentAvatar } from "./AgentAvatar";
 
@@ -64,17 +64,13 @@ export function AgentMentionChip({
       </button>
     );
   return (
-    <ContextChipShell
-      kind="mention"
-      icon={icon}
-      label={project.title}
+    <span
+      className="inline-flex max-w-full items-center gap-1 align-middle font-semibold text-inherit [&>svg]:size-[1em]"
       data-markdown-copy={copyMarkdown}
-      tooltip={
-        project.agentProfile.group
-          ? "This task continues in the channel’s shared chat."
-          : "This task continues in the agent’s own chat."
-      }
-    />
+    >
+      {icon}
+      <span>{project.title}</span>
+    </span>
   );
 }
 

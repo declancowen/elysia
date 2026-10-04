@@ -59,7 +59,6 @@ export function channelReplyTarget(
   const rootMessageId =
     readChannelReply(message.context)?.rootMessageId ??
     readChannelReply(request?.context)?.rootMessageId ??
-    request?.id ??
     message.id;
   return { replyToMessageId: message.id, rootMessageId };
 }

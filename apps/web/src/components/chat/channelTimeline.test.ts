@@ -33,7 +33,7 @@ const row = (
       : {}),
   } as ChatMessage,
 });
-it("keeps topics in order, folding agent responses and nested references into one reply list", () => {
+it("keeps ordinary messages visible and folds only explicit replies into one level", () => {
   const parent = row("parent", "user", "first");
   const answer = row("answer", "assistant", "first");
   const other = row("other", "user", "other");
@@ -45,14 +45,31 @@ it("keeps topics in order, folding agent responses and nested references into on
     { id: other.message.runId!, userMessageId: other.message.id },
   ];
   const result = groupChannelTimeline([parent, answer, other, child, response], runs);
-  expect(result.rows.map((item) => item.id)).toEqual(["parent", "other"]);
+  expect(result.rows.map((item) => item.id)).toEqual(["parent", "answer", "other"]);
   expect(result.replies.get(parent.message.id)?.map((item) => item.id)).toEqual([
-    "answer",
     "child",
     "response",
   ]);
   expect(groupChannelTimeline([child, response], runs).rows.map((item) => item.id)).toEqual([
     "child",
     "response",
+  ]);
+});
+
+it("keeps an agent response as the parent when it is replied to", () => {
+  const prompt = row("prompt", "user", "first");
+  const answer = row("answer", "assistant", "first");
+  const reply = row("reply", "user", "second", "answer");
+  const result = groupChannelTimeline(
+    [prompt, answer, reply, row("followup", "assistant", "second")],
+    [
+      { id: RunId.make("first"), userMessageId: prompt.message.id },
+      { id: RunId.make("second"), userMessageId: reply.message.id },
+    ],
+  );
+  expect(result.rows.map((item) => item.id)).toEqual(["prompt", "answer"]);
+  expect(result.replies.get(answer.message.id)?.map((item) => item.id)).toEqual([
+    "reply",
+    "followup",
   ]);
 });

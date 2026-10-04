@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { ChevronDownIcon, ChevronUpIcon, MessageCircleIcon } from "~/icons";
 import { Button } from "../ui/button";
+import ChatMarkdown from "../ChatMarkdown";
 import { ComposerBanner } from "./ComposerBanner";
 import { AgentAvatar } from "../agents/AgentAvatar";
 import { useProject, useThreadShell } from "~/state/entities";
@@ -77,13 +78,18 @@ export function ChannelReplyPreview({
         </ComposerBanner.Row>
         {expanded ? (
           <ComposerBanner.Scroll className="max-h-[calc(50dvh-3rem)]">
-            <ComposerBanner.Body className="whitespace-pre-wrap py-1 text-sm text-foreground">
-              {text}
+            <ComposerBanner.Body className="py-1">
+              <ChatMarkdown text={text} cwd={undefined} threadRef={threadRef} />
             </ComposerBanner.Body>
           </ComposerBanner.Scroll>
         ) : (
-          <ComposerBanner.Body className="truncate py-1 text-sm text-foreground">
-            {text}
+          <ComposerBanner.Body className="py-1">
+            <ChatMarkdown
+              text={text}
+              cwd={undefined}
+              threadRef={threadRef}
+              className="line-clamp-1 [&_p]:m-0"
+            />
           </ComposerBanner.Body>
         )}
       </ComposerBanner.Root>

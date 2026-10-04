@@ -334,6 +334,7 @@ it("collapses channel replies and reopens their topic when replying, with one le
     );
     await act(() => toggle.props.onClick());
     expect(JSON.stringify(renderer!.toJSON())).not.toContain("CHILD_REPLY");
+    expect(JSON.stringify(renderer!.toJSON())).toContain("PARENT_TOPIC");
     const action = renderer!.root.find(
       (node) => node.type === "button" && node.props["aria-label"] === "Reply to message",
     );

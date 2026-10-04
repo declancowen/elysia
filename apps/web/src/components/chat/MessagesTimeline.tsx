@@ -1943,7 +1943,12 @@ function ChannelTimelineRoot({
       <div className="min-w-0">
         <TimelineRowContent row={row} />
         {replies.length ? (
-          <div className="flex items-center gap-2 py-1">
+          <div
+            className={cn(
+              "flex items-center gap-2 py-1",
+              row.message.role === "user" && "justify-end",
+            )}
+          >
             <Button
               variant="ghost-muted"
               size="micro"
@@ -2304,6 +2309,51 @@ function UserTimelineRow({ row }: { row: Extract<TimelineRow, { kind: "message" 
     ],
   );
 
+  const messageActions = (
+    <div
+      className={cn(
+        "flex items-center gap-2 text-xs tabular-nums",
+        ctx.channel ? "mt-1" : "w-full max-w-[80%] justify-end pe-1",
+      )}
+    >
+      {ctx.channel ? <ChannelReplyAction message={row.message} /> : null}
+      <div className="flex shrink-0 items-center gap-2 opacity-0 transition-opacity duration-200 pointer-coarse:opacity-100 focus-within:opacity-100 group-hover:opacity-100">
+        <Tooltip>
+          <TooltipTrigger render={<p className="text-muted-foreground text-xs tabular-nums" />}>
+            {formatDayAwareTimestamp(row.message.createdAt, ctx.timestampFormat)}
+          </TooltipTrigger>
+          <TooltipPopup>
+            {formatChatTimestampTooltip(row.message.createdAt, ctx.timestampFormat)}
+          </TooltipPopup>
+        </Tooltip>
+        <div className="flex items-center gap-0.5">
+          {typeof revertTurnCount === "number" && (
+            <RevertUserMessageButton turnCount={revertTurnCount} messageId={row.message.id} />
+          )}
+          {resolvedContext.text && (
+            <MessageCopyButton
+              // Structured paste needs the canonical links to retain their positions.
+              text={
+                contextClipboardFragment
+                  ? resolvedContext.text
+                  : replaceComposerContextReferences(
+                      resolvedContext.text,
+                      (reference) => reference.label,
+                    )
+              }
+              {...(contextClipboardFragment
+                ? {
+                    extraFlavors: { [COMPOSER_CONTEXT_CLIPBOARD_MIME]: contextClipboardFragment },
+                  }
+                : {})}
+              variant="ghost"
+            />
+          )}
+        </div>
+      </div>
+    </div>
+  );
+
   return (
     <div
       className={cn(
@@ -2476,6 +2526,7 @@ function UserTimelineRow({ row }: { row: Extract<TimelineRow, { kind: "message" 
             }
           />
         </div>
+        {ctx.channel ? messageActions : null}
       </div>
       {row.projectedItem &&
       row.projectedItem.item.status !== "completed" &&
@@ -2487,43 +2538,7 @@ function UserTimelineRow({ row }: { row: Extract<TimelineRow, { kind: "message" 
           </span>
         </div>
       ) : null}
-      <div className="flex w-full max-w-[80%] items-center justify-end gap-2 pe-1 text-xs tabular-nums">
-        {ctx.channel ? <ChannelReplyAction message={row.message} /> : null}
-        <div className="flex shrink-0 items-center gap-2 opacity-0 transition-opacity duration-200 pointer-coarse:opacity-100 focus-within:opacity-100 group-hover:opacity-100">
-          <Tooltip>
-            <TooltipTrigger render={<p className="text-muted-foreground text-xs tabular-nums" />}>
-              {formatDayAwareTimestamp(row.message.createdAt, ctx.timestampFormat)}
-            </TooltipTrigger>
-            <TooltipPopup>
-              {formatChatTimestampTooltip(row.message.createdAt, ctx.timestampFormat)}
-            </TooltipPopup>
-          </Tooltip>
-          <div className="flex items-center gap-0.5">
-            {typeof revertTurnCount === "number" && (
-              <RevertUserMessageButton turnCount={revertTurnCount} messageId={row.message.id} />
-            )}
-            {resolvedContext.text && (
-              <MessageCopyButton
-                // Structured paste needs the canonical links to retain their positions.
-                text={
-                  contextClipboardFragment
-                    ? resolvedContext.text
-                    : replaceComposerContextReferences(
-                        resolvedContext.text,
-                        (reference) => reference.label,
-                      )
-                }
-                {...(contextClipboardFragment
-                  ? {
-                      extraFlavors: { [COMPOSER_CONTEXT_CLIPBOARD_MIME]: contextClipboardFragment },
-                    }
-                  : {})}
-                variant="ghost"
-              />
-            )}
-          </div>
-        </div>
-      </div>
+      {!ctx.channel ? messageActions : null}
     </div>
   );
 }

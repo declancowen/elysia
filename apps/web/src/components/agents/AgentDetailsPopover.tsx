@@ -13,15 +13,24 @@ import { Popover, PopoverPopup, PopoverTitle, PopoverTrigger } from "../ui/popov
 import { AgentAvatar } from "./AgentAvatar";
 import { openAgentDialog } from "./agentDialogStore";
 import { useAgentActions } from "./useAgentActions";
+import { ClearAgentChatButton } from "./ClearAgentChatButton";
 import { useAgents, type AgentRosterEntry } from "./useAgents";
 
 export function AgentDetailsPopover({
   projectRef,
   defaultOpen = false,
   threadBoundaryRef,
+  open: controlledOpen,
+  onOpenChange,
+  onHeightChange,
+  wide = false,
 }: {
   projectRef: ScopedProjectRef | null;
   defaultOpen?: boolean;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  onHeightChange?: (height: number) => void;
+  wide?: boolean;
   threadBoundaryRef?: RefObject<HTMLElement | null>;
 }) {
   const agents = useAgents();
@@ -29,14 +38,50 @@ export function AgentDetailsPopover({
     ({ project }) =>
       project.environmentId === projectRef?.environmentId && project.id === projectRef.projectId,
   );
-  const [open, setOpen] = useState(defaultOpen);
+  const [localOpen, setLocalOpen] = useState(defaultOpen);
+  const open = controlledOpen ?? localOpen;
+  const setOpen = (value: boolean) => {
+    setLocalOpen(value);
+    onOpenChange?.(value);
+  };
+  const [content, setContent] = useState<HTMLDivElement | null>(null);
+  useLayoutEffect(() => {
+    const popup = content?.closest<HTMLElement>('[data-slot="popover-popup"]');
+    if (!open || !popup) {
+      onHeightChange?.(0);
+      return;
+    }
+    const measure = () => onHeightChange?.(Math.ceil(popup.getBoundingClientRect().height));
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(popup);
+    return () => {
+      observer.disconnect();
+      onHeightChange?.(0);
+    };
+  }, [open, content, onHeightChange]);
   const anchorRef = useRef<HTMLSpanElement>(null);
   const navigate = useNavigate();
   const close = () => setOpen(false);
   if (!current) return null;
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover
+      open={open}
+      onOpenChange={(value, details) => {
+        if (
+          wide &&
+          !value &&
+          details.reason === "outside-press" &&
+          details.event.target instanceof Element &&
+          details.event.target.closest("[data-thread-overview-trigger]")
+        ) {
+          details.cancel();
+          return;
+        }
+        setOpen(value);
+      }}
+    >
       <PopoverTrigger
         render={
           <Button
@@ -62,6 +107,7 @@ export function AgentDetailsPopover({
       ) : null}
       <PopoverPopup
         width="md"
+        variant="floating"
         align="end"
         {...(threadBoundaryRef ? { anchor: anchorRef, sideOffset: 12 } : {})}
         {...(threadBoundaryRef?.current
@@ -78,7 +124,7 @@ export function AgentDetailsPopover({
             }
           : {})}
       >
-        <div className="space-y-4">
+        <div ref={setContent} className="space-y-4">
           <AgentDetails agent={current} onClose={close} />
           <div className="border-t pt-3">
             <Button
@@ -140,7 +186,7 @@ function AgentDetails({ agent, onClose }: { agent: AgentRosterEntry; onClose: ()
         </div>
         <div ref={labelRef} className="flex min-w-0 flex-1 flex-col gap-2 break-words">
           <PopoverTitle>{project.title}</PopoverTitle>
-          {profile.title ? (
+          {profile.title && !profile.group ? (
             <p className="w-fit rounded-md bg-foreground/15 px-1.5 py-0.5 text-2xs text-foreground">
               {profile.title}
             </p>
@@ -218,6 +264,18 @@ function AgentDetails({ agent, onClose }: { agent: AgentRosterEntry; onClose: ()
           Scheduled
         </Button>
       </div>
+      {agent.thread ? (
+        <ClearAgentChatButton
+          key={agent.thread.id}
+          target={{
+            projectId: project.id,
+            threadRef: { environmentId: project.environmentId, threadId: agent.thread.id },
+            name: project.title,
+            channel: !!profile.group,
+          }}
+          className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-sm hover:bg-accent/50 disabled:cursor-default"
+        />
+      ) : null}
       {busy ? (
         <p className="text-xs text-muted-foreground">
           Wait for the current task to finish before making changes.

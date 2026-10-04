@@ -335,9 +335,7 @@ it("collapses channel replies and reopens their topic when replying, with one le
     await act(() => toggle.props.onClick());
     expect(JSON.stringify(renderer!.toJSON())).not.toContain("CHILD_REPLY");
     const action = renderer!.root.find(
-      (node) =>
-        node.type === "button" &&
-        node.children.some((text) => typeof text === "string" && text.trim() === "Reply"),
+      (node) => node.type === "button" && node.props["aria-label"] === "Reply to message",
     );
     await act(() => action.props.onClick());
     expect(reply).toHaveBeenCalledWith(parent.message);

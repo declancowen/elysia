@@ -353,7 +353,7 @@ export const ElysiaDriver: ProviderDriver<ClaudeSettings, ElysiaDriverEnv> = {
           displayName: "Elysia",
           slashCommands: elysiaChatSlashCommands(draft.slashCommands, draft.skills),
           ...(compression._tag === "Some" ? { elysiaCompression: compression.value } : {}),
-          requiresNewThreadForModelChange: true,
+          requiresNewThreadForModelChange: false,
           runtimeVersion: draft.version,
           version: yield* elysia.version,
           // Native Elysia validates the sign-in; optional SDK discovery cannot revoke it.
@@ -396,7 +396,7 @@ export const ElysiaDriver: ProviderDriver<ClaudeSettings, ElysiaDriverEnv> = {
               version: yield* elysia.version,
               runtimeVersion: null,
               ...(compression._tag === "Some" ? { elysiaCompression: compression.value } : {}),
-              requiresNewThreadForModelChange: true,
+              requiresNewThreadForModelChange: false,
             });
           }),
         checkProvider,

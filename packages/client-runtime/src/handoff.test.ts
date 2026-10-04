@@ -22,7 +22,7 @@ const run = (
 });
 
 describe("handoff endpoints shared by web and mobile", () => {
-  it("preserves stamped models including several models from the same provider", () => {
+  it("shows only the immediately previous stamped model", () => {
     const fromModelSelections = [
       { instanceId: from, model: "source-a" },
       { instanceId: from, model: "source-b" },
@@ -32,9 +32,30 @@ describe("handoff endpoints shared by web and mobile", () => {
         run("target", 2, to, "later-model"),
       ]),
     ).toEqual({
-      from: fromModelSelections,
+      from: [fromModelSelections[1]],
       to: { instanceId: to, model: "destination" },
     });
+  });
+
+  it("uses the last run when a model was revisited, rather than the accumulated history", () => {
+    expect(
+      resolveHandoffEndpoints(
+        {
+          ...item,
+          fromModelSelections: [
+            { instanceId: from, model: "source-a" },
+            { instanceId: from, model: "source-b" },
+          ],
+          toModel: "destination",
+        },
+        [
+          run("a", 1, from, "source-a"),
+          run("b", 2, from, "source-b"),
+          run("again", 3, from, "source-a"),
+          run("target", 4, to, "destination"),
+        ],
+      ).from,
+    ).toEqual([{ instanceId: from, model: "source-a" }]);
   });
 
   it("recovers legacy models from the handoff run and latest earlier source run", () => {

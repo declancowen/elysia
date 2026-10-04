@@ -4751,9 +4751,7 @@ const makeOrchestrator = Effect.fn("orchestrationV2.Orchestrator.layer")(functio
         const ordinal = nextRunOrdinal(projection);
         const runId = idAllocator.derive.run({ threadId: command.threadId, ordinal });
         const previousSelection = nativeModelSelection(projection, queueProviderThread);
-        const resetQueuedAgent =
-          Option.isSome(project) &&
-          !!project.value.agentProfile &&
+        const resetQueuedModel =
           previousSelection !== undefined &&
           previousSelection.model !== modelSelection.model &&
           (yield* planProviderSwitch({
@@ -4764,7 +4762,7 @@ const makeOrchestrator = Effect.fn("orchestrationV2.Orchestrator.layer")(functio
             targetModelSelection: modelSelection,
           }).pipe(mapDispatchError(command))).transition.type === "create_with_handoff";
         const targetProviderThread =
-          channel || resetQueuedAgent
+          channel || resetQueuedModel
             ? undefined
             : modelSelection.instanceId === queueProviderThread.providerInstanceId
               ? queueProviderThread
@@ -5075,9 +5073,7 @@ const makeOrchestrator = Effect.fn("orchestrationV2.Orchestrator.layer")(functio
       const previousNativeSelection = activeProviderThread
         ? nativeModelSelection(projection, activeProviderThread)
         : undefined;
-      const resetAgentModel =
-        Option.isSome(project) &&
-        !!project.value.agentProfile &&
+      const resetNativeModel =
         previousNativeSelection !== undefined &&
         previousNativeSelection.model !== modelSelection.model &&
         (yield* planProviderSwitch({
@@ -5087,7 +5083,7 @@ const makeOrchestrator = Effect.fn("orchestrationV2.Orchestrator.layer")(functio
           },
           targetModelSelection: modelSelection,
         }).pipe(mapDispatchError(command))).transition.type === "create_with_handoff";
-      const freshAgentSession = resetAgentModel || !!channel;
+      const freshAgentSession = resetNativeModel || !!channel;
       const isProviderSwitch =
         activeProviderThread !== undefined &&
         (activeProviderThread.providerInstanceId !== modelSelection.instanceId ||

@@ -1232,6 +1232,7 @@ const supervisedRuntimeModeOption = {
   ...runtimeModeConfig["approval-required"],
 };
 const ComposerFooterModeControls = memo(function ComposerFooterModeControls(props: {
+  iconOnly?: boolean;
   showInteractionModeToggle: boolean;
   interactionMode: ProviderInteractionMode;
   runtimeMode: RuntimeMode;
@@ -1255,7 +1256,7 @@ const ComposerFooterModeControls = memo(function ComposerFooterModeControls(prop
 
   const interactionModeToggle = props.showInteractionModeToggle ? (
     <>
-      <ComposerControlSeparator size={size} />
+      {!props.iconOnly && <ComposerControlSeparator size={size} />}
       <Tooltip>
         <TooltipTrigger
           render={
@@ -1293,7 +1294,7 @@ const ComposerFooterModeControls = memo(function ComposerFooterModeControls(prop
 
   return (
     <>
-      <ComposerControlSeparator size={size} />
+      {!props.iconOnly && <ComposerControlSeparator size={size} />}
 
       <Tooltip>
         <Select
@@ -1305,14 +1306,17 @@ const ComposerFooterModeControls = memo(function ComposerFooterModeControls(prop
           <TooltipTrigger
             render={
               <ComposerSelectControl
+                iconOnly={Boolean(props.iconOnly)}
                 data-composer-shortcut="composer.mode"
                 size={size}
-                aria-label="Runtime mode"
+                aria-label={props.iconOnly ? runtimeModeOption.label : "Runtime mode"}
               />
             }
           >
             <ComposerControlIcon icon={RuntimeModeIcon} size={size} />
-            <SelectValue data-composer-control-label>{runtimeModeOption.label}</SelectValue>
+            {!props.iconOnly && (
+              <SelectValue data-composer-control-label>{runtimeModeOption.label}</SelectValue>
+            )}
           </TooltipTrigger>
           <SelectPopup alignItemWithTrigger={false} {...composerFloatingLayerProps}>
             {props.runtimeModeOptions.map((option) => {
@@ -1523,6 +1527,7 @@ export interface ChatComposerProps {
   activeThread: Thread | undefined;
   /** The routed server thread's shell, present before its detail loads. */
   activeThreadShell: ThreadShell | null;
+  persistentAgent?: boolean;
   /** Timeline messages including optimistic sends, for ArrowUp prompt recall. */
   promptHistoryMessages: ReadonlyArray<ChatMessage>;
   isServerThread: boolean;
@@ -5136,7 +5141,8 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
     : standaloneComposerImages;
   // Keep collapsed controls inside the input when workspace context is hidden.
   const composerControlsCollapsed = isComposerResting || isComposerCollapsedMobile;
-  const showInlineRestingControls = composerControlsCollapsed && restingControlsHost === null;
+  const showInlineRestingControls =
+    !props.persistentAgent && composerControlsCollapsed && restingControlsHost === null;
   const composerControlsVisibleInStrip =
     composerControlsCollapsed && restingControlsHost !== null && restingControlsVisible;
   const composerControlsHidden = composerControlsCollapsed && !restingControlsVisible;
@@ -5386,7 +5392,7 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
   const hiddenRestingBlockIds = restingBlockDefs
     .slice(restingBlockDefs.length - restingHiddenBlockCount)
     .map((def) => def.id);
-  const composerControls = showProviderUnavailable ? (
+  const composerControls = props.persistentAgent ? null : showProviderUnavailable ? (
     <ComposerControl
       type="button"
       disabled={!providerSetupInstanceId}
@@ -6253,6 +6259,7 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
   // Imperative handle
   // ------------------------------------------------------------------
   const openModelPicker = useCallback(() => {
+    if (props.persistentAgent) return;
     if (composerControlsHidden) {
       if (composerBlurFrameRef.current !== null) {
         window.cancelAnimationFrame(composerBlurFrameRef.current);
@@ -6262,7 +6269,12 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
       setIsComposerFocused(true);
     }
     setIsComposerModelPickerOpen(true);
-  }, [composerControlsHidden, setIsComposerFocused, setIsComposerScrollCollapsed]);
+  }, [
+    props.persistentAgent,
+    composerControlsHidden,
+    setIsComposerFocused,
+    setIsComposerScrollCollapsed,
+  ]);
 
   useImperativeHandle(
     composerRef,
@@ -7517,6 +7529,17 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
                         <TooltipPopup>Attach files</TooltipPopup>
                       </Tooltip>
                     </>
+                  ) : null}
+                  {props.persistentAgent ? (
+                    <ComposerFooterModeControls
+                      iconOnly
+                      showInteractionModeToggle={false}
+                      interactionMode={interactionMode}
+                      runtimeMode={compatibleRuntimeMode}
+                      runtimeModeOptions={compatibleRuntimeModeOptions}
+                      onToggleInteractionMode={toggleInteractionMode}
+                      onRuntimeModeChange={handleRuntimeModeChange}
+                    />
                   ) : null}
                   <ComposerFooterPrimaryActions
                     compact={isComposerResting || isComposerPrimaryActionsCompact}

@@ -42,7 +42,28 @@ export function resolveHandoffEndpoints(
           instanceId,
           model: latestRunModelBefore(runs, instanceId, handoffRun?.ordinal),
         }));
-  return { from: fromEndpoints, to: { instanceId: item.toProviderInstanceId, model: toModel } };
+  // A portable handoff covers older runs too. Its label describes only the
+  // immediately previous selection, including a model revisited after a switch.
+  let latestSource: HandoffTimelineRun | undefined;
+  for (const run of runs) {
+    if (handoffRun && run.ordinal >= handoffRun.ordinal) continue;
+    if (
+      !fromEndpoints.some(
+        (endpoint) =>
+          endpoint.instanceId === run.providerInstanceId &&
+          (endpoint.model === undefined || endpoint.model === run.modelSelection.model),
+      )
+    )
+      continue;
+    if (!latestSource || run.ordinal > latestSource.ordinal) latestSource = run;
+  }
+  const previous = latestSource
+    ? { instanceId: latestSource.providerInstanceId, model: latestSource.modelSelection.model }
+    : fromEndpoints.at(-1);
+  return {
+    from: previous ? [previous] : [],
+    to: { instanceId: item.toProviderInstanceId, model: toModel },
+  };
 }
 
 /**

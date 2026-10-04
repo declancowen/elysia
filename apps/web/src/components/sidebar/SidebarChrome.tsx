@@ -20,7 +20,7 @@ import { memo, useCallback } from "react";
 import { useAtomValue } from "@effect/atom-react";
 import { primaryServerKeybindingsAtom } from "../../state/server";
 import { shortcutLabelForCommand } from "../../keybindings";
-import { Link, useLocation, useNavigate } from "@tanstack/react-router";
+import { Link, useLocation, useNavigate, useRouter } from "@tanstack/react-router";
 
 import {
   useClientSettings,
@@ -397,11 +397,13 @@ function AppRailButton({
   icon,
   active = false,
   onClick,
+  onIntent,
 }: {
   label: string;
   icon: ReactNode;
   active?: boolean;
   onClick: () => void;
+  onIntent?: () => void;
 }) {
   return (
     <Tooltip>
@@ -413,6 +415,8 @@ function AppRailButton({
             size="icon-xl"
             variant={active ? "secondary" : "ghost-muted"}
             onClick={onClick}
+            onPointerEnter={onIntent}
+            onFocus={onIntent}
           >
             {icon}
           </Button>
@@ -425,6 +429,7 @@ function AppRailButton({
 
 export const AppNavigationRail = memo(function AppNavigationRail() {
   const navigate = useNavigate();
+  const router = useRouter();
   const { setOpen } = useSidebar();
   const navigateToMainApp = useNavigateToMainApp();
   const navigateToTabSection = useConversationSectionNavigation();
@@ -466,6 +471,7 @@ export const AppNavigationRail = memo(function AppNavigationRail() {
         />
         <AppRailButton
           label="Agents"
+          onIntent={() => void router.preloadRoute({ to: "/agents", search: {} })}
           icon={<BotIcon className="size-5" />}
           active={agentsActive}
           onClick={() => {
@@ -477,6 +483,7 @@ export const AppNavigationRail = memo(function AppNavigationRail() {
         />
         <AppRailButton
           label="Scheduled"
+          onIntent={() => void router.preloadRoute({ to: "/settings/scheduled-tasks" })}
           icon={<ClockIcon className="size-5" />}
           active={pathname === "/settings/scheduled-tasks"}
           onClick={() => {
@@ -486,6 +493,7 @@ export const AppNavigationRail = memo(function AppNavigationRail() {
         />
         <AppRailButton
           label="Projects"
+          onIntent={() => void router.preloadRoute({ to: "/projects" })}
           icon={<FolderIcon className="size-5" />}
           active={pathname === "/projects" || pathname.startsWith("/projects/")}
           onClick={() => {
@@ -496,6 +504,12 @@ export const AppNavigationRail = memo(function AppNavigationRail() {
         {codeWorkspace && pullRequestsSupported ? (
           <AppRailButton
             label="Pull requests"
+            onIntent={() =>
+              void router.preloadRoute({
+                to: "/pull-requests",
+                search: readPullRequestListPreferences(),
+              })
+            }
             icon={<PullRequestGlyph.pullRequest className="size-5" />}
             active={pathname === "/pull-requests"}
             onClick={() => {
@@ -509,6 +523,7 @@ export const AppNavigationRail = memo(function AppNavigationRail() {
       <div aria-label="Workspace controls" className="flex flex-col items-center gap-2">
         <AppRailButton
           label="Settings"
+          onIntent={() => void router.preloadRoute({ to: "/settings" })}
           icon={<SettingsIcon className="size-5" />}
           active={pathname.startsWith("/settings") && pathname !== "/settings/scheduled-tasks"}
           onClick={() => {
@@ -527,6 +542,7 @@ export const AppNavigationRail = memo(function AppNavigationRail() {
         />
         <AppRailButton
           label="Stats"
+          onIntent={() => void router.preloadRoute({ to: "/usage" })}
           icon={<ChartNoAxesColumnIncreasingIcon className="size-5" />}
           active={pathname === "/usage"}
           onClick={() => {

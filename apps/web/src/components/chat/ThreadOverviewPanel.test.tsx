@@ -467,13 +467,19 @@ it.each([false, true])(
     ];
     await render({ delegatedAgents: [agent.job] });
     const body = document.querySelector<HTMLElement>("[data-agent-panel-scroll]")!;
-    expect(body.querySelectorAll(group ? '[data-icon="users"]' : ".agent-avatar")).toHaveLength(2);
+    expect(body.querySelectorAll(group ? '[data-icon="channel"]' : ".agent-avatar")).toHaveLength(
+      2,
+    );
     for (const text of ["Check it.", "First progress", "Next progress", "Final result"])
       expect(body.textContent).toContain(text);
     await click("Expand agent responses");
-    expect(body.querySelectorAll(group ? '[data-icon="users"]' : ".agent-avatar")).toHaveLength(2);
+    expect(body.querySelectorAll(group ? '[data-icon="channel"]' : ".agent-avatar")).toHaveLength(
+      2,
+    );
     await click("Collapse agent responses");
-    expect(body.querySelectorAll(group ? '[data-icon="users"]' : ".agent-avatar")).toHaveLength(2);
+    expect(body.querySelectorAll(group ? '[data-icon="channel"]' : ".agent-avatar")).toHaveLength(
+      2,
+    );
   },
 );
 

@@ -4201,7 +4201,10 @@ export default function ChatView(props: ChatViewProps) {
     hostsRestingComposerControls: routeKind === "server" && restingComposerControlsVisible,
   });
   const mountComposerModelStrip =
-    routeKind === "server" && !mountComposerContextStrip && !showProviderSubagentBar;
+    routeKind === "server" &&
+    !activeProject?.agentProfile &&
+    !mountComposerContextStrip &&
+    !showProviderSubagentBar;
   const showComposerModelStrip = mountComposerModelStrip && restingComposerControlsVisible;
   const terminalShortcutLabelOptions = useMemo(
     () => ({
@@ -11121,10 +11124,15 @@ export default function ChatView(props: ChatViewProps) {
                     data-chat-composer-stack="true"
                     className="group/composer-stack pointer-events-auto relative z-10 mx-auto w-full max-w-(--chat-content-max-width)"
                   >
-                    {activeChannelReply ? (
+                    {activeChannelReply && routeThreadRef ? (
                       <ChannelReplyPreview
                         key={activeChannelReply.id}
                         message={activeChannelReply}
+                        threadRef={routeThreadRef}
+                        memberProjectId={
+                          serverProjection?.runs.find((run) => run.id === activeChannelReply.runId)
+                            ?.channelAgentProjectId
+                        }
                         onCancel={() => setChannelReply(null)}
                       />
                     ) : null}
@@ -11178,6 +11186,7 @@ export default function ChatView(props: ChatViewProps) {
                             ) : null}
                             {!composerMounted ? null : (
                               <ChatComposer
+                                persistentAgent={Boolean(activeProject?.agentProfile)}
                                 multipleModelSelections={multipleModelSelections}
                                 supportsMultipleModels={
                                   serverConfig?.environment.capabilities

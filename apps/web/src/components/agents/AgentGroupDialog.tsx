@@ -78,6 +78,7 @@ export function AgentGroupDialog({
   const router = useRouter();
   const selection = resolveAgentGroupSelection(name, candidates, selectedIds, leadId);
   const selectedAgents = candidates.filter(({ project }) => selectedIds.includes(project.id));
+  const selectedLead = selectedAgents.find(({ project }) => project.id === leadId)?.project;
   useEffect(() => {
     mounted.current = true;
     return () => {
@@ -314,14 +315,29 @@ export function AgentGroupDialog({
                 >
                   <SelectTrigger className="w-full" aria-label="Lead agent">
                     <SelectValue>
-                      {selectedAgents.find(({ project }) => project.id === leadId)?.project.title ??
-                        "Choose lead agent"}
+                      <span className="flex min-w-0 items-center gap-2">
+                        {selectedLead?.agentProfile ? (
+                          <AgentAvatar
+                            avatar={selectedLead.agentProfile.avatar}
+                            className="size-5 shrink-0"
+                          />
+                        ) : null}
+                        <span className="truncate">
+                          {selectedLead?.title ?? "Choose lead agent"}
+                        </span>
+                      </span>
                     </SelectValue>
                   </SelectTrigger>
                   <SelectPopup>
                     {selectedAgents.map(({ project }) => (
                       <SelectItem key={project.id} value={project.id}>
-                        {project.title}
+                        <span className="flex min-w-0 items-center gap-2">
+                          <AgentAvatar
+                            avatar={project.agentProfile!.avatar}
+                            className="size-5 shrink-0"
+                          />
+                          <span className="truncate">{project.title}</span>
+                        </span>
                       </SelectItem>
                     ))}
                   </SelectPopup>

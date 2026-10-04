@@ -571,7 +571,7 @@ const delegateToPersistentAgentImpl = Effect.fn("delegateToPersistentAgent")(fun
           completedAt: at,
           updatedAt: at,
           type: "system_notice",
-          message: `${agent.title}: I got it. I’ll continue in my chat.`,
+          message: `${agent.title}: I got it. I’ll continue in ${agent.agentProfile?.group ? "the channel" : "my chat"}.`,
           agentDelegation: identity,
         },
       });
@@ -734,16 +734,6 @@ const reconcileImpl = Effect.fn("AgentDelegation.reconcile")(function* () {
       const source = yield* threads
         .getThreadShell(notice.threadId)
         .pipe(Effect.mapError(readError));
-      const newer = yield* sql<{
-        found: number;
-      }>`SELECT 1 AS found FROM orchestration_v2_projection_messages message
-        LEFT JOIN orchestration_v2_projection_runs run ON run.run_id = message.run_id
-        LEFT JOIN orchestration_v2_projection_turn_items item ON item.thread_id = message.thread_id AND item.type = 'user_message' AND json_extract(item.payload_json, '$.messageId') = message.message_id
-        WHERE message.thread_id = ${notice.threadId} AND message.role = 'user' AND json_extract(message.payload_json, '$.createdBy') = 'user'
-          AND message.message_id != ${identity.sourceMessageId}
-          AND (run.ordinal > ${identity.sourceRunOrdinal ?? 0} OR item.ordinal > ${identity.sourceTurnItemOrdinal ?? notice.ordinal} OR message.created_at > ${identity.sourceRequestedAt ?? DateTime.formatIso(notice.startedAt ?? notice.updatedAt)}) LIMIT 1`.pipe(
-        Effect.mapError(readError),
-      );
       const project = source
         ? yield* projects.get(source.projectId).pipe(Effect.mapError(readError))
         : Option.none();
@@ -754,7 +744,7 @@ const reconcileImpl = Effect.fn("AgentDelegation.reconcile")(function* () {
         Option.isNone(project) ||
         project.value.deletedAt !== null ||
         project.value.agentProfile?.archived ||
-        (newer.length > 0 && !project.value.agentProfile?.group)
+        !project.value.agentProfile?.group
       ) {
         const now = yield* DateTime.now;
         yield* commands.withLock(
@@ -854,39 +844,6 @@ const reconcileImpl = Effect.fn("AgentDelegation.reconcile")(function* () {
         );
         return;
       }
-      yield* threads
-        .dispatch({
-          type: "message.dispatch",
-          commandId,
-          threadId: notice.threadId,
-          messageId: MessageId.make(`agent-delegate:result:${notice.id}`),
-          text: `Agent ${identity.agentName} finished the delegated request (${result.status}).\n\n${reply || "The original run ended without an assistant result."}`,
-          attachments: [],
-          senderThreadId: identity.agentThreadId,
-          createdBy: "agent",
-          creationSource: "server",
-          dispatchMode: { type: "queue_after_active" },
-          context: {
-            version: 1,
-            records: [
-              {
-                version: 1,
-                contextId: ComposerContextId.make(
-                  `agent_result_${yield* yieldCryptoDigest(notice.id).pipe(Effect.mapError(readError))}`,
-                ),
-                kind: "elysia-agent-result",
-                label: `${identity.agentName} result`,
-                payload: {
-                  agentDelegation: identity,
-                  sourceNoticeOrdinal: identity.sourceTurnItemOrdinal ?? notice.ordinal,
-                  status: result.status,
-                  truncated: result.truncated,
-                },
-              },
-            ],
-          },
-        })
-        .pipe(Effect.mapError(readError));
     }).pipe(
       Effect.catch((error) =>
         Effect.logWarning("Could not return a persistent agent result", {

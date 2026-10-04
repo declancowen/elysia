@@ -195,8 +195,7 @@ export const layer: Layer.Layer<
               }
               if (transition.type === "create_with_handoff") {
                 return (
-                  session.providerInstanceId !== targetModelSelection.instanceId ||
-                  (persistentAgent === true && modelChanged)
+                  session.providerInstanceId !== targetModelSelection.instanceId || modelChanged
                 );
               }
               return false;

@@ -1331,7 +1331,7 @@ export const MessagesTimeline = memo(function MessagesTimeline({
     ({ item }: { item: MessagesTimelineRow }) => (
       <div className="messages-timeline-row-frame">
         <div
-          className={cn("chat-content-lane", !agentAvatar && "overflow-x-clip")}
+          className={cn("chat-content-lane", !agentAvatar && !channel && "overflow-x-clip")}
           data-timeline-root="true"
         >
           {channel && item.kind === "message" ? (
@@ -1907,25 +1907,23 @@ const TimelineRowContent = memo(function TimelineRowContent({ row }: { row: Time
   );
 });
 
-function ChannelReplyAction({
-  message,
-  beforeReply,
-}: {
-  message: ChatMessage;
-  beforeReply?: () => void;
-}) {
+const ChannelTopicExpansionCtx = createContext<(() => void) | null>(null);
+
+function ChannelReplyAction({ message }: { message: ChatMessage }) {
   const ctx = use(TimelineRowCtx);
+  const expandTopic = use(ChannelTopicExpansionCtx);
   if (!ctx.onReply || message.streaming) return null;
   return (
     <Button
       variant="ghost-muted"
-      size="micro"
+      size="icon-xs"
+      aria-label="Reply to message"
       onClick={() => {
-        beforeReply?.();
+        expandTopic?.();
         ctx.onReply?.(message);
       }}
     >
-      <MessageCircleIcon className="size-3" /> Reply
+      <MessageCircleIcon className="size-3" />
     </Button>
   );
 }
@@ -1938,39 +1936,40 @@ function ChannelTimelineRoot({
   replies: ReadonlyArray<MessagesTimelineRow>;
 }) {
   const [expanded, setExpanded] = useState(true);
+  const expandTopic = useCallback(() => setExpanded(true), []);
   const count = replies.filter((child) => child.kind === "message").length;
   return (
-    <div className="min-w-0">
-      <TimelineRowContent row={row} />
-      <div className="flex items-center gap-2 py-1">
-        <ChannelReplyAction message={row.message} beforeReply={() => setExpanded(true)} />
+    <ChannelTopicExpansionCtx value={expandTopic}>
+      <div className="min-w-0">
+        <TimelineRowContent row={row} />
         {replies.length ? (
-          <Button
-            variant="ghost-muted"
-            size="micro"
-            aria-expanded={expanded}
-            onClick={() => setExpanded((value) => !value)}
-          >
-            {expanded ? (
-              <ChevronDownIcon className="size-3" />
-            ) : (
-              <ChevronRightIcon className="size-3" />
-            )}
-            {count} {count === 1 ? "reply" : "replies"}
-          </Button>
+          <div className="flex items-center gap-2 py-1">
+            <Button
+              variant="ghost-muted"
+              size="micro"
+              aria-expanded={expanded}
+              onClick={() => setExpanded((value) => !value)}
+            >
+              {expanded ? (
+                <ChevronDownIcon className="size-3" />
+              ) : (
+                <ChevronRightIcon className="size-3" />
+              )}
+              {count} {count === 1 ? "reply" : "replies"}
+            </Button>
+          </div>
+        ) : null}
+        {expanded && replies.length ? (
+          <div className="space-y-3 pb-2">
+            {replies.map((child) => (
+              <div key={child.id}>
+                <TimelineRowContent row={child} />
+              </div>
+            ))}
+          </div>
         ) : null}
       </div>
-      {expanded && replies.length ? (
-        <div className="ml-3 space-y-3 border-l border-border pl-3 pb-2">
-          {replies.map((child) => (
-            <div key={child.id}>
-              <TimelineRowContent row={child} />
-              {child.kind === "message" ? <ChannelReplyAction message={child.message} /> : null}
-            </div>
-          ))}
-        </div>
-      ) : null}
-    </div>
+    </ChannelTopicExpansionCtx>
   );
 }
 
@@ -2488,8 +2487,9 @@ function UserTimelineRow({ row }: { row: Extract<TimelineRow, { kind: "message" 
           </span>
         </div>
       ) : null}
-      <div className="flex w-full max-w-[80%] items-center justify-end pe-1 text-xs tabular-nums opacity-0 transition-opacity duration-200 pointer-coarse:opacity-100 focus-within:opacity-100 group-hover:opacity-100">
-        <div className="flex shrink-0 items-center gap-2">
+      <div className="flex w-full max-w-[80%] items-center justify-end gap-2 pe-1 text-xs tabular-nums">
+        {ctx.channel ? <ChannelReplyAction message={row.message} /> : null}
+        <div className="flex shrink-0 items-center gap-2 opacity-0 transition-opacity duration-200 pointer-coarse:opacity-100 focus-within:opacity-100 group-hover:opacity-100">
           <Tooltip>
             <TooltipTrigger render={<p className="text-muted-foreground text-xs tabular-nums" />}>
               {formatDayAwareTimestamp(row.message.createdAt, ctx.timestampFormat)}
@@ -2742,7 +2742,25 @@ function AssistantTimelineRow({ row }: { row: Extract<TimelineRow, { kind: "mess
           request={ctx.citationRequest}
           listRef={ctx.listRef}
         >
-          {senderProfile ? (
+          {senderProfile && ctx.channel ? (
+            <>
+              <AgentAvatar
+                avatar={senderProfile.avatar}
+                working={row.message.streaming}
+                className="absolute right-full top-1 mr-4 size-3 sm:mr-5 sm:size-5"
+              />
+              <p className="mb-1 text-sm font-medium text-foreground">{senderProject.title}</p>
+              <ChatMarkdown
+                text={messageText}
+                cwd={ctx.markdownCwd}
+                threadRef={ctx.threadRef ?? undefined}
+                isStreaming={Boolean(row.message.streaming)}
+                lineBreaks={shouldPreserveAssistantLineBreaks(messageText)}
+                headingLevelOffset={MESSAGE_HEADING_LEVEL}
+                onImageExpand={ctx.onImageExpand}
+              />
+            </>
+          ) : senderProfile ? (
             <AgentMessageBubble avatar={senderProfile.avatar} bubble={false}>
               <p className="mb-1 text-sm font-medium text-foreground">{senderProject.title}</p>
               <ChatMarkdown
@@ -2785,12 +2803,12 @@ function AssistantTimelineRow({ row }: { row: Extract<TimelineRow, { kind: "mess
           resolvedTheme={ctx.resolvedTheme}
           onOpenTurnDiff={ctx.onOpenTurnDiff}
         />
-        {row.showAssistantMeta ? (
+        {row.showAssistantMeta || ctx.channel ? (
           <AssistantMessageMeta
             className="mt-1.5"
             projectedItem={row.projectedItem}
             message={row.message}
-            showCopyButton={row.showAssistantCopyButton}
+            showCopyButton={ctx.channel || row.showAssistantCopyButton}
             copyStreaming={row.assistantCopyStreaming}
           />
         ) : null}
@@ -2857,6 +2875,8 @@ function AssistantMetaTimelineRow({
 }: {
   row: Extract<TimelineRow, { kind: "assistant-meta" }>;
 }) {
+  const ctx = use(TimelineRowCtx);
+  if (ctx.channel) return null;
   return (
     <div className="px-1">
       <AssistantMessageMeta
@@ -2889,38 +2909,40 @@ function AssistantMessageMeta({
   const ctx = use(TimelineRowCtx);
 
   return (
-    <div
-      className={cn(
-        "flex items-center gap-2 text-xs tabular-nums transition-opacity duration-200",
-        alwaysVisible
-          ? "opacity-100"
-          : "opacity-0 pointer-coarse:opacity-100 focus-within:opacity-100 group-hover/assistant:opacity-100",
-        className,
-      )}
-    >
-      {projectedItem?.item.type === "assistant_message" ? (
-        <AssistantForkButton projectedItem={projectedItem} />
-      ) : null}
-      {projectedItem && projectedItem.item.status !== "completed" ? (
-        <span className="rounded-full border border-border/70 px-1.5 py-0.5 font-mono text-3xs text-muted-foreground">
-          {projectedItem.item.status}
-        </span>
-      ) : null}
-      <AssistantCopyButton
-        message={message}
-        showCopyButton={showCopyButton}
-        streaming={copyStreaming}
-      />
-      {!message.streaming && (
-        <Tooltip>
-          <TooltipTrigger render={<p className="text-muted-foreground text-xs tabular-nums" />}>
-            {formatDayAwareTimestamp(message.updatedAt, ctx.timestampFormat)}
-          </TooltipTrigger>
-          <TooltipPopup>
-            {formatChatTimestampTooltip(message.updatedAt, ctx.timestampFormat)}
-          </TooltipPopup>
-        </Tooltip>
-      )}
+    <div className={cn("flex items-center gap-2 text-xs tabular-nums", className)}>
+      {ctx.channel ? <ChannelReplyAction message={message} /> : null}
+      <div
+        className={cn(
+          "flex items-center gap-2 text-xs tabular-nums transition-opacity duration-200",
+          alwaysVisible
+            ? "opacity-100"
+            : "opacity-0 pointer-coarse:opacity-100 focus-within:opacity-100 group-hover/assistant:opacity-100",
+        )}
+      >
+        {projectedItem?.item.type === "assistant_message" ? (
+          <AssistantForkButton projectedItem={projectedItem} />
+        ) : null}
+        {projectedItem && projectedItem.item.status !== "completed" ? (
+          <span className="rounded-full border border-border/70 px-1.5 py-0.5 font-mono text-3xs text-muted-foreground">
+            {projectedItem.item.status}
+          </span>
+        ) : null}
+        <AssistantCopyButton
+          message={message}
+          showCopyButton={showCopyButton}
+          streaming={copyStreaming}
+        />
+        {!message.streaming && (
+          <Tooltip>
+            <TooltipTrigger render={<p className="text-muted-foreground text-xs tabular-nums" />}>
+              {formatDayAwareTimestamp(message.updatedAt, ctx.timestampFormat)}
+            </TooltipTrigger>
+            <TooltipPopup>
+              {formatChatTimestampTooltip(message.updatedAt, ctx.timestampFormat)}
+            </TooltipPopup>
+          </Tooltip>
+        )}
+      </div>
     </div>
   );
 }
@@ -3053,6 +3075,7 @@ function v2EventPresentation(item: OrchestrationV2TurnItem): {
 function V2EventTimelineRow({ row }: { row: Extract<TimelineRow, { kind: "event" }> }) {
   const ctx = use(TimelineRowCtx);
   const { item, visibility, sourceThreadId } = row.projectedItem;
+  if (ctx.channel && item.type === "handoff") return null;
   if (item.type === "subagent" && (row.subagents?.length ?? 1) > 1) {
     return <V2SubagentGroup key={row.id} row={row} />;
   }

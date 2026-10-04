@@ -46,6 +46,7 @@ vi.mock("~/hooks/useSettings", () => ({
 
 vi.mock("@tanstack/react-router", () => ({
   useNavigate: () => state.navigate,
+  useRouter: () => ({ preloadRoute: vi.fn(async () => {}) }),
   useLocation: (options: { select: (location: { pathname: string }) => unknown }) =>
     options.select({ pathname: useSyncExternalStore(subscribe, () => state.pathname) }),
   Link: () => null,

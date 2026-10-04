@@ -682,6 +682,97 @@ describe("OrchestratorMcpService provider resolution", () => {
       }),
   );
 
+  it.effect("lets a DeepSeek parent delegate to GPT on the same Elysia gateway", () =>
+    Effect.gen(function* () {
+      let delegated = false;
+      const task = {
+        id: taskId,
+        threadId: parentThreadId,
+        runId: parentRunId,
+        parentNodeId,
+        origin: "app_owned",
+        createdBy: "agent",
+        driver: ProviderDriverKind.make("claudeAgent"),
+        providerInstanceId: codexInstanceId,
+        providerThreadId: null,
+        childThreadId,
+        nativeTaskRef: null,
+        prompt: "Summarize the diff.",
+        title: null,
+        model: "gpt-5-4",
+        status: "running",
+        result: null,
+        startedAt: null,
+        completedAt: null,
+      };
+      const dispatched = yield* Ref.make<ReadonlyArray<unknown>>([]);
+      const dependencies = Layer.mergeAll(
+        NodeServices.layer,
+        Layer.mock(ThreadManagementService.ThreadManagementService)({
+          getThreadRecords: (threadId) =>
+            Effect.succeed(
+              threadId === parentThreadId
+                ? parentProjection(delegated ? [task] : [], {
+                    instanceId: codexInstanceId,
+                    model: "deepseek-v4.1-flash",
+                  })
+                : childProjection,
+            ),
+          dispatch: (command) =>
+            Ref.update(dispatched, (commands) => [...commands, command]).pipe(
+              Effect.andThen(
+                Effect.sync(() => {
+                  delegated = true;
+                }),
+              ),
+              Effect.as({
+                sequence: 1,
+                storedEvents: [
+                  {
+                    sequence: 1,
+                    commandId: null,
+                    event: { type: "subagent.updated", payload: task },
+                  },
+                ],
+              } as never),
+            ),
+        }),
+        Layer.mock(ProviderRegistry.ProviderRegistry)({
+          getProviders: Effect.succeed([
+            providerSnapshot({
+              instanceId: codexInstanceId,
+              driver: ProviderDriverKind.make("claudeAgent"),
+              model: "gpt-5-4",
+            }),
+          ]),
+        }),
+        adapterRegistryLayer([codexInstanceId]),
+        Layer.mock(ScheduledTaskService.ScheduledTaskService)({}),
+      );
+
+      yield* Effect.gen(function* () {
+        const service = yield* OrchestratorMcpService.OrchestratorMcpService;
+        const result = yield* service.delegateTask(scope, {
+          task: "Summarize the diff.",
+          target: { providerInstanceId: codexInstanceId, model: "gpt-5-4" },
+          mode: "async",
+          clientRequestId: "delegate-elysia-model-1",
+        });
+        assert.equal(result.status, "running");
+        assert.equal(result.providerInstanceId, codexInstanceId);
+        const commands = yield* Ref.get(dispatched);
+        assert.equal(commands.length, 1);
+        const request = commands[0] as {
+          type: string;
+          modelSelection: { instanceId: string; model: string };
+        };
+        assert.equal(request.type, "delegated_task.request");
+        assert.equal(request.modelSelection.instanceId, codexInstanceId);
+        assert.equal(request.modelSelection.model, "gpt-5-4");
+      }).pipe(Effect.provide(OrchestratorMcpService.layer.pipe(Layer.provide(dependencies))));
+    }),
+  );
+
   it.effect("resolves a driverKind target to a capable Antigravity instance", () =>
     Effect.gen(function* () {
       const dispatched = yield* Ref.make<ReadonlyArray<unknown>>([]);

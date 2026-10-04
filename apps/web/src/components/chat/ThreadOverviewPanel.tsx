@@ -464,19 +464,22 @@ function OverviewPopover({
                   {showAgents && grouped.length > 0 ? (
                     <section>
                       <h3 className="mb-1 flex justify-between text-xs text-muted-foreground">
-                        <span>Agents</span>
+                        <span>Agents and channels</span>
                         {grouped.some((agent) => agent.working) ? (
                           <span>{grouped.filter((agent) => agent.working).length} working</span>
                         ) : null}
                       </h3>
-                      <div className="flex items-center gap-2 overflow-x-auto" aria-label="Agents">
+                      <div
+                        className="flex items-center gap-2 overflow-x-auto"
+                        aria-label="Agents and channels"
+                      >
                         {grouped.map((agent) => (
                           <Tooltip key={agent.job.agentProjectId}>
                             <TooltipTrigger
                               render={
                                 <button
                                   type="button"
-                                  className="flex shrink-0 cursor-pointer items-center justify-center rounded-lg p-1 hover:bg-accent/50 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
+                                  className="flex shrink-0 cursor-pointer items-center gap-2 rounded-lg p-1 hover:bg-accent/50 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
                                   aria-label={`View ${agent.name} responses`}
                                   onClick={() => {
                                     setExpanded(false);
@@ -496,6 +499,7 @@ function OverviewPopover({
                               ) : (
                                 <BotIcon className="size-5" />
                               )}
+                              <span className="max-w-40 truncate text-sm">{agent.name}</span>
                             </TooltipTrigger>
                             <TooltipPopup>
                               {agent.name}

@@ -30,9 +30,7 @@ const adapter: ProviderAdapterV2Shape = {
     Effect.succeed(
       input.current.model === input.target.model
         ? { type: "apply_on_next_turn" }
-        : input.persistentAgent
-          ? { type: "create_with_handoff" }
-          : { type: "reject", reason: "New chat required" },
+        : { type: "create_with_handoff" },
     ),
   openSession: () => Effect.die("Admission must not start a provider process"),
 };

@@ -62,7 +62,18 @@ describe("Elysia V2 runtime boundary", () => {
               persistentAgent,
               sessionCapabilities: yield* adapter.getCapabilities(),
             });
-            expect(transition.type).toBe(persistentAgent ? "create_with_handoff" : "reject");
+            expect(transition.type).toBe("create_with_handoff");
+            const capabilities = yield* adapter.getCapabilities();
+            const native = yield* adapter.planSelectionTransition({
+              current: modelSelection,
+              target: { ...modelSelection, model: "gpt-5-4" },
+              persistentAgent,
+              sessionCapabilities: {
+                ...capabilities,
+                sessions: { ...capabilities.sessions, supportsModelSwitchInSession: true },
+              },
+            });
+            expect(native.type).toBe("apply_on_next_turn");
           }
           const runtime = yield* adapter.openSession({
             threadId,
@@ -184,6 +195,16 @@ describe("Elysia V2 runtime boundary", () => {
       expect(options.mcpServers).toHaveProperty("elysia");
       expect(options.allowedTools?.every((tool) => tool.startsWith("mcp__elysia__"))).toBe(true);
       expect(options.allowedTools).not.toContain("mcp__elysia__*");
+      expect(options.allowedTools).toContain("mcp__elysia__list_scheduled_tasks");
+      for (const serverName of ["elysia", "t3-code"]) {
+        const fullAccess = claudeMcpQueryOverrides({
+          threadId,
+          readOnlySandbox: false,
+          serverName,
+        });
+        expect(fullAccess.mcpServers).toHaveProperty(serverName);
+        expect(fullAccess.allowedTools).toContain(`mcp__${serverName}__*`);
+      }
     } finally {
       McpProviderSession.clearMcpProviderSession(threadId);
     }

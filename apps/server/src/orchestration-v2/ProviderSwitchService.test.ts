@@ -347,25 +347,28 @@ it.effect("distinguishes compatible and incompatible instances of the same drive
   ),
 );
 
-it.effect("resets a model-bound persistent agent without resuming its old native session", () =>
-  Effect.gen(function* () {
-    const service = yield* ProviderSwitch.ProviderSwitchServiceV2;
-    const result = yield* service.plan({
-      projection: projection(),
-      persistentAgent: true,
-      targetModelSelection: { instanceId: currentInstanceId, model: "deepseek-v4.1-flash" },
-    });
-    assert.equal(result.transition.type, "create_with_handoff");
-    assert.deepEqual(result.releaseProviderSessionIds, [currentSessionId]);
-  }).pipe(
-    Effect.provide(
-      testLayer({ [currentInstanceId]: { continuationKey: "elysia" } }, (input) =>
-        Effect.succeed(
-          input.persistentAgent
-            ? { type: "create_with_handoff" }
-            : { type: "reject", reason: "New chat required" },
+for (const persistentAgent of [false, true])
+  it.effect(
+    `resets a model-bound ${persistentAgent ? "agent" : "ordinary thread"} without resuming its old native session`,
+    () =>
+      Effect.gen(function* () {
+        const service = yield* ProviderSwitch.ProviderSwitchServiceV2;
+        const result = yield* service.plan({
+          projection: projection(),
+          persistentAgent,
+          targetModelSelection: { instanceId: currentInstanceId, model: "deepseek-v4.1-flash" },
+        });
+        assert.equal(result.transition.type, "create_with_handoff");
+        assert.deepEqual(result.releaseProviderSessionIds, [currentSessionId]);
+      }).pipe(
+        Effect.provide(
+          testLayer({ [currentInstanceId]: { continuationKey: "elysia" } }, (input) =>
+            Effect.succeed(
+              input.sessionCapabilities.sessions.supportsModelSwitchInSession
+                ? { type: "apply_on_next_turn" }
+                : { type: "create_with_handoff" },
+            ),
+          ),
         ),
       ),
-    ),
-  ),
-);
+  );

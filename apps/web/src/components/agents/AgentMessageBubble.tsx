@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { cn } from "~/lib/utils";
-import { UsersIcon } from "~/icons";
+import { ChannelIcon } from "~/icons";
 import { AgentAvatar, type AgentAvatarValue } from "./AgentAvatar";
 
 /** Reserve the avatar column inside the message margins, including narrow threads. */
@@ -29,7 +29,7 @@ export function AgentMessageBubble({
       )}
     >
       {group ? (
-        <UsersIcon aria-hidden className={identityClassName} />
+        <ChannelIcon aria-hidden className={identityClassName} />
       ) : avatar ? (
         <AgentAvatar avatar={avatar} working={working} className={identityClassName} />
       ) : null}

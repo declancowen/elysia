@@ -1,48 +1,92 @@
 import { useState } from "react";
-import { ChevronDownIcon, ChevronUpIcon, XIcon } from "~/icons";
+import { ChevronDownIcon, ChevronUpIcon, MessageCircleIcon } from "~/icons";
 import { Button } from "../ui/button";
+import { ComposerBanner } from "./ComposerBanner";
+import { AgentAvatar } from "../agents/AgentAvatar";
+import { useProject, useThreadShell } from "~/state/entities";
+import { scopeProjectRef, scopeThreadRef } from "@t3tools/client-runtime/environment";
+import type { ProjectId, ScopedThreadRef } from "@t3tools/contracts";
 import { stripInlineContextReferences } from "~/lib/composerContextReferences";
 import type { ChatMessage } from "~/types";
 
 export function ChannelReplyPreview({
   message,
+  threadRef,
+  memberProjectId,
   onCancel,
 }: {
   message: ChatMessage;
+  threadRef: ScopedThreadRef;
+  memberProjectId?: ProjectId | undefined;
   onCancel: () => void;
 }) {
   const [expanded, setExpanded] = useState(false);
+  const sender = useThreadShell(
+    message.senderThreadId ? scopeThreadRef(threadRef.environmentId, message.senderThreadId) : null,
+  );
+  const authorId = memberProjectId ?? sender?.projectId;
+  const author = useProject(authorId ? scopeProjectRef(threadRef.environmentId, authorId) : null);
+  const text = stripInlineContextReferences(message.text);
   return (
-    <div className="mb-2 flex items-start gap-2 rounded-xl border border-border bg-muted/40 px-3 py-2">
-      <button
-        type="button"
-        onClick={() => setExpanded((value) => !value)}
-        aria-expanded={expanded}
-        className="min-w-0 flex-1 cursor-pointer text-left"
+    // Expanding grows upward over the timeline; its reserved height stays fixed.
+    <div className="relative mb-2 h-18">
+      <ComposerBanner.Root
+        placement="floating"
+        density="comfortable"
+        className="absolute inset-x-0 bottom-0 z-20 max-h-[50dvh]"
+        role="region"
+        aria-label="Reply preview"
       >
-        <span className="flex items-center gap-1 text-xs font-medium text-foreground">
-          Replying to {message.role === "user" ? "your message" : "agent response"}
-          {expanded ? <ChevronUpIcon className="size-3" /> : <ChevronDownIcon className="size-3" />}
-        </span>
-        <span
-          className={
-            expanded
-              ? "mt-1 block max-h-40 overflow-auto whitespace-pre-wrap text-sm text-muted-foreground"
-              : "mt-1 block truncate text-sm text-muted-foreground"
-          }
-        >
-          {stripInlineContextReferences(message.text)}
-        </span>
-      </button>
-      <Button
-        type="button"
-        variant="ghost-muted"
-        size="icon-xs"
-        onClick={onCancel}
-        aria-label="Cancel reply"
-      >
-        <XIcon className="size-3.5" />
-      </Button>
+        <ComposerBanner.Row>
+          <ComposerBanner.Icon>
+            <MessageCircleIcon />
+          </ComposerBanner.Icon>
+          <ComposerBanner.Content>
+            <span>Replying to</span>
+            {message.role === "assistant" && author?.agentProfile ? (
+              <>
+                <AgentAvatar avatar={author.agentProfile.avatar} className="size-4 shrink-0" />
+                <span className="truncate">{author.title}</span>
+              </>
+            ) : (
+              <span>{message.role === "user" ? "your message" : "agent response"}</span>
+            )}
+          </ComposerBanner.Content>
+          <ComposerBanner.Actions>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-xs"
+              aria-label={expanded ? "Collapse reply preview" : "Expand reply preview"}
+              aria-expanded={expanded}
+              onPointerDown={(event) => event.preventDefault()}
+              onClick={() => setExpanded((value) => !value)}
+            >
+              {expanded ? (
+                <ChevronDownIcon className="size-3.5" />
+              ) : (
+                <ChevronUpIcon className="size-3.5" />
+              )}
+            </Button>
+            <ComposerBanner.Dismiss
+              onPointerDown={(event) => event.preventDefault()}
+              onClick={onCancel}
+              aria-label="Cancel reply"
+            />
+          </ComposerBanner.Actions>
+        </ComposerBanner.Row>
+        {expanded ? (
+          <ComposerBanner.Scroll className="max-h-[calc(50dvh-3rem)]">
+            <ComposerBanner.Body className="whitespace-pre-wrap py-1 text-sm text-foreground">
+              {text}
+            </ComposerBanner.Body>
+          </ComposerBanner.Scroll>
+        ) : (
+          <ComposerBanner.Body className="truncate py-1 text-sm text-foreground">
+            {text}
+          </ComposerBanner.Body>
+        )}
+      </ComposerBanner.Root>
     </div>
   );
 }

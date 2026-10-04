@@ -646,7 +646,19 @@ describe("V2 persistent delegation", () => {
             const result = (yield* projections.getThreadProjection(sourceId)).messages.find(
               (message) => message.id.startsWith("agent-delegate:result:"),
             );
-            assert.include(result?.text ?? "", "Channel result");
+            assert.isUndefined(result);
+            const response = yield* getAgentDelegation({
+              sourceThreadId: sourceId,
+              activityId: EventId.make(
+                source.turnItems.find(
+                  (item) => item.type === "system_notice" && item.agentDelegation,
+                )!.id,
+              ),
+            });
+            assert.include(
+              response.messages.map((message) => message.text).join("\n"),
+              "Channel result",
+            );
           }
           return;
         }
@@ -930,12 +942,8 @@ describe("V2 persistent delegation", () => {
         const deliveries = after.messages.filter((message) =>
           message.id.startsWith("agent-delegate:result:"),
         );
-        assert.lengthOf(
-          deliveries,
-          scenario === "complete" || scenario === "attachments" || false ? 1 : 0,
-        );
-
-        if (scenario === "complete") assert.include(deliveries[0]!.text, "Original result");
+        assert.lengthOf(deliveries, 0);
+        assert.equal(after.runs.length, source.runs.length);
         const receipt = yield* (yield* CommandReceiptStore.CommandReceiptStoreV2).getByCommandId(
           CommandId.make(`agent-delegate:result:${notice.id}`),
         );

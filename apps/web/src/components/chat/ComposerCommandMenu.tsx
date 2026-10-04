@@ -19,7 +19,7 @@ import {
   PackageIcon,
   SettingsIcon,
   UserRoundIcon,
-  UsersIcon,
+  ChannelIcon,
   type LucideIcon,
 } from "~/icons";
 import { memo, useLayoutEffect, useRef } from "react";
@@ -202,7 +202,7 @@ const ComposerCommandMenuItem = memo(function ComposerCommandMenuItem(props: {
     >
       {props.item.type === "agent" ? (
         props.item.isGroup ? (
-          <UsersIcon aria-hidden className="size-4 shrink-0" />
+          <ChannelIcon aria-hidden className="size-4 shrink-0" />
         ) : (
           <AgentAvatar avatar={props.item.avatar} />
         )

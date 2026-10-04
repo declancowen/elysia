@@ -114,17 +114,24 @@ export function ComposerSelectControl({
   className,
   children,
   size = "sm",
+  iconOnly = false,
   ...props
 }: Omit<SelectPrimitive.Trigger.Props, "className"> & {
   className?: string | undefined;
   size?: ComposerControlSize;
+  iconOnly?: boolean;
 }) {
   return (
-    <SelectPrimitive.Trigger className={composerControlClassName(size, className)} {...props}>
+    <SelectPrimitive.Trigger
+      className={composerControlClassName(size, cn(iconOnly && "size-8 p-0", className))}
+      {...props}
+    >
       {children}
-      <SelectPrimitive.Icon>
-        <ComposerControlChevron size={size} />
-      </SelectPrimitive.Icon>
+      {!iconOnly && (
+        <SelectPrimitive.Icon>
+          <ComposerControlChevron size={size} />
+        </SelectPrimitive.Icon>
+      )}
     </SelectPrimitive.Trigger>
   );
 }

@@ -40,6 +40,7 @@ import {
 import { Tooltip, TooltipPopup, TooltipTrigger } from "./tooltip";
 
 export type ThreadToastData = {
+  position?: "bottom-right";
   threadRef?: ScopedThreadRef | null;
   threadId?: ThreadId | null;
   leadingIcon?: ReactNode;
@@ -534,16 +535,25 @@ function ToastProvider({ children, position = "top-right", ...props }: ToastProv
     <Toast.Provider toastManager={toastManager} {...props}>
       {children}
       <Toasts position={position} />
+      {position !== "bottom-right" ? <Toasts position="bottom-right" positionOverride /> : null}
     </Toast.Provider>
   );
 }
 
-function Toasts({ position }: { position: ToastPosition }) {
+function Toasts({
+  position,
+  positionOverride = false,
+}: {
+  position: ToastPosition;
+  positionOverride?: boolean;
+}) {
   const { toasts } = Toast.useToastManager<ThreadToastData>();
   const activeThreadRef = useActiveThreadRefFromRoute();
   const isTop = position.startsWith("top");
-  const visibleToasts = toasts.filter((toast) =>
-    shouldRenderThreadScopedToast(toast.data, activeThreadRef),
+  const visibleToasts = toasts.filter(
+    (toast) =>
+      (toast.data?.position ? position === toast.data.position : !positionOverride) &&
+      shouldRenderThreadScopedToast(toast.data, activeThreadRef),
   );
   const visibleToastLayout = buildVisibleToastLayout(visibleToasts);
 

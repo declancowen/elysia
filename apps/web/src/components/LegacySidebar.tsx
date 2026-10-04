@@ -3926,7 +3926,7 @@ export default function LegacySidebar() {
         .downloadUpdate()
         .then((result) => {
           if (result.completed) {
-            showDesktopUpdateDownloadedToast(bridge, result.state);
+            showDesktopUpdateDownloadedToast();
           }
           if (!shouldToastDesktopUpdateActionResult(result)) return;
           const actionError = getDesktopUpdateActionError(result);
@@ -3934,17 +3934,19 @@ export default function LegacySidebar() {
           toastManager.add(
             stackedThreadToast({
               type: "error",
+              data: { position: "bottom-right", hideCopyButton: true },
               title: "Could not download update",
-              description: actionError,
+              description: "Please try again.",
             }),
           );
         })
-        .catch((error) => {
+        .catch(() => {
           toastManager.add(
             stackedThreadToast({
               type: "error",
+              data: { position: "bottom-right", hideCopyButton: true },
               title: "Could not start update download",
-              description: error instanceof Error ? error.message : "An unexpected error occurred.",
+              description: "Please try again.",
             }),
           );
         })
@@ -3958,13 +3960,14 @@ export default function LegacySidebar() {
         confirmed = await ensureLocalApi().dialogs.confirm(
           getDesktopUpdateInstallConfirmationMessage(desktopUpdateState),
         );
-      } catch (error) {
+      } catch {
         setDesktopUpdateActionPending(false);
         toastManager.add(
           stackedThreadToast({
             type: "error",
+            data: { position: "bottom-right", hideCopyButton: true },
             title: "Could not confirm update",
-            description: error instanceof Error ? error.message : "Update confirmation failed.",
+            description: "Please try again.",
           }),
         );
         return;
@@ -3982,17 +3985,19 @@ export default function LegacySidebar() {
           toastManager.add(
             stackedThreadToast({
               type: "error",
+              data: { position: "bottom-right", hideCopyButton: true },
               title: "Could not install update",
-              description: actionError,
+              description: "Please try again.",
             }),
           );
         })
-        .catch((error) => {
+        .catch(() => {
           toastManager.add(
             stackedThreadToast({
               type: "error",
+              data: { position: "bottom-right", hideCopyButton: true },
               title: "Could not install update",
-              description: error instanceof Error ? error.message : "An unexpected error occurred.",
+              description: "Please try again.",
             }),
           );
         })

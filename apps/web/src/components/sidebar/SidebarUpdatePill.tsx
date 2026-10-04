@@ -185,7 +185,7 @@ function SidebarUpdateControl() {
         .downloadUpdate()
         .then((result) => {
           if (result.completed) {
-            showDesktopUpdateDownloadedToast(bridge, result.state);
+            showDesktopUpdateDownloadedToast();
           }
           if (!shouldToastDesktopUpdateActionResult(result)) return;
           const actionError = getDesktopUpdateActionError(result);
@@ -193,17 +193,19 @@ function SidebarUpdateControl() {
           toastManager.add(
             stackedThreadToast({
               type: "error",
+              data: { position: "bottom-right", hideCopyButton: true },
               title: "Could not download update",
-              description: actionError,
+              description: "Please try again.",
             }),
           );
         })
-        .catch((error) => {
+        .catch(() => {
           toastManager.add(
             stackedThreadToast({
               type: "error",
+              data: { position: "bottom-right", hideCopyButton: true },
               title: "Could not start update download",
-              description: error instanceof Error ? error.message : "An unexpected error occurred.",
+              description: "Please try again.",
             }),
           );
         })
@@ -217,13 +219,14 @@ function SidebarUpdateControl() {
         confirmed = await ensureLocalApi().dialogs.confirm(
           getDesktopUpdateInstallConfirmationMessage(state),
         );
-      } catch (error) {
+      } catch {
         setIsActionPending(false);
         toastManager.add(
           stackedThreadToast({
             type: "error",
+            data: { position: "bottom-right", hideCopyButton: true },
             title: "Could not confirm update",
-            description: error instanceof Error ? error.message : "Update confirmation failed.",
+            description: "Please try again.",
           }),
         );
         return;
@@ -241,17 +244,19 @@ function SidebarUpdateControl() {
           toastManager.add(
             stackedThreadToast({
               type: "error",
+              data: { position: "bottom-right", hideCopyButton: true },
               title: "Could not install update",
-              description: actionError,
+              description: "Please try again.",
             }),
           );
         })
-        .catch((error) => {
+        .catch(() => {
           toastManager.add(
             stackedThreadToast({
               type: "error",
+              data: { position: "bottom-right", hideCopyButton: true },
               title: "Could not install update",
-              description: error instanceof Error ? error.message : "An unexpected error occurred.",
+              description: "Please try again.",
             }),
           );
         })
@@ -270,18 +275,19 @@ function SidebarUpdateControl() {
         toastManager.add(
           stackedThreadToast({
             type: "error",
+            data: { position: "bottom-right", hideCopyButton: true },
             title: "Could not check for updates",
-            description:
-              result.state.message ?? "Automatic updates are not available in this build.",
+            description: "Please try again.",
           }),
         );
       })
-      .catch((error) => {
+      .catch(() => {
         toastManager.add(
           stackedThreadToast({
             type: "error",
+            data: { position: "bottom-right", hideCopyButton: true },
             title: "Could not check for updates",
-            description: error instanceof Error ? error.message : "Update check failed.",
+            description: "Please try again.",
           }),
         );
       })

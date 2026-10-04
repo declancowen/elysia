@@ -430,8 +430,13 @@ export const AppNavigationRail = memo(function AppNavigationRail() {
   const navigateToTabSection = useConversationSectionNavigation();
   const pathname = useLocation({ select: (location) => location.pathname });
   const codeWorkspace = useCodeWorkspace();
+  const editingAgent = useLocation({
+    select: (location) =>
+      location.pathname === "/agents" &&
+      (location.search.create === true || Boolean(location.search.projectId)),
+  });
   const agentSidebarSelected = useAgentSidebarStore((state) => state.active);
-  const agentsActive = agentSidebarActiveForPath(pathname, agentSidebarSelected);
+  const agentsActive = agentSidebarActiveForPath(pathname, agentSidebarSelected, editingAgent);
   const updateClientSettings = useUpdateClientSettings();
   const { environments } = useEnvironments();
   const pullRequestsSupported = environments.some(

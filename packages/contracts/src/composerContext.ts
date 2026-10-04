@@ -4,6 +4,7 @@ import {
   EnvironmentId,
   ForwardCompatibleArray,
   NonNegativeInt,
+  MessageId,
   PositiveInt,
   ThreadId,
   TrimmedNonEmptyString,
@@ -270,6 +271,13 @@ export const ComposerContextRecord = Schema.Union([
   UnknownContextRecord,
 ]);
 export type ComposerContextRecord = typeof ComposerContextRecord.Type;
+
+/** A channel reply names the exact referenced message and its single root topic. */
+export const ChannelReply = Schema.Struct({
+  replyToMessageId: MessageId,
+  rootMessageId: MessageId,
+});
+export type ChannelReply = typeof ChannelReply.Type;
 
 export const COMPOSER_CONTEXT_MAX_RECORDS = 200;
 const COMPOSER_CONTEXT_MAX_SERIALIZED_CHARS = 16_000_000;

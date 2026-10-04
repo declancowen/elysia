@@ -197,6 +197,14 @@ jobs:
             packages/contracts/src/agentDelegation.test.ts \
             packages/shared/src/agentAvatar.test.ts \
             packages/shared/src/agentMentions.test.ts \
+            packages/shared/src/channelReplies.test.ts \
+            apps/server/src/orchestration-v2/Orchestrator.channels.test.ts \
+            apps/server/src/orchestration-v2/ProviderSwitchService.test.ts \
+            apps/web/src/components/chat/channelTimeline.test.ts \
+            apps/web/src/components/chat/ModelListRow.interaction.test.tsx \
+            apps/web/src/components/chat/MessagesTimeline.test.tsx \
+            apps/web/src/hooks/useArchivedConversationTabs.test.tsx \
+            apps/web/src/components/agents/agentSidebarStore.test.ts \
             apps/server/src/orchestration-v2/PersistentAgents.test.ts \
             apps/server/src/orchestration-v2/AgentDelegation.test.ts \
             apps/server/src/orchestration-v2/RuntimePolicy.test.ts \

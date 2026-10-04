@@ -14,6 +14,7 @@ import {
 import { expect, it, vi } from "vite-plus/test";
 
 const state = vi.hoisted(() => ({
+  sourceChannel: false,
   status: "working" as AgentGetDelegationResult["status"],
   statusByAgent: {} as Record<string, AgentGetDelegationResult["status"]>,
   activities: [] as OrchestrationV2TurnItem[],
@@ -28,7 +29,11 @@ const state = vi.hoisted(() => ({
     | undefined,
 }));
 vi.mock("~/state/entities", () => ({
-  useProject: () => state.project,
+  useProject: (ref: { projectId: string } | null) =>
+    ref?.projectId === "source-project"
+      ? { agentProfile: state.sourceChannel ? { group: {} } : undefined }
+      : state.project,
+  useThreadShell: () => ({ projectId: "source-project" }),
   useThreadProjection: () => ({ projection: { turnItems: state.activities } }),
 }));
 vi.mock("./useDelegatedAgents", () => ({
@@ -167,6 +172,12 @@ it("shows plain clickable agent names and task-specific status in sent messages"
       source,
       projectId: ProjectId.make("friday"),
     });
+    state.sourceChannel = true;
+    useThreadOverviewStore.setState({ target: null });
+    await act(async () => render());
+    expect(host.querySelector("[data-bubble] button")).toBeNull();
+    expect(useThreadOverviewStore.getState().target).toBeNull();
+    state.sourceChannel = false;
     state.status = "completed";
     await act(async () => render());
     expect(host.querySelector('[aria-label="Agents working"]')).toBeNull();
@@ -186,6 +197,7 @@ it("shows plain clickable agent names and task-specific status in sent messages"
     await act(async () => render());
     expect(host.querySelector('[aria-label="Agents finished"]')).toBeNull();
   } finally {
+    state.sourceChannel = false;
     state.statusByAgent = {};
     useThreadOverviewStore.setState({ target: null });
     await act(async () => root.unmount());

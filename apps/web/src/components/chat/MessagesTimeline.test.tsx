@@ -1,3 +1,4 @@
+import { withChannelReply } from "@t3tools/shared/channelReplies";
 import {
   ApprovalRequestId,
   CheckpointRef,
@@ -296,6 +297,55 @@ function buildProps() {
     onManualNavigation: () => {},
   };
 }
+
+it("collapses channel replies and reopens their topic when replying, with one level of children", async () => {
+  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+  vi.stubGlobal("requestAnimationFrame", () => 0);
+  vi.stubGlobal("cancelAnimationFrame", () => {});
+  const parent = buildUserTimelineEntry("PARENT_TOPIC");
+  const child = {
+    ...buildUserTimelineEntry("CHILD_REPLY"),
+    id: "child-entry",
+    message: {
+      ...buildUserTimelineEntry("CHILD_REPLY").message,
+      id: MessageId.make("child"),
+      context: withChannelReply(undefined, {
+        replyToMessageId: parent.message.id,
+        rootMessageId: parent.message.id,
+      }),
+    },
+  };
+  const reply = vi.fn();
+  let renderer: ReactTestRenderer | undefined;
+  try {
+    await act(() => {
+      renderer = create(
+        <MessagesTimeline
+          {...buildProps()}
+          channel
+          onReply={reply}
+          timelineEntries={[parent, child]}
+        />,
+      );
+    });
+    expect(JSON.stringify(renderer!.toJSON())).toContain("CHILD_REPLY");
+    const toggle = renderer!.root.find(
+      (node) => node.type === "button" && node.props["aria-expanded"] === true,
+    );
+    await act(() => toggle.props.onClick());
+    expect(JSON.stringify(renderer!.toJSON())).not.toContain("CHILD_REPLY");
+    const action = renderer!.root.find(
+      (node) =>
+        node.type === "button" &&
+        node.children.some((text) => typeof text === "string" && text.trim() === "Reply"),
+    );
+    await act(() => action.props.onClick());
+    expect(reply).toHaveBeenCalledWith(parent.message);
+    expect(JSON.stringify(renderer!.toJSON())).toContain("CHILD_REPLY");
+  } finally {
+    await act(() => renderer?.unmount());
+  }
+});
 
 function buildLongUserMessageText(tail = "deep hidden detail only after expand") {
   return Array.from({ length: 9 }, (_, index) =>

@@ -1081,6 +1081,7 @@ export function deriveLockedProvider(input: {
 export function getStartedThreadModelChangeBlockReason(input: {
   providers: ReadonlyArray<Pick<ServerProvider, "instanceId" | "requiresNewThreadForModelChange">>;
   hasStartedSession: boolean;
+  persistentAgent?: boolean;
   supportsProviderSwitchingViaHandoff?: boolean;
   currentModelSelection: ModelSelection;
   currentProviderInstanceId?: ModelSelection["instanceId"] | null | undefined;
@@ -1114,6 +1115,7 @@ export function getStartedThreadModelChangeBlockReason(input: {
   const nextProvider = input.providers.find(
     (snapshot) => snapshot.instanceId === input.nextModelSelection.instanceId,
   );
+  if (input.persistentAgent) return null;
   if (
     currentProvider?.requiresNewThreadForModelChange !== true &&
     nextProvider?.requiresNewThreadForModelChange !== true

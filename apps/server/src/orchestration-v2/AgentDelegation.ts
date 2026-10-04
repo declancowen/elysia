@@ -184,6 +184,23 @@ const delegateToPersistentAgentImpl = Effect.fn("delegateToPersistentAgent")(fun
   const existingRequest = sourceRecords.messages[0];
   if (existingRequest && (existingRequest.role !== "user" || existingRequest.text !== input.text))
     return yield* fail("This request message was already used for a different task.");
+  if (group) {
+    // Channel work owns a channel run. Do not send it to the member's standalone conversation.
+    yield* ThreadMessageIntake.dispatchCommand({
+      type: "message.dispatch",
+      commandId: input.commandId,
+      threadId: input.sourceThreadId,
+      messageId: input.messageId,
+      channelAgentProjectId: input.agentProjectId,
+      text: input.text,
+      context: input.context,
+      attachments: incoming,
+      createdBy: "user",
+      creationSource: "web",
+      dispatchMode: { type: "queue_after_active" },
+    }).pipe(Effect.mapError(readError));
+    return { projectId: source.projectId, threadId: input.sourceThreadId };
+  }
   const key = `${input.commandId}:${input.agentProjectId}`;
   const targetCommandId = CommandId.make(`agent-delegate:turn:${key}`);
   const targetMessageId = MessageId.make(
@@ -313,26 +330,10 @@ const delegateToPersistentAgentImpl = Effect.fn("delegateToPersistentAgent")(fun
       "A task was delegated to you from another Elysia chat.",
       `Origin chat: ${input.sourceThreadId}`,
       `Origin workspace (reference only): ${source.worktreePath ?? sourceProject.value.workspaceRoot}`,
-      "Continue in your own agent chat, workspace and memory. The originating workspace and transcript are references; they do not change your working directory.",
+      targetGroup
+        ? "Work and reply within this channel using your member identity and memory. The originating workspace and transcript are references; they do not change the channel working directory."
+        : "Continue in your own agent chat, workspace and memory. The originating workspace and transcript are references; they do not change your working directory.",
       "Before using tools, send a separate, brief assistant message summarising the current request. Start it with **Task:**. Carry out the task and send the result in a subsequent response.",
-      ...(group &&
-      retainedSource &&
-      "payload" in retainedSource &&
-      typeof retainedSource.payload === "object" &&
-      retainedSource.payload !== null &&
-      "originExcerpt" in retainedSource.payload &&
-      typeof retainedSource.payload.originExcerpt === "string"
-        ? ["Original handoff context (reference only):", retainedSource.payload.originExcerpt]
-        : []),
-      ...(group
-        ? [
-            "Channel description:",
-            sourceProject.value.agentProfile!.instructions,
-            ...(group.workspaceRoot
-              ? [`Linked channel folder (reference only): ${group.workspaceRoot}`]
-              : []),
-          ]
-        : []),
       "Recent excerpt (reference only):",
       recent
         .map((message) => `${message.role}: ${stripRouting(message.text).slice(-2000)}`)
@@ -346,6 +347,7 @@ const delegateToPersistentAgentImpl = Effect.fn("delegateToPersistentAgent")(fun
       threadId: targetThreadId,
       messageId: targetMessageId,
       text: targetGroup ? input.text : text,
+      ...(groupMemberProjectId ? { channelAgentProjectId: groupMemberProjectId } : {}),
       attachments: targetClaim.attachments,
       context: {
         version: 1,
@@ -380,96 +382,10 @@ const delegateToPersistentAgentImpl = Effect.fn("delegateToPersistentAgent")(fun
       dispatchMode: { type: "queue_after_active" },
       senderThreadId: input.sourceThreadId,
     } as const;
-    const deliver = targetGroup
-      ? commands
-          .withLock(
-            targetThreadId,
-            Effect.gen(function* () {
-              const retained = yield* projections
-                .getThreadRecords(targetThreadId, ["messages"], {
-                  messageIds: [targetMessageId],
-                })
-                .pipe(Effect.mapError(readError));
-              if (
-                retained.messages[0] &&
-                !retained.messages[0].context?.records.some(
-                  (record) =>
-                    record.kind === SOURCE_FILES_KIND &&
-                    record.contextId === `handoff_source_${fingerprint}`,
-                )
-              )
-                return yield* fail(
-                  "This handoff request was already used for a different task. Send a new request.",
-                );
-              const now = yield* DateTime.now;
-              return yield* sink.commitCommand({
-                commandId: targetCommandId,
-                threadId: targetThreadId,
-                commandType: "agent-group.handoff",
-                acceptedAt: now,
-                effects: [],
-                events: [
-                  {
-                    id: EventId.make(`${targetCommandId}:message`),
-                    type: "message.updated",
-                    threadId: targetThreadId,
-                    occurredAt: now,
-                    payload: {
-                      id: targetMessageId,
-                      threadId: targetThreadId,
-                      runId: null,
-                      nodeId: null,
-                      role: "user",
-                      text: dispatch.text,
-                      attachments: dispatch.attachments,
-                      context: dispatch.context,
-                      senderThreadId: input.sourceThreadId,
-                      streaming: false,
-                      createdAt: now,
-                      updatedAt: now,
-                      createdBy: "user",
-                      creationSource: "web",
-                    },
-                  },
-                  {
-                    id: EventId.make(`${targetCommandId}:item`),
-                    type: "turn-item.updated",
-                    threadId: targetThreadId,
-                    occurredAt: now,
-                    payload: {
-                      id: TurnItemId.make(`${targetCommandId}:item`),
-                      threadId: targetThreadId,
-                      runId: null,
-                      nodeId: null,
-                      providerThreadId: null,
-                      providerTurnId: null,
-                      nativeItemRef: null,
-                      parentItemId: null,
-                      ordinal: 0,
-                      status: "completed",
-                      title: null,
-                      startedAt: now,
-                      completedAt: now,
-                      updatedAt: now,
-                      type: "user_message",
-                      messageId: targetMessageId,
-                      text: dispatch.text,
-                      attachments: dispatch.attachments,
-                      context: dispatch.context,
-                      createdBy: "user",
-                      creationSource: "web",
-                      inputIntent: "turn_start",
-                    },
-                  },
-                ],
-              });
-            }),
-          )
-          .pipe(Effect.mapError(readError), Effect.asVoid)
-      : ThreadMessageIntake.dispatchCommand(dispatch).pipe(
-          Effect.mapError(readError),
-          Effect.asVoid,
-        );
+    const deliver = ThreadMessageIntake.dispatchCommand(dispatch).pipe(
+      Effect.mapError(readError),
+      Effect.asVoid,
+    );
     yield* deliver.pipe(
       Effect.tapError(() =>
         receipts.getByCommandId(targetCommandId).pipe(
@@ -491,7 +407,7 @@ const delegateToPersistentAgentImpl = Effect.fn("delegateToPersistentAgent")(fun
       .pipe(Effect.mapError(readError));
     accepted = records.messages[0];
   }
-  if (!accepted || (!targetGroup && !accepted.runId))
+  if (!accepted || !accepted.runId)
     return yield* fail("The agent task has no accepted run. Try again.");
   if (
     targetGroup
@@ -530,34 +446,7 @@ const delegateToPersistentAgentImpl = Effect.fn("delegateToPersistentAgent")(fun
   )
     yield* AttachmentClaims.releaseClaimedAttachments(preparedSource.claimedPaths);
 
-  let targetRunId = accepted.runId;
-  if (targetGroup) {
-    const memberProjectId = original.value.groupMemberProjectId;
-    if (!memberProjectId) return yield* fail("The selected channel member is unavailable.");
-    const memberCommandId = CommandId.make(`agent-group:member:${key}`);
-    yield* delegateToPersistentAgentImpl({
-      commandId: memberCommandId,
-      sourceThreadId: targetThreadId,
-      agentProjectId: memberProjectId,
-      messageId: targetMessageId,
-      text: accepted.text,
-      attachments: accepted.attachments,
-      context: accepted.context,
-    });
-    const sql = yield* SqlClient.SqlClient;
-    const rows = yield* sql<{
-      payload_json: string;
-    }>`SELECT payload_json FROM orchestration_v2_projection_turn_items
-      WHERE thread_id = ${targetThreadId} AND turn_item_id = ${`agent-delegate:ack:${memberCommandId}:${memberProjectId}`} LIMIT 1`.pipe(
-      Effect.mapError(readError),
-    );
-    const notice = rows[0]
-      ? yield* decodeTurnItem(rows[0].payload_json).pipe(Effect.mapError(readError))
-      : undefined;
-    if (notice?.type !== "system_notice" || !notice.agentDelegation?.targetTurnId)
-      return yield* fail("The channel message has no accepted member run. Try again.");
-    targetRunId = RunId.make(notice.agentDelegation.targetTurnId);
-  }
+  const targetRunId = accepted.runId;
   const identity = {
     agentProjectId: agent.projectId,
     agentThreadId: targetThreadId,
@@ -756,7 +645,7 @@ const getAgentDelegationImpl = Effect.fn("getAgentDelegation")(function* (
     return result;
   const request = target.messages[0];
   if (!request) return result;
-  if (agent.value.agentProfile?.group) {
+  if (agent.value.agentProfile?.group && !request.runId) {
     const nested = yield* sql<{ turn_item_id: string }>`SELECT turn_item_id
       FROM orchestration_v2_projection_turn_items WHERE thread_id = ${identity.agentThreadId}
       AND type = 'system_notice'

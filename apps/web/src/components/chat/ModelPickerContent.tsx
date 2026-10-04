@@ -1023,7 +1023,6 @@ export const ModelPickerContent = memo(function ModelPickerContent(props: {
                           }
                           showSelection={SINGLE_PROVIDER_UI || selectedModelKeys !== undefined}
                           showProvider={!SINGLE_PROVIDER_UI}
-                          readOnlyFavorites={SINGLE_PROVIDER_UI}
                           preferShortName={!isLocked}
                           useTriggerLabel={false}
                           showNewBadge={model.badge === "new"}

@@ -10,7 +10,7 @@ import { useMemo } from "react";
 import { CircleCheckIcon, CircleAlertIcon, SquareIcon, ChannelIcon } from "~/icons";
 import { delegatedAgentsFromTurnItems } from "@t3tools/shared/agentMentions";
 import { useDelegatedAgents } from "./useDelegatedAgents";
-import { useProject, useThreadProjection } from "~/state/entities";
+import { useProject, useThreadProjection, useThreadShell } from "~/state/entities";
 import { ContextChipShell, UnresolvedChip } from "../contextChipParts";
 import { openThreadOverviewAgent } from "../chat/threadOverviewStore";
 import { AgentAvatar } from "./AgentAvatar";
@@ -87,6 +87,12 @@ export function SentAgentMentionChip(
 ) {
   const { sourceThreadRef, sourceMessageId, ...chip } = props;
   const source = useThreadProjection(sourceThreadRef);
+  const sourceThread = useThreadShell(sourceThreadRef);
+  const sourceProject = useProject(
+    sourceThread && sourceThreadRef
+      ? scopeProjectRef(sourceThreadRef.environmentId, sourceThread.projectId)
+      : null,
+  );
   const jobs = useMemo(
     () =>
       delegatedAgentsFromTurnItems(source?.projection.turnItems ?? []).filter(
@@ -100,7 +106,7 @@ export function SentAgentMentionChip(
     <AgentMentionChip
       {...chip}
       onOpen={
-        sourceThreadRef
+        sourceThreadRef && !sourceProject?.agentProfile?.group
           ? () => openThreadOverviewAgent(sourceThreadRef, ProjectId.make(chip.contextId))
           : undefined
       }

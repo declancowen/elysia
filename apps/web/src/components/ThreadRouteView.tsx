@@ -1,4 +1,4 @@
-import { scopedThreadKey } from "@t3tools/client-runtime/environment";
+import { scopeProjectRef, scopedThreadKey } from "@t3tools/client-runtime/environment";
 import type { ScopedThreadRef } from "@t3tools/contracts";
 import { SINGLE_PROVIDER_UI } from "@t3tools/contracts";
 import { useNavigate } from "@tanstack/react-router";
@@ -17,7 +17,12 @@ import {
   useComposerDraftStore,
 } from "../composerDraftStore";
 import { useSidebarPendingFileDropStore } from "../sidebarPendingFileDropStore";
-import { useEnvironmentThreadRefs, useThreadRefs, useThreadShell } from "../state/entities";
+import {
+  useEnvironmentThreadRefs,
+  useThreadRefs,
+  useThreadShell,
+  useProject,
+} from "../state/entities";
 import { useEnvironmentQuery } from "../state/query";
 import { environmentShell } from "../state/shell";
 import {
@@ -60,6 +65,12 @@ export function ThreadRouteView({ target }: { target: ThreadRouteTarget }) {
   const serverThreadRef: ScopedThreadRef | null =
     target.kind === "server" ? target.threadRef : (draftSession?.promotedTo ?? inferredThreadRef);
   const serverThread = useThreadShell(serverThreadRef);
+  const project = useProject(
+    serverThreadRef && serverThread
+      ? scopeProjectRef(serverThreadRef.environmentId, serverThread.projectId)
+      : null,
+  );
+  const archived = serverThread?.archivedAt != null || project?.agentProfile?.archived === true;
   const backgroundSubmissionPending = useBackgroundDraftSubmissionPending(
     target.kind === "draft" ? serverThreadRef : null,
   );
@@ -123,11 +134,11 @@ export function ThreadRouteView({ target }: { target: ThreadRouteTarget }) {
       } else if (draftSession) {
         tabs.open(target);
       }
-    } else if (renderState !== "missing") {
+    } else if (renderState !== "missing" && !archived) {
       if (promotedDraftId) tabs.retarget({ kind: "draft", draftId: promotedDraftId }, target);
       tabs.open(target);
     }
-  }, [canonicalThreadRef, draftSession, promotedDraftId, renderState, target]);
+  }, [canonicalThreadRef, draftSession, promotedDraftId, renderState, target, archived]);
 
   useEffect(() => {
     if (!inferredThreadRef || draftSession?.promotedTo) {

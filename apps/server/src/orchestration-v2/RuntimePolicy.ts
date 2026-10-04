@@ -53,6 +53,7 @@ export type RuntimePolicyV2Override = typeof RuntimePolicyV2Override.Type;
 export interface RuntimePolicyV2Shape {
   readonly resolve: (input: {
     readonly thread: OrchestrationV2AppThread;
+    readonly channelAgentProjectId?: ProjectId | undefined;
     readonly modelSelection: ModelSelection;
   }) => Effect.Effect<ProviderAdapterV2RuntimePolicyType, RuntimePolicyV2Error>;
 }
@@ -119,7 +120,9 @@ export const layerFromProjectStore: Layer.Layer<
         if (
           (Option.isNone(projectOption) && input.thread.worktreePath === null) ||
           (Option.isSome(projectOption) &&
-            (projectOption.value.agentProfile?.archived || projectOption.value.agentProfile?.group))
+            (projectOption.value.deletedAt !== null ||
+              projectOption.value.agentProfile?.archived ||
+              (projectOption.value.agentProfile?.group && !input.channelAgentProjectId)))
         ) {
           return yield* new RuntimePolicyResolveError({
             projectId: input.thread.projectId,
@@ -128,18 +131,60 @@ export const layerFromProjectStore: Layer.Layer<
           });
         }
         const project = Option.getOrUndefined(projectOption);
-        const cwd = input.thread.worktreePath ?? project!.workspaceRoot;
+        let agent = project;
+        if (input.channelAgentProjectId) {
+          const group = project?.agentProfile?.group;
+          const member = yield* projects.get(input.channelAgentProjectId).pipe(
+            Effect.mapError(
+              (cause) =>
+                new RuntimePolicyResolveError({
+                  projectId: input.thread.projectId,
+                  providerInstanceId: input.modelSelection.instanceId,
+                  cause,
+                }),
+            ),
+          );
+          if (
+            !group ||
+            project?.agentProfile?.conversationThreadId !== input.thread.id ||
+            !group.memberProjectIds.includes(input.channelAgentProjectId) ||
+            Option.isNone(member) ||
+            member.value.deletedAt !== null ||
+            !member.value.agentProfile ||
+            member.value.agentProfile.archived ||
+            member.value.agentProfile.group
+          ) {
+            return yield* new RuntimePolicyResolveError({
+              projectId: input.thread.projectId,
+              providerInstanceId: input.modelSelection.instanceId,
+              cause: "The channel member is unavailable.",
+            });
+          }
+          agent = member.value;
+        }
+        const cwd =
+          project?.agentProfile?.group?.workspaceRoot ??
+          input.thread.worktreePath ??
+          project!.workspaceRoot;
         return ProviderAdapterV2RuntimePolicy.make({
           runtimeMode: providerRuntimeMode(input.thread.runtimeMode, supportedRuntimeModes),
           interactionMode: input.thread.interactionMode,
           cwd,
-          ...(project?.agentProfile
+          ...(agent?.agentProfile
             ? {
                 persistentAgent: {
-                  name: project.title,
-                  ...(project?.agentProfile.title ? { title: project.agentProfile.title } : {}),
-                  instructions: project.agentProfile.instructions,
-                  memoryDirectory: path.join(project.workspaceRoot, ".claude", "memory"),
+                  name: agent.title,
+                  ...(agent.agentProfile.title ? { title: agent.agentProfile.title } : {}),
+                  instructions: [
+                    agent.agentProfile.instructions,
+                    ...(project?.agentProfile?.group
+                      ? [
+                          `You are responding as ${agent.title} in channel ${project.title}. Keep all work and responses in this channel.`,
+                          `Channel description: ${project.agentProfile.instructions}`,
+                        ]
+                      : []),
+                  ].join("\n\n"),
+                  memoryDirectory: path.join(agent.workspaceRoot, ".claude", "memory"),
                 },
               }
             : {}),

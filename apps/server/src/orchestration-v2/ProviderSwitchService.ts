@@ -43,6 +43,7 @@ export interface ProviderSwitchServiceV2Shape {
       "thread" | "providerSessions" | "providerThreads"
     >;
     readonly targetModelSelection: ModelSelection;
+    readonly persistentAgent?: boolean | undefined;
   }) => Effect.Effect<ProviderSwitchPlanV2, ProviderSwitchPlanError>;
 }
 
@@ -66,7 +67,7 @@ export const layer: Layer.Layer<
   Effect.gen(function* () {
     const adapters = yield* ProviderAdapterRegistry.ProviderAdapterRegistryV2;
     return ProviderSwitchServiceV2.of({
-      plan: ({ projection, targetModelSelection }) =>
+      plan: ({ projection, targetModelSelection, persistentAgent }) =>
         Effect.gen(function* () {
           const current = projection.thread.modelSelection;
           const instanceChanged = current.instanceId !== targetModelSelection.instanceId;
@@ -116,6 +117,7 @@ export const layer: Layer.Layer<
             (currentSession !== undefined || currentProviderThread !== undefined)
               ? yield* targetAdapter.value.planSelectionTransition({
                   current,
+                  persistentAgent,
                   target: targetModelSelection,
                   sessionCapabilities: negotiatedCapabilities ?? currentInstance.value.capabilities,
                 })
@@ -192,7 +194,10 @@ export const layer: Layer.Layer<
                 return session.id === currentSession?.id;
               }
               if (transition.type === "create_with_handoff") {
-                return session.providerInstanceId !== targetModelSelection.instanceId;
+                return (
+                  session.providerInstanceId !== targetModelSelection.instanceId ||
+                  (persistentAgent === true && modelChanged)
+                );
               }
               return false;
             })

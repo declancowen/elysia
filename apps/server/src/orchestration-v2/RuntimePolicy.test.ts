@@ -227,3 +227,89 @@ for (const state of ["active", "archived", "group"] as const) {
     ),
   );
 }
+
+for (const linked of [false, true]) {
+  it.effect(`runs channel work with member identity and memory, linked=${linked}`, () =>
+    Effect.gen(function* () {
+      const policy = yield* RuntimePolicy.RuntimePolicyV2;
+      const thread = makeThread({ now: yield* DateTime.now, worktreePath: null });
+      const resolved = yield* policy.resolve({
+        thread,
+        modelSelection,
+        channelAgentProjectId: ProjectId.make("member"),
+      });
+      assert.equal(resolved.cwd, linked ? "/linked-channel-folder" : "/channel-owned");
+      assert.equal(resolved.persistentAgent?.name, "Alex");
+      assert.equal(resolved.persistentAgent?.memoryDirectory, "/member-owned/.claude/memory");
+      assert.ok(resolved.persistentAgent?.instructions.includes("Remember prior work."));
+      assert.ok(
+        resolved.persistentAgent?.instructions.includes(
+          "Channel description: Coordinate releases.",
+        ),
+      );
+      for (const member of ["archived-member", "outsider"]) {
+        const failure = yield* policy
+          .resolve({ thread, modelSelection, channelAgentProjectId: ProjectId.make(member) })
+          .pipe(Effect.flip);
+        assert.equal(failure._tag, "RuntimePolicyResolveError");
+      }
+    }).pipe(
+      Effect.provide(
+        RuntimePolicy.layerFromProjectStore.pipe(
+          Layer.provide(
+            Layer.mock(ProjectStore.ProjectStoreV2)({
+              get: (id) =>
+                Effect.succeed(
+                  Option.some({
+                    projectId: id,
+                    title: id === projectId ? "Channel" : "Alex",
+                    workspaceRoot: id === projectId ? "/channel-owned" : "/member-owned",
+                    defaultModelSelection: modelSelection,
+                    defaultThreadEnvMode: null,
+                    autoPull: false,
+                    faviconPath: null,
+                    projectIcon: null,
+                    scripts: [],
+                    createdAt: "2026-10-04T00:00:00Z",
+                    updatedAt: "2026-10-04T00:00:00Z",
+                    deletedAt: null,
+                    agentProfile: {
+                      instructions:
+                        id === projectId ? "Coordinate releases." : "Remember prior work.",
+                      avatar: { preset: "brain", color: "blue" },
+                      notificationsEnabled: true,
+                      archived: id === "archived-member",
+                      conversationThreadId: ThreadId.make(
+                        id === projectId ? "thread:runtime-policy" : "member-chat",
+                      ),
+                      ...(id === projectId
+                        ? {
+                            group: {
+                              memberProjectIds: [
+                                ProjectId.make("member"),
+                                ProjectId.make("archived-member"),
+                              ],
+                              leadProjectId: ProjectId.make("member"),
+                              ...(linked ? { workspaceRoot: "/linked-channel-folder" } : {}),
+                            },
+                          }
+                        : {}),
+                    },
+                  }),
+                ),
+            }),
+          ),
+          Layer.provide(
+            Layer.succeed(ProviderInstanceRegistry.ProviderInstanceRegistry, {
+              getInstance: (id) => Effect.succeed(providerInstanceFor(id)),
+              listInstances: Effect.succeed([]),
+              listUnavailable: Effect.succeed([]),
+              streamChanges: Stream.empty,
+              subscribeChanges: Effect.never,
+            }),
+          ),
+        ),
+      ),
+    ),
+  );
+}

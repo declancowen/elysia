@@ -1,3 +1,5 @@
+import { channelReplyTarget, withChannelReply } from "@t3tools/shared/channelReplies";
+import { ChannelReplyPreview } from "./chat/ChannelReplyPreview";
 import { useAppTopbarHost } from "./AppTopbar";
 import { toggleThreadOverview } from "./chat/threadOverviewStore";
 import { ChatCanvas } from "./chat/ChatCanvas";
@@ -1872,6 +1874,7 @@ export default function ChatView(props: ChatViewProps) {
   const isTopbarMobileViewport = useMediaQuery("max-md");
   const [workspaceLayoutRef, workspaceLayoutWidth] = useElementWidth<HTMLDivElement>();
   const threadPanelPopoverAnchorRef = useRef<HTMLDivElement | null>(null);
+  const [threadOverviewDocked, setThreadOverviewDocked] = useState(false);
   const topbarHost = useAppTopbarHost();
   const [rightPanelTabsHost, setRightPanelTabsHost] = useState<HTMLDivElement | null>(null);
   const localChatHeaderHostRef = useRef<HTMLDivElement | null>(null);
@@ -2401,6 +2404,15 @@ export default function ChatView(props: ChatViewProps) {
     [activeThread?.environmentId, activeThread?.projectId],
   );
   const activeProject = useProject(activeProjectRef);
+  const [channelReply, setChannelReply] = useState<{
+    threadKey: string;
+    message: ChatMessage;
+  } | null>(null);
+  const activeChannelReply =
+    activeProject?.agentProfile?.group && channelReply?.threadKey === routeThreadKey
+      ? channelReply.message
+      : null;
+
   const delegatedAgents = useMemo(
     () => delegatedAgentsFromTurnItems(serverProjection?.turnItems ?? []),
     [serverProjection?.turnItems],
@@ -8742,8 +8754,8 @@ export default function ChatView(props: ChatViewProps) {
     // Records bind attachments by the id each side knows: the local id for the optimistic
     // row, the upload id (or local id on the data-URL path) on the wire; the server
     // rebinds them to the persisted id.
-    const buildOutgoingMessageContext = (attachmentIds: ReadonlyArray<string>) =>
-      buildMessageContext({
+    const buildOutgoingMessageContext = (attachmentIds: ReadonlyArray<string>) => {
+      const context = buildMessageContext({
         terminalContexts: composerTerminalContextsSnapshot,
         reviewComments: composerReviewCommentsSnapshot,
         previewAnnotations: composerPreviewAnnotationsSnapshot,
@@ -8753,6 +8765,13 @@ export default function ChatView(props: ChatViewProps) {
           attachmentId: attachmentIds[index] ?? attachment.id,
         })),
       });
+      return activeChannelReply
+        ? withChannelReply(
+            context,
+            channelReplyTarget(activeChannelReply, timelineMessages, serverProjection?.runs ?? []),
+          )
+        : context;
+    };
     const outgoingMessageContext = buildOutgoingMessageContext(
       composerAttachmentsSnapshot.map((attachment) => attachment.id),
     );
@@ -8992,6 +9011,7 @@ export default function ChatView(props: ChatViewProps) {
           clearComposerDraftContent(composerDraftTarget);
           composerRef.current?.resetCursorState();
         }
+        setChannelReply((current) => (current?.message === activeChannelReply ? null : current));
         agentDelegationRetryRef.current = null;
         setThreadError(threadIdForSend, null);
       } catch (error) {
@@ -10199,13 +10219,20 @@ export default function ChatView(props: ChatViewProps) {
         providers: providerStatuses,
         hasStartedSession: activeRuntime !== null,
         supportsProviderSwitchingViaHandoff,
+        persistentAgent: !!activeProject?.agentProfile && !activeProject.agentProfile.group,
         currentModelSelection: activeThread.modelSelection,
         currentProviderInstanceId: activeRuntime?.providerInstanceId ?? null,
         nextModelSelection: { instanceId, model },
       });
       return reason ? `${reason.description} Start a new thread to use this model.` : null;
     },
-    [activeRuntime, activeThread, providerStatuses, supportsProviderSwitchingViaHandoff],
+    [
+      activeRuntime,
+      activeThread,
+      activeProject,
+      providerStatuses,
+      supportsProviderSwitchingViaHandoff,
+    ],
   );
 
   const onProviderModelSelect = useCallback(
@@ -10266,6 +10293,7 @@ export default function ChatView(props: ChatViewProps) {
         providers: providerStatuses,
         hasStartedSession: activeRuntime !== null,
         supportsProviderSwitchingViaHandoff,
+        persistentAgent: !!activeProject?.agentProfile && !activeProject.agentProfile.group,
         currentModelSelection: activeThread.modelSelection,
         currentProviderInstanceId: activeRuntime?.providerInstanceId ?? null,
         nextModelSelection,
@@ -10279,6 +10307,24 @@ export default function ChatView(props: ChatViewProps) {
         if (options?.focusComposer !== false) scheduleComposerFocus();
         return;
       }
+      if (
+        activeProject?.agentProfile &&
+        !activeProject.agentProfile.group &&
+        !isLocalDraftThread &&
+        !isWorking
+      ) {
+        void updateThreadMetadata({
+          environmentId: activeThread.environmentId,
+          input: { threadId: activeThread.id, modelSelection: nextModelSelection },
+        }).then((result) => {
+          if (result._tag === "Failure")
+            toastManager.add({
+              type: "error",
+              title: "Could not change agent model",
+              description: chatActionErrorMessage(squashAtomCommandFailure(result)),
+            });
+        });
+      }
       setComposerDraftModelSelection(
         scopeThreadRef(activeThread.environmentId, activeThread.id),
         nextModelSelection,
@@ -10291,7 +10337,11 @@ export default function ChatView(props: ChatViewProps) {
     },
     [
       activeThread,
+      activeProject,
       activeRuntime,
+      isLocalDraftThread,
+      isWorking,
+      updateThreadMetadata,
       lockedProvider,
       supportsProviderSwitchingViaHandoff,
       scheduleComposerFocus,
@@ -10747,6 +10797,7 @@ export default function ChatView(props: ChatViewProps) {
         workspaceBranchControls={workspaceBranchControls}
         overview={{
           threadBoundaryRef: threadPanelPopoverAnchorRef,
+          onDockedChange: setThreadOverviewDocked,
           threadKey: activeThreadKey ?? routeThreadKey,
           label: activeProject?.title ?? activeThread.title,
           showGit:
@@ -10854,6 +10905,7 @@ export default function ChatView(props: ChatViewProps) {
             rightPanelMaximized ? "w-0 flex-none" : "flex-1",
           )}
           data-chat-column-maximized-away={rightPanelMaximized ? "true" : "false"}
+          data-thread-overview-docked={threadOverviewDocked ? "true" : undefined}
           data-chat-column
         >
           {/* Main content area with optional plan sidebar */}
@@ -10906,7 +10958,9 @@ export default function ChatView(props: ChatViewProps) {
                 {/* Messages — LegendList handles virtualization and scrolling internally */}
                 <MessagesTimeline
                   agentAvatar={
-                    paintOnlyDisplayedTimeline ? undefined : activeProject?.agentProfile?.avatar
+                    paintOnlyDisplayedTimeline || activeProject?.agentProfile?.group
+                      ? undefined
+                      : activeProject?.agentProfile?.avatar
                   }
                   citationRequest={paintOnlyDisplayedTimeline ? null : citationRequest}
                   citationHistoryLoading={threadDetailLoading}
@@ -10932,6 +10986,15 @@ export default function ChatView(props: ChatViewProps) {
                   isPreparingWorktree={!paintOnlyDisplayedTimeline && isPreparingWorktree}
                   listRef={legendListRef}
                   timelineEntries={displayedTimeline.entries}
+                  channel={!!activeProject?.agentProfile?.group && !paintOnlyDisplayedTimeline}
+                  onReply={
+                    activeProject?.agentProfile?.group && !paintOnlyDisplayedTimeline
+                      ? (message) => {
+                          setChannelReply({ threadKey: routeThreadKey, message });
+                          scheduleComposerFocus();
+                        }
+                      : undefined
+                  }
                   providerStatuses={
                     environmentById.get(
                       displayedThreadRef?.environmentId ?? activeThread.environmentId,
@@ -11058,6 +11121,13 @@ export default function ChatView(props: ChatViewProps) {
                     data-chat-composer-stack="true"
                     className="group/composer-stack pointer-events-auto relative z-10 mx-auto w-full max-w-(--chat-content-max-width)"
                   >
+                    {activeChannelReply ? (
+                      <ChannelReplyPreview
+                        key={activeChannelReply.id}
+                        message={activeChannelReply}
+                        onCancel={() => setChannelReply(null)}
+                      />
+                    ) : null}
                     {isDraftHeroState ? (
                       <div className="absolute inset-x-0 bottom-full">
                         <div

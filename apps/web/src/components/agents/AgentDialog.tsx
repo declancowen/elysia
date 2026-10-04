@@ -46,15 +46,26 @@ import {
   useAgentDialogStore,
 } from "./agentDialogStore";
 import { saveAgentProfile } from "./agentProfileSave";
+import { AgentGroupDialog } from "./AgentGroupDialog";
+import { useAgents } from "./useAgents";
 
 /** Preserve all existing editor entry points while opening a normal main-panel page. */
 export function AgentDialogHost() {
   const target = useAgentDialogStore((state) => state.target);
+  const agents = useAgents();
+  const project = useProject(target?.projectRef ?? null);
+  const group = project?.agentProfile?.group
+    ? agents.find(
+        (agent) =>
+          agent.project.id === project.id && agent.project.environmentId === project.environmentId,
+      )
+    : undefined;
   const location = useLocation();
   const navigate = useNavigate();
   useEffect(() => {
     if (
       !target ||
+      project?.agentProfile?.group ||
       !consumeAgentEditorIntent(
         target,
         location.href,
@@ -69,8 +80,15 @@ export function AgentDialogHost() {
         ? { environmentId: target.projectRef.environmentId, projectId: target.projectRef.projectId }
         : { create: true },
     });
-  }, [target, location.href, location.pathname, navigate]);
-  return null;
+  }, [target, project?.agentProfile?.group, location.href, location.pathname, navigate]);
+  return group ? (
+    <AgentGroupDialog
+      key={`${group.project.environmentId}:${group.project.id}`}
+      agents={agents}
+      existing={group}
+      onClose={closeAgentDialog}
+    />
+  ) : null;
 }
 
 function AgentPageFrame({ title, children }: { title: string; children: ReactNode }) {
@@ -140,13 +158,15 @@ function AgentEditor({ project }: { project: Project | null }) {
   );
   const [newAgentBrowserAccess, setNewAgentBrowserAccess] = useState<boolean | null>(null);
   const [modelOverride, setModel] = useState<ModelSelection | null>(null);
+  const threads = useThreadShells();
+  const conversationModel = project ? getAgentConversation(project, threads)?.modelSelection : null;
   // Native defaults may arrive after a direct editor route. Explicit picker
   // choices stay local to this edit and survive subsequent catalog refreshes.
   const model =
     modelOverride ??
     resolveDefaultProviderModelSelection(
       providers,
-      project?.defaultModelSelection ?? settings.defaultModelSelection,
+      conversationModel ?? project?.defaultModelSelection ?? settings.defaultModelSelection,
     );
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -156,7 +176,6 @@ function AgentEditor({ project }: { project: Project | null }) {
   const updateThread = useAtomCommand(threadEnvironment.updateMetadata, { reportFailure: false });
   const unarchiveThread = useAtomCommand(threadEnvironment.unarchive, { reportFailure: false });
   const updateSettings = useAtomCommand(serverEnvironment.updateSettings, { reportFailure: false });
-  const threads = useThreadShells();
   const navigate = useNavigate();
   const router = useRouter();
   const mounted = useRef(false);

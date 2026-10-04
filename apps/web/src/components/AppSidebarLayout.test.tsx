@@ -15,8 +15,11 @@ vi.mock("@tanstack/react-router", () => ({
   useNavigate: () => vi.fn(),
   useCanGoBack: () => false,
   useParams: () => null,
-  useLocation: ({ select }: { select: (value: { pathname: string }) => unknown }) =>
-    select({ pathname: state.pathname }),
+  useLocation: ({
+    select,
+  }: {
+    select: (value: { pathname: string; search: Record<string, unknown> }) => unknown;
+  }) => select({ pathname: state.pathname, search: {} }),
 }));
 vi.mock("../env", () => ({ isElectron: false }));
 vi.mock("../hooks/useSettings", () => ({
@@ -31,6 +34,7 @@ vi.mock("../hooks/useLocalStorage", () => ({
   },
   setLocalStorageItem: () => {},
 }));
+vi.mock("../hooks/useConversationTabNavigation", () => ({ useArchivedConversationTabs: () => {} }));
 vi.mock("../state/entities", () => ({ useProjects: () => [] }));
 vi.mock("./SidebarStageBackdrop", () => ({ useSidebarStageBackdropVariant: () => null }));
 vi.mock("../panelAnimations", () => ({
@@ -53,6 +57,7 @@ vi.mock("./Sidebar", async () => {
 vi.mock("./sidebar/SidebarChrome", () => ({
   AppNavigationRail: () => null,
   SidebarChromeHeader: () => null,
+  SidebarNewChatButton: () => null,
 }));
 vi.mock("./sidebar/mainAppLocation", async (importOriginal) => ({
   ...(await importOriginal<typeof import("./sidebar/mainAppLocation")>()),

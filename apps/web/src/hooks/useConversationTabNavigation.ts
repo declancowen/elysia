@@ -1,9 +1,9 @@
 import { readPullRequestListPreferences } from "../components/pullRequest/pullRequestListPreferences";
 import { scopeProjectRef } from "@t3tools/client-runtime/environment";
-import { useNavigate } from "@tanstack/react-router";
-import { useCallback } from "react";
+import { useLocation, useNavigate } from "@tanstack/react-router";
+import { useCallback, useEffect } from "react";
 import { useConversationTabsStore, type ConversationTabTarget } from "../conversationTabsStore";
-import { readProject, readThreadShell } from "../state/entities";
+import { useProjects, useThreadShells, readProject, readThreadShell } from "../state/entities";
 import { buildDraftThreadRouteParams, buildThreadRouteParams } from "../threadRoutes";
 import { setAgentSidebarActive } from "../components/agents/agentSidebarStore";
 
@@ -75,4 +75,50 @@ export function useConversationSectionNavigation() {
     },
     [navigateTab],
   );
+}
+
+/** Archives can arrive from menus, Settings, or another client, including for inactive tabs. */
+export function useArchivedConversationTabs() {
+  const pathname = useLocation({ select: (location) => location.pathname });
+  const projects = useProjects();
+  const threads = useThreadShells();
+  const { tabs, activeId, forget } = useConversationTabsStore();
+  const navigateTab = useConversationTabNavigation();
+  const navigate = useNavigate();
+  useEffect(() => {
+    const archived = tabs.filter(({ target }) => {
+      if (target.kind !== "server") return false;
+      const thread = threads.find(
+        (thread) =>
+          thread.environmentId === target.threadRef.environmentId &&
+          thread.id === target.threadRef.threadId,
+      );
+      if (!thread) return false;
+      const project = projects.find(
+        (project) =>
+          project.environmentId === target.threadRef.environmentId &&
+          project.id === thread.projectId,
+      );
+      return (
+        thread.archivedAt !== null ||
+        thread.deletedAt !== null ||
+        project?.agentProfile?.archived === true
+      );
+    });
+    if (!archived.length) return;
+    for (const tab of archived) forget(tab.target);
+    const current = archived.find((tab) => tab.id === activeId);
+    const viewingArchived =
+      current?.target.kind === "server" &&
+      (pathname ===
+        `/${current.target.threadRef.environmentId}/${current.target.threadRef.threadId}` ||
+        pathname ===
+          `/${current.target.threadRef.environmentId}/${encodeURIComponent(current.target.threadRef.threadId)}`);
+    if (viewingArchived) {
+      const state = useConversationTabsStore.getState();
+      const next = state.tabs.find((tab) => tab.id === state.activeId);
+      if (next) void navigateTab(next.target, true);
+      else void navigate({ to: "/", replace: true });
+    }
+  }, [pathname, projects, threads, tabs, activeId, forget, navigateTab, navigate]);
 }

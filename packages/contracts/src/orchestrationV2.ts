@@ -509,6 +509,8 @@ export type OrchestrationV2RunBackgroundWorkCancelled =
   typeof OrchestrationV2RunBackgroundWorkCancelled.Type;
 
 export const OrchestrationV2Run = Schema.Struct({
+  /** Member identity belongs to this channel run, never to the member's standalone chat. */
+  channelAgentProjectId: Schema.optional(ProjectId),
   id: RunId,
   threadId: ThreadId,
   ordinal: PositiveInt,
@@ -2633,6 +2635,7 @@ export const OrchestrationV2Command = Schema.Union([
   }),
   Schema.Struct({
     type: Schema.Literal("message.dispatch"),
+    channelAgentProjectId: Schema.optional(ProjectId),
     notification: Schema.optional(OrchestrationV2Notification),
     ...OrchestrationV2CreationFields,
     scheduledTaskId: Schema.optional(ScheduledTaskId),

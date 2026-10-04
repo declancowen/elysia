@@ -1,3 +1,4 @@
+import { readChannelReply } from "@t3tools/shared/channelReplies";
 import { modelSelectionsEqual } from "@t3tools/shared/model";
 import { projectComposerContextForProvider } from "@t3tools/shared/composerContextReferences";
 import {
@@ -518,6 +519,7 @@ export const layer: Layer.Layer<
       const resolvedRuntimePolicy = yield* runtimePolicy.resolve({
         thread: projection.thread,
         modelSelection: run.modelSelection,
+        channelAgentProjectId: run.channelAgentProjectId,
       });
       const existingSessionProjection = projection.providerSessions.find(
         (candidate) => candidate.id === providerSessionId,
@@ -943,10 +945,32 @@ export const layer: Layer.Layer<
       const routableSubagents = projection.subagents.filter((subagent) =>
         RunExecutionService.canRouteRelatedSubagent(subagent.status),
       );
-      const userText = projectComposerContextForProvider({
+      let userText = projectComposerContextForProvider({
         text: message.text,
         records: message.context?.records ?? [],
       });
+      if (run.channelAgentProjectId) {
+        const source = message.context?.records.find(
+          (record) => record.kind === "elysia-agent-delegation-source",
+        );
+        const payload = source && "payload" in source ? source.payload : null;
+        if (
+          payload &&
+          typeof payload === "object" &&
+          "originExcerpt" in payload &&
+          typeof payload.originExcerpt === "string"
+        )
+          userText = `Originating conversation (reference only):\n${payload.originExcerpt.slice(-16_000)}\n\nRespond within this channel.\n\n${userText}`;
+      }
+      const channelReply = run.channelAgentProjectId ? readChannelReply(message.context) : null;
+      if (channelReply) {
+        const referenced = yield* projectionStore.getThreadRecords(input.threadId, ["messages"], {
+          messageIds: [channelReply.replyToMessageId],
+        });
+        const quoted = referenced.messages[0];
+        if (quoted)
+          userText = `Replying to channel message ${quoted.id}:\n${quoted.text.slice(-16_000)}\n\nCurrent reply:\n${userText}`;
+      }
       // Delivered once: this run's provider turn marks the work as told. A
       // restart continuation is prompted by its own text or resumes natively.
       const noteContinuation = isRestartNoteContinuation(

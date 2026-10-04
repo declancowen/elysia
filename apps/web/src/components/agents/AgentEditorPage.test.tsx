@@ -44,8 +44,16 @@ vi.mock("../../state/entities", () => ({
     state.projects.find(
       (project) => project.environmentId === ref?.environmentId && project.id === ref.projectId,
     ) ?? null,
+  useProjects: () => state.projects,
   useThreadShells: () => state.threads,
   useAllEnvironmentShellsBootstrapped: () => true,
+}));
+vi.mock("./AgentGroupDialog", () => ({
+  AgentGroupDialog: ({ onClose }: { onClose: () => void }) => (
+    <div data-channel-editor>
+      Channel editor<button onClick={onClose}>Close channel editor</button>
+    </div>
+  ),
 }));
 vi.mock("../../state/environments", () => ({
   usePrimaryEnvironmentId: () => environmentId,
@@ -508,4 +516,26 @@ it("resolves a model after the native catalog arrives on a cold route and preser
       }),
     }),
   );
+});
+
+it("edits a channel over the current conversation without navigating the surface behind it", async () => {
+  const channel = {
+    ...project,
+    agentProfile: {
+      ...project.agentProfile!,
+      group: {
+        memberProjectIds: [ProjectId.make("one"), ProjectId.make("two")],
+        leadProjectId: ProjectId.make("one"),
+      },
+    },
+  };
+  state.projects = [channel];
+  await render(`/${environmentId}/${threadId}`);
+  await act(async () => openAgentDialog(scopeProjectRef(environmentId, channel.id)));
+  expect(router.state.location.pathname).toBe(`/${environmentId}/${threadId}`);
+  expect(host.textContent).toContain("Agent conversation");
+  expect(host.querySelector("[data-channel-editor]")).not.toBeNull();
+  await act(async () => button("Close channel editor").click());
+  expect(host.querySelector("[data-channel-editor]")).toBeNull();
+  expect(router.state.location.pathname).toBe(`/${environmentId}/${threadId}`);
 });

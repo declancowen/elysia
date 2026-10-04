@@ -55,6 +55,15 @@ describe("Elysia V2 runtime boundary", () => {
             idAllocator: yield* IdAllocator.IdAllocatorV2,
             queryRunner: yield* ClaudeAgentSdkQueryRunner,
           });
+          for (const persistentAgent of [false, true]) {
+            const transition = yield* adapter.planSelectionTransition({
+              current: modelSelection,
+              target: { ...modelSelection, model: "gpt-5-4" },
+              persistentAgent,
+              sessionCapabilities: yield* adapter.getCapabilities(),
+            });
+            expect(transition.type).toBe(persistentAgent ? "create_with_handoff" : "reject");
+          }
           const runtime = yield* adapter.openSession({
             threadId,
             providerSessionId: ProviderSessionId.make("elysia-resume-test"),

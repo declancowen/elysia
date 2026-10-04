@@ -398,6 +398,29 @@ describe("getStartedThreadModelChangeBlockReason", () => {
     ).toBeNull();
   });
 
+  it("allows persistent agents to retain their chat while resetting a model-bound session", () => {
+    expect(
+      getStartedThreadModelChangeBlockReason({
+        providers: [
+          {
+            instanceId: ProviderInstanceId.make("claudeAgent"),
+            requiresNewThreadForModelChange: true,
+          },
+        ],
+        persistentAgent: true,
+        hasStartedSession: true,
+        currentModelSelection: {
+          instanceId: ProviderInstanceId.make("claudeAgent"),
+          model: "deepseek-v4.1-flash",
+        },
+        nextModelSelection: {
+          instanceId: ProviderInstanceId.make("claudeAgent"),
+          model: "gpt-5-4",
+        },
+      }),
+    ).toBeNull();
+  });
+
   it("blocks started-session model changes for providers that require a new thread", () => {
     expect(
       getStartedThreadModelChangeBlockReason({

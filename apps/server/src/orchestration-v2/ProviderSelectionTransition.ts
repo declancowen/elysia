@@ -3,6 +3,7 @@ import type { ModelSelection, OrchestrationV2ProviderCapabilities } from "@t3too
 export interface ProviderSelectionTransitionInput {
   readonly current: ModelSelection;
   readonly target: ModelSelection;
+  readonly persistentAgent?: boolean | undefined;
   readonly sessionCapabilities: OrchestrationV2ProviderCapabilities;
 }
 

@@ -3,6 +3,10 @@
   "private": true,
   "type": "module",
   "exports": {
+    "./channelReplies": {
+      "types": "./src/channelReplies.ts",
+      "import": "./src/channelReplies.ts"
+    },
     "./projectIcon": {
       "types": "./src/projectIcon.ts",
       "import": "./src/projectIcon.ts"

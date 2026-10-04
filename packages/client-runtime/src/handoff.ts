@@ -12,7 +12,8 @@ import type {
 export type HandoffTimelineRun = Pick<
   OrchestrationV2Run,
   "id" | "ordinal" | "providerInstanceId" | "modelSelection"
->;
+> &
+  Partial<Pick<OrchestrationV2Run, "channelAgentProjectId" | "userMessageId">>;
 
 export function resolveHandoffEndpoints(
   item: Pick<

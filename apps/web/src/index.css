@@ -1604,9 +1604,7 @@ html[data-theme-id="default"]
 }
 
 /* The overview occupies chat space when docked; narrow windows use a transient overlay. */
-[data-chat-column]:has(
-  [data-thread-overview-trigger][data-overview-docked="true"][aria-expanded="true"]
-) {
+[data-chat-column][data-thread-overview-docked="true"] {
   --thread-overview-inline-inset: calc(20rem + var(--workspace-gutter));
 }
 
@@ -1615,10 +1613,7 @@ html[data-theme-id="default"]
 }
 
 /* Keep the native scroll owner at the outside edge while its content clears the overview. */
-[data-chat-column]:has(
-    [data-thread-overview-trigger][data-overview-docked="true"][aria-expanded="true"]
-  )
-  [data-chat-timeline-scroll] {
+[data-chat-column][data-thread-overview-docked="true"] [data-chat-timeline-scroll] {
   width: calc(100% + var(--thread-overview-inline-inset));
   padding-inline-end: calc(var(--thread-overview-inline-inset) + var(--workspace-gutter));
 }

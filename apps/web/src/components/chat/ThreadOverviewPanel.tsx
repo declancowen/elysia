@@ -55,6 +55,7 @@ export interface ThreadOverviewPanelProps {
   workspaceContent?: ReactNode;
   versionControlContent?: ReactNode;
   threadBoundaryRef?: RefObject<HTMLElement | null>;
+  onDockedChange?: (docked: boolean) => void;
   showGit?: boolean;
   showAgents?: boolean;
   changes: { additions: number; deletions: number } | null;
@@ -85,6 +86,7 @@ function OverviewPopover({
   workspaceContent,
   versionControlContent,
   threadBoundaryRef,
+  onDockedChange,
   changes,
   showGit = changes !== null,
   showAgents = true,
@@ -125,6 +127,12 @@ function OverviewPopover({
     setPreviousWide(wide);
     setOpen(false);
   }
+  // The shared header can live outside the thread pane, so report reserved space
+  // to the pane owner instead of relying on the trigger being its DOM descendant.
+  useLayoutEffect(() => {
+    onDockedChange?.(open && wide);
+    return () => onDockedChange?.(false);
+  }, [open, wide, onDockedChange]);
   const anchorRef = useRef<HTMLSpanElement>(null);
   const [sourcesExpanded, setSourcesExpanded] = useState(true);
   const [gitExpanded, setGitExpanded] = useState(true);
@@ -212,7 +220,7 @@ function OverviewPopover({
     };
   }, [open, composerElement, threadBoundaryRef]);
   useEffect(() => {
-    if (!sourceHistoryReady) return;
+    if (!sourceHistoryReady || memberIds) return;
     initialJobs.current ??= new Set(delegated.map(({ job }) => job.activityId));
     for (const { job, working } of delegated) {
       if (openedJobs.current.has(job.activityId)) continue;
@@ -222,7 +230,7 @@ function OverviewPopover({
         setOpen(true);
       }
     }
-  }, [delegated, sourceHistoryReady]);
+  }, [delegated, sourceHistoryReady, memberIds]);
   useEffect(() => {
     if (
       !target ||
@@ -230,11 +238,15 @@ function OverviewPopover({
       target.source.threadId !== sourceThreadRef.threadId
     )
       return;
+    if (memberIds) {
+      useThreadOverviewStore.setState({ target: null });
+      return;
+    }
     setExpanded(false);
     setView({ kind: "agent", id: target.projectId });
     setOpen(true);
     useThreadOverviewStore.setState({ target: null });
-  }, [target, sourceThreadRef]);
+  }, [target, sourceThreadRef, memberIds]);
   useEffect(() => {
     if (
       !toggle ||

@@ -51,6 +51,7 @@ import { AppNavigationRail, SidebarChromeHeader } from "./sidebar/SidebarChrome"
 import { AppTopbar } from "./AppTopbar";
 import { MainAppLocationTracker, isSidebarUtilityPage } from "./sidebar/mainAppLocation";
 import { useSidebarStageBackdropVariant } from "./SidebarStageBackdrop";
+import { useArchivedConversationTabs } from "../hooks/useConversationTabNavigation";
 import { useProjects } from "../state/entities";
 import {
   resolveInitialThreadSidebarWidth,
@@ -232,6 +233,7 @@ function ProjectProjectionRetention() {
 
 export function AppSidebarLayout({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
+  useArchivedConversationTabs();
   const legacySidebarEnabled = useLegacySidebarEnabled();
   const { active: panelAnimationsActive, durationMs: panelAnimationDurationMs } =
     usePanelAnimationSettings();
@@ -246,14 +248,20 @@ export function AppSidebarLayout({ children }: { children: ReactNode }) {
   const isOnScheduled = SINGLE_PROVIDER_UI && pathname === "/settings/scheduled-tasks";
   const isPullRequestsPage = SINGLE_PROVIDER_UI && pathname === "/pull-requests";
   const isProjectsPage = pathname === "/projects";
+  const editingAgent = useLocation({
+    select: (location) =>
+      location.pathname === "/agents" &&
+      (location.search.create === true || Boolean(location.search.projectId)),
+  });
   const agentSidebarSelected = useAgentSidebarStore((state) => state.active);
   const showAgentsSidebar =
-    SINGLE_PROVIDER_UI && agentSidebarActiveForPath(pathname, agentSidebarSelected);
+    SINGLE_PROVIDER_UI && agentSidebarActiveForPath(pathname, agentSidebarSelected, editingAgent);
   useEffect(() => {
     if (!SINGLE_PROVIDER_UI) return;
+    if (editingAgent) return;
     if (pathname === "/agents" || pathname.startsWith("/agents/")) setAgentSidebarActive(true);
     else if (isSidebarUtilityPage(pathname)) setAgentSidebarActive(false);
-  }, [pathname]);
+  }, [pathname, editingAgent]);
   const isMacosDesktop = isElectron && isMacPlatform(navigator.platform);
   const sidebarSurface = isOnScheduled
     ? "scheduled"

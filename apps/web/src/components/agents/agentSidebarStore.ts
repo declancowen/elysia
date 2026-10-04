@@ -8,7 +8,8 @@ export function setAgentSidebarActive(active: boolean) {
   useAgentSidebarStore.setState({ active });
 }
 
-export function agentSidebarActiveForPath(pathname: string, active: boolean) {
+export function agentSidebarActiveForPath(pathname: string, active: boolean, editing = false) {
+  if (editing) return active;
   if (pathname === "/agents" || pathname.startsWith("/agents/")) return true;
   return !isSidebarUtilityPage(pathname) && active;
 }

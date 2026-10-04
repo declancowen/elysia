@@ -1,3 +1,4 @@
+import { groupChannelTimeline } from "./channelTimeline";
 import { ScrollArea as ScrollAreaPrimitive } from "@base-ui/react/scroll-area";
 import { ScrollBar } from "../ui/scroll-area";
 import { agentTaskHandoff } from "@t3tools/shared/agentMentions";
@@ -298,6 +299,9 @@ import {
 // ---------------------------------------------------------------------------
 
 interface TimelineRowSharedState {
+  channel: boolean;
+  onReply: ((message: ChatMessage) => void) | undefined;
+
   agentAvatar: AgentAvatarValue | undefined;
   citationRequest: AssistantCitationTarget | null;
   listRef: React.RefObject<LegendListRef | null>;
@@ -415,6 +419,9 @@ export interface MessagesTimelineHistoryControls {
 }
 
 interface MessagesTimelineProps {
+  channel?: boolean;
+  onReply?: ((message: ChatMessage) => void) | undefined;
+
   agentAvatar?: AgentAvatarValue | undefined;
   citationRequest?: AssistantCitationRequest | null;
   citationHistoryLoading?: boolean;
@@ -504,6 +511,8 @@ interface MessagesTimelineProps {
 // ---------------------------------------------------------------------------
 
 export const MessagesTimeline = memo(function MessagesTimeline({
+  channel = false,
+  onReply,
   citationRequest = null,
   citationHistoryLoading = false,
   onCiteAssistantText,
@@ -802,7 +811,19 @@ export const MessagesTimeline = memo(function MessagesTimeline({
     supportsConversationRollback,
     worktreeSetup,
   ]);
-  const rows = useStableRows(rawRows, listIdentityKey);
+  const channelGroups = useMemo(
+    () =>
+      channel
+        ? groupChannelTimeline(
+            rawRows,
+            runsProp.flatMap((run) =>
+              run.userMessageId ? [{ id: run.id, userMessageId: run.userMessageId }] : [],
+            ),
+          )
+        : null,
+    [channel, rawRows, runsProp],
+  );
+  const rows = useStableRows(channelGroups?.rows ?? rawRows, listIdentityKey);
   // Run status/timestamps churn on every stream event; the shared row context
   // must not change with them or every timeline row re-renders per event.
   const runs = useStableHandoffRuns(runsProp);
@@ -975,14 +996,14 @@ export const MessagesTimeline = memo(function MessagesTimeline({
   const anchoredEndSpace = useMemo(() => {
     const config = resolveChatListAnchoredEndSpace(
       rows,
-      anchorMessageId,
+      channel ? null : anchorMessageId,
       (row) => (row.kind === "message" && row.message.role === "user" ? row.message.id : null),
       { anchorOffset: CHAT_TIMELINE_ANCHOR_OFFSET },
     );
     return config
       ? { ...config, onReady: handleAnchorReady, onSizeChanged: handleAnchorSizeChanged }
       : undefined;
-  }, [anchorMessageId, handleAnchorReady, handleAnchorSizeChanged, rows]);
+  }, [anchorMessageId, channel, handleAnchorReady, handleAnchorSizeChanged, rows]);
   const maintainVisibleContentPosition = useMemo(
     () => ({
       data: true,
@@ -1155,6 +1176,8 @@ export const MessagesTimeline = memo(function MessagesTimeline({
 
   const sharedState = useMemo<TimelineRowSharedState>(
     () => ({
+      channel,
+      onReply,
       agentAvatar,
       citationRequest: readyCitationRequest,
       listRef,
@@ -1190,6 +1213,8 @@ export const MessagesTimeline = memo(function MessagesTimeline({
       workGroupViewState,
     }),
     [
+      channel,
+      onReply,
       agentAvatar,
       readyCitationRequest,
       listRef,
@@ -1309,11 +1334,19 @@ export const MessagesTimeline = memo(function MessagesTimeline({
           className={cn("chat-content-lane", !agentAvatar && "overflow-x-clip")}
           data-timeline-root="true"
         >
-          <TimelineRowContent row={item} />
+          {channel && item.kind === "message" ? (
+            <ChannelTimelineRoot
+              key={`${listIdentityKey}:${item.id}`}
+              row={item}
+              replies={channelGroups?.replies.get(item.message.id) ?? []}
+            />
+          ) : (
+            <TimelineRowContent row={item} />
+          )}
         </div>
       </div>
     ),
-    [agentAvatar],
+    [agentAvatar, channel, channelGroups, listIdentityKey],
   );
 
   if (
@@ -1874,6 +1907,73 @@ const TimelineRowContent = memo(function TimelineRowContent({ row }: { row: Time
   );
 });
 
+function ChannelReplyAction({
+  message,
+  beforeReply,
+}: {
+  message: ChatMessage;
+  beforeReply?: () => void;
+}) {
+  const ctx = use(TimelineRowCtx);
+  if (!ctx.onReply || message.streaming) return null;
+  return (
+    <Button
+      variant="ghost-muted"
+      size="micro"
+      onClick={() => {
+        beforeReply?.();
+        ctx.onReply?.(message);
+      }}
+    >
+      <MessageCircleIcon className="size-3" /> Reply
+    </Button>
+  );
+}
+
+function ChannelTimelineRoot({
+  row,
+  replies,
+}: {
+  row: Extract<MessagesTimelineRow, { kind: "message" }>;
+  replies: ReadonlyArray<MessagesTimelineRow>;
+}) {
+  const [expanded, setExpanded] = useState(true);
+  const count = replies.filter((child) => child.kind === "message").length;
+  return (
+    <div className="min-w-0">
+      <TimelineRowContent row={row} />
+      <div className="flex items-center gap-2 py-1">
+        <ChannelReplyAction message={row.message} beforeReply={() => setExpanded(true)} />
+        {replies.length ? (
+          <Button
+            variant="ghost-muted"
+            size="micro"
+            aria-expanded={expanded}
+            onClick={() => setExpanded((value) => !value)}
+          >
+            {expanded ? (
+              <ChevronDownIcon className="size-3" />
+            ) : (
+              <ChevronRightIcon className="size-3" />
+            )}
+            {count} {count === 1 ? "reply" : "replies"}
+          </Button>
+        ) : null}
+      </div>
+      {expanded && replies.length ? (
+        <div className="ml-3 space-y-3 border-l border-border pl-3 pb-2">
+          {replies.map((child) => (
+            <div key={child.id}>
+              <TimelineRowContent row={child} />
+              {child.kind === "message" ? <ChannelReplyAction message={child.message} /> : null}
+            </div>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function WorktreeSetupTimelineRow({
   row,
 }: {
@@ -2234,7 +2334,7 @@ function UserTimelineRow({ row }: { row: Extract<TimelineRow, { kind: "message" 
         </p>
       ) : row.message.createdBy === "agent" ? (
         <p className="me-1 text-2xs text-muted-foreground/70" data-user-message-attribution="agent">
-          {senderThreadId ? (
+          {senderThreadId && !ctx.channel ? (
             <InlineButton
               onClick={() => ctx.onOpenThread(senderThreadId)}
               tone="muted"
@@ -2618,9 +2718,15 @@ function AssistantTimelineRow({ row }: { row: Extract<TimelineRow, { kind: "mess
       ? scopeThreadRef(ctx.threadRef.environmentId, row.message.senderThreadId)
       : null,
   );
+  const channelAgentProjectId = ctx.channel
+    ? ctx.runs.find((run) => run.id === row.message.runId)?.channelAgentProjectId
+    : undefined;
   const senderProject = useProject(
-    sender && ctx.threadRef ? scopeProjectRef(ctx.threadRef.environmentId, sender.projectId) : null,
+    ctx.threadRef && (channelAgentProjectId || sender)
+      ? scopeProjectRef(ctx.threadRef.environmentId, channelAgentProjectId ?? sender!.projectId)
+      : null,
   );
+
   const senderProfile = senderProject?.agentProfile;
   const messageText = row.message.text || (row.message.streaming ? "" : "(empty response)");
   const taskSummary = ctx.agentAvatar && /^\*\*Task:\*\*\s*/i.test(messageText);
@@ -4671,7 +4777,7 @@ function useStableHandoffRuns(
     const signature = runs
       .map(
         (run) =>
-          `${run.id}\0${run.providerInstanceId}\0${run.ordinal}\0${run.modelSelection.instanceId}\0${run.modelSelection.model}`,
+          `${run.id}\0${run.providerInstanceId}\0${run.ordinal}\0${run.modelSelection.instanceId}\0${run.modelSelection.model}\0${run.channelAgentProjectId ?? ""}\0${run.userMessageId ?? ""}`,
       )
       .join("\n");
     if (signature === prev.current.signature) {
@@ -4682,6 +4788,8 @@ function useStableHandoffRuns(
       ordinal: run.ordinal,
       providerInstanceId: run.providerInstanceId,
       modelSelection: run.modelSelection,
+      channelAgentProjectId: run.channelAgentProjectId,
+      ...(run.userMessageId ? { userMessageId: run.userMessageId } : {}),
     }));
     prev.current = { signature, value };
     return value;

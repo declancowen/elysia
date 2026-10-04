@@ -3057,7 +3057,9 @@ export function makeClaudeAdapterV2(
     planSelectionTransition: (input) =>
       Effect.succeed(
         adapterOptions.environment.ELYSIA_PROFILE_ROOT && input.current.model !== input.target.model
-          ? { type: "reject", reason: "Start a new Elysia chat to change models." }
+          ? input.persistentAgent
+            ? { type: "create_with_handoff" }
+            : { type: "reject", reason: "Start a new Elysia chat to change models." }
           : turnScopedSelectionTransition(),
       ),
     openSession: Effect.fn("ClaudeAdapterV2.openSession")(

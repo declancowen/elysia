@@ -84,6 +84,9 @@ const threads = Layer.unwrap(
             modelSelection,
             providerThreadId: null,
             userMessageId: command.messageId,
+            ...(command.channelAgentProjectId
+              ? { channelAgentProjectId: command.channelAgentProjectId }
+              : {}),
             rootNodeId: null,
             activeAttemptId: null,
             status: "queued",
@@ -327,7 +330,7 @@ describe("V2 persistent delegation", () => {
             copyCount += 1;
             return fs.copyFile(
               from,
-              copyCount === (scenario === "target-group-attachments" ? 3 : 2)
+              scenario === "attachments" && copyCount === 2
                 ? path.join(to, "cannot-exist", "failure")
                 : to,
             );
@@ -418,39 +421,6 @@ describe("V2 persistent delegation", () => {
           assert.equal(error.message, "Choose an agent who belongs to this channel.");
           assert.lengthOf((yield* projections.getThreadProjection(agentThreadId)).messages, 0);
           return;
-        }
-        if (scenario === "target-group-attachments") {
-          yield* delegate(input).pipe(Effect.flip);
-          const partial = yield* projections.getThreadProjection(groupThreadId);
-          assert.lengthOf(partial.messages, 1);
-          assert.equal(partial.messages[0]!.text, input.text);
-          assert.lengthOf(partial.runs, 0);
-          assert.lengthOf((yield* projections.getThreadProjection(agentThreadId)).messages, 0);
-          assert.lengthOf(yield* fs.readDirectory(config.attachmentsDir), 3);
-          const groupProject = Option.getOrThrow(yield* projects.get(groupId));
-          yield* projects.apply({
-            sequence: 4,
-            eventId: EventId.make("group-new-lead"),
-            aggregateKind: "project",
-            aggregateId: groupId,
-            occurredAt: DateTime.formatIso(at),
-            commandId: null,
-            causationEventId: null,
-            correlationId: null,
-            metadata: {},
-            type: "project.meta-updated",
-            payload: {
-              projectId: groupId,
-              updatedAt: DateTime.formatIso(at),
-              agentProfile: {
-                ...groupProject.agentProfile!,
-                group: {
-                  ...groupProject.agentProfile!.group!,
-                  leadProjectId: ProjectId.make("second"),
-                },
-              },
-            },
-          });
         }
         if (scenario === "attachments") {
           yield* delegate(input).pipe(Effect.flip);
@@ -617,62 +587,76 @@ describe("V2 persistent delegation", () => {
         const changed = yield* delegate({ ...input, text: "Different task" }).pipe(Effect.flip);
         assert.include(changed.message, "different task");
         const source = yield* projections.getThreadProjection(sourceId);
+        if (scenario === "group" || scenario === "group-new-work" || targetGroup) {
+          const channelId = targetGroup ? groupThreadId : sourceId;
+          const shared = yield* projections.getThreadProjection(channelId);
+          assert.lengthOf(shared.runs, 1);
+          assert.lengthOf(shared.messages, 1);
+          assert.equal(shared.messages[0]!.text, input.text);
+          assert.equal(shared.runs[0]!.channelAgentProjectId, agentId);
+          assert.lengthOf((yield* projections.getThreadProjection(agentThreadId)).messages, 0);
+          assert.lengthOf((yield* projections.getThreadProjection(agentThreadId)).runs, 0);
+          if (!targetGroup) {
+            assert.deepEqual(first, {
+              projectId: ProjectId.make("source-project"),
+              threadId: sourceId,
+            });
+            assert.isFalse(
+              shared.turnItems.some(
+                (item) => item.type === "system_notice" && !!item.agentDelegation,
+              ),
+            );
+          }
+          const run = shared.runs[0]!;
+          yield* events.write({
+            events: [
+              {
+                id: EventId.make("channel-complete"),
+                type: "run.updated",
+                threadId: channelId,
+                occurredAt: at,
+                payload: { ...run, status: "completed", completedAt: at },
+              },
+              {
+                id: EventId.make("channel-response"),
+                type: "message.updated",
+                threadId: channelId,
+                occurredAt: at,
+                payload: {
+                  id: MessageId.make("channel-answer"),
+                  threadId: channelId,
+                  runId: run.id,
+                  nodeId: null,
+                  role: "assistant",
+                  text: "Channel result",
+                  attachments: [],
+                  streaming: false,
+                  createdAt: at,
+                  updatedAt: at,
+                  createdBy: "agent",
+                  creationSource: "server",
+                },
+              },
+            ],
+          });
+          yield* (yield* AgentDelegation).reconcile();
+          assert.lengthOf((yield* projections.getThreadProjection(agentThreadId)).messages, 0);
+          assert.lengthOf((yield* projections.getThreadProjection(channelId)).messages, 2);
+          if (targetGroup) {
+            const result = (yield* projections.getThreadProjection(sourceId)).messages.find(
+              (message) => message.id.startsWith("agent-delegate:result:"),
+            );
+            assert.include(result?.text ?? "", "Channel result");
+          }
+          return;
+        }
         const notice = source.turnItems.find((item) => item.type === "system_notice");
         assert.isDefined(notice);
         if (!notice || notice.type !== "system_notice" || !notice.agentDelegation) return;
         const target = yield* projections.getThreadProjection(agentThreadId);
-        if (scenario === "group" || scenario === "group-new-work") {
-          assert.include(
-            target.messages[0]!.text,
-            "Channel description:\n\nCoordinate the release checklist.",
-          );
-          assert.include(
-            target.messages[0]!.text,
-            "Linked channel folder (reference only): /tmp/channel-link",
-          );
-          assert.equal(
-            Option.getOrThrow(yield* projects.get(agentId)).workspaceRoot,
-            "/tmp/agent-alex",
-          );
-        }
         assert.isNull(target.thread.lineage.parentThreadId);
         assert.lengthOf(target.runs, 1);
-        if (targetGroup) {
-          yield* delegate({ ...input, commandId: CommandId.make("another-command") }).pipe(
-            Effect.flip,
-          );
-          assert.lengthOf((yield* projections.getThreadProjection(agentThreadId)).runs, 1);
-          assert.deepEqual(first, { projectId: groupId, threadId: groupThreadId });
-          assert.equal(notice.agentDelegation.agentProjectId, groupId);
-          assert.equal(notice.agentDelegation.agentThreadId, groupThreadId);
-          const shared = yield* projections.getThreadProjection(groupThreadId);
-          assert.lengthOf(shared.messages, 1);
-          assert.lengthOf(shared.runs, 0);
-          assert.equal(shared.messages[0]!.text, input.text);
-          assert.equal(source.messages[0]!.text, input.text);
-          assert.include(target.messages[0]!.text, `Origin chat: ${sourceId}`);
-          assert.include(target.messages[0]!.text, "Original handoff context (reference only)");
-          const nested = shared.turnItems.find((item) => item.type === "system_notice");
-          assert.isDefined(
-            nested?.type === "system_notice" && nested.agentDelegation?.targetTurnId,
-          );
-          if (withAttachments) {
-            const ids = [
-              source.messages[0]!.attachments[0]!.id,
-              shared.messages[0]!.attachments[0]!.id,
-              target.messages[0]!.attachments[0]!.id,
-            ];
-            assert.equal(new Set(ids).size, 3);
-            assert.lengthOf(yield* fs.readDirectory(config.attachmentsDir), 4);
-          }
-          assert.equal(
-            (yield* getAgentDelegation({
-              sourceThreadId: sourceId,
-              activityId: EventId.make(notice.id),
-            })).status,
-            "queued",
-          );
-        }
+
         if (scenario === "attachments") {
           const sourceFile = source.messages[0]!.attachments![0]!;
           const targetFile = target.messages[0]!.attachments![0]!;
@@ -910,7 +894,7 @@ describe("V2 persistent delegation", () => {
             ],
           });
         }
-        if (scenario === "new-work" || scenario === "group-new-work") {
+        if (scenario === "new-work") {
           const later = DateTime.makeUnsafe("2099-01-01T00:00:00Z");
           yield* events.write({
             events: [
@@ -948,71 +932,9 @@ describe("V2 persistent delegation", () => {
         );
         assert.lengthOf(
           deliveries,
-          scenario === "complete" ||
-            scenario === "attachments" ||
-            scenario === "group" ||
-            scenario === "group-new-work" ||
-            targetGroup
-            ? 1
-            : 0,
+          scenario === "complete" || scenario === "attachments" || false ? 1 : 0,
         );
-        if (scenario === "group" || scenario === "group-new-work") {
-          assert.equal(deliveries[0]!.role, "assistant");
-          assert.equal(deliveries[0]!.senderThreadId, agentThreadId);
-          assert.equal(deliveries[0]!.runId, null);
-          assert.equal(deliveries[0]!.text, "Original result");
-          assert.lengthOf(after.runs, 0);
-          assert.isTrue(
-            after.visibleTurnItems.some(
-              (row) =>
-                row.item.type === "assistant_message" &&
-                row.item.text === "Original result" &&
-                row.item.senderThreadId === agentThreadId,
-            ),
-          );
-          const timeline = yield* projections.getTimelinePage(sourceId, {
-            view: "messages",
-            limit: 20,
-          });
-          assert.isTrue(
-            timeline.items.some(
-              (row) =>
-                row.item.type === "assistant_message" &&
-                row.item.text === "Original result" &&
-                row.item.senderThreadId === agentThreadId,
-            ),
-          );
-        }
-        if (targetGroup) {
-          const shared = yield* projections.getThreadProjection(groupThreadId);
-          assert.lengthOf(shared.runs, 0);
-          const replies = shared.messages.filter((message) => message.role === "assistant");
-          assert.lengthOf(replies, 1);
-          assert.equal(replies[0]!.text, "Original result");
-          assert.equal(replies[0]!.senderThreadId, agentThreadId);
-          assert.isTrue(
-            shared.visibleTurnItems.some(
-              (row) =>
-                row.item.type === "assistant_message" &&
-                row.item.text === "Original result" &&
-                row.item.senderThreadId === agentThreadId,
-            ),
-          );
-          const timeline = yield* projections.getTimelinePage(groupThreadId, {
-            view: "messages",
-            limit: 20,
-          });
-          assert.isTrue(
-            timeline.items.some(
-              (row) =>
-                row.item.type === "assistant_message" &&
-                row.item.text === "Original result" &&
-                row.item.senderThreadId === agentThreadId,
-            ),
-          );
-          assert.equal(deliveries[0]!.senderThreadId, groupThreadId);
-          assert.include(deliveries[0]!.text, "Original result");
-        }
+
         if (scenario === "complete") assert.include(deliveries[0]!.text, "Original result");
         const receipt = yield* (yield* CommandReceiptStore.CommandReceiptStoreV2).getByCommandId(
           CommandId.make(`agent-delegate:result:${notice.id}`),

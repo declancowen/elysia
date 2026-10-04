@@ -7,6 +7,7 @@ import type { SnoozePreset } from "@t3tools/client-runtime/state/thread-settled"
  * remains data-driven.
  */
 export type ThreadActionMenuId =
+  | "open-new-tab"
   | "new-thread-on-branch"
   | "filter-by-project"
   | "project-settings"
@@ -32,6 +33,7 @@ export type ThreadActionMenuId =
 
 export interface ThreadActionMenuState {
   readonly projectless?: boolean;
+  readonly openInNewTab?: boolean;
   readonly branch: string | null;
   /**
    * Project scoping for the thread list. Null on surfaces with no scoped
@@ -71,6 +73,7 @@ export function buildThreadActionMenuItems(
   state: ThreadActionMenuState,
 ): ReadonlyArray<ContextMenuItem<ThreadActionMenuId>> {
   return [
+    ...(state.openInNewTab ? [{ id: "open-new-tab" as const, label: "Open in new tab" }] : []),
     ...(state.branch
       ? [
           {

@@ -98,6 +98,8 @@ interface RightPanelTabsProps {
   layoutControls?: ReactNode;
   /** The shared workspace top bar owns tabs when this host is supplied. */
   tabBarHost?: HTMLElement | null;
+  /** The page can supply a shared session strip instead of surface tabs. */
+  hideTabBar?: boolean;
   surfaces: readonly RightPanelSurface[];
   /** Fallback environment for surfaces that do not carry their own. */
   environmentId: EnvironmentId | null;
@@ -1427,7 +1429,7 @@ export function RightPanelTabs(props: RightPanelTabsProps) {
       {...(props.widthStorageKey !== undefined ? { widthStorageKey: props.widthStorageKey } : {})}
       {...(props.defaultWidth !== undefined ? { defaultWidth: props.defaultWidth } : {})}
     >
-      {tabBarContainer ? (
+      {props.hideTabBar ? null : tabBarContainer ? (
         <>
           {createPortal(tabBar, tabBarContainer)}
           <div ref={localTabBarHost} className="contents" />

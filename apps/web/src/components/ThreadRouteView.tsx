@@ -5,6 +5,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 
 import ChatView from "./ChatView";
+import { useConversationTabNavigation } from "../hooks/useConversationTabNavigation";
 import { currentConversationTabsStore } from "../conversationTabsStore";
 import { resolveDraftPromotionNavigationTarget, threadHasStarted } from "./ChatView.logic";
 import { waitForDraftHeroTransition } from "./chat/draftHeroTransition";
@@ -41,6 +42,7 @@ import {
  */
 export function ThreadRouteView({ target }: { target: ThreadRouteTarget }) {
   const navigate = useNavigate();
+  const navigateTab = useConversationTabNavigation();
   const draftId = target.kind === "draft" ? target.draftId : null;
   const draftSession = useComposerDraftStore((store) =>
     draftId === null ? null : store.getDraftSession(draftId),
@@ -161,22 +163,12 @@ export function ThreadRouteView({ target }: { target: ThreadRouteTarget }) {
     const next = SINGLE_PROVIDER_UI
       ? currentConversationTabsStore().getState().forget(target)
       : null;
-    if (next?.kind === "server") {
-      void navigate({
-        to: "/$environmentId/$threadId",
-        params: buildThreadRouteParams(next.threadRef),
-        replace: true,
-      });
-    } else if (next?.kind === "draft") {
-      void navigate({
-        to: "/draft/$draftId",
-        params: buildDraftThreadRouteParams(next.draftId),
-        replace: true,
-      });
+    if (next) {
+      void navigateTab(next, true);
     } else {
       void navigate({ to: "/", replace: true });
     }
-  }, [canonicalThreadRef, draftSession, navigate, target]);
+  }, [canonicalThreadRef, draftSession, navigate, navigateTab, target]);
 
   useEffect(() => {
     if (target.kind !== "server" || !bootstrapComplete) {
@@ -191,23 +183,13 @@ export function ThreadRouteView({ target }: { target: ThreadRouteTarget }) {
       const next = SINGLE_PROVIDER_UI
         ? currentConversationTabsStore().getState().forget(target)
         : null;
-      if (next?.kind === "server") {
-        void navigate({
-          to: "/$environmentId/$threadId",
-          params: buildThreadRouteParams(next.threadRef),
-          replace: true,
-        });
-      } else if (next?.kind === "draft") {
-        void navigate({
-          to: "/draft/$draftId",
-          params: buildDraftThreadRouteParams(next.draftId),
-          replace: true,
-        });
+      if (next) {
+        void navigateTab(next, true);
       } else if (SINGLE_PROVIDER_UI || environmentHasAnyThreads) {
         void navigate({ to: "/", replace: true });
       }
     }
-  }, [bootstrapComplete, environmentHasAnyThreads, navigate, renderState, target]);
+  }, [bootstrapComplete, environmentHasAnyThreads, navigate, navigateTab, renderState, target]);
 
   useEffect(() => {
     if (target.kind !== "server" || !serverThreadStarted || !draftThread) {

@@ -8,15 +8,22 @@ export async function showAgentContextMenu(
   projectRef: ScopedProjectRef,
   position: { x: number; y: number },
   channel = false,
+  onOpenInNewTab?: () => Promise<boolean>,
 ) {
   const api = readLocalApi();
   if (!api) return false;
   try {
     const show = SINGLE_PROVIDER_UI ? showContextMenuFallback : api.contextMenu.show;
     const action = await show(
-      [{ id: "edit-agent", label: channel ? "Edit channel" : "Edit agent", icon: "edit-03" }],
+      [
+        ...(SINGLE_PROVIDER_UI && onOpenInNewTab
+          ? [{ id: "open-new-tab", label: "Open in new tab" }]
+          : []),
+        { id: "edit-agent", label: channel ? "Edit channel" : "Edit agent", icon: "edit-03" },
+      ],
       position,
     );
+    if (action === "open-new-tab") return (await onOpenInNewTab?.()) ?? false;
     if (action === "edit-agent") {
       openAgentDialog(projectRef);
       return true;

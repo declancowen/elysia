@@ -1,8 +1,12 @@
 import { scopeThreadRef } from "@t3tools/client-runtime/environment";
-import { EnvironmentId, ThreadId } from "@t3tools/contracts";
+import { EnvironmentId, ProjectId, ThreadId } from "@t3tools/contracts";
 import { beforeEach, expect, it } from "vite-plus/test";
 import { DraftId } from "./composerDraftStore";
-import { useConversationTabsStore, useAgentConversationTabsStore } from "./conversationTabsStore";
+import {
+  useConversationTabsStore,
+  currentConversationTabsStore,
+  type ConversationTabTarget,
+} from "./conversationTabsStore";
 import type { ThreadRouteTarget } from "./threadRoutes";
 
 const conversation = (name: string, environment = "local"): ThreadRouteTarget => ({
@@ -83,11 +87,65 @@ it("removes an invalid conversation and selects a valid remaining tab", () => {
   expect(useConversationTabsStore.getState().activeId).toBeNull();
 });
 
-it("keeps Workspace and Agents navigation independent", () => {
+it("shares Workspace and Agents tabs without duplicating an existing conversation", () => {
   useConversationTabsStore.getState().open(a);
-  useAgentConversationTabsStore.setState({ tabs: [], activeId: null });
-  useAgentConversationTabsStore.getState().open(b);
-  useAgentConversationTabsStore.getState().open(c, true);
-  expect(useConversationTabsStore.getState().tabs.map((tab) => tab.target)).toEqual([a]);
-  expect(useAgentConversationTabsStore.getState().tabs.map((tab) => tab.target)).toEqual([b, c]);
+  currentConversationTabsStore().getState().open(b, true);
+  currentConversationTabsStore().getState().open(a, true);
+  expect(useConversationTabsStore.getState().tabs.map((tab) => tab.target)).toEqual([a, b]);
+  expect(useConversationTabsStore.getState().activeId).toBe(
+    useConversationTabsStore.getState().tabs[0]!.id,
+  );
+});
+
+const pr: ConversationTabTarget = {
+  kind: "pull-request",
+  environmentId: EnvironmentId.make("local"),
+  projectId: ProjectId.make("project"),
+  host: "github.com",
+  repository: "company/repo",
+  number: 42,
+};
+
+it("keeps mixed tabs in place, reuses an open pull request, and returns to the conversation on close", () => {
+  const store = useConversationTabsStore.getState();
+  store.open(a);
+  const firstId = useConversationTabsStore.getState().activeId!;
+  store.open(pr, true);
+  const prId = useConversationTabsStore.getState().activeId!;
+  store.open(b, true);
+  store.open(pr, true);
+  expect(useConversationTabsStore.getState().tabs.map((tab) => tab.target)).toEqual([a, pr, b]);
+  expect(useConversationTabsStore.getState().activeId).toBe(prId);
+  expect(store.close(prId)).toEqual(b);
+  store.open(pr);
+  expect(useConversationTabsStore.getState().tabs.map((tab) => tab.target)).toEqual([a, pr]);
+  expect(store.close(firstId)).toBeNull();
+  expect(store.close(useConversationTabsStore.getState().activeId!)).toEqual(a);
+});
+
+it("scopes pull requests to their host, repository, project, and environment", () => {
+  const store = useConversationTabsStore.getState();
+  for (const target of [
+    pr,
+    { ...pr, host: "github.company.com" },
+    { ...pr, repository: "other/repo" },
+    { ...pr, projectId: ProjectId.make("other-project") },
+    { ...pr, environmentId: EnvironmentId.make("remote") },
+  ])
+    store.open(target, true);
+  expect(useConversationTabsStore.getState().tabs).toHaveLength(5);
+});
+
+it("redirects a removed conversation to the remaining pull request", () => {
+  const store = useConversationTabsStore.getState();
+  store.open(pr);
+  store.open(a, true);
+  expect(store.forget(a)).toEqual(pr);
+});
+
+it("treats differently cased host names as the same pull-request tab", () => {
+  const store = useConversationTabsStore.getState();
+  store.open(pr);
+  store.open({ ...pr, host: "GitHub.COM" }, true);
+  expect(useConversationTabsStore.getState().tabs).toHaveLength(1);
 });

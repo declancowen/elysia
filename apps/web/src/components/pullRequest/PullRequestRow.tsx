@@ -1,3 +1,4 @@
+import { useConversationRowClick } from "../../hooks/useConversationRowClick";
 import { SINGLE_PROVIDER_UI } from "@t3tools/contracts";
 import { SearchIcon } from "~/icons";
 import { PullRequestStackPopover } from "./PullRequestStackPopover";
@@ -103,8 +104,13 @@ function PullRequestRowImpl({
   /** Used by the list's shared visibility observer to defer optional line-count reads. */
   statsKey?: string;
   statsRef?: RefCallback<HTMLButtonElement>;
-  onSelect: (entry: PullRequestRowTarget) => void;
+  onSelect: (entry: PullRequestRowTarget, newTab?: boolean) => void;
 }) {
+  const rowClick = useConversationRowClick(
+    () => onSelect(entry),
+    () => onSelect(entry, true),
+  );
+  const openInNewTab = SINGLE_PROVIDER_UI ? () => onSelect(entry, true) : undefined;
   const { Icon, providerName } = getSourceControlPresentationForKind(entry.provider);
   return (
     <button
@@ -112,11 +118,12 @@ function PullRequestRowImpl({
       data-pull-request-stats-key={statsKey}
       type="button"
       aria-current={selected ? "true" : undefined}
-      onClick={() => onSelect(entry)}
+      {...rowClick}
       onContextMenu={(event) => {
         event.preventDefault();
         void showPullRequestLinkContextMenu({
           url: entry.url,
+          ...(openInNewTab ? { onOpenInNewTab: openInNewTab } : {}),
           openLabel: openOnHostLabel(entry.provider),
           position: { x: event.clientX, y: event.clientY },
         });
@@ -158,6 +165,7 @@ function PullRequestRowImpl({
               event.stopPropagation();
               void showPullRequestLinkContextMenu({
                 url: entry.url,
+                ...(openInNewTab ? { onOpenInNewTab: openInNewTab } : {}),
                 openLabel: openOnHostLabel(entry.provider),
                 position: { x: event.clientX, y: event.clientY },
               });

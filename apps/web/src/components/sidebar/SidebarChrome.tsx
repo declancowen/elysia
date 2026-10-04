@@ -1,3 +1,4 @@
+import { useConversationSectionNavigation } from "../../hooks/useConversationTabNavigation";
 import { SINGLE_PROVIDER_UI } from "@t3tools/contracts";
 import {
   ArrowLeftIcon,
@@ -273,6 +274,7 @@ export const SidebarUtilityMenu = memo(function SidebarUtilityMenu() {
   const projectSidebar = useClientSettings((settings) => settings.legacySidebarEnabled);
   const updateClientSettings = useUpdateClientSettings();
   const navigateToMainApp = useNavigateToMainApp();
+  const navigateToTabSection = useConversationSectionNavigation();
   const { isMobile, setOpenMobile } = useSidebar();
   const pathname = useLocation({ select: (location) => location.pathname });
   const isOnUtilityPage = isSidebarUtilityPage(pathname);
@@ -294,11 +296,12 @@ export const SidebarUtilityMenu = memo(function SidebarUtilityMenu() {
   }, [isMobile, setOpenMobile]);
   const handlePullRequestsClick = useCallback(() => {
     closeMobileSidebar();
+    if (SINGLE_PROVIDER_UI && navigateToTabSection("pull-requests")) return;
     void navigate({
       to: "/pull-requests",
       search: readPullRequestListPreferences(),
     });
-  }, [closeMobileSidebar, navigate]);
+  }, [closeMobileSidebar, navigate, navigateToTabSection]);
   const handleSettingsClick = useCallback(() => {
     closeMobileSidebar();
     void navigate({ to: "/settings" });
@@ -313,8 +316,9 @@ export const SidebarUtilityMenu = memo(function SidebarUtilityMenu() {
 
   const handleBackClick = useCallback(() => {
     closeMobileSidebar();
+    if (SINGLE_PROVIDER_UI && navigateToTabSection("workspace")) return;
     void navigateToMainApp();
-  }, [closeMobileSidebar, navigateToMainApp]);
+  }, [closeMobileSidebar, navigateToMainApp, navigateToTabSection]);
 
   return (
     <SidebarMenu
@@ -423,6 +427,7 @@ export const AppNavigationRail = memo(function AppNavigationRail() {
   const navigate = useNavigate();
   const { setOpen } = useSidebar();
   const navigateToMainApp = useNavigateToMainApp();
+  const navigateToTabSection = useConversationSectionNavigation();
   const pathname = useLocation({ select: (location) => location.pathname });
   const codeWorkspace = useCodeWorkspace();
   const agentSidebarSelected = useAgentSidebarStore((state) => state.active);
@@ -450,6 +455,7 @@ export const AppNavigationRail = memo(function AppNavigationRail() {
           }
           onClick={() => {
             setAgentSidebarActive(false);
+            if (navigateToTabSection("workspace")) return;
             void navigateToMainApp();
           }}
         />
@@ -460,6 +466,7 @@ export const AppNavigationRail = memo(function AppNavigationRail() {
           onClick={() => {
             setAgentSidebarActive(true);
             setOpen(true);
+            if (navigateToTabSection("agents")) return;
             void navigate({ to: "/agents", search: {} });
           }}
         />
@@ -488,6 +495,7 @@ export const AppNavigationRail = memo(function AppNavigationRail() {
             active={pathname === "/pull-requests"}
             onClick={() => {
               setAgentSidebarActive(false);
+              if (navigateToTabSection("pull-requests")) return;
               void navigate({ to: "/pull-requests", search: readPullRequestListPreferences() });
             }}
           />

@@ -110,6 +110,7 @@ export function AgentRow(agent: AgentRosterEntry) {
             y: event.clientY,
           },
           !!profile.group,
+          () => openConversation({ newTab: true }),
         ).then((opened) => {
           if (opened && isMobile) setOpenMobile(false);
         });

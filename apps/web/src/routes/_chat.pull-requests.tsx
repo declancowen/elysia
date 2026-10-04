@@ -1,3 +1,6 @@
+import { useConversationTabNavigation } from "../hooks/useConversationTabNavigation";
+import { useConversationTabsStore } from "../conversationTabsStore";
+import { ConversationTabs } from "../components/chat/ConversationTabs";
 import { useAppTopbarHost } from "../components/AppTopbar";
 import { RefreshIcon } from "~/components/ui/refresh-icon";
 import { Spinner } from "~/components/ui/spinner";
@@ -496,7 +499,10 @@ function PullRequestsRouteView() {
   );
   const selectedPullRequestSurface =
     selectedRightPanelSurface?.kind === "pull-request" ? selectedRightPanelSurface : null;
-  const activePullRequestSurface = rightPanelState.isOpen ? selectedPullRequestSurface : null;
+  const activePullRequestSurface =
+    rightPanelState.isOpen && (!SINGLE_PROVIDER_UI || (search.repository && search.number))
+      ? selectedPullRequestSurface
+      : null;
   const { active: panelAnimationsActive, durationMs: panelAnimationDurationMs } =
     usePanelAnimationSettings();
   const rightPanelPresenceValue = useMemo(
@@ -507,7 +513,7 @@ function PullRequestsRouteView() {
     [rightPanelState.surfaces, selectedPullRequestSurface],
   );
   const rightPanelPresence = usePanelPresence(
-    rightPanelState.isOpen && selectedPullRequestSurface !== null,
+    activePullRequestSurface !== null,
     rightPanelPresenceValue,
     panelAnimationsActive,
     rightPanelRef?.threadId ?? null,
@@ -515,7 +521,7 @@ function PullRequestsRouteView() {
   );
   const isDesktop = useMediaQuery("(min-width: 768px)");
   const topbarHost = useAppTopbarHost();
-  const [tabBarHost, setTabBarHost] = useState<HTMLDivElement | null>(null);
+  const navigateTab = useConversationTabNavigation();
   const rightPanelPresent = rightPanelPresence.present;
   const renderedPullRequestSurface = rightPanelPresence.value?.activeSurface ?? null;
   const renderedRightPanelSurfaces = rightPanelPresence.value?.surfaces ?? [];
@@ -1606,7 +1612,20 @@ function PullRequestsRouteView() {
   useEffect(() => {
     if (!pullRequestsSupported || rightPanelRef === null || linkedSelection === null) return;
     useRightPanelStore.getState().openPullRequest(rightPanelRef, linkedSelection);
-  }, [linkedSelection, pullRequestsSupported, rightPanelRef]);
+    if (SINGLE_PROVIDER_UI)
+      useConversationTabsStore.getState().open({
+        kind: "pull-request",
+        ...linkedSelection,
+        host:
+          linkedSelection.host ??
+          (selectedProject?.repositoryIdentity
+            ? pullRequestHostOf(
+                selectedProject.repositoryIdentity,
+                selectedProject.repositoryIdentity.provider as SourceControlProviderKind,
+              )
+            : "github.com"),
+      });
+  }, [linkedSelection, pullRequestsSupported, rightPanelRef, selectedProject]);
 
   const selected =
     rightPanelState.isOpen && activePullRequestSurface !== null
@@ -1643,7 +1662,7 @@ function PullRequestsRouteView() {
 
   const toggleRightPanel = () => {
     if (rightPanelRef === null) return;
-    if (rightPanelState.isOpen) {
+    if (activePullRequestSurface !== null) {
       useRightPanelStore.getState().close(rightPanelRef);
       updateSearch(clearedSelection);
       return;
@@ -1698,10 +1717,12 @@ function PullRequestsRouteView() {
 
   // Stable so the memoized rows can skip re-rendering when the list around them changes.
   const selectEntry = useCallback(
-    (entry: PullRequestRowTarget) => {
+    (entry: PullRequestRowTarget, newTab = false) => {
       // The surface carries the row's own server, which is what its detail reads and acts on.
       if (rightPanelRef === null) return;
       useRightPanelStore.getState().openPullRequest(rightPanelRef, entry);
+      if (SINGLE_PROVIDER_UI)
+        useConversationTabsStore.getState().open({ kind: "pull-request", ...entry }, newTab);
       if (SINGLE_PROVIDER_UI && isMobile) setOpenMobile(false);
       updateSearch({
         repository: entry.repository,
@@ -2062,7 +2083,14 @@ function PullRequestsRouteView() {
     if (activePullRequestSurface === null) return;
     event.preventDefault();
     event.stopPropagation();
-    if (!event.repeat) closeSurface(activePullRequestSurface);
+    if (event.repeat) return;
+    if (SINGLE_PROVIDER_UI) {
+      const tabs = useConversationTabsStore.getState();
+      if (tabs.activeId) {
+        const next = tabs.close(tabs.activeId);
+        if (next) void navigateTab(next);
+      }
+    } else closeSurface(activePullRequestSurface);
   });
   const toggleRightPanelFromShortcut = useEffectEvent((event: KeyboardEvent) => {
     if (!rightPanelAvailable) return;
@@ -2087,14 +2115,16 @@ function PullRequestsRouteView() {
 
   return (
     <SidebarInset className="h-dvh min-h-0 overflow-hidden overscroll-y-none">
+      {SINGLE_PROVIDER_UI && !isDesktop ? (
+        <WorkspacePageHeader>
+          <ConversationTabs />
+        </WorkspacePageHeader>
+      ) : null}
       <div className={cn("relative flex min-h-0 flex-1", SINGLE_PROVIDER_UI && "bg-sidebar")}>
         {SINGLE_PROVIDER_UI && isDesktop && topbarHost
           ? createPortal(
-              <div
-                className="flex h-full min-w-0 flex-1 items-center gap-1 pl-5 pr-3"
-                ref={setTabBarHost}
-              >
-                {!rightPanelPresent && <h1 className="text-sm font-medium">Pull requests</h1>}
+              <div className="flex h-full min-w-0 flex-1 items-center gap-1 pl-5 pr-3">
+                <ConversationTabs />
               </div>,
               topbarHost,
             )
@@ -2118,9 +2148,7 @@ function PullRequestsRouteView() {
         {rightPanelPresent && renderedPullRequestSurface && panelEnvironmentId !== null ? (
           <RightPanelTabs
             mode={SINGLE_PROVIDER_UI ? "sidebar" : "inline"}
-            {...(SINGLE_PROVIDER_UI
-              ? { maximized: true, ...(isDesktop ? { tabBarHost } : {}) }
-              : {})}
+            {...(SINGLE_PROVIDER_UI ? { maximized: true, hideTabBar: true } : {})}
             open={rightPanelState.isOpen}
             widthStorageKey="t3code:pull-request-panel-width"
             // Default to roughly half the viewport: the PR list needs more

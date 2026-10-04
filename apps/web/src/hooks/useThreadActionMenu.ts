@@ -1,3 +1,5 @@
+import { useConversationTabNavigation } from "./useConversationTabNavigation";
+import { currentConversationTabsStore } from "../conversationTabsStore";
 import { scopeProjectRef } from "@t3tools/client-runtime/environment";
 import { requestCustomSnooze } from "../components/CustomSnoozeDialog";
 import {
@@ -7,7 +9,7 @@ import {
   squashAtomCommandFailure,
 } from "@t3tools/client-runtime/state/runtime";
 import { canSnooze, effectiveSnoozed } from "@t3tools/client-runtime/state/thread-settled";
-import type { ScopedThreadRef, ThreadId } from "@t3tools/contracts";
+import { SINGLE_PROVIDER_UI, type ScopedThreadRef, type ThreadId } from "@t3tools/contracts";
 import { useRouter } from "@tanstack/react-router";
 import { useCallback, useMemo } from "react";
 
@@ -72,6 +74,7 @@ export function useThreadActionMenu(input: {
   const { threadRef, projectCwd, projectless = false, onStartRename } = input;
   const codeWorkspace = useCodeWorkspace();
   const router = useRouter();
+  const navigateTab = useConversationTabNavigation();
   const projects = useProjects();
   const primaryEnvironmentId = usePrimaryEnvironmentId();
   const projectGroupingSettings = useClientSettings(selectProjectGroupingSettings);
@@ -144,6 +147,7 @@ export function useThreadActionMenu(input: {
         const isRegeneratingTitle = thread.titleRegeneration != null;
         const snoozePresets = resolveSnoozePresets(now, timestampFormat);
         const items = buildThreadActionMenuItems({
+          openInNewTab: SINGLE_PROVIDER_UI,
           projectless,
           branch: codeWorkspace ? (thread.branch ?? null) : null,
           // The chat header has no project-scoped thread list behind the
@@ -184,6 +188,12 @@ export function useThreadActionMenu(input: {
           }
         };
         switch (action) {
+          case "open-new-tab": {
+            const target = { kind: "server" as const, threadRef };
+            currentConversationTabsStore().getState().open(target, true);
+            void navigateTab(target);
+            return;
+          }
           case "project-settings": {
             const project = projects.find(
               (candidate) =>
@@ -348,6 +358,7 @@ export function useThreadActionMenu(input: {
       projectGroupingSettings,
       projects,
       router,
+      navigateTab,
       setThreadAutoSettle,
       settleThread,
       snoozeThread,

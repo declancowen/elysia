@@ -1,3 +1,4 @@
+import { useConversationTabNavigation } from "../hooks/useConversationTabNavigation";
 import { useConversationRowClick } from "../hooks/useConversationRowClick";
 import { currentConversationTabsStore } from "../conversationTabsStore";
 import { useAgents } from "./agents/useAgents";
@@ -2379,6 +2380,8 @@ const SidebarProjectItem = memo(function SidebarProjectItem(props: SidebarProjec
     updateSettings,
   ]);
 
+  const navigateTab = useConversationTabNavigation();
+
   const handleThreadContextMenu = useCallback(
     async (threadRef: ScopedThreadRef, position: { x: number; y: number }) => {
       const api = readLocalApi();
@@ -2393,6 +2396,7 @@ const SidebarProjectItem = memo(function SidebarProjectItem(props: SidebarProjec
         thread.worktreePath ?? threadProject?.workspaceRoot ?? project.workspaceRoot ?? null;
       const clicked = await api.contextMenu.show(
         [
+          ...(SINGLE_PROVIDER_UI ? [{ id: "open-new-tab", label: "Open in new tab" }] : []),
           ...(getClientSettings().workspaceMode === "code" && thread.branch
             ? [{ id: "new-thread-on-branch", label: `New thread on ${thread.branch}` }]
             : []),
@@ -2410,6 +2414,13 @@ const SidebarProjectItem = memo(function SidebarProjectItem(props: SidebarProjec
         position,
       );
 
+      if (clicked === "open-new-tab") {
+        const target = { kind: "server" as const, threadRef };
+        currentConversationTabsStore().getState().open(target, true);
+        void navigateTab(target);
+        if (isMobile) setOpenMobile(false);
+        return;
+      }
       if (clicked === "pin" || clicked === "unpin") {
         await toggleThreadPin(threadRef);
         return;
@@ -2514,6 +2525,7 @@ const SidebarProjectItem = memo(function SidebarProjectItem(props: SidebarProjec
       project.projectKey,
       project.workspaceRoot,
       router,
+      navigateTab,
       setOpenMobile,
       startThreadRename,
     ],

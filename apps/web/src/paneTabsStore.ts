@@ -10,7 +10,7 @@ export interface PaneTabsState<T> {
   tabs: PaneTab<T>[];
   activeId: string | null;
   open: (target: T, newTab?: boolean) => void;
-  activate: (id: string) => void;
+  activate: (id: string | null) => void;
   close: (id: string) => T | null;
   retarget: (previous: T, target: T) => void;
   forget: (target: T) => T | null;
@@ -38,7 +38,7 @@ export function createPaneTabsStore<T>(targetKey: (target: T) => string) {
       }
     },
     activate: (id) => {
-      if (get().tabs.some((tab) => tab.id === id)) set({ activeId: id });
+      if (id === null || get().tabs.some((tab) => tab.id === id)) set({ activeId: id });
     },
     close: (id) => {
       const { tabs, activeId } = get();

@@ -60,6 +60,7 @@ export function WorkspaceTabStrip<T extends { id: string }>({
               {renderTab(tab, {
                 id: tab.id,
                 active: tab.id === activeId,
+                tabIndex: tab.id === activeId || (activeId === null && index === 0) ? 0 : -1,
                 canClose: index > 0,
                 onSelect: () => onSelect(tab),
                 onClose: () => onClose(tab),
@@ -104,6 +105,7 @@ export function WorkspaceTabStrip<T extends { id: string }>({
 export interface WorkspaceTabControls {
   id: string;
   active: boolean;
+  tabIndex: 0 | -1;
   canClose: boolean;
   onSelect: () => void;
   onClose: () => void;
@@ -113,6 +115,7 @@ export interface WorkspaceTabControls {
 export function WorkspaceTab({
   id,
   active,
+  tabIndex,
   canClose,
   onSelect,
   onClose,
@@ -142,7 +145,7 @@ export function WorkspaceTab({
             <button
               role="tab"
               aria-selected={active}
-              tabIndex={active ? 0 : -1}
+              tabIndex={tabIndex}
               type="button"
               data-workspace-tab-id={id}
               className="flex min-w-0 cursor-pointer items-center gap-2 rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"

@@ -5,7 +5,7 @@ import { readLocalApi } from "~/localApi";
 
 import { toastManager } from "../ui/toast";
 
-export type PullRequestLinkContextMenuAction = "copy-link" | "open-external";
+export type PullRequestLinkContextMenuAction = "copy-link" | "open-external" | "open-new-tab";
 
 /** Named for the host rather than "externally": the point is where you will land. */
 const OPEN_ON_HOST_LABELS: Partial<Record<string, string>> = {
@@ -22,8 +22,10 @@ export const openOnHostLabel = (provider: string): string =>
 /** Copy first: it is the reason to right-click a number rather than click it. */
 function pullRequestLinkContextMenuItems(
   openLabel: string,
+  openInNewTab: boolean,
 ): readonly ContextMenuItem<PullRequestLinkContextMenuAction>[] {
   return [
+    ...(openInNewTab ? [{ id: "open-new-tab" as const, label: "Open in new tab" }] : []),
     { id: "copy-link", label: "Copy link", icon: "copy" },
     { id: "open-external", label: openLabel },
   ];
@@ -42,7 +44,9 @@ export async function showPullRequestLinkContextMenu({
   url,
   openLabel,
   position,
+  onOpenInNewTab,
 }: {
+  readonly onOpenInNewTab?: () => void;
   readonly url: string;
   readonly openLabel: string;
   readonly position: { readonly x: number; readonly y: number };
@@ -51,14 +55,18 @@ export async function showPullRequestLinkContextMenu({
   if (!api) return;
   let action: PullRequestLinkContextMenuAction | null = null;
   try {
-    action = await api.contextMenu.show(pullRequestLinkContextMenuItems(openLabel), position);
+    action = await api.contextMenu.show(
+      pullRequestLinkContextMenuItems(openLabel, Boolean(onOpenInNewTab)),
+      position,
+    );
   } catch {
     // A menu that could not be shown has already cost the reader their right-click; there is
     // nothing to say about it that a second popup would not make worse.
     return;
   }
   try {
-    if (action === "copy-link") await writeTextToClipboard(url, "link");
+    if (action === "open-new-tab") onOpenInNewTab?.();
+    else if (action === "copy-link") await writeTextToClipboard(url, "link");
     else if (action === "open-external") await api.shell.openExternal(url);
   } catch {
     toastManager.add({

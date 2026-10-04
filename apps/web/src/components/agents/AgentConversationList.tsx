@@ -250,6 +250,17 @@ function AgentConversationRow({
                 : undefined
             }
           >
+            <MenuItem
+              disabled={pending}
+              onClick={() => {
+                setAgentSidebarActive(true);
+                void openConversation({ newTab: true }).then((opened) => {
+                  if (opened && isMobile) setOpenMobile(false);
+                });
+              }}
+            >
+              Open in new tab
+            </MenuItem>
             <AgentOrganizationMenuItems agent={agent} />
             <MenuItem
               onClick={() => openAgentDialog(scopeProjectRef(project.environmentId, project.id))}

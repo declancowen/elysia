@@ -1,3 +1,4 @@
+import { useConversationTabNavigation } from "../hooks/useConversationTabNavigation";
 import { currentConversationTabsStore } from "../conversationTabsStore";
 import { useConversationRowClick } from "../hooks/useConversationRowClick";
 function SidebarProjectIcon({
@@ -2387,6 +2388,7 @@ export default function Sidebar() {
     [allThreads, allProjects],
   );
   const router = useRouter();
+  const navigateTab = useConversationTabNavigation();
   const { isMobile, setOpenMobile } = useSidebar();
   const keybindings = useAtomValue(primaryServerKeybindingsAtom);
   const confirmThreadDelete = useClientSettings((s) => s.confirmThreadDelete);
@@ -4443,6 +4445,7 @@ export default function Sidebar() {
         const clicked = await settlePromise(() =>
           api.contextMenu.show(
             buildThreadActionMenuItems({
+              openInNewTab: SINGLE_PROVIDER_UI,
               projectless: projectlessKeys.has(`${thread.environmentId}:${thread.projectId}`),
               branch: getClientSettings().workspaceMode === "code" ? (thread.branch ?? null) : null,
               projectFilter: threadProjectGroup
@@ -4480,6 +4483,12 @@ export default function Sidebar() {
           return;
         }
         switch (clicked.value) {
+          case "open-new-tab": {
+            const target = { kind: "server" as const, threadRef };
+            currentConversationTabsStore().getState().open(target, true);
+            void navigateTab(target);
+            return;
+          }
           case "filter-by-project":
             // This item is the only scope control here, so picking the
             // already-scoped project again is the way back to all projects.
@@ -4670,6 +4679,7 @@ export default function Sidebar() {
       copyThreadIdToClipboard,
       deleteThread,
       handleMultiSelectContextMenu,
+      navigateTab,
       markThreadUnread,
       openProjectSettings,
       projectlessKeys,

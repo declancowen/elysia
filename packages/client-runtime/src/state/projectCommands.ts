@@ -98,6 +98,12 @@ export function createProjectEnvironmentAtoms<R, E>(
       scheduler: projectScheduler,
       concurrency: { mode: "serial", key: ({ environmentId }) => environmentId },
     }),
+    resetAgent: createEnvironmentRpcCommand(runtime, {
+      label: "environment-data:agents:reset",
+      tag: WS_METHODS.agentsReset,
+      scheduler: projectScheduler,
+      concurrency: projectConcurrency,
+    }),
     delegateAgent: createEnvironmentRpcCommand(runtime, {
       label: "environment-data:agents:delegate",
       tag: WS_METHODS.agentsDelegate,

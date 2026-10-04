@@ -132,6 +132,7 @@ import {
 } from "./review.ts";
 import {
   AgentCreateInput,
+  AgentResetInput,
   AgentCreateResult,
   AgentDelegateInput,
   AgentDelegateResult,
@@ -359,6 +360,7 @@ export const WS_METHODS = {
   projectsMutate: "projects.mutate",
   projectsEnsureScratch: "projects.ensureScratch",
   agentsCreate: "agents.create",
+  agentsReset: "agents.reset",
   agentsDelegate: "agents.delegate",
   agentsGetDelegation: "agents.getDelegation",
   agentsConversationPreviews: "agents.conversationPreviews",
@@ -1199,6 +1201,12 @@ const WsAgentsCreateRpc = Rpc.make(WS_METHODS.agentsCreate, {
   error: Schema.Union([OrchestrationDispatchCommandError, EnvironmentAuthorizationError]),
 });
 
+const WsAgentsResetRpc = Rpc.make(WS_METHODS.agentsReset, {
+  payload: AgentResetInput,
+  success: AgentCreateResult,
+  error: Schema.Union([OrchestrationDispatchCommandError, EnvironmentAuthorizationError]),
+});
+
 const WsAgentsDelegateRpc = Rpc.make(WS_METHODS.agentsDelegate, {
   payload: AgentDelegateInput,
   success: AgentDelegateResult,
@@ -1830,6 +1838,7 @@ export const WsRpcGroup = RpcGroup.make(
   WsProjectsSearchEntriesRpc,
   WsProjectsEnsureScratchRpc,
   WsAgentsCreateRpc,
+  WsAgentsResetRpc,
   WsAgentsDelegateRpc,
   WsAgentsGetDelegationRpc,
   WsAgentsConversationPreviewsRpc,

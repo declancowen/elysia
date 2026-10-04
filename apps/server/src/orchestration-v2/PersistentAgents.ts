@@ -1,5 +1,6 @@
 import {
   type AgentCreateInput,
+  type AgentResetInput,
   type AgentConversationPreviewsInput,
   type AgentConversationPreviewsResult,
   type AgentCreateResult,
@@ -17,6 +18,7 @@ import * as Context from "effect/Context";
 import * as Layer from "effect/Layer";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
+import * as Schema from "effect/Schema";
 import * as SqlClient from "effect/unstable/sql/SqlClient";
 import * as Option from "effect/Option";
 
@@ -25,7 +27,11 @@ import { ProviderRegistry } from "../provider/Services/ProviderRegistry.ts";
 import { ServerSettingsService } from "../serverSettings.ts";
 import * as ProjectService from "../project/ProjectService.ts";
 import * as ThreadManagement from "./ThreadManagementService.ts";
+import * as ProviderSessions from "./ProviderSessionManager.ts";
+import { makeKeyedSerialExecutor } from "./KeyedSerialExecutor.ts";
 import * as ProjectStore from "./ProjectStore.ts";
+
+const isDispatchError = Schema.is(OrchestrationDispatchCommandError);
 
 const createPersistentAgentImpl = Effect.fn("createPersistentAgent")(function* (
   input: AgentCreateInput,
@@ -204,6 +210,98 @@ const createPersistentAgentImpl = Effect.fn("createPersistentAgent")(function* (
   );
 });
 
+const resetPersistentAgentImpl = Effect.fn("PersistentAgents.reset")(function* (
+  input: AgentResetInput,
+) {
+  const projects = yield* ProjectService.ProjectService;
+  const threads = yield* ThreadManagement.ThreadManagementService;
+  const sessions = yield* ProviderSessions.ProviderSessionManagerV2;
+  const fs = yield* FileSystem.FileSystem;
+  const path = yield* Path.Path;
+  const project = yield* projects.getById(input.projectId);
+  if (
+    Option.isNone(project) ||
+    !project.value.agentProfile ||
+    project.value.agentProfile.archived
+  ) {
+    return yield* new OrchestrationDispatchCommandError({
+      message: "Choose an available agent or channel.",
+    });
+  }
+  const owner = project.value;
+  const profile = owner.agentProfile!;
+  // A retried reset must return its replacement instead of clearing the fresh chat.
+  if (profile.conversationThreadId === input.threadId)
+    return { projectId: input.projectId, threadId: input.threadId };
+  if (
+    profile.conversationThreadId !== input.previousThreadId ||
+    input.threadId === input.previousThreadId
+  ) {
+    return yield* new OrchestrationDispatchCommandError({
+      message: "The conversation changed. Reopen the panel and try again.",
+    });
+  }
+  const previous = yield* threads.getThreadRecords(input.previousThreadId, ["providerSessions"]);
+  if (previous.thread.projectId !== input.projectId) {
+    return yield* new OrchestrationDispatchCommandError({
+      message: "The conversation does not belong to this agent.",
+    });
+  }
+  // Validate before committing deletion; never follow memory links outside its owner.
+  const workspace = yield* fs.realPath(owner.workspaceRoot);
+  const claude = path.join(workspace, ".claude");
+  if (yield* fs.exists(claude)) {
+    if ((yield* fs.realPath(claude)) !== claude) {
+      return yield* new OrchestrationDispatchCommandError({
+        message: "The agent memory folder must stay within its workspace.",
+      });
+    }
+  }
+  const memory = path.join(claude, "memory");
+  if (yield* fs.exists(memory)) {
+    if ((yield* fs.realPath(memory)) !== memory) {
+      return yield* new OrchestrationDispatchCommandError({
+        message: "The agent memory folder must stay within its workspace.",
+      });
+    }
+  }
+  yield* threads.dispatch({
+    type: "thread.create",
+    createdBy: "user",
+    creationSource: "web",
+    commandId: CommandId.make(`${input.commandId}:create`),
+    threadId: input.threadId,
+    projectId: input.projectId,
+    title: owner.title,
+    modelSelection: owner.defaultModelSelection ?? previous.thread.modelSelection,
+    runtimeMode: previous.thread.runtimeMode,
+    interactionMode: previous.thread.interactionMode,
+    branch: null,
+    worktreePath: null,
+  });
+  yield* threads.dispatch({
+    type: "thread.delete",
+    threadId: input.previousThreadId,
+    commandId: CommandId.make(`${input.commandId}:delete`),
+  });
+  // Await native teardown before removing memory, so a running turn cannot write it back.
+  for (const session of previous.providerSessions) {
+    yield* sessions.detach({
+      providerSessionId: session.id,
+      threadId: input.previousThreadId,
+      revokeMcpCredential: true,
+      detail: "Chat and memory cleared.",
+    });
+  }
+  yield* fs.remove(memory, { recursive: true, force: true });
+  yield* fs.makeDirectory(memory, { recursive: true });
+  yield* projects.resetAgentConversation({
+    ...input,
+    commandId: CommandId.make(`${input.commandId}:link`),
+  });
+  return { projectId: input.projectId, threadId: input.threadId };
+});
+
 const conversationPreviewsImpl = Effect.fn("PersistentAgents.conversationPreviews")(function* (
   input: AgentConversationPreviewsInput,
 ) {
@@ -258,6 +356,9 @@ export class PersistentAgents extends Context.Service<
     readonly conversationPreviews: (
       input: AgentConversationPreviewsInput,
     ) => Effect.Effect<AgentConversationPreviewsResult, OrchestrationDispatchCommandError>;
+    readonly reset: (
+      input: AgentResetInput,
+    ) => Effect.Effect<AgentCreateResult, OrchestrationDispatchCommandError>;
     readonly create: (
       input: AgentCreateInput,
     ) => Effect.Effect<AgentCreateResult, OrchestrationDispatchCommandError>;
@@ -265,9 +366,28 @@ export class PersistentAgents extends Context.Service<
 >()("t3/orchestration-v2/PersistentAgents") {}
 const make = Effect.gen(function* () {
   const context = yield* Effect.context<
-    Effect.Services<ReturnType<typeof createPersistentAgentImpl>> | SqlClient.SqlClient
+    | Effect.Services<ReturnType<typeof createPersistentAgentImpl>>
+    | Effect.Services<ReturnType<typeof resetPersistentAgentImpl>>
+    | SqlClient.SqlClient
   >();
+  const resets = yield* makeKeyedSerialExecutor<ProjectId>();
   return PersistentAgents.of({
+    reset: (input) =>
+      resets.withLock(
+        input.projectId,
+        resetPersistentAgentImpl(input).pipe(
+          Effect.provide(context),
+          Effect.uninterruptible,
+          Effect.mapError((cause) =>
+            isDispatchError(cause)
+              ? cause
+              : new OrchestrationDispatchCommandError({
+                  message: "Could not clear the chat and memory. Try again.",
+                  cause,
+                }),
+          ),
+        ),
+      ),
     conversationPreviews: (input) => conversationPreviewsImpl(input).pipe(Effect.provide(context)),
     create: (input) => createPersistentAgentImpl(input).pipe(Effect.provide(context)),
   });
@@ -284,3 +404,9 @@ export const getAgentConversationPreviews = Effect.fn("PersistentAgents.conversa
     return yield* (yield* PersistentAgents).conversationPreviews(input);
   },
 );
+
+export const resetPersistentAgent = Effect.fn("PersistentAgents.reset")(function* (
+  input: AgentResetInput,
+) {
+  return yield* (yield* PersistentAgents).reset(input);
+});

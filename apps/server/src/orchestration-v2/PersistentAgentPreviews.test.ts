@@ -27,6 +27,7 @@ import * as EffectOutbox from "./EffectOutbox.ts";
 import * as TurnItemPositionStore from "./TurnItemPositionStore.ts";
 import * as ProjectStore from "./ProjectStore.ts";
 import * as ProjectionStore from "./ProjectionStore.ts";
+import * as ProviderSessions from "./ProviderSessionManager.ts";
 import * as Threads from "./ThreadManagementService.ts";
 import { getAgentConversationPreviews, layer } from "./PersistentAgents.ts";
 
@@ -51,6 +52,7 @@ const dependencies = Layer.mergeAll(
   Layer.mock(ServerSettingsService)({}),
   Layer.mock(ProjectService.ProjectService)({}),
   Layer.mock(Threads.ThreadManagementService)({}),
+  Layer.mock(ProviderSessions.ProviderSessionManagerV2)({}),
 );
 const testLayer = layer.pipe(Layer.provideMerge(dependencies));
 

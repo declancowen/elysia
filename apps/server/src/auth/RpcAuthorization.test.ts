@@ -16,6 +16,7 @@ import {
 
 describe("RPC authorization scopes", () => {
   it("requires orchestration operate permission to create and delegate to agents", () => {
+    expect(requiredScopeForRpcMethod(WS_METHODS.agentsReset)).toBe(AuthOrchestrationOperateScope);
     expect(requiredScopeForRpcMethod(WS_METHODS.agentsCreate)).toBe(AuthOrchestrationOperateScope);
     expect(requiredScopeForRpcMethod(WS_METHODS.agentsDelegate)).toBe(
       AuthOrchestrationOperateScope,

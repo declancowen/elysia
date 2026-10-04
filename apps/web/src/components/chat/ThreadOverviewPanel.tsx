@@ -44,6 +44,7 @@ import { Popover, PopoverTitle, PopoverTrigger } from "../ui/popover";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
 import { AgentMessageBubble } from "../agents/AgentMessageBubble";
 import ChatMarkdown from "../ChatMarkdown";
+import { ClearAgentChatButton, type AgentChatResetTarget } from "../agents/ClearAgentChatButton";
 import { AgentAvatar } from "../agents/AgentAvatar";
 import { Spinner } from "../ui/spinner";
 import { useAgents } from "../agents/useAgents";
@@ -66,6 +67,7 @@ export interface ThreadOverviewPanelProps {
   onAddSources: () => void;
   onOpenSource: (sourceId: string) => void;
   transient?: boolean;
+  chatResetTarget?: AgentChatResetTarget;
   sourceThreadRef?: ScopedThreadRef | null;
   delegatedAgents?: ReadonlyArray<DelegatedAgent>;
   sourceHistoryReady?: boolean;
@@ -84,6 +86,7 @@ const rowClassName =
 function OverviewPopover({
   label,
   workspaceContent,
+  chatResetTarget,
   versionControlContent,
   threadBoundaryRef,
   onDockedChange,
@@ -153,6 +156,25 @@ function OverviewPopover({
   const showChanges = codeWorkspace && showGit;
   const selectedAgent =
     view?.kind === "agent" ? grouped.find(({ job }) => job.agentProjectId === view.id) : null;
+  const selectedRosterAgent = selectedAgent
+    ? roster.find(
+        ({ project }) =>
+          project.id === selectedAgent.job.agentProjectId &&
+          project.environmentId === sourceThreadRef?.environmentId,
+      )
+    : null;
+  const selectedResetTarget =
+    selectedRosterAgent?.thread && selectedRosterAgent.project.agentProfile
+      ? {
+          projectId: selectedRosterAgent.project.id,
+          threadRef: {
+            environmentId: selectedRosterAgent.thread.environmentId,
+            threadId: selectedRosterAgent.thread.id,
+          },
+          name: selectedRosterAgent.project.title,
+          channel: !!selectedRosterAgent.project.agentProfile.group,
+        }
+      : null;
   const selectedSubagent =
     view?.kind === "subagent" ? subagents.find(({ id }) => id === view.id) : null;
   const collapsedWidth = Math.min(320, availableSize.width);
@@ -404,6 +426,18 @@ function OverviewPopover({
                           : "Unavailable"}
                 </span>
               ) : null}
+              {selectedResetTarget ? (
+                <ClearAgentChatButton
+                  key={selectedResetTarget.threadRef.threadId}
+                  target={selectedResetTarget}
+                  iconOnly
+                  className="flex size-6 cursor-pointer items-center justify-center rounded-md hover:bg-accent/50"
+                  onCleared={() => {
+                    setView(null);
+                    setOpen(false);
+                  }}
+                />
+              ) : null}
               {view && (expanded || expandedWidth > collapsedWidth) ? (
                 <Button
                   variant="ghost"
@@ -445,6 +479,15 @@ function OverviewPopover({
                         ref={(node) => {
                           if (node) node.appendChild(workspaceHost);
                         }}
+                      />
+                    </section>
+                  ) : null}
+                  {chatResetTarget ? (
+                    <section>
+                      <ClearAgentChatButton
+                        key={chatResetTarget.threadRef.threadId}
+                        target={chatResetTarget}
+                        className={rowClassName}
                       />
                     </section>
                   ) : null}

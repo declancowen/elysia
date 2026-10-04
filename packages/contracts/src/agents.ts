@@ -99,6 +99,14 @@ export type AgentCreateInput = typeof AgentCreateInput.Type;
 export const AgentCreateResult = Schema.Struct({ projectId: ProjectId, threadId: ThreadId });
 export type AgentCreateResult = typeof AgentCreateResult.Type;
 
+export const AgentResetInput = Schema.Struct({
+  commandId: CommandId,
+  projectId: ProjectId,
+  previousThreadId: ThreadId,
+  threadId: ThreadId,
+});
+export type AgentResetInput = typeof AgentResetInput.Type;
+
 export const AgentDelegateInput = Schema.Struct({
   commandId: CommandId,
   sourceThreadId: ThreadId,

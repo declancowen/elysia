@@ -10815,6 +10815,16 @@ export default function ChatView(props: ChatViewProps) {
                   deletions: gitStatusQuery.data.workingTree.deletions,
                 }
               : null,
+          ...(activeProject?.agentProfile && activeThreadRef
+            ? {
+                chatResetTarget: {
+                  projectId: activeProject.id,
+                  threadRef: activeThreadRef,
+                  name: activeProject.title,
+                  channel: !!activeProject.agentProfile.group,
+                },
+              }
+            : {}),
           showAgents: activeProject?.agentProfile == null,
           agents: { working: agentPanelModel.liveCount, done: agentPanelModel.settledCount },
           sourceThreadRef: isServerThread ? activeThreadRef : null,

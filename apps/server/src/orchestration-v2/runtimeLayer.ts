@@ -304,7 +304,13 @@ const repositoryInitializationProvided = RepositoryInitialization.layer.pipe(
   Layer.provide(Layer.mergeAll(ProjectStore.layer, projectionStoreLayer)),
 );
 const persistentAgentsProvided = PersistentAgents.layer.pipe(
-  Layer.provide(Layer.mergeAll(ProjectServiceLayerLive, threadManagementProvided)),
+  Layer.provide(
+    Layer.mergeAll(
+      ProjectServiceLayerLive,
+      threadManagementProvided,
+      providerSessionManagerProvided,
+    ),
+  ),
 );
 const agentDelegationProvided = AgentDelegation.layer.pipe(
   Layer.provide(

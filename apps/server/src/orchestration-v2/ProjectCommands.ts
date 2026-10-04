@@ -1,5 +1,6 @@
 import {
   type CommandId,
+  type ThreadId,
   type AgentProfile,
   type EventId,
   MAX_SCRIPT_ID_LENGTH,
@@ -48,7 +49,18 @@ export interface ProjectDeleteCommand {
   readonly projectId: ProjectId;
 }
 
-export type ProjectCommand = ProjectCreateCommand | ProjectMetaUpdateCommand | ProjectDeleteCommand;
+export interface AgentConversationResetCommand {
+  readonly type: "project.agent-conversation.reset";
+  readonly commandId: CommandId;
+  readonly projectId: ProjectId;
+  readonly previousThreadId: ThreadId;
+  readonly threadId: ThreadId;
+}
+export type ProjectCommand =
+  | ProjectCreateCommand
+  | ProjectMetaUpdateCommand
+  | ProjectDeleteCommand
+  | AgentConversationResetCommand;
 
 export class ProjectCommandInvariantError extends Schema.TaggedError<ProjectCommandInvariantError>()(
   "ProjectCommandInvariantError",
@@ -156,6 +168,26 @@ export function planProjectCommand(input: {
   };
 
   switch (command.type) {
+    case "project.agent-conversation.reset": {
+      if (!activeProject) return missingProject();
+      const profile = activeProject.agentProfile;
+      if (
+        !profile ||
+        profile.archived ||
+        profile.conversationThreadId !== command.previousThreadId
+      ) {
+        return invariant("The agent conversation changed before it could be reset.");
+      }
+      return Result.succeed({
+        ...base,
+        type: "project.meta-updated",
+        payload: {
+          projectId: command.projectId,
+          agentProfile: { ...profile, conversationThreadId: command.threadId },
+          updatedAt: occurredAt,
+        },
+      });
+    }
     case "project.create": {
       if (state.project !== undefined) {
         return invariant(

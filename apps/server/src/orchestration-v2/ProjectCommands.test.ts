@@ -3,6 +3,7 @@ import {
   CommandId,
   EventId,
   ProjectId,
+  ThreadId,
   ProviderInstanceId,
   type ModelSelection,
   type ProjectScript,
@@ -252,3 +253,40 @@ describe("planProjectCommand", () => {
     assert.deepEqual(event.payload, { projectId, deletedAt: "2026-01-01T00:00:00.000Z" });
   });
 });
+
+for (const archived of [false, true]) {
+  it(`agent reset only changes the matching conversation link (archived=${archived})`, () => {
+    const previousThreadId = ThreadId.make("previous");
+    const threadId = ThreadId.make("fresh");
+    const profile = {
+      conversationThreadId: previousThreadId,
+      instructions: "Product reviewer",
+      avatar: { preset: "brain", color: "blue" } as const,
+      archived,
+      notificationsEnabled: true,
+    };
+    const command = {
+      type: "project.agent-conversation.reset",
+      commandId: CommandId.make("reset"),
+      projectId,
+      previousThreadId,
+      threadId,
+    } as const;
+    const result = plan(command, { project: row({ agentProfile: profile }) });
+    if (archived) assert.isTrue(Result.isFailure(result));
+    else
+      assert.deepEqual(payloadOf(result).agentProfile, {
+        ...profile,
+        conversationThreadId: threadId,
+      });
+    assert.isTrue(
+      Result.isFailure(
+        plan(
+          { ...command, previousThreadId: threadId },
+          { project: row({ agentProfile: profile }) },
+        ),
+      ),
+    );
+    assert.isTrue(Result.isFailure(plan(command, { project: row() })));
+  });
+}

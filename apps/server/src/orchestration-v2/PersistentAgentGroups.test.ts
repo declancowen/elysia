@@ -9,6 +9,7 @@ import { ProviderRegistry } from "../provider/Services/ProviderRegistry.ts";
 import { ServerSettingsService } from "../serverSettings.ts";
 import { ServerConfig } from "../config.ts";
 import * as Projects from "../project/ProjectService.ts";
+import * as ProviderSessions from "./ProviderSessionManager.ts";
 import * as Threads from "./ThreadManagementService.ts";
 import * as Store from "./ProjectStore.ts";
 import { createPersistentAgent, layer as persistentAgentsLayer } from "./PersistentAgents.ts";
@@ -57,6 +58,7 @@ for (const scenario of [
           Layer.provideMerge(
             Layer.mergeAll(
               NodeServices.layer,
+              Layer.mock(ProviderSessions.ProviderSessionManagerV2)({}),
               SqlitePersistenceMemory,
               Layer.mock(ProviderRegistry)({
                 getProviders: Effect.die("Invalid group reached provider lookup"),

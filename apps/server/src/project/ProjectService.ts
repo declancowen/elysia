@@ -122,6 +122,12 @@ export class ProjectService extends Context.Service<
       ProjectServiceError
     >;
     readonly update: (input: ProjectUpdateInput) => Effect.Effect<Project, ProjectServiceError>;
+    readonly resetAgentConversation: (input: {
+      readonly commandId: CommandId;
+      readonly projectId: ProjectId;
+      readonly previousThreadId: ThreadId;
+      readonly threadId: ThreadId;
+    }) => Effect.Effect<Project, ProjectServiceError>;
     readonly delete: (input: ProjectDeleteInput) => Effect.Effect<Project, ProjectServiceError>;
     readonly getById: (
       projectId: ProjectId,
@@ -226,7 +232,7 @@ export const make = Effect.gen(function* () {
     const { projectId } = command;
     const dispatchError = (cause: unknown) =>
       new ProjectOperationError({ operation: "dispatch-project-command", projectId, cause });
-    const workspaceRoot = command.type === "project.delete" ? undefined : command.workspaceRoot;
+    const workspaceRoot = "workspaceRoot" in command ? command.workspaceRoot : undefined;
     const planAndCommit = Effect.gen(function* () {
       const project = Option.getOrUndefined(yield* readRow(projectId, { includeDeleted: true }));
       const workspaceOwner =
@@ -248,7 +254,7 @@ export const make = Effect.gen(function* () {
         now,
       });
       if (Result.isSuccess(planned)) {
-        const group = command.type === "project.delete" ? undefined : command.agentProfile?.group;
+        const group = "agentProfile" in command ? command.agentProfile?.group : undefined;
         const previousGroup = project?.agentProfile?.group;
         if (
           group &&
@@ -636,6 +642,10 @@ export const make = Effect.gen(function* () {
     create,
     bootstrap,
     update,
+    resetAgentConversation: (input) =>
+      commit({ type: "project.agent-conversation.reset", ...input }).pipe(
+        Effect.andThen(readCommitted(input.projectId)),
+      ),
     delete: deleteProject,
     getById,
     getByWorkspaceRoot,

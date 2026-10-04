@@ -124,6 +124,7 @@ import * as ThreadLaunchService from "./orchestration-v2/ThreadLaunchService.ts"
 import * as ThreadMessageIntake from "./orchestration-v2/ThreadMessageIntake.ts";
 import {
   createPersistentAgent,
+  resetPersistentAgent,
   getAgentConversationPreviews,
 } from "./orchestration-v2/PersistentAgents.ts";
 import {
@@ -2965,6 +2966,10 @@ const makeWsRpcLayer = (
           ),
         [WS_METHODS.agentsCreate]: (input) =>
           observeRpcEffect(WS_METHODS.agentsCreate, createPersistentAgent(input), {
+            "rpc.aggregate": "orchestration",
+          }),
+        [WS_METHODS.agentsReset]: (input) =>
+          observeRpcEffect(WS_METHODS.agentsReset, resetPersistentAgent(input), {
             "rpc.aggregate": "orchestration",
           }),
         [WS_METHODS.agentsDelegate]: (input) =>

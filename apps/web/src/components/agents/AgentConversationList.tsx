@@ -1,10 +1,20 @@
+import { useConversationTabsStore } from "../../conversationTabsStore";
 import { useState } from "react";
 import { useConversationRowClick } from "../../hooks/useConversationRowClick";
-import { scopedProjectKey, scopeProjectRef } from "@t3tools/client-runtime/environment";
+import {
+  scopedProjectKey,
+  scopeProjectRef,
+  scopeThreadRef,
+} from "@t3tools/client-runtime/environment";
 import type { AgentConversationPreviewsResult } from "@t3tools/contracts";
 import { useParams } from "@tanstack/react-router";
 import { agentTaskHandoff } from "@t3tools/shared/agentMentions";
-import { ArchiveIcon, Edit03Icon, MoreHorizontalIcon } from "../../icons";
+import {
+  ArchiveIcon,
+  Edit03Icon,
+  MoreHorizontalIcon,
+  SquareArrowOutUpRightIcon,
+} from "../../icons";
 import { stripInlineContextReferences } from "../../lib/composerContextReferences";
 import { cn } from "../../lib/utils";
 import { Button } from "../ui/button";
@@ -110,6 +120,14 @@ function AgentConversationRow({
   const [contextPoint, setContextPoint] = useState<{ x: number; y: number } | null>(null);
   const { project, thread, busy } = agent;
   const profile = project.agentProfile!;
+  const alreadyOpen = useConversationTabsStore((state) =>
+    thread
+      ? state.isOpen({
+          kind: "server",
+          threadRef: scopeThreadRef(project.environmentId, thread.id),
+        })
+      : false,
+  );
   const { pending, openConversation, archive } = useAgentActions(agent);
   const params = useParams({ strict: false });
   const { isMobile, setOpenMobile } = useSidebar();
@@ -194,7 +212,9 @@ function AgentConversationRow({
           )}
           {pinned ? (
             <span className="flex w-full min-w-0 flex-col items-center gap-0.5">
-              <span className="w-full truncate text-sm font-medium">{project.title}</span>
+              <span className="w-full truncate text-sm font-medium text-foreground">
+                {project.title}
+              </span>
               {profile.title && !profile.group ? (
                 <span className="max-w-full truncate rounded-md bg-foreground/15 px-1.5 text-xs text-foreground">
                   {profile.title}
@@ -205,7 +225,7 @@ function AgentConversationRow({
             <span className="flex min-w-0 flex-1 flex-col gap-0.5">
               <span className="flex min-w-0 items-center gap-2">
                 <span className="min-w-0 flex-1 flex items-center gap-2">
-                  <span className="max-w-full shrink-0 truncate text-sm font-medium">
+                  <span className="max-w-full shrink-0 truncate text-base font-medium leading-5 text-foreground">
                     {project.title}
                   </span>
                   {profile.title && !profile.group ? (
@@ -218,7 +238,7 @@ function AgentConversationRow({
                   {dateFormat.format(new Date(updatedAt))}
                 </time>
               </span>
-              <span className="truncate pr-5 text-xs text-muted-foreground">{preview}</span>
+              <span className="truncate pr-5 text-sm leading-4 text-foreground/70">{preview}</span>
             </span>
           )}
         </button>
@@ -250,17 +270,20 @@ function AgentConversationRow({
                 : undefined
             }
           >
-            <MenuItem
-              disabled={pending}
-              onClick={() => {
-                setAgentSidebarActive(true);
-                void openConversation({ newTab: true }).then((opened) => {
-                  if (opened && isMobile) setOpenMobile(false);
-                });
-              }}
-            >
-              Open in new tab
-            </MenuItem>
+            {!alreadyOpen && thread ? (
+              <MenuItem
+                disabled={pending}
+                onClick={() => {
+                  setAgentSidebarActive(true);
+                  void openConversation({ newTab: true }).then((opened) => {
+                    if (opened && isMobile) setOpenMobile(false);
+                  });
+                }}
+              >
+                <SquareArrowOutUpRightIcon />
+                Open in new tab
+              </MenuItem>
+            ) : null}
             <AgentOrganizationMenuItems agent={agent} />
             <MenuItem
               onClick={() => openAgentDialog(scopeProjectRef(project.environmentId, project.id))}

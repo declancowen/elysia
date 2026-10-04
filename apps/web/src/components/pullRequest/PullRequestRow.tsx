@@ -1,3 +1,4 @@
+import { useConversationTabsStore } from "../../conversationTabsStore";
 import { useConversationRowClick } from "../../hooks/useConversationRowClick";
 import { SINGLE_PROVIDER_UI } from "@t3tools/contracts";
 import { SearchIcon } from "~/icons";
@@ -110,7 +111,10 @@ function PullRequestRowImpl({
     () => onSelect(entry),
     () => onSelect(entry, true),
   );
-  const openInNewTab = SINGLE_PROVIDER_UI ? () => onSelect(entry, true) : undefined;
+  const alreadyOpen = useConversationTabsStore((state) =>
+    state.isOpen({ kind: "pull-request", ...entry }),
+  );
+  const openInNewTab = SINGLE_PROVIDER_UI && !alreadyOpen ? () => onSelect(entry, true) : undefined;
   const { Icon, providerName } = getSourceControlPresentationForKind(entry.provider);
   return (
     <button

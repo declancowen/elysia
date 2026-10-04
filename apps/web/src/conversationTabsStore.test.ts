@@ -149,3 +149,30 @@ it("treats differently cased host names as the same pull-request tab", () => {
   store.open({ ...pr, host: "GitHub.COM" }, true);
   expect(useConversationTabsStore.getState().tabs).toHaveLength(1);
 });
+
+it("recognizes active and inactive tabs and releases replaced or closed targets", () => {
+  const store = useConversationTabsStore.getState();
+  expect(store.isOpen(a)).toBe(false);
+  store.open(a);
+  expect(store.isOpen(a)).toBe(true);
+  store.open(b, true);
+  expect(store.isOpen(a)).toBe(true);
+  expect(store.isOpen(b)).toBe(true);
+  store.open(c);
+  expect(store.isOpen(b)).toBe(false);
+  expect(store.isOpen(c)).toBe(true);
+  store.close(useConversationTabsStore.getState().activeId!);
+  expect(store.isOpen(c)).toBe(false);
+  expect(store.isOpen(conversation("agent-a", "other"))).toBe(false);
+});
+
+it("recognizes a pull request regardless of host case but keeps scope boundaries", () => {
+  const store = useConversationTabsStore.getState();
+  store.open(pr);
+  store.open(a, true);
+  expect(store.isOpen({ ...pr, host: "GitHub.COM" })).toBe(true);
+  expect(store.isOpen({ ...pr, environmentId: EnvironmentId.make("remote") })).toBe(false);
+  expect(store.isOpen({ ...pr, projectId: ProjectId.make("other") })).toBe(false);
+  expect(store.isOpen({ ...pr, repository: "other/repo" })).toBe(false);
+  expect(store.isOpen({ ...pr, number: 43 })).toBe(false);
+});

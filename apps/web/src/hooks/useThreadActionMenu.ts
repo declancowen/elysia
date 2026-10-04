@@ -1,3 +1,4 @@
+import { showContextMenuFallback } from "../contextMenuFallback";
 import { useConversationTabNavigation } from "./useConversationTabNavigation";
 import { currentConversationTabsStore } from "../conversationTabsStore";
 import { scopeProjectRef } from "@t3tools/client-runtime/environment";
@@ -147,7 +148,9 @@ export function useThreadActionMenu(input: {
         const isRegeneratingTitle = thread.titleRegeneration != null;
         const snoozePresets = resolveSnoozePresets(now, timestampFormat);
         const items = buildThreadActionMenuItems({
-          openInNewTab: SINGLE_PROVIDER_UI,
+          openInNewTab:
+            SINGLE_PROVIDER_UI &&
+            !currentConversationTabsStore().getState().isOpen({ kind: "server", threadRef }),
           projectless,
           branch: codeWorkspace ? (thread.branch ?? null) : null,
           // The chat header has no project-scoped thread list behind the
@@ -163,7 +166,8 @@ export function useThreadActionMenu(input: {
           supports,
           snoozePresets,
         });
-        const clicked = await settlePromise(() => api.contextMenu.show(items, position));
+        const showMenu = SINGLE_PROVIDER_UI ? showContextMenuFallback : api.contextMenu.show;
+        const clicked = await settlePromise(() => showMenu(items, position));
         if (clicked._tag === "Failure" || clicked.value === null) return;
         const action: ThreadActionMenuId = clicked.value;
         if (action.startsWith("snooze:")) {

@@ -1,10 +1,15 @@
 import type { ContextMenuItem } from "@t3tools/contracts";
+import SquareArrowOutUpRightIcon from "@hugeicons/core-free-icons/SquareArrowOutUpRightIcon";
 import Edit03Icon from "@hugeicons/core-free-icons/Edit03Icon";
 
 const SVG_NS = "http://www.w3.org/2000/svg";
 
 // Inline Lucide-style icon paths (stroke-based, viewBox 0 0 24 24, strokeWidth 2).
 const ICON_PATHS: Record<string, ReadonlyArray<{ tag: string; attrs: Record<string, string> }>> = {
+  "open-new-tab": SquareArrowOutUpRightIcon.map(([tag, attrs]) => ({
+    tag,
+    attrs: Object.fromEntries(Object.entries(attrs).map(([key, value]) => [key, String(value)])),
+  })),
   "edit-03": Edit03Icon.map(([tag, attrs]) => ({ tag, attrs: { d: String(attrs.d) } })),
   archive: [
     { tag: "rect", attrs: { width: "20", height: "5", x: "2", y: "3", rx: "1" } },

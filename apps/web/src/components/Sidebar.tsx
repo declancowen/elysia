@@ -1,3 +1,4 @@
+import { showContextMenuFallback } from "../contextMenuFallback";
 import { useConversationTabNavigation } from "../hooks/useConversationTabNavigation";
 import { currentConversationTabsStore } from "../conversationTabsStore";
 import { useConversationRowClick } from "../hooks/useConversationRowClick";
@@ -4442,10 +4443,13 @@ export default function Sidebar() {
                 projectRef.projectId === thread.projectId,
             ),
           ) ?? null;
+        const showMenu = SINGLE_PROVIDER_UI ? showContextMenuFallback : api.contextMenu.show;
         const clicked = await settlePromise(() =>
-          api.contextMenu.show(
+          showMenu(
             buildThreadActionMenuItems({
-              openInNewTab: SINGLE_PROVIDER_UI,
+              openInNewTab:
+                SINGLE_PROVIDER_UI &&
+                !currentConversationTabsStore().getState().isOpen({ kind: "server", threadRef }),
               projectless: projectlessKeys.has(`${thread.environmentId}:${thread.projectId}`),
               branch: getClientSettings().workspaceMode === "code" ? (thread.branch ?? null) : null,
               projectFilter: threadProjectGroup

@@ -73,7 +73,9 @@ export function buildThreadActionMenuItems(
   state: ThreadActionMenuState,
 ): ReadonlyArray<ContextMenuItem<ThreadActionMenuId>> {
   return [
-    ...(state.openInNewTab ? [{ id: "open-new-tab" as const, label: "Open in new tab" }] : []),
+    ...(state.openInNewTab
+      ? [{ id: "open-new-tab" as const, label: "Open in new tab", icon: "open-new-tab" }]
+      : []),
     ...(state.branch
       ? [
           {

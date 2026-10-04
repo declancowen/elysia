@@ -7,7 +7,8 @@ import {
   ThreadId,
   type AgentProfile,
 } from "@t3tools/contracts";
-import { scopeProjectRef } from "@t3tools/client-runtime/environment";
+import { useConversationTabsStore } from "../../conversationTabsStore";
+import { scopeThreadRef, scopeProjectRef } from "@t3tools/client-runtime/environment";
 import type { AtomCommandResult } from "@t3tools/client-runtime/state/runtime";
 import * as Cause from "effect/Cause";
 import { AsyncResult } from "effect/unstable/reactivity";
@@ -148,6 +149,7 @@ async function click(label: string) {
   await act(async () => button(label).click());
 }
 beforeEach(() => {
+  useConversationTabsStore.setState({ tabs: [], activeId: null });
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   vi.stubGlobal(
     "ResizeObserver",
@@ -630,3 +632,61 @@ it.each([false, true])(
     expect(state.navigate).not.toHaveBeenCalled();
   },
 );
+
+it.each([false, true])(
+  "hides the new-tab action for an open agent or channel (channel=%s)",
+  async (channel) => {
+    await renderConversations(channel);
+    await rightClickConversation();
+    expect(button("Open in new tab")).toBeDefined();
+    expect(button("Open in new tab").querySelector("svg")).not.toBeNull();
+    await act(async () => document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" })));
+    await act(async () => {
+      const store = useConversationTabsStore.getState();
+      store.open({ kind: "server", threadRef: scopeThreadRef(environmentId, threadId) });
+    });
+    await rightClickConversation();
+    expect(button("Open in new tab")).toBeUndefined();
+    await act(async () => document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" })));
+    await act(async () => {
+      useConversationTabsStore
+        .getState()
+        .open(
+          { kind: "server", threadRef: scopeThreadRef(environmentId, ThreadId.make("another")) },
+          true,
+        );
+    });
+    await rightClickConversation();
+    expect(button("Open in new tab")).toBeUndefined();
+  },
+);
+
+it("hides the workspace roster's new-tab action for any open conversation", async () => {
+  await render(false, true);
+  const rightClick = async () => {
+    await act(async () =>
+      button("Alex").dispatchEvent(new MouseEvent("contextmenu", { bubbles: true })),
+    );
+  };
+  await rightClick();
+  expect(button("Open in new tab")).toBeDefined();
+  expect(button("Open in new tab").querySelector("svg")).not.toBeNull();
+  await act(async () => document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" })));
+  await act(async () => {
+    const store = useConversationTabsStore.getState();
+    store.open({ kind: "server", threadRef: scopeThreadRef(environmentId, threadId) });
+  });
+  await rightClick();
+  expect(button("Open in new tab")).toBeUndefined();
+  await act(async () => document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" })));
+  await act(async () => {
+    useConversationTabsStore
+      .getState()
+      .open(
+        { kind: "server", threadRef: scopeThreadRef(environmentId, ThreadId.make("another")) },
+        true,
+      );
+  });
+  await rightClick();
+  expect(button("Open in new tab")).toBeUndefined();
+});

@@ -9,6 +9,7 @@ import {
   PlayIcon,
   PlusIcon,
   Trash2Icon,
+  SquareArrowOutUpRightIcon,
 } from "~/icons";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
@@ -517,6 +518,11 @@ function ScheduledTaskRow({
 }) {
   const conversationClick = useConversationRowClick(onEdit, onEditInNewTab ?? onEdit);
   const [busy, setBusy] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [contextPoint, setContextPoint] = useState<{ x: number; y: number } | null>(null);
+  const alreadyOpen = useScheduledTabsStore((state) =>
+    state.isOpen({ kind: "task", environmentId, task }),
+  );
   const toggle = useAtomCommand(serverEnvironment.setScheduledTaskEnabled, {
     label: "scheduled task enabled",
   });
@@ -556,7 +562,13 @@ function ScheduledTaskRow({
           onCheckedChange={() => void act("toggle")}
         />
       )}
-      <Menu>
+      <Menu
+        open={menuOpen}
+        onOpenChange={(value) => {
+          setMenuOpen(value);
+          if (!value) setContextPoint(null);
+        }}
+      >
         <MenuTrigger
           render={
             <Button
@@ -569,7 +581,22 @@ function ScheduledTaskRow({
         >
           <MoreHorizontalIcon className="size-4" />
         </MenuTrigger>
-        <MenuPopup align="end">
+        <MenuPopup
+          align={contextPoint ? "start" : "end"}
+          anchor={
+            contextPoint
+              ? {
+                  getBoundingClientRect: () => new DOMRect(contextPoint.x, contextPoint.y, 0, 0),
+                }
+              : undefined
+          }
+        >
+          {SINGLE_PROVIDER_UI && onEditInNewTab && !alreadyOpen ? (
+            <MenuItem onClick={onEditInNewTab}>
+              <SquareArrowOutUpRightIcon />
+              Open in new tab
+            </MenuItem>
+          ) : null}
           <MenuItem onClick={onEdit}>
             <Edit03Icon />
             Edit
@@ -590,6 +617,13 @@ function ScheduledTaskRow({
   if (compact)
     return (
       <div
+        onContextMenu={(event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          if (busy) return;
+          setContextPoint({ x: event.clientX, y: event.clientY });
+          setMenuOpen(true);
+        }}
         className={cn(
           "flex min-w-0 items-center gap-1 rounded-xl px-2.5 py-1 hover:bg-sidebar-row-hover",
           selected && "bg-sidebar-row-active hover:bg-sidebar-row-active",

@@ -178,6 +178,7 @@ it("offers a new tab only on surfaces that support session tabs", () => {
   expect(buildThreadActionMenuItems({ ...baseState, openInNewTab: true })[0]).toEqual({
     id: "open-new-tab",
     label: "Open in new tab",
+    icon: "open-new-tab",
   });
   expect(buildThreadActionMenuItems(baseState).some((item) => item.id === "open-new-tab")).toBe(
     false,

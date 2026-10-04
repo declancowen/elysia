@@ -17,7 +17,7 @@ export async function showAgentContextMenu(
     const action = await show(
       [
         ...(SINGLE_PROVIDER_UI && onOpenInNewTab
-          ? [{ id: "open-new-tab", label: "Open in new tab" }]
+          ? [{ id: "open-new-tab", label: "Open in new tab", icon: "open-new-tab" }]
           : []),
         { id: "edit-agent", label: channel ? "Edit channel" : "Edit agent", icon: "edit-03" },
       ],

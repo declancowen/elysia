@@ -1,3 +1,4 @@
+import { showContextMenuFallback } from "../contextMenuFallback";
 import { useConversationTabNavigation } from "../hooks/useConversationTabNavigation";
 import { useConversationRowClick } from "../hooks/useConversationRowClick";
 import { currentConversationTabsStore } from "../conversationTabsStore";
@@ -2394,9 +2395,13 @@ const SidebarProjectItem = memo(function SidebarProjectItem(props: SidebarProjec
       );
       const threadWorkspacePath =
         thread.worktreePath ?? threadProject?.workspaceRoot ?? project.workspaceRoot ?? null;
-      const clicked = await api.contextMenu.show(
+      const showMenu = SINGLE_PROVIDER_UI ? showContextMenuFallback : api.contextMenu.show;
+      const clicked = await showMenu(
         [
-          ...(SINGLE_PROVIDER_UI ? [{ id: "open-new-tab", label: "Open in new tab" }] : []),
+          ...(SINGLE_PROVIDER_UI &&
+          !currentConversationTabsStore().getState().isOpen({ kind: "server", threadRef })
+            ? [{ id: "open-new-tab", label: "Open in new tab", icon: "open-new-tab" }]
+            : []),
           ...(getClientSettings().workspaceMode === "code" && thread.branch
             ? [{ id: "new-thread-on-branch", label: `New thread on ${thread.branch}` }]
             : []),

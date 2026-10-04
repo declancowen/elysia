@@ -1,4 +1,5 @@
-import type { ContextMenuItem } from "@t3tools/contracts";
+import { showContextMenuFallback } from "../../contextMenuFallback";
+import { SINGLE_PROVIDER_UI, type ContextMenuItem } from "@t3tools/contracts";
 
 import { writeTextToClipboard } from "~/hooks/useCopyToClipboard";
 import { readLocalApi } from "~/localApi";
@@ -25,7 +26,9 @@ function pullRequestLinkContextMenuItems(
   openInNewTab: boolean,
 ): readonly ContextMenuItem<PullRequestLinkContextMenuAction>[] {
   return [
-    ...(openInNewTab ? [{ id: "open-new-tab" as const, label: "Open in new tab" }] : []),
+    ...(openInNewTab
+      ? [{ id: "open-new-tab" as const, label: "Open in new tab", icon: "open-new-tab" }]
+      : []),
     { id: "copy-link", label: "Copy link", icon: "copy" },
     { id: "open-external", label: openLabel },
   ];
@@ -55,7 +58,8 @@ export async function showPullRequestLinkContextMenu({
   if (!api) return;
   let action: PullRequestLinkContextMenuAction | null = null;
   try {
-    action = await api.contextMenu.show(
+    const showMenu = SINGLE_PROVIDER_UI ? showContextMenuFallback : api.contextMenu.show;
+    action = await showMenu(
       pullRequestLinkContextMenuItems(openLabel, Boolean(onOpenInNewTab)),
       position,
     );

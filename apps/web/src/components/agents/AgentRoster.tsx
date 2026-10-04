@@ -1,3 +1,4 @@
+import { useConversationTabsStore } from "../../conversationTabsStore";
 import { useConversationRowClick } from "../../hooks/useConversationRowClick";
 import { scopeThreadRef, scopeProjectRef } from "@t3tools/client-runtime/environment";
 import { useParams } from "@tanstack/react-router";
@@ -110,7 +111,13 @@ export function AgentRow(agent: AgentRosterEntry) {
             y: event.clientY,
           },
           !!profile.group,
-          () => openConversation({ newTab: true }),
+          thread &&
+            !useConversationTabsStore.getState().isOpen({
+              kind: "server",
+              threadRef: scopeThreadRef(project.environmentId, thread.id),
+            })
+            ? () => openConversation({ newTab: true })
+            : undefined,
         ).then((opened) => {
           if (opened && isMobile) setOpenMobile(false);
         });

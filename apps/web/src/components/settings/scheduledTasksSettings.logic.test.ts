@@ -1,3 +1,4 @@
+import { useScheduledTabsStore } from "../../scheduledTabsStore";
 import {
   EnvironmentId,
   ProjectId,
@@ -286,4 +287,24 @@ describe("scheduled task model defaults", () => {
       ),
     ).toBeNull();
   });
+});
+
+it("recognizes active and inactive scheduled tabs by environment and task ID", () => {
+  useScheduledTabsStore.setState({ tabs: [], activeId: null });
+  const store = useScheduledTabsStore.getState();
+  const target = {
+    kind: "task" as const,
+    environmentId: EnvironmentId.make("local"),
+    task: legacyTask,
+  };
+  store.open(target);
+  expect(store.isOpen(target)).toBe(true);
+  store.open({ ...target, task: { ...legacyTask, id: ScheduledTaskId.make("another") } }, true);
+  expect(store.isOpen({ ...target, task: { ...legacyTask, title: "Renamed" } })).toBe(true);
+  expect(store.isOpen({ ...target, environmentId: EnvironmentId.make("remote") })).toBe(false);
+  store.activate(useScheduledTabsStore.getState().tabs[0]!.id);
+  const extra = useScheduledTabsStore.getState().tabs[1]!;
+  store.close(extra.id);
+  expect(store.isOpen(extra.target)).toBe(false);
+  expect(store.isOpen(target)).toBe(true);
 });

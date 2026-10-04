@@ -10,6 +10,7 @@ export interface PaneTabsState<T> {
   tabs: PaneTab<T>[];
   activeId: string | null;
   open: (target: T, newTab?: boolean) => void;
+  isOpen: (target: T) => boolean;
   activate: (id: string | null) => void;
   close: (id: string) => T | null;
   retarget: (previous: T, target: T) => void;
@@ -21,6 +22,7 @@ export function createPaneTabsStore<T>(targetKey: (target: T) => string) {
   return create<PaneTabsState<T>>((set, get) => ({
     tabs: [],
     activeId: null,
+    isOpen: (target) => get().tabs.some((tab) => targetKey(tab.target) === targetKey(target)),
     open: (target, newTab = false) => {
       const { tabs, activeId } = get();
       const active = tabs.find((tab) => tab.id === activeId);

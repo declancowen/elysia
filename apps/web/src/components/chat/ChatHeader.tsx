@@ -453,7 +453,7 @@ export const ChatHeader = memo(function ChatHeader({
       <div
         data-chat-header-main
         className={cn(
-          "relative flex h-full min-w-0 items-center gap-2 pr-3 pl-5",
+          "relative flex h-full min-w-0 items-center gap-2 overflow-hidden pr-3 pl-5",
           inlinePanel ? "shrink-0" : "flex-1",
           mainColumnHidden && "hidden",
         )}
@@ -579,10 +579,16 @@ export const ChatHeader = memo(function ChatHeader({
         <div
           data-chat-header-actions
           className={cn(
-            "flex h-full min-w-0 items-center gap-1 pr-2 pl-3 [-webkit-app-region:no-drag]",
+            "relative flex h-full min-w-0 items-center gap-1 overflow-hidden pr-2 pl-3 [-webkit-app-region:no-drag]",
             inlinePanel ? "flex-1" : "shrink-0",
           )}
         >
+          {inlinePanel && !mainColumnHidden ? (
+            <span
+              aria-hidden="true"
+              className="workspace-topbar-divider absolute top-1/2 left-0 -translate-y-1/2"
+            />
+          ) : null}
           {onTabBarHostChange ? (
             <div
               ref={onTabBarHostChange}

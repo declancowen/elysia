@@ -1392,10 +1392,10 @@ html[data-theme-id] [data-app-topbar-content] [data-chat-header] {
   background-color: transparent;
 }
 
-/* Collapsed navigation and every page's tabs share the controls' own gap. */
-[data-app-topbar][data-sidebar-visible="false"] [data-app-topbar-content] > header,
-[data-app-topbar][data-sidebar-visible="false"] [data-app-topbar-content] > div,
-[data-app-topbar][data-sidebar-visible="false"] [data-chat-header-main] {
+/* Thread tabs can span the sidebar; their start stays fixed when it toggles. */
+[data-app-topbar-content] > header,
+[data-app-topbar-content] > div,
+[data-app-topbar-content] [data-chat-header-main] {
   padding-inline-start: 0;
 }
 

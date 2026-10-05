@@ -102,6 +102,8 @@ export interface ThreadManagementSendInput {
   readonly messageId: MessageId;
   readonly scheduledTaskId?: ScheduledTaskId;
   readonly senderThreadId?: ThreadId;
+  readonly channelAgentProjectId?: ProjectId;
+  readonly context?: Extract<OrchestrationV2Command, { type: "message.dispatch" }>["context"];
   readonly text: string;
   readonly attachments: ReadonlyArray<ChatAttachment>;
   readonly modelSelection?: ModelSelection;
@@ -560,7 +562,11 @@ const make = Effect.gen(function* () {
         messageId: input.messageId,
         ...(input.scheduledTaskId === undefined ? {} : { scheduledTaskId: input.scheduledTaskId }),
         ...(input.senderThreadId === undefined ? {} : { senderThreadId: input.senderThreadId }),
+        ...(input.channelAgentProjectId === undefined
+          ? {}
+          : { channelAgentProjectId: input.channelAgentProjectId }),
         text: input.text,
+        ...(input.context ? { context: input.context } : {}),
         attachments: input.attachments,
         ...(input.modelSelection === undefined ? {} : { modelSelection: input.modelSelection }),
         dispatchMode,

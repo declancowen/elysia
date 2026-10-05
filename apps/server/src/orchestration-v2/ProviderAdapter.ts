@@ -25,6 +25,7 @@ import {
   PositiveInt,
   ProviderUserInputAnswers,
   ProviderSessionId,
+  ProviderSessionStartInput,
   ProviderThreadId,
   ProviderTurnId,
   RuntimeMode,
@@ -51,14 +52,7 @@ export const ProviderAdapterV2RuntimePolicy = Schema.Struct({
   approvalPolicy: Schema.optional(Schema.Unknown),
   sandboxPolicy: Schema.optional(Schema.Unknown),
   reasoningEffort: Schema.optional(Schema.String),
-  persistentAgent: Schema.optional(
-    Schema.Struct({
-      name: Schema.String,
-      title: Schema.optional(Schema.String),
-      instructions: Schema.String,
-      memoryDirectory: Schema.String,
-    }),
-  ),
+  persistentAgent: ProviderSessionStartInput.fields.persistentAgent,
 });
 export type ProviderAdapterV2RuntimePolicy = typeof ProviderAdapterV2RuntimePolicy.Type;
 

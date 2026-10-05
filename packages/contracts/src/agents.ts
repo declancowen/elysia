@@ -158,6 +158,7 @@ export const AgentGetDelegationInput = Schema.Struct({
 export type AgentGetDelegationInput = typeof AgentGetDelegationInput.Type;
 
 export const AgentGetDelegationResult = Schema.Struct({
+  respondingAgentProjectId: Schema.optional(ProjectId),
   agentProjectId: ProjectId,
   agentThreadId: ThreadId,
   agentName: Schema.String,

@@ -63,7 +63,7 @@ import {
   type ProviderRequestKind,
   type ProviderUserInputAnswers,
   type ProviderThreadId,
-  type ThreadId,
+  ThreadId,
   type ToolActivitySource,
 } from "@t3tools/contracts";
 
@@ -1615,6 +1615,7 @@ const encodeElysiaQueryPolicyKey = Schema.encodeSync(
           title: Schema.optional(Schema.String),
           instructions: Schema.String,
           memoryDirectory: Schema.String,
+          channelThreadId: Schema.optional(ThreadId),
         }),
       ),
     }),

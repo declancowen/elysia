@@ -45,6 +45,11 @@ vi.mock("../ui/select", () => ({
   SelectGroup: "select-group",
   SelectItem: "select-item",
 }));
+vi.mock("../ui/tooltip", () => ({
+  Tooltip: "tooltip",
+  TooltipTrigger: ({ render }: { render: React.ReactNode }) => render,
+  TooltipPopup: "tooltip-popup",
+}));
 vi.mock("../ui/input", () => ({ Input: "input" }));
 
 import { ElysiaUsagePage } from "./ElysiaUsagePage";
@@ -211,4 +216,18 @@ it("does not present an unpriced model as zero-dollar usage", async () => {
   expect(displayedValues()).toContain("Unavailable");
   expect(displayedValues()).toContain("Unpriced");
   expect(statusText().some((text) => text.includes("no known price"))).toBe(true);
+});
+
+it("keeps a single API target above both metrics without subscription or share labels", async () => {
+  await mount();
+  await act(async () =>
+    renderer!.root.findByProps({ "aria-label": "Chart metric" }).props.onValueChange(["tokens"]),
+  );
+  expect(displayedValues()).toContain("15");
+  expect(renderer!.root.findAllByProps({ role: "meter" })).toHaveLength(1);
+  const text = JSON.stringify(renderer!.toJSON());
+  expect(text).toContain("Elysia");
+  expect(text).not.toContain("100%");
+  expect(text).not.toContain("Limits");
+  expect(text).not.toContain("subscription");
 });

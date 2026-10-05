@@ -52,3 +52,15 @@ it("persistent identity includes the editable role and exact native memory paths
   expect(instructions).toContain("/agents/edna/.claude/memory/MEMORY.md");
   expect(instructions).toContain("Review copy.");
 });
+
+it("channel identity shares facts without resuming standalone work", () => {
+  const instructions = buildPersistentAgentInstructions({
+    name: "Edna",
+    instructions: "Review copy.",
+    memoryDirectory: "/agents/edna/.claude/memory",
+    channelThreadId: "channel-design",
+  });
+  expect(instructions).toContain("independent channel conversation");
+  expect(instructions).toContain("Do not read or write session-handoff.md");
+  expect(instructions).not.toContain("/memory/session-handoff.md");
+});

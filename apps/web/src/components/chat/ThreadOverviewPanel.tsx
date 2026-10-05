@@ -67,8 +67,7 @@ export interface ThreadOverviewPanelProps {
   onOpenSource: (sourceId: string) => void;
   transient?: boolean;
   onOpenChange?: (open: boolean) => void;
-  dismissKey?: number;
-  panelOffset?: number;
+  hidden?: boolean;
   sourceThreadRef?: ScopedThreadRef | null;
   delegatedAgents?: ReadonlyArray<DelegatedAgent>;
   sourceHistoryReady?: boolean;
@@ -88,8 +87,7 @@ function OverviewPopover({
   label,
   workspaceContent,
   onOpenChange,
-  dismissKey = 0,
-  panelOffset = 0,
+  hidden = false,
   versionControlContent,
   threadBoundaryRef,
   onDockedChange,
@@ -136,11 +134,10 @@ function OverviewPopover({
   // The shared header can live outside the thread pane, so report reserved space
   // to the pane owner instead of relying on the trigger being its DOM descendant.
   useLayoutEffect(() => {
-    onDockedChange?.(open && wide);
+    onDockedChange?.(open && wide && !hidden);
     return () => onDockedChange?.(false);
-  }, [open, wide, onDockedChange]);
+  }, [open, wide, hidden, onDockedChange]);
   useLayoutEffect(() => onOpenChange?.(open), [open, onOpenChange]);
-  useEffect(() => setOpen(false), [dismissKey]);
   const anchorRef = useRef<HTMLSpanElement>(null);
   const [sourcesExpanded, setSourcesExpanded] = useState(true);
   const [gitExpanded, setGitExpanded] = useState(true);
@@ -187,7 +184,7 @@ function OverviewPopover({
     landedView.current = view;
   }, [open, view, selectedAgent, expanded, availableSize]);
   useLayoutEffect(() => {
-    if (!open) return;
+    if (!open || hidden) return;
     const column =
       threadBoundaryRef?.current ?? anchorRef.current?.closest("[data-chat-column-maximized-away]");
     const header = anchorRef.current?.closest("[data-chat-header]");
@@ -226,7 +223,7 @@ function OverviewPopover({
       observer.disconnect();
       window.removeEventListener("resize", measure);
     };
-  }, [open, composerElement, threadBoundaryRef, panelOffset]);
+  }, [open, hidden, composerElement, threadBoundaryRef]);
   useEffect(() => {
     if (!sourceHistoryReady || memberIds) return;
     initialJobs.current ??= new Set(delegated.map(({ job }) => job.activityId));
@@ -274,12 +271,19 @@ function OverviewPopover({
 
   return (
     <Popover
-      open={open}
+      open={open && !hidden}
       onOpenChange={(nextOpen, details) => {
-        if (wide && (details.reason === "outside-press" || details.reason === "focus-out")) {
+        if (
+          (!nextOpen && hidden) ||
+          (details.reason === "outside-press" &&
+            details.event.target instanceof Element &&
+            details.event.target.closest("[data-agent-details-trigger]")) ||
+          (wide && (details.reason === "outside-press" || details.reason === "focus-out"))
+        ) {
           details.cancel();
           return;
         }
+        if (nextOpen) onOpenChange?.(true);
         setOpen(nextOpen);
       }}
     >
@@ -303,7 +307,6 @@ function OverviewPopover({
         ref={anchorRef}
         aria-hidden
         className="pointer-events-none absolute top-full right-(--workspace-gutter-end) size-0"
-        style={panelOffset ? { top: `calc(100% + ${panelOffset}px)` } : undefined}
       />
       <PopoverPrimitive.Portal>
         <PopoverPrimitive.Positioner
@@ -663,15 +666,29 @@ function OverviewPopover({
                   aria-label={`${selectedAgent.name} responses`}
                 >
                   {selectedAgent.jobs.map(({ job, data, project, working }) => {
+                    const responder = data?.respondingAgentProjectId
+                      ? roster.find(
+                          ({ project: member }) =>
+                            member.environmentId === sourceThreadRef?.environmentId &&
+                            member.id === data.respondingAgentProjectId,
+                        )?.project
+                      : project?.agentProfile?.group
+                        ? undefined
+                        : project;
                     const messages = data?.messages ?? [];
                     const first = messages[0];
                     // The task run supplies its own summary; old replies remain results.
                     const hasSummary = /^\*\*Task:\*\*\s*/i.test(first?.text ?? "");
                     const pendingSummary =
                       first?.streaming && "**task:**".startsWith(first.text.trim().toLowerCase());
-                    const ask = hasSummary ? first!.text.replace(/^\*\*Task:\*\*\s*/i, "") : null;
+                    const channelResponse = Boolean(project?.agentProfile?.group);
+                    const ask = hasSummary
+                      ? first!.text.replace(/^\*\*Task:\*\*\s*/i, "")
+                      : channelResponse
+                        ? (first?.text ?? null)
+                        : null;
                     const results = (
-                      hasSummary || pendingSummary ? messages.slice(1) : messages
+                      hasSummary || pendingSummary || channelResponse ? messages.slice(1) : messages
                     ).filter(({ text }) => text.trim());
                     return (
                       <section
@@ -680,8 +697,7 @@ function OverviewPopover({
                         data-agent-panel-message={first?.id}
                       >
                         <AgentMessageBubble
-                          avatar={project?.agentProfile?.avatar}
-                          group={Boolean(project?.agentProfile?.group)}
+                          avatar={responder?.agentProfile?.avatar}
                           working={working}
                         >
                           <div aria-label="Task summary">
@@ -703,8 +719,7 @@ function OverviewPopover({
                         {results.length ? (
                           <div data-agent-panel-message={results.at(-1)?.id}>
                             <AgentMessageBubble
-                              avatar={project?.agentProfile?.avatar}
-                              group={Boolean(project?.agentProfile?.group)}
+                              avatar={responder?.agentProfile?.avatar}
                               working={working}
                               bubble={false}
                             >

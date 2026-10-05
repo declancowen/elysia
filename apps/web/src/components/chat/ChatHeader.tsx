@@ -555,7 +555,6 @@ export const ChatHeader = memo(function ChatHeader({
                 wide={widePanels}
                 open={panels.detailsOpen}
                 onOpenChange={panels.detailsChanged}
-                onHeightChange={panels.setDetailsHeight}
                 {...(overview?.threadBoundaryRef
                   ? { threadBoundaryRef: overview.threadBoundaryRef }
                   : {})}
@@ -566,8 +565,7 @@ export const ChatHeader = memo(function ChatHeader({
                 {...overview}
                 onOpenChange={panels.overviewChanged}
                 onDockedChange={panels.setOverviewDocked}
-                dismissKey={panels.dismissOverview}
-                panelOffset={panels.panelOffset}
+                hidden={panels.overviewHidden}
                 workspaceContent={workspaceContent}
                 versionControlContent={versionControlContent}
                 transient={rightPanelOpen}

@@ -1,7 +1,7 @@
 import { RegistryContext, useAtomValue } from "@effect/atom-react";
 import { Link } from "@tanstack/react-router";
 import { useContext, useEffect, useState } from "react";
-import { makeWindow } from "@t3tools/shared/usageFormat";
+import { makeWindow, formatTokens } from "@t3tools/shared/usageFormat";
 import { UsageDay, isEnabledProviderDriver } from "@t3tools/contracts";
 import type { ElysiaStatsTotals } from "@t3tools/contracts";
 
@@ -17,6 +17,9 @@ import { UsageProviderChart } from "./UsageProviderChart";
 import { elysiaUsagePeriods, elysiaUsageRange, type ElysiaUsageResolution } from "./elysiaUsage";
 import { SidebarInset } from "../ui/sidebar";
 import { WorkspacePageContainer } from "../WorkspacePageContainer";
+import { ElysiaIcon } from "../Icons";
+import { Tooltip, TooltipTrigger, TooltipPopup } from "../ui/tooltip";
+import { PROVIDER_PRESENTATION } from "./usageProviders";
 
 const numberFormat = new Intl.NumberFormat();
 const savingsFormat = new Intl.NumberFormat(undefined, {
@@ -53,15 +56,12 @@ function SavingsSummary({
   ];
   return (
     <section className="space-y-3">
-      <h2 className="text-base font-medium">{title}</h2>
-      <dl className="grid gap-3 sm:grid-cols-2">
+      <h2 className="text-sm font-medium">{title}</h2>
+      <dl className="grid grid-cols-2 gap-x-6 gap-y-4 py-1 md:grid-cols-4">
         {values.map(([label, value]) => (
-          <div
-            key={label}
-            className="min-w-0 rounded-xl workspace-panel-outline bg-background px-5 py-4"
-          >
-            <dt className="text-sm text-muted-foreground">{label}</dt>
-            <dd className="mt-2 text-xl font-medium tabular-nums">{value}</dd>
+          <div key={label} className="min-w-0">
+            <dt className="text-xs text-muted-foreground">{label}</dt>
+            <dd className="mt-1 text-sm font-medium tabular-nums">{value}</dd>
           </div>
         ))}
       </dl>
@@ -162,18 +162,37 @@ export function ElysiaUsagePage() {
     <SidebarInset variant="standalone" className="min-h-0 overflow-hidden">
       <div className="min-h-0 flex-1 overflow-y-auto">
         <WorkspacePageContainer width="surface">
-          <div className="flex min-h-8 items-center justify-between gap-3">
+          <div className="flex min-h-8 flex-wrap items-center justify-between gap-3">
             <h1 className="text-xl font-medium">Stats</h1>
-            <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center gap-3">
               <ToggleGroup
-                value={[scope]}
+                value={[metric]}
+                aria-label="Chart metric"
                 onValueChange={(value) => {
-                  if (value[0]) setScope(value[0]);
+                  if (value[0] === "cost" || value[0] === "tokens") setMetric(value[0]);
                 }}
-                aria-label="Statistics scope"
               >
-                <ToggleGroupItem value="current">Current</ToggleGroupItem>
-                <ToggleGroupItem value="lifetime">Lifetime</ToggleGroupItem>
+                <ToggleGroupItem value="cost">Cost</ToggleGroupItem>
+                <ToggleGroupItem value="tokens">Tokens</ToggleGroupItem>
+              </ToggleGroup>
+              <ToggleGroup
+                value={[scope === "lifetime" ? "lifetime" : range]}
+                aria-label="Statistics scope"
+                onValueChange={(value) => {
+                  if (!value[0]) return;
+                  setScope(value[0] === "lifetime" ? "lifetime" : "current");
+                  if (value[0] !== "lifetime") setRange(value[0]);
+                }}
+              >
+                {["7", "30", "90", "lifetime", "custom"].map((value) => (
+                  <ToggleGroupItem key={value} value={value}>
+                    {value === "lifetime"
+                      ? "Lifetime"
+                      : value === "custom"
+                        ? "Custom"
+                        : `${value}d`}
+                  </ToggleGroupItem>
+                ))}
               </ToggleGroup>
               <Button
                 variant="secondary"
@@ -185,42 +204,55 @@ export function ElysiaUsagePage() {
               </Button>
             </div>
           </div>
-          <p className="text-sm text-muted-foreground">
-            Reads this app’s local Elysia CLI profile when Stats opens. Refresh reads the latest
-            figures. Reading statistics uses no model tokens.
-          </p>
           {query.isPending || usage.isPending ? (
             <p role="status" className="text-sm text-muted-foreground">
               Reading local statistics…
             </p>
           ) : null}
-          <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_20rem]">
+          <div className="flex min-w-0 flex-col gap-6">
             <div className="flex min-w-0 flex-col gap-6">
+              <section className="flex flex-col gap-3">
+                <h2 className="text-sm font-medium">Monthly API usage</h2>
+                <p className="text-sm tabular-nums">
+                  {monthlyAvailable ? savingsFormat.format(monthlyCost) : "Unavailable"} / $200
+                  {monthlyUnknown ? " · partial" : ""}
+                </p>
+                {monthlyAvailable ? (
+                  <Tooltip>
+                    <TooltipTrigger
+                      render={
+                        <div
+                          role="meter"
+                          tabIndex={0}
+                          aria-label="Monthly estimated usage cost"
+                          aria-valuemin={0}
+                          aria-valuemax={200}
+                          aria-valuenow={Math.min(200, monthlyCost)}
+                          aria-valuetext={`${savingsFormat.format(monthlyCost)} of $200`}
+                          className="relative h-6 rounded-full"
+                        >
+                          <div className="absolute inset-x-0 inset-y-1.5 rounded-full bg-muted" />
+                          <div
+                            className="absolute inset-y-1.5 left-0 rounded-full bg-primary"
+                            style={{ width: `${Math.min(100, monthlyCost / 2)}%` }}
+                          />
+                        </div>
+                      }
+                    />
+                    <TooltipPopup>
+                      Elysia · {savingsFormat.format(monthlyCost)} of $200 monthly target
+                      {monthlyUnknown ? " · partial estimate" : ""}
+                    </TooltipPopup>
+                  </Tooltip>
+                ) : null}
+                <p className="text-sm text-muted-foreground">
+                  Calendar month · {month} · API estimate
+                </p>
+              </section>
               <section className="flex flex-col gap-4">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <h2 className="text-base font-medium">Usage</h2>
                   <div className="flex flex-wrap items-center gap-2">
-                    {scope === "current" ? (
-                      <Select
-                        value={range}
-                        onValueChange={(value) => {
-                          if (value) setRange(value);
-                        }}
-                      >
-                        <SelectTrigger size="sm" aria-label="Usage range">
-                          {range === "custom" ? "Custom dates" : `Last ${range} days`}
-                        </SelectTrigger>
-                        <SelectPopup>
-                          <SelectGroup>
-                            {["7", "30", "90", "custom"].map((value) => (
-                              <SelectItem key={value} value={value}>
-                                {value === "custom" ? "Custom dates" : `Last ${value} days`}
-                              </SelectItem>
-                            ))}
-                          </SelectGroup>
-                        </SelectPopup>
-                      </Select>
-                    ) : null}
                     <Select
                       value={resolution}
                       onValueChange={(value) => {
@@ -254,16 +286,6 @@ export function ElysiaUsagePage() {
                         </SelectGroup>
                       </SelectPopup>
                     </Select>
-                    <ToggleGroup
-                      value={[metric]}
-                      onValueChange={(value) => {
-                        if (value[0] === "cost" || value[0] === "tokens") setMetric(value[0]);
-                      }}
-                      aria-label="Chart metric"
-                    >
-                      <ToggleGroupItem value="cost">Cost</ToggleGroupItem>
-                      <ToggleGroupItem value="tokens">Tokens</ToggleGroupItem>
-                    </ToggleGroup>
                   </div>
                 </div>
                 {scope === "current" && range === "custom" ? (
@@ -291,12 +313,19 @@ export function ElysiaUsagePage() {
                 ) : null}
                 <dl>
                   <dt className="text-sm text-muted-foreground">
-                    {unpricedRecords ? "Known usage cost" : "Total usage cost"} · USD estimate
+                    {metric === "tokens"
+                      ? "Processed tokens"
+                      : unpricedRecords
+                        ? "Known usage cost"
+                        : "Total usage cost"}{" "}
+                    · {metric === "cost" ? "API estimate" : "Elysia"}
                   </dt>
-                  <dd className="text-2xl font-medium tabular-nums">
-                    {coverage && (pricedRecords > 0 || buckets.length === 0)
-                      ? savingsFormat.format(cost)
-                      : "Unavailable"}
+                  <dd className="text-4xl font-semibold tabular-nums">
+                    {metric === "tokens" && coverage
+                      ? formatTokens(periods.reduce((sum, period) => sum + period.totalTokens, 0))
+                      : coverage && (pricedRecords > 0 || buckets.length === 0)
+                        ? savingsFormat.format(cost)
+                        : "Unavailable"}
                   </dd>
                 </dl>
                 {periods.length ? (
@@ -317,6 +346,18 @@ export function ElysiaUsagePage() {
                     No dated Elysia usage records in this range.
                   </p>
                 )}
+                <div
+                  className="flex items-center justify-center gap-2 text-sm"
+                  aria-label="Usage legend"
+                >
+                  <span
+                    aria-hidden
+                    className="size-2 rounded-full"
+                    style={{ backgroundColor: PROVIDER_PRESENTATION.claude.color }}
+                  />
+                  <ElysiaIcon className="size-4" />
+                  Elysia
+                </div>
                 <p className="text-sm text-muted-foreground">
                   Costs use native reported values or model pricing, including input and output
                   tokens. They are usage estimates, not a gateway bill. History covers retained CLI
@@ -353,33 +394,7 @@ export function ElysiaUsagePage() {
                 </dl>
               </section>
             </div>
-            <aside className="flex flex-col gap-6">
-              <section className="flex flex-col gap-3">
-                <h2 className="text-base font-medium">Monthly target</h2>
-                <p className="text-sm tabular-nums">
-                  {monthlyAvailable ? savingsFormat.format(monthlyCost) : "Unavailable"} / $200
-                  {monthlyUnknown ? " · partial" : ""}
-                </p>
-                {monthlyAvailable ? (
-                  <div
-                    role="meter"
-                    aria-label="Monthly estimated usage cost"
-                    aria-valuemin={0}
-                    aria-valuemax={200}
-                    aria-valuenow={Math.min(200, monthlyCost)}
-                    aria-valuetext={`${savingsFormat.format(monthlyCost)} of $200`}
-                    className="h-2 overflow-hidden rounded-full bg-input"
-                  >
-                    <div
-                      className="h-full rounded-full bg-primary"
-                      style={{ width: `${Math.min(100, monthlyCost / 2)}%` }}
-                    />
-                  </div>
-                ) : null}
-                <p className="text-sm text-muted-foreground">
-                  Calendar month · {month}. A tracking target; it does not enforce a spending limit.
-                </p>
-              </section>
+            <div className="flex flex-col gap-6">
               {totals ? (
                 <SavingsSummary
                   title={
@@ -401,7 +416,7 @@ export function ElysiaUsagePage() {
               {!provider ? (
                 <Button render={<Link to="/settings/providers" />}>Open Providers</Button>
               ) : null}
-            </aside>
+            </div>
           </div>
         </WorkspacePageContainer>
       </div>

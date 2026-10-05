@@ -22,14 +22,12 @@ export function AgentDetailsPopover({
   threadBoundaryRef,
   open: controlledOpen,
   onOpenChange,
-  onHeightChange,
   wide = false,
 }: {
   projectRef: ScopedProjectRef | null;
   defaultOpen?: boolean;
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
-  onHeightChange?: (height: number) => void;
   wide?: boolean;
   threadBoundaryRef?: RefObject<HTMLElement | null>;
 }) {
@@ -44,22 +42,6 @@ export function AgentDetailsPopover({
     setLocalOpen(value);
     onOpenChange?.(value);
   };
-  const [content, setContent] = useState<HTMLDivElement | null>(null);
-  useLayoutEffect(() => {
-    const popup = content?.closest<HTMLElement>('[data-slot="popover-popup"]');
-    if (!open || !popup) {
-      onHeightChange?.(0);
-      return;
-    }
-    const measure = () => onHeightChange?.(Math.ceil(popup.getBoundingClientRect().height));
-    measure();
-    const observer = new ResizeObserver(measure);
-    observer.observe(popup);
-    return () => {
-      observer.disconnect();
-      onHeightChange?.(0);
-    };
-  }, [open, content, onHeightChange]);
   const anchorRef = useRef<HTMLSpanElement>(null);
   const navigate = useNavigate();
   const close = () => setOpen(false);
@@ -87,6 +69,7 @@ export function AgentDetailsPopover({
           <Button
             size="icon-sm"
             variant="ghost"
+            data-agent-details-trigger
             aria-label={`Manage ${current.project.title}`}
             title="Agents"
           />
@@ -124,7 +107,7 @@ export function AgentDetailsPopover({
             }
           : {})}
       >
-        <div ref={setContent} className="space-y-4">
+        <div className="space-y-4">
           <AgentDetails agent={current} onClose={close} />
           <div className="border-t pt-3">
             <Button
@@ -245,6 +228,8 @@ function AgentDetails({ agent, onClose }: { agent: AgentRosterEntry; onClose: ()
           <ArchiveIcon />
           {pending ? "Archiving…" : profile.group ? "Archive channel" : "Archive agent"}
         </Button>
+      </div>
+      <div className="flex items-center gap-2">
         <Button
           size="sm"
           variant="ghost"
@@ -263,19 +248,18 @@ function AgentDetails({ agent, onClose }: { agent: AgentRosterEntry; onClose: ()
           <ClockIcon />
           Scheduled
         </Button>
+        {agent.thread ? (
+          <ClearAgentChatButton
+            key={agent.thread.id}
+            target={{
+              projectId: project.id,
+              threadRef: { environmentId: project.environmentId, threadId: agent.thread.id },
+              name: project.title,
+              channel: !!profile.group,
+            }}
+          />
+        ) : null}
       </div>
-      {agent.thread ? (
-        <ClearAgentChatButton
-          key={agent.thread.id}
-          target={{
-            projectId: project.id,
-            threadRef: { environmentId: project.environmentId, threadId: agent.thread.id },
-            name: project.title,
-            channel: !!profile.group,
-          }}
-          className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-sm hover:bg-accent/50 disabled:cursor-default"
-        />
-      ) : null}
       {busy ? (
         <p className="text-xs text-muted-foreground">
           Wait for the current task to finish before making changes.

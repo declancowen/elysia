@@ -46,9 +46,7 @@ afterEach(async () => {
   vi.unstubAllGlobals();
 });
 async function click(channel = false) {
-  await act(async () =>
-    root.render(<ClearAgentChatButton target={{ ...target, channel }} className="" />),
-  );
+  await act(async () => root.render(<ClearAgentChatButton target={{ ...target, channel }} />));
   await act(async () => host.querySelector("button")!.click());
 }
 it("cancel keeps the conversation and memory intact", async () => {
@@ -63,6 +61,7 @@ it("cancel keeps the conversation and memory intact", async () => {
 });
 it("confirmed reset replaces the tab and clears the old composer before opening a fresh chat", async () => {
   await click();
+  expect(host.querySelector("button")?.textContent).toContain("Reset agent");
   expect(state.reset).toHaveBeenCalledWith({
     environmentId: threadRef.environmentId,
     input: expect.objectContaining({
@@ -82,6 +81,7 @@ it("confirmed reset replaces the tab and clears the old composer before opening 
 });
 it("explains that clearing a channel preserves member agents' separate memory", async () => {
   await click(true);
+  expect(host.querySelector("button")?.textContent).toContain("Reset channel");
   expect(state.confirm).toHaveBeenCalledWith(
     expect.stringContaining("Member agents keep their separate chats and memories"),
     { variant: "destructive" },
@@ -100,7 +100,7 @@ it("failed reset stays on the chat and retries the same request safely", async (
 it("clearing a response side panel keeps the source thread open", async () => {
   const onCleared = vi.fn();
   await act(async () =>
-    root.render(<ClearAgentChatButton target={target} className="" onCleared={onCleared} />),
+    root.render(<ClearAgentChatButton target={target} onCleared={onCleared} />),
   );
   await act(async () => host.querySelector("button")!.click());
   expect(onCleared).toHaveBeenCalledOnce();

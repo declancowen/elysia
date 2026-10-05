@@ -54,12 +54,15 @@ it.effect(
       const projects = yield* ProjectStore.ProjectStoreV2;
       const now = yield* DateTime.now;
       const member = ProjectId.make("member");
+      const other = ProjectId.make("other");
+      const otherChat = ThreadId.make("other-chat");
       const team = ProjectId.make("team");
       const memberChat = ThreadId.make("member-chat");
       const channel = ThreadId.make("channel-chat");
       const outside = ThreadId.make("outside-chat");
       for (const [id, threadId] of [
         [member, memberChat],
+        [other, otherChat],
         [team, channel],
       ] as const) {
         yield* projects.apply({
@@ -101,6 +104,7 @@ it.effect(
       }
       for (const [threadId, projectId] of [
         [memberChat, member],
+        [otherChat, other],
         [channel, team],
         [outside, ProjectId.make("external")],
       ] as const)
@@ -228,6 +232,53 @@ it.effect(
         continued.runs.at(-1)?.providerThreadId,
         memberState.runs[0]!.providerThreadId,
       );
+
+      yield* orchestrator.dispatch({
+        type: "thread.model-selection.set",
+        commandId: CommandId.make("reviewer-model"),
+        threadId: otherChat,
+        modelSelection: { ...modelSelection, model: "gpt-5-4" },
+      });
+      yield* orchestrator.dispatch({
+        type: "message.dispatch",
+        commandId: CommandId.make("channel-collaboration"),
+        messageId: MessageId.make("channel-collaboration"),
+        threadId: channel,
+        channelAgentProjectId: other,
+        text: "Review the shared approach.",
+        attachments: [],
+        createdBy: "agent",
+        creationSource: "mcp",
+        dispatchMode: { type: "queue_after_active" },
+        context: withChannelReply(undefined, {
+          replyToMessageId: MessageId.make("child"),
+          rootMessageId: MessageId.make("child"),
+        }),
+      });
+      const collaboration = yield* projections.getThreadProjection(channel);
+      assert.equal(collaboration.runs.at(-1)?.channelAgentProjectId, other);
+      assert.equal(collaboration.runs.at(-1)?.modelSelection.model, "gpt-5-4");
+      assert.equal(collaboration.runs.at(-1)?.status, "queued");
+      assert.equal(
+        readChannelReply(collaboration.messages.at(-1)?.context)?.rootMessageId,
+        "parent",
+      );
+      assert.equal((yield* projections.getThreadProjection(otherChat)).messages.length, 0);
+      const ordinaryMember = yield* orchestrator
+        .dispatch({
+          type: "message.dispatch",
+          commandId: CommandId.make("invalid-member-target"),
+          messageId: MessageId.make("invalid-member-target"),
+          threadId: outside,
+          channelAgentProjectId: member,
+          text: "Review this",
+          attachments: [],
+          createdBy: "agent",
+          creationSource: "mcp",
+          dispatchMode: { type: "queue_after_active" },
+        })
+        .pipe(Effect.flip);
+      assert.equal(ordinaryMember._tag, "OrchestratorDispatchError");
       yield* dispatch(outside, "outside");
       const invalid = yield* dispatch(
         channel,

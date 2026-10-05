@@ -162,6 +162,32 @@ export const layerFromProjectStore: Layer.Layer<
           }
           agent = member.value;
         }
+        const group = project?.agentProfile?.group;
+        const members = group
+          ? yield* Effect.forEach(group.memberProjectIds, (id) =>
+              projects.get(id).pipe(
+                Effect.mapError(
+                  (cause) =>
+                    new RuntimePolicyResolveError({
+                      projectId: input.thread.projectId,
+                      providerInstanceId: input.modelSelection.instanceId,
+                      cause,
+                    }),
+                ),
+              ),
+            )
+          : [];
+        const roster = members
+          .flatMap((member) =>
+            Option.isSome(member) &&
+            member.value.deletedAt === null &&
+            member.value.agentProfile &&
+            !member.value.agentProfile.archived &&
+            !member.value.agentProfile.group
+              ? [`${member.value.title} (projectId: ${member.value.projectId})`]
+              : [],
+          )
+          .join(", ");
         const cwd =
           project?.agentProfile?.group?.workspaceRoot ??
           input.thread.worktreePath ??
@@ -174,12 +200,15 @@ export const layerFromProjectStore: Layer.Layer<
             ? {
                 persistentAgent: {
                   name: agent.title,
+                  ...(group ? { channelThreadId: input.thread.id } : {}),
                   ...(agent.agentProfile.title ? { title: agent.agentProfile.title } : {}),
                   instructions: [
                     agent.agentProfile.instructions,
                     ...(project?.agentProfile?.group
                       ? [
                           `You are responding as ${agent.title} in channel ${project.title}. Keep all work and responses in this channel.`,
+                          "Messages here are normal conversation, not external delegated tasks. Answer the latest message directly. Do not send a task receipt or a **Task:** summary unless the user asks for one.",
+                          `Channel members: ${roster}. When another member's contribution is needed, call t3_thread_send with threadId ${input.thread.id}, channelAgentProjectId set to that member's projectId, mode queue, and a specific message. This queues their response here with the shared channel history. Do not open their standalone chat or repeatedly hand work back and forth.`,
                           `Channel description: ${project.agentProfile.instructions}`,
                         ]
                       : []),

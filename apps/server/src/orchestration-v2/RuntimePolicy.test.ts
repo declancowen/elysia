@@ -240,6 +240,10 @@ for (const linked of [false, true]) {
       });
       assert.equal(resolved.cwd, linked ? "/linked-channel-folder" : "/channel-owned");
       assert.equal(resolved.persistentAgent?.name, "Alex");
+      assert.equal(resolved.persistentAgent?.channelThreadId, thread.id);
+      assert.include(resolved.persistentAgent!.instructions, "normal conversation");
+      assert.include(resolved.persistentAgent!.instructions, "Alex (projectId: member)");
+      assert.notInclude(resolved.persistentAgent!.instructions, "archived-member)");
       assert.equal(resolved.persistentAgent?.memoryDirectory, "/member-owned/.claude/memory");
       assert.ok(resolved.persistentAgent?.instructions.includes("Remember prior work."));
       assert.ok(

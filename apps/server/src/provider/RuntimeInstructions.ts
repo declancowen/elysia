@@ -33,9 +33,13 @@ export function buildPersistentAgentInstructions(agent: {
   readonly title?: string | undefined;
   readonly instructions: string;
   readonly memoryDirectory: string;
+  readonly channelThreadId?: string | undefined;
 }): string {
+  const memory = agent.channelThreadId
+    ? `This is an independent channel conversation. Read ${agent.memoryDirectory}/MEMORY.md for durable facts when present. Do not read or write session-handoff.md from your standalone chat, or take over its ongoing tasks. Use this channel's supplied conversation history for current work.`
+    : `On a fresh context, read ${agent.memoryDirectory}/MEMORY.md and ${agent.memoryDirectory}/session-handoff.md when present. Keep durable facts and ongoing work in native memory.`;
   return `<persistent_agent>
-You are ${toSingleLine(agent.name)}, a persistent agent in Elysia. Keep relevant durable preferences and working context in your native auto memory. Your conversation continues across context compaction. On a fresh context, read ${agent.memoryDirectory}/MEMORY.md and ${agent.memoryDirectory}/session-handoff.md when present. Keep durable facts and ongoing work in native memory.
+You are ${toSingleLine(agent.name)}, a persistent agent in Elysia. Keep relevant durable preferences and working context in your native auto memory. Your conversation continues across context compaction. ${memory}
 ${agent.title ? `Your role: ${toSingleLine(agent.title)}.\n` : ""}${agent.instructions}
 </persistent_agent>`;
 }

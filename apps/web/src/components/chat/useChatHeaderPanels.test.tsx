@@ -52,7 +52,6 @@ function Panels() {
         open={panels.detailsOpen}
         wide={state.wide}
         onOpenChange={panels.detailsChanged}
-        onHeightChange={panels.setDetailsHeight}
       />
       <ThreadOverviewPanel
         threadKey="conversation"
@@ -66,8 +65,7 @@ function Panels() {
         onOpenSource={() => {}}
         onOpenChange={panels.overviewChanged}
         onDockedChange={panels.setOverviewDocked}
-        dismissKey={panels.dismissOverview}
-        panelOffset={panels.panelOffset}
+        hidden={panels.overviewHidden}
       />
     </>
   );
@@ -115,32 +113,33 @@ it("replaces panels in overflow and puts clearing only in agent/channel details"
   await act(async () => root.render(<Panels />));
   await click("Thread overview");
   expect(document.body.textContent).toContain("Sources");
-  expect(document.querySelector('[aria-label="Clear chat and context"]')).toBeNull();
+  expect(document.querySelector('[aria-label="Reset channel"]')).toBeNull();
   await click("Manage Design");
   expect(document.body.textContent).toContain("Channel description");
-  expect(document.querySelector('[aria-label="Clear chat and context"]')).not.toBeNull();
+  expect(document.querySelector('[aria-label="Reset channel"]')).not.toBeNull();
   expect(document.body.textContent).not.toContain("Agent channel");
   expect(document.body.textContent).not.toContain("Sources");
   await click("Thread overview");
   expect(document.body.textContent).toContain("Sources");
   expect(document.body.textContent).not.toContain("Channel description");
 });
-it("stacks wide panels and returns the overview to the top when details dismiss", async () => {
-  state.wide = true;
-  await act(async () => root.render(<Panels />));
-  await click("Thread overview");
-  await click("Manage Design");
-  expect(document.body.textContent).toContain("Sources");
-  expect(document.body.textContent).toContain("Channel description");
-  expect(host.querySelector('span[aria-hidden][style*="232px"]')).not.toBeNull();
-  expect(state.docked).toHaveBeenLastCalledWith(true);
-  await act(async () => {
-    document.body.dispatchEvent(new MouseEvent("pointerdown", { bubbles: true }));
-    document.body.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
-    document.body.click();
-  });
-  expect(document.body.textContent).not.toContain("Channel description");
-  expect(document.body.textContent).toContain("Sources");
-  expect(host.querySelector('span[aria-hidden][style*="232px"]')).toBeNull();
-  expect(state.docked).toHaveBeenLastCalledWith(true);
-});
+it.each([false, true])(
+  "temporarily hides the overview and restores it when details dismiss (wide=%s)",
+  async (wide) => {
+    state.wide = wide;
+    await act(async () => root.render(<Panels />));
+    await click("Thread overview");
+    await click("Manage Design");
+    expect(document.body.textContent).not.toContain("Sources");
+    expect(document.body.textContent).toContain("Channel description");
+    expect(state.docked).toHaveBeenLastCalledWith(wide);
+    await act(async () => {
+      document.body.dispatchEvent(new MouseEvent("pointerdown", { bubbles: true }));
+      document.body.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+      document.body.click();
+    });
+    expect(document.body.textContent).not.toContain("Channel description");
+    expect(document.body.textContent).toContain("Sources");
+    expect(state.docked).toHaveBeenLastCalledWith(wide);
+  },
+);

@@ -2310,13 +2310,7 @@ function UserTimelineRow({ row }: { row: Extract<TimelineRow, { kind: "message" 
   );
 
   const messageActions = (
-    <div
-      className={cn(
-        "flex items-center gap-2 text-xs tabular-nums",
-        ctx.channel ? "mt-1" : "w-full max-w-[80%] justify-end pe-1",
-      )}
-    >
-      {ctx.channel ? <ChannelReplyAction message={row.message} /> : null}
+    <div className="flex w-full max-w-[80%] items-center justify-end gap-2 pe-1 text-xs tabular-nums">
       <div className="flex shrink-0 items-center gap-2 opacity-0 transition-opacity duration-200 pointer-coarse:opacity-100 focus-within:opacity-100 group-hover:opacity-100">
         <Tooltip>
           <TooltipTrigger render={<p className="text-muted-foreground text-xs tabular-nums" />}>
@@ -2351,6 +2345,7 @@ function UserTimelineRow({ row }: { row: Extract<TimelineRow, { kind: "message" 
           )}
         </div>
       </div>
+      {ctx.channel ? <ChannelReplyAction message={row.message} /> : null}
     </div>
   );
 
@@ -2526,7 +2521,6 @@ function UserTimelineRow({ row }: { row: Extract<TimelineRow, { kind: "message" 
             }
           />
         </div>
-        {ctx.channel ? messageActions : null}
       </div>
       {row.projectedItem &&
       row.projectedItem.item.status !== "completed" &&
@@ -2538,7 +2532,7 @@ function UserTimelineRow({ row }: { row: Extract<TimelineRow, { kind: "message" 
           </span>
         </div>
       ) : null}
-      {!ctx.channel ? messageActions : null}
+      {messageActions}
     </div>
   );
 }

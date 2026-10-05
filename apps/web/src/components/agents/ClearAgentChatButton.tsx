@@ -11,6 +11,7 @@ import { buildThreadRouteParams } from "~/threadRoutes";
 import { Trash2Icon } from "~/icons";
 import { Tooltip, TooltipTrigger, TooltipPopup } from "../ui/tooltip";
 import { toastManager } from "../ui/toast";
+import { Button } from "../ui/button";
 
 export interface AgentChatResetTarget {
   projectId: ProjectId;
@@ -21,12 +22,10 @@ export interface AgentChatResetTarget {
 
 export function ClearAgentChatButton({
   target,
-  className,
   iconOnly = false,
   onCleared,
 }: {
   target: AgentChatResetTarget;
-  className: string;
   iconOnly?: boolean;
   onCleared?: () => void;
 }) {
@@ -43,7 +42,7 @@ export function ClearAgentChatButton({
     setPending(true);
     try {
       const confirmed = await api.dialogs.confirm(
-        `Clear ${target.name}'s chat and context?\n\nThis removes the ${target.channel ? "channel" : "agent"}'s conversation and saved memory and starts it over. This cannot be undone.${target.channel ? " Member agents keep their separate chats and memories." : ""}`,
+        `Reset ${target.channel ? "channel" : "agent"} ${target.name}?\n\nThis removes the ${target.channel ? "channel" : "agent"}'s conversation and saved memory and starts it over. This cannot be undone.${target.channel ? " Member agents keep their separate chats and memories." : ""}`,
         { variant: "destructive" },
       );
       if (!confirmed) return;
@@ -56,7 +55,7 @@ export function ClearAgentChatButton({
         },
       });
       if (result._tag === "Failure")
-        throw new Error("Could not clear the chat and context. Try again.");
+        throw new Error("Could not reset the conversation. Try again.");
       const nextRef = {
         environmentId: target.threadRef.environmentId,
         threadId: result.value.threadId,
@@ -77,29 +76,30 @@ export function ClearAgentChatButton({
     } catch (error) {
       toastManager.add({
         type: "error",
-        title: "Could not clear chat",
+        title: `Could not reset ${target.channel ? "channel" : "agent"}`,
         description: error instanceof Error ? error.message : "Try again.",
       });
     } finally {
       setPending(false);
     }
   };
+  const label = target.channel ? "Reset channel" : "Reset agent";
   const button = (
-    <button
-      type="button"
-      aria-label="Clear chat and context"
-      className={className}
+    <Button
+      variant="ghost"
+      size={iconOnly ? "icon-xs" : "sm"}
+      aria-label={label}
       disabled={pending}
       onClick={() => void clear()}
     >
       <Trash2Icon className="size-4" />
-      {iconOnly ? null : pending ? "Clearing chat…" : "Clear chat and context"}
-    </button>
+      {iconOnly ? null : pending ? "Resetting…" : label}
+    </Button>
   );
   return iconOnly ? (
     <Tooltip>
       <TooltipTrigger render={button} />
-      <TooltipPopup>Clear chat and context</TooltipPopup>
+      <TooltipPopup>{label}</TooltipPopup>
     </Tooltip>
   ) : (
     button

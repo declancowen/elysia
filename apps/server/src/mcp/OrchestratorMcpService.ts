@@ -1,3 +1,4 @@
+import { withChannelReply } from "@t3tools/shared/channelReplies";
 import {
   CommandId,
   type RunId,
@@ -1834,7 +1835,32 @@ const make = Effect.gen(function* () {
         yield* resolveRuntimeMode(parent.thread.runtimeMode, target.thread.runtimeMode);
         yield* resolveInteractionMode(parent.thread.interactionMode, target.thread.interactionMode);
 
-        const mode = input.mode ?? "auto";
+        if (input.channelAgentProjectId && input.threadId !== scope.threadId)
+          return yield* failure(
+            "invalid_request",
+            "Channel members can only be addressed in the calling channel.",
+          );
+        const callingRun = parent.runs.findLast(
+          (run) =>
+            run.status === "running" &&
+            parent.providerThreads.some(
+              (thread) =>
+                thread.id === run.providerThreadId &&
+                thread.providerSessionId === scope.providerSessionId,
+            ),
+        );
+        const topic =
+          input.channelAgentProjectId && callingRun?.channelAgentProjectId
+            ? parent.messages.findLast(
+                (message) => message.runId === callingRun.id && message.role === "user",
+              )
+            : undefined;
+        if (
+          input.channelAgentProjectId &&
+          (!topic || input.channelAgentProjectId === callingRun?.channelAgentProjectId)
+        )
+          return yield* failure("invalid_request", "The channel topic is unavailable.");
+        const mode = input.channelAgentProjectId ? "queue" : (input.mode ?? "auto");
         const key = yield* requestKey(input.clientRequestId);
         const messageId = stableOperationMessageId({
           scope,
@@ -1851,6 +1877,17 @@ const make = Effect.gen(function* () {
             }),
             threadId: input.threadId,
             senderThreadId: scope.threadId,
+            ...(input.channelAgentProjectId
+              ? { channelAgentProjectId: input.channelAgentProjectId }
+              : {}),
+            ...(topic
+              ? {
+                  context: withChannelReply(undefined, {
+                    replyToMessageId: topic.id,
+                    rootMessageId: topic.id,
+                  }),
+                }
+              : {}),
             messageId,
             text: input.message,
             attachments: [],

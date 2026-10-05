@@ -2,6 +2,7 @@ import * as NodeServices from "@effect/platform-node/NodeServices";
 import { assert, describe, it } from "@effect/vitest";
 import {
   EnvironmentId,
+  MessageId,
   NodeId,
   ProjectId,
   ProviderDriverKind,
@@ -21,6 +22,7 @@ import * as ThreadManagementService from "../orchestration-v2/ThreadManagementSe
 import * as ProviderRegistry from "../provider/Services/ProviderRegistry.ts";
 import { buildUnavailableProviderSnapshot } from "../provider/unavailableProviderSnapshot.ts";
 import * as ScheduledTaskService from "../scheduledTasks/ScheduledTaskService.ts";
+import { readChannelReply } from "@t3tools/shared/channelReplies";
 import type { McpInvocationScope } from "./McpInvocationContext.ts";
 import * as OrchestratorMcpService from "./OrchestratorMcpService.ts";
 
@@ -1128,3 +1130,86 @@ describe("OrchestratorMcpService provider resolution", () => {
       }),
   );
 });
+
+it.effect(
+  "queues another channel member under the current topic and rejects stale or foreign callers",
+  () =>
+    Effect.gen(function* () {
+      const threadId = ThreadId.make("channel-collaboration");
+      const member = ProjectId.make("reviewer");
+      const runId = RunId.make("current-run");
+      const scope: McpInvocationScope = {
+        environmentId: EnvironmentId.make("local"),
+        threadId,
+        providerSessionId: "channel-session",
+        providerInstanceId: ProviderInstanceId.make("claudeAgent"),
+        capabilities: new Set(["orchestration"]),
+        issuedAt: 0,
+      };
+      const projection = {
+        thread: {
+          id: threadId,
+          projectId: ProjectId.make("channel"),
+          runtimeMode: "full-access",
+          interactionMode: "default",
+        },
+        runs: [
+          {
+            id: runId,
+            status: "running",
+            providerThreadId: "native-channel",
+            channelAgentProjectId: ProjectId.make("lead"),
+          },
+        ],
+        providerThreads: [{ id: "native-channel", providerSessionId: scope.providerSessionId }],
+        messages: [{ id: MessageId.make("human-topic"), role: "user", runId }],
+      } as unknown as OrchestrationV2ThreadProjection;
+      const sent = yield* Ref.make<
+        ReadonlyArray<ThreadManagementService.ThreadManagementSendInput>
+      >([]);
+      const dependencies = Layer.mergeAll(
+        NodeServices.layer,
+        Layer.mock(ThreadManagementService.ThreadManagementService)({
+          getThreadRecords: () => Effect.succeed(projection),
+          getProjectThreadRecords: () => Effect.succeed(projection),
+          sendToThread: (input) =>
+            Ref.update(sent, (values) => [...values, input]).pipe(
+              Effect.as({
+                run: { id: RunId.make("review-run"), status: "queued" },
+                delivery: "queued",
+              } as ThreadManagementService.ThreadManagementSendResult),
+            ),
+        }),
+        Layer.mock(ProviderRegistry.ProviderRegistry)({}),
+        ProviderAdapterRegistry.makeLayer([]),
+        Layer.mock(ScheduledTaskService.ScheduledTaskService)({}),
+      );
+      yield* Effect.gen(function* () {
+        const service = yield* OrchestratorMcpService.OrchestratorMcpService;
+        const request = {
+          threadId,
+          channelAgentProjectId: member,
+          message: "Review this approach.",
+          clientRequestId: "review-topic",
+        };
+        const result = yield* service.sendToThread(scope, request);
+        assert.equal(result.delivery, "queued");
+        assert.deepEqual(yield* service.sendToThread(scope, request), result);
+        const inputs = yield* Ref.get(sent);
+        assert.equal(inputs[0]!.commandId, inputs[1]!.commandId);
+        assert.equal(inputs[0]!.channelAgentProjectId, member);
+        assert.equal(inputs[0]!.threadId, threadId);
+        assert.equal(inputs[0]!.mode, "queue");
+        assert.equal(readChannelReply(inputs[0]!.context)?.replyToMessageId, "human-topic");
+        for (const [caller, input] of [
+          [{ ...scope, providerSessionId: "stale" }, request],
+          [scope, { ...request, threadId: ThreadId.make("other-channel") }],
+          [scope, { ...request, channelAgentProjectId: ProjectId.make("lead") }],
+        ] as const) {
+          const error = yield* service.sendToThread(caller, input).pipe(Effect.flip);
+          assert.equal(error.code, "invalid_request");
+        }
+        assert.equal((yield* Ref.get(sent)).length, 2);
+      }).pipe(Effect.provide(OrchestratorMcpService.layer.pipe(Layer.provide(dependencies))));
+    }),
+);

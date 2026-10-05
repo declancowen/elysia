@@ -659,6 +659,9 @@ const getAgentDelegationImpl = Effect.fn("getAgentDelegation")(function* (
     });
     return {
       ...result,
+      ...(member.respondingAgentProjectId
+        ? { respondingAgentProjectId: member.respondingAgentProjectId }
+        : {}),
       status: member.status,
       messages: member.messages,
       truncated: member.truncated,
@@ -679,6 +682,7 @@ const getAgentDelegationImpl = Effect.fn("getAgentDelegation")(function* (
   return {
     ...result,
     targetTurnId: TurnId.make(request.runId),
+    ...(run.channelAgentProjectId ? { respondingAgentProjectId: run.channelAgentProjectId } : {}),
     status:
       run.status === "failed"
         ? "error"

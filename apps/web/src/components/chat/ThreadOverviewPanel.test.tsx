@@ -16,6 +16,7 @@ const state = vi.hoisted(() => ({
   wide: false,
   code: true,
   delegated: [] as DelegatedAgentView[],
+  roster: [] as { project: NonNullable<DelegatedAgentView["project"]> }[],
 }));
 vi.mock("~/hooks/useMediaQuery", () => ({ useMediaQuery: () => state.wide }));
 vi.mock("~/hooks/useSettings", () => ({ useCodeWorkspace: () => state.code }));
@@ -23,6 +24,7 @@ vi.mock("../agents/useDelegatedAgents", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../agents/useDelegatedAgents")>()),
   useDelegatedAgents: () => state.delegated,
 }));
+vi.mock("../agents/useAgents", () => ({ useAgents: () => state.roster }));
 vi.mock("../ChatMarkdown", () => ({ default: ({ text }: { text: string }) => <p>{text}</p> }));
 
 import { ThreadOverviewPanel, type ThreadOverviewPanelProps } from "./ThreadOverviewPanel";
@@ -95,6 +97,7 @@ beforeEach(async () => {
   state.wide = false;
   state.code = true;
   state.delegated = [];
+  state.roster = [];
   useThreadOverviewStore.setState({ target: null });
   vi.clearAllMocks();
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
@@ -451,6 +454,7 @@ it.each([false, true])(
         },
         data: {
           ...agent.data!,
+          ...(group ? { respondingAgentProjectId: ProjectId.make("member") } : {}),
           messages: ["**Task:** Check it.", "First progress", "Next progress", "Final result"].map(
             (text) => ({
               id: MessageId.make(text),
@@ -465,21 +469,35 @@ it.each([false, true])(
         },
       },
     ];
-    await render({ delegatedAgents: [agent.job] });
+    if (group)
+      state.roster = [
+        {
+          project: {
+            ...state.delegated[0]!.project!,
+            id: ProjectId.make("member"),
+            agentProfile: {
+              ...state.delegated[0]!.project!.agentProfile!,
+              group: undefined,
+              avatar: { preset: "circle", color: "blue" },
+            },
+          },
+        },
+      ];
+    await render({
+      sourceThreadRef: {
+        environmentId: EnvironmentId.make("local"),
+        threadId: ThreadId.make("source"),
+      },
+      delegatedAgents: [agent.job],
+    });
     const body = document.querySelector<HTMLElement>("[data-agent-panel-scroll]")!;
-    expect(body.querySelectorAll(group ? '[data-icon="channel"]' : ".agent-avatar")).toHaveLength(
-      2,
-    );
+    expect(body.querySelectorAll(".agent-avatar")).toHaveLength(2);
     for (const text of ["Check it.", "First progress", "Next progress", "Final result"])
       expect(body.textContent).toContain(text);
     await click("Expand agent responses");
-    expect(body.querySelectorAll(group ? '[data-icon="channel"]' : ".agent-avatar")).toHaveLength(
-      2,
-    );
+    expect(body.querySelectorAll(".agent-avatar")).toHaveLength(2);
     await click("Collapse agent responses");
-    expect(body.querySelectorAll(group ? '[data-icon="channel"]' : ".agent-avatar")).toHaveLength(
-      2,
-    );
+    expect(body.querySelectorAll(".agent-avatar")).toHaveLength(2);
   },
 );
 

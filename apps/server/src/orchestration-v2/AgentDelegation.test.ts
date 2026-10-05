@@ -655,6 +655,7 @@ describe("V2 persistent delegation", () => {
                 )!.id,
               ),
             });
+            assert.equal(response.respondingAgentProjectId, agentId);
             assert.include(
               response.messages.map((message) => message.text).join("\n"),
               "Channel result",

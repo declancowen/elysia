@@ -60,6 +60,7 @@ export const ProviderSessionStartInput = Schema.Struct({
       title: Schema.optional(TrimmedNonEmptyString),
       instructions: Schema.String,
       memoryDirectory: TrimmedNonEmptyString,
+      channelThreadId: Schema.optional(ThreadId),
     }),
   ),
   threadId: ThreadId,

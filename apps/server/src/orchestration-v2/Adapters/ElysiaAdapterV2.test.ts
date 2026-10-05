@@ -111,69 +111,78 @@ describe("Elysia V2 runtime boundary", () => {
         ),
       ),
   );
-  it("keeps gateway model, compression, tracing and protected credentials in full access", () => {
-    const options = makeClaudeQueryOptions({
-      modelSelection: {
-        instanceId: ProviderInstanceId.make("claudeAgent"),
-        model: "gpt-5-4",
-        options: [{ id: "effort", value: "xhigh" }],
-      },
-      modelCatalog,
-      nativeThreadId: "native-thread",
-      resume: false,
-      cwd: "/tmp/elysia-agent-workspace",
-      permissionMode: "bypassPermissions",
-      allowDangerouslySkipPermissions: true,
-      settings: decodeClaudeSettings({ binaryPath: "/tmp/native-claude" }),
-      environment: {
-        ELYSIA_PROFILE_ROOT: "/tmp/elysia-v2-profile",
-        ELYSIA_REAL_HOME: "/tmp/elysia-v2-real-home",
-        CLAUDE_CONFIG_DIR: "/tmp/elysia-v2-profile/.claude",
-        ANTHROPIC_BASE_URL: "http://127.0.0.1:9123",
-        ANTHROPIC_AUTH_TOKEN: "fixture-token",
-        ANTHROPIC_CUSTOM_HEADERS: "Workspace: fixture",
-        TRACE_TO_LANGSMITH: "true",
-        CC_LANGSMITH_METADATA: '{"compression":"enabled"}',
-      },
-      persistentAgent: {
-        name: "Your First Agent",
-        instructions: "Help finish work.",
-        memoryDirectory: "/tmp/elysia-agent-workspace/.claude/memory",
-      },
-    });
-    expect(options.model).toBe("gpt-5-4");
-    expect(options.effort).toBe("xhigh");
-    expect(options.pathToClaudeCodeExecutable).toBe("/tmp/native-claude");
-    expect(options.settingSources).toEqual(["user", "project", "local"]);
-    expect(options.env).toMatchObject({
-      ANTHROPIC_BASE_URL: "http://127.0.0.1:9123",
-      TRACE_TO_LANGSMITH: "true",
-      ELYSIA_ACTIVE_MODEL: "gpt-5-4",
-      DISABLE_AUTO_COMPACT: "0",
-      DISABLE_COMPACT: "0",
-      ANTHROPIC_CUSTOM_MODEL_OPTION: "gpt-5-4",
-      ANTHROPIC_CUSTOM_MODEL_OPTION_SUPPORTED_CAPABILITIES: "effort,xhigh_effort",
-    });
-    expect(options.managedSettings).toMatchObject({
-      autoCompactEnabled: true,
-      autoMemoryEnabled: true,
-      autoMemoryDirectory: "/tmp/elysia-agent-workspace/.claude/memory",
-      availableModels: ["gpt-5-4", "deepseek-v4.1-flash"],
-      enforceAvailableModels: true,
-      sandbox: {
-        enabled: true,
-        failIfUnavailable: true,
-        allowUnsandboxedCommands: false,
-        credentials: {
-          envVars: expect.arrayContaining([{ name: "ANTHROPIC_AUTH_TOKEN", mode: "deny" }]),
+  it.each([false, true])(
+    "keeps gateway model, compression, tracing and protected credentials in full access (channel=%s)",
+    (channel) => {
+      const options = makeClaudeQueryOptions({
+        modelSelection: {
+          instanceId: ProviderInstanceId.make("claudeAgent"),
+          model: "gpt-5-4",
+          options: [{ id: "effort", value: "xhigh" }],
         },
-      },
-    });
-    expect(options.hooks?.PreToolUse).toHaveLength(1);
-    expect(options.systemPrompt).toMatchObject({
-      append: expect.stringContaining("Your First Agent"),
-    });
-  });
+        modelCatalog,
+        nativeThreadId: "native-thread",
+        resume: false,
+        cwd: "/tmp/elysia-agent-workspace",
+        permissionMode: "bypassPermissions",
+        allowDangerouslySkipPermissions: true,
+        settings: decodeClaudeSettings({ binaryPath: "/tmp/native-claude" }),
+        environment: {
+          ELYSIA_PROFILE_ROOT: "/tmp/elysia-v2-profile",
+          ELYSIA_REAL_HOME: "/tmp/elysia-v2-real-home",
+          CLAUDE_CONFIG_DIR: "/tmp/elysia-v2-profile/.claude",
+          ANTHROPIC_BASE_URL: "http://127.0.0.1:9123",
+          ANTHROPIC_AUTH_TOKEN: "fixture-token",
+          ANTHROPIC_CUSTOM_HEADERS: "Workspace: fixture",
+          TRACE_TO_LANGSMITH: "true",
+          CC_LANGSMITH_METADATA: '{"compression":"enabled"}',
+        },
+        persistentAgent: {
+          ...(channel ? { channelThreadId: ThreadId.make("channel-conversation") } : {}),
+          name: "Your First Agent",
+          instructions: "Help finish work.",
+          memoryDirectory: "/tmp/elysia-agent-workspace/.claude/memory",
+        },
+      });
+      expect(options.systemPrompt).toMatchObject({
+        append: expect.stringContaining(
+          channel ? "independent channel conversation" : "/memory/session-handoff.md",
+        ),
+      });
+      expect(options.model).toBe("gpt-5-4");
+      expect(options.effort).toBe("xhigh");
+      expect(options.pathToClaudeCodeExecutable).toBe("/tmp/native-claude");
+      expect(options.settingSources).toEqual(["user", "project", "local"]);
+      expect(options.env).toMatchObject({
+        ANTHROPIC_BASE_URL: "http://127.0.0.1:9123",
+        TRACE_TO_LANGSMITH: "true",
+        ELYSIA_ACTIVE_MODEL: "gpt-5-4",
+        DISABLE_AUTO_COMPACT: "0",
+        DISABLE_COMPACT: "0",
+        ANTHROPIC_CUSTOM_MODEL_OPTION: "gpt-5-4",
+        ANTHROPIC_CUSTOM_MODEL_OPTION_SUPPORTED_CAPABILITIES: "effort,xhigh_effort",
+      });
+      expect(options.managedSettings).toMatchObject({
+        autoCompactEnabled: true,
+        autoMemoryEnabled: true,
+        autoMemoryDirectory: "/tmp/elysia-agent-workspace/.claude/memory",
+        availableModels: ["gpt-5-4", "deepseek-v4.1-flash"],
+        enforceAvailableModels: true,
+        sandbox: {
+          enabled: true,
+          failIfUnavailable: true,
+          allowUnsandboxedCommands: false,
+          credentials: {
+            envVars: expect.arrayContaining([{ name: "ANTHROPIC_AUTH_TOKEN", mode: "deny" }]),
+          },
+        },
+      });
+      expect(options.hooks?.PreToolUse).toHaveLength(1);
+      expect(options.systemPrompt).toMatchObject({
+        append: expect.stringContaining("Your First Agent"),
+      });
+    },
+  );
 
   it("uses the Elysia MCP name with matching read-only tool permissions", () => {
     const threadId = ThreadId.make("elysia-v2-mcp");

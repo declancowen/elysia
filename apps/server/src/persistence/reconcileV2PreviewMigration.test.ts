@@ -51,6 +51,8 @@ describe("V2 preview upgrade", () => {
         [55, "OrchestrationV2"],
         [56, "RemoveRedundantProjectionIndexes"],
         [57, "ProjectionProjectAgentProfile"],
+        [58, "WorkTasks"],
+        [59, "Pages"],
       ]);
       assert.deepStrictEqual(
         yield* sql`SELECT agent_profile_json FROM projection_projects WHERE project_id = 'agent'`,
@@ -70,6 +72,8 @@ describe("V2 preview upgrade", () => {
         [54, "ProjectionThreadsAutoSettleDisabledAt"],
         [56, "RemoveRedundantProjectionIndexes"],
         [57, "ProjectionProjectAgentProfile"],
+        [58, "WorkTasks"],
+        [59, "Pages"],
       ]);
       assert.deepStrictEqual(yield* runMigrations(), []);
       assert.deepStrictEqual(yield* sql`SELECT * FROM orchestration_v2_legacy_imports`, imports);
@@ -150,6 +154,8 @@ describe("V2 preview upgrade", () => {
         [54, "ProjectionThreadsAutoSettleDisabledAt"],
         [56, "RemoveRedundantProjectionIndexes"],
         [57, "ProjectionProjectAgentProfile"],
+        [58, "WorkTasks"],
+        [59, "Pages"],
       ]);
     }).pipe(Effect.provide(NodeSqliteClient.layer({ filename: ":memory:" }))),
   );

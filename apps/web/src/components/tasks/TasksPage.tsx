@@ -56,6 +56,8 @@ import {
   Columns2Icon,
   PanelRightIcon,
   ChannelIcon,
+  SquareArrowOutUpRightIcon,
+  TaskEdit02Icon,
 } from "../../icons";
 import ChatMarkdown from "../ChatMarkdown";
 import { Popover, PopoverTrigger, PopoverPopup } from "../ui/popover";
@@ -71,8 +73,13 @@ import {
 import { cn } from "../../lib/utils";
 import { WorkspaceRichTextEditor } from "../WorkspaceRichTextEditor";
 import { useWorkspaceSideChat } from "../WorkspaceSideChat";
+import { useConversationTabNavigation } from "../../hooks/useConversationTabNavigation";
+import { useConversationTabsStore } from "../../conversationTabsStore";
+import { WorkspaceItemTabs } from "../WorkspaceItemTabs";
+import { WorkspaceItemLink } from "../WorkspaceItemLink";
 import { WorkspaceSurfaceHeader } from "../WorkspaceSurfaceHeader";
 import { WorkspaceDetailsPanel } from "../WorkspaceDetailsPanel";
+import { Empty, EmptyHeader, EmptyTitle, EmptyDescription } from "../ui/empty";
 import { WorkspacePageContainer } from "../WorkspacePageContainer";
 import { applyWorkspaceBulkAction } from "../WorkspaceBulkActions";
 import { SidebarInset } from "../ui/sidebar";
@@ -201,6 +208,7 @@ export function TasksPage() {
   const saveCommand = useAtomCommand(serverEnvironment.saveTask);
   const deleteCommand = useAtomCommand(serverEnvironment.deleteTask);
   const navigate = useNavigate();
+  const navigateTab = useConversationTabNavigation();
   const { task: selectedId } = useSearch({ from: "/tasks" });
   const [panelOpen, setPanelOpen] = useState(true);
   const panelAnchor = useRef<HTMLButtonElement | null>(null);
@@ -322,8 +330,16 @@ export function TasksPage() {
   const update = (input: WorkTaskSaveInput) => {
     void save(input).catch(report);
   };
-  const openTask = (task: WorkTaskSummary | WorkTask) => {
-    void navigate({ to: "/tasks", search: { task: task.id } });
+  const openTask = (task: WorkTaskSummary | WorkTask, newTab = false) => {
+    if (!environment) return;
+    const target = {
+      kind: "task" as const,
+      environmentId: environment.environmentId,
+      id: task.id,
+      title: task.title,
+    };
+    useConversationTabsStore.getState().open(target, newTab);
+    void navigateTab(target);
   };
   const remove = async (task: WorkTaskSummary | WorkTask) => {
     if (
@@ -355,6 +371,7 @@ export function TasksPage() {
     const selectedTasks = taskRows.filter((row) => ids.has(row.id));
     const action = await showContextMenuFallback(
       [
+        { id: "open-new-tab", label: "Open in new tab", icon: "open-new-tab" },
         {
           id: "assignee",
           label: "Change assigned",
@@ -400,6 +417,10 @@ export function TasksPage() {
       position,
     );
     if (!action) return;
+    if (action === "open-new-tab") {
+      openTask(task, true);
+      return;
+    }
     if (
       action === "delete" &&
       !(await ensureLocalApi().dialogs.confirm(
@@ -493,20 +514,18 @@ export function TasksPage() {
             />
           ) : null}
           {view === "card" ? (
-            <button
-              type="button"
+            <WorkspaceItemLink
               aria-label={`Open ${task.title}`}
-              onClick={() => openTask(task)}
+              onOpen={(newTab) => openTask(task, newTab)}
               className="h-44 overflow-hidden bg-muted/20 p-5 text-left text-sm text-muted-foreground"
             >
               <div className="pointer-events-none line-clamp-5">
                 <ChatMarkdown text={task.descriptionPreview} cwd={undefined} />
               </div>
-            </button>
+            </WorkspaceItemLink>
           ) : null}
-          <button
-            type="button"
-            onClick={() => openTask(task)}
+          <WorkspaceItemLink
+            onOpen={(newTab) => openTask(task, newTab)}
             className={cn(
               "flex min-w-0 gap-3 text-left",
               view === "list" ? "flex-1 items-center" : "w-full items-start p-4",
@@ -524,7 +543,7 @@ export function TasksPage() {
             >
               {task.title}
             </span>
-          </button>
+          </WorkspaceItemLink>
           {view === "list" ? (
             <span className="text-xs text-muted-foreground">{TASK_STATUS_LABELS[task.status]}</span>
           ) : null}
@@ -549,6 +568,10 @@ export function TasksPage() {
               </MenuTrigger>
               <MenuPopup>
                 <MenuItem onClick={() => openTask(task)}>Open task</MenuItem>
+                <MenuItem onClick={() => openTask(task, true)}>
+                  <SquareArrowOutUpRightIcon />
+                  Open in new tab
+                </MenuItem>
                 {!task.parentTaskId ? (
                   <MenuItem
                     onClick={() => {
@@ -670,6 +693,22 @@ export function TasksPage() {
   };
   return (
     <SidebarInset variant="standalone" className="min-h-0 overflow-hidden">
+      <WorkspaceItemTabs
+        target={
+          environment
+            ? selectedId
+              ? summary
+                ? {
+                    kind: "task",
+                    environmentId: environment.environmentId,
+                    id: summary.id,
+                    title: summary.title,
+                  }
+                : null
+              : { kind: "task", environmentId: environment.environmentId, id: null, title: "Tasks" }
+            : null
+        }
+      />
       <WorkspaceSurfaceHeader
         divider={!selectedId}
         title={
@@ -721,7 +760,7 @@ export function TasksPage() {
         }
       />
       <div className="min-h-0 flex-1 overflow-y-auto">
-        <WorkspacePageContainer width="surface">
+        <WorkspacePageContainer width="surface" className={selectedId ? undefined : "min-h-full"}>
           {tasksQuery.error ? (
             <p role="alert" className="text-sm text-destructive">
               {tasksQuery.error}
@@ -908,11 +947,25 @@ export function TasksPage() {
                     view === "board" ? "flex gap-4 overflow-x-auto pb-4" : "flex flex-col gap-5"
                   }
                 >
-                  {orderGroups(groups, groupOrder).map((group) => renderGroup(group))}
+                  {taskRows.length
+                    ? orderGroups(groups, groupOrder).map((group) => renderGroup(group))
+                    : null}
                 </div>
               </DndContext>
-              {!taskRows.length ? (
-                <p className="text-sm text-muted-foreground">No tasks to show.</p>
+              {tasksQuery.data && !tasksQuery.isPending && !taskRows.length ? (
+                <Empty>
+                  <TaskEdit02Icon aria-hidden className="size-16 text-muted-foreground/60" />
+                  <EmptyHeader>
+                    <EmptyTitle>
+                      {tasksQuery.data.tasks.length ? "No matching tasks" : "No tasks"}
+                    </EmptyTitle>
+                    <EmptyDescription>
+                      {tasksQuery.data.tasks.length
+                        ? "Try a different search or widen your filters."
+                        : "Tasks from every project in this workspace appear here."}
+                    </EmptyDescription>
+                  </EmptyHeader>
+                </Empty>
               ) : null}
             </>
           )}
@@ -1040,7 +1093,7 @@ function TaskEditor({
   initialRevision: number;
   assignee?: ReactNode;
   subtasks: WorkTaskSummary[];
-  onOpenSubtask: (task: WorkTaskSummary) => void;
+  onOpenSubtask: (task: WorkTaskSummary, newTab?: boolean) => void;
   onAddSubtask: () => void;
   projectOptions: { value: string; label: ReactNode }[];
   agentOptions: { value: string; label: ReactNode }[];
@@ -1239,10 +1292,20 @@ function TaskEditor({
               {subtasksOpen ? (
                 <div className="border-t border-border">
                   {subtasks.map((subtask) => (
-                    <button
+                    <WorkspaceItemLink
                       key={subtask.id}
-                      type="button"
-                      onClick={() => onOpenSubtask(subtask)}
+                      onOpen={(newTab) => onOpenSubtask(subtask, newTab)}
+                      onContextMenu={(event) => {
+                        event.preventDefault();
+                        void showContextMenuFallback(
+                          [{ id: "open-new-tab", label: "Open in new tab", icon: "open-new-tab" }],
+                          { x: event.clientX, y: event.clientY },
+                        )
+                          .then((action) => {
+                            if (action === "open-new-tab") onOpenSubtask(subtask, true);
+                          })
+                          .catch((error) => setError(String(error)));
+                      }}
                       className="flex h-12 w-full cursor-pointer items-center gap-3 px-4 text-left text-sm hover:bg-sidebar-row-hover"
                     >
                       <TaskStatusIcon status={subtask.status} />
@@ -1251,7 +1314,7 @@ function TaskEditor({
                         <TaskStatusIcon status={subtask.status} />
                         {TASK_STATUS_LABELS[subtask.status]}
                       </span>
-                    </button>
+                    </WorkspaceItemLink>
                   ))}
                 </div>
               ) : null}

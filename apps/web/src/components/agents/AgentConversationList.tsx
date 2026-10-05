@@ -178,7 +178,7 @@ function AgentConversationRow({
         }}
         className={cn(
           "group/agent-row relative flex min-w-0 rounded-xl hover:bg-sidebar-row-hover focus-within:bg-sidebar-row-hover",
-          pinned ? "h-22 items-start px-1.5 py-1.5" : "h-14 items-center px-2.5 py-2",
+          pinned ? "h-22 items-start px-1.5 py-1.5" : "h-12 items-center px-2.5 py-1.5",
           pinned && drag?.isDragging && "bg-sidebar-row-hover",
           selected &&
             "bg-sidebar-row-active hover:bg-sidebar-row-active focus-within:bg-sidebar-row-active",
@@ -195,18 +195,18 @@ function AgentConversationRow({
           disabled={!thread}
           className={cn(
             "flex min-w-0 flex-1 cursor-pointer items-center outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-default",
-            pinned ? "touch-none flex-col gap-1 text-center" : "gap-3 text-left",
+            pinned ? "touch-none flex-col gap-1 text-center" : "gap-2 text-left",
           )}
         >
           {profile.group ? (
             <AgentGroupAvatar
               avatars={members.map(({ project: member }) => member.agentProfile!.avatar)}
-              className={pinned ? "size-8" : "size-9"}
+              className={pinned ? "size-8" : "size-7"}
             />
           ) : (
             <AgentAvatar
               avatar={profile.avatar}
-              className={pinned ? "size-8" : "size-9"}
+              className={pinned ? "size-8" : "size-7"}
               working={busy}
             />
           )}
@@ -225,11 +225,11 @@ function AgentConversationRow({
             <span className="flex min-w-0 flex-1 flex-col gap-0.5">
               <span className="flex min-w-0 items-center gap-2">
                 <span className="min-w-0 flex-1 flex items-center gap-2">
-                  <span className="max-w-full shrink-0 truncate text-base font-medium leading-5 text-foreground">
+                  <span className="min-w-0 truncate text-sm font-medium leading-4 text-foreground">
                     {project.title}
                   </span>
                   {profile.title && !profile.group ? (
-                    <span className="min-w-0 truncate rounded-md bg-foreground/15 px-1.5 py-0.5 text-xs text-foreground">
+                    <span className="min-w-0 truncate rounded-md bg-foreground/15 px-1.5 text-2xs text-foreground">
                       {profile.title}
                     </span>
                   ) : null}
@@ -238,7 +238,7 @@ function AgentConversationRow({
                   {dateFormat.format(new Date(updatedAt))}
                 </time>
               </span>
-              <span className="truncate pr-5 text-sm leading-4 text-foreground/70">{preview}</span>
+              <span className="truncate pr-5 text-xs leading-4 text-foreground/70">{preview}</span>
             </span>
           )}
         </button>

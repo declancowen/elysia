@@ -15,6 +15,7 @@ import {
   ChevronDownIcon,
   ChevronRightIcon,
   FileTextIcon,
+  Files01Icon,
   FolderClosedIcon,
   Columns2Icon,
   PlusIcon,
@@ -22,10 +23,15 @@ import {
   SlidersHorizontalIcon,
 } from "../../icons";
 import { formatRelativeTimeLabel } from "../../timestampFormat";
+import { useConversationTabNavigation } from "../../hooks/useConversationTabNavigation";
+import { useConversationTabsStore } from "../../conversationTabsStore";
+import { WorkspaceItemTabs } from "../WorkspaceItemTabs";
+import { WorkspaceItemLink } from "../WorkspaceItemLink";
 import { WorkspaceSurfaceHeader } from "../WorkspaceSurfaceHeader";
 import { WorkspacePageContainer } from "../WorkspacePageContainer";
 import { applyWorkspaceBulkAction } from "../WorkspaceBulkActions";
 import { Button } from "../ui/button";
+import { Empty, EmptyHeader, EmptyTitle, EmptyDescription } from "../ui/empty";
 import { Input } from "../ui/input";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "../ui/input-group";
 import { Select, SelectTrigger, SelectValue, SelectPopup, SelectItem } from "../ui/select";
@@ -65,6 +71,7 @@ export function PagesPage() {
   const savePage = useAtomCommand(serverEnvironment.savePage);
   const deletePage = useAtomCommand(serverEnvironment.deletePage);
   const navigate = useNavigate();
+  const navigateTab = useConversationTabNavigation();
   const [search, setSearch] = useState("");
   const [groupByProject, setGroupByProject] = useState(true);
   const [groupDescending, setGroupDescending] = useState(false);
@@ -90,6 +97,17 @@ export function PagesPage() {
       }),
     [query.data, projects, search, groupByProject, sort, groupDescending, hideEmpty],
   );
+  const openPage = (page: PageSummary, newTab = false) => {
+    if (!environmentId) return;
+    const target = {
+      kind: "page" as const,
+      environmentId: environmentId,
+      id: page.id,
+      title: page.title,
+    };
+    useConversationTabsStore.getState().open(target, newTab);
+    void navigateTab(target);
+  };
   const showSelectionMenu = async (page: PageSummary, position: { x: number; y: number }) => {
     if (!environmentId || bulkPending) return;
     const ids = selection.has(page.id) ? selection : new Set([page.id]);
@@ -97,6 +115,7 @@ export function PagesPage() {
     const selectedPages = groups.flatMap((group) => group.pages).filter((row) => ids.has(row.id));
     const action = await showContextMenuFallback(
       [
+        { id: "open-new-tab", label: "Open in new tab", icon: "open-new-tab" },
         {
           id: "project",
           label: "Change project",
@@ -120,6 +139,10 @@ export function PagesPage() {
       position,
     );
     if (!action) return;
+    if (action === "open-new-tab") {
+      openPage(page, true);
+      return;
+    }
     if (
       action === "delete" &&
       !(await ensureLocalApi().dialogs.confirm(
@@ -176,6 +199,9 @@ export function PagesPage() {
   };
   return (
     <SidebarInset variant="standalone" className="min-h-0 overflow-hidden">
+      <WorkspaceItemTabs
+        target={environmentId ? { kind: "page", environmentId, id: null, title: "Pages" } : null}
+      />
       <WorkspaceSurfaceHeader
         title="Pages"
         actions={
@@ -194,7 +220,7 @@ export function PagesPage() {
         }
       />
       <div className="min-h-0 flex-1 overflow-y-auto">
-        <WorkspacePageContainer width="surface">
+        <WorkspacePageContainer width="surface" className="min-h-full">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="w-60 max-w-full">
               <InputGroup>
@@ -300,8 +326,20 @@ export function PagesPage() {
             <p role="status" className="px-3 text-sm text-muted-foreground">
               Loading pages…
             </p>
-          ) : query.data?.pages.length === 0 ? (
-            <p className="px-3 text-sm text-muted-foreground">No pages yet.</p>
+          ) : query.data && !groups.some((group) => group.pages.length) ? (
+            <Empty>
+              <Files01Icon aria-hidden className="size-16 text-muted-foreground/60" />
+              <EmptyHeader>
+                <EmptyTitle>
+                  {query.data.pages.length ? "No matching pages" : "No pages"}
+                </EmptyTitle>
+                <EmptyDescription>
+                  {query.data.pages.length
+                    ? "Try a different search to find your pages."
+                    : "Pages from every project in this workspace appear here."}
+                </EmptyDescription>
+              </EmptyHeader>
+            </Empty>
           ) : (
             <div className="space-y-4">
               {groups.map((group) => (
@@ -366,14 +404,9 @@ export function PagesPage() {
                               }
                             />
                           </div>
-                          <button
+                          <WorkspaceItemLink
                             type="button"
-                            onClick={() => {
-                              void navigate({
-                                to: "/pages/$pageId",
-                                params: { pageId: page.id },
-                              });
-                            }}
+                            onOpen={(newTab) => openPage(page, newTab)}
                             className="flex min-w-0 flex-1 cursor-pointer items-center gap-3 rounded-md py-3 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring"
                           >
                             <FileTextIcon className="size-4 shrink-0 text-muted-foreground" />
@@ -381,7 +414,7 @@ export function PagesPage() {
                             <span className="shrink-0 text-xs text-muted-foreground">
                               {formatRelativeTimeLabel(page.updatedAt)}
                             </span>
-                          </button>
+                          </WorkspaceItemLink>
                         </div>
                       ))
                     : null}

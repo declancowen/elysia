@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { scopeThreadRef } from "@t3tools/client-runtime/environment";
-import { EnvironmentId, ProjectId, ThreadId } from "@t3tools/contracts";
+import { EnvironmentId, ProjectId, ThreadId, PageId, WorkTaskId } from "@t3tools/contracts";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, expect, it, vi } from "vite-plus/test";
@@ -127,4 +127,40 @@ it("reuses a section's existing tab and adds a first section tab without replaci
     threadRef: scopeThreadRef(EnvironmentId.make("remote"), ThreadId.make("other-agent")),
   });
   expect(useConversationTabsStore.getState().tabs).toHaveLength(3);
+});
+
+it("navigates page and task tabs to their existing editors and restores them from the rail", async () => {
+  const page: ConversationTabTarget = {
+    kind: "page",
+    environmentId: EnvironmentId.make("local"),
+    id: PageId.make("page-00000000-0000-0000-0000-000000000001"),
+    title: "Notes",
+  };
+  const task: ConversationTabTarget = {
+    kind: "task",
+    environmentId: EnvironmentId.make("local"),
+    id: WorkTaskId.make("TASK-1"),
+    title: "Build",
+  };
+  const tabs = useConversationTabsStore.getState();
+  tabs.open(page);
+  tabs.open(task, true);
+  useAgentSidebarStore.setState({ active: true });
+  await act(async () => expect(navigateSection("pages")).toBe(true));
+  expect(state.navigate).toHaveBeenLastCalledWith({
+    to: "/pages/$pageId",
+    params: { pageId: page.id },
+    replace: false,
+  });
+  expect(useAgentSidebarStore.getState().active).toBe(false);
+  await act(async () => expect(navigateSection("tasks")).toBe(true));
+  expect(state.navigate).toHaveBeenLastCalledWith({
+    to: "/tasks",
+    search: { task: task.id },
+    replace: false,
+  });
+  await act(async () => navigateTab({ ...page, id: null, title: "Pages" }));
+  expect(state.navigate).toHaveBeenLastCalledWith({ to: "/pages", replace: false });
+  await act(async () => navigateTab({ ...task, id: null, title: "Tasks" }));
+  expect(state.navigate).toHaveBeenLastCalledWith({ to: "/tasks", search: {}, replace: false });
 });

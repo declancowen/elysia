@@ -1,70 +1,11 @@
 import { RefreshIcon } from "~/components/ui/refresh-icon";
-/**
- * What the list shows when it has no rows to show.
- *
- * The drawing is the page's own subject rather than a stock empty box: two branch lines and the
- * node where a change would land, in the stroke language the row icons already use. Nothing
- * found leaves the branch unjoined — the gap is the whole picture, so it is drawn once and the
- * variants only decide whether the seam closes.
- *
- * An empty page and an unread one look the same, so the states that are showing a host's answer
- * offer to ask for it again. The two that are not — a search still in flight, and a workspace
- * with no project to read from — leave the button out, since pressing it could only repeat what
- * is already happening or ask nobody.
- */
 import { PlusIcon, SearchIcon } from "~/icons";
 
 import { openCommandPalette } from "../../commandPaletteBus";
 import { Button } from "../ui/button";
+import { PullRequestGlyph } from "./pullRequestIcons";
 import { PullRequestListGhost } from "./PullRequestGhosts";
 import { Empty, EmptyContent, EmptyDescription, EmptyHeader, EmptyTitle } from "../ui/empty";
-
-/**
- * Drawn at the weight of the icons beside it rather than as an illustration with its own
- * palette, so an empty page reads as the same surface with nothing on it.
- */
-function BranchMark({ joined }: { joined: boolean }) {
-  return (
-    <svg
-      aria-hidden
-      viewBox="0 0 120 72"
-      className="h-20 w-32 text-muted-foreground/60"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={2}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      {/* The base line the change would land on, always whole. */}
-      <path d="M10 58h100" className="text-muted-foreground/30" stroke="currentColor" />
-      <circle cx="10" cy="58" r="5" fill="currentColor" fillOpacity={0.25} />
-      <circle cx="110" cy="58" r="5" fill="currentColor" fillOpacity={0.25} />
-      {joined ? (
-        // A branch that leaves the base and comes back: the shape of a change that landed.
-        <path d="M30 58c0-18 8-26 24-26h12c16 0 24 8 24 26" />
-      ) : (
-        <>
-          {/* The same branch, stopped short. What is missing is the join, so that is what the
-              drawing withholds. */}
-          <path d="M30 58c0-18 8-26 24-26h4" />
-          <path
-            d="M90 58c0-18-8-26-24-26h-4"
-            strokeDasharray="2 7"
-            className="text-muted-foreground/50"
-          />
-        </>
-      )}
-      <circle
-        cx="60"
-        cy="32"
-        r={joined ? 5 : 4}
-        fill={joined ? "currentColor" : "none"}
-        fillOpacity={0.25}
-        className={joined ? undefined : "text-muted-foreground/45"}
-      />
-    </svg>
-  );
-}
 
 export function PullRequestListEmptyState({
   query,
@@ -101,7 +42,7 @@ export function PullRequestListEmptyState({
   if (!hasProjects) {
     return (
       <Empty>
-        <BranchMark joined={false} />
+        <PullRequestGlyph.pullRequest aria-hidden className="size-16 text-muted-foreground/60" />
         <EmptyHeader>
           <EmptyTitle>No projects in this workspace</EmptyTitle>
           <EmptyDescription>
@@ -132,7 +73,7 @@ export function PullRequestListEmptyState({
   if (query.length > 0) {
     return (
       <Empty>
-        <BranchMark joined={false} />
+        <PullRequestGlyph.pullRequest aria-hidden className="size-16 text-muted-foreground/60" />
         <EmptyHeader>
           {/* A pasted paragraph is still a search, but it is not a title. */}
           <EmptyTitle>
@@ -160,7 +101,7 @@ export function PullRequestListEmptyState({
 
   return (
     <Empty>
-      <BranchMark joined={false} />
+      <PullRequestGlyph.pullRequest aria-hidden className="size-16 text-muted-foreground/60" />
       <EmptyHeader>
         <EmptyTitle>{filtered ? "Nothing under these filters" : "No pull requests"}</EmptyTitle>
         <EmptyDescription>

@@ -245,3 +245,17 @@ it("keeps a single API target above both metrics without subscription or share l
   expect(text).not.toContain("Limits");
   expect(text).not.toContain("subscription");
 });
+
+it("distinguishes missing usage history from a disconnected compression proxy", async () => {
+  const summary = await state.usage();
+  state.usage.mockResolvedValue({
+    ...summary,
+    sources: summary.sources.map((source) => ({ ...source, status: "missing", scannedFiles: 0 })),
+    buckets: [],
+  });
+  await mount();
+  expect(displayedValues()).toContain("No usage yet");
+  expect(displayedValues()).toContain("3,400");
+  expect(JSON.stringify(renderer!.toJSON())).toContain("Start a chat, then refresh");
+  expect(displayedValues()).not.toContain("Unavailable");
+});

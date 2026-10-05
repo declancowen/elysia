@@ -1,5 +1,5 @@
 import { scopedProjectKey } from "@t3tools/client-runtime/environment";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { ScopedProjectRef } from "@t3tools/contracts";
 import { useNavigate } from "@tanstack/react-router";
 import { useAllEnvironmentProjectSnapshotsReady } from "../../state/entities";
@@ -8,16 +8,21 @@ import { useAgentConversationPreviews } from "./useAgentConversationPreviews";
 import type { AgentRosterEntry } from "./useAgents";
 import { isElectron } from "../../env";
 import { useEscapeToGoBack } from "../../hooks/useNavigateBack";
+import { BotIcon, ChannelIcon } from "../../icons";
+import { Button } from "../ui/button";
+import { Empty, EmptyHeader, EmptyTitle, EmptyDescription } from "../ui/empty";
 import { SidebarInset } from "../ui/sidebar";
 import { WorkspacePageContainer } from "../WorkspacePageContainer";
 import { WorkspacePageHeader } from "../WorkspacePageHeader";
 import { AgentGroupDialog } from "./AgentGroupDialog";
-import { closeAgentDialog, useAgentDialogStore } from "./agentDialogStore";
+import { closeAgentDialog, openAgentDialog, useAgentDialogStore } from "./agentDialogStore";
 import { useAgents } from "./useAgents";
 
 export function AgentsPage({ editingGroupRef }: { editingGroupRef?: ScopedProjectRef }) {
   useEscapeToGoBack();
   const agents = useAgents();
+  const [creatingChannel, setCreatingChannel] = useState(false);
+  const hasAgents = agents.some(({ project }) => !project.agentProfile!.archived);
   const ready = useAllEnvironmentProjectSnapshotsReady();
   const { previews, loading } = useAgentConversationPreviews(agents);
   const recent = agents
@@ -54,12 +59,35 @@ export function AgentsPage({ editingGroupRef }: { editingGroupRef?: ScopedProjec
         <OpenRecentConversation agent={recent} />
       ) : null}
       <WorkspacePageHeader electron={isElectron} />
-      <WorkspacePageContainer width="expanded">
-        <h1 className="text-xl font-medium">Agents</h1>
-        <p className="text-sm text-muted-foreground">
-          Choose an agent or channel from the sidebar.
-        </p>
-      </WorkspacePageContainer>
+      {ready && !hasAgents && !editingGroupRef ? (
+        <Empty>
+          <BotIcon aria-hidden className="size-16 text-muted-foreground/60" />
+          <EmptyHeader>
+            <EmptyTitle>No agents or channels</EmptyTitle>
+            <EmptyDescription>Create an agent or channel to start a conversation.</EmptyDescription>
+          </EmptyHeader>
+          <div className="flex flex-wrap justify-center gap-2">
+            <Button size="sm" onClick={() => openAgentDialog()}>
+              <BotIcon />
+              Create agent
+            </Button>
+            <Button size="sm" variant="outline" onClick={() => setCreatingChannel(true)}>
+              <ChannelIcon />
+              Create channel
+            </Button>
+          </div>
+        </Empty>
+      ) : (
+        <WorkspacePageContainer width="expanded">
+          <h1 className="text-xl font-medium">Agents</h1>
+          <p className="text-sm text-muted-foreground">
+            Choose an agent or channel from the sidebar.
+          </p>
+        </WorkspacePageContainer>
+      )}
+      {creatingChannel ? (
+        <AgentGroupDialog agents={agents} onClose={() => setCreatingChannel(false)} />
+      ) : null}
       {editingGroup ? (
         <AgentGroupDialog
           key={`${editingGroup.project.environmentId}:${editingGroup.project.id}`}

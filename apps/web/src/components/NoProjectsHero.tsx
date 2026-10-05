@@ -1,4 +1,4 @@
-import { MessageSquareDashedIcon, PlusIcon } from "~/icons";
+import { MessageCircleIcon, PlusIcon } from "~/icons";
 import { useCallback } from "react";
 
 import { openCommandPalette } from "../commandPaletteBus";
@@ -41,7 +41,7 @@ export function NoProjectsHero() {
                     variant="outline"
                     onClick={() => void startScratchThread(scratchTargetEnvironmentId)}
                   >
-                    <MessageSquareDashedIcon className="size-4" />
+                    <MessageCircleIcon className="size-4" />
                     Start without a project
                   </Button>
                 )}

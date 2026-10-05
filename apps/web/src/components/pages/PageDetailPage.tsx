@@ -15,6 +15,7 @@ import { Button } from "../ui/button";
 import { SidebarInset } from "../ui/sidebar";
 import { Select, SelectTrigger, SelectValue, SelectPopup, SelectItem } from "../ui/select";
 import { useWorkspaceSideChat } from "../WorkspaceSideChat";
+import { WorkspaceItemTabs } from "../WorkspaceItemTabs";
 import { WorkspaceSurfaceHeader } from "../WorkspaceSurfaceHeader";
 import { WorkspaceDetailsPanel } from "../WorkspaceDetailsPanel";
 import { WorkspacePageContainer } from "../WorkspacePageContainer";
@@ -63,6 +64,7 @@ function PageDetail({
   const source = query.data?.page;
   const [saved, setSaved] = useState<Page | null>(null);
   const [draft, setDraft] = useState<Page | null>(null);
+  const activePage = draft ?? source;
   const [panelOpen, setPanelOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [reloadOpen, setReloadOpen] = useState(false);
@@ -203,6 +205,18 @@ function PageDetail({
   };
   return (
     <SidebarInset variant="standalone" className="min-h-0 overflow-hidden">
+      <WorkspaceItemTabs
+        target={
+          activePage
+            ? {
+                kind: "page",
+                environmentId,
+                id: activePage.id,
+                title: activePage.title,
+              }
+            : null
+        }
+      />
       <WorkspaceSurfaceHeader
         divider={false}
         title={

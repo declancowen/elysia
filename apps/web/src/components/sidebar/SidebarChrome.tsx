@@ -490,6 +490,7 @@ export const AppNavigationRail = memo(function AppNavigationRail() {
           onIntent={() => void router.preloadRoute({ to: "/pages" })}
           onClick={() => {
             setAgentSidebarActive(false);
+            if (navigateToTabSection("pages")) return;
             void navigate({ to: "/pages" });
           }}
         />
@@ -500,6 +501,7 @@ export const AppNavigationRail = memo(function AppNavigationRail() {
           onIntent={() => void router.preloadRoute({ to: "/tasks", search: {} })}
           onClick={() => {
             setAgentSidebarActive(false);
+            if (navigateToTabSection("tasks")) return;
             void navigate({ to: "/tasks", search: {} });
           }}
         />

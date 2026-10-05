@@ -12,6 +12,14 @@ export function useConversationTabNavigation() {
   const navigate = useNavigate();
   return useCallback(
     (target: ConversationTabTarget, replace = false) => {
+      if (target.kind === "page" || target.kind === "task") {
+        setAgentSidebarActive(false);
+        if (target.kind === "task")
+          return navigate({ to: "/tasks", search: target.id ? { task: target.id } : {}, replace });
+        return target.id
+          ? navigate({ to: "/pages/$pageId", params: { pageId: target.id }, replace })
+          : navigate({ to: "/pages", replace });
+      }
       if (target.kind === "pull-request") {
         setAgentSidebarActive(false);
         return navigate({
@@ -46,8 +54,10 @@ export function useConversationTabNavigation() {
   );
 }
 
-type TabSection = "workspace" | "agents" | "pull-requests";
+type TabSection = "workspace" | "agents" | "pull-requests" | "pages" | "tasks";
 function tabSection(target: ConversationTabTarget): TabSection {
+  if (target.kind === "page") return "pages";
+  if (target.kind === "task") return "tasks";
   if (target.kind === "pull-request") return "pull-requests";
   if (target.kind === "draft") return "workspace";
   const thread = readThreadShell(target.threadRef);

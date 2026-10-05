@@ -1,5 +1,5 @@
 import { scopeThreadRef } from "@t3tools/client-runtime/environment";
-import { EnvironmentId, ProjectId, ThreadId } from "@t3tools/contracts";
+import { EnvironmentId, ProjectId, ThreadId, PageId, WorkTaskId } from "@t3tools/contracts";
 import { beforeEach, expect, it } from "vite-plus/test";
 import { DraftId } from "./composerDraftStore";
 import {
@@ -175,4 +175,48 @@ it("recognizes a pull request regardless of host case but keeps scope boundaries
   expect(store.isOpen({ ...pr, projectId: ProjectId.make("other") })).toBe(false);
   expect(store.isOpen({ ...pr, repository: "other/repo" })).toBe(false);
   expect(store.isOpen({ ...pr, number: 43 })).toBe(false);
+});
+
+it("keeps page and task identities separate and reuses tabs after title changes", () => {
+  const page: ConversationTabTarget = {
+    kind: "page",
+    environmentId: EnvironmentId.make("local"),
+    id: PageId.make("page-00000000-0000-0000-0000-000000000001"),
+    title: "Notes",
+  };
+  const task: ConversationTabTarget = {
+    kind: "task",
+    environmentId: EnvironmentId.make("local"),
+    id: WorkTaskId.make("TASK-1"),
+    title: "Build",
+  };
+  const store = useConversationTabsStore.getState();
+  store.open(a);
+  store.open(page, true);
+  const pageTabId = useConversationTabsStore.getState().activeId!;
+  store.open(task, true);
+  store.retarget(page, { ...page, title: "Updated notes" });
+  store.open({ ...page, title: "Updated notes" }, true);
+  expect(useConversationTabsStore.getState().tabs).toHaveLength(3);
+  expect(useConversationTabsStore.getState().activeId).toBe(pageTabId);
+  expect(store.close(pageTabId)).toEqual(task);
+  expect(useConversationTabsStore.getState().tabs.map((tab) => tab.target)).toEqual([a, task]);
+});
+
+it("preserves the list when an item is explicitly opened in a new tab", () => {
+  const list: ConversationTabTarget = {
+    kind: "task",
+    environmentId: EnvironmentId.make("local"),
+    id: null,
+    title: "Tasks",
+  };
+  const task: ConversationTabTarget = { ...list, id: WorkTaskId.make("TASK-1"), title: "Build" };
+  const store = useConversationTabsStore.getState();
+  store.open(list);
+  const listId = useConversationTabsStore.getState().activeId!;
+  store.open(task, true);
+  expect(useConversationTabsStore.getState().tabs.map((tab) => tab.target)).toEqual([list, task]);
+  const taskId = useConversationTabsStore.getState().activeId!;
+  expect(store.close(taskId)).toEqual(list);
+  expect(useConversationTabsStore.getState().activeId).toBe(listId);
 });

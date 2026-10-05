@@ -3,7 +3,13 @@ import { scopeProjectRef, scopeThreadRef } from "@t3tools/client-runtime/environ
 import { useConversationTabNavigation } from "../../hooks/useConversationTabNavigation";
 import { useComposerDraftStore } from "../../composerDraftStore";
 import { useConversationTabsStore, type ConversationTab } from "../../conversationTabsStore";
-import { ChannelIcon, GitPullRequestArrowIcon, MessageCircleIcon } from "../../icons";
+import {
+  ChannelIcon,
+  GitPullRequestArrowIcon,
+  MessageCircleIcon,
+  Files01Icon,
+  TaskEdit02Icon,
+} from "../../icons";
 import { useProject, useThreadShell } from "../../state/entities";
 import { AgentAvatar } from "../agents/AgentAvatar";
 import {
@@ -20,6 +26,9 @@ export function ConversationTabs() {
   const pathname = useLocation({ select: (location) => location.pathname });
   const selected = tabs.find((tab) => {
     const target = tab.target;
+    if (target.kind === "page")
+      return target.id ? pathname === `/pages/${target.id}` : pathname === "/pages";
+    if (target.kind === "task") return pathname === "/tasks" && (search.task ?? null) === target.id;
     if (target.kind === "pull-request")
       return (
         pathname === "/pull-requests" &&
@@ -51,7 +60,19 @@ export function ConversationTabs() {
         if (next) void navigateTo(next);
       }}
       renderTab={(tab, controls) =>
-        tab.target.kind === "pull-request" ? (
+        tab.target.kind === "page" || tab.target.kind === "task" ? (
+          <WorkspaceTab
+            {...controls}
+            title={tab.target.title}
+            icon={
+              tab.target.kind === "page" ? (
+                <Files01Icon aria-hidden className="size-4" />
+              ) : (
+                <TaskEdit02Icon aria-hidden className="size-4" />
+              )
+            }
+          />
+        ) : tab.target.kind === "pull-request" ? (
           <WorkspaceTab
             {...controls}
             title={`#${tab.target.number}`}
@@ -69,7 +90,7 @@ function ConversationTabItem({
   target,
   controls,
 }: {
-  target: Exclude<ConversationTab["target"], { kind: "pull-request" }>;
+  target: Exclude<ConversationTab["target"], { kind: "pull-request" | "page" | "task" }>;
   controls: WorkspaceTabControls;
 }) {
   const draft = useComposerDraftStore((store) =>

@@ -139,6 +139,9 @@ export function ElysiaUsagePage() {
   const coverage = Boolean(
     summary?.sources.some((source) => source.status === "ok" || source.status === "partial"),
   );
+  const missingUsageHistory = Boolean(
+    summary?.sources.length && summary.sources.every((source) => source.status === "missing"),
+  );
   const cost = buckets.reduce((sum, bucket) => sum + bucket.costUsd, 0);
   const month = today.slice(0, 7);
   const monthLabel = new Intl.DateTimeFormat("en-GB", {
@@ -224,10 +227,15 @@ export function ElysiaUsagePage() {
           ) : null}
           <div className="flex min-w-0 flex-col gap-6">
             <div className="flex min-w-0 flex-col gap-6">
-              <section className="flex flex-col gap-3">
+              <section className="flex flex-col gap-3 rounded-xl border border-border/60 bg-card/40 p-5 shadow-xs/5">
                 <h2 className="text-sm font-medium">Monthly API usage</h2>
                 <p className="text-sm tabular-nums">
-                  {monthlyAvailable ? savingsFormat.format(monthlyCost) : "Unavailable"} / $200
+                  {monthlyAvailable
+                    ? savingsFormat.format(monthlyCost)
+                    : missingUsageHistory
+                      ? "No usage yet"
+                      : "Unavailable"}{" "}
+                  / $200
                   {monthlyUnknown ? " · partial" : ""}
                 </p>
                 {monthlyAvailable ? (
@@ -263,7 +271,7 @@ export function ElysiaUsagePage() {
                 ) : null}
                 <p className="text-sm text-muted-foreground">{monthLabel} · API estimate</p>
               </section>
-              <section className="flex flex-col gap-4">
+              <section className="flex flex-col gap-4 rounded-xl border border-border/60 bg-card/40 p-5 shadow-xs/5">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <h2 className="text-base font-medium">Usage</h2>
                   <div className="flex flex-wrap items-center gap-2">
@@ -339,7 +347,9 @@ export function ElysiaUsagePage() {
                       ? formatTokens(periods.reduce((sum, period) => sum + period.totalTokens, 0))
                       : coverage && (pricedRecords > 0 || buckets.length === 0)
                         ? savingsFormat.format(cost)
-                        : "Unavailable"}
+                        : missingUsageHistory
+                          ? "No usage yet"
+                          : "Unavailable"}
                   </dd>
                 </dl>
                 {periods.length ? (
@@ -357,7 +367,9 @@ export function ElysiaUsagePage() {
                   />
                 ) : (
                   <p className="text-sm text-muted-foreground">
-                    No dated Elysia usage records in this range.
+                    {missingUsageHistory
+                      ? "No usage history for this Elysia profile yet. Start a chat, then refresh to see its usage."
+                      : "No dated Elysia usage records in this range."}
                   </p>
                 )}
                 <div
@@ -389,7 +401,7 @@ export function ElysiaUsagePage() {
                   </p>
                 ) : null}
               </section>
-              <section className="flex flex-col gap-3">
+              <section className="flex flex-col gap-3 rounded-xl border border-border/60 bg-card/40 p-5 shadow-xs/5">
                 <h2 className="text-base font-medium">Cost by model</h2>
                 <dl className="flex flex-col gap-2">
                   {[...models]
@@ -409,9 +421,12 @@ export function ElysiaUsagePage() {
                       </div>
                     ))}
                 </dl>
+                {!models.size ? (
+                  <p className="text-sm text-muted-foreground">No model usage in this range.</p>
+                ) : null}
               </section>
             </div>
-            <div className="flex flex-col gap-6">
+            <div className="flex flex-col gap-6 rounded-xl border border-border/60 bg-card/40 p-5 shadow-xs/5">
               {totals ? (
                 <SavingsSummary
                   title={

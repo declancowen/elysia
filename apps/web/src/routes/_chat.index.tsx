@@ -8,6 +8,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 import { isLocalEnvironmentDisabled } from "../localEnvironment";
 import { isElectron } from "../env";
+import { AgentsPage } from "../components/agents/AgentsPage";
+import { useAgentSidebarStore } from "../components/agents/agentSidebarStore";
 import { NoProjectsHero } from "../components/NoProjectsHero";
 import { sortScopedProjectsForSidebar } from "../components/Sidebar.logic";
 import { Button } from "../components/ui/button";
@@ -23,13 +25,14 @@ import { hasCloudPublicConfig } from "~/cloud/publicConfig";
 function ChatIndexRouteView() {
   const { authGateState } = Route.useRouteContext();
   const { environments, isReady } = useEnvironments();
+  const agentsActive = useAgentSidebarStore((state) => state.active);
 
   if (authGateState.status === "hosted-static") {
     if (!isReady) return null;
     if (environments.length === 0) return <HostedStaticOnboardingState />;
   }
 
-  return <IndexDraftLanding />;
+  return agentsActive ? <AgentsPage /> : <IndexDraftLanding />;
 }
 
 /**

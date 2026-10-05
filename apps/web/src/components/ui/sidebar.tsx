@@ -580,10 +580,10 @@ function SidebarInset({
         "relative flex min-w-0 w-full flex-1 flex-col bg-background",
         !SINGLE_PROVIDER_UI && "surface-grain",
         SINGLE_PROVIDER_UI
-          ? "md:[--workspace-fixed-controls-top:var(--workspace-controls-top)] md:me-2 md:w-auto md:max-h-full md:overflow-hidden md:rounded-xl md:ms-1 md:peer-data-[state=collapsed]:ms-0 md:peer-data-[state=collapsed]:rounded-xl md:peer-data-[state=collapsed]:[&_[data-chat-column]]:rounded-xl"
+          ? "md:[--workspace-fixed-controls-top:var(--workspace-controls-top)] md:me-2 md:w-auto md:max-h-full md:overflow-hidden md:rounded-xl md:ms-1 md:group-data-[sidebar-state=collapsed]/sidebar-wrapper:ms-0 md:peer-data-[state=collapsed]:rounded-xl md:peer-data-[state=collapsed]:[&_[data-chat-column]]:rounded-xl"
           : "md:peer-data-[variant=inset]:peer-data-[state=collapsed]:ms-2 md:peer-data-[variant=inset]:m-2 md:peer-data-[variant=inset]:ms-0 md:peer-data-[variant=inset]:rounded-xl md:peer-data-[variant=inset]:shadow-sm/5",
         SINGLE_PROVIDER_UI && variant !== "split" && "workspace-panel-frame",
-        SINGLE_PROVIDER_UI && variant === "standalone" && "md:ms-1 md:me-1 md:rounded-xl",
+        SINGLE_PROVIDER_UI && variant === "standalone" && "md:ms-0",
         className,
       )}
       data-slot="sidebar-inset"

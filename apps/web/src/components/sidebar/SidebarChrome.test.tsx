@@ -136,6 +136,8 @@ it("navigates rail pages and keeps the thread switcher in Workspace", async () =
     expect(state.navigate).toHaveBeenLastCalledWith({ to: "/projects" });
     await act(async () => button("Workspace").click());
     expect(state.navigate).toHaveBeenLastCalledWith({ href: "/" });
+    state.pathname = "/";
+    await act(async () => render());
     expect(useAgentSidebarStore.getState().active).toBe(false);
     expect(button("Workspace").getAttribute("aria-current")).toBe("page");
     await act(async () => button("Switch to Thread view").click());

@@ -131,6 +131,9 @@ jobs:
       - name: Test Elysia runtime and credential protection
         run: |
           vp test run --config vite.config.ts \
+            packages/shared/src/legacyDataMigration.test.ts \
+            apps/server/src/persistence/backupBeforeNameMigration.test.ts \
+            apps/server/src/persistence/Migrations/061_ElysiaToolNames.test.ts \
             apps/server/src/provider/ElysiaCli.test.ts \
             apps/server/src/provider/Drivers/ElysiaDriver.test.ts \
             apps/server/src/provider/ElysiaPolicy.test.ts \

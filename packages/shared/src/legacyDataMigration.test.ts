@@ -96,6 +96,42 @@ it.effect("refuses an ambiguous destination without changing either profile", ()
   }),
 );
 
+it.effect("keeps an existing Elysia profile when a separate legacy profile remains", () =>
+  Effect.gen(function* () {
+    const root = yield* Effect.promise(home);
+    const old = NodePath.join(root, ".t3");
+    const current = NodePath.join(root, ".elysia");
+    for (const directory of [old, current]) {
+      yield* Effect.promise(() =>
+        NodeFSP.mkdir(NodePath.join(directory, "userdata"), { recursive: true }),
+      );
+      const db = new NodeSqlite.DatabaseSync(
+        NodePath.join(directory, "userdata", "statev2.sqlite"),
+      );
+      db.exec("CREATE TABLE chats (id TEXT PRIMARY KEY)");
+      db.prepare("INSERT INTO chats VALUES (?)").run(directory === current ? "current" : "legacy");
+      db.close();
+    }
+    yield* migrateLegacyDataHome(current);
+    for (const directory of [old, current]) {
+      const db = new NodeSqlite.DatabaseSync(
+        NodePath.join(directory, "userdata", "statev2.sqlite"),
+        {
+          readOnly: true,
+        },
+      );
+      try {
+        expect(db.prepare("SELECT id FROM chats").get()?.id).toBe(
+          directory === current ? "current" : "legacy",
+        );
+      } finally {
+        db.close();
+      }
+    }
+    expect((yield* Effect.promise(() => NodeFSP.readdir(root))).sort()).toEqual([".elysia", ".t3"]);
+  }),
+);
+
 it.effect("blocks a running WAL database and preserves the source", () =>
   Effect.gen(function* () {
     const root = yield* Effect.promise(home);

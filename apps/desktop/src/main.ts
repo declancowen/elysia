@@ -230,7 +230,16 @@ const desktopRuntimeLayer = desktopClerkLayer.pipe(
       Effect.gen(function* () {
         const environment = yield* DesktopEnvironment.DesktopEnvironment;
         if (environment.isPackaged && !environment.isDevelopment) {
-          yield* migrateLegacyDataHome(environment.baseDir);
+          yield* migrateLegacyDataHome(environment.baseDir).pipe(
+            Effect.tapError((error) =>
+              Effect.sync(() =>
+                Electron.dialog.showErrorBox(
+                  "Elysia could not migrate its data",
+                  `${error.message}\n\n${String(error.cause)}`,
+                ),
+              ),
+            ),
+          );
         }
         return desktopApplicationRuntimeLayer;
       }),

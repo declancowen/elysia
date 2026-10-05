@@ -147,6 +147,11 @@ export const migrateLegacyDataHome = Effect.fn("migrateLegacyDataHome")(function
         }
         return;
       }
+      // Earlier Elysia releases already used this home. A retained upstream
+      // profile must not block an upgrade or replace Elysia's existing chats.
+      for (const name of ["statev2.sqlite", "state.sqlite"]) {
+        if (await exists(NodePath.join(destination, "userdata", name))) return;
+      }
       const source = NodePath.join(NodePath.dirname(destination), ".t3");
       if (!(await exists(source))) return;
       if (await exists(destination)) {

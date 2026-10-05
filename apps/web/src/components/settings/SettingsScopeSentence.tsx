@@ -123,7 +123,7 @@ function ScopeMenu({
             <InlineButton tone="picker" />
           )
         }
-        className="min-w-0 max-w-72"
+        className={compact ? "min-w-0 w-full" : "min-w-0 max-w-72"}
       >
         {icon ? <ScopeIconSlot>{icon}</ScopeIconSlot> : null}
         <span className="min-w-0 truncate">{label}</span>

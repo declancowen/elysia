@@ -403,6 +403,18 @@ html[data-mobile-composer-route-transition="true"]::view-transition-old(t3-mobil
   }
 }
 
+@utility floating-panel-glass {
+  --floating-panel-surface: var(--app-theme-surface-raised, var(--card));
+  background: color-mix(in srgb, var(--floating-panel-surface) var(--glass-opacity), transparent);
+  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturation));
+  @variant dark {
+    --floating-panel-surface: var(--app-theme-surface-raised, var(--surface-raised));
+  }
+  @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    background: var(--floating-panel-surface);
+  }
+}
+
 @utility dropdown-glass {
   background: color-mix(
     in srgb,

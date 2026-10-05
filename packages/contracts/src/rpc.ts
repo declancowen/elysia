@@ -1,4 +1,10 @@
 import {
+  WorkspaceChatTarget,
+  WorkspaceChatLinkInput,
+  WorkspaceChatLinks,
+  WorkspaceChatError,
+} from "./workspaceChat.ts";
+import {
   PageListInput,
   PageListResult,
   PageSaveInput,
@@ -502,6 +508,8 @@ export const WS_METHODS = {
   serverGetUsageSummary: "server.getUsageSummary",
   serverRefreshUsageRates: "server.refreshUsageRates",
 
+  workspaceChatsList: "workspaceChats.list",
+  workspaceChatsLink: "workspaceChats.link",
   pagesList: "pages.list",
   pagesSubscribe: "pages.subscribe",
   pagesGet: "pages.get",
@@ -1707,6 +1715,17 @@ const WsSubscribeServerLifecycleRpc = Rpc.make(WS_METHODS.subscribeServerLifecyc
   stream: true,
 });
 
+const WsWorkspaceChatsListRpc = Rpc.make(WS_METHODS.workspaceChatsList, {
+  payload: WorkspaceChatTarget,
+  success: WorkspaceChatLinks,
+  error: Schema.Union([WorkspaceChatError, EnvironmentAuthorizationError]),
+});
+const WsWorkspaceChatsLinkRpc = Rpc.make(WS_METHODS.workspaceChatsLink, {
+  payload: WorkspaceChatLinkInput,
+  success: WorkspaceChatLinks,
+  error: Schema.Union([WorkspaceChatError, EnvironmentAuthorizationError]),
+});
+
 const WsPagesListRpc = Rpc.make(WS_METHODS.pagesList, {
   payload: PageListInput,
   success: PageListResult,
@@ -1869,6 +1888,8 @@ export const WsRpcGroup = RpcGroup.make(
   WsServerGetUsageSummaryRpc,
   WsServerRefreshUsageRatesRpc,
   WsServerSignalProcessRpc,
+  WsWorkspaceChatsListRpc,
+  WsWorkspaceChatsLinkRpc,
   WsPagesListRpc,
   WsPagesSubscribeRpc,
   WsPagesGetRpc,

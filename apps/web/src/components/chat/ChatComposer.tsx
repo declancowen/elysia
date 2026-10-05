@@ -1321,7 +1321,11 @@ const ComposerFooterModeControls = memo(function ComposerFooterModeControls(prop
               <SelectValue data-composer-control-label>{runtimeModeOption.label}</SelectValue>
             )}
           </TooltipTrigger>
-          <SelectPopup alignItemWithTrigger={false} {...composerFloatingLayerProps}>
+          <SelectPopup
+            alignItemWithTrigger={false}
+            matchTriggerWidth={false}
+            {...composerFloatingLayerProps}
+          >
             {props.runtimeModeOptions.map((option) => {
               const OptionIcon = option.icon;
               return (
@@ -1509,6 +1513,8 @@ export interface ChatComposerHandle {
 // --------------------------------------------------------------------------
 
 export interface ChatComposerProps {
+  embedded?: boolean;
+  pinnedContext?: ReactNode;
   composerDraftTarget: ScopedThreadRef | DraftId;
   environmentId: EnvironmentId;
   attachmentUploadsCapabilityKnown: boolean;
@@ -6869,6 +6875,7 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
       </ComposerBanner.Dock>
       <div className="relative">
         <ComposerSurface.Main
+          flat={Boolean(props.embedded)}
           ref={composerMainSurfaceRef}
           data-inline-resting-controls={restingControlsHost === null ? "true" : undefined}
           data-model-only-strip={
@@ -6951,6 +6958,7 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
               className={cn(
                 "relative px-3 pb-2 sm:px-4",
                 "pt-3.5 sm:pt-4",
+                props.embedded && "px-4 pt-4",
                 isComposerApprovalState && "pb-3 sm:pb-4",
                 isComposerCollapsedMobile && "hidden",
                 isComposerResting && "py-2 sm:py-2",
@@ -7518,6 +7526,15 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
               message={providerInputSubmissionError ?? composerSubmissionError}
             />
 
+            {props.pinnedContext ? (
+              <div
+                aria-label="Linked task or page"
+                className={cn("flex items-center px-3 pb-2 sm:px-4", props.embedded && "px-4")}
+              >
+                {props.pinnedContext}
+              </div>
+            ) : null}
+
             {/* Bottom toolbar */}
             {isComposerCollapsedMobile || isComposerApprovalState ? null : (
               <div
@@ -7525,6 +7542,8 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
                 data-chat-composer-footer-compact={isComposerFooterCompact ? "true" : "false"}
                 className={cn(
                   "flex min-w-0 flex-nowrap items-center justify-between gap-2 overflow-visible px-3 pb-3 sm:px-4 sm:pb-4",
+                  props.embedded && "px-4 pb-4",
+
                   pendingUserInputs.length > 0 && "pt-2",
                   isComposerFooterCompact ? "gap-1.5" : "gap-2 sm:gap-0",
                   showMobilePendingAnswerActions && "hidden sm:flex",

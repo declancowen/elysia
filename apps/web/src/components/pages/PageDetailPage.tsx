@@ -14,6 +14,7 @@ import { ArrowLeftIcon, PanelRightIcon, Trash2Icon } from "../../icons";
 import { Button } from "../ui/button";
 import { SidebarInset } from "../ui/sidebar";
 import { Select, SelectTrigger, SelectValue, SelectPopup, SelectItem } from "../ui/select";
+import { useWorkspaceSideChat } from "../WorkspaceSideChat";
 import { WorkspaceSurfaceHeader } from "../WorkspaceSurfaceHeader";
 import { WorkspaceDetailsPanel } from "../WorkspaceDetailsPanel";
 import { WorkspacePageContainer } from "../WorkspacePageContainer";
@@ -67,6 +68,13 @@ function PageDetail({
   const [reloadOpen, setReloadOpen] = useState(false);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const sideChat = useWorkspaceSideChat({
+    environmentId,
+    target: saved ? { kind: "page", id: saved.id } : null,
+    title: draft?.title ?? saved?.title ?? "",
+    projectId: saved?.projectId ?? null,
+    onOpen: () => setPanelOpen(false),
+  });
   const submitting = useRef(false);
   const detailsAnchor = useRef<HTMLButtonElement>(null);
   const [width, setWidth] = useState(() =>
@@ -210,6 +218,7 @@ function PageDetail({
         }
         actions={
           <div className="flex shrink-0 items-center gap-2">
+            {sideChat.controls}
             <span role="status" className="text-xs text-muted-foreground">
               {pending
                 ? "Saving…"
@@ -251,7 +260,10 @@ function PageDetail({
               aria-label="Page details"
               aria-expanded={panelOpen}
               ref={detailsAnchor}
-              onClick={() => setPanelOpen((open) => !open)}
+              onClick={() => {
+                sideChat.close();
+                setPanelOpen((open) => !open);
+              }}
               disabled={!saved}
             >
               <PanelRightIcon />
@@ -447,6 +459,7 @@ function PageDetail({
           </AlertDialogFooter>
         </AlertDialogPopup>
       </AlertDialog>
+      {sideChat.panel}
     </SidebarInset>
   );
 }

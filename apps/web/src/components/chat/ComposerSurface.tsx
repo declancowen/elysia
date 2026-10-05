@@ -5,9 +5,10 @@ import { cn } from "~/lib/utils";
 /** One glass backdrop until a top attachment needs the composer to cover its overlap. */
 function Shell({
   contextStrip = false,
+  flat = false,
   className,
   ...props
-}: ComponentProps<"div"> & { contextStrip?: boolean }) {
+}: ComponentProps<"div"> & { contextStrip?: boolean; flat?: boolean }) {
   return (
     <div
       data-slot="composer-shell"
@@ -29,6 +30,7 @@ function Shell({
           "before:[clip-path:shape(from_0_22px,curve_to_22px_0_with_0_9.85px/9.85px_0,line_to_calc(100%-22px)_0,curve_to_100%_22px_with_calc(100%-9.85px)_0/100%_9.85px,line_to_100%_calc(100%-var(--chat-composer-context-extension)-var(--chat-composer-drawer-inset)),curve_to_calc(100%-var(--chat-composer-drawer-inset))_calc(100%-var(--chat-composer-context-extension))_with_100%_calc(100%-var(--chat-composer-context-extension)-var(--chat-composer-drawer-inset)*0.4477)/calc(100%-var(--chat-composer-drawer-inset)*0.4477)_calc(100%-var(--chat-composer-context-extension)),line_to_calc(100%-var(--chat-composer-drawer-inset))_calc(100%-16px),curve_to_calc(100%-var(--chat-composer-drawer-inset)-16px)_100%_with_calc(100%-var(--chat-composer-drawer-inset))_calc(100%-7.16px)/calc(100%-var(--chat-composer-drawer-inset)-7.16px)_100%,line_to_calc(var(--chat-composer-drawer-inset)+16px)_100%,curve_to_var(--chat-composer-drawer-inset)_calc(100%-16px)_with_calc(var(--chat-composer-drawer-inset)+7.16px)_100%/var(--chat-composer-drawer-inset)_calc(100%-7.16px),line_to_var(--chat-composer-drawer-inset)_calc(100%-var(--chat-composer-context-extension)),curve_to_0_calc(100%-var(--chat-composer-context-extension)-var(--chat-composer-drawer-inset))_with_calc(var(--chat-composer-drawer-inset)*0.4477)_calc(100%-var(--chat-composer-context-extension))/0_calc(100%-var(--chat-composer-context-extension)-var(--chat-composer-drawer-inset)*0.4477),line_to_0_22px,close)]",
           "not-supports-[clip-path:shape(from_0_0,line_to_1px_1px)]:before:bottom-(--chat-composer-context-extension)",
         ],
+        flat && "before:hidden",
         className,
       )}
       {...props}
@@ -43,7 +45,7 @@ const outlineClasses =
 const contextSeamClasses =
   "group-data-with-context/composer-surface:after:[clip-path:polygon(0_0,100%_0,100%_100%,calc(100%-22px)_100%,calc(100%-22px)_calc(100%-2px),22px_calc(100%-2px),22px_100%,0_100%)]";
 
-function Host({ className, ...props }: ComponentProps<"div">) {
+function Host({ className, flat = false, ...props }: ComponentProps<"div"> & { flat?: boolean }) {
   return (
     <div
       data-slot="composer-host"
@@ -52,6 +54,7 @@ function Host({ className, ...props }: ComponentProps<"div">) {
         outlineClasses,
         contextSeamClasses,
         "group-has-data-[composer-banner-surface=attached]/composer-surface:shadow-none group-has-data-[composer-banner-surface=attached]/composer-surface:after:hidden",
+        flat && "rounded-none border-t border-border shadow-none after:hidden bg-transparent",
         className,
       )}
       {...props}
@@ -59,7 +62,7 @@ function Host({ className, ...props }: ComponentProps<"div">) {
   );
 }
 
-function Main({ className, ...props }: ComponentProps<"div">) {
+function Main({ className, flat = false, ...props }: ComponentProps<"div"> & { flat?: boolean }) {
   return (
     <div
       data-chat-composer-main-surface="true"
@@ -74,6 +77,7 @@ function Main({ className, ...props }: ComponentProps<"div">) {
         "group-has-data-[composer-banner-surface=attached]/composer-surface:shadow-composer dark:group-has-data-[composer-banner-surface=attached]/composer-surface:shadow-none",
         "not-supports-[((backdrop-filter:blur(1px))_or_(-webkit-backdrop-filter:blur(1px)))]:group-has-data-[composer-banner-surface=attached]/composer-surface:bg-(--chat-composer-glass-surface)",
         "group-has-data-[composer-banner-surface=attached]/composer-surface:**:data-[chat-composer-mobile-collapsed=true]:min-h-[calc(1rem+1px)]",
+        flat && "rounded-none p-0 shadow-none after:hidden bg-transparent",
         className,
       )}
       {...props}

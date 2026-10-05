@@ -85,6 +85,8 @@ export const RPC_REQUIRED_SCOPES = {
   [WS_METHODS.serverReportClientActivity]: AuthOrchestrationReadScope,
   [WS_METHODS.serverReportHostPowerState]: AuthOrchestrationOperateScope,
   [WS_METHODS.serverGetBackgroundPolicy]: AuthOrchestrationReadScope,
+  [WS_METHODS.workspaceChatsList]: AuthOrchestrationReadScope,
+  [WS_METHODS.workspaceChatsLink]: AuthOrchestrationOperateScope,
   [WS_METHODS.pagesList]: AuthOrchestrationReadScope,
   [WS_METHODS.pagesSubscribe]: AuthOrchestrationReadScope,
   [WS_METHODS.pagesGet]: AuthOrchestrationReadScope,

@@ -229,3 +229,5 @@ Choose **Snooze → Custom…** from a thread's menu to pick a date and time in 
 local time zone, or a duration in minutes, hours, or days. Durations start when
 you confirm; one day means 24 hours. On web and desktop, you can also snooze
 several selected threads together. Choose **Wake thread** to bring a thread back early.
+
+Open a task or page and choose **Chats** to start or return to a conversation linked to that item. These are ordinary Elysia chats with model selection: they appear under the item's project, or under workspace Chats when there is no project. The picker contains only conversations linked to the current item. Each message includes the pinned task or page as context. You can minimise the side chat or expand it while keeping the document open.

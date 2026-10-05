@@ -1071,6 +1071,14 @@ export function createServerEnvironmentAtoms<R, E>(
       tag: WS_METHODS.serverGetProcessResourceHistory,
     }),
     /** Live scheduled-task list: snapshot on subscribe, fresh list after every server-side change. */
+    workspaceChats: createEnvironmentRpcQueryAtomFamily(runtime, {
+      label: "environment-data:workspace-chats:list",
+      tag: WS_METHODS.workspaceChatsList,
+    }),
+    linkWorkspaceChat: createEnvironmentRpcCommand(runtime, {
+      label: "environment-data:workspace-chats:link",
+      tag: WS_METHODS.workspaceChatsLink,
+    }),
     page: createEnvironmentRpcQueryAtomFamily(runtime, {
       label: "environment-data:pages:get",
       tag: WS_METHODS.pagesGet,

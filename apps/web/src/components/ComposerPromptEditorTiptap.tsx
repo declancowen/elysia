@@ -699,6 +699,7 @@ function ComposerPromptEditorTiptapInner(props: ComposerPromptEditorProps) {
   const citationRequestRef = useRef<ComposerCitationCommentRequest | null>(null);
   const [openCitation, setOpenCitation] = useState<OpenCitationComment | null>(null);
   const [isEmpty, setIsEmpty] = useState(value.length === 0);
+  const [mountVersion, setMountVersion] = useState(0);
 
   const citationCommentActions = useMemo(
     () => ({
@@ -1077,6 +1078,7 @@ function ComposerPromptEditorTiptapInner(props: ComposerPromptEditorProps) {
           return true;
         },
       },
+      onCreate: () => setMountVersion((version) => version + 1),
       onUpdate: ({ editor: updated }) => {
         handleEditorChange(updated);
       },
@@ -1104,7 +1106,7 @@ function ComposerPromptEditorTiptapInner(props: ComposerPromptEditorProps) {
   useLayoutEffect(() => {
     if (!editor?.isInitialized) return;
     editor.view.setProps({ attributes: editorAttributes });
-  }, [editor, editorAttributes]);
+  }, [editor, editorAttributes, mountVersion]);
 
   const readSnapshot = useCallback(() => {
     const snapshot = snapshotRef.current;
@@ -1127,9 +1129,11 @@ function ComposerPromptEditorTiptapInner(props: ComposerPromptEditorProps) {
     return next;
   }, [editor]);
 
+  // Suspense can reappear before EditorContent remounts its view. Apply the
+  // controlled draft after Tiptap emits create, including subsequent remounts.
   // Controlled value/cursor from the store (history recall, chip insertion…).
   useLayoutEffect(() => {
-    if (!editor) return;
+    if (!editor?.isInitialized) return;
     const initialSelection = !hasAppliedControlledSelectionRef.current;
     hasAppliedControlledSelectionRef.current = true;
     const normalizedCursor = clampCollapsedComposerCursor(value, cursor);
@@ -1192,11 +1196,11 @@ function ComposerPromptEditorTiptapInner(props: ComposerPromptEditorProps) {
     queueMicrotask(() => {
       isApplyingControlledUpdateRef.current = false;
     });
-  }, [cursor, editor, richText, skillLabelFor, value]);
+  }, [cursor, editor, richText, skillLabelFor, value, mountVersion]);
 
   const focusAt = useCallback(
     (nextCursor: number) => {
-      if (!editor) return;
+      if (!editor?.isInitialized) return;
       editor.view.dom.focus({ preventScroll: true });
       // A newer prompt is waiting to be applied (a chip was just inserted
       // through the store). Reporting the editor's stale text now would
@@ -1280,7 +1284,7 @@ function ComposerPromptEditorTiptapInner(props: ComposerPromptEditorProps) {
         if (edge === "start" ? beforeCaret.includes("\n") : afterCaret.includes("\n")) {
           return false;
         }
-        const rootElement = editor?.view.dom;
+        const rootElement = editor?.isInitialized ? editor.view.dom : null;
         const selection = window.getSelection();
         if (
           !rootElement ||

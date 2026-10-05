@@ -68,6 +68,7 @@ import {
   type EnvironmentId,
   type MessageId,
   CommandId,
+  ComposerContextId,
   type ProjectId,
   type ModelSelection,
   type ProjectScript,
@@ -313,6 +314,7 @@ import {
   nextProjectScriptId,
   projectScriptIdFromCommand,
 } from "~/projectScripts";
+import { WorkspaceItemContextChip } from "./WorkspaceItemContextChip";
 import { newDraftId, newMessageId, newThreadId } from "~/lib/utils";
 import { registerFaviconProjectForThread } from "~/browserFaviconStore";
 import { getProviderModelCapabilities } from "../providerModels";
@@ -378,6 +380,7 @@ import {
   removeInlineContextReference,
   stripInlineContextReferences,
 } from "../lib/composerContextReferences";
+import { formatComposerContextReference } from "@t3tools/shared/composerContextReferences";
 import { serializeLegacyContextMessage } from "@t3tools/shared/composerContextLegacySend";
 import {
   buildMessageContext,
@@ -804,7 +807,10 @@ function isCompactCommandMessage(message: ChatMessage): boolean {
   return message.role === "user" && text === "/compact" && !message.attachments?.length;
 }
 
-type ChatViewProps =
+type ChatViewProps = {
+  embedded?: boolean;
+  workspaceContext?: { kind: "task" | "page"; id: string; label: string };
+} & (
   | {
       environmentId: EnvironmentId;
       threadId: ThreadId;
@@ -822,7 +828,8 @@ type ChatViewProps =
       forceExpandedMobileComposer?: boolean;
       routeKind: "draft";
       draftId: DraftId;
-    };
+    }
+);
 
 interface TerminalLaunchContext {
   threadId: ThreadId;
@@ -1526,6 +1533,7 @@ export default function ChatView(props: ChatViewProps) {
     routeKind,
     onDiffPanelOpen,
     forceExpandedMobileComposer = false,
+    embedded = false,
   } = props;
   const draftId = routeKind === "draft" ? props.draftId : null;
   const handleNewThread = useNewThreadHandler();
@@ -1873,6 +1881,14 @@ export default function ChatView(props: ChatViewProps) {
   const isMobileViewport = useMediaQuery("max-sm");
   const isTopbarMobileViewport = useMediaQuery("max-md");
   const [workspaceLayoutRef, workspaceLayoutWidth] = useElementWidth<HTMLDivElement>();
+  const embeddedRootRef = useRef<HTMLDivElement | null>(null);
+  const setWorkspaceLayoutElement = useCallback(
+    (element: HTMLDivElement | null) => {
+      embeddedRootRef.current = element;
+      workspaceLayoutRef(element);
+    },
+    [workspaceLayoutRef],
+  );
   const threadPanelPopoverAnchorRef = useRef<HTMLDivElement | null>(null);
   const [threadOverviewDocked, setThreadOverviewDocked] = useState(false);
   const topbarHost = useAppTopbarHost();
@@ -2063,12 +2079,12 @@ export default function ChatView(props: ChatViewProps) {
   useLayoutEffect(() => {
     const host =
       topbarHost && !isTopbarMobileViewport ? topbarHost : localChatHeaderHostRef.current;
-    if (!host || !chatHeaderPresent) return;
+    if (embedded || !host || !chatHeaderPresent) return;
     host.appendChild(chatHeaderContainer);
     return () => {
       if (chatHeaderContainer.parentNode === host) host.removeChild(chatHeaderContainer);
     };
-  }, [topbarHost, isTopbarMobileViewport, chatHeaderPresent, chatHeaderContainer]);
+  }, [topbarHost, isTopbarMobileViewport, chatHeaderPresent, chatHeaderContainer, embedded]);
   const serverLatestRun = useMemo(
     () => (serverProjection === null ? null : deriveLatestThreadRun(serverProjection)),
     [serverProjection],
@@ -4184,23 +4200,28 @@ export default function ChatView(props: ChatViewProps) {
     activeThread === undefined
       ? null
       : formatModelSelectionEffort(activeThread.modelSelection, providerSubagentModels);
-  const mountComposerContextStrip = shouldShowComposerContextStrip({
-    isDraftHeroState,
-    persistInActiveThreads: settings.persistComposerContextStrip,
-    hasActiveProject: activeProject !== null && !showProviderSubagentBar,
-    showGitControls: showComposerGitControls,
-    showEnvironmentIndicator: showComposerEnvironmentIndicator,
-    hostsRestingComposerControls: routeKind === "server",
-  });
-  const showComposerContextStrip = shouldShowComposerContextStrip({
-    isDraftHeroState,
-    persistInActiveThreads: settings.persistComposerContextStrip,
-    hasActiveProject: activeProject !== null && !showProviderSubagentBar,
-    showGitControls: showComposerGitControls,
-    showEnvironmentIndicator: showComposerEnvironmentIndicator,
-    hostsRestingComposerControls: routeKind === "server" && restingComposerControlsVisible,
-  });
+  const mountComposerContextStrip =
+    !embedded &&
+    shouldShowComposerContextStrip({
+      isDraftHeroState,
+      persistInActiveThreads: settings.persistComposerContextStrip,
+      hasActiveProject: activeProject !== null && !showProviderSubagentBar,
+      showGitControls: showComposerGitControls,
+      showEnvironmentIndicator: showComposerEnvironmentIndicator,
+      hostsRestingComposerControls: routeKind === "server",
+    });
+  const showComposerContextStrip =
+    !embedded &&
+    shouldShowComposerContextStrip({
+      isDraftHeroState,
+      persistInActiveThreads: settings.persistComposerContextStrip,
+      hasActiveProject: activeProject !== null && !showProviderSubagentBar,
+      showGitControls: showComposerGitControls,
+      showEnvironmentIndicator: showComposerEnvironmentIndicator,
+      hostsRestingComposerControls: routeKind === "server" && restingComposerControlsVisible,
+    });
   const mountComposerModelStrip =
+    !embedded &&
     routeKind === "server" &&
     !activeProject?.agentProfile &&
     !mountComposerContextStrip &&
@@ -6096,7 +6117,8 @@ export default function ChatView(props: ChatViewProps) {
   useEffect(() => {
     const controller = createPageScrollController({
       getContainer: () => legendListRef.current?.getScrollableNode() ?? null,
-      getScrollPaddingBottomPx: () => composerOverlayElement?.getBoundingClientRect().height ?? 0,
+      getScrollPaddingBottomPx: () =>
+        embedded ? 0 : (composerOverlayElement?.getBoundingClientRect().height ?? 0),
       onScrollStart: handlePageScrollStart,
     });
     pageScrollControllerRef.current = controller;
@@ -6107,7 +6129,7 @@ export default function ChatView(props: ChatViewProps) {
         pageScrollControllerRef.current = null;
       }
     };
-  }, [composerOverlayElement]);
+  }, [composerOverlayElement, embedded]);
   const onComposerPageScrollKeyDown = useCallback((key: PageScrollKey) => {
     pageScrollControllerRef.current?.handleKeyDown(key);
   }, []);
@@ -6591,6 +6613,7 @@ export default function ChatView(props: ChatViewProps) {
   );
   const publishComposerOverlayHeight = useCallback(
     (height: number) => {
+      if (embedded) return;
       const nextHeight = Math.ceil(height);
       if (nextHeight <= 0) return;
       const isResting = overlayComposerIsResting({
@@ -6641,7 +6664,7 @@ export default function ChatView(props: ChatViewProps) {
           : nextHeight;
       setScrollToEndClearance(clearance);
     },
-    [composerOverlayElement],
+    [composerOverlayElement, embedded],
   );
   // The composer reports its resting flag from a layout effect, which runs
   // before this component's own layout effects and before any resize
@@ -7459,6 +7482,7 @@ export default function ChatView(props: ChatViewProps) {
 
   useEffect(() => {
     const handler = (event: globalThis.KeyboardEvent) => {
+      if (embedded && !embeddedRootRef.current?.contains(event.target as Node)) return;
       if (preventRepeatedTerminalCloseShortcut(event, keybindings)) {
         event.stopPropagation();
         return;
@@ -7719,6 +7743,7 @@ export default function ChatView(props: ChatViewProps) {
     window.addEventListener("keydown", handler, true);
     return () => window.removeEventListener("keydown", handler, true);
   }, [
+    embedded,
     activeProject,
     activeRightPanelSurface,
     visibleRightPanelSurface,
@@ -7765,6 +7790,7 @@ export default function ChatView(props: ChatViewProps) {
   // Route it to the composer like a typed key, which also expands it.
   useEffect(() => {
     const keyHandler = (event: KeyboardEvent) => {
+      if (embedded && !embeddedRootRef.current?.contains(event.target as Node)) return;
       if (
         shouldRedirectInputToComposer(event) &&
         isPasteAsTextShortcut(event, isMacPlatform(navigator.platform))
@@ -7773,6 +7799,7 @@ export default function ChatView(props: ChatViewProps) {
       }
     };
     const handler = (event: ClipboardEvent) => {
+      if (embedded && !embeddedRootRef.current?.contains(event.target as Node)) return;
       if (!activeThreadId || isCommandPaletteOpen()) return;
       if (getTerminalFocusOwner() !== null) return;
       if (composerRef.current?.isModelPickerOpen()) return;
@@ -7796,7 +7823,7 @@ export default function ChatView(props: ChatViewProps) {
       window.removeEventListener("keydown", keyHandler, true);
       window.removeEventListener("paste", handler, true);
     };
-  }, [activeThreadId, composerRef]);
+  }, [embedded, activeThreadId, composerRef]);
 
   const [pendingRevert, setPendingRevert] = useState<{
     turnCount: number;
@@ -8373,11 +8400,20 @@ export default function ChatView(props: ChatViewProps) {
         : sendContextPreviewAnnotations;
     // A direct "send annotation" writes the draft and sends in the same tick; the reference
     // must be in the text now, not after the next render.
-    const promptForSend = directAnnotation
+    const editablePromptForSend = directAnnotation
       ? ensureInlineContextReferences(promptRef.current, [
           previewAnnotationContextReference(directAnnotation.annotation),
         ])
       : promptRef.current;
+    const promptForSend = props.workspaceContext
+      ? `${removeInlineContextReference(editablePromptForSend, props.workspaceContext.id).prompt.trimEnd()}
+
+${formatComposerContextReference({
+  kind: props.workspaceContext.kind,
+  contextId: ComposerContextId.make(props.workspaceContext.id),
+  label: props.workspaceContext.label,
+})}`
+      : editablePromptForSend;
     const group = activeProject?.agentProfile?.group;
     const responder = group ? agentGroupResponder(group, promptForSend) : null;
     const agentTargets = group
@@ -10865,10 +10901,10 @@ export default function ChatView(props: ChatViewProps) {
 
   return (
     <div
-      ref={workspaceLayoutRef}
+      ref={setWorkspaceLayoutElement}
       className={cn(
         "relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden",
-        SINGLE_PROVIDER_UI ? "bg-sidebar" : "bg-background",
+        embedded ? "bg-transparent" : SINGLE_PROVIDER_UI ? "bg-sidebar" : "bg-background",
       )}
     >
       <Dialog
@@ -10894,7 +10930,7 @@ export default function ChatView(props: ChatViewProps) {
           ) : null}
         </WizardPopup>
       </Dialog>
-      {createPortal(chatHeader, chatHeaderContainer)}
+      {!embedded && createPortal(chatHeader, chatHeaderContainer)}
       <div
         ref={localChatHeaderHostRef}
         className={topbarHost && !isTopbarMobileViewport ? "hidden" : "contents"}
@@ -10904,7 +10940,9 @@ export default function ChatView(props: ChatViewProps) {
           ref={threadPanelPopoverAnchorRef}
           className={cn(
             "flex min-h-0 min-w-0 flex-col overflow-x-hidden",
-            SINGLE_PROVIDER_UI && "relative bg-background md:rounded-xl workspace-panel-frame",
+            SINGLE_PROVIDER_UI &&
+              !embedded &&
+              "relative bg-background md:rounded-xl workspace-panel-frame",
             rightPanelMaximized ? "w-0 flex-none" : "flex-1",
           )}
           data-chat-column-maximized-away={rightPanelMaximized ? "true" : "false"}
@@ -10915,7 +10953,7 @@ export default function ChatView(props: ChatViewProps) {
           <div className="flex min-h-0 min-w-0 flex-1" data-chat-content>
             {/* Chat column */}
             <ChatCanvas
-              composerOverlayElement={isDraftHeroState ? null : composerOverlayElement}
+              composerOverlayElement={embedded || isDraftHeroState ? null : composerOverlayElement}
               onDragEnter={workspaceFileDropHandlers.onDragEnter}
               onDragOver={workspaceFileDropHandlers.onDragOver}
               onDragLeave={workspaceFileDropHandlers.onDragLeave}
@@ -10957,7 +10995,12 @@ export default function ChatView(props: ChatViewProps) {
                 />
               </div>
               {/* Messages Wrapper */}
-              <div className="relative flex min-h-0 flex-1 flex-col bg-background">
+              <div
+                className={cn(
+                  "relative flex min-h-0 flex-1 flex-col",
+                  !embedded && "bg-background",
+                )}
+              >
                 {/* Messages — LegendList handles virtualization and scrolling internally */}
                 <MessagesTimeline
                   agentAvatar={
@@ -11079,7 +11122,7 @@ export default function ChatView(props: ChatViewProps) {
                 {showScrollToBottom && (
                   <div
                     className="chat-scroll-to-bottom pointer-events-none absolute z-30 flex justify-center py-1.5"
-                    style={{ bottom: scrollToEndClearance + 4 }}
+                    style={{ bottom: (embedded ? 0 : scrollToEndClearance) + 4 }}
                   >
                     <Button
                       aria-label="Scroll to end"
@@ -11105,20 +11148,23 @@ export default function ChatView(props: ChatViewProps) {
                 inert={isRevertingCheckpoint}
                 data-chat-composer-overlay="true"
                 className={cn(
-                  isDraftHeroState
-                    ? "pointer-events-none absolute inset-0 z-20 flex items-center"
-                    : cn(
-                        "pointer-events-none absolute inset-x-0 bottom-0 z-20",
-                        SINGLE_PROVIDER_UI ? "pt-1" : "pt-1.5 sm:pt-2",
-                      ),
+                  embedded
+                    ? "relative z-20 shrink-0"
+                    : isDraftHeroState
+                      ? "pointer-events-none absolute inset-0 z-20 flex items-center"
+                      : cn(
+                          "pointer-events-none absolute inset-x-0 bottom-0 z-20",
+                          SINGLE_PROVIDER_UI ? "pt-1" : "pt-1.5 sm:pt-2",
+                        ),
                   SINGLE_PROVIDER_UI &&
+                    !embedded &&
                     !isDraftHeroState &&
                     "before:pointer-events-none before:absolute before:inset-x-0 before:-top-4 before:z-0 before:h-4 before:bg-linear-to-b before:from-transparent before:to-background after:pointer-events-none after:absolute after:inset-0 after:z-0 after:bg-background",
                 )}
               >
                 <div
                   ref={draftHeroTransition.transitionGroupRef}
-                  className="chat-composer-lane w-full"
+                  className={cn("chat-composer-lane w-full", embedded && "px-0! pb-0!")}
                 >
                   <div
                     data-chat-composer-stack="true"
@@ -11164,9 +11210,11 @@ export default function ChatView(props: ChatViewProps) {
                       }
                     >
                       <ComposerSurface.Shell
+                        flat={embedded}
                         contextStrip={showComposerContextStrip || showComposerModelStrip}
                       >
                         <ComposerSurface.Host
+                          flat={embedded}
                           inert={isSavingQueuedEdit}
                           aria-busy={isSavingQueuedEdit}
                         >
@@ -11186,6 +11234,17 @@ export default function ChatView(props: ChatViewProps) {
                             ) : null}
                             {!composerMounted ? null : (
                               <ChatComposer
+                                embedded={embedded}
+                                pinnedContext={
+                                  props.workspaceContext ? (
+                                    <WorkspaceItemContextChip
+                                      id={props.workspaceContext.id}
+                                      kind={props.workspaceContext.kind}
+                                      label={props.workspaceContext.label}
+                                      environmentId={environmentId}
+                                    />
+                                  ) : undefined
+                                }
                                 persistentAgent={Boolean(activeProject?.agentProfile)}
                                 multipleModelSelections={multipleModelSelections}
                                 supportsMultipleModels={
@@ -11435,7 +11494,11 @@ export default function ChatView(props: ChatViewProps) {
                       </ComposerSurface.Shell>
                       <div
                         aria-hidden
-                        className="h-[calc(env(safe-area-inset-bottom)+1rem)] sm:h-[calc(env(safe-area-inset-bottom)+1.25rem)]"
+                        className={
+                          embedded
+                            ? "hidden"
+                            : "h-[calc(env(safe-area-inset-bottom)+1rem)] sm:h-[calc(env(safe-area-inset-bottom)+1.25rem)]"
+                        }
                       />
                     </div>
                   </div>

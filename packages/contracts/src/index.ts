@@ -67,3 +67,4 @@ export * from "./agents.ts";
 export * from "./workTask.ts";
 
 export * from "./page.ts";
+export * from "./workspaceChat.ts";

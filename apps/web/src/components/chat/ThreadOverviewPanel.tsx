@@ -341,7 +341,7 @@ function OverviewPopover({
               width: view && expanded ? expandedWidth : collapsedWidth,
               maxWidth: availableSize.width,
             }}
-            className="flex max-h-(--available-height) flex-col overflow-hidden rounded-3xl workspace-panel-outline text-foreground outline-none [--overview-surface:var(--app-theme-surface-raised,var(--card))] dark:[--overview-surface:var(--app-theme-surface-raised,var(--surface-raised))] bg-(--overview-surface)/(--glass-opacity) backdrop-blur-(--glass-blur) backdrop-saturate-(--glass-saturation) not-supports-[((backdrop-filter:blur(1px))_or_(-webkit-backdrop-filter:blur(1px)))]:bg-(--overview-surface)"
+            className="flex max-h-(--available-height) flex-col overflow-hidden rounded-3xl workspace-panel-outline text-foreground outline-none floating-panel-glass"
           >
             <header className="flex shrink-0 items-center gap-2 px-5 pt-5 pb-2">
               {view ? (

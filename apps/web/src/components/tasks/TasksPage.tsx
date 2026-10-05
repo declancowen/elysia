@@ -70,6 +70,7 @@ import {
 } from "../ui/menu";
 import { cn } from "../../lib/utils";
 import { WorkspaceRichTextEditor } from "../WorkspaceRichTextEditor";
+import { useWorkspaceSideChat } from "../WorkspaceSideChat";
 import { WorkspaceSurfaceHeader } from "../WorkspaceSurfaceHeader";
 import { WorkspaceDetailsPanel } from "../WorkspaceDetailsPanel";
 import { WorkspacePageContainer } from "../WorkspacePageContainer";
@@ -232,6 +233,13 @@ export function TasksPage() {
   );
   const summary = tasksQuery.data?.tasks.find((task) => task.id === selectedId);
   const selected = !tasksQuery.data || !summary ? undefined : selectedQuery.data?.task;
+  const sideChat = useWorkspaceSideChat({
+    environmentId: environment?.environmentId ?? null,
+    target: selected ? { kind: "task", id: selected.id } : null,
+    title: selected?.title ?? "",
+    projectId: selected?.projectId ?? null,
+    onOpen: () => setPanelOpen(false),
+  });
   const refreshSelected = selectedQuery.refresh;
   useEffect(() => {
     if (
@@ -681,6 +689,7 @@ export function TasksPage() {
         }
         actions={
           <>
+            {sideChat.controls}
             {selectedId ? (
               <Button
                 ref={panelAnchor}
@@ -688,7 +697,10 @@ export function TasksPage() {
                 size="icon-sm"
                 aria-label="Task details"
                 aria-expanded={panelOpen}
-                onClick={() => setPanelOpen(!panelOpen)}
+                onClick={() => {
+                  sideChat.close();
+                  setPanelOpen(!panelOpen);
+                }}
               >
                 <PanelRightIcon />
               </Button>
@@ -920,6 +932,7 @@ export function TasksPage() {
           />
         </WorkspacePageContainer>
       </div>
+      {sideChat.panel}
     </SidebarInset>
   );
 }

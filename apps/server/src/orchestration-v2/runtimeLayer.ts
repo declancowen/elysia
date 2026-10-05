@@ -1,4 +1,5 @@
 import * as Pages from "../pages/PageService.ts";
+import * as WorkspaceChats from "../workspace/WorkspaceChatService.ts";
 import * as Tasks from "../tasks/TaskService.ts";
 import * as UsageLimitRecoveryWorker from "./UsageLimitRecoveryWorker.ts";
 import * as Scheduler from "../scheduling/Scheduler.ts";
@@ -348,6 +349,9 @@ export const OrchestrationV2ProductionLayerLive = Layer.mergeAll(
     ),
   ),
   Pages.layer.pipe(Layer.provide(ProjectStore.layer)),
+  WorkspaceChats.layer.pipe(
+    Layer.provide(Layer.mergeAll(threadManagementProvided, ProjectStore.layer)),
+  ),
   scheduledTaskProvided,
   UsageLimitRecoveryWorker.workerLive.pipe(
     Layer.provide(Layer.mergeAll(projectionStoreLayer, threadManagementProvided)),

@@ -1,4 +1,5 @@
 import * as Pages from "./pages/PageService.ts";
+import * as WorkspaceChats from "./workspace/WorkspaceChatService.ts";
 import * as Tasks from "./tasks/TaskService.ts";
 import {
   CONNECTIONS_ENABLED,
@@ -1141,6 +1142,7 @@ const makeWsRpcLayer = (
       const scheduledTasks = yield* ScheduledTasks.ScheduledTaskService;
       const tasks = yield* Tasks.TaskService;
       const pages = yield* Pages.PageService;
+      const workspaceChats = yield* WorkspaceChats.WorkspaceChatService;
       const pullRequests = yield* PullRequestService.PullRequestService;
       const pullRequestSync = yield* PullRequestSyncReactor.PullRequestSyncReactor;
       const deviceService = yield* DeviceService.DeviceService;
@@ -2032,6 +2034,14 @@ const makeWsRpcLayer = (
               "orchestration_v2.thread_id": input.threadId,
             },
           ),
+        [WS_METHODS.workspaceChatsList]: (input) =>
+          observeRpcEffect(WS_METHODS.workspaceChatsList, workspaceChats.list(input), {
+            "rpc.aggregate": "workspace",
+          }),
+        [WS_METHODS.workspaceChatsLink]: (input) =>
+          observeRpcEffect(WS_METHODS.workspaceChatsLink, workspaceChats.link(input), {
+            "rpc.aggregate": "workspace",
+          }),
         [WS_METHODS.pagesList]: (_input) =>
           observeRpcEffect(WS_METHODS.pagesList, pages.list(), { "rpc.aggregate": "pages" }),
         [WS_METHODS.pagesSubscribe]: (_input) =>

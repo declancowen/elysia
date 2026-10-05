@@ -1,6 +1,6 @@
 import type { UsageProviderKind } from "@t3tools/contracts";
 
-import { ProviderDriverKind } from "@t3tools/contracts";
+import { ProviderDriverKind, SINGLE_PROVIDER_UI } from "@t3tools/contracts";
 
 type UsageProviderPresentation = {
   readonly label: string;
@@ -21,7 +21,7 @@ export const PROVIDER_PRESENTATION = {
   },
   claude: {
     label: "Claude Code",
-    color: "#d97757",
+    color: SINGLE_PROVIDER_UI ? "#28B4FF" : "#d97757",
     driverKind: ProviderDriverKind.make("claudeAgent"),
   },
   grok: {

@@ -20,6 +20,7 @@ import { WorkspacePageContainer } from "../WorkspacePageContainer";
 import { ElysiaIcon } from "../Icons";
 import { Tooltip, TooltipTrigger, TooltipPopup } from "../ui/tooltip";
 import { PROVIDER_PRESENTATION } from "./usageProviders";
+import { UsageBarTrack } from "./UsageBarTrack";
 
 const numberFormat = new Intl.NumberFormat();
 const savingsFormat = new Intl.NumberFormat(undefined, {
@@ -139,6 +140,13 @@ export function ElysiaUsagePage() {
   );
   const cost = buckets.reduce((sum, bucket) => sum + bucket.costUsd, 0);
   const month = today.slice(0, 7);
+  const monthLabel = new Intl.DateTimeFormat("en-GB", {
+    month: "long",
+    year: "numeric",
+  }).format(now);
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+  const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 1).getTime();
+  const monthElapsed = ((now.getTime() - monthStart) / (monthEnd - monthStart)) * 100;
   const monthly = summary?.buckets.filter((bucket) => bucket.day.startsWith(month)) ?? [];
   const monthlyCost = monthly.reduce((sum, bucket) => sum + bucket.costUsd, 0);
   const monthlyPriced = monthly.some((bucket) => bucket.records > bucket.unpricedRecords);
@@ -229,12 +237,12 @@ export function ElysiaUsagePage() {
                           aria-valuemax={200}
                           aria-valuenow={Math.min(200, monthlyCost)}
                           aria-valuetext={`${savingsFormat.format(monthlyCost)} of $200`}
-                          className="relative h-6 rounded-full"
+                          className="relative h-6 cursor-default rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                         >
-                          <div className="absolute inset-x-0 inset-y-1.5 rounded-full bg-muted" />
-                          <div
-                            className="absolute inset-y-1.5 left-0 rounded-full bg-primary"
-                            style={{ width: `${Math.min(100, monthlyCost / 2)}%` }}
+                          <UsageBarTrack
+                            color={PROVIDER_PRESENTATION.claude.color}
+                            fillPercent={Math.min(100, monthlyCost / 2)}
+                            markerPercent={monthElapsed}
                           />
                         </div>
                       }
@@ -242,12 +250,13 @@ export function ElysiaUsagePage() {
                     <TooltipPopup>
                       Elysia · {savingsFormat.format(monthlyCost)} of $200 monthly target
                       {monthlyUnknown ? " · partial estimate" : ""}
+                      <div className="text-muted-foreground">
+                        The line shows the month's elapsed time.
+                      </div>
                     </TooltipPopup>
                   </Tooltip>
                 ) : null}
-                <p className="text-sm text-muted-foreground">
-                  Calendar month · {month} · API estimate
-                </p>
+                <p className="text-sm text-muted-foreground">{monthLabel} · API estimate</p>
               </section>
               <section className="flex flex-col gap-4">
                 <div className="flex flex-wrap items-center justify-between gap-3">
@@ -382,8 +391,11 @@ export function ElysiaUsagePage() {
                     .sort(([, a], [, b]) => b.cost - a.cost)
                     .map(([model, value]) => (
                       <div key={model} className="flex items-center justify-between gap-4">
-                        <dt className="truncate text-sm">{model}</dt>
-                        <dd className="text-sm tabular-nums">
+                        <dt className="flex min-w-0 items-center gap-2 text-sm">
+                          <ElysiaIcon aria-hidden className="size-4 shrink-0" />
+                          <span className="truncate">{model}</span>
+                        </dt>
+                        <dd className="shrink-0 text-sm tabular-nums">
                           {value.records === value.unpriced
                             ? "Unpriced"
                             : savingsFormat.format(value.cost)}

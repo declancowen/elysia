@@ -318,8 +318,8 @@ export function UsageProviderChart({
       : formatPeriod(period);
 
   return (
-    <div className="flex flex-col gap-1">
-      <div className="flex gap-2">
+    <div className="flex min-w-0 w-full flex-col gap-1">
+      <div className="flex min-w-0 w-full gap-2">
         {/* Axis labels sit outside the plot so they stay aligned to gridlines. */}
         <div className="relative h-56 w-14 shrink-0">
           {ticks.map((tick) => (
@@ -335,7 +335,7 @@ export function UsageProviderChart({
 
         <div
           ref={plotRef}
-          className="relative h-56 flex-1"
+          className="relative h-56 min-w-0 flex-1"
           onMouseMove={handleMove}
           onMouseLeave={() => {
             hoverPositionRef.current = null;
@@ -343,7 +343,7 @@ export function UsageProviderChart({
           }}
         >
           <svg
-            className="h-full w-full"
+            className="block h-full w-full"
             viewBox={`0 0 ${VIEW_WIDTH} ${VIEW_HEIGHT}`}
             preserveAspectRatio="none"
             role="img"

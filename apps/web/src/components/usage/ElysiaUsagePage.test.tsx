@@ -187,6 +187,20 @@ it("uses dated usage for range totals, lifetime and the calendar monthly target"
   expect(displayedValues()).toContain("9,900");
   expect(renderer!.root.findByProps({ role: "meter" }).props["aria-valuenow"]).toBe(12);
 });
+it("labels the API month naturally and resets its pace and cost at the next month", async () => {
+  await mount();
+  expect(JSON.stringify(renderer!.toJSON())).toContain("October 2026");
+  expect(JSON.stringify(renderer!.toJSON())).not.toContain("Calendar month");
+  const marker = () =>
+    renderer!.root.findAllByType("span").find((node) => node.props.style?.left !== undefined)!;
+  expect(Number.parseFloat(marker().props.style.left)).toBeGreaterThan(10);
+  expect(Number.parseFloat(marker().props.style.left)).toBeLessThan(15);
+  vi.setSystemTime(new Date(2026, 10, 1));
+  await changeScope("lifetime");
+  expect(JSON.stringify(renderer!.toJSON())).toContain("November 2026");
+  expect(renderer!.root.findByProps({ role: "meter" }).props["aria-valuenow"]).toBe(0);
+  expect(marker().props.style.left).toBe("0%");
+});
 it("keeps usage readable when compression is unavailable and recovers on Refresh", async () => {
   state.load.mockResolvedValue({ status: "unavailable", reason: "compression-disabled" });
   await mount();

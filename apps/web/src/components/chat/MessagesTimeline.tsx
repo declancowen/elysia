@@ -2310,8 +2310,8 @@ function UserTimelineRow({ row }: { row: Extract<TimelineRow, { kind: "message" 
   );
 
   const messageActions = (
-    <div className="flex w-full max-w-[80%] items-center justify-end gap-2 pe-1 text-xs tabular-nums">
-      <div className="flex shrink-0 items-center gap-2 opacity-0 transition-opacity duration-200 pointer-coarse:opacity-100 focus-within:opacity-100 group-hover:opacity-100">
+    <div className="flex w-full max-w-[80%] items-center justify-end gap-2 pe-1 text-xs tabular-nums opacity-0 transition-opacity duration-200 pointer-coarse:opacity-100 focus-within:opacity-100 group-hover:opacity-100">
+      <div className="flex shrink-0 items-center gap-2">
         <Tooltip>
           <TooltipTrigger render={<p className="text-muted-foreground text-xs tabular-nums" />}>
             {formatDayAwareTimestamp(row.message.createdAt, ctx.timestampFormat)}
@@ -2918,16 +2918,17 @@ function AssistantMessageMeta({
   const ctx = use(TimelineRowCtx);
 
   return (
-    <div className={cn("flex items-center gap-2 text-xs tabular-nums", className)}>
+    <div
+      className={cn(
+        "flex items-center gap-2 text-xs tabular-nums transition-opacity duration-200",
+        alwaysVisible
+          ? "opacity-100"
+          : "opacity-0 pointer-coarse:opacity-100 focus-within:opacity-100 group-hover/assistant:opacity-100",
+        className,
+      )}
+    >
       {ctx.channel ? <ChannelReplyAction message={message} /> : null}
-      <div
-        className={cn(
-          "flex items-center gap-2 text-xs tabular-nums transition-opacity duration-200",
-          alwaysVisible
-            ? "opacity-100"
-            : "opacity-0 pointer-coarse:opacity-100 focus-within:opacity-100 group-hover/assistant:opacity-100",
-        )}
-      >
+      <div className="flex items-center gap-2 text-xs tabular-nums">
         {projectedItem?.item.type === "assistant_message" ? (
           <AssistantForkButton projectedItem={projectedItem} />
         ) : null}

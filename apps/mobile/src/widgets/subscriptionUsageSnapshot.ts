@@ -1,3 +1,4 @@
+import { formatCalendarDateTime } from "@t3tools/shared/dateFormat";
 import {
   collectLimitAccounts,
   collectLimitPools,
@@ -106,12 +107,7 @@ function subscriptionUsageProps(
                 label: window.label,
                 remaining: Math.round(window.remainingPercent),
                 reset: window.resets[0]
-                  ? `Next reset ${new Date(window.resets[0].at).toLocaleString(undefined, {
-                      month: "short",
-                      day: "numeric",
-                      hour: "numeric",
-                      minute: "2-digit",
-                    })}`
+                  ? `Next reset ${formatCalendarDateTime(new Date(window.resets[0].at))}`
                   : "Reset time unavailable",
               }))
             : [],

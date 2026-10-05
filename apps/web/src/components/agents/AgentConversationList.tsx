@@ -1,3 +1,4 @@
+import { formatCalendarDate } from "@t3tools/shared/dateFormat";
 import { useConversationTabsStore } from "../../conversationTabsStore";
 import { useState } from "react";
 import { useConversationRowClick } from "../../hooks/useConversationRowClick";
@@ -30,8 +31,6 @@ import { setAgentSidebarActive } from "./agentSidebarStore";
 import { useAgentActions } from "./useAgentActions";
 import type { AgentRosterEntry } from "./useAgents";
 import { useAgentConversationPreviews } from "./useAgentConversationPreviews";
-
-const dateFormat = new Intl.DateTimeFormat(undefined, { day: "numeric", month: "short" });
 
 export function AgentConversationList({
   agents,
@@ -235,7 +234,7 @@ function AgentConversationRow({
                   ) : null}
                 </span>
                 <time className="shrink-0 text-xs text-muted-foreground" dateTime={updatedAt}>
-                  {dateFormat.format(new Date(updatedAt))}
+                  {formatCalendarDate(updatedAt)}
                 </time>
               </span>
               <span className="truncate pr-5 text-xs leading-4 text-foreground/70">{preview}</span>

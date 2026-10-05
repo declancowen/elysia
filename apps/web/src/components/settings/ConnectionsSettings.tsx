@@ -1,3 +1,4 @@
+import { formatCalendarDateTime } from "@t3tools/shared/dateFormat";
 import {
   ChevronsLeftRightEllipsisIcon,
   EllipsisIcon,
@@ -194,17 +195,12 @@ const EMPTY_DISCOVERED_SSH_HOSTS: ReadonlyArray<DesktopDiscoveredSshHost> = [];
 const BACKEND_VALUE_DEFAULT_WSL = "backend:default-wsl";
 const BACKEND_VALUE_WSL_OFF = "backend:wsl-off";
 
-const accessTimestampFormatter = new Intl.DateTimeFormat(undefined, {
-  dateStyle: "medium",
-  timeStyle: "short",
-});
-
 function formatAccessTimestamp(value: string): string {
   const parsed = new Date(value);
   if (Number.isNaN(parsed.getTime())) {
     return value;
   }
-  return accessTimestampFormatter.format(parsed);
+  return formatCalendarDateTime(parsed);
 }
 
 const PAIRING_SCOPE_OPTIONS: ReadonlyArray<{

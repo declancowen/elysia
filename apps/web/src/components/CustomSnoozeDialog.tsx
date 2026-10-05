@@ -1,3 +1,4 @@
+import { formatCalendarDate } from "@t3tools/shared/dateFormat";
 import { useEffect, useId, useState } from "react";
 import { create } from "zustand";
 import {
@@ -123,11 +124,7 @@ function CustomSnoozeDialog() {
                             />
                           }
                         >
-                          {date.toLocaleDateString(undefined, {
-                            month: "short",
-                            day: "numeric",
-                            year: "numeric",
-                          })}
+                          {formatCalendarDate(date)}
                           <CalendarIcon className="size-4 text-muted-foreground" />
                         </PopoverTrigger>
                         <PopoverPopup align="start" aria-label="Choose snooze date">

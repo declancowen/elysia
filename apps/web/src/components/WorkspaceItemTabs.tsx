@@ -12,6 +12,10 @@ export function WorkspaceItemTabs({ target }: { target: WorkspaceItemTabTarget |
   useEffect(() => {
     if (!target) return;
     const state = useConversationTabsStore.getState();
+    if (target.kind === "agent-create") {
+      state.open(target, true);
+      return;
+    }
     const existing = state.tabs.find(
       ({ target: item }) =>
         item.kind === target.kind &&

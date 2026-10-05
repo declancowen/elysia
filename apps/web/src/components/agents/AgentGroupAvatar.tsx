@@ -37,7 +37,7 @@ export function AgentGroupAvatar({
       {positions.map((position, index) => (
         <span
           key={`${position.left}:${position.top}`}
-          className="absolute h-[48%] w-[48%]"
+          className="absolute flex h-[48%] w-[48%] items-center justify-center"
           style={position}
         >
           {count > 4 && index === 3 ? (

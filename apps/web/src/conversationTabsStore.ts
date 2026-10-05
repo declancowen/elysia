@@ -5,6 +5,7 @@ import type { EnvironmentId, PageId, WorkTaskId } from "@t3tools/contracts";
 import { createPaneTabsStore } from "./paneTabsStore";
 
 export type WorkspaceItemTabTarget =
+  | { kind: "agent-create"; channel?: boolean }
   | { kind: "page"; environmentId: EnvironmentId; id: PageId | null; title: string }
   | { kind: "task"; environmentId: EnvironmentId; id: WorkTaskId | null; title: string };
 
@@ -18,6 +19,7 @@ export interface ConversationTab {
 }
 
 function targetKey(target: ConversationTabTarget) {
+  if (target.kind === "agent-create") return target.channel ? "channel-create" : target.kind;
   if (target.kind === "page" || target.kind === "task") {
     return JSON.stringify([target.kind, target.environmentId, target.id]);
   }

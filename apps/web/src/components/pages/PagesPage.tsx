@@ -66,7 +66,7 @@ export function PagesPage() {
   const query = useEnvironmentQuery(
     environmentId ? serverEnvironment.pagesLive({ environmentId, input: {} }) : null,
   );
-  const regularProjects = useRegularProjects();
+  const regularProjects = useRegularProjects(false);
   const projects = regularProjects.filter((project) => project.environmentId === environmentId);
   const savePage = useAtomCommand(serverEnvironment.savePage);
   const deletePage = useAtomCommand(serverEnvironment.deletePage);
@@ -328,7 +328,7 @@ export function PagesPage() {
             </p>
           ) : query.data && !groups.some((group) => group.pages.length) ? (
             <Empty>
-              <Files01Icon aria-hidden className="size-16 text-muted-foreground/60" />
+              <Files01Icon aria-hidden className="size-16 text-muted-foreground" />
               <EmptyHeader>
                 <EmptyTitle>
                   {query.data.pages.length ? "No matching pages" : "No pages"}

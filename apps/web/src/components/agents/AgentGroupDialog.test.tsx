@@ -22,7 +22,10 @@ const state = vi.hoisted(() => ({
 }));
 const environmentId = EnvironmentId.make("local");
 vi.mock("../../state/entities", () => ({ useProjects: () => [] }));
-vi.mock("../../state/environments", () => ({ usePrimaryEnvironmentId: () => environmentId }));
+vi.mock("../../state/environments", () => ({
+  usePrimaryEnvironmentId: () => environmentId,
+  useEnvironments: () => ({ environments: [] }),
+}));
 vi.mock("../../state/projects", () => ({
   projectEnvironment: { createAgent: "create", update: "update" },
 }));
@@ -34,6 +37,8 @@ vi.mock("@tanstack/react-router", () => ({
   useRouter: () => state.router,
 }));
 import { AgentGroupDialog } from "./AgentGroupDialog";
+import { clearAgentCreationDraft } from "./agentDialogStore";
+import { useConversationTabsStore } from "../../conversationTabsStore";
 
 const profile: AgentProfile = {
   title: "Research",
@@ -81,6 +86,8 @@ beforeEach(() => {
       disconnect() {}
     },
   );
+  clearAgentCreationDraft(true);
+  useConversationTabsStore.setState({ tabs: [], activeId: null });
   state.create.mockReset().mockResolvedValue(
     AsyncResult.success({
       projectId: ProjectId.make("group"),
@@ -168,4 +175,32 @@ it("keeps failed edits open for retry and preserves the durable conversation in 
   });
   expect(state.update).toHaveBeenCalledTimes(2);
   expect(state.close).toHaveBeenCalledOnce();
+});
+
+it("preserves a page draft and replaces its creation tab with the saved channel conversation", async () => {
+  useConversationTabsStore.getState().open({ kind: "agent-create", channel: true });
+  const tabId = useConversationTabsStore.getState().activeId;
+  const render = () => root.render(<AgentGroupDialog agents={agents} page onClose={state.close} />);
+  await act(async () => render());
+  const input = host.querySelector<HTMLInputElement>('input[aria-label="Channel name"]')!;
+  await act(async () => {
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(input, "Team");
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+  await act(async () => root.render(null));
+  await act(async () => render());
+  expect(host.querySelector<HTMLInputElement>('input[aria-label="Channel name"]')!.value).toBe(
+    "Team",
+  );
+  expect(host.querySelector('[role="dialog"]')).toBeNull();
+  await act(async () => submit());
+  expect(useConversationTabsStore.getState().activeId).toBe(tabId);
+  expect(useConversationTabsStore.getState().tabs.map((tab) => tab.target)).toEqual([
+    { kind: "server", threadRef: { environmentId, threadId: "group-thread" } },
+  ]);
+  expect(state.navigate).toHaveBeenCalledWith({
+    to: "/$environmentId/$threadId",
+    params: { environmentId, threadId: "group-thread" },
+  });
+  expect(state.close).not.toHaveBeenCalled();
 });

@@ -1,6 +1,6 @@
 import { expect, it } from "vite-plus/test";
-import { ProjectId, WorkTaskId, type WorkTaskSummary } from "@t3tools/contracts";
-import { groupTasks, visibleTasks, taskActivity } from "./taskViews";
+import { MessageId, RunId, ProjectId, WorkTaskId, type WorkTaskSummary } from "@t3tools/contracts";
+import { groupTasks, visibleTasks, taskActivity, taskResponses } from "./taskViews";
 const task = (
   id: string,
   projectId: WorkTaskSummary["projectId"],
@@ -52,4 +52,37 @@ it("keeps unlinked and deleted-project tasks visible, groups statuses within pro
       (t) => t.id,
     ),
   ).toEqual(["TASK-1", "TASK-3"]);
+});
+
+it("shows only responses to the latest task run and leaves channel resolution to its delegation links", () => {
+  const message = (
+    id: string,
+    role: "user" | "assistant",
+    text: string,
+    runId: string | null = null,
+  ) => ({
+    id: MessageId.make(id),
+    role,
+    text,
+    runId: runId === null ? null : RunId.make(runId),
+    streaming: false,
+  });
+  const messages = [
+    message("old-task", "user", "Work on TASK-1: Old", "old"),
+    message("old-reply", "assistant", "Old result", "old"),
+    message("task", "user", "Work on TASK-1: New", "new"),
+    message("other", "user", "Work on TASK-2: Different", "other"),
+    message("other-reply", "assistant", "Wrong result", "other"),
+    message("reply", "assistant", "Correct result", "new"),
+  ];
+  expect(taskResponses(messages, WorkTaskId.make("TASK-1")).map((m) => m.text)).toEqual([
+    "Correct result",
+  ]);
+  expect(
+    taskResponses(
+      messages.map((m) => ({ ...m, runId: null })),
+      WorkTaskId.make("TASK-1"),
+    ),
+  ).toEqual([]);
+  expect(taskResponses(messages, WorkTaskId.make("TASK-9"))).toEqual([]);
 });

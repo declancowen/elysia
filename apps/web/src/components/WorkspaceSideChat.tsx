@@ -17,15 +17,18 @@ import { formatComposerContextReference } from "@t3tools/shared/composerContextR
 import { getDefaultServerModel } from "../providerModels";
 import { ElysiaIcon } from "./Icons";
 import { useRegularProjects } from "../hooks/useRegularProjects";
-import { newThreadId } from "../lib/utils";
-import { useComposerDraftStore } from "../composerDraftStore";
+import { newDraftId, newThreadId } from "../lib/utils";
+import {
+  finalizePromotedDraftThreadByRef,
+  useComposerDraftStore,
+  type DraftId,
+} from "../composerDraftStore";
 import { useThreadShells, waitForProject, waitForThreadShell } from "../state/entities";
 import { projectEnvironment } from "../state/projects";
 import { serverEnvironment, environmentServerConfigsAtom } from "../state/server";
-import { threadEnvironment } from "../state/threads";
 import { useEnvironmentQuery } from "../state/query";
 import { useAtomCommand } from "../state/use-atom-command";
-import { Maximize2Icon, Minimize2Icon, MinusIcon, PlusIcon } from "../icons";
+import { Maximize2Icon, Minimize2Icon, MinusIcon, PlusIcon, MessageCircleIcon } from "../icons";
 import { Button } from "./ui/button";
 import { Menu, MenuTrigger, MenuPopup, MenuItem, MenuSeparator } from "./ui/menu";
 const ChatView = lazy(() => import("./ChatView"));
@@ -50,7 +53,6 @@ export function useWorkspaceSideChat({
       : null,
   );
   const link = useAtomCommand(serverEnvironment.linkWorkspaceChat, { reportFailure: false });
-  const create = useAtomCommand(threadEnvironment.create, { reportFailure: false });
   const ensureScratch = useAtomCommand(projectEnvironment.ensureScratch, { reportFailure: false });
   const projects = useRegularProjects();
   const shells = useThreadShells();
@@ -60,7 +62,7 @@ export function useWorkspaceSideChat({
   const [selected, setSelected] = useState<ThreadId | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const pendingThread = useRef<{ key: string; id: ThreadId } | null>(null);
+  const [draft, setDraft] = useState<{ id: ThreadId; draftId: DraftId } | null>(null);
   const targetKey = target ? `${environmentId}:${target.kind}:${target.id}` : "";
   const currentTargetKey = useRef(targetKey);
   useLayoutEffect(() => {
@@ -71,7 +73,7 @@ export function useWorkspaceSideChat({
     setExpanded(false);
     setSelected(null);
     setError(null);
-    pendingThread.current = null;
+    setDraft(null);
   }, [targetKey]);
   const chats = shells.filter(
     (thread) =>
@@ -83,7 +85,27 @@ export function useWorkspaceSideChat({
       ),
   );
   const ready = query.data !== null && query.error === null;
-  const active = chats.find((thread) => thread.id === selected) ?? chats.at(-1);
+  const pendingDraft =
+    draft &&
+    !chats.some((chat) => chat.id === draft.id) &&
+    !shells.some(
+      (thread) =>
+        thread.environmentId === environmentId &&
+        thread.id === draft.id &&
+        thread.archivedAt !== null,
+    )
+      ? draft
+      : null;
+  const active =
+    pendingDraft?.id === selected
+      ? shells.find(
+          (thread) =>
+            thread.environmentId === environmentId &&
+            thread.id === selected &&
+            thread.archivedAt === null,
+        )
+      : (chats.find((thread) => thread.id === selected) ?? chats.at(-1));
+  const activeId = pendingDraft?.id === selected ? pendingDraft.id : active?.id;
   const show = (id: ThreadId) => {
     if (target && environmentId) {
       const ref = scopeThreadRef(environmentId, id);
@@ -124,37 +146,33 @@ export function useWorkspaceSideChat({
         destination.id,
         destination,
       ).settings;
-      const pending = pendingThread.current?.key === key ? pendingThread.current : null;
-      const id = pending?.id ?? newThreadId();
-      if (!pending) {
-        const result = await create({
-          environmentId,
-          input: {
-            threadId: id,
-            projectId: destination.id,
-            title: `${title || "New chat"} · Chat ${chats.length + 1}`,
-            modelSelection: settings.defaultModelSelection ?? {
-              instanceId: defaultInstanceIdForDriver(ProviderDriverKind.make("claudeAgent")),
-              model: getDefaultServerModel(
-                configs.get(environmentId)?.providers ?? [],
-                ProviderDriverKind.make("claudeAgent"),
-              ),
-            },
-            runtimeMode: settings.defaultRuntimeMode,
-            interactionMode: "default",
-            branch: null,
-            worktreePath: null,
-          },
-        });
-        if (result._tag === "Failure") throw squashAtomCommandFailure(result);
-        if (currentTargetKey.current === key) pendingThread.current = { key, id };
-      }
-      const linked = await link({ environmentId, input: { target, threadId: id, linked: true } });
-      if (linked._tag === "Failure") throw squashAtomCommandFailure(linked);
-      await waitForThreadShell(scopeThreadRef(environmentId, id));
       if (currentTargetKey.current !== key) return;
-      pendingThread.current = null;
-      query.refresh();
+      const id = newThreadId();
+      const draftId = newDraftId();
+      const store = useComposerDraftStore.getState();
+      // A document draft must not replace another draft in the same project.
+      store.setLogicalProjectDraftThreadId(
+        `workspace:${key}:${id}`,
+        scopeProjectRef(environmentId, destination.id),
+        draftId,
+        {
+          threadId: id,
+          runtimeMode: settings.defaultRuntimeMode,
+          interactionMode: "default",
+          envMode: "local",
+        },
+      );
+      store.setModelSelection(
+        draftId,
+        settings.defaultModelSelection ?? {
+          instanceId: defaultInstanceIdForDriver(ProviderDriverKind.make("claudeAgent")),
+          model: getDefaultServerModel(
+            configs.get(environmentId)?.providers ?? [],
+            ProviderDriverKind.make("claudeAgent"),
+          ),
+        },
+      );
+      setDraft({ id, draftId });
       show(id);
     } catch (cause) {
       if (currentTargetKey.current === key)
@@ -163,36 +181,56 @@ export function useWorkspaceSideChat({
       setBusy(false);
     }
   };
-  const controls = target ? (
-    <Menu>
-      <MenuTrigger
-        render={
-          <Button
-            variant="ghost-muted"
-            size="sm"
-            aria-label="Linked chats"
-            disabled={busy || !ready}
-          />
-        }
-      >
-        <ElysiaIcon aria-hidden className="size-4" />
-        Chats
-      </MenuTrigger>
-      <MenuPopup align="end">
-        {chats.map((chat) => (
-          <MenuItem key={chat.id} onClick={() => show(chat.id)}>
-            <ElysiaIcon aria-hidden className="size-4" />
-            {chat.title}
+  const controls = (
+    <>
+      <Menu>
+        <MenuTrigger
+          render={
+            <Button
+              variant="ghost-muted"
+              size="icon-sm"
+              aria-label="Linked chats"
+              disabled={busy || !ready}
+            />
+          }
+        >
+          <MessageCircleIcon />
+        </MenuTrigger>
+        <MenuPopup align="end">
+          {chats.map((chat) => (
+            <MenuItem key={chat.id} onClick={() => show(chat.id)}>
+              {chat.title}
+            </MenuItem>
+          ))}
+          {chats.length ? <MenuSeparator /> : null}
+          <MenuItem onClick={() => void start()} disabled={busy || !ready}>
+            <PlusIcon />
+            New chat
           </MenuItem>
-        ))}
-        {chats.length ? <MenuSeparator /> : null}
-        <MenuItem onClick={() => void start()} disabled={busy || !ready}>
-          <PlusIcon />
-          New chat
-        </MenuItem>
-      </MenuPopup>
-    </Menu>
-  ) : null;
+        </MenuPopup>
+      </Menu>
+      <Button
+        variant="ghost-muted"
+        size="icon-sm"
+        aria-label="New linked chat"
+        disabled={busy || !ready}
+        onClick={() => void start()}
+      >
+        <PlusIcon />
+      </Button>
+    </>
+  );
+  const started = async (id: ThreadId) => {
+    if (!target || !environmentId) return;
+    const key = targetKey;
+    const result = await link({ environmentId, input: { target, threadId: id, linked: true } });
+    if (result._tag === "Failure") throw squashAtomCommandFailure(result);
+    await waitForThreadShell(scopeThreadRef(environmentId, id));
+    finalizePromotedDraftThreadByRef(scopeThreadRef(environmentId, id));
+    if (currentTargetKey.current !== key) return;
+    setSelected(id);
+    query.refresh();
+  };
   const panel = target ? (
     <>
       {error || query.error ? (
@@ -210,7 +248,7 @@ export function useWorkspaceSideChat({
           </Button>
         </div>
       ) : null}
-      {open && active && environmentId ? (
+      {open && activeId && environmentId ? (
         <section
           aria-label="Side chat"
           className="floating-panel-glass absolute right-6 bottom-6 z-30 flex min-h-0 flex-col overflow-hidden rounded-3xl workspace-panel-outline [&_.messages-timeline-scroll]:px-4!"
@@ -228,7 +266,8 @@ export function useWorkspaceSideChat({
             >
               <MinusIcon />
             </Button>
-            <span className="min-w-0 flex-1 truncate text-sm">{active.title}</span>
+            <span className="min-w-0 flex-1 truncate text-sm">{active?.title ?? "New chat"}</span>
+            {controls}
             <Button
               variant="ghost-muted"
               size="icon-sm"
@@ -247,10 +286,13 @@ export function useWorkspaceSideChat({
             }
           >
             <ChatView
-              key={active.id}
+              key={activeId}
               environmentId={environmentId}
-              threadId={active.id}
-              routeKind="server"
+              threadId={activeId}
+              {...(pendingDraft?.id === activeId
+                ? ({ routeKind: "draft", draftId: pendingDraft.draftId } as const)
+                : ({ routeKind: "server" } as const))}
+              {...(pendingDraft?.id === activeId ? { onThreadStarted: started } : {})}
               embedded
               workspaceContext={{ ...target, label: title }}
             />
@@ -263,7 +305,7 @@ export function useWorkspaceSideChat({
             size="icon-xl"
             aria-label="Open side chat"
             disabled={busy || !ready}
-            onClick={() => (active ? show(active.id) : void start())}
+            onClick={() => (activeId ? show(activeId) : void start())}
           >
             <ElysiaIcon aria-hidden />
           </Button>
@@ -271,5 +313,5 @@ export function useWorkspaceSideChat({
       )}
     </>
   ) : null;
-  return { controls, panel, close: () => setOpen(false) };
+  return { panel, close: () => setOpen(false) };
 }

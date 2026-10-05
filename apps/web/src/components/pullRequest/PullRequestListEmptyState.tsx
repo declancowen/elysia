@@ -42,7 +42,7 @@ export function PullRequestListEmptyState({
   if (!hasProjects) {
     return (
       <Empty>
-        <PullRequestGlyph.pullRequest aria-hidden className="size-16 text-muted-foreground/60" />
+        <PullRequestGlyph.pullRequest aria-hidden className="size-16 text-muted-foreground" />
         <EmptyHeader>
           <EmptyTitle>No projects in this workspace</EmptyTitle>
           <EmptyDescription>
@@ -73,7 +73,7 @@ export function PullRequestListEmptyState({
   if (query.length > 0) {
     return (
       <Empty>
-        <PullRequestGlyph.pullRequest aria-hidden className="size-16 text-muted-foreground/60" />
+        <PullRequestGlyph.pullRequest aria-hidden className="size-16 text-muted-foreground" />
         <EmptyHeader>
           {/* A pasted paragraph is still a search, but it is not a title. */}
           <EmptyTitle>
@@ -101,7 +101,7 @@ export function PullRequestListEmptyState({
 
   return (
     <Empty>
-      <PullRequestGlyph.pullRequest aria-hidden className="size-16 text-muted-foreground/60" />
+      <PullRequestGlyph.pullRequest aria-hidden className="size-16 text-muted-foreground" />
       <EmptyHeader>
         <EmptyTitle>{filtered ? "Nothing under these filters" : "No pull requests"}</EmptyTitle>
         <EmptyDescription>

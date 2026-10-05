@@ -10,6 +10,7 @@ import {
   Files01Icon,
   TaskEdit02Icon,
 } from "../../icons";
+import { clearAgentCreationDraft, useAgentDialogStore } from "../agents/agentDialogStore";
 import { useProject, useThreadShell } from "../../state/entities";
 import { AgentAvatar } from "../agents/AgentAvatar";
 import {
@@ -26,6 +27,12 @@ export function ConversationTabs() {
   const pathname = useLocation({ select: (location) => location.pathname });
   const selected = tabs.find((tab) => {
     const target = tab.target;
+    if (target.kind === "agent-create")
+      return (
+        pathname === "/agents" &&
+        search.create === true &&
+        Boolean(search.channel) === Boolean(target.channel)
+      );
     if (target.kind === "page")
       return target.id ? pathname === `/pages/${target.id}` : pathname === "/pages";
     if (target.kind === "task") return pathname === "/tasks" && (search.task ?? null) === target.id;
@@ -57,10 +64,17 @@ export function ConversationTabs() {
       }}
       onClose={(tab) => {
         const next = close(tab.id);
+        if (
+          tab.target.kind === "agent-create" &&
+          !useConversationTabsStore.getState().isOpen(tab.target)
+        )
+          clearAgentCreationDraft(tab.target.channel);
         if (next) void navigateTo(next);
       }}
       renderTab={(tab, controls) =>
-        tab.target.kind === "page" || tab.target.kind === "task" ? (
+        tab.target.kind === "agent-create" ? (
+          <AgentCreationTab channel={Boolean(tab.target.channel)} controls={controls} />
+        ) : tab.target.kind === "page" || tab.target.kind === "task" ? (
           <WorkspaceTab
             {...controls}
             title={tab.target.title}
@@ -86,11 +100,40 @@ export function ConversationTabs() {
   );
 }
 
+function AgentCreationTab({
+  channel,
+  controls,
+}: {
+  channel?: boolean;
+  controls: WorkspaceTabControls;
+}) {
+  const avatar = useAgentDialogStore((state) => state.creationDraft?.avatar);
+  return (
+    <WorkspaceTab
+      {...controls}
+      title={channel ? "New channel" : "New agent"}
+      icon={
+        channel ? (
+          <ChannelIcon aria-hidden className="size-4" />
+        ) : (
+          <AgentAvatar
+            avatar={avatar ?? { preset: "square", color: "#28B4FF" }}
+            className="size-4"
+          />
+        )
+      }
+    />
+  );
+}
+
 function ConversationTabItem({
   target,
   controls,
 }: {
-  target: Exclude<ConversationTab["target"], { kind: "pull-request" | "page" | "task" }>;
+  target: Exclude<
+    ConversationTab["target"],
+    { kind: "pull-request" | "page" | "task" | "agent-create" }
+  >;
   controls: WorkspaceTabControls;
 }) {
   const draft = useComposerDraftStore((store) =>

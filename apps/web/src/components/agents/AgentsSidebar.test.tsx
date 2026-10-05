@@ -233,8 +233,8 @@ it("opens an agent or group from the conversation roster, filters roles and crea
     expect(host.querySelector('[aria-label="Open Team chat"]')).not.toBeNull();
     await click("New agent, channel or section");
     await click("New channel");
-    expect(document.querySelector('[role="dialog"][aria-label="New channel"]')).not.toBeNull();
-    await click("Cancel group");
+    expect(useAgentDialogStore.getState().target).toEqual({ projectRef: null, channel: true });
+    closeAgentDialog();
     await click("New agent, channel or section");
     await click("New agent");
     expect(useAgentDialogStore.getState().target).toEqual({ projectRef: null });

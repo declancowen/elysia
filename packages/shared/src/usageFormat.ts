@@ -60,25 +60,10 @@ export function formatUsageContractMismatch(
     : `This client is older than the server on ${environmentLabel}; its usage is excluded from totals.`;
 }
 
-/** `2026-08-07` to `Aug 7`. */
+/** Calendar buckets are date-only values, independent of the viewer's timezone. */
 export function formatDayShort(day: string): string {
-  const [year, month, dayOfMonth] = day.split("-").map((part) => Number(part));
-  if (year === undefined || month === undefined || dayOfMonth === undefined) return day;
-  const MONTHS = [
-    "Jan",
-    "Feb",
-    "Mar",
-    "Apr",
-    "May",
-    "Jun",
-    "Jul",
-    "Aug",
-    "Sep",
-    "Oct",
-    "Nov",
-    "Dec",
-  ];
-  return `${MONTHS[month - 1] ?? ""} ${dayOfMonth}`;
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(day);
+  return match ? `${match[3]}/${match[2]}/${match[1]}` : day;
 }
 
 /** Inclusive day list between two `YYYY-MM-DD` bounds. */
@@ -161,14 +146,15 @@ export function formatHourShort(hourStart: string, timeZone?: string): string {
   }).format(instant);
 }
 
-/** `2026-08-11T14:37:00Z` to `Aug 11, 2 PM` in the requested zone. */
+/** Calendar date and hour in the requested zone. */
 export function formatDateTimeShort(instant: string, timeZone?: string): string {
   const date = new Date(instant);
   if (Number.isNaN(date.getTime())) return instant;
-  return dateTimeFormatter("en-US", {
+  return dateTimeFormatter("en-GB", {
     ...(timeZone === undefined ? {} : { timeZone }),
-    month: "short",
-    day: "numeric",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
     hour: "numeric",
   }).format(date);
 }

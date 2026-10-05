@@ -1,4 +1,24 @@
 import type { WorkTaskSummary, WorkTaskSaveInput, WorkTaskStatus } from "@t3tools/contracts";
+import type { OrchestrationV2ConversationMessage, WorkTaskId } from "@t3tools/contracts";
+
+/** Only replies to the most recent task run. Channels resolve their explicit delegation links. */
+export function taskResponses(
+  messages: readonly Pick<
+    OrchestrationV2ConversationMessage,
+    "id" | "role" | "text" | "runId" | "streaming"
+  >[],
+  id: WorkTaskId,
+) {
+  const start = messages.findLastIndex(
+    (message) => message.role === "user" && message.text.startsWith(`Work on ${id}:`),
+  );
+  if (start < 0) return [];
+  const request = messages[start]!;
+  if (request.runId === null) return [];
+  return messages
+    .slice(start + 1)
+    .filter((message) => message.role === "assistant" && message.runId === request.runId);
+}
 export const TASK_STATUS_LABELS: Record<WorkTaskStatus, string> = {
   backlog: "Backlog",
   todo: "Todo",

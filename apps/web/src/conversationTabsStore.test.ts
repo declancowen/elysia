@@ -220,3 +220,20 @@ it("preserves the list when an item is explicitly opened in a new tab", () => {
   expect(store.close(taskId)).toEqual(list);
   expect(useConversationTabsStore.getState().activeId).toBe(listId);
 });
+
+it("deduplicates creation tabs and preserves each tab identity when saved", () => {
+  const store = useConversationTabsStore.getState();
+  store.open(a);
+  store.open({ kind: "agent-create" }, true);
+  const agentId = useConversationTabsStore.getState().activeId;
+  store.open({ kind: "agent-create", channel: true }, true);
+  const channelId = useConversationTabsStore.getState().activeId;
+  store.open({ kind: "agent-create" }, true);
+  expect(useConversationTabsStore.getState().tabs).toHaveLength(3);
+  expect(useConversationTabsStore.getState().activeId).toBe(agentId);
+  store.retarget({ kind: "agent-create" }, b);
+  expect(useConversationTabsStore.getState().activeId).toBe(agentId);
+  expect(
+    useConversationTabsStore.getState().tabs.find((tab) => tab.id === channelId)?.target,
+  ).toEqual({ kind: "agent-create", channel: true });
+});

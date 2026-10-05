@@ -1,9 +1,5 @@
+import { formatCalendarDateTime } from "@t3tools/shared/dateFormat";
 import type { RelayClientDeviceRecord } from "@t3tools/contracts/relay";
-
-const mobileClientUpdatedAtFormatter = new Intl.DateTimeFormat(undefined, {
-  dateStyle: "medium",
-  timeStyle: "short",
-});
 
 const NOTIFICATION_PREFERENCES = [
   ["notifyOnApproval", "approvals"],
@@ -41,5 +37,5 @@ export function mobileClientUpdatedAtLabel(updatedAt: string): string {
   const date = new Date(updatedAt);
   return Number.isNaN(date.getTime())
     ? "Update time unavailable"
-    : `Updated ${mobileClientUpdatedAtFormatter.format(date)}`;
+    : `Updated ${formatCalendarDateTime(date)}`;
 }

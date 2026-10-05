@@ -1,3 +1,4 @@
+import { formatCalendarDateTime } from "@t3tools/shared/dateFormat";
 import { SubagentStatusDot } from "./SubagentStatusDot";
 import { ThreadSubagentGroup } from "./thread-subagent-group";
 import {
@@ -793,14 +794,7 @@ const ThreadWorkLogRow = memo(function ThreadWorkLogRow(
     const warning = failureItem.failure.class === "usage_limit";
     const timestamp = new Date(row.createdAt);
     const resetAt = failureItem.failure.resetAt;
-    const resetTime = resetAt
-      ? new Date(resetAt).toLocaleString(undefined, {
-          month: "short",
-          day: "numeric",
-          hour: "numeric",
-          minute: "2-digit",
-        })
-      : null;
+    const resetTime = resetAt ? formatCalendarDateTime(resetAt) : null;
     const label = warning
       ? `Usage limit reached.${resetTime ? ` Retry after ${resetTime}.` : ""}`
       : row.summary;
@@ -834,15 +828,10 @@ const ThreadWorkLogRow = memo(function ThreadWorkLogRow(
               </Text>
             ) : null}
             <Text
-              accessibilityLabel={timestamp.toLocaleString()}
+              accessibilityLabel={formatCalendarDateTime(timestamp)}
               className="shrink-0 text-xs text-foreground-subtle"
             >
-              {timestamp.toLocaleString(undefined, {
-                month: "short",
-                day: "numeric",
-                hour: "numeric",
-                minute: "2-digit",
-              })}
+              {formatCalendarDateTime(timestamp)}
             </Text>
           </View>
           {!warning ? (

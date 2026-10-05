@@ -20,6 +20,7 @@ import * as Delegation from "../orchestration-v2/AgentDelegation.ts";
 import * as Scheduler from "../scheduling/Scheduler.ts";
 import { SqlitePersistenceMemory } from "../persistence/Layers/Sqlite.ts";
 import * as Tasks from "./TaskService.ts";
+import { taskPrompt } from "./taskPrompt.ts";
 const agentId = ProjectId.make("task-agent");
 const channelId = ProjectId.make("task-channel");
 const threadId = ThreadId.make("task-agent-thread");
@@ -102,6 +103,7 @@ it.effect(
     Effect.gen(function* () {
       const sends = yield* Ref.make(0);
       const channelSends = yield* Ref.make(0);
+      const prompts = yield* Ref.make<string[]>([]);
       const deps = Layer.mergeAll(
         NodeCrypto.layer,
         Scheduler.layer,
@@ -128,6 +130,7 @@ it.effect(
         Layer.mock(Threads.ThreadManagementService)({
           sendToThread: (input) =>
             Ref.update(sends, (n) => n + 1).pipe(
+              Effect.andThen(Ref.update(prompts, (texts) => [...texts, input.text])),
               Effect.andThen(
                 Effect.fail(
                   new Threads.ThreadManagementThreadNotFoundError({
@@ -144,6 +147,7 @@ it.effect(
               expect(input.sourceThreadId).toBe("channel-thread");
               expect(input.agentProjectId).toBe(agentId);
             }).pipe(
+              Effect.andThen(Ref.update(prompts, (texts) => [...texts, input.text])),
               Effect.andThen(Ref.update(channelSends, (n) => n + 1)),
               Effect.andThen(
                 Effect.fail(
@@ -162,11 +166,14 @@ it.effect(
         const tasks = yield* Tasks.TaskService;
         const task = (yield* tasks.save({
           title: "Build",
+          description: "<p>Build &amp; review.</p>",
           assigneeProjectId: agentId,
           status: "in_progress",
         })).task;
         expect(task.startError).not.toBe(null);
         expect(yield* Ref.get(sends)).toBe(1);
+        expect((yield* Ref.get(prompts))[0]).toBe(taskPrompt(task));
+        expect(task.description).toBe("<p>Build &amp; review.</p>");
         expect((yield* tasks.save({ id: task.id, title: "Build it" })).task.startError).toBe(
           task.startError,
         );
@@ -176,11 +183,15 @@ it.effect(
         expect(yield* Ref.get(sends)).toBe(2);
         yield* tasks.save({
           title: "Discuss",
+          description: "<p>Discuss the result.</p>",
           assigneeProjectId: channelId,
           status: "in_progress",
         });
         expect(yield* Ref.get(channelSends)).toBe(1);
         expect(yield* Ref.get(sends)).toBe(2);
+        expect((yield* Ref.get(prompts)).at(-1)).toContain(
+          "Discuss the result.\n\nRead this task in Elysia",
+        );
         const sql = yield* SqlClient.SqlClient;
         expect(yield* sql`SELECT * FROM work_task_starts`).toEqual([]);
       }).pipe(Effect.provide(Tasks.layer.pipe(Layer.provide(deps))));

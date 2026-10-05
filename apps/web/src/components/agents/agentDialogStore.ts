@@ -1,12 +1,42 @@
-import type { ScopedProjectRef } from "@t3tools/contracts";
+import type { AgentProfile, ModelSelection, ProjectId, ScopedProjectRef } from "@t3tools/contracts";
 import { create } from "zustand";
 
-type AgentEditorTarget = { readonly projectRef: ScopedProjectRef | null };
+type AgentEditorTarget = {
+  readonly projectRef: ScopedProjectRef | null;
+  readonly channel?: boolean;
+};
+type AgentCreationDraft = {
+  name: string;
+  title: string;
+  instructions: string;
+  avatar: AgentProfile["avatar"];
+  notificationsEnabled: boolean;
+  browserAccess: boolean | null;
+  model: ModelSelection | null;
+};
+type ChannelCreationDraft = {
+  name: string;
+  description: string;
+  linkedProjectId: string;
+  workspaceRoot: string;
+  selectedIds: readonly ProjectId[];
+  leadId: ProjectId | null;
+};
 
 export const useAgentDialogStore = create<{
   target: AgentEditorTarget | null;
   returnHref: string | null;
-}>(() => ({ target: null, returnHref: null }));
+  creationDraft: AgentCreationDraft | null;
+  channelCreationDraft: ChannelCreationDraft | null;
+}>(() => ({ target: null, returnHref: null, creationDraft: null, channelCreationDraft: null }));
+
+export function clearAgentCreationDraft(channel = false): void {
+  useAgentDialogStore.setState(channel ? { channelCreationDraft: null } : { creationDraft: null });
+}
+
+export function openChannelDialog(): void {
+  useAgentDialogStore.setState({ target: { projectRef: null, channel: true } });
+}
 
 export function openAgentDialog(projectRef: ScopedProjectRef | null = null): void {
   useAgentDialogStore.setState({

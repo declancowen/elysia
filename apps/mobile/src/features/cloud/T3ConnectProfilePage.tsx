@@ -1,3 +1,4 @@
+import { formatCalendarDate } from "@t3tools/shared/dateFormat";
 import { findErrorTraceId } from "@t3tools/client-runtime/errors";
 import {
   isAtomCommandInterrupted,
@@ -27,13 +28,11 @@ import {
   useManagedRelayEnvironments,
 } from "./managedRelayState";
 
-const linkedAtFormatter = new Intl.DateTimeFormat(undefined, { dateStyle: "medium" });
-
 function linkedAtLabel(value: string): string {
   const linkedAt = new Date(value);
   return Number.isNaN(linkedAt.getTime())
     ? "Link date unavailable"
-    : `Linked ${linkedAtFormatter.format(linkedAt)}`;
+    : `Linked ${formatCalendarDate(linkedAt)}`;
 }
 
 function endpointLabel(environment: RelayClientEnvironmentRecord): string {

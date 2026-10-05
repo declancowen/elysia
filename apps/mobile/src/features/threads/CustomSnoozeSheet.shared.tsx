@@ -1,3 +1,4 @@
+import { formatCalendarDate } from "@t3tools/shared/dateFormat";
 import { DateTimePicker } from "@expo/ui/community/datetime-picker";
 import {
   localSnoozeDate,
@@ -74,7 +75,7 @@ export function CustomSnoozeSheet(props: {
                   <AppText>{value === "date" ? "Date" : "Time"}</AppText>
                   <AppText>
                     {value === "date"
-                      ? date.toLocaleDateString()
+                      ? formatCalendarDate(date)
                       : date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}
                   </AppText>
                 </Pressable>

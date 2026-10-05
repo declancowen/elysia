@@ -1,3 +1,4 @@
+import { formatCalendarDate } from "@t3tools/shared/dateFormat";
 import type { TimestampFormat } from "@t3tools/contracts/settings";
 import {
   resolveSnoozePresets as resolveSharedSnoozePresets,
@@ -52,6 +53,6 @@ export function snoozeWakeDescription(
   if (dayDelta === 1) return `tomorrow ${time}`;
   const weekday = wake.toLocaleDateString(undefined, { weekday: "short" });
   if (dayDelta < 7) return `${weekday} ${time}`;
-  const date = wake.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  const date = formatCalendarDate(wake);
   return `${date}, ${time}`;
 }

@@ -58,13 +58,11 @@ describe("formatNextScheduledTaskRun", () => {
     );
   });
 
-  it("includes the date for more distant runs and the year only when necessary", () => {
-    for (const next of [new Date(2026, 9, 5, 9), new Date(2027, 0, 1, 9)]) {
-      const date = next.toLocaleDateString([], {
-        month: "short",
-        day: "numeric",
-        ...(next.getFullYear() === 2026 ? {} : { year: "numeric" as const }),
-      });
+  it("includes dd/mm/yyyy for more distant runs", () => {
+    for (const [next, date] of [
+      [new Date(2026, 9, 5, 9), "05/10/2026"],
+      [new Date(2027, 0, 1, 9), "01/01/2027"],
+    ] as const) {
       expect(formatNextScheduledTaskRun(next.toISOString(), now)).toBe(
         `Next run ${date} at ${timeLabel(next)}`,
       );

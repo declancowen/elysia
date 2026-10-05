@@ -192,6 +192,7 @@ vi.mock("../state/entities", () => ({
   useThread: () => null,
 }));
 vi.mock("../state/projects", () => ({ projectEnvironment: { ensureScratch: "ensure-scratch" } }));
+vi.mock("../state/environments", () => ({ useEnvironments: () => ({ environments: [] }) }));
 vi.mock("../state/use-atom-command", () => ({ useAtomCommand: () => testState.ensureScratch }));
 vi.mock("../state/server", () => ({
   environmentServerConfigsAtom: {},

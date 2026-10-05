@@ -1,3 +1,4 @@
+import { formatCalendarDateTime } from "@t3tools/shared/dateFormat";
 import {
   Button,
   Column,
@@ -103,7 +104,7 @@ export function SubscriptionUsage(props: SubscriptionUsageProps, environment: Wi
           modifiers={[padding(0, 10, 0, 0)]}
         >
           {props.checkedAt
-            ? `As of ${new Date(props.checkedAt).toLocaleString(undefined, { hour: "numeric", minute: "2-digit", month: "short", day: "numeric" })}`
+            ? `As of ${formatCalendarDateTime(new Date(props.checkedAt))}`
             : "Tap to connect in T3"}
         </Text>
       </Column>

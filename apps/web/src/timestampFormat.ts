@@ -1,3 +1,4 @@
+import { formatCalendarDate } from "@t3tools/shared/dateFormat";
 import { type TimestampFormat } from "@t3tools/contracts/settings";
 
 function getTimestampFormatOptions(
@@ -113,30 +114,6 @@ export function formatTimestamp(isoDate: string, timestampFormat: TimestampForma
   return getTimestampFormatter(timestampFormat, true).format(date);
 }
 
-// Deliberately not the host locale: the tooltip's ordinal suffix and
-// day-before-month order below are English, so a localized month alone would
-// read "4th Juni 2026". Localizing the whole label is a separate change.
-const monthNameFormatter = new Intl.DateTimeFormat("en-US", { month: "long" });
-
-function ordinalSuffix(day: number): string {
-  const lastTwo = day % 100;
-  if (lastTwo >= 11 && lastTwo <= 13) return "th";
-  switch (day % 10) {
-    case 1:
-      return "st";
-    case 2:
-      return "nd";
-    case 3:
-      return "rd";
-    default:
-      return "th";
-  }
-}
-
-/**
- * Long-form tooltip label, e.g. `12:04, 4th June`.
- * Renders the wall-clock time without seconds followed by the ordinal day and month name.
- */
 export function formatChatTimestampTooltip(
   isoDate: string,
   timestampFormat: TimestampFormat,
@@ -144,10 +121,7 @@ export function formatChatTimestampTooltip(
   const date = parseTimestampDate(isoDate);
   if (!date) return "";
   const time = formatShortTimestamp(isoDate, timestampFormat);
-  const day = date.getDate();
-  const month = monthNameFormatter.format(date);
-  const year = date.getFullYear();
-  return `${time}, ${day}${ordinalSuffix(day)} ${month} ${year}`;
+  return `${time}, ${formatCalendarDate(date)}`;
 }
 
 export function formatShortTimestamp(isoDate: string, timestampFormat: TimestampFormat): string {
@@ -156,20 +130,9 @@ export function formatShortTimestamp(isoDate: string, timestampFormat: Timestamp
   return getTimestampFormatter(timestampFormat, false).format(date);
 }
 
-const numericDateFormatter = new Intl.DateTimeFormat(timestampLocale, {
-  month: "numeric",
-  day: "numeric",
-});
-const numericDateWithYearFormatter = new Intl.DateTimeFormat(timestampLocale, {
-  month: "numeric",
-  day: "numeric",
-  year: "numeric",
-});
-
 /**
  * Chat timestamp that adds the date once the message is no longer from today:
- * today `12:34 PM`, yesterday `yesterday at 12:34 PM`, older `8/13 12:34 PM`
- * (locale digit order), with the year included once the calendar year differs.
+ * today `12:34 PM`, yesterday `yesterday at 12:34 PM`, older `13/08/2026 12:34 PM`.
  * Boundaries are local calendar days, not 24-hour windows.
  */
 export function formatDayAwareTimestamp(
@@ -189,15 +152,13 @@ export function formatDayAwareTimestamp(
 
   if (dayDiff <= 0) return time;
   if (dayDiff === 1) return `yesterday at ${time}`;
-  const dateFormatter =
-    date.getFullYear() === now.getFullYear() ? numericDateFormatter : numericDateWithYearFormatter;
-  return `${dateFormatter.format(date)} ${time}`;
+  return `${formatCalendarDate(date)} ${time}`;
 }
 
 /**
  * The forward-looking counterpart of {@link formatDayAwareTimestamp} for an
  * instant that has not happened yet (a usage-limit reset): today `12:34 PM`,
- * tomorrow `tomorrow at 12:34 PM`, later `8/13 12:34 PM`.
+ * tomorrow `tomorrow at 12:34 PM`, later `13/08/2026 12:34 PM`.
  */
 export function formatUpcomingTimestamp(
   isoDate: string,
@@ -216,9 +177,7 @@ export function formatUpcomingTimestamp(
   if (dayDiff < 0) return formatDayAwareTimestamp(isoDate, timestampFormat, nowMs);
   if (dayDiff === 0) return time;
   if (dayDiff === 1) return `tomorrow at ${time}`;
-  const dateFormatter =
-    date.getFullYear() === now.getFullYear() ? numericDateFormatter : numericDateWithYearFormatter;
-  return `${dateFormatter.format(date)} ${time}`;
+  return `${formatCalendarDate(date)} ${time}`;
 }
 
 /**

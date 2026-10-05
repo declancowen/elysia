@@ -1,3 +1,4 @@
+import { formatCalendarDateTime } from "@t3tools/shared/dateFormat";
 import type {
   EnvironmentId,
   PullRequestComment,
@@ -97,7 +98,7 @@ function CommentIdentity({
           <time dateTime={comment.createdAt}>{formatRelativeTimeLabel(comment.createdAt)}</time>
         </TooltipTrigger>
         <TooltipPopup>
-          {new Date(comment.createdAt).toLocaleString()}
+          {formatCalendarDateTime(comment.createdAt)}
           {comment.url ? " · Open comment on host" : ""}
         </TooltipPopup>
       </Tooltip>
@@ -428,7 +429,7 @@ function CommentGroup({
                       <TooltipTrigger render={<time dateTime={latest} />}>
                         {formatRelativeTimeLabel(latest)}
                       </TooltipTrigger>
-                      <TooltipPopup>{new Date(latest).toLocaleString()}</TooltipPopup>
+                      <TooltipPopup>{formatCalendarDateTime(latest)}</TooltipPopup>
                     </Tooltip>
                   </span>
                 ) : null}

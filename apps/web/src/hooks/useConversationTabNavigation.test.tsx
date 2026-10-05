@@ -164,3 +164,19 @@ it("navigates page and task tabs to their existing editors and restores them fro
   await act(async () => navigateTab({ ...task, id: null, title: "Tasks" }));
   expect(state.navigate).toHaveBeenLastCalledWith({ to: "/tasks", search: {}, replace: false });
 });
+
+it("opens creation tabs in Agents and keeps channel creation separate", async () => {
+  await act(async () => navigateTab({ kind: "agent-create" }));
+  expect(state.navigate).toHaveBeenLastCalledWith({
+    to: "/agents",
+    search: { create: true },
+    replace: false,
+  });
+  expect(useAgentSidebarStore.getState().active).toBe(true);
+  await act(async () => navigateTab({ kind: "agent-create", channel: true }));
+  expect(state.navigate).toHaveBeenLastCalledWith({
+    to: "/agents",
+    search: { create: true, channel: true },
+    replace: false,
+  });
+});

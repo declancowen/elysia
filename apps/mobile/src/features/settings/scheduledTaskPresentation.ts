@@ -1,3 +1,4 @@
+import { formatCalendarDate } from "@t3tools/shared/dateFormat";
 const MINUTE = 60_000;
 const HOUR = 60 * MINUTE;
 const DAY = 24 * HOUR;
@@ -48,10 +49,6 @@ export function formatNextScheduledTaskRun(nextRunAt: string, now: number): stri
   if (days <= 7) {
     return `Next run next ${next.toLocaleDateString([], { weekday: "long" })} at ${time}`;
   }
-  const date = next.toLocaleDateString([], {
-    month: "short",
-    day: "numeric",
-    ...(next.getFullYear() !== current.getFullYear() ? { year: "numeric" as const } : {}),
-  });
+  const date = formatCalendarDate(next);
   return `Next run ${date} at ${time}`;
 }

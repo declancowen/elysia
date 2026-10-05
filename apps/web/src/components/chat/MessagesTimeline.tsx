@@ -194,6 +194,7 @@ import {
 } from "./AssistantCitationSource";
 import { useAssistantCitationTarget, type CitationHistoryPage } from "./useAssistantCitationTarget";
 import {
+  taskLinksByReply,
   computeStableMessagesTimelineRows,
   isWorkWorkspaceEntry,
   deriveMessagesTimelineRowsWithState,
@@ -300,6 +301,7 @@ import {
 // ---------------------------------------------------------------------------
 
 interface TimelineRowSharedState {
+  taskLinks: ReturnType<typeof taskLinksByReply>;
   channel: boolean;
   onReply: ((message: ChatMessage) => void) | undefined;
 
@@ -1175,8 +1177,10 @@ export const MessagesTimeline = memo(function MessagesTimeline({
     };
   }, [timelineViewportElement, rows.length, reportContentOverflow, chatWidth]);
 
+  const taskLinks = useMemo(() => taskLinksByReply(timelineEntries), [timelineEntries]);
   const sharedState = useMemo<TimelineRowSharedState>(
     () => ({
+      taskLinks,
       channel,
       onReply,
       agentAvatar,
@@ -1214,6 +1218,7 @@ export const MessagesTimeline = memo(function MessagesTimeline({
       workGroupViewState,
     }),
     [
+      taskLinks,
       channel,
       onReply,
       agentAvatar,
@@ -2807,6 +2812,18 @@ function AssistantTimelineRow({ row }: { row: Extract<TimelineRow, { kind: "mess
             />
           )}
         </AssistantCitationSource>
+        {!row.message.streaming && (row.showAssistantMeta || ctx.channel)
+          ? ctx.taskLinks.get(row.message.id)?.map((link) => (
+              <div key={link.contextId} className="mt-3">
+                <WorkspaceItemContextChip
+                  id={link.contextId}
+                  kind="task"
+                  label={link.label}
+                  environmentId={ctx.activeThreadEnvironmentId}
+                />
+              </div>
+            ))
+          : null}
         <AssistantChangedFilesSection
           turnSummary={row.assistantTurnDiffSummary}
           routeThreadKey={ctx.routeThreadKey}

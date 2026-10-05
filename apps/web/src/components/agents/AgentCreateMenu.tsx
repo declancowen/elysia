@@ -3,10 +3,8 @@ import { BotIcon, ChannelIcon, FolderPlusIcon, PlusIcon } from "../../icons";
 import { Button } from "../ui/button";
 import { Menu, MenuItem, MenuPopup, MenuTrigger } from "../ui/menu";
 import { useSidebar } from "../ui/sidebar";
-import { openAgentDialog } from "./agentDialogStore";
-import { AgentGroupDialog } from "./AgentGroupDialog";
+import { openAgentDialog, openChannelDialog } from "./agentDialogStore";
 import { AgentSectionDialog } from "./AgentSidebarOrganization";
-import { useAgents } from "./useAgents";
 
 export function AgentCreateMenu({
   onCreate,
@@ -17,9 +15,8 @@ export function AgentCreateMenu({
   small?: boolean;
   sections?: boolean;
 }) {
-  const agents = useAgents();
   const { isMobile, setOpenMobile } = useSidebar();
-  const [dialog, setDialog] = useState<"channel" | "section" | null>(null);
+  const [dialog, setDialog] = useState<"section" | null>(null);
   return (
     <>
       <Menu>
@@ -48,7 +45,8 @@ export function AgentCreateMenu({
           <MenuItem
             onClick={() => {
               onCreate?.();
-              setDialog("channel");
+              openChannelDialog();
+              if (isMobile) setOpenMobile(false);
             }}
           >
             <ChannelIcon />
@@ -67,11 +65,7 @@ export function AgentCreateMenu({
           )}
         </MenuPopup>
       </Menu>
-      {dialog === "channel" ? (
-        <AgentGroupDialog agents={agents} onClose={() => setDialog(null)} />
-      ) : dialog === "section" ? (
-        <AgentSectionDialog onClose={() => setDialog(null)} />
-      ) : null}
+      {dialog === "section" ? <AgentSectionDialog onClose={() => setDialog(null)} /> : null}
     </>
   );
 }

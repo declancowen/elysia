@@ -1,9 +1,24 @@
 import { useMemo } from "react";
 import { selectRegularProjects } from "../agentPresentation";
 import { useProjects } from "../state/entities";
+import { isScratchProject } from "@t3tools/client-runtime/state/projects";
+import { useEnvironments } from "../state/environments";
 
-/** Ordinary project pickers exclude agent workspaces without changing the entity store. */
-export function useRegularProjects() {
+/** Keep scratch for chat ownership; project pickers opt out of the internal workspace. */
+export function useRegularProjects(includeScratch = true) {
   const projects = useProjects();
-  return useMemo(() => selectRegularProjects(projects), [projects]);
+  const { environments } = useEnvironments();
+  return useMemo(
+    () =>
+      selectRegularProjects(projects).filter(
+        (project) =>
+          includeScratch ||
+          !isScratchProject(
+            project,
+            environments.find((entry) => entry.environmentId === project.environmentId)
+              ?.serverConfig?.scratchWorkspaceRoot,
+          ),
+      ),
+    [projects, environments, includeScratch],
+  );
 }

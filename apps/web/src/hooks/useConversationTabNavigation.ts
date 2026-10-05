@@ -12,6 +12,14 @@ export function useConversationTabNavigation() {
   const navigate = useNavigate();
   return useCallback(
     (target: ConversationTabTarget, replace = false) => {
+      if (target.kind === "agent-create") {
+        setAgentSidebarActive(true);
+        return navigate({
+          to: "/agents",
+          search: { create: true, ...(target.channel ? { channel: true } : {}) },
+          replace,
+        });
+      }
       if (target.kind === "page" || target.kind === "task") {
         setAgentSidebarActive(false);
         if (target.kind === "task")
@@ -56,6 +64,7 @@ export function useConversationTabNavigation() {
 
 type TabSection = "workspace" | "agents" | "pull-requests" | "pages" | "tasks";
 function tabSection(target: ConversationTabTarget): TabSection {
+  if (target.kind === "agent-create") return "agents";
   if (target.kind === "page") return "pages";
   if (target.kind === "task") return "tasks";
   if (target.kind === "pull-request") return "pull-requests";

@@ -57,6 +57,39 @@ import {
   formatSearchToolLabel,
 } from "@t3tools/shared/toolActivity";
 import { isWindowsAbsolutePath } from "@t3tools/shared/path";
+import { collectComposerContextReferences } from "@t3tools/shared/composerContextReferences";
+
+/** Automation replies inherit only their request's task link, including channel handoffs. */
+export function taskLinksByReply(entries: readonly TimelineEntry[]) {
+  const byMessage = new Map<MessageId, ReturnType<typeof collectComposerContextReferences>>();
+  const byRun = new Map<RunId, ReturnType<typeof collectComposerContextReferences>>();
+  const byReply = new Map<string, ReturnType<typeof collectComposerContextReferences>>();
+  for (const entry of entries) {
+    if (
+      entry.kind !== "message" ||
+      entry.message.role !== "user" ||
+      !entry.message.text.startsWith("Work on TASK-")
+    )
+      continue;
+    const links = collectComposerContextReferences(entry.message.text).filter(
+      (link) => link.kind === "task",
+    );
+    byMessage.set(entry.message.id, links);
+    if (entry.message.runId) byRun.set(entry.message.runId, links);
+  }
+  for (const entry of entries) {
+    const delegation = entry.kind === "work" ? entry.entry.agentDelegation : undefined;
+    if (delegation) {
+      const links = byMessage.get(delegation.sourceMessageId);
+      if (links) byReply.set(`agent-delegate:result:${delegation.activityId}:message`, links);
+    }
+    if (entry.kind === "message" && entry.message.role === "assistant" && entry.message.runId) {
+      const links = byRun.get(entry.message.runId);
+      if (links) byReply.set(entry.message.id, links);
+    }
+  }
+  return byReply;
+}
 
 export { resolveUserMessageIntentMarker } from "@t3tools/client-runtime/user-message";
 

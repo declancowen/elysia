@@ -17,8 +17,9 @@ import {
 import { makeStreamingTimelineFixture } from "../../test-fixtures";
 import type { TurnDiffSummary } from "../../types";
 import { describe, expect, it } from "vite-plus/test";
-import { MessageId, RunId } from "@t3tools/contracts";
+import { EventId, MessageId, RunId } from "@t3tools/contracts";
 import {
+  taskLinksByReply,
   computeStableMessagesTimelineRows,
   computeMessageDurationStart,
   deriveMessagesTimelineRows,
@@ -4851,4 +4852,70 @@ describe("failed turn transcript", () => {
       });
     },
   );
+});
+
+it("attaches task links only to replies from that automation run or exact channel handoff", () => {
+  const message = (
+    id: string,
+    role: "user" | "assistant",
+    text: string,
+    runId: string | null,
+  ): TimelineEntry => ({
+    id,
+    kind: "message",
+    createdAt: "2026-10-05T00:00:00.000Z",
+    message: {
+      id: MessageId.make(id),
+      role,
+      text,
+      runId: runId === null ? null : RunId.make(runId),
+      streaming: false,
+      createdAt: "2026-10-05T00:00:00.000Z",
+      updatedAt: "2026-10-05T00:00:00.000Z",
+    },
+  });
+  const entries: TimelineEntry[] = [
+    message(
+      "ask",
+      "user",
+      "Work on TASK-1: Test\n\n[Test](t3-context://v1/task/TASK-1)",
+      "task-run",
+    ),
+    message("other", "user", "Ordinary chat", "other-run"),
+    message("reply", "assistant", "Task result", "task-run"),
+    message("other-reply", "assistant", "Different result", "other-run"),
+    message(
+      "channel-ask",
+      "user",
+      "Work on TASK-2: Channel\n\n[Channel](t3-context://v1/task/TASK-2)",
+      null,
+    ),
+    {
+      id: "ack",
+      kind: "work",
+      createdAt: "2026-10-05T00:00:00.000Z",
+      entry: {
+        id: "ack",
+        label: "Delegated",
+        tone: "info",
+        createdAt: "2026-10-05T00:00:00.000Z",
+        agentDelegation: {
+          activityId: EventId.make("ack"),
+          agentProjectId: ProjectId.make("agent"),
+          agentThreadId: ThreadId.make("agent-thread"),
+          agentName: "Agent",
+          sourceMessageId: MessageId.make("channel-ask"),
+          targetMessageId: MessageId.make("target"),
+          targetTurnId: null,
+        },
+      },
+    },
+    message("agent-delegate:result:ack:message", "assistant", "Channel result", null),
+  ];
+  const links = taskLinksByReply(entries);
+  expect(links.get("reply")?.map((link) => link.contextId)).toEqual(["TASK-1"]);
+  expect(links.get("other-reply")).toBeUndefined();
+  expect(links.get("agent-delegate:result:ack:message")?.map((link) => link.contextId)).toEqual([
+    "TASK-2",
+  ]);
 });

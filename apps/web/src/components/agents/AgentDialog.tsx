@@ -35,6 +35,8 @@ import { ProviderModelPicker } from "../chat/ProviderModelPicker";
 import { Button } from "../ui/button";
 import { SidebarInset } from "../ui/sidebar";
 import { WorkspacePageHeader } from "../WorkspacePageHeader";
+import { WorkspaceItemTabs } from "../WorkspaceItemTabs";
+import { useConversationTabsStore } from "../../conversationTabsStore";
 import { Input } from "../ui/input";
 import { Switch } from "../ui/switch";
 import { Textarea } from "../ui/textarea";
@@ -42,6 +44,7 @@ import { type AgentAvatarValue } from "./AgentAvatar";
 import { AgentAvatarPicker } from "./AgentAvatarPicker";
 import {
   closeAgentDialog,
+  clearAgentCreationDraft,
   consumeAgentEditorIntent,
   useAgentDialogStore,
 } from "./agentDialogStore";
@@ -78,9 +81,17 @@ export function AgentDialogHost() {
       to: "/agents",
       search: target.projectRef
         ? { environmentId: target.projectRef.environmentId, projectId: target.projectRef.projectId }
-        : { create: true },
+        : { create: true, ...(target.channel ? { channel: true } : {}) },
     });
-  }, [target, project?.agentProfile?.group, location.href, location.pathname, navigate]);
+  }, [
+    target,
+    project?.agentProfile?.group,
+    location.href,
+    location.pathname,
+    location.search.create,
+    location.search.projectId,
+    navigate,
+  ]);
   return group ? (
     <AgentGroupDialog
       key={`${group.project.environmentId}:${group.project.id}`}
@@ -91,14 +102,50 @@ export function AgentDialogHost() {
   ) : null;
 }
 
-function AgentPageFrame({ title, children }: { title: string; children: ReactNode }) {
+function AgentPageFrame({
+  title,
+  channel,
+  children,
+}: {
+  title?: string;
+  channel?: boolean;
+  children: ReactNode;
+}) {
+  const creationTarget = useMemo(
+    () => ({ kind: "agent-create" as const, ...(channel ? { channel: true } : {}) }),
+    [channel],
+  );
   return (
     <SidebarInset className="h-dvh min-h-0 overflow-hidden overscroll-y-none">
-      <WorkspacePageHeader electron={isElectron} className="border-b border-border">
-        <h1 className="text-sm font-medium text-foreground">{title}</h1>
-      </WorkspacePageHeader>
+      {title ? (
+        <WorkspacePageHeader electron={isElectron} className="border-b border-border">
+          <h1 className="text-sm font-medium text-foreground">{title}</h1>
+        </WorkspacePageHeader>
+      ) : (
+        <WorkspaceItemTabs target={creationTarget} />
+      )}
       <div className="flex min-h-0 flex-1 flex-col overflow-y-auto">{children}</div>
     </SidebarInset>
+  );
+}
+
+export function AgentChannelEditorPage() {
+  const agents = useAgents();
+  const navigate = useNavigate();
+  const returnHref = useAgentDialogStore((state) => state.returnHref);
+  return (
+    <AgentPageFrame channel>
+      <AgentGroupDialog
+        agents={agents}
+        page
+        onClose={() => {
+          useConversationTabsStore.getState().forget({ kind: "agent-create", channel: true });
+          clearAgentCreationDraft(true);
+          closeAgentDialog();
+          void navigate({ href: returnHref ?? "/agents" });
+        }}
+      />
+    </AgentPageFrame>
   );
 }
 
@@ -136,6 +183,7 @@ export function AgentEditorPage({ projectRef }: { projectRef: ScopedProjectRef |
 }
 
 function AgentEditor({ project }: { project: Project | null }) {
+  const draft = project ? null : useAgentDialogStore.getState().creationDraft;
   const primaryEnvironmentId = usePrimaryEnvironmentId();
   const environmentId = project?.environmentId ?? primaryEnvironmentId;
   const { environments } = useEnvironments();
@@ -147,17 +195,44 @@ function AgentEditor({ project }: { project: Project | null }) {
     [server?.settings, clientSettings],
   );
   const providers = server?.providers ?? [];
-  const [name, setName] = useState(project?.title ?? "");
-  const [title, setTitle] = useState(project?.agentProfile?.title ?? "");
-  const [instructions, setInstructions] = useState(project?.agentProfile?.instructions ?? "");
+  const [name, setName] = useState(project?.title ?? draft?.name ?? "");
+  const [title, setTitle] = useState(project?.agentProfile?.title ?? draft?.title ?? "");
+  const [instructions, setInstructions] = useState(
+    project?.agentProfile?.instructions ?? draft?.instructions ?? "",
+  );
   const [avatar, setAvatar] = useState<AgentAvatarValue>(
-    project?.agentProfile?.avatar ?? { preset: "square", color: "#28B4FF" },
+    project?.agentProfile?.avatar ?? draft?.avatar ?? { preset: "square", color: "#28B4FF" },
   );
   const [notificationsEnabled, setNotificationsEnabled] = useState(
-    project?.agentProfile?.notificationsEnabled ?? true,
+    project?.agentProfile?.notificationsEnabled ?? draft?.notificationsEnabled ?? true,
   );
-  const [newAgentBrowserAccess, setNewAgentBrowserAccess] = useState<boolean | null>(null);
-  const [modelOverride, setModel] = useState<ModelSelection | null>(null);
+  const [newAgentBrowserAccess, setNewAgentBrowserAccess] = useState<boolean | null>(
+    draft?.browserAccess ?? null,
+  );
+  const [modelOverride, setModel] = useState<ModelSelection | null>(draft?.model ?? null);
+  useEffect(() => {
+    if (!project)
+      useAgentDialogStore.setState({
+        creationDraft: {
+          name,
+          title,
+          instructions,
+          avatar,
+          notificationsEnabled,
+          browserAccess: newAgentBrowserAccess,
+          model: modelOverride,
+        },
+      });
+  }, [
+    project,
+    name,
+    title,
+    instructions,
+    avatar,
+    notificationsEnabled,
+    newAgentBrowserAccess,
+    modelOverride,
+  ]);
   const threads = useThreadShells();
   const conversationModel = project ? getAgentConversation(project, threads)?.modelSelection : null;
   // Native defaults may arrive after a direct editor route. Explicit picker
@@ -262,6 +337,13 @@ function AgentEditor({ project }: { project: Project | null }) {
         });
         if (result._tag === "Failure") throw squashAtomCommandFailure(result);
         if (!ownsResult()) return;
+        useConversationTabsStore
+          .getState()
+          .retarget(
+            { kind: "agent-create" },
+            { kind: "server", threadRef: scopeThreadRef(environmentId, result.value.threadId) },
+          );
+        clearAgentCreationDraft();
         closeAgentDialog();
         await navigate({
           to: "/$environmentId/$threadId",
@@ -333,6 +415,10 @@ function AgentEditor({ project }: { project: Project | null }) {
 
   function cancel() {
     if (pending) return;
+    if (!project) {
+      useConversationTabsStore.getState().forget({ kind: "agent-create" });
+      clearAgentCreationDraft();
+    }
     if (returnHref) {
       closeAgentDialog();
       void navigate({ href: returnHref });
@@ -380,7 +466,7 @@ function AgentEditor({ project }: { project: Project | null }) {
   }
 
   return (
-    <AgentPageFrame title={project ? "Edit agent" : "Create agent"}>
+    <AgentPageFrame {...(project ? { title: "Edit agent" } : {})}>
       <form
         className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-6 px-6 py-8"
         onSubmit={(event) => {

@@ -88,7 +88,7 @@ describe("formatChatTimestampTooltip", () => {
     vi.resetModules();
   });
 
-  it.each(["de-DE", "it-IT"])("keeps the English date label in a %s runtime", async (locale) => {
+  it.each(["de-DE", "it-IT"])("keeps the dd/mm/yyyy date label in a %s runtime", async (locale) => {
     const DateTimeFormat = Intl.DateTimeFormat;
     vi.spyOn(Intl, "DateTimeFormat").mockImplementation(function (locales, options) {
       return new DateTimeFormat(locales ?? locale, options);
@@ -97,7 +97,7 @@ describe("formatChatTimestampTooltip", () => {
     const { formatChatTimestampTooltip: format } = await import("./timestampFormat");
     const date = new Date(2026, 5, 4, 14, 4).toISOString();
 
-    expect(format(date, "24-hour")).toBe("14:04, 4th June 2026");
+    expect(format(date, "24-hour")).toBe("14:04, 04/06/2026");
   });
 });
 
@@ -180,10 +180,7 @@ describe("formatDayAwareTimestamp", () => {
 
   it("prefixes older same-year messages with the numeric date", () => {
     const messageAt = iso(2026, 7, 12, 12, 34);
-    const datePart = new Intl.DateTimeFormat(undefined, {
-      month: "numeric",
-      day: "numeric",
-    }).format(new Date(messageAt));
+    const datePart = "12/08/2026";
     expect(formatDayAwareTimestamp(messageAt, "12-hour", now)).toBe(
       `${datePart} ${time(messageAt)}`,
     );
@@ -191,17 +188,13 @@ describe("formatDayAwareTimestamp", () => {
 
   it("includes the year once the calendar year differs", () => {
     const messageAt = iso(2025, 11, 31, 18, 0);
-    const datePart = new Intl.DateTimeFormat(undefined, {
-      month: "numeric",
-      day: "numeric",
-      year: "numeric",
-    }).format(new Date(messageAt));
+    const datePart = "31/12/2025";
     expect(formatDayAwareTimestamp(messageAt, "12-hour", now)).toBe(
       `${datePart} ${time(messageAt)}`,
     );
   });
 
-  it("uses the host locale for both the numeric date and wall-clock time", async () => {
+  it("uses the host locale for time while retaining dd/mm/yyyy dates", async () => {
     vi.stubGlobal("window", {
       desktopBridge: { getSystemLocale: () => "en-GB" },
     });
@@ -210,7 +203,7 @@ describe("formatDayAwareTimestamp", () => {
     const { formatDayAwareTimestamp: formatWithHostLocale } = await import("./timestampFormat");
     const messageAt = iso(2026, 7, 12, 15, 44);
 
-    expect(formatWithHostLocale(messageAt, "locale", now)).toBe("12/08 15:44");
+    expect(formatWithHostLocale(messageAt, "locale", now)).toBe("12/08/2026 15:44");
 
     vi.unstubAllGlobals();
   });

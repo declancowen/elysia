@@ -45,6 +45,18 @@ vi.mock("../../state/entities", () => ({
       (project) => project.environmentId === ref?.environmentId && project.id === ref.projectId,
     ) ?? null,
   useProjects: () => state.projects,
+  useThreadShell: (ref: { environmentId: string; threadId: string } | null) =>
+    state.threads.find(
+      (thread) => thread.environmentId === ref?.environmentId && thread.id === ref.threadId,
+    ) ?? null,
+  readThreadShell: (ref: { environmentId: string; threadId: string }) =>
+    state.threads.find(
+      (thread) => thread.environmentId === ref.environmentId && thread.id === ref.threadId,
+    ) ?? null,
+  readProject: (ref: { environmentId: string; projectId: string }) =>
+    state.projects.find(
+      (project) => project.environmentId === ref.environmentId && project.id === ref.projectId,
+    ) ?? null,
   useThreadShells: () => state.threads,
   useAllEnvironmentShellsBootstrapped: () => true,
 }));
@@ -140,8 +152,14 @@ vi.mock("../ui/sidebar", () => ({
 }));
 
 import { AgentDialogHost, AgentEditorPage } from "./AgentDialog";
-import { closeAgentDialog, openAgentDialog, useAgentDialogStore } from "./agentDialogStore";
+import {
+  closeAgentDialog,
+  clearAgentCreationDraft,
+  openAgentDialog,
+  useAgentDialogStore,
+} from "./agentDialogStore";
 
+import { useConversationTabsStore } from "../../conversationTabsStore";
 const environmentId = EnvironmentId.make("local");
 const projectId = ProjectId.make("agent-project");
 const threadId = ThreadId.make("durable-agent-chat");
@@ -269,6 +287,26 @@ async function submit() {
 }
 beforeEach(() => {
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+  vi.stubGlobal("matchMedia", () => ({
+    matches: false,
+    addEventListener() {},
+    removeEventListener() {},
+  }));
+  vi.stubGlobal(
+    "ResizeObserver",
+    class {
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    },
+  );
+  clearAgentCreationDraft();
+  clearAgentCreationDraft(true);
+  useConversationTabsStore.setState({ tabs: [], activeId: null });
+  Object.defineProperty(Element.prototype, "getAnimations", {
+    configurable: true,
+    value: () => [],
+  });
   vi.spyOn(window, "scrollTo").mockImplementation(() => {});
   state.projects = [project];
   state.threads = [thread];
@@ -292,15 +330,17 @@ afterEach(async () => {
   await act(async () => root.unmount());
   host.remove();
   closeAgentDialog();
+  Reflect.deleteProperty(Element.prototype, "getAnimations");
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
 });
 
-it("opens creation as a main-panel page and Cancel returns to the exact prior screen", async () => {
+it("opens creation as a main-panel tab and Cancel returns to the exact prior screen", async () => {
   await render();
   await act(async () => openAgentDialog());
   expect(router.state.location.pathname).toBe("/agents");
   expect(host.querySelectorAll("main")).toHaveLength(1);
+  expect(host.querySelector('[role="tab"]')?.textContent).toBe("New agent");
   expect(document.querySelector('[role="dialog"]')).toBeNull();
   await act(async () => button("Cancel").click());
   expect(router.state.location.href).toBe("/settings/general?section=appearance");
@@ -335,6 +375,10 @@ it("creates through the native command and opens only the returned durable conve
     },
   });
   expect(router.state.location.pathname).toBe("/local/durable-agent-chat");
+  expect(useConversationTabsStore.getState().tabs.map((tab) => tab.target)).toEqual([
+    { kind: "server", threadRef: { environmentId, threadId } },
+  ]);
+  expect(useAgentDialogStore.getState().creationDraft).toBeNull();
   expect(state.update).not.toHaveBeenCalled();
 });
 
@@ -538,4 +582,25 @@ it("edits a channel over the current conversation without navigating the surface
   await act(async () => button("Close channel editor").click());
   expect(host.querySelector("[data-channel-editor]")).toBeNull();
   expect(router.state.location.pathname).toBe(`/${environmentId}/${threadId}`);
+});
+
+it("preserves the creation draft and selected avatar when switching away and back", async () => {
+  await render();
+  await act(async () => openAgentDialog());
+  await fill('input[placeholder="Alex"]', "Sam");
+  await fill("textarea", "Help with research.");
+  await act(async () =>
+    host.querySelector<HTMLButtonElement>('[aria-label="Color #33D7C8"]')!.click(),
+  );
+  expect(host.querySelector('[role="tab"] .agent-avatar svg path')?.getAttribute("fill")).toBe(
+    "#33D7C8",
+  );
+  await act(async () => router.navigate({ to: "/" }));
+  await act(async () => router.navigate({ to: "/agents", search: { create: true } }));
+  expect(host.querySelector<HTMLInputElement>('input[placeholder="Alex"]')!.value).toBe("Sam");
+  expect(host.querySelector<HTMLTextAreaElement>("textarea")!.value).toBe("Help with research.");
+  expect(useConversationTabsStore.getState().tabs).toHaveLength(1);
+  await act(async () => button("Cancel").click());
+  expect(useConversationTabsStore.getState().tabs).toHaveLength(0);
+  expect(useAgentDialogStore.getState().creationDraft).toBeNull();
 });

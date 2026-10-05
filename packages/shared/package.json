@@ -3,6 +3,7 @@
   "private": true,
   "type": "module",
   "exports": {
+    "./dateFormat": "./src/dateFormat.ts",
     "./channelReplies": {
       "types": "./src/channelReplies.ts",
       "import": "./src/channelReplies.ts"

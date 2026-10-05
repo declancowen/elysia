@@ -1,5 +1,5 @@
 import { scopedProjectKey } from "@t3tools/client-runtime/environment";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import type { ScopedProjectRef } from "@t3tools/contracts";
 import { useNavigate } from "@tanstack/react-router";
 import { useAllEnvironmentProjectSnapshotsReady } from "../../state/entities";
@@ -15,13 +15,17 @@ import { SidebarInset } from "../ui/sidebar";
 import { WorkspacePageContainer } from "../WorkspacePageContainer";
 import { WorkspacePageHeader } from "../WorkspacePageHeader";
 import { AgentGroupDialog } from "./AgentGroupDialog";
-import { closeAgentDialog, openAgentDialog, useAgentDialogStore } from "./agentDialogStore";
+import {
+  closeAgentDialog,
+  openAgentDialog,
+  openChannelDialog,
+  useAgentDialogStore,
+} from "./agentDialogStore";
 import { useAgents } from "./useAgents";
 
 export function AgentsPage({ editingGroupRef }: { editingGroupRef?: ScopedProjectRef }) {
   useEscapeToGoBack();
   const agents = useAgents();
-  const [creatingChannel, setCreatingChannel] = useState(false);
   const hasAgents = agents.some(({ project }) => !project.agentProfile!.archived);
   const ready = useAllEnvironmentProjectSnapshotsReady();
   const { previews, loading } = useAgentConversationPreviews(agents);
@@ -71,7 +75,7 @@ export function AgentsPage({ editingGroupRef }: { editingGroupRef?: ScopedProjec
               <BotIcon />
               Create agent
             </Button>
-            <Button size="sm" variant="outline" onClick={() => setCreatingChannel(true)}>
+            <Button size="sm" variant="outline" onClick={() => openChannelDialog()}>
               <ChannelIcon />
               Create channel
             </Button>
@@ -85,9 +89,6 @@ export function AgentsPage({ editingGroupRef }: { editingGroupRef?: ScopedProjec
           </p>
         </WorkspacePageContainer>
       )}
-      {creatingChannel ? (
-        <AgentGroupDialog agents={agents} onClose={() => setCreatingChannel(false)} />
-      ) : null}
       {editingGroup ? (
         <AgentGroupDialog
           key={`${editingGroup.project.environmentId}:${editingGroup.project.id}`}

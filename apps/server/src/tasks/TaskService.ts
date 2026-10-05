@@ -23,6 +23,7 @@ import * as ProjectStore from "../orchestration-v2/ProjectStore.ts";
 import * as ThreadManagement from "../orchestration-v2/ThreadManagementService.ts";
 import * as AgentDelegation from "../orchestration-v2/AgentDelegation.ts";
 import * as Scheduler from "../scheduling/Scheduler.ts";
+import { taskPrompt } from "./taskPrompt.ts";
 
 export class TaskService extends Context.Service<
   TaskService,
@@ -156,7 +157,7 @@ const make = Effect.gen(function* () {
                 if (!profile.conversationThreadId)
                   return yield* fail("The assigned conversation is unavailable.");
                 const threadId = profile.conversationThreadId;
-                const text = `Work on ${task.id}: ${task.title}\n\n${task.description}\n\nRead and update this task using t3_task_read and t3_task_update. Mark it done only when the work is complete.`;
+                const text = taskPrompt(task);
                 const commandId = CommandId.make(pendingStart.command_id);
                 const messageId = MessageId.make(`${pendingStart.command_id}:message`);
                 if (profile.group) {

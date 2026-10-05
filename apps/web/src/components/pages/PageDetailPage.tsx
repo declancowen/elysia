@@ -1,3 +1,4 @@
+import { formatCalendarDateTime } from "@t3tools/shared/dateFormat";
 import { useBlocker, useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { PageId, ProjectId, type EnvironmentId, type Page } from "@t3tools/contracts";
@@ -86,7 +87,7 @@ function PageDetail({
   const savePage = useAtomCommand(serverEnvironment.savePage);
   const deletePage = useAtomCommand(serverEnvironment.deletePage);
   const navigate = useNavigate();
-  const allProjects = useRegularProjects();
+  const allProjects = useRegularProjects(false);
   const projects = allProjects.filter((project) => project.environmentId === environmentId);
   const latest = useRef({ draft, saved, removed: false, newer: false });
   const inFlight = useRef<Promise<boolean> | null>(null);
@@ -232,7 +233,6 @@ function PageDetail({
         }
         actions={
           <div className="flex shrink-0 items-center gap-2">
-            {sideChat.controls}
             <span role="status" className="text-xs text-muted-foreground">
               {pending
                 ? "Saving…"
@@ -403,12 +403,12 @@ function PageDetail({
               <dl className="space-y-4 text-sm">
                 <div>
                   <dt className="text-muted-foreground">Created</dt>
-                  <dd className="mt-1">{new Date(draft.createdAt).toLocaleString()}</dd>
+                  <dd className="mt-1">{formatCalendarDateTime(draft.createdAt)}</dd>
                 </div>
                 <div>
                   <dt className="text-muted-foreground">Updated</dt>
                   <dd className="mt-1">
-                    {new Date(saved?.updatedAt ?? draft.updatedAt).toLocaleString()}
+                    {formatCalendarDateTime(saved?.updatedAt ?? draft.updatedAt)}
                   </dd>
                 </div>
               </dl>

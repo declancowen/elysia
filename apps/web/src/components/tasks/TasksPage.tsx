@@ -1,3 +1,4 @@
+import { formatCalendarDate } from "@t3tools/shared/dateFormat";
 import {
   DndContext,
   pointerWithin,
@@ -7,6 +8,7 @@ import {
   useSensor,
   useSensors,
 } from "@dnd-kit/core";
+import { TaskAgentResponse } from "./TaskAgentResponse";
 import { TaskDragRow, TaskDropGroup } from "./TaskDrag";
 import {
   useEffect,
@@ -25,9 +27,11 @@ import {
   type WorkTaskSaveInput,
   type WorkTaskStatus,
   type ProjectId,
+  type EnvironmentId,
 } from "@t3tools/contracts";
 import { squashAtomCommandFailure } from "@t3tools/client-runtime/state/runtime";
 import { usePrimaryEnvironment } from "../../state/environments";
+import { useRegularProjects } from "../../hooks/useRegularProjects";
 import { useProjects } from "../../state/entities";
 import { useEnvironmentQuery } from "../../state/query";
 import { serverEnvironment } from "../../state/server";
@@ -188,8 +192,9 @@ function report(error: unknown) {
 export function TasksPage() {
   const environment = usePrimaryEnvironment();
   const allProjects = useProjects();
-  const projects = allProjects.filter(
-    (project) => project.environmentId === environment?.environmentId && !project.agentProfile,
+  const regularProjects = useRegularProjects(false);
+  const projects = regularProjects.filter(
+    (project) => project.environmentId === environment?.environmentId,
   );
   const agents = allProjects.filter(
     (project) =>
@@ -517,7 +522,7 @@ export function TasksPage() {
             <WorkspaceItemLink
               aria-label={`Open ${task.title}`}
               onOpen={(newTab) => openTask(task, newTab)}
-              className="h-44 overflow-hidden bg-muted/20 p-5 text-left text-sm text-muted-foreground"
+              className="min-h-0 flex-1 overflow-hidden bg-muted/20 p-5 text-left text-sm text-muted-foreground"
             >
               <div className="pointer-events-none line-clamp-5">
                 <ChatMarkdown text={task.descriptionPreview} cwd={undefined} />
@@ -529,7 +534,7 @@ export function TasksPage() {
             className={cn(
               "flex min-w-0 gap-3 text-left",
               view === "list" ? "flex-1 items-center" : "w-full items-start p-4",
-              view === "card" && "h-28 shrink-0 border-t border-border",
+              view === "card" && "min-h-16 shrink-0 border-t border-border",
             )}
             style={view === "list" ? { marginInlineStart: depth * 24 } : undefined}
           >
@@ -546,6 +551,24 @@ export function TasksPage() {
           </WorkspaceItemLink>
           {view === "list" ? (
             <span className="text-xs text-muted-foreground">{TASK_STATUS_LABELS[task.status]}</span>
+          ) : null}
+          {task.assigneeProjectId ? (
+            <div
+              className={
+                view === "list"
+                  ? "min-w-0 shrink-0"
+                  : "mt-auto shrink-0 border-t border-border px-4 py-3"
+              }
+            >
+              <TaskAssigneeActivity
+                assignee={
+                  agentOptions.find((option) => option.value === task.assigneeProjectId)?.label ??
+                  "Unavailable agent"
+                }
+                status={task.status}
+                sidebar
+              />
+            </div>
           ) : null}
           <div
             className={
@@ -728,7 +751,6 @@ export function TasksPage() {
         }
         actions={
           <>
-            {sideChat.controls}
             {selectedId ? (
               <Button
                 ref={panelAnchor}
@@ -771,6 +793,7 @@ export function TasksPage() {
               <TaskEditor
                 key={selected.id}
                 task={selected}
+                environmentId={environment!.environmentId}
                 initialRevision={summary?.revision ?? selected.revision}
                 assignee={
                   agentOptions.find((option) => option.value === selected.assigneeProjectId)?.label
@@ -954,7 +977,7 @@ export function TasksPage() {
               </DndContext>
               {tasksQuery.data && !tasksQuery.isPending && !taskRows.length ? (
                 <Empty>
-                  <TaskEdit02Icon aria-hidden className="size-16 text-muted-foreground/60" />
+                  <TaskEdit02Icon aria-hidden className="size-16 text-muted-foreground" />
                   <EmptyHeader>
                     <EmptyTitle>
                       {tasksQuery.data.tasks.length ? "No matching tasks" : "No tasks"}
@@ -1065,16 +1088,22 @@ function TaskAssigneeActivity({
 }) {
   const activity = taskActivity(status);
   return (
-    <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-      <span className="min-w-0 text-foreground">{assignee}</span>
+    <span
+      className={cn(
+        "flex flex-wrap items-center text-sm text-muted-foreground",
+        sidebar ? "gap-2" : "gap-1",
+      )}
+    >
+      <span className={cn("min-w-0 text-foreground", !sidebar && "font-semibold")}>{assignee}</span>
       <span className={sidebar ? "ml-auto" : undefined}>
         {sidebar ? activity.label : activity.description}
       </span>
-    </div>
+    </span>
   );
 }
 function TaskEditor({
   task,
+  environmentId,
   initialRevision,
   assignee,
   subtasks,
@@ -1090,6 +1119,7 @@ function TaskEditor({
   onDelete,
 }: {
   task: WorkTask;
+  environmentId: EnvironmentId;
   initialRevision: number;
   assignee?: ReactNode;
   subtasks: WorkTaskSummary[];
@@ -1109,6 +1139,7 @@ function TaskEditor({
   const [ready, setReady] = useState(task.revision >= initialRevision);
   const initializing = useRef(!ready);
   const [subtasksOpen, setSubtasksOpen] = useState(true);
+  const [responseOpen, setResponseOpen] = useState(false);
   const completedSubtasks = subtasks.filter((task) => task.status === "done").length;
   const [error, setError] = useState<string | null>(null);
   const [conflicted, setConflicted] = useState(false);
@@ -1235,7 +1266,35 @@ function TaskEditor({
             onBlur={() => void flush()}
             className="w-full bg-transparent text-2xl font-medium text-foreground outline-none focus-visible:outline-2 focus-visible:outline-ring"
           />
-          {assignee ? <TaskAssigneeActivity assignee={assignee} status={task.status} /> : null}
+          {assignee ? (
+            <div className="flex flex-col gap-3">
+              {task.startedThreadId ? (
+                <button
+                  type="button"
+                  aria-label="Agent task response"
+                  aria-expanded={responseOpen}
+                  onClick={() => setResponseOpen(!responseOpen)}
+                  className="flex w-fit items-center gap-2 rounded-sm focus-visible:outline-2 focus-visible:outline-ring"
+                >
+                  {responseOpen ? (
+                    <ChevronDownIcon className="size-4" />
+                  ) : (
+                    <ChevronRightIcon className="size-4" />
+                  )}
+                  <TaskAssigneeActivity assignee={assignee} status={task.status} />
+                </button>
+              ) : (
+                <TaskAssigneeActivity assignee={assignee} status={task.status} />
+              )}
+              {responseOpen && task.startedThreadId ? (
+                <TaskAgentResponse
+                  environmentId={environmentId}
+                  threadId={task.startedThreadId}
+                  taskId={task.id}
+                />
+              ) : null}
+            </div>
+          ) : null}
           <WorkspaceRichTextEditor
             label="Task"
             value={taskEditorContent(description)}
@@ -1391,7 +1450,7 @@ function TaskEditor({
             ].map(([label, date]) => (
               <div key={label} className="flex justify-between gap-3">
                 <dt>{label}</dt>
-                <dd>{date ? new Date(date).toLocaleDateString() : "—"}</dd>
+                <dd>{date ? formatCalendarDate(date) : "—"}</dd>
               </div>
             ))}
           </dl>

@@ -1,3 +1,4 @@
+import { formatCalendarDate } from "@t3tools/shared/dateFormat";
 import { MaterialSegmentedButtons } from "../../components/MaterialSegmentedButtons.android";
 import {
   BasicAlertDialog,
@@ -154,7 +155,7 @@ export function CustomSnoozeSheet(props: Props) {
                     options={[
                       {
                         value: "date",
-                        label: date.toLocaleDateString([], { month: "short", day: "numeric" }),
+                        label: formatCalendarDate(date),
                       },
                       {
                         value: "time",

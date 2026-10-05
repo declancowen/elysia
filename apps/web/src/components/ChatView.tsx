@@ -810,6 +810,7 @@ function isCompactCommandMessage(message: ChatMessage): boolean {
 type ChatViewProps = {
   embedded?: boolean;
   workspaceContext?: { kind: "task" | "page"; id: string; label: string };
+  onThreadStarted?: (threadId: ThreadId) => Promise<void>;
 } & (
   | {
       environmentId: EnvironmentId;
@@ -9573,6 +9574,16 @@ ${formatComposerContextReference({
         failure = startResult;
       } else {
         turnStartSucceeded = true;
+        if (props.onThreadStarted) {
+          try {
+            await props.onThreadStarted(threadIdForSend);
+          } catch (error) {
+            setThreadError(
+              threadIdForSend,
+              error instanceof Error ? error.message : "Could not link this chat.",
+            );
+          }
+        }
         // The turn is under way and will spend quota, so that thread's limits
         // snapshot is stale. Uploads may have outlasted a navigation, so only
         // the sending thread's panel clears.

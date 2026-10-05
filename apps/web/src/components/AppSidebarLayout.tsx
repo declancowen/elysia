@@ -94,7 +94,7 @@ function readInitialThreadSidebarWidth(storageKey = THREAD_SIDEBAR_WIDTH_STORAGE
   }
 }
 
-function SidebarControl() {
+function SidebarControl({ disabled = false }: { disabled?: boolean }) {
   const usagePageOpen = useLocation({ select: (location) => location.pathname === "/usage" });
   const keybindings = useAtomValue(primaryServerKeybindingsAtom);
   const { toggleSidebar } = useSidebar();
@@ -108,6 +108,7 @@ function SidebarControl() {
   });
 
   useEffect(() => {
+    if (disabled) return;
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.defaultPrevented) return;
       if (
@@ -139,7 +140,7 @@ function SidebarControl() {
     // Capture before focused editors consume commands such as Mod+B for rich-text formatting.
     window.addEventListener("keydown", onKeyDown, true);
     return () => window.removeEventListener("keydown", onKeyDown, true);
-  }, [keybindings, toggleSidebar, usagePageOpen]);
+  }, [disabled, keybindings, toggleSidebar, usagePageOpen]);
 
   return (
     <div
@@ -154,6 +155,7 @@ function SidebarControl() {
         <TooltipTrigger
           render={
             <SidebarTrigger
+              disabled={disabled}
               // Over the stage artwork the trigger is a control on imagery, like the media
               // viewer's arrows; that variant positions itself, so the layout is reset here.
               variant={isSidebarVisible && stageBackdropVariant ? "media-navigation" : "ghost"}
@@ -369,7 +371,7 @@ export function AppSidebarLayout({ children }: { children: ReactNode }) {
         >
           <ProjectProjectionRetention />
           {SINGLE_PROVIDER_UI ? (
-            <AppTopbar sidebarControl={hideThreadSidebar ? null : <SidebarControl />} />
+            <AppTopbar sidebarControl={<SidebarControl disabled={hideThreadSidebar} />} />
           ) : null}
           {SINGLE_PROVIDER_UI ? (
             <div

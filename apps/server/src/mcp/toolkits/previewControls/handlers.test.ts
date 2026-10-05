@@ -54,10 +54,10 @@ it.effect.each([
         Effect.provide(PreviewControlsHandlersLive.pipe(Layer.provide(dependencies))),
       );
       const listed = yield* toolkit
-        .handle("t3_preview_list", {})
+        .handle("elysia_preview_list", {})
         .pipe(Stream.unwrap, Stream.runCollect, Effect.provide(dependencies));
       const closed = yield* toolkit
-        .handle("t3_preview_close", { tabId: tab.tabId })
+        .handle("elysia_preview_close", { tabId: tab.tabId })
         .pipe(Stream.unwrap, Stream.runCollect, Effect.provide(dependencies));
       if (projectAccess) {
         expect(listed.at(-1)?.result).toMatchObject({ sessions: [tab], nextCursor: null });

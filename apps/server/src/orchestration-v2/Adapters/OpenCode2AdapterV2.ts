@@ -76,7 +76,7 @@ import {
 } from "../../provider/opencodeRuntime.ts";
 import * as McpProviderSession from "../../mcp/McpProviderSession.ts";
 import { buildRuntimeInstructions } from "../../provider/RuntimeInstructions.ts";
-import { t3OrchestrationSystemPrompt } from "../../provider/T3OrchestrationInstructions.ts";
+import { elysiaOrchestrationSystemPrompt } from "../../provider/ElysiaOrchestrationInstructions.ts";
 import { SKILL_MENTION_PATTERN } from "@t3tools/shared/composerInlineTokens";
 import { getModelSelectionStringOptionValue } from "@t3tools/shared/model";
 import { causeErrorTag } from "@t3tools/shared/observability";
@@ -444,15 +444,15 @@ const rule = (action: string, effect: Rule["effect"]): Rule => ({ action, resour
  */
 /**
  * T3's MCP server is registered per directory, not per session, so each thread
- * gets its own `t3-code-<thread>` entry with its own credential. OpenCode names
+ * gets its own `elysia-<thread>` entry with its own credential. OpenCode names
  * an MCP tool's permission `<server>_<tool>` (non-alphanumerics become `_`).
  */
 const t3McpServerName = (threadId: string) =>
-  `t3-code-${threadId.replaceAll(/[^a-zA-Z0-9_-]/g, "_")}`;
+  `elysia-${threadId.replaceAll(/[^a-zA-Z0-9_-]/g, "_")}`;
 
 /**
  * The rules that keep T3's MCP servers to their own thread, after the mode's:
- * the last matching rule wins, so every thread's T3 server is denied and then
+ * the last matching rule wins, so every thread's Elysia server is denied and then
  * this thread's own is allowed again, in every mode. A subagent's session
  * inherits the thread's.
  */
@@ -460,7 +460,7 @@ const mcpRules = (threadId: string | null): ReadonlyArray<Rule> =>
   threadId === null
     ? []
     : [
-        { action: "t3-code-*", resource: "*", effect: "deny" },
+        { action: "elysia-*", resource: "*", effect: "deny" },
         { action: `${t3McpServerName(threadId)}_*`, resource: "*", effect: "allow" },
       ];
 
@@ -641,7 +641,7 @@ const isWakeTurn = (turn: OrchestrationV2ProviderTurn) =>
 
 const INTERRUPT_TIMEOUT = "10 seconds";
 /** The session instructions entry T3 writes its per-turn system prompt to. */
-const INSTRUCTIONS_KEY = "t3-code";
+const INSTRUCTIONS_KEY = "elysia";
 /** A lost event stream is resubscribed this many times, this far apart, before the session breaks. */
 const RECONNECT_ATTEMPTS = 5;
 const RECONNECT_DELAY = "2 seconds";
@@ -2939,7 +2939,7 @@ export const make = Effect.fn("OpenCode2Adapter.make")(function* (instanceId: Pr
 
     /** Writes the session's rules for `policy` when they differ from what it has. */
     const writeRules = Effect.fnUntraced(function* (state: ThreadState, policy: RulesPolicy) {
-      // A subagent's session may use its thread's T3 server, the root's.
+      // A subagent's session may use its thread's Elysia server, the root's.
       const rules = yield* rulesFor(state, policy, rootOf(state).providerThread.appThreadId);
       if (!sameRules(state.rules, rules)) {
         yield* client.session.update({
@@ -3230,7 +3230,7 @@ export const make = Effect.fn("OpenCode2Adapter.make")(function* (instanceId: Pr
       }
       const instructions = [
         buildRuntimeInstructions({ harness: "OpenCode", model: turnInput.modelSelection.model }),
-        t3OrchestrationSystemPrompt(state.mcp !== undefined),
+        elysiaOrchestrationSystemPrompt(state.mcp !== undefined),
       ]
         .filter((part) => part !== undefined && part.length > 0)
         .join("\n\n");

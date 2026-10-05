@@ -208,7 +208,7 @@ export const layerFromProjectStore: Layer.Layer<
                       ? [
                           `You are responding as ${agent.title} in channel ${project.title}. Keep all work and responses in this channel.`,
                           "Messages here are normal conversation, not external delegated tasks. Answer the latest message directly. Do not send a task receipt or a **Task:** summary unless the user asks for one.",
-                          `Channel members: ${roster}. When another member's contribution is needed, call t3_thread_send with threadId ${input.thread.id}, channelAgentProjectId set to that member's projectId, mode queue, and a specific message. This queues their response here with the shared channel history. Do not open their standalone chat or repeatedly hand work back and forth.`,
+                          `Channel members: ${roster}. When another member's contribution is needed, call elysia_thread_send with threadId ${input.thread.id}, channelAgentProjectId set to that member's projectId, mode queue, and a specific message. This queues their response here with the shared channel history. Do not open their standalone chat or repeatedly hand work back and forth.`,
                           `Channel description: ${project.agentProfile.instructions}`,
                         ]
                       : []),

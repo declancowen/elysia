@@ -1,6 +1,6 @@
 # Elysia
 
-This repository is **Elysia**, the company fork of **T3 Code**. T3 Code supplies the underlying application infrastructure; Elysia owns the shipped product, UI design, branding, and native CLI integration. Call the app **Elysia** in UI text and agent responses. Internal upstream names and identifiers may remain where renaming would create compatibility or merge churn.
+This repository is **Elysia**, the company fork of **T3 Code**. T3 Code supplies the underlying application infrastructure; Elysia owns the shipped product, UI design, branding, and native CLI integration. Call the app **Elysia** in UI text and agent responses. App-owned names and identifiers use Elysia; upstream attribution and third-party identities remain accurate.
 
 These Elysia instructions take precedence over the upstream guidance below, including guidance brought in by future pull requests or merges. An upstream default is not authorization to change Elysia's product policy.
 
@@ -10,6 +10,15 @@ These Elysia instructions take precedence over the upstream guidance below, incl
 - Keep the native **Elysia CLI (`elysia-code`)** integration through Claude Code. The enabled internal driver is `claudeAgent`; this does not mean the shipped product should become generic Claude Code or expose other agent harnesses. Models available through the Elysia gateway are not separate provider integrations.
 - Preserve native model routing, compression, slash commands, skills, session continuity, and LangSmith tracing. Credential protection must continue to work without bypassing or breaking those native capabilities. Keep the isolated Elysia provider profile and the existing orchestration-v2 integration.
 - Preserve Elysia branding, stable updates, and its release/signing pipeline. Do not switch releases to upstream repositories, update feeds, analytics, or prerelease channels.
+
+## Elysia naming and migration policy
+
+- Preserve Elysia-owned names when merging upstream. Adapt new app-owned UI text, MCP tools, injected instructions, package/module names, configuration keys, environment variables, storage identifiers, and native integrations to Elysia naming. Do not restore upstream names over Elysia equivalents. Rename producers and all consumers together, with focused checks.
+- Keep actual upstream credits, licenses, third-party names, and external service identifiers accurate. Those are attribution or integration contracts, not Elysia product branding.
+- Migrate existing chats, settings, references, and database state before switching persisted identifiers or data locations. Never resolve a rename by creating an empty profile, overwriting existing data, or relying on users to repair broken chats afterward.
+- The transitional migration runs on startup before the affected state is opened. Preserve a recoverable backup, verify the result, block affected startup on failure, and record completion only after success. Subsequent starts skip completed migrations.
+- Keep transitional legacy reads confined to the migration. Do not add permanent aliases to normal runtime paths. The release following the migration release removes the migration code after confirming both existing users have migrated. Do not self-delete bundled files; remove the code from source and sign the next build normally.
+- Upstream merges must preserve this policy, the startup migration while it is needed, its completion markers, and Elysia's existing product behavior. This section takes precedence over upstream naming and compatibility defaults below.
 
 ## Retain upstream capabilities without enabling them
 

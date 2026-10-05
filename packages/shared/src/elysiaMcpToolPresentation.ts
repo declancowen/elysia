@@ -1,11 +1,11 @@
-export type T3McpToolLogo = "t3-code";
+export type ElysiaMcpToolLogo = "elysia";
 
-export interface T3McpToolPresentation {
+export interface ElysiaMcpToolPresentation {
   readonly displayName: string;
-  readonly logo: T3McpToolLogo;
+  readonly logo: ElysiaMcpToolLogo;
 }
 
-export type T3McpToolSummaryAction =
+export type ElysiaMcpToolSummaryAction =
   | "work-task-list"
   | "work-task-read"
   | "work-task-create"
@@ -68,36 +68,36 @@ export type T3McpToolSummaryAction =
   | "browser"
   | "device";
 
-export interface T3McpToolDefinition {
+export interface ElysiaMcpToolDefinition {
   readonly displayName: string;
   readonly labels: readonly [action: string, running: string, completed: string, detail: string];
-  readonly icon: "t3-code" | "browser" | "device" | "pull-request";
-  readonly summaryAction: T3McpToolSummaryAction;
+  readonly icon: "elysia" | "browser" | "device" | "pull-request";
+  readonly summaryAction: ElysiaMcpToolSummaryAction;
 }
 
 function tool(
-  labels: T3McpToolDefinition["labels"],
-  summaryAction: T3McpToolSummaryAction,
-  icon: T3McpToolDefinition["icon"] = "t3-code",
+  labels: ElysiaMcpToolDefinition["labels"],
+  summaryAction: ElysiaMcpToolSummaryAction,
+  icon: ElysiaMcpToolDefinition["icon"] = "elysia",
   displayName = `${labels[0]} ${labels[3]}`,
-): T3McpToolDefinition {
+): ElysiaMcpToolDefinition {
   return { displayName, labels, icon, summaryAction };
 }
 
-const T3_MCP_SERVER_ALIASES = new Set(["t3-code", "t3_code", "t3code", "elysia"]);
+const ELYSIA_MCP_SERVER_ALIASES = new Set(["elysia"]);
 
 // Cards, activity rows, summaries, and provider identity recovery share this inventory.
-const T3_MCP_TOOLS: Readonly<Record<string, T3McpToolDefinition>> = {
-  t3_task_list: tool(["List", "Listing", "Listed", "tasks"], "work-task-list"),
-  t3_task_read: tool(["Read", "Reading", "Read", "a task"], "work-task-read"),
-  t3_task_create: tool(["Create", "Creating", "Created", "a task"], "work-task-create"),
-  t3_task_delete: tool(["Delete", "Deleting", "Deleted", "a task"], "work-task-delete"),
-  t3_task_update: tool(["Update", "Updating", "Updated", "a task"], "work-task-update"),
-  t3_page_list: tool(["List", "Listing", "Listed", "pages"], "page-list"),
-  t3_page_read: tool(["Read", "Reading", "Read", "a page"], "page-read"),
-  t3_page_create: tool(["Create", "Creating", "Created", "a page"], "page-create"),
-  t3_page_delete: tool(["Delete", "Deleting", "Deleted", "a page"], "page-delete"),
-  t3_page_update: tool(["Update", "Updating", "Updated", "a page"], "page-update"),
+const ELYSIA_MCP_TOOLS: Readonly<Record<string, ElysiaMcpToolDefinition>> = {
+  elysia_task_list: tool(["List", "Listing", "Listed", "tasks"], "work-task-list"),
+  elysia_task_read: tool(["Read", "Reading", "Read", "a task"], "work-task-read"),
+  elysia_task_create: tool(["Create", "Creating", "Created", "a task"], "work-task-create"),
+  elysia_task_delete: tool(["Delete", "Deleting", "Deleted", "a task"], "work-task-delete"),
+  elysia_task_update: tool(["Update", "Updating", "Updated", "a task"], "work-task-update"),
+  elysia_page_list: tool(["List", "Listing", "Listed", "pages"], "page-list"),
+  elysia_page_read: tool(["Read", "Reading", "Read", "a page"], "page-read"),
+  elysia_page_create: tool(["Create", "Creating", "Created", "a page"], "page-create"),
+  elysia_page_delete: tool(["Delete", "Deleting", "Deleted", "a page"], "page-delete"),
+  elysia_page_update: tool(["Update", "Updating", "Updated", "a page"], "page-update"),
   link_pull_request: tool(
     ["Link", "Linking", "Linked", "a pull request"],
     "link-pr",
@@ -137,20 +137,23 @@ const T3_MCP_TOOLS: Readonly<Record<string, T3McpToolDefinition>> = {
     "schedule-delete",
   ),
   create_threads: tool(["Create", "Creating", "Created", "Elysia chats"], "thread-create"),
-  t3_thread_start: tool(["Start", "Starting", "Started", "an Elysia chat"], "thread-create"),
-  t3_thread_list: tool(["List", "Listing", "Listed", "Elysia chats"], "thread-list"),
-  t3_thread_read: tool(["Read", "Reading", "Read", "an Elysia chat"], "thread-read"),
-  t3_thread_send: tool(["Send", "Sending", "Sent", "to an Elysia chat"], "thread-send"),
-  t3_thread_wait: tool(["Wait", "Waiting", "Waited", "for an Elysia chat"], "thread-wait"),
-  t3_thread_interrupt: tool(
+  elysia_thread_start: tool(["Start", "Starting", "Started", "an Elysia chat"], "thread-create"),
+  elysia_thread_list: tool(["List", "Listing", "Listed", "Elysia chats"], "thread-list"),
+  elysia_thread_read: tool(["Read", "Reading", "Read", "an Elysia chat"], "thread-read"),
+  elysia_thread_send: tool(["Send", "Sending", "Sent", "to an Elysia chat"], "thread-send"),
+  elysia_thread_wait: tool(["Wait", "Waiting", "Waited", "for an Elysia chat"], "thread-wait"),
+  elysia_thread_interrupt: tool(
     ["Interrupt", "Interrupting", "Requested an interrupt of", "an Elysia chat"],
     "thread-interrupt",
   ),
-  t3_worktree_handoff: tool(
+  elysia_worktree_handoff: tool(
     ["Hand off", "Handing off", "Handed off", "thread to a git worktree"],
     "worktree-handoff",
   ),
-  t3_worktree_status: tool(["Get", "Getting", "Got", "thread worktree status"], "worktree-status"),
+  elysia_worktree_status: tool(
+    ["Get", "Getting", "Got", "thread worktree status"],
+    "worktree-status",
+  ),
   preview_status: tool(["Get", "Getting", "Got", "preview browser status"], "browser", "browser"),
   preview_open: tool(
     ["Open", "Opening", "Opened", "a page in the preview browser"],
@@ -230,131 +233,156 @@ const T3_MCP_TOOLS: Readonly<Record<string, T3McpToolDefinition>> = {
     ["Run", "Running", "Requested a run of", "a scheduled task"],
     "schedule-run",
   ),
-  t3_queue_list: tool(["List", "Listing", "Listed", "queued messages"], "queue-list"),
-  t3_queue_read: tool(["Read", "Reading", "Read", "a queued message"], "queue-read"),
-  t3_queue_edit: tool(["Edit", "Editing", "Edited", "a queued message"], "queue-edit"),
-  t3_queue_cancel: tool(
+  elysia_queue_list: tool(["List", "Listing", "Listed", "queued messages"], "queue-list"),
+  elysia_queue_read: tool(["Read", "Reading", "Read", "a queued message"], "queue-read"),
+  elysia_queue_edit: tool(["Edit", "Editing", "Edited", "a queued message"], "queue-edit"),
+  elysia_queue_cancel: tool(
     ["Cancel", "Canceling", "Requested cancellation of", "a queued run"],
     "queue-cancel",
   ),
-  t3_queue_reorder: tool(["Reorder", "Reordering", "Reordered", "a queued run"], "queue-reorder"),
-  t3_queue_promote_to_steer: tool(
+  elysia_queue_reorder: tool(
+    ["Reorder", "Reordering", "Reordered", "a queued run"],
+    "queue-reorder",
+  ),
+  elysia_queue_promote_to_steer: tool(
     ["Steer with", "Steering with", "Requested steering with", "a queued message"],
     "queue-steer",
   ),
-  t3_pending_request_list: tool(
+  elysia_pending_request_list: tool(
     ["List", "Listing", "Listed", "pending questions"],
     "question-list",
   ),
-  t3_pending_request_read: tool(["Read", "Reading", "Read", "pending questions"], "question-read"),
-  t3_pending_request_respond: tool(
+  elysia_pending_request_read: tool(
+    ["Read", "Reading", "Read", "pending questions"],
+    "question-read",
+  ),
+  elysia_pending_request_respond: tool(
     ["Answer", "Answering", "Answered", "pending questions"],
     "question-respond",
   ),
-  t3_thread_configuration: tool(
+  elysia_thread_configuration: tool(
     ["Read", "Reading", "Read", "thread configuration"],
     "thread-configuration",
   ),
-  t3_thread_configure: tool(["Set", "Setting", "Set", "thread model"], "thread-configure"),
-  t3_thread_fork: tool(["Fork", "Forking", "Requested a fork of", "this thread"], "thread-fork"),
-  t3_thread_merge_back: tool(
+  elysia_thread_configure: tool(["Set", "Setting", "Set", "thread model"], "thread-configure"),
+  elysia_thread_fork: tool(
+    ["Fork", "Forking", "Requested a fork of", "this thread"],
+    "thread-fork",
+  ),
+  elysia_thread_merge_back: tool(
     ["Merge", "Merging", "Requested a merge of", "thread context"],
     "thread-merge",
   ),
-  t3_thread_search: tool(["Search", "Searching", "Searched", "thread content"], "thread-search"),
-  t3_thread_transfers: tool(["Read", "Reading", "Read", "thread transfers"], "thread-transfers"),
-  t3_thread_organize: tool(["Organize", "Organizing", "Organized", "a thread"], "thread-organize"),
-  t3_thread_update: tool(
+  elysia_thread_search: tool(
+    ["Search", "Searching", "Searched", "thread content"],
+    "thread-search",
+  ),
+  elysia_thread_transfers: tool(
+    ["Read", "Reading", "Read", "thread transfers"],
+    "thread-transfers",
+  ),
+  elysia_thread_organize: tool(
+    ["Organize", "Organizing", "Organized", "a thread"],
+    "thread-organize",
+  ),
+  elysia_thread_update: tool(
     ["Update", "Updating", "Updated", "Elysia chat metadata"],
     "thread-update",
   ),
-  t3_worktree_list: tool(["List", "Listing", "Listed", "workspace branches"], "worktree-list"),
-  t3_preview_list: tool(["List", "Listing", "Listed", "preview tabs"], "browser", "browser"),
-  t3_preview_close: tool(["Close", "Closing", "Closed", "a preview tab"], "browser", "browser"),
-  t3_environment_read: tool(
+  elysia_worktree_list: tool(["List", "Listing", "Listed", "workspace branches"], "worktree-list"),
+  elysia_preview_list: tool(["List", "Listing", "Listed", "preview tabs"], "browser", "browser"),
+  elysia_preview_close: tool(["Close", "Closing", "Closed", "a preview tab"], "browser", "browser"),
+  elysia_environment_read: tool(
     ["Read", "Reading", "Read", "environment preferences"],
     "environment-read",
   ),
-  t3_environment_preferences_update: tool(
+  elysia_environment_preferences_update: tool(
     ["Update", "Updating", "Updated", "environment preferences"],
     "environment-update",
   ),
-  t3_thread_launch: tool(["Launch", "Launching", "Launched", "a project thread"], "thread-create"),
-  t3_project_list: tool(["List", "Listing", "Listed", "projects"], "project-list"),
-  t3_project_read: tool(["Read", "Reading", "Read", "a project"], "project-read"),
-  t3_project_create: tool(["Register", "Registering", "Registered", "a project"], "project-create"),
-  t3_project_update: tool(["Update", "Updating", "Updated", "a project"], "project-update"),
-  t3_project_delete: tool(["Delete", "Deleting", "Deleted", "a project"], "project-delete"),
-  t3_project_clone: tool(["Clone", "Cloning", "Cloned", "a repository"], "project-clone"),
-  t3_attachment_prepare_upload: tool(
+  elysia_thread_launch: tool(
+    ["Launch", "Launching", "Launched", "a project thread"],
+    "thread-create",
+  ),
+  elysia_project_list: tool(["List", "Listing", "Listed", "projects"], "project-list"),
+  elysia_project_read: tool(["Read", "Reading", "Read", "a project"], "project-read"),
+  elysia_project_create: tool(
+    ["Register", "Registering", "Registered", "a project"],
+    "project-create",
+  ),
+  elysia_project_update: tool(["Update", "Updating", "Updated", "a project"], "project-update"),
+  elysia_project_delete: tool(["Delete", "Deleting", "Deleted", "a project"], "project-delete"),
+  elysia_project_clone: tool(["Clone", "Cloning", "Cloned", "a repository"], "project-clone"),
+  elysia_attachment_prepare_upload: tool(
     ["Prepare", "Preparing", "Prepared", "an attachment upload"],
     "attachment-prepare",
   ),
-  t3_attachment_discard: tool(
+  elysia_attachment_discard: tool(
     ["Discard", "Discarding", "Discarded", "a pending attachment"],
     "attachment-discard",
   ),
-  t3_thread_send_attachments: tool(["Send", "Sending", "Sent", "attachments"], "attachment-send"),
+  elysia_thread_send_attachments: tool(
+    ["Send", "Sending", "Sent", "attachments"],
+    "attachment-send",
+  ),
 };
 
 /**
- * The T3 orchestration tool inventory, used to gate loose name matching on
+ * The Elysia orchestration tool inventory, used to gate loose name matching on
  * both the server (ACP MCP identity recovery) and the client (logo branding).
  */
-export const T3_MCP_TOOL_NAMES: ReadonlySet<string> = new Set(Object.keys(T3_MCP_TOOLS));
+export const ELYSIA_MCP_TOOL_NAMES: ReadonlySet<string> = new Set(Object.keys(ELYSIA_MCP_TOOLS));
 
-function normalizeT3McpToolLabel(value: string): string {
+function normalizeElysiaMcpToolLabel(value: string): string {
   return value.replace(/\s+(?:complete|completed)\s*$/i, "").trim();
 }
 
 /**
- * ACP agents disagree on how the injected T3 server prefixes its tools:
- * `mcp__t3-code__x` (Claude/Cursor), `t3-code.x` (Codex), plus single
+ * ACP agents disagree on how the injected Elysia server prefixes its tools:
+ * `mcp__elysia__x` (Claude/Cursor), `elysia.x` (Codex), plus single
  * underscore, colon, slash, dash, and space separators seen from registry
  * agents. The prefix match is deliberately loose because the display-name
  * inventory is the real gate; unknown tools stay on the generic renderer.
  */
-function resolveT3McpToolName(value: string): string | null {
-  const label = normalizeT3McpToolLabel(value);
+function resolveElysiaMcpToolName(value: string): string | null {
+  const label = normalizeElysiaMcpToolLabel(value);
+  if (Object.hasOwn(ELYSIA_MCP_TOOLS, label)) return label;
   const mcpMatch = /^mcp__(?<server>.+?)__(?<tool>.+)$/i.exec(label);
   if (mcpMatch?.groups) {
     const { server, tool } = mcpMatch.groups;
     return server !== undefined &&
       tool !== undefined &&
-      T3_MCP_SERVER_ALIASES.has(server.toLowerCase())
+      ELYSIA_MCP_SERVER_ALIASES.has(server.toLowerCase())
       ? tool
       : null;
   }
 
-  const namespaceMatch =
-    /^(?<server>t3-code|t3_code|t3code|elysia)(?:[.:/]|\s*·\s*)(?<tool>.+)$/i.exec(label);
+  const namespaceMatch = /^(?<server>elysia)(?:[.:/]|\s*·\s*)(?<tool>.+)$/i.exec(label);
   if (namespaceMatch?.groups) {
     return namespaceMatch.groups.tool ?? null;
   }
 
-  const prefixed = /^(?:mcp[-_]{1,2})?(?:t3[-_ ]?code|elysia)(?:__|[-_.:/ ])(?<tool>.+)$/i.exec(
-    label,
-  );
+  const prefixed = /^(?:mcp[-_]{1,2})?elysia(?:__|[-_.:/ ])(?<tool>.+)$/i.exec(label);
   const candidate = prefixed?.groups?.tool ?? label;
-  return Object.hasOwn(T3_MCP_TOOLS, candidate) ? candidate : null;
+  return Object.hasOwn(ELYSIA_MCP_TOOLS, candidate) ? candidate : null;
 }
 
-export function resolveT3McpToolDefinition(
+export function resolveElysiaMcpToolDefinition(
   toolName: string | null | undefined,
-): T3McpToolDefinition | null {
-  const name = toolName == null ? null : resolveT3McpToolName(toolName);
-  return name !== null && Object.hasOwn(T3_MCP_TOOLS, name) ? T3_MCP_TOOLS[name]! : null;
+): ElysiaMcpToolDefinition | null {
+  const name = toolName == null ? null : resolveElysiaMcpToolName(toolName);
+  return name !== null && Object.hasOwn(ELYSIA_MCP_TOOLS, name) ? ELYSIA_MCP_TOOLS[name]! : null;
 }
 
-export function resolveT3McpToolPresentation(
+export function resolveElysiaMcpToolPresentation(
   toolName: string | null | undefined,
-): T3McpToolPresentation | null {
-  const definition = resolveT3McpToolDefinition(toolName);
-  return definition === null ? null : { displayName: definition.displayName, logo: "t3-code" };
+): ElysiaMcpToolPresentation | null {
+  const definition = resolveElysiaMcpToolDefinition(toolName);
+  return definition === null ? null : { displayName: definition.displayName, logo: "elysia" };
 }
 
-export function resolveT3McpToolSummaryAction(
+export function resolveElysiaMcpToolSummaryAction(
   toolName: string | null | undefined,
-): T3McpToolSummaryAction | null {
-  return resolveT3McpToolDefinition(toolName)?.summaryAction ?? null;
+): ElysiaMcpToolSummaryAction | null {
+  return resolveElysiaMcpToolDefinition(toolName)?.summaryAction ?? null;
 }

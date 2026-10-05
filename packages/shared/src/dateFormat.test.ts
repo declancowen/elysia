@@ -1,3 +1,4 @@
+// @effect-diagnostics globalDate:off -- fixed local instant verifies the date formatting boundary.
 import { expect, it } from "vite-plus/test";
 import { formatCalendarDate, formatCalendarDateTime } from "./dateFormat.ts";
 import { formatDayShort } from "./usageFormat.ts";

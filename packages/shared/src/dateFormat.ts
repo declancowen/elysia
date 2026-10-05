@@ -1,3 +1,4 @@
+// @effect-diagnostics globalDate:off -- Intl calendar labels use the viewer's local zone and accept native Date values.
 const calendarDateFormatter = new Intl.DateTimeFormat("en-GB", {
   day: "2-digit",
   month: "2-digit",

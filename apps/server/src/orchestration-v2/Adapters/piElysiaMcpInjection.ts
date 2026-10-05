@@ -4,12 +4,12 @@ import * as FileSystem from "effect/FileSystem";
 
 import type { McpProviderSessionConfig } from "../../mcp/McpProviderSession.ts";
 import {
-  PI_T3_MCP_EXTENSION_FILENAME,
-  PI_T3_MCP_EXTENSION_SOURCE,
-  T3_MCP_BEARER_ENV,
-  T3_MCP_URL_ENV,
-  T3_PI_RUNTIME_MODE_ENV,
-} from "./piT3McpExtensionSource.ts";
+  PI_ELYSIA_MCP_EXTENSION_FILENAME,
+  PI_ELYSIA_MCP_EXTENSION_SOURCE,
+  ELYSIA_MCP_BEARER_ENV,
+  ELYSIA_MCP_URL_ENV,
+  ELYSIA_PI_RUNTIME_MODE_ENV,
+} from "./piElysiaMcpExtensionSource.ts";
 
 const RESERVED_PI_LAUNCH_ARGUMENTS = new Set([
   "--continue",
@@ -101,7 +101,7 @@ function normalizePiBuiltInEqualsArguments(args: ReadonlyArray<string>): Readonl
 
 /**
  * Pi launch arguments may configure resources, models, tools, trust, and
- * storage. T3 owns RPC mode and session identity, so arguments that select a
+ * storage. Elysia owns RPC mode and session identity, so arguments that select a
  * different execution mode or native session are rejected before spawn.
  */
 export function resolvePiLaunchArgs(launchArgs: string): PiLaunchArgsResolution {
@@ -230,22 +230,22 @@ function withoutToolSelectionArgs(args: ReadonlyArray<string>): ReadonlyArray<st
   return filtered;
 }
 
-function piT3McpExtensionDestPath(cacheDir: string): string {
-  return `${cacheDir.replace(/\\/g, "/")}/${PI_T3_MCP_EXTENSION_FILENAME}`;
+function piElysiaMcpExtensionDestPath(cacheDir: string): string {
+  return `${cacheDir.replace(/\\/g, "/")}/${PI_ELYSIA_MCP_EXTENSION_FILENAME}`;
 }
 
-export const materializePiT3McpExtension = Effect.fn("materializePiT3McpExtension")(function* (
-  cacheDir: string,
-) {
-  const fs = yield* FileSystem.FileSystem;
-  yield* fs.makeDirectory(cacheDir, { recursive: true });
-  const dest = piT3McpExtensionDestPath(cacheDir);
-  const existing = yield* fs.readFileString(dest).pipe(Effect.orElseSucceed(() => ""));
-  if (existing !== PI_T3_MCP_EXTENSION_SOURCE) {
-    yield* fs.writeFileString(dest, PI_T3_MCP_EXTENSION_SOURCE);
-  }
-  return dest;
-});
+export const materializePiElysiaMcpExtension = Effect.fn("materializePiElysiaMcpExtension")(
+  function* (cacheDir: string) {
+    const fs = yield* FileSystem.FileSystem;
+    yield* fs.makeDirectory(cacheDir, { recursive: true });
+    const dest = piElysiaMcpExtensionDestPath(cacheDir);
+    const existing = yield* fs.readFileString(dest).pipe(Effect.orElseSucceed(() => ""));
+    if (existing !== PI_ELYSIA_MCP_EXTENSION_SOURCE) {
+      yield* fs.writeFileString(dest, PI_ELYSIA_MCP_EXTENSION_SOURCE);
+    }
+    return dest;
+  },
+);
 
 export function buildPiRpcLaunch(input: {
   readonly launchArgs: ReadonlyArray<string>;
@@ -259,10 +259,10 @@ export function buildPiRpcLaunch(input: {
 }): {
   readonly args: ReadonlyArray<string>;
   readonly env: NodeJS.ProcessEnv;
-  readonly hasT3Mcp: boolean;
+  readonly hasElysiaMcp: boolean;
 } {
-  const hasT3Extension = input.disableExtensions !== true && input.extensionPath !== undefined;
-  const hasT3Mcp = hasT3Extension && input.mcpSession !== undefined;
+  const hasElysiaExtension = input.disableExtensions !== true && input.extensionPath !== undefined;
+  const hasElysiaMcp = hasElysiaExtension && input.mcpSession !== undefined;
   const extensionSafeArgs =
     input.disableExtensions === true
       ? withoutExplicitExtensions(input.launchArgs)
@@ -280,37 +280,37 @@ export function buildPiRpcLaunch(input: {
     ...(input.disableTools === true ? ["--no-tools"] : []),
   ];
   if (
-    hasT3Extension &&
+    hasElysiaExtension &&
     input.extensionPath !== undefined &&
     !hasExplicitExtension(args, input.extensionPath)
   ) {
     args.push("--extension", input.extensionPath);
   }
   const environment = { ...input.environment };
-  // These values belong to the current T3 session. Never let a Pi child reuse
+  // These values belong to the current Elysia session. Never let a Pi child reuse
   // credentials inherited from the server or a parent provider process.
-  delete environment[T3_MCP_URL_ENV];
-  delete environment[T3_MCP_BEARER_ENV];
+  delete environment[ELYSIA_MCP_URL_ENV];
+  delete environment[ELYSIA_MCP_BEARER_ENV];
 
   return {
     args,
     env: {
       ...environment,
-      ...(hasT3Extension && input.runtimeMode !== undefined
+      ...(hasElysiaExtension && input.runtimeMode !== undefined
         ? {
-            [T3_PI_RUNTIME_MODE_ENV]:
+            [ELYSIA_PI_RUNTIME_MODE_ENV]:
               input.runtimeMode === "auto" ? "approval-required" : input.runtimeMode,
           }
         : {}),
-      ...(hasT3Mcp && input.mcpSession !== undefined
+      ...(hasElysiaMcp && input.mcpSession !== undefined
         ? {
-            [T3_MCP_URL_ENV]: input.mcpSession.endpoint,
-            [T3_MCP_BEARER_ENV]: bearerTokenFromAuthorizationHeader(
+            [ELYSIA_MCP_URL_ENV]: input.mcpSession.endpoint,
+            [ELYSIA_MCP_BEARER_ENV]: bearerTokenFromAuthorizationHeader(
               input.mcpSession.authorizationHeader,
             ),
           }
         : {}),
     },
-    hasT3Mcp,
+    hasElysiaMcp,
   };
 }

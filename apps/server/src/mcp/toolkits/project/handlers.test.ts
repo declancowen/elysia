@@ -77,7 +77,7 @@ it.effect("attributes a launched thread's first message to the calling thread", 
       Effect.provide(ProjectHandlersLive.pipe(Layer.provide(dependencies))),
     );
     const result = yield* toolkit
-      .handle("t3_thread_launch", { title: "Audit", message: "Review the change" })
+      .handle("elysia_thread_launch", { title: "Audit", message: "Review the change" })
       .pipe(Stream.unwrap, Stream.runCollect, Effect.provide(dependencies));
     expect(result.at(-1)?.result).toMatchObject({ projectId, modelSelection });
     expect(launchedSender).toBe(sourceThreadId);
@@ -141,9 +141,9 @@ it.effect("launches a scratch thread into the Scratch project", () =>
     const toolkit = yield* ProjectToolkit.pipe(
       Effect.provide(ProjectHandlersLive.pipe(Layer.provide(dependencies))),
     );
-    const handle = (params: Parameters<typeof toolkit.handle<"t3_thread_launch">>[1]) =>
+    const handle = (params: Parameters<typeof toolkit.handle<"elysia_thread_launch">>[1]) =>
       toolkit
-        .handle("t3_thread_launch", params)
+        .handle("elysia_thread_launch", params)
         .pipe(Stream.unwrap, Stream.runCollect, Effect.provide(dependencies));
 
     const result = yield* handle({ title: "Notes", scratch: true, message: "Draft a list" });
@@ -235,9 +235,9 @@ it.effect("starts a project from just a title when workspaceRoot is omitted", ()
     const toolkit = yield* ProjectToolkit.pipe(
       Effect.provide(ProjectHandlersLive.pipe(Layer.provide(dependencies))),
     );
-    const handle = (params: Parameters<typeof toolkit.handle<"t3_project_create">>[1]) =>
+    const handle = (params: Parameters<typeof toolkit.handle<"elysia_project_create">>[1]) =>
       toolkit
-        .handle("t3_project_create", params)
+        .handle("elysia_project_create", params)
         .pipe(Stream.unwrap, Stream.runCollect, Effect.provide(dependencies));
 
     const result = yield* handle({ title: "Pinball Stats" });

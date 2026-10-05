@@ -3,6 +3,7 @@
   "private": true,
   "type": "module",
   "exports": {
+    "./legacyDataMigration": "./src/legacyDataMigration.ts",
     "./dateFormat": "./src/dateFormat.ts",
     "./channelReplies": {
       "types": "./src/channelReplies.ts",
@@ -360,9 +361,9 @@
       "types": "./src/orchestrationV2Timeline.ts",
       "import": "./src/orchestrationV2Timeline.ts"
     },
-    "./t3McpToolPresentation": {
-      "types": "./src/t3McpToolPresentation.ts",
-      "import": "./src/t3McpToolPresentation.ts"
+    "./elysiaMcpToolPresentation": {
+      "types": "./src/elysiaMcpToolPresentation.ts",
+      "import": "./src/elysiaMcpToolPresentation.ts"
     },
     "./Array": {
       "types": "./src/Array.ts",

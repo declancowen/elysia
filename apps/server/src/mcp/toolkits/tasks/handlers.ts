@@ -19,19 +19,19 @@ const mutation = Effect.gen(function* () {
 const mapFailure = (error: { message: string }) =>
   new OrchestratorMcpFailure({ code: "invalid_request", message: error.message });
 export const TaskHandlersLive = TaskToolkit.toLayer({
-  t3_task_list: () =>
+  elysia_task_list: () =>
     read.pipe(Effect.flatMap((service) => service.list().pipe(Effect.mapError(mapFailure)))),
-  t3_task_read: (input) =>
+  elysia_task_read: (input) =>
     read.pipe(Effect.flatMap((service) => service.get(input).pipe(Effect.mapError(mapFailure)))),
-  t3_task_create: (input) =>
+  elysia_task_create: (input) =>
     mutation.pipe(
       Effect.flatMap((service) => service.save(input).pipe(Effect.mapError(mapFailure))),
     ),
-  t3_task_delete: (input) =>
+  elysia_task_delete: (input) =>
     mutation.pipe(
       Effect.flatMap((service) => service.delete(input).pipe(Effect.mapError(mapFailure))),
     ),
-  t3_task_update: (input) =>
+  elysia_task_update: (input) =>
     mutation.pipe(
       Effect.flatMap((service) => service.save(input).pipe(Effect.mapError(mapFailure))),
     ),

@@ -1,3 +1,4 @@
+import { migrateLegacyDataHome } from "@t3tools/shared/legacyDataMigration";
 import * as MacPermissions from "./permissions/MacPermissions.ts";
 for (const stream of [process.stdout, process.stderr]) {
   stream.on("error", (err: NodeJS.ErrnoException) => {
@@ -225,7 +226,15 @@ const desktopApplicationRuntimeLayer = desktopApplicationLayer.pipe(
 // may yield, or Electron can emit ready before Clerk registers its scheme.
 const desktopRuntimeLayer = desktopClerkLayer.pipe(
   Layer.flatMap((clerkContext) =>
-    desktopApplicationRuntimeLayer.pipe(Layer.provideMerge(Layer.succeedContext(clerkContext))),
+    Layer.unwrap(
+      Effect.gen(function* () {
+        const environment = yield* DesktopEnvironment.DesktopEnvironment;
+        if (environment.isPackaged && !environment.isDevelopment) {
+          yield* migrateLegacyDataHome(environment.baseDir);
+        }
+        return desktopApplicationRuntimeLayer;
+      }),
+    ).pipe(Layer.provideMerge(Layer.succeedContext(clerkContext))),
   ),
   Layer.provideMerge(DesktopPreReadyPlatform.layer),
 );

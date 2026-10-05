@@ -89,10 +89,10 @@ import {
 } from "./PiRpc.ts";
 import {
   buildPiRpcLaunch,
-  materializePiT3McpExtension,
+  materializePiElysiaMcpExtension,
   resolvePiLaunchArgs,
-} from "./piT3McpInjection.ts";
-import { PI_FILE_CHANGE_TOOLS } from "./piT3McpExtensionSource.ts";
+} from "./piElysiaMcpInjection.ts";
+import { PI_FILE_CHANGE_TOOLS } from "./piElysiaMcpExtensionSource.ts";
 
 export const PI_PROVIDER = ProviderDriverKind.make("pi");
 const PI_DRIVER_KIND = PI_PROVIDER;
@@ -406,7 +406,7 @@ export function makePiAdapterV2(
       // hook. Materialize it even when this session has no MCP credential so
       // Supervised never silently degrades to unrestricted tool execution.
       const extensionPath = yield* provideCacheFs(
-        materializePiT3McpExtension(options.serverConfig.providerStatusCacheDir),
+        materializePiElysiaMcpExtension(options.serverConfig.providerStatusCacheDir),
       );
       const resolvedLaunchArgs = resolvePiLaunchArgs(options.settings.launchArgs);
       if (!resolvedLaunchArgs.ok) {
@@ -2293,7 +2293,7 @@ export function makePiAdapterV2(
             // Resolved before the turn is installed: a failure here (an
             // unreadable attachment) must not leave `activeTurn` set, which
             // would reject every later turn as already active.
-            // Orchestration instructions reach pi through the T3 MCP
+            // Orchestration instructions reach pi through the Elysia MCP
             // extension's before_agent_start system-prompt hook, never by
             // wrapping the user text: a wrapped first message would no
             // longer start with "/" and slash commands would stop expanding.

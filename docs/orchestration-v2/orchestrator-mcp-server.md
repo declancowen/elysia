@@ -63,10 +63,10 @@ overrides:
 
 ```text
 -c mcp_servers.t3-code.url=http://127.0.0.1:<port>/mcp
--c mcp_servers.t3-code.bearer_token_env_var="T3_MCP_BEARER_TOKEN"
+-c mcp_servers.t3-code.bearer_token_env_var="ELYSIA_MCP_BEARER_TOKEN"
 ```
 
-The provider-session token is placed in `T3_MCP_BEARER_TOKEN`. Both the
+The provider-session token is placed in `ELYSIA_MCP_BEARER_TOKEN`. Both the
 production Codex launcher and the injectable test launcher use the same
 projection helper.
 
@@ -147,16 +147,16 @@ provider-specific extensions; those remain in flavors such as Grok.
 
 Pi core has no MCP client. When a provider session credential exists, the
 adapter writes a T3-owned extension into the server cache and spawns
-`pi --mode rpc --extension <cache>/pi-t3-mcp-extension.ts` with:
+`pi --mode rpc --extension <cache>/pi-elysia-mcp-extension.ts` with:
 
 ```text
-T3_MCP_URL=http://127.0.0.1:<port>/mcp
-T3_MCP_BEARER_TOKEN=<provider-session-token>
+ELYSIA_MCP_URL=http://127.0.0.1:<port>/mcp
+ELYSIA_MCP_BEARER_TOKEN=<provider-session-token>
 ```
 
 The extension connects to that HTTP endpoint, lists tools, and registers each
 one with `pi.registerTool` under a `mcp__t3-code__` namespace
-(`mcp__t3-code__delegate_task`, `mcp__t3-code__t3_thread_launch`, and the rest).
+(`mcp__t3-code__delegate_task`, `mcp__t3-code__elysia_thread_launch`, and the rest).
 The bridge calls the original MCP tool name over HTTP. Follow-up requests send
 `mcp-protocol-version: 2025-06-18`; Effect's MCP transport returns 400
 without it. The first turn of a session also receives the shared T3
@@ -273,7 +273,7 @@ the published task result.
 
 Interrupts the currently active task run through the normal V2 `run.interrupt`
 command. Native background work between turns currently has no interruptible run. It is idempotent for terminal tasks and accepts an optional cancellation
-reason. Use `t3_thread_interrupt` to interrupt a later follow-up run.
+reason. Use `elysia_thread_interrupt` to interrupt a later follow-up run.
 
 ### `create_threads`
 
@@ -301,7 +301,7 @@ inherit the parent's project, branch, and worktree path, but they have no
 sub-agent lineage. Entries with a prompt immediately dispatch a run; entries
 without a prompt remain idle.
 
-### `t3_thread_launch`
+### `elysia_thread_launch`
 
 Launches one ordinary top-level thread through the app's launch service. Use an
 explicit `workspaceStrategy` to create a new worktree (`worktree` with `baseRef`),
@@ -317,14 +317,14 @@ its own under the environment's Scratch project. For stacked PRs, use the parent
 no retry key, so inspect existing threads after a failed or lost response before
 launching again. `create_threads` remains the batch option for a shared checkout.
 
-### `t3_thread_list`
+### `elysia_thread_list`
 
 Lists durable thread shells in the calling thread's project, newest first.
 Callers can filter by title, run status, and whether app-owned sub-agent threads
 are included. Results are bounded and offset-paginated. Deleted threads and
 threads from other projects are never exposed.
 
-### `t3_thread_read`
+### `elysia_thread_read`
 
 Reads a project-scoped thread's durable state, recent runs, and visible
 timeline. The default `messages` view returns user messages, assistant
@@ -339,7 +339,7 @@ and `creationSource: "mcp"`; provider output uses `creationSource: "provider"`.
 Actor and ingress are separate so agent-authored user-role messages remain
 distinguishable from human-authored messages.
 
-### `t3_thread_update`
+### `elysia_thread_update`
 
 Updates metadata for the calling thread or another thread in the same project.
 The typed actions are `rename`, `regenerate_title`, `link_pull_request`, and
@@ -353,7 +353,7 @@ resultant title, title-regeneration marker, and linked pull request. Reusing a
 receipt. Thread list and read results expose the linked pull request, and thread
 detail also exposes an in-flight title regeneration.
 
-### `t3_thread_send`
+### `elysia_thread_send`
 
 Sends a message to an ordinary or delegated thread in the calling project:
 
@@ -368,14 +368,14 @@ The target runtime and interaction modes may not be broader than the caller's.
 Stable command and message IDs are derived from `clientRequestId` for
 idempotent retries.
 
-### `t3_thread_wait`
+### `elysia_thread_wait`
 
 Waits for a selected run to become `completed`, `failed`, `cancelled`,
 `interrupted`, or `rolled_back`. Without `runId`, it pins the latest run at call
 time; an idle thread returns immediately. A timeout reports the latest durable
 status and does not cancel work.
 
-### `t3_thread_interrupt`
+### `elysia_thread_interrupt`
 
 Interrupts a selected active run through the normal V2 `run.interrupt` command.
 Without `runId`, it selects the newest interruptible run. A terminal run is

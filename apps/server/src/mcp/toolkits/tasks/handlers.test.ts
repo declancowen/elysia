@@ -49,14 +49,14 @@ it.effect("does not let a read-only agent mutate a task", () =>
       Effect.provide(TaskHandlersLive.pipe(Layer.provide(dependencies))),
     );
     const results = yield* toolkit
-      .handle("t3_task_create", { title: "Forbidden edit" })
+      .handle("elysia_task_create", { title: "Forbidden edit" })
       .pipe(Stream.unwrap, Stream.runCollect, Effect.provide(dependencies));
     expect(results.at(-1)?.result).toMatchObject({
       _tag: "OrchestratorMcpFailure",
       code: "capability_denied",
     });
     const deletion = yield* toolkit
-      .handle("t3_task_delete", { id: WorkTaskId.make("TASK-1") })
+      .handle("elysia_task_delete", { id: WorkTaskId.make("TASK-1") })
       .pipe(Stream.unwrap, Stream.runCollect, Effect.provide(dependencies));
     expect(deletion.at(-1)?.result).toMatchObject({
       _tag: "OrchestratorMcpFailure",

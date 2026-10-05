@@ -205,7 +205,7 @@ describe("Elysia V2 runtime boundary", () => {
       expect(options.allowedTools?.every((tool) => tool.startsWith("mcp__elysia__"))).toBe(true);
       expect(options.allowedTools).not.toContain("mcp__elysia__*");
       expect(options.allowedTools).toContain("mcp__elysia__list_scheduled_tasks");
-      for (const serverName of ["elysia", "t3-code"]) {
+      for (const serverName of ["elysia", "elysia"]) {
         const fullAccess = claudeMcpQueryOverrides({
           threadId,
           readOnlySandbox: false,

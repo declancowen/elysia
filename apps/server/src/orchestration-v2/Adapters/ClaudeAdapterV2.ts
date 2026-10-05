@@ -111,7 +111,7 @@ import {
 } from "../../provider/Layers/claudeUsageLimits.ts";
 import type { ServerProviderShape } from "../../provider/Services/ServerProvider.ts";
 import { mergeProviderInstanceEnvironment } from "../../provider/ProviderInstanceEnvironment.ts";
-import { T3_CODE_ORCHESTRATION_INSTRUCTIONS } from "../../provider/T3OrchestrationInstructions.ts";
+import { ELYSIA_ORCHESTRATION_INSTRUCTIONS } from "../../provider/ElysiaOrchestrationInstructions.ts";
 import { elysiaModelEnvironment } from "../../provider/ElysiaModelCatalog.ts";
 import {
   hasElysiaNativeSession,
@@ -900,12 +900,7 @@ export function makeClaudeQueryOptions(input: {
       preset: "claude_code" as const,
       append:
         buildRuntimeInstructions({ harness: "Claude Code" }) +
-        (input.mcpServers === undefined
-          ? ""
-          : T3_CODE_ORCHESTRATION_INSTRUCTIONS.replaceAll("T3 Code", "Elysia").replaceAll(
-              "t3-code",
-              input.environment?.ELYSIA_PROFILE_ROOT ? "elysia" : "t3-code",
-            )) +
+        (input.mcpServers === undefined ? "" : ELYSIA_ORCHESTRATION_INSTRUCTIONS) +
         (input.persistentAgent
           ? "\n\n" + buildPersistentAgentInstructions(input.persistentAgent)
           : ""),
@@ -977,39 +972,39 @@ export function makeClaudeQueryOptions(input: {
   return input.cwd === null ? withDirectories : { ...withDirectories, cwd: input.cwd };
 }
 
-export const CLAUDE_T3_MCP_TOOL_WILDCARD = "mcp__t3-code__*";
+export const CLAUDE_ELYSIA_MCP_TOOL_WILDCARD = "mcp__elysia__*";
 
 // Must stay in sync with the Tool.Readonly annotations on OrchestratorToolkit;
 // ClaudeAdapterV2.test.ts cross-checks this list against the toolkit.
-export const CLAUDE_READ_ONLY_T3_MCP_ALLOWED_TOOLS: ReadonlyArray<string> = [
-  "mcp__t3-code__orchestrator_capabilities",
-  "mcp__t3-code__list_scheduled_tasks",
-  "mcp__t3-code__t3_thread_list",
-  "mcp__t3-code__t3_thread_wait",
-  "mcp__t3-code__t3_pending_request_list",
-  "mcp__t3-code__t3_pending_request_read",
-  "mcp__t3-code__t3_thread_configuration",
-  "mcp__t3-code__t3_thread_transfers",
-  "mcp__t3-code__t3_worktree_status",
-  "mcp__t3-code__t3_worktree_list",
-  "mcp__t3-code__t3_project_list",
-  "mcp__t3-code__t3_project_read",
-  "mcp__t3-code__t3_thread_search",
-  "mcp__t3-code__t3_preview_list",
-  "mcp__t3-code__t3_environment_read",
-  "mcp__t3-code__t3_queue_list",
-  "mcp__t3-code__t3_queue_read",
+export const CLAUDE_READ_ONLY_ELYSIA_MCP_ALLOWED_TOOLS: ReadonlyArray<string> = [
+  "mcp__elysia__orchestrator_capabilities",
+  "mcp__elysia__list_scheduled_tasks",
+  "mcp__elysia__elysia_thread_list",
+  "mcp__elysia__elysia_thread_wait",
+  "mcp__elysia__elysia_pending_request_list",
+  "mcp__elysia__elysia_pending_request_read",
+  "mcp__elysia__elysia_thread_configuration",
+  "mcp__elysia__elysia_thread_transfers",
+  "mcp__elysia__elysia_worktree_status",
+  "mcp__elysia__elysia_worktree_list",
+  "mcp__elysia__elysia_project_list",
+  "mcp__elysia__elysia_project_read",
+  "mcp__elysia__elysia_thread_search",
+  "mcp__elysia__elysia_preview_list",
+  "mcp__elysia__elysia_environment_read",
+  "mcp__elysia__elysia_queue_list",
+  "mcp__elysia__elysia_queue_read",
 ];
 
 // Claude Code aborts an HTTP MCP call after 60 s ("The operation timed out.")
-// unless the server config sets `timeout`. T3's wait tools (t3_thread_wait,
+// unless the server config sets `timeout`. Elysia's wait tools (elysia_thread_wait,
 // delegate_task mode=wait) legitimately block for up to an hour
 // (MAX_WAIT_TIMEOUT_MS in OrchestratorMcpService), so the budget sits just
 // above that and the server's own wait timeout is what ends a long call.
-export const CLAUDE_T3_MCP_TOOL_TIMEOUT_MS = 65 * 60 * 1_000;
+export const CLAUDE_ELYSIA_MCP_TOOL_TIMEOUT_MS = 65 * 60 * 1_000;
 
 // The SDK's `allowedTools` only pre-approves tool calls; availability is the
-// separate `tools` option. Attaching the t3-code MCP server therefore always
+// separate `tools` option. Attaching the elysia MCP server therefore always
 // pre-approves its tools (headless modes like `dontAsk` deny anything that is
 // not pre-approved), but read-only sandboxes pre-approve only the annotated
 // read-only orchestrator tools so a read-only session cannot silently spawn
@@ -1028,14 +1023,14 @@ export function claudeMcpQueryOverrides(input: {
     return input.allowedTools === undefined ? {} : { allowedTools: input.allowedTools };
   }
   const mcpAllowedTools = input.readOnlySandbox
-    ? CLAUDE_READ_ONLY_T3_MCP_ALLOWED_TOOLS
-    : [CLAUDE_T3_MCP_TOOL_WILDCARD];
-  const serverName = input.serverName ?? "t3-code";
+    ? CLAUDE_READ_ONLY_ELYSIA_MCP_ALLOWED_TOOLS
+    : [CLAUDE_ELYSIA_MCP_TOOL_WILDCARD];
+  const serverName = input.serverName ?? "elysia";
   return {
     allowedTools: Array.from(
       new Set([
         ...(input.allowedTools ?? []),
-        ...mcpAllowedTools.map((tool) => tool.replace("mcp__t3-code__", `mcp__${serverName}__`)),
+        ...mcpAllowedTools.map((tool) => tool.replace("mcp__elysia__", `mcp__${serverName}__`)),
       ]),
     ),
     mcpServers: {
@@ -1045,7 +1040,7 @@ export function claudeMcpQueryOverrides(input: {
         headers: {
           Authorization: session.authorizationHeader,
         },
-        timeout: CLAUDE_T3_MCP_TOOL_TIMEOUT_MS,
+        timeout: CLAUDE_ELYSIA_MCP_TOOL_TIMEOUT_MS,
       },
     },
   };
@@ -6968,7 +6963,6 @@ export function makeClaudeAdapterV2(
           const queryPolicy = claudeRuntimeQueryPolicyForRuntimePolicy(turnInput.runtimePolicy);
           const mcpOverrides = claudeMcpQueryOverrides({
             threadId: turnInput.threadId,
-            serverName: adapterOptions.environment.ELYSIA_PROFILE_ROOT ? "elysia" : "t3-code",
             readOnlySandbox:
               sandboxPolicyKindForClaudeRuntimePolicy(turnInput.runtimePolicy) === "readOnly",
             ...(queryPolicy.allowedTools === undefined

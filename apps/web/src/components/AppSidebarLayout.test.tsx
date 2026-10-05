@@ -172,13 +172,28 @@ it("retains Agents beside its conversations and restores each Home sidebar and u
     state.pathname = "/projects";
     await render();
     expect(host.querySelector("[data-app-sidebar]")).toBeNull();
+    const sidebarToggle = () =>
+      host.querySelector<HTMLButtonElement>(
+        '[data-app-topbar] [aria-label="Toggle main sidebar"]',
+      )!;
+    expect(sidebarToggle().disabled).toBe(true);
+    const previousState = sidebarToggle().getAttribute("aria-pressed");
+    await act(async () => sidebarToggle().click());
+    expect(sidebarToggle().getAttribute("aria-pressed")).toBe(previousState);
+    for (const pathname of ["/tasks", "/pages"]) {
+      state.pathname = pathname;
+      await render();
+      expect(sidebarToggle().disabled).toBe(true);
+    }
     expect(host.textContent).toContain("Conversation body");
     state.pathname = "/usage";
     await render();
     expect(host.querySelector("[data-app-sidebar]")).toBeNull();
+    expect(sidebarToggle().disabled).toBe(true);
     expect(host.textContent).toContain("Conversation body");
     state.pathname = "/local/agent-chat";
     await render();
+    expect(sidebarToggle().disabled).toBe(false);
     expect(host.textContent).not.toContain("Agent navigation");
   } finally {
     await act(async () => root.unmount());

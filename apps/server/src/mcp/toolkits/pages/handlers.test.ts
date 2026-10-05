@@ -49,14 +49,16 @@ it.effect("does not let a read-only agent mutate a page", () =>
       Effect.provide(PagesToolkitHandlersLive.pipe(Layer.provide(dependencies))),
     );
     const results = yield* toolkit
-      .handle("t3_page_create", { title: "Forbidden edit" })
+      .handle("elysia_page_create", { title: "Forbidden edit" })
       .pipe(Stream.unwrap, Stream.runCollect, Effect.provide(dependencies));
     expect(results.at(-1)?.result).toMatchObject({
       _tag: "OrchestratorMcpFailure",
       code: "capability_denied",
     });
     const deletion = yield* toolkit
-      .handle("t3_page_delete", { id: PageId.make("page-00000000-0000-4000-8000-000000000001") })
+      .handle("elysia_page_delete", {
+        id: PageId.make("page-00000000-0000-4000-8000-000000000001"),
+      })
       .pipe(Stream.unwrap, Stream.runCollect, Effect.provide(dependencies));
     expect(deletion.at(-1)?.result).toMatchObject({
       _tag: "OrchestratorMcpFailure",

@@ -21,7 +21,7 @@ const shared = {
     PageService.PageService,
   ],
 };
-const list = Tool.make("t3_page_list", {
+const list = Tool.make("elysia_page_list", {
   ...shared,
   success: PageListResult,
   description:
@@ -29,7 +29,7 @@ const list = Tool.make("t3_page_list", {
 })
   .annotate(Tool.Readonly, true)
   .annotate(Tool.Destructive, false);
-const read = Tool.make("t3_page_read", {
+const read = Tool.make("elysia_page_read", {
   ...shared,
   parameters: PageLookupInput,
   success: PageMutationResult,
@@ -38,7 +38,7 @@ const read = Tool.make("t3_page_read", {
 })
   .annotate(Tool.Readonly, true)
   .annotate(Tool.Destructive, false);
-const create = Tool.make("t3_page_create", {
+const create = Tool.make("elysia_page_create", {
   ...shared,
   parameters: Schema.Struct({
     title: Page.fields.title,
@@ -49,7 +49,7 @@ const create = Tool.make("t3_page_create", {
   description:
     "Create a personal page. Content is rich-text HTML: paragraphs, headings, bold, italic, lists, links, blockquotes and code blocks. No team or collaboration settings. Omit projectId for No project.",
 }).annotate(Tool.Destructive, true);
-const update = Tool.make("t3_page_update", {
+const update = Tool.make("elysia_page_update", {
   ...shared,
   parameters: Schema.Struct({
     ...PageSaveInput.fields,
@@ -60,7 +60,7 @@ const update = Tool.make("t3_page_update", {
   description:
     "Update a page. Read it first and send expectedRevision; concurrent changes are rejected rather than overwritten. Omitted fields stay unchanged. Content is rich-text HTML; projectId:null removes the project link.",
 }).annotate(Tool.Destructive, true);
-const remove = Tool.make("t3_page_delete", {
+const remove = Tool.make("elysia_page_delete", {
   ...shared,
   parameters: PageLookupInput,
   success: PageDeleteResult,

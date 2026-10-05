@@ -2528,6 +2528,11 @@ code {
 .workspace-topbar-tab[data-active-tab="true"] {
   border-color: var(--workspace-panel-border);
 }
+.workspace-topbar-divider {
+  height: 12px;
+  width: 0.5px;
+  background: var(--workspace-panel-border);
+}
 .workspace-topbar-tab[data-active-tab="false"]
   + .workspace-topbar-tab[data-active-tab="false"]::before {
   content: "";

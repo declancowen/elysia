@@ -21,27 +21,27 @@ const mutation = Effect.gen(function* () {
   return yield* Pages.PageService;
 });
 export const PagesToolkitHandlersLive = PagesToolkit.toLayer({
-  t3_page_list: () =>
+  elysia_page_list: () =>
     access.pipe(
       Effect.flatMap((pages) => pages.list()),
       Effect.mapError((error) => (error._tag === "PageError" ? failure(error) : error)),
     ),
-  t3_page_read: (input) =>
+  elysia_page_read: (input) =>
     access.pipe(
       Effect.flatMap((pages) => pages.get(input)),
       Effect.mapError((error) => (error._tag === "PageError" ? failure(error) : error)),
     ),
-  t3_page_create: (input) =>
+  elysia_page_create: (input) =>
     mutation.pipe(
       Effect.flatMap((pages) => pages.save(input)),
       Effect.mapError((error) => (error._tag === "PageError" ? failure(error) : error)),
     ),
-  t3_page_update: (input) =>
+  elysia_page_update: (input) =>
     mutation.pipe(
       Effect.flatMap((pages) => pages.save(input)),
       Effect.mapError((error) => (error._tag === "PageError" ? failure(error) : error)),
     ),
-  t3_page_delete: (input) =>
+  elysia_page_delete: (input) =>
     mutation.pipe(
       Effect.flatMap((pages) => pages.delete(input)),
       Effect.mapError((error) => (error._tag === "PageError" ? failure(error) : error)),

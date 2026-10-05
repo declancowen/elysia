@@ -11,7 +11,7 @@ import {
 
 describe("orchestrator MCP tool guidance", () => {
   it("publishes member collaboration on the send tool with a bounded automatic budget", () => {
-    const send = OrchestratorToolkit.tools.t3_thread_send;
+    const send = OrchestratorToolkit.tools.elysia_thread_send;
     const schema = Tool.getJsonSchema(send) as {
       readonly properties?: Readonly<Record<string, unknown>>;
     };

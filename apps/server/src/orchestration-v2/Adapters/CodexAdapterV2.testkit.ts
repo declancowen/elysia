@@ -13,6 +13,7 @@ import * as Predicate from "effect/Predicate";
 import * as Schema from "effect/Schema";
 
 import * as ServerConfig from "../../config.ts";
+import { buildCodexInitializeParams } from "../../provider/Layers/CodexProvider.ts";
 import * as IdAllocator from "../IdAllocator.ts";
 import { ProviderAdapterOpenSessionError } from "../ProviderAdapter.ts";
 import { ProviderAdapterDriverCreateError } from "../ProviderAdapterDriver.ts";
@@ -240,6 +241,25 @@ export const CodexOrchestratorReplayHarness: OrchestratorV2ProviderReplayHarness
   driver: CodexAdapterV2.CODEX_DRIVER_KIND,
   decodeTranscript: (transcript) =>
     decodeCodexAppServerReplayTranscript(transcript).pipe(
+      Effect.map((decoded) => ({
+        ...decoded,
+        // Upstream recordings retain their original identity; replay the same
+        // handshake using this fork's client name without relaxing other frames.
+        entries: decoded.entries.map((entry) => {
+          if (entry.type !== "expect_outbound" || !Predicate.isObject(entry.frame)) return entry;
+          const frame = entry.frame;
+          if (frame.method !== "initialize" || !Predicate.isObject(frame.params)) return entry;
+          const clientInfo = frame.params.clientInfo;
+          if (!Predicate.isObject(clientInfo) || clientInfo.name !== "T3 Code") return entry;
+          return {
+            ...entry,
+            frame: {
+              ...frame,
+              params: { ...frame.params, clientInfo: buildCodexInitializeParams().clientInfo },
+            },
+          };
+        }),
+      })),
       Effect.mapError(
         (cause) =>
           new CodexReplayTranscriptDecodeError({

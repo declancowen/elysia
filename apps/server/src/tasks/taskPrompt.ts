@@ -33,14 +33,13 @@ function descriptionText(description: string): string {
 
 export function taskPrompt(task: Pick<WorkTask, "id" | "title" | "description">): string {
   return [
-    `Work on ${task.id}: ${task.title}`,
-    descriptionText(task.description),
-    "Read this task in Elysia and update its progress. Mark it done only when the work is complete.",
-    formatComposerContextReference({
+    `Work on ${formatComposerContextReference({
       kind: "task",
       contextId: ComposerContextId.make(task.id),
       label: task.title,
-    }),
+    })}`,
+    descriptionText(task.description),
+    "Read this task in Elysia and update its progress. Mark it done only when the work is complete.",
   ]
     .filter(Boolean)
     .join("\n\n");

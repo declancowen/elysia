@@ -28,8 +28,7 @@ export function AppTopbar({ sidebarControl }: { sidebarControl: ReactNode }) {
       data-app-topbar=""
       data-sidebar-visible={sidebarVisible}
       className={cn(
-        "relative mt-1 hidden h-[var(--workspace-topbar-height)] shrink-0 items-center md:flex",
-        sidebarVisible ? "gap-4" : "gap-1",
+        "relative mt-1 hidden h-[var(--workspace-topbar-height)] shrink-0 items-center gap-1 md:flex",
         isElectron && "drag-region",
       )}
       style={{
@@ -37,17 +36,7 @@ export function AppTopbar({ sidebarControl }: { sidebarControl: ReactNode }) {
         paddingInlineEnd: "var(--workspace-controls-right)",
       }}
     >
-      <div
-        className="[-webkit-app-region:no-drag] flex min-w-max shrink-0 items-center"
-        style={
-          sidebarVisible
-            ? {
-                width:
-                  "calc(var(--app-navigation-rail-width) + var(--workspace-sidebar-width, var(--sidebar-width)) - var(--workspace-controls-left) - 1rem)",
-              }
-            : undefined
-        }
-      >
+      <div className="[-webkit-app-region:no-drag] flex min-w-max shrink-0 items-center">
         <div
           className="relative shrink-0"
           style={{
@@ -61,7 +50,7 @@ export function AppTopbar({ sidebarControl }: { sidebarControl: ReactNode }) {
         </div>
         <div className="flex items-center gap-1">
           {sidebarControl}
-          {!sidebarVisible ? <SidebarNewChatButton iconOnly /> : null}
+          <SidebarNewChatButton iconOnly />
           <Tooltip>
             <TooltipTrigger
               render={
@@ -97,6 +86,7 @@ export function AppTopbar({ sidebarControl }: { sidebarControl: ReactNode }) {
           </Tooltip>
         </div>
       </div>
+      <div aria-hidden="true" className="workspace-topbar-divider mx-1 shrink-0" />
       <div
         id={TOPBAR_CONTENT_ID}
         data-app-topbar-content=""

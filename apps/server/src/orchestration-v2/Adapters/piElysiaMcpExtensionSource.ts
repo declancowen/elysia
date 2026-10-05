@@ -1,20 +1,20 @@
 /**
- * Source for the T3-owned Pi extension that consumes T3's HTTP MCP server.
+ * Source for the Elysia-owned Pi extension that consumes Elysia's HTTP MCP server.
  *
  * Pi core has no MCP client. This file is TypeScript that Pi itself loads via
  * `--extension`. It is written to a cache path at session open so packaged
  * AppImage builds do not need a sibling .ts file next to the bundled server.
  *
- * Do not import t3code modules from the string body. The Pi process resolves
+ * Do not import elysia modules from the string body. The Pi process resolves
  * `@earendil-works/pi-coding-agent` and `typebox` from the user's pi install.
  */
-import { T3_CODE_ORCHESTRATION_INSTRUCTIONS } from "../../provider/T3OrchestrationInstructions.ts";
+import { ELYSIA_ORCHESTRATION_INSTRUCTIONS } from "../../provider/ElysiaOrchestrationInstructions.ts";
 
-export const PI_T3_MCP_EXTENSION_FILENAME = "pi-t3-mcp-extension.ts";
+export const PI_ELYSIA_MCP_EXTENSION_FILENAME = "pi-elysia-mcp-extension.ts";
 
-export const T3_MCP_URL_ENV = "T3_MCP_URL";
-export const T3_MCP_BEARER_ENV = "T3_MCP_BEARER_TOKEN";
-export const T3_PI_RUNTIME_MODE_ENV = "T3_PI_RUNTIME_MODE";
+export const ELYSIA_MCP_URL_ENV = "ELYSIA_MCP_URL";
+export const ELYSIA_MCP_BEARER_ENV = "ELYSIA_MCP_BEARER_TOKEN";
+export const ELYSIA_PI_RUNTIME_MODE_ENV = "ELYSIA_PI_RUNTIME_MODE";
 
 /**
  * Pi tools whose confirmations the bridge raises as file-change approvals.
@@ -22,14 +22,14 @@ export const T3_PI_RUNTIME_MODE_ENV = "T3_PI_RUNTIME_MODE";
  */
 export const PI_FILE_CHANGE_TOOLS = ["edit", "write"] as const;
 
-export const PI_T3_MCP_EXTENSION_SOURCE = `\
+export const PI_ELYSIA_MCP_EXTENSION_SOURCE = `\
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { Type } from "typebox";
 
-const URL_ENV = ${JSON.stringify(T3_MCP_URL_ENV)};
-const TOKEN_ENV = ${JSON.stringify(T3_MCP_BEARER_ENV)};
-const RUNTIME_MODE_ENV = ${JSON.stringify(T3_PI_RUNTIME_MODE_ENV)};
-const ORCHESTRATION_INSTRUCTIONS = ${JSON.stringify(T3_CODE_ORCHESTRATION_INSTRUCTIONS.trim())};
+const URL_ENV = ${JSON.stringify(ELYSIA_MCP_URL_ENV)};
+const TOKEN_ENV = ${JSON.stringify(ELYSIA_MCP_BEARER_ENV)};
+const RUNTIME_MODE_ENV = ${JSON.stringify(ELYSIA_PI_RUNTIME_MODE_ENV)};
+const ORCHESTRATION_INSTRUCTIONS = ${JSON.stringify(ELYSIA_ORCHESTRATION_INSTRUCTIONS.trim())};
 const PROTOCOL = "2025-06-18";
 const READ_ONLY_TOOLS = new Set(["read", "grep", "find", "ls"]);
 const FILE_CHANGE_TOOLS = new Set(${JSON.stringify(PI_FILE_CHANGE_TOOLS)});
@@ -180,7 +180,7 @@ function createMcpClient(endpoint: string, token: string) {
         {
           protocolVersion: PROTOCOL,
           capabilities: {},
-          clientInfo: { name: "t3-pi-mcp", version: "1.0.0" },
+          clientInfo: { name: "elysia-pi-mcp", version: "1.0.0" },
         },
         signal,
       );
@@ -206,7 +206,7 @@ function createMcpClient(endpoint: string, token: string) {
   };
 }
 
-export default async function t3McpExtension(pi: ExtensionAPI) {
+export default async function elysiaMcpExtension(pi: ExtensionAPI) {
   // Workaround for an upstream Pi context-budgeting bug: pi-ai reuses the
   // previous response's usage even when a fork's instructions/tools differ,
   // then reserves almost all remaining context for output. OpenRouter can
@@ -251,7 +251,7 @@ export default async function t3McpExtension(pi: ExtensionAPI) {
   if (endpoint === undefined || token === undefined) {
     pi.on("session_start", async (_event, ctx) => {
       ctx.ui.notify(
-        "t3-code MCP unavailable: T3_MCP_URL or T3_MCP_BEARER_TOKEN is missing.",
+        "elysia MCP unavailable: ELYSIA_MCP_URL or ELYSIA_MCP_BEARER_TOKEN is missing.",
         "warning",
       );
     });
@@ -269,7 +269,7 @@ export default async function t3McpExtension(pi: ExtensionAPI) {
       const tools = await client.listTools(signal);
       for (const tool of tools) {
         const name = tool.name;
-        const registeredName = \`mcp__t3-code__\${name}\`;
+        const registeredName = \`mcp__elysia__\${name}\`;
         const description = tool.description ?? name;
         pi.registerTool({
           name: registeredName,
@@ -277,7 +277,7 @@ export default async function t3McpExtension(pi: ExtensionAPI) {
           description,
           promptSnippet: description.split("\\n")[0] ?? name,
           promptGuidelines: [
-            \`Use \${registeredName} from the t3-code MCP server when the user asks for Elysia orchestration that this tool covers.\`,
+            \`Use \${registeredName} from the elysia MCP server when the user asks for Elysia orchestration that this tool covers.\`,
           ],
           parameters: jsonSchemaToTypebox(tool.inputSchema),
           async execute(_toolCallId, params, signal) {
@@ -289,7 +289,7 @@ export default async function t3McpExtension(pi: ExtensionAPI) {
             const text = formatMcpContent(result);
             return {
               content: [{ type: "text", text }],
-              details: { server: "t3-code", tool: name },
+              details: { server: "elysia", tool: name },
               ...(isMcpToolError(result) ? { isError: true } : {}),
             };
           },
@@ -314,7 +314,7 @@ export default async function t3McpExtension(pi: ExtensionAPI) {
       await ensureStarted();
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      ctx.ui.notify(\`t3-code MCP unavailable: \${message}\`, "warning");
+      ctx.ui.notify(\`elysia MCP unavailable: \${message}\`, "warning");
     }
   });
 

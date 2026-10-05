@@ -4152,6 +4152,35 @@ const makeOrchestrator = Effect.fn("orchestrationV2.Orchestrator.layer")(functio
         .pipe(mapDispatchError(command));
       const channel = Option.isSome(project) ? project.value.agentProfile?.group : undefined;
       if (channel) {
+        if (
+          command.createdBy === "agent" &&
+          (command.creationSource === "mcp" || command.creationSource === "provider")
+        ) {
+          // Bound automatic collaboration between user messages, including sends without a member target.
+          const requests = new Map(projection.messages.map((message) => [message.id, message]));
+          const lastUser = projection.runs.reduce(
+            (ordinal, run) =>
+              requests.get(run.userMessageId)?.createdBy === "user"
+                ? Math.max(ordinal, run.ordinal)
+                : ordinal,
+            0,
+          );
+          const automatic = projection.runs.filter((run) => {
+            const message = requests.get(run.userMessageId);
+            return (
+              run.ordinal > lastUser &&
+              message?.createdBy === "agent" &&
+              (message.creationSource === "mcp" || message.creationSource === "provider")
+            );
+          });
+          if (automatic.length >= 8)
+            return yield* new OrchestratorDispatchError({
+              commandId: command.commandId,
+              commandType: command.type,
+              cause:
+                "Channel collaboration reached 8 automatic messages. Wait for the user before requesting more work.",
+            });
+        }
         const continuingMember =
           command.creationSource === "server" && command.createdBy === "agent"
             ? projection.runs.findLast((run) => run.channelAgentProjectId)?.channelAgentProjectId

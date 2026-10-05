@@ -6,9 +6,21 @@ import {
   DelegateTaskTool,
   ScheduleTaskTool,
   ThreadUpdateTool,
+  OrchestratorToolkit,
 } from "./tools.ts";
 
 describe("orchestrator MCP tool guidance", () => {
+  it("publishes member collaboration on the send tool with a bounded automatic budget", () => {
+    const send = OrchestratorToolkit.tools.t3_thread_send;
+    const schema = Tool.getJsonSchema(send) as {
+      readonly properties?: Readonly<Record<string, unknown>>;
+    };
+    assert.property(schema.properties ?? {}, "channelAgentProjectId");
+    assert.include(send.description ?? "", "channelAgentProjectId");
+    assert.include(send.description ?? "", "8 automatic messages");
+    assert.notInclude(ThreadUpdateTool.description ?? "", "channelAgentProjectId");
+  });
+
   it("directs subagent requests to delegation instead of ordinary threads", () => {
     assert.include(DelegateTaskTool.description ?? "", "child agent/subagent");
     assert.include(DelegateTaskTool.description ?? "", "cross-provider");

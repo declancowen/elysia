@@ -264,6 +264,37 @@ it.effect(
         "parent",
       );
       assert.equal((yield* projections.getThreadProjection(otherChat)).messages.length, 0);
+      // Both targeted member work and ordinary self-sends share the same automatic budget.
+      const automatic = (index: number) =>
+        orchestrator.dispatch({
+          type: "message.dispatch",
+          commandId: CommandId.make(`automatic-${index}`),
+          messageId: MessageId.make(`automatic-${index}`),
+          threadId: channel,
+          ...(index % 2 ? { channelAgentProjectId: other } : {}),
+          text: "Check the shared answer",
+          attachments: [],
+          createdBy: "agent",
+          creationSource: index % 2 ? "mcp" : "provider",
+          dispatchMode: { type: "queue_after_active" },
+        });
+      for (let index = 1; index < 8; index++) yield* automatic(index);
+      const beforeLimit = yield* projections.getThreadProjection(channel);
+      yield* automatic(7); // Receipt replay must not consume another slot.
+      const limited = yield* automatic(8).pipe(Effect.flip);
+      assert.equal(limited._tag, "OrchestratorDispatchError");
+      assert.match(String(limited.cause), /8 automatic messages/);
+      assert.equal(
+        (yield* projections.getThreadProjection(channel)).messages.length,
+        beforeLimit.messages.length,
+      );
+      yield* dispatch(channel, "continue-collaboration");
+      yield* automatic(9);
+      assert.ok(
+        (yield* projections.getThreadProjection(channel)).messages.some(
+          (message) => message.id === "automatic-9",
+        ),
+      );
       const ordinaryMember = yield* orchestrator
         .dispatch({
           type: "message.dispatch",

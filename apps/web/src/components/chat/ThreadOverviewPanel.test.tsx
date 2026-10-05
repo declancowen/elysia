@@ -744,3 +744,15 @@ it("keeps workspace and sources available without the agent section in agent and
   expect(document.body.textContent).not.toContain("2 done");
   expect(document.body.textContent).not.toContain("Version Control");
 });
+
+it("keeps incoming responses hidden until the details panel closes", async () => {
+  const onOpenChange = vi.fn();
+  const agent = workingAgent("Friday");
+  state.delegated = [agent];
+  await render({ hidden: true, onOpenChange, delegatedAgents: [agent.job] });
+  expect(document.querySelector('[role="dialog"]')).toBeNull();
+  expect(onOpenChange).not.toHaveBeenCalledWith(true);
+  await render({ hidden: false, onOpenChange, delegatedAgents: [agent.job] });
+  expect(document.querySelector('[role="dialog"]')).not.toBeNull();
+  expect(onOpenChange).toHaveBeenLastCalledWith(true);
+});

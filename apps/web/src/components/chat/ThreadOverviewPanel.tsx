@@ -137,7 +137,9 @@ function OverviewPopover({
     onDockedChange?.(open && wide && !hidden);
     return () => onDockedChange?.(false);
   }, [open, wide, hidden, onDockedChange]);
-  useLayoutEffect(() => onOpenChange?.(open), [open, onOpenChange]);
+  useLayoutEffect(() => {
+    if (!hidden) onOpenChange?.(open);
+  }, [open, hidden, onOpenChange]);
   const anchorRef = useRef<HTMLSpanElement>(null);
   const [sourcesExpanded, setSourcesExpanded] = useState(true);
   const [gitExpanded, setGitExpanded] = useState(true);

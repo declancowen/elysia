@@ -1,3 +1,5 @@
+import * as Pages from "../pages/PageService.ts";
+import * as Tasks from "../tasks/TaskService.ts";
 import * as UsageLimitRecoveryWorker from "./UsageLimitRecoveryWorker.ts";
 import * as Scheduler from "../scheduling/Scheduler.ts";
 import * as Layer from "effect/Layer";
@@ -340,6 +342,12 @@ export const OrchestrationV2ProductionLayerLive = Layer.mergeAll(
   managedProjectFoldersProvided,
   threadLaunchProvided,
   threadLifecycleProvided,
+  Tasks.layer.pipe(
+    Layer.provide(
+      Layer.mergeAll(threadManagementProvided, ProjectStore.layer, agentDelegationProvided),
+    ),
+  ),
+  Pages.layer.pipe(Layer.provide(ProjectStore.layer)),
   scheduledTaskProvided,
   UsageLimitRecoveryWorker.workerLive.pipe(
     Layer.provide(Layer.mergeAll(projectionStoreLayer, threadManagementProvided)),

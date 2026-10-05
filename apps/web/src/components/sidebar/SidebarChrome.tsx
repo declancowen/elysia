@@ -13,6 +13,8 @@ import {
   Home,
   BotIcon,
   ClockIcon,
+  TaskEdit02Icon,
+  Files01Icon,
   FolderIcon,
 } from "~/icons";
 import type { ReactNode } from "react";
@@ -479,6 +481,26 @@ export const AppNavigationRail = memo(function AppNavigationRail() {
             setOpen(true);
             if (navigateToTabSection("agents")) return;
             void navigate({ to: "/agents", search: {} });
+          }}
+        />
+        <AppRailButton
+          label="Pages"
+          icon={<Files01Icon className="size-5" />}
+          active={pathname === "/pages" || pathname.startsWith("/pages/")}
+          onIntent={() => void router.preloadRoute({ to: "/pages" })}
+          onClick={() => {
+            setAgentSidebarActive(false);
+            void navigate({ to: "/pages" });
+          }}
+        />
+        <AppRailButton
+          label="Tasks"
+          icon={<TaskEdit02Icon className="size-5" />}
+          active={pathname === "/tasks"}
+          onIntent={() => void router.preloadRoute({ to: "/tasks", search: {} })}
+          onClick={() => {
+            setAgentSidebarActive(false);
+            void navigate({ to: "/tasks", search: {} });
           }}
         />
         <AppRailButton

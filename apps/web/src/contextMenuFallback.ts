@@ -1,6 +1,20 @@
-import type { ContextMenuItem } from "@t3tools/contracts";
+import type { ContextMenuItem, AgentProfile } from "@t3tools/contracts";
+import {
+  AGENT_AVATAR_COLORS,
+  AGENT_AVATAR_SHAPES,
+  resolveAgentAvatar,
+} from "@t3tools/shared/agentAvatar";
 import SquareArrowOutUpRightIcon from "@hugeicons/core-free-icons/SquareArrowOutUpRightIcon";
 import Edit03Icon from "@hugeicons/core-free-icons/Edit03Icon";
+import FolderClosedIcon from "@hugeicons/core-free-icons/FolderClosedIcon";
+import DroneIcon from "@hugeicons/core-free-icons/DroneIcon";
+import HashtagIcon from "@hugeicons/core-free-icons/HashtagIcon";
+import Delete02Icon from "@hugeicons/core-free-icons/Delete02Icon";
+import CircleDashedIcon from "@hugeicons/core-free-icons/CircleDashedIcon";
+import CircleIcon from "@hugeicons/core-free-icons/CircleIcon";
+import CircleDotIcon from "@hugeicons/core-free-icons/CircleDotIcon";
+import CircleCheckIcon from "@hugeicons/core-free-icons/CircleCheckIcon";
+import CircleXIcon from "@hugeicons/core-free-icons/CircleXIcon";
 
 const SVG_NS = "http://www.w3.org/2000/svg";
 
@@ -143,16 +157,59 @@ const ICON_PATHS: Record<string, ReadonlyArray<{ tag: string; attrs: Record<stri
   ],
 };
 
+for (const [name, asset] of Object.entries({
+  "workspace-project": FolderClosedIcon,
+  "workspace-assigned": DroneIcon,
+  "workspace-channel": HashtagIcon,
+  "workspace-delete": Delete02Icon,
+  "task-backlog": CircleDashedIcon,
+  "task-todo": CircleIcon,
+  "task-in_progress": CircleDotIcon,
+  "task-done": CircleCheckIcon,
+  "task-canceled": CircleXIcon,
+})) {
+  ICON_PATHS[name] = asset.map(([tag, attrs]) => ({
+    tag,
+    attrs: Object.fromEntries(Object.entries(attrs).map(([key, value]) => [key, String(value)])),
+  }));
+}
+
+export function contextMenuAgentIcon(avatar: AgentProfile["avatar"]) {
+  const { preset, color } = resolveAgentAvatar(avatar);
+  return `agent-avatar:${preset}:${color}`;
+}
+
 function createIconElement(name: string, tone: "neutral" | "destructive"): SVGSVGElement | null {
-  const paths = ICON_PATHS[name];
+  const [, presetName, colorName] = name.startsWith("agent-avatar:") ? name.split(":") : [];
+  const preset = AGENT_AVATAR_SHAPES.find((entry) => entry.value === presetName)?.value;
+  const color = AGENT_AVATAR_COLORS.find((entry) => entry === colorName);
+  const avatar = preset && color ? resolveAgentAvatar({ preset, color }) : null;
+  const paths: (typeof ICON_PATHS)[string] | undefined = avatar
+    ? [
+        { tag: "path", attrs: { d: avatar.path, fill: avatar.color } },
+        ...avatar.eyes.map((eye) => ({
+          tag: "rect",
+          attrs: {
+            x: String(-avatar.eyeWidth / 2),
+            y: String(-avatar.eyeHeight / 2),
+            width: String(avatar.eyeWidth),
+            height: String(avatar.eyeHeight),
+            rx: String(avatar.eyeRadius),
+            fill: avatar.eyeColor,
+            transform: `translate(${eye.x} ${eye.y}) rotate(${eye.rotate}) scale(${eye.scale})`,
+          },
+        })),
+      ]
+    : ICON_PATHS[name];
   if (!paths || typeof document.createElementNS !== "function") {
     return null;
   }
   const svg = document.createElementNS(SVG_NS, "svg");
   svg.setAttribute("xmlns", SVG_NS);
-  svg.setAttribute("viewBox", "0 0 24 24");
+  svg.setAttribute("viewBox", avatar ? "0 0 100 100" : "0 0 24 24");
   svg.setAttribute("fill", "none");
-  svg.setAttribute("stroke", "currentColor");
+  svg.setAttribute("stroke", avatar ? "none" : "currentColor");
+  svg.setAttribute("aria-hidden", "true");
   svg.setAttribute("stroke-width", "2");
   svg.setAttribute("stroke-linecap", "round");
   svg.setAttribute("stroke-linejoin", "round");
@@ -343,14 +400,14 @@ export function showContextMenuFallback<T extends string>(
         const isDisabled = item.disabled === true;
         button.disabled = isDisabled;
         const rowBase =
-          "flex w-full cursor-default select-none items-center gap-2 rounded-sm px-2 py-1 text-left outline-none transition-colors sm:min-h-7 sm:text-sm min-h-8 text-base";
+          "flex w-full cursor-default select-none items-center gap-2 rounded-sm px-2 py-1.5 text-left outline-none transition-colors min-h-8 sm:text-sm text-base";
         button.className = isDisabled
           ? `${rowBase} pointer-events-none cursor-not-allowed text-muted-foreground opacity-64`
           : isLeafDestructive
             ? `${rowBase} text-destructive-foreground hover:bg-destructive/10 hover:text-destructive-foreground`
             : `${rowBase} text-foreground hover:bg-accent hover:text-accent-foreground`;
         button.style.cssText =
-          "display:flex;width:100%;min-height:1.75rem;align-items:center;gap:0.5rem;border:0;border-radius:var(--radius-sm);background:transparent;padding:0.25rem 0.5rem;color:var(--contrast-foreground);font-family:var(--font-sans,system-ui,sans-serif);font-size:0.875rem;line-height:1.25rem;text-align:left;cursor:default;";
+          "display:flex;width:100%;min-height:2rem;align-items:center;gap:0.5rem;border:0;border-radius:var(--radius-sm);background:transparent;padding:0.375rem 0.5rem;color:var(--contrast-foreground);font-family:var(--font-sans,system-ui,sans-serif);font-size:0.875rem;line-height:1.25rem;text-align:left;cursor:default;";
         if (isLeafDestructive) {
           button.style.color = "var(--destructive-foreground)";
         }
@@ -441,7 +498,8 @@ export function showContextMenuFallback<T extends string>(
           if (hasChildren) {
             const openSubmenu = (focusFirstItem = false) => {
               const rect = button.getBoundingClientRect();
-              const nextLeft = rect.right + 4;
+              const parentRect = menu.getBoundingClientRect();
+              const nextLeft = parentRect.right + 6;
               const nextTop = rect.top;
               openMenu(item.children!, nextLeft, nextTop, level + 1, button);
               button.setAttribute("aria-expanded", "true");
@@ -449,10 +507,6 @@ export function showContextMenuFallback<T extends string>(
               const childMenu = menuStack[level + 1];
               if (!childMenu) {
                 return;
-              }
-              const childRect = childMenu.getBoundingClientRect();
-              if (childRect.right > window.innerWidth) {
-                clampMenuPosition(childMenu, rect.left - childRect.width - 4, rect.top);
               }
               if (focusFirstItem) {
                 [...childMenu.querySelectorAll<HTMLButtonElement>("button")]
@@ -491,7 +545,15 @@ export function showContextMenuFallback<T extends string>(
       submenuTriggerStack[level] = parentTrigger;
 
       requestAnimationFrame(() => {
-        clampMenuPosition(menu, preferredLeft, preferredTop);
+        const parentMenu = level > 0 ? menuStack[level - 1] : undefined;
+        const parentRect = parentMenu?.getBoundingClientRect();
+        const width = menu.getBoundingClientRect().width;
+        const left = parentRect
+          ? parentRect.right + 6 + width <= window.innerWidth - 4
+            ? parentRect.right + 6
+            : parentRect.left - width - 6
+          : preferredLeft;
+        clampMenuPosition(menu, left, preferredTop);
       });
     };
 

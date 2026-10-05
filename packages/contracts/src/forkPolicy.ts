@@ -1,6 +1,7 @@
 /** Company fork policy. Keep upstream implementations available for merging. */
 export const SINGLE_PROVIDER_UI = true;
 export const APP_NAME = "Elysia";
+export const APP_DATA_DIRECTORY = ".elysia";
 export const CONNECTIONS_ENABLED = false;
 export const EXTERNAL_USAGE_SOURCES_ENABLED = false;
 export const UPSTREAM_ANALYTICS_ENABLED = false;

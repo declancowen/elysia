@@ -74,8 +74,16 @@ type SidebarInstanceContextProps = {
   side: "left" | "right";
 };
 
-const SidebarContext = React.createContext<SidebarContextProps | null>(null);
-const SidebarInstanceContext = React.createContext<SidebarInstanceContextProps | null>(null);
+// Preserve both provider identities while Vite refreshes sidebar consumers independently.
+const SidebarContext: React.Context<SidebarContextProps | null> =
+  import.meta.hot?.data.sidebarContext ?? React.createContext<SidebarContextProps | null>(null);
+const SidebarInstanceContext: React.Context<SidebarInstanceContextProps | null> =
+  import.meta.hot?.data.sidebarInstanceContext ??
+  React.createContext<SidebarInstanceContextProps | null>(null);
+if (import.meta.hot) {
+  import.meta.hot.data.sidebarContext = SidebarContext;
+  import.meta.hot.data.sidebarInstanceContext = SidebarInstanceContext;
+}
 
 function useSidebar() {
   const context = React.use(SidebarContext);
@@ -574,7 +582,7 @@ function SidebarInset({
           ? "md:[--workspace-fixed-controls-top:var(--workspace-controls-top)] md:me-2 md:w-auto md:max-h-full md:overflow-hidden md:rounded-xl md:ms-1 md:peer-data-[state=collapsed]:ms-0 md:peer-data-[state=collapsed]:rounded-xl md:peer-data-[state=collapsed]:[&_[data-chat-column]]:rounded-xl"
           : "md:peer-data-[variant=inset]:peer-data-[state=collapsed]:ms-2 md:peer-data-[variant=inset]:m-2 md:peer-data-[variant=inset]:ms-0 md:peer-data-[variant=inset]:rounded-xl md:peer-data-[variant=inset]:shadow-sm/5",
         SINGLE_PROVIDER_UI && variant !== "split" && "workspace-panel-frame",
-        SINGLE_PROVIDER_UI && variant === "standalone" && "md:ms-0 md:rounded-xl",
+        SINGLE_PROVIDER_UI && variant === "standalone" && "md:ms-1 md:me-1 md:rounded-xl",
         className,
       )}
       data-slot="sidebar-inset"

@@ -133,6 +133,7 @@ export function FirstRunGate({
           environmentCount: environments.length,
         })
       : resolveFirstRunDecision({
+          development: import.meta.env.DEV,
           ...(!CONNECTIONS_ENABLED
             ? {
                 elysiaReady:

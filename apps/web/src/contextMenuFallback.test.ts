@@ -282,9 +282,34 @@ describe("showContextMenuFallback", () => {
 
     const childButton = findButton("/tmp/project-b");
     expect(childButton).toBeTruthy();
+    const parentRect = parentButton?.parent?.parent?.getBoundingClientRect();
+    const childRect = childButton?.parent?.parent?.getBoundingClientRect();
+    expect(childRect?.left).toBe((parentRect?.right ?? 0) + 6);
     childButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
 
     await expect(selectionPromise).resolves.toBe("rename:project-b");
+  });
+
+  it("keeps a flipped submenu separated after the layout frame", async () => {
+    const frames: Array<(time: number) => void> = [];
+    vi.stubGlobal("requestAnimationFrame", (callback: (time: number) => void) => {
+      frames.push(callback);
+      return frames.length;
+    });
+    const selectionPromise = showContextMenuFallback(
+      [{ id: "project", label: "Change project", children: [{ id: "none", label: "No project" }] }],
+      { x: 1200, y: 100 },
+    );
+    frames.splice(0).forEach((frame) => frame(0));
+    const parentButton = findButton("Change project");
+    parentButton?.dispatchEvent(new MouseEvent("mouseenter"));
+    frames.splice(0).forEach((frame) => frame(0));
+    const parentRect = parentButton?.parent?.parent?.getBoundingClientRect();
+    const childButton = findButton("No project");
+    const childRect = childButton?.parent?.parent?.getBoundingClientRect();
+    expect(childRect?.right).toBe((parentRect?.left ?? 0) - 6);
+    childButton?.dispatchEvent(new MouseEvent("click"));
+    await expect(selectionPromise).resolves.toBe("none");
   });
 
   it("opens and focuses nested submenus when the parent is activated", async () => {

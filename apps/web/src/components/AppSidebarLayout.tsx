@@ -247,7 +247,11 @@ export function AppSidebarLayout({ children }: { children: ReactNode }) {
   const isOnSettings = pathname === "/settings" || pathname.startsWith("/settings/");
   const isOnScheduled = SINGLE_PROVIDER_UI && pathname === "/settings/scheduled-tasks";
   const isPullRequestsPage = SINGLE_PROVIDER_UI && pathname === "/pull-requests";
-  const isProjectsPage = pathname === "/projects";
+  const isProjectsPage =
+    pathname === "/projects" ||
+    pathname === "/tasks" ||
+    pathname === "/pages" ||
+    pathname.startsWith("/pages/");
   const editingAgent = useLocation({
     select: (location) =>
       location.pathname === "/agents" &&

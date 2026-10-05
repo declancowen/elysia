@@ -24,6 +24,23 @@ const freshWorkspace = {
 } as const;
 
 describe("resolveFirstRunDecision", () => {
+  it("lets dev previews bypass CLI setup only after the authenticated workspace is live", () => {
+    expect(
+      resolveFirstRunDecision({ ...freshWorkspace, development: true, elysiaReady: false }),
+    ).toEqual({ decision: "app", persistCompletion: false });
+    expect(
+      resolveFirstRunDecision({
+        ...freshWorkspace,
+        development: true,
+        authoritative: false,
+        elysiaReady: false,
+      }).decision,
+    ).toBe("pending");
+    expect(
+      resolveFirstRunDecision({ ...freshWorkspace, development: false, elysiaReady: false })
+        .decision,
+    ).toBe("wizard");
+  });
   it("requires verified Elysia credentials even with completed onboarding and cached projects", () => {
     const existing = { ...freshWorkspace, completed: true, enabled: false, projectCount: 5 };
     expect(resolveFirstRunDecision({ ...existing, elysiaReady: null }).decision).toBe("pending");

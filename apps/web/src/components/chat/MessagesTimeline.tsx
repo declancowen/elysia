@@ -1,3 +1,4 @@
+import { WorkspaceItemContextChip } from "../WorkspaceItemContextChip";
 import { groupChannelTimeline } from "./channelTimeline";
 import { ScrollArea as ScrollAreaPrimitive } from "@base-ui/react/scroll-area";
 import { ScrollBar } from "../ui/scroll-area";
@@ -4595,6 +4596,16 @@ function UserMessageContextReferenceChip(props: {
     contextId: props.reference.contextId as ComposerContextId,
     label: props.reference.label,
   });
+  if (props.reference.kind === "task" || props.reference.kind === "page")
+    return (
+      <WorkspaceItemContextChip
+        kind={props.reference.kind}
+        id={props.reference.contextId}
+        label={props.reference.label}
+        environmentId={activeThreadEnvironmentId}
+        copyMarkdown={copyMarkdown}
+      />
+    );
   if (props.reference.kind === "agent") {
     return (
       <SentAgentMentionChip

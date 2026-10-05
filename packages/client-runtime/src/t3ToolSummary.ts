@@ -112,6 +112,42 @@ export function summarizeT3ToolCalls(
   );
   let label: string;
   switch (action) {
+    case "work-task-list":
+    case "page-list":
+      label = phrase("Listed", "list", `${action === "page-list" ? "pages" : "tasks"} ${times}`);
+      break;
+    case "work-task-read":
+    case "work-task-create":
+    case "work-task-update":
+    case "work-task-delete":
+    case "page-read":
+    case "page-create":
+    case "page-update":
+    case "page-delete": {
+      const page = action.startsWith("page-");
+      const verb = action.endsWith("read")
+        ? "Read"
+        : action.endsWith("create")
+          ? "Created"
+          : action.endsWith("delete")
+            ? "Deleted"
+            : "Updated";
+      const identifiers = selected.map(
+        (call) => id(asRecord(call.output?.[page ? "page" : "task"])?.id) ?? id(call.input?.id),
+      );
+      label = phrase(
+        verb,
+        verb === "Read"
+          ? "read"
+          : verb === "Created"
+            ? "create"
+            : verb === "Deleted"
+              ? "delete"
+              : "update",
+        quantity(countEntities(identifiers), page ? "page" : "task"),
+      );
+      break;
+    }
     case "thread-send": {
       const messages = countEntities(selected.map((call) => id(call.output?.messageId)));
       const targetsKnown = threadIds.every((value) => value !== undefined);

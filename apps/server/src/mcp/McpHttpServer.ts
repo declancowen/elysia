@@ -1,3 +1,7 @@
+import { PagesToolkit } from "./toolkits/pages/tools.ts";
+import { PagesToolkitHandlersLive } from "./toolkits/pages/handlers.ts";
+import { TaskToolkit } from "./toolkits/tasks/tools.ts";
+import { TaskHandlersLive } from "./toolkits/tasks/handlers.ts";
 import * as NodeCrypto from "node:crypto";
 import * as Cause from "effect/Cause";
 import * as Clock from "effect/Clock";
@@ -722,7 +726,9 @@ const McpTransportLive = McpServer.layerHttp({
 }).pipe(Layer.provide(McpAuthMiddlewareLive));
 
 export const layer = Layer.mergeAll(
+  McpServer.toolkit(PagesToolkit).pipe(Layer.provide(PagesToolkitHandlersLive)),
   PreviewToolkitRegistrationLive,
+  McpServer.toolkit(TaskToolkit).pipe(Layer.provide(TaskHandlersLive)),
   OrchestratorToolkitRegistrationLive,
   ThreadToolkitRegistrationLive,
   AttachmentRegistrationLive,

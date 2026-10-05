@@ -27,6 +27,8 @@ import { AttachmentToolkit } from "./attachment/tools.ts";
 import * as AttachmentHandlers from "./attachment/handlers.ts";
 import { ThreadToolkit } from "./thread/tools.ts";
 import { WorktreeToolkit } from "./worktree/tools.ts";
+import { TaskToolkit } from "./tasks/tools.ts";
+import { PagesToolkit } from "./pages/tools.ts";
 import { DeviceToolkit } from "./device/tools.ts";
 import { PullRequestsToolkit } from "./pullRequests/tools.ts";
 import {
@@ -40,6 +42,8 @@ const decodeMcpAttachmentInput = Schema.decodeUnknownEffect(McpAttachmentInput);
 it("publishes unique tool names with reference-free object-root inputs", () => {
   const names = new Set<string>();
   for (const toolkit of [
+    TaskToolkit,
+    PagesToolkit,
     OrchestratorToolkit,
     PreviewToolkit,
     WorktreeToolkit,

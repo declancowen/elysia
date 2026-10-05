@@ -1,3 +1,5 @@
+import * as Pages from "./pages/PageService.ts";
+import * as Tasks from "./tasks/TaskService.ts";
 import {
   CONNECTIONS_ENABLED,
   SINGLE_PROVIDER_UI,
@@ -1137,6 +1139,8 @@ const makeWsRpcLayer = (
       const threadLaunch = yield* ThreadLaunchService.ThreadLaunchService;
       const providerSessionManager = yield* ProviderSessionManager.ProviderSessionManagerV2;
       const scheduledTasks = yield* ScheduledTasks.ScheduledTaskService;
+      const tasks = yield* Tasks.TaskService;
+      const pages = yield* Pages.PageService;
       const pullRequests = yield* PullRequestService.PullRequestService;
       const pullRequestSync = yield* PullRequestSyncReactor.PullRequestSyncReactor;
       const deviceService = yield* DeviceService.DeviceService;
@@ -2028,6 +2032,34 @@ const makeWsRpcLayer = (
               "orchestration_v2.thread_id": input.threadId,
             },
           ),
+        [WS_METHODS.pagesList]: (_input) =>
+          observeRpcEffect(WS_METHODS.pagesList, pages.list(), { "rpc.aggregate": "pages" }),
+        [WS_METHODS.pagesSubscribe]: (_input) =>
+          observeRpcStream(WS_METHODS.pagesSubscribe, pages.subscribeList(), {
+            "rpc.aggregate": "pages",
+          }),
+        [WS_METHODS.pagesGet]: (input) =>
+          observeRpcEffect(WS_METHODS.pagesGet, pages.get(input), { "rpc.aggregate": "pages" }),
+        [WS_METHODS.pagesSave]: (input) =>
+          observeRpcEffect(WS_METHODS.pagesSave, pages.save(input), { "rpc.aggregate": "pages" }),
+        [WS_METHODS.pagesDelete]: (input) =>
+          observeRpcEffect(WS_METHODS.pagesDelete, pages.delete(input), {
+            "rpc.aggregate": "pages",
+          }),
+        [WS_METHODS.tasksList]: (_input) =>
+          observeRpcEffect(WS_METHODS.tasksList, tasks.list(), { "rpc.aggregate": "tasks" }),
+        [WS_METHODS.tasksSubscribe]: (_input) =>
+          observeRpcStream(WS_METHODS.tasksSubscribe, tasks.subscribeList(), {
+            "rpc.aggregate": "tasks",
+          }),
+        [WS_METHODS.tasksGet]: (input) =>
+          observeRpcEffect(WS_METHODS.tasksGet, tasks.get(input), { "rpc.aggregate": "tasks" }),
+        [WS_METHODS.tasksSave]: (input) =>
+          observeRpcEffect(WS_METHODS.tasksSave, tasks.save(input), { "rpc.aggregate": "tasks" }),
+        [WS_METHODS.tasksDelete]: (input) =>
+          observeRpcEffect(WS_METHODS.tasksDelete, tasks.delete(input), {
+            "rpc.aggregate": "tasks",
+          }),
         [WS_METHODS.scheduledTasksList]: (_input) =>
           observeRpcEffect(WS_METHODS.scheduledTasksList, scheduledTasks.list(), {
             "rpc.aggregate": "scheduledTasks",

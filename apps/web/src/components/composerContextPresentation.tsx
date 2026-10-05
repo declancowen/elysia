@@ -1,3 +1,4 @@
+import { WorkspaceItemContextChip } from "./WorkspaceItemContextChip";
 import ChatMarkdown from "./ChatMarkdown";
 import { ReadOnlySourcePreview } from "./files/AttachmentFilePreview";
 import type { PreviewAnnotationPayload, ThreadContextRecord } from "@t3tools/contracts";
@@ -437,6 +438,15 @@ export function ComposerContextReferenceChip(props: {
 }): ReactElement {
   const records = use(ComposerContextRecordsContext);
   const { environmentId } = use(ComposerContextActionsContext);
+  if (props.kind === "task" || props.kind === "page")
+    return (
+      <WorkspaceItemContextChip
+        kind={props.kind}
+        id={props.contextId}
+        label={props.label}
+        environmentId={environmentId}
+      />
+    );
   if (props.kind === "agent")
     return (
       <AgentMentionChip

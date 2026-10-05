@@ -6,6 +6,16 @@ export interface T3McpToolPresentation {
 }
 
 export type T3McpToolSummaryAction =
+  | "work-task-list"
+  | "work-task-read"
+  | "work-task-create"
+  | "work-task-update"
+  | "work-task-delete"
+  | "page-list"
+  | "page-read"
+  | "page-create"
+  | "page-update"
+  | "page-delete"
   | "capabilities"
   | "delegate"
   | "task-status"
@@ -78,6 +88,16 @@ const T3_MCP_SERVER_ALIASES = new Set(["t3-code", "t3_code", "t3code", "elysia"]
 
 // Cards, activity rows, summaries, and provider identity recovery share this inventory.
 const T3_MCP_TOOLS: Readonly<Record<string, T3McpToolDefinition>> = {
+  t3_task_list: tool(["List", "Listing", "Listed", "tasks"], "work-task-list"),
+  t3_task_read: tool(["Read", "Reading", "Read", "a task"], "work-task-read"),
+  t3_task_create: tool(["Create", "Creating", "Created", "a task"], "work-task-create"),
+  t3_task_delete: tool(["Delete", "Deleting", "Deleted", "a task"], "work-task-delete"),
+  t3_task_update: tool(["Update", "Updating", "Updated", "a task"], "work-task-update"),
+  t3_page_list: tool(["List", "Listing", "Listed", "pages"], "page-list"),
+  t3_page_read: tool(["Read", "Reading", "Read", "a page"], "page-read"),
+  t3_page_create: tool(["Create", "Creating", "Created", "a page"], "page-create"),
+  t3_page_delete: tool(["Delete", "Deleting", "Deleted", "a page"], "page-delete"),
+  t3_page_update: tool(["Update", "Updating", "Updated", "a page"], "page-update"),
   link_pull_request: tool(
     ["Link", "Linking", "Linked", "a pull request"],
     "link-pr",

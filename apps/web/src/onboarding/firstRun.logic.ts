@@ -34,6 +34,7 @@ interface FirstRunWorkspaceInput {
 }
 
 interface FirstRunDecisionInput {
+  readonly development?: boolean;
   /** null means native authentication has not yet been checked by the server. */
   readonly elysiaReady?: boolean | null;
   readonly enabled: boolean;
@@ -129,6 +130,12 @@ export function resolveFirstRunDecision(input: FirstRunDecisionInput): {
   readonly decision: FirstRunDecision;
   readonly persistCompletion: boolean;
 } {
+  if (input.development)
+    return {
+      decision:
+        input.hydrated && input.authoritative && input.serverConfigAvailable ? "app" : "pending",
+      persistCompletion: false,
+    };
   if (input.elysiaReady !== undefined) {
     return !input.hydrated || input.elysiaReady === null
       ? { decision: "pending", persistCompletion: false }

@@ -164,6 +164,21 @@ The linked pull request participates in automatic settlement.
 
 ## Find and reference work
 
+### Tasks and pages
+
+On web and desktop, use **Tasks** to capture work and **Pages** for personal documents.
+Both save as you edit and can be linked to a project. Tasks can have one level of
+subtasks; open a parent to see its children. Deleting a task or page permanently
+removes it. Deleting a parent keeps its children as independent tasks.
+
+Assign an agent or channel to a task, then move it to **In progress** to start work
+in the agent's thread. The environment and Elysia CLI must be available. An error
+appears on the task if it cannot start. Move it out of In progress and back to retry.
+
+Type `@` in a conversation to reference a task, page, or another thread. Add an agent
+mention to give that agent the referenced context. Agents can read and update tasks
+and pages through Elysia's tools; editing tools require full access.
+
 On web and desktop, open the command palette with `Cmd/Ctrl+K` to search threads
 across connected environments. Message search starts after two characters and
 includes your messages and final agent responses.

@@ -63,3 +63,7 @@ export * from "./rpc.ts";
 export * from "./worktreeSetup.ts";
 export * from "./forkPolicy.ts";
 export * from "./agents.ts";
+
+export * from "./workTask.ts";
+
+export * from "./page.ts";

@@ -1071,6 +1071,22 @@ export function createServerEnvironmentAtoms<R, E>(
       tag: WS_METHODS.serverGetProcessResourceHistory,
     }),
     /** Live scheduled-task list: snapshot on subscribe, fresh list after every server-side change. */
+    page: createEnvironmentRpcQueryAtomFamily(runtime, {
+      label: "environment-data:pages:get",
+      tag: WS_METHODS.pagesGet,
+    }),
+    pagesLive: createEnvironmentRpcSubscriptionAtomFamily(runtime, {
+      label: "environment-data:pages:live",
+      tag: WS_METHODS.pagesSubscribe,
+    }),
+    task: createEnvironmentRpcQueryAtomFamily(runtime, {
+      label: "environment-data:tasks:get",
+      tag: WS_METHODS.tasksGet,
+    }),
+    tasksLive: createEnvironmentRpcSubscriptionAtomFamily(runtime, {
+      label: "environment-data:tasks:live",
+      tag: WS_METHODS.tasksSubscribe,
+    }),
     scheduledTasksLive: createEnvironmentRpcSubscriptionAtomFamily(runtime, {
       label: "environment-data:server:scheduled-tasks:live",
       tag: WS_METHODS.scheduledTasksSubscribe,
@@ -1258,6 +1274,30 @@ export function createServerEnvironmentAtoms<R, E>(
     signalProcess: createEnvironmentRpcCommand(runtime, {
       label: "environment-data:server:signal-process",
       tag: WS_METHODS.serverSignalProcess,
+    }),
+    savePage: createEnvironmentRpcCommand(runtime, {
+      label: "environment-data:pages:save",
+      tag: WS_METHODS.pagesSave,
+      scheduler: configScheduler,
+      concurrency: configConcurrency,
+    }),
+    deletePage: createEnvironmentRpcCommand(runtime, {
+      label: "environment-data:pages:delete",
+      tag: WS_METHODS.pagesDelete,
+      scheduler: configScheduler,
+      concurrency: configConcurrency,
+    }),
+    saveTask: createEnvironmentRpcCommand(runtime, {
+      label: "environment-data:tasks:save",
+      tag: WS_METHODS.tasksSave,
+      scheduler: configScheduler,
+      concurrency: configConcurrency,
+    }),
+    deleteTask: createEnvironmentRpcCommand(runtime, {
+      label: "environment-data:tasks:delete",
+      tag: WS_METHODS.tasksDelete,
+      scheduler: configScheduler,
+      concurrency: configConcurrency,
     }),
     upsertScheduledTask: createEnvironmentRpcCommand(runtime, {
       label: "environment-data:server:scheduled-task:upsert",

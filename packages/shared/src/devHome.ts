@@ -1,8 +1,9 @@
+import { APP_DATA_DIRECTORY } from "@t3tools/contracts";
 /**
  * Where development state lives, and how to keep it away from the shared
- * `~/.t3` that a user's installed Elysia runs against.
+ * `~/.elysia` that a user's installed Elysia runs against.
  *
- * A linked git worktree gets its own (gitignored) `.t3`: feature work in a
+ * A linked git worktree gets its own (gitignored) `.elysia`: feature work in a
  * throwaway branch must not share a database with the real app, and an ambient
  * `T3CODE_HOME` counts as an explicit base dir — flipping the state directory
  * from `<base>/dev` to `<base>/userdata`, the live production database.
@@ -99,5 +100,5 @@ export const resolveWorktreeT3Home = (
       return undefined;
     }
     const path = yield* Path.Path;
-    return path.join(worktreePath, ".t3");
+    return path.join(worktreePath, APP_DATA_DIRECTORY);
   });

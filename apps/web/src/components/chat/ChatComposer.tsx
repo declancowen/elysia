@@ -1,3 +1,6 @@
+import { scopeThreadRef } from "@t3tools/client-runtime/environment";
+import { ComposerContextId } from "@t3tools/contracts";
+import { formatComposerContextReference } from "@t3tools/shared/composerContextReferences";
 import { PencilIcon as EditComposerIcon } from "~/icons";
 import { DESKTOP_PASTE_AS_TEXT_EVENT } from "../../lib/desktopPasteAsText";
 import { runtimeModeConfig, runtimeModeOptions as runtimeModes } from "./runtimeModeConfig";
@@ -2515,6 +2518,16 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
   const settledPullRequestTextQuery =
     pullRequestTextQuery === debouncedPullRequestTextQuery ? pullRequestTextQuery : null;
   const isPathTrigger = composerTriggerKind === "path";
+  const taskSuggestions = useEnvironmentQuery(
+    isPathTrigger && props.isServerThread
+      ? serverEnvironment.tasksLive({ environmentId, input: {} })
+      : null,
+  );
+  const pageSuggestions = useEnvironmentQuery(
+    isPathTrigger && props.isServerThread
+      ? serverEnvironment.pagesLive({ environmentId, input: {} })
+      : null,
+  );
   const environmentThreadShells = useThreadShells();
   const workspaceEntries = useComposerPathSearch({
     environmentId,
@@ -2631,6 +2644,42 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
         : [];
       return [
         ...agentItems,
+        ...(taskSuggestions.data?.tasks ?? [])
+          .filter((task) => task.title.toLowerCase().includes(query))
+          .slice(0, 20)
+          .map((task) => ({
+            id: `task:${task.id}`,
+            type: "task" as const,
+            taskId: task.id,
+            label: task.title,
+            description: "Use this task as context",
+          })),
+        ...(pageSuggestions.data?.pages ?? [])
+          .filter((page) => page.title.toLowerCase().includes(query))
+          .slice(0, 20)
+          .map((page) => ({
+            id: `page:${page.id}`,
+            type: "page" as const,
+            pageId: page.id,
+            label: page.title,
+            description: "Use this page as context",
+          })),
+        ...environmentThreadShells
+          .filter(
+            (thread) =>
+              thread.environmentId === environmentId &&
+              thread.id !== activeThreadId &&
+              thread.archivedAt === null &&
+              thread.title.toLowerCase().includes(query),
+          )
+          .slice(0, 20)
+          .map((thread) => ({
+            id: `thread:${thread.id}`,
+            type: "thread" as const,
+            thread: scopeThreadRef(environmentId, thread.id),
+            label: thread.title,
+            description: "Read this thread as context",
+          })),
         ...workspaceEntries.entries.map((entry) => ({
           id: `path:${entry.kind}:${entry.path}`,
           type: "path" as const,
@@ -2772,6 +2821,8 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
     return [];
   }, [
     agents,
+    taskSuggestions.data,
+    pageSuggestions.data,
     environmentId,
     activeThreadId,
     props.isServerThread,
@@ -2890,7 +2941,7 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
         : "No pull requests found in this repository.";
     }
     return composerTriggerKind === "path"
-      ? "No matching files or folders."
+      ? "No matching agents, tasks, pages, threads, files or folders."
       : "No matching command.";
   }, [
     composerTrigger,
@@ -3925,11 +3976,22 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
       });
       const { snapshot, trigger } = resolveActiveComposerTrigger();
       if (!trigger) return;
-      if (item.type === "path" || item.type === "agent") {
+      if (
+        item.type === "path" ||
+        item.type === "agent" ||
+        item.type === "task" ||
+        item.type === "page"
+      ) {
         const replacement = `${
-          item.type === "agent"
-            ? formatAgentMention(item.projectId, item.label)
-            : serializeComposerFileLink(item.path)
+          item.type === "task" || item.type === "page"
+            ? formatComposerContextReference({
+                kind: item.type,
+                contextId: ComposerContextId.make(item.type === "task" ? item.taskId : item.pageId),
+                label: item.label,
+              })
+            : item.type === "agent"
+              ? formatAgentMention(item.projectId, item.label)
+              : serializeComposerFileLink(item.path)
         } `;
         const replacementRangeEnd = extendReplacementRangeForTrailingSpace(
           snapshot.value,

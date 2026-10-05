@@ -248,7 +248,7 @@ export function WelcomeWizard({
         <WizardHeader
           title="Set up Elysia"
           identity={
-            <div role="img" aria-label="Elysia">
+            <div role="img" aria-label="Elysia" className="flex h-10 items-center">
               <ElysiaWordmark className="h-10 w-30 shrink-0" aria-hidden />
             </div>
           }
@@ -296,6 +296,7 @@ export function WelcomeWizard({
             <AgentsStep
               environmentIds={effectiveSetupIds}
               ready={CONNECTIONS_ENABLED || elysiaReady}
+              onSkipSetup={import.meta.env.DEV ? () => void onDone() : undefined}
               onContinue={() => {
                 if (CONNECTIONS_ENABLED) setStep("import");
                 else void finish();
@@ -678,9 +679,11 @@ function AgentsStep({
   environmentIds,
   ready,
   onContinue,
+  onSkipSetup,
 }: {
   readonly environmentIds: readonly EnvironmentId[];
   readonly ready: boolean;
+  readonly onSkipSetup?: (() => void) | undefined;
   readonly onContinue: () => void;
 }) {
   const { environments } = useEnvironments();
@@ -694,6 +697,7 @@ function AgentsStep({
               environmentId={environmentId}
               machineLabel=""
               onContinue={onContinue}
+              onSkipSetup={onSkipSetup}
             />
           ))}
         </div>
@@ -733,9 +737,11 @@ function ConnectedAgentsStep({
   environmentId,
   machineLabel,
   onContinue,
+  onSkipSetup,
 }: {
   readonly environmentId: EnvironmentId;
   readonly machineLabel: string;
+  readonly onSkipSetup?: (() => void) | undefined;
   readonly onContinue?: () => void;
 }) {
   const providers = useAtomValue(serverEnvironment.providersValueAtom(environmentId));
@@ -796,6 +802,7 @@ function ConnectedAgentsStep({
               readOnly={false}
               enabled={provider?.enabled ?? true}
               onContinue={onContinue}
+              onSkipSetup={onSkipSetup}
             />
           ) : driver === "codex" && serverConfig !== null ? (
             <OnboardingCodexSetup

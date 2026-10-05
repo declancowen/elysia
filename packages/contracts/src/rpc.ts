@@ -1,3 +1,21 @@
+import {
+  PageListInput,
+  PageListResult,
+  PageSaveInput,
+  PageLookupInput,
+  PageMutationResult,
+  PageDeleteResult,
+  PageError,
+} from "./page.ts";
+import {
+  WorkTaskListInput,
+  WorkTaskListResult,
+  WorkTaskSaveInput,
+  WorkTaskLookupInput,
+  WorkTaskMutationResult,
+  WorkTaskDeleteResult,
+  WorkTaskError,
+} from "./workTask.ts";
 import { OrchestrationDispatchCommandError } from "./orchestrationDispatch.ts";
 import {
   ChatGptReconnectProfileInput,
@@ -483,6 +501,18 @@ export const WS_METHODS = {
   serverGetBackgroundPolicy: "server.getBackgroundPolicy",
   serverGetUsageSummary: "server.getUsageSummary",
   serverRefreshUsageRates: "server.refreshUsageRates",
+
+  pagesList: "pages.list",
+  pagesSubscribe: "pages.subscribe",
+  pagesGet: "pages.get",
+  pagesSave: "pages.save",
+  pagesDelete: "pages.delete",
+
+  tasksList: "tasks.list",
+  tasksSubscribe: "tasks.subscribe",
+  tasksGet: "tasks.get",
+  tasksSave: "tasks.save",
+  tasksDelete: "tasks.delete",
 
   // Scheduled tasks
   scheduledTasksList: "scheduledTasks.list",
@@ -1677,6 +1707,60 @@ const WsSubscribeServerLifecycleRpc = Rpc.make(WS_METHODS.subscribeServerLifecyc
   stream: true,
 });
 
+const WsPagesListRpc = Rpc.make(WS_METHODS.pagesList, {
+  payload: PageListInput,
+  success: PageListResult,
+  error: Schema.Union([PageError, EnvironmentAuthorizationError]),
+});
+const WsPagesSubscribeRpc = Rpc.make(WS_METHODS.pagesSubscribe, {
+  payload: PageListInput,
+  success: PageListResult,
+  error: Schema.Union([PageError, EnvironmentAuthorizationError]),
+  stream: true,
+});
+const WsPagesGetRpc = Rpc.make(WS_METHODS.pagesGet, {
+  payload: PageLookupInput,
+  success: PageMutationResult,
+  error: Schema.Union([PageError, EnvironmentAuthorizationError]),
+});
+const WsPagesSaveRpc = Rpc.make(WS_METHODS.pagesSave, {
+  payload: PageSaveInput,
+  success: PageMutationResult,
+  error: Schema.Union([PageError, EnvironmentAuthorizationError]),
+});
+const WsPagesDeleteRpc = Rpc.make(WS_METHODS.pagesDelete, {
+  payload: PageLookupInput,
+  success: PageDeleteResult,
+  error: Schema.Union([PageError, EnvironmentAuthorizationError]),
+});
+
+const WsTasksListRpc = Rpc.make(WS_METHODS.tasksList, {
+  payload: WorkTaskListInput,
+  success: WorkTaskListResult,
+  error: Schema.Union([WorkTaskError, EnvironmentAuthorizationError]),
+});
+const WsTasksSubscribeRpc = Rpc.make(WS_METHODS.tasksSubscribe, {
+  payload: WorkTaskListInput,
+  success: WorkTaskListResult,
+  error: Schema.Union([WorkTaskError, EnvironmentAuthorizationError]),
+  stream: true,
+});
+const WsTasksGetRpc = Rpc.make(WS_METHODS.tasksGet, {
+  payload: WorkTaskLookupInput,
+  success: WorkTaskMutationResult,
+  error: Schema.Union([WorkTaskError, EnvironmentAuthorizationError]),
+});
+const WsTasksSaveRpc = Rpc.make(WS_METHODS.tasksSave, {
+  payload: WorkTaskSaveInput,
+  success: WorkTaskMutationResult,
+  error: Schema.Union([WorkTaskError, EnvironmentAuthorizationError]),
+});
+const WsTasksDeleteRpc = Rpc.make(WS_METHODS.tasksDelete, {
+  payload: WorkTaskLookupInput,
+  success: WorkTaskDeleteResult,
+  error: Schema.Union([WorkTaskError, EnvironmentAuthorizationError]),
+});
+
 const WsScheduledTasksListRpc = Rpc.make(WS_METHODS.scheduledTasksList, {
   payload: ScheduledTaskListInput,
   success: ScheduledTaskListResult,
@@ -1785,6 +1869,16 @@ export const WsRpcGroup = RpcGroup.make(
   WsServerGetUsageSummaryRpc,
   WsServerRefreshUsageRatesRpc,
   WsServerSignalProcessRpc,
+  WsPagesListRpc,
+  WsPagesSubscribeRpc,
+  WsPagesGetRpc,
+  WsPagesSaveRpc,
+  WsPagesDeleteRpc,
+  WsTasksListRpc,
+  WsTasksSubscribeRpc,
+  WsTasksGetRpc,
+  WsTasksSaveRpc,
+  WsTasksDeleteRpc,
   WsScheduledTasksListRpc,
   WsScheduledTasksSubscribeRpc,
   WsScheduledTasksUpsertRpc,

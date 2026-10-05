@@ -16,6 +16,7 @@ import { Button } from "../ui/button";
 import { UsageProviderChart } from "./UsageProviderChart";
 import { elysiaUsagePeriods, elysiaUsageRange, type ElysiaUsageResolution } from "./elysiaUsage";
 import { SidebarInset } from "../ui/sidebar";
+import { WorkspaceSurfaceHeader } from "../WorkspaceSurfaceHeader";
 import { WorkspacePageContainer } from "../WorkspacePageContainer";
 import { ElysiaIcon } from "../Icons";
 import { Tooltip, TooltipTrigger, TooltipPopup } from "../ui/tooltip";
@@ -168,10 +169,22 @@ export function ElysiaUsagePage() {
       : null;
   return (
     <SidebarInset variant="standalone" className="min-h-0 overflow-hidden">
+      <WorkspaceSurfaceHeader
+        title="Stats"
+        actions={
+          <Button
+            variant="secondary"
+            size="sm"
+            disabled={!provider || !environmentId || query.isPending || usage.isPending}
+            onClick={refresh}
+          >
+            {query.isPending || usage.isPending ? "Refreshing…" : "Refresh"}
+          </Button>
+        }
+      />
       <div className="min-h-0 flex-1 overflow-y-auto">
         <WorkspacePageContainer width="surface">
           <div className="flex min-h-8 flex-wrap items-center justify-between gap-3">
-            <h1 className="text-xl font-medium">Stats</h1>
             <div className="flex flex-wrap items-center gap-3">
               <ToggleGroup
                 value={[metric]}
@@ -202,14 +215,6 @@ export function ElysiaUsagePage() {
                   </ToggleGroupItem>
                 ))}
               </ToggleGroup>
-              <Button
-                variant="secondary"
-                size="sm"
-                disabled={!provider || !environmentId || query.isPending || usage.isPending}
-                onClick={refresh}
-              >
-                {query.isPending || usage.isPending ? "Refreshing…" : "Refresh"}
-              </Button>
             </div>
           </div>
           {query.isPending || usage.isPending ? (

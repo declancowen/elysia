@@ -49,6 +49,7 @@ import { Menu, MenuItem, MenuPopup, MenuTrigger } from "./ui/menu";
 import { SidebarInset } from "./ui/sidebar";
 import { Spinner } from "./ui/spinner";
 import { stackedThreadToast, toastManager } from "./ui/toast";
+import { WorkspaceSurfaceHeader } from "./WorkspaceSurfaceHeader";
 import { WorkspacePageContainer } from "./WorkspacePageContainer";
 
 function reportProjectActionFailure(title: string, error: unknown) {
@@ -122,10 +123,22 @@ export function ProjectsPage() {
 
   return (
     <SidebarInset variant="standalone" className="min-h-0 overflow-hidden">
+      <WorkspaceSurfaceHeader
+        title="Projects"
+        actions={
+          <Button
+            variant="outline"
+            aria-label="Create project"
+            onClick={() => openCommandPalette({ open: "add-project" })}
+          >
+            <PlusIcon />
+            Create project
+          </Button>
+        }
+      />
       <div className="min-h-0 flex-1 overflow-y-auto">
         <WorkspacePageContainer width="surface">
           <div className="flex flex-wrap items-center justify-between gap-4">
-            <h1 className="pl-3 text-xl font-medium">Projects</h1>
             <div className="flex min-w-0 flex-wrap items-center gap-2">
               <div className="w-60 max-w-full">
                 <InputGroup>
@@ -141,10 +154,6 @@ export function ProjectsPage() {
                   />
                 </InputGroup>
               </div>
-              <Button variant="outline" onClick={() => openCommandPalette({ open: "add-project" })}>
-                <PlusIcon />
-                Create project
-              </Button>
             </div>
           </div>
           <div>

@@ -22,6 +22,7 @@ export function ElysiaSetupSection({
   readOnly,
   enabled,
   onContinue,
+  onSkipSetup,
 }: {
   readonly environmentId: EnvironmentId;
   readonly instanceId: ProviderInstanceId;
@@ -29,6 +30,7 @@ export function ElysiaSetupSection({
   readonly readOnly: boolean;
   readonly enabled: boolean;
   readonly onContinue?: (() => void) | undefined;
+  readonly onSkipSetup?: (() => void) | undefined;
 }) {
   const target = { environmentId, input: { instanceId } };
   const { data: auth } = useEnvironmentQuery(serverEnvironment.providerAuthState(target));
@@ -273,6 +275,11 @@ export function ElysiaSetupSection({
             }}
           >
             Disconnect Elysia
+          </Button>
+        ) : null}
+        {onSkipSetup ? (
+          <Button variant="outline" onClick={onSkipSetup}>
+            Continue without CLI
           </Button>
         ) : null}
         {onContinue && connected ? (

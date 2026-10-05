@@ -1,3 +1,8 @@
+import MinusSignIconAsset from "@hugeicons/core-free-icons/MinusSignIcon";
+import Heading02IconAsset from "@hugeicons/core-free-icons/Heading02Icon";
+import SourceCodeIconAsset from "@hugeicons/core-free-icons/SourceCodeIcon";
+import TaskEdit02IconAsset from "@hugeicons/core-free-icons/TaskEdit02Icon";
+import Files01IconAsset from "@hugeicons/core-free-icons/Files01Icon";
 import AlignBoxMiddleLeftIconAsset from "@hugeicons/core-free-icons/AlignBoxMiddleLeftIcon";
 import UnplugIconV2Asset from "@hugeicons/core-free-icons/UnplugIcon";
 import CalendarClockIconV2Asset from "@hugeicons/core-free-icons/CalendarClockIcon";
@@ -688,3 +693,11 @@ export const AlignBoxMiddleLeftIcon = /* @__PURE__ */ createIcon(
 );
 
 export const ChannelIcon = /* @__PURE__ */ createIcon(ChannelIconAsset, "channel");
+
+export const TaskEdit02Icon = /* @__PURE__ */ createIcon(TaskEdit02IconAsset, "task-edit-02");
+export const Files01Icon = /* @__PURE__ */ createIcon(Files01IconAsset, "files-01");
+
+export const HeadingIcon = /* @__PURE__ */ createIcon(Heading02IconAsset, "heading");
+export const CodeBlockIcon = /* @__PURE__ */ createIcon(SourceCodeIconAsset, "code-block");
+
+export const MinusSignIcon = /* @__PURE__ */ createIcon(MinusSignIconAsset, "MinusSignIcon");

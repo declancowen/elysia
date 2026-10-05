@@ -75,14 +75,15 @@ type SidebarInstanceContextProps = {
 };
 
 // Preserve both provider identities while Vite refreshes sidebar consumers independently.
+const sidebarHotData = import.meta.hot?.data;
 const SidebarContext: React.Context<SidebarContextProps | null> =
-  import.meta.hot?.data.sidebarContext ?? React.createContext<SidebarContextProps | null>(null);
+  sidebarHotData?.sidebarContext ?? React.createContext<SidebarContextProps | null>(null);
 const SidebarInstanceContext: React.Context<SidebarInstanceContextProps | null> =
-  import.meta.hot?.data.sidebarInstanceContext ??
+  sidebarHotData?.sidebarInstanceContext ??
   React.createContext<SidebarInstanceContextProps | null>(null);
-if (import.meta.hot) {
-  import.meta.hot.data.sidebarContext = SidebarContext;
-  import.meta.hot.data.sidebarInstanceContext = SidebarInstanceContext;
+if (sidebarHotData) {
+  sidebarHotData.sidebarContext = SidebarContext;
+  sidebarHotData.sidebarInstanceContext = SidebarInstanceContext;
 }
 
 function useSidebar() {

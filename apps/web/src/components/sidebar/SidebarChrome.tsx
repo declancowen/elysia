@@ -90,7 +90,7 @@ export const SidebarChromeHeader = memo(function SidebarChromeHeader({
     <div
       className={cn(
         "@container/sidebar-header relative flex h-[var(--workspace-topbar-height)] shrink-0 flex-row items-center gap-2 px-3",
-        SINGLE_PROVIDER_UI ? "md:h-15" : "md:px-0",
+        SINGLE_PROVIDER_UI ? "md:h-11" : "md:px-0",
         isElectron && !SINGLE_PROVIDER_UI && "drag-region",
       )}
     >

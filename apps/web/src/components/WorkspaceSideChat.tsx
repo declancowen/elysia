@@ -219,7 +219,7 @@ export function useWorkspaceSideChat({
             height: expanded ? "calc(100% - 6rem)" : "min(640px, calc(100% - 6rem))",
           }}
         >
-          <header className="flex h-12 shrink-0 items-center gap-2 px-4">
+          <header className="flex shrink-0 items-center gap-2 p-4">
             <Button
               variant="ghost-muted"
               size="icon-sm"

@@ -8405,15 +8405,16 @@ export default function ChatView(props: ChatViewProps) {
           previewAnnotationContextReference(directAnnotation.annotation),
         ])
       : promptRef.current;
-    const promptForSend = props.workspaceContext
-      ? `${removeInlineContextReference(editablePromptForSend, props.workspaceContext.id).prompt.trimEnd()}
+    const promptForSend =
+      props.workspaceContext && activeMessageCount === 0
+        ? `${removeInlineContextReference(editablePromptForSend, props.workspaceContext.id).prompt.trimEnd()}
 
 ${formatComposerContextReference({
   kind: props.workspaceContext.kind,
   contextId: ComposerContextId.make(props.workspaceContext.id),
   label: props.workspaceContext.label,
 })}`
-      : editablePromptForSend;
+        : editablePromptForSend;
     const group = activeProject?.agentProfile?.group;
     const responder = group ? agentGroupResponder(group, promptForSend) : null;
     const agentTargets = group
@@ -11236,7 +11237,7 @@ ${formatComposerContextReference({
                               <ChatComposer
                                 embedded={embedded}
                                 pinnedContext={
-                                  props.workspaceContext ? (
+                                  props.workspaceContext && activeMessageCount === 0 ? (
                                     <WorkspaceItemContextChip
                                       id={props.workspaceContext.id}
                                       kind={props.workspaceContext.kind}

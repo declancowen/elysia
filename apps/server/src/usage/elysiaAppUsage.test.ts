@@ -3,6 +3,7 @@ import { ProviderInstanceId } from "@t3tools/contracts";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import * as NodeSqliteClient from "@t3tools/shared/nodeSqliteClient";
 import * as Effect from "effect/Effect";
+import * as Layer from "effect/Layer";
 import * as Schema from "effect/Schema";
 import * as SqlClient from "effect/unstable/sql/SqlClient";
 import { readElysiaAppUsage } from "./elysiaAppUsage.ts";
@@ -45,7 +46,8 @@ it.effect("recovers saved app usage without CLI files and isolates instances and
     assert.equal(aggregate.finish().buckets[0]?.records, 1);
     assert.equal(aggregate.finish().buckets[0]?.totals.cachedInputTokens, 30);
   }).pipe(
-    Effect.provide(NodeSqliteClient.layer({ filename: ":memory:" })),
-    Effect.provide(NodeServices.layer),
+    Effect.provide(
+      NodeSqliteClient.layer({ filename: ":memory:" }).pipe(Layer.provide(NodeServices.layer)),
+    ),
   ),
 );

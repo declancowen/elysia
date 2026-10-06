@@ -14,14 +14,18 @@ vi.mock("@effect/atom-react", () => ({ useAtomValue: () => [] }));
 vi.mock("@tanstack/react-router", () => ({
   useNavigate: () => vi.fn(),
   useCanGoBack: () => false,
-  useParams: () => null,
-  useLocation: ({
-    select,
-  }: {
+  useParams: () => ({}),
+  useLocation: (options?: {
     select: (value: { pathname: string; search: Record<string, unknown> }) => unknown;
-  }) => select({ pathname: state.pathname, search: {} }),
+  }) => {
+    const location = { pathname: state.pathname, search: {} };
+    return options ? options.select(location) : location;
+  },
 }));
 vi.mock("../env", () => ({ isElectron: false }));
+vi.mock("./chat/ConversationTabs", () => ({
+  ConversationTabs: () => <nav aria-label="Shared tabs" />,
+}));
 vi.mock("../hooks/useSettings", () => ({
   useLegacySidebarEnabled: () => state.legacy,
   useEnvironmentIdentificationMode: () => "pill",

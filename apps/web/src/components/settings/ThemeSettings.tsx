@@ -10,7 +10,7 @@ import {
   UploadIcon,
 } from "~/icons";
 import { useCallback, useEffect, useState, type ReactElement } from "react";
-import { ELYSIA_THEMES } from "@t3tools/shared/themePalettes";
+import { ELYSIA_THEMES, INITIAL_THEME_ID } from "@t3tools/shared/themePalettes";
 import { useEnvironmentThemeDefinitions } from "../../hooks/useEnvironmentTheme";
 import { readThemeHalvesRaw } from "../../hooks/useTheme";
 import { cn } from "../../lib/utils";
@@ -51,10 +51,13 @@ import {
 } from "./ThemePreviewCircles";
 import { ThemeWireframe } from "./ThemeWireframe";
 
-const MAINTAINER_THEMES = [
-  ...ELYSIA_THEMES,
-  ...BUILT_IN_THEMES.filter((theme) => !ELYSIA_THEMES.includes(theme)),
-];
+const BUILT_IN_THEME_CARDS = [
+  ...STANDARD_THEME_CARDS,
+  ...ELYSIA_THEMES.map(getThemeCardDefinition),
+  ...BUILT_IN_THEMES.filter((theme) => !ELYSIA_THEMES.includes(theme)).map(getThemeCardDefinition),
+].sort(
+  (left, right) => Number(right.id === INITIAL_THEME_ID) - Number(left.id === INITIAL_THEME_ID),
+);
 
 function collectionVariantLabels(themes: ReadonlyArray<ThemeDefinition>): ReadonlyArray<string> {
   if (themes.length === 0) return [];
@@ -764,41 +767,23 @@ export function ThemeLibrary({
     // the next hovered trigger instead of stacking on top of it.
     <TooltipProvider>
       <div className="flex w-full flex-col divide-y divide-border/60">
-        {STANDARD_THEME_CARDS.map((standardTheme) => (
-          <ThemeLibraryRow
-            activeModes={pickedModesFor(null)}
-            isActive={false}
-            key={standardTheme.id}
-            onDuplicate={() =>
-              openThemeEditor({
-                editingThemeId: null,
-                seedThemeId: null,
-                seedName: `${standardTheme.label} copy`,
-                initialAppearance,
-              })
-            }
-            onUse={() => persistTheme(appearanceMode === "system" ? "system" : appearanceMode)}
-            onUseMode={handlePairPick(null)}
-            theme={standardTheme}
-          />
-        ))}
-        {MAINTAINER_THEMES.map((maintainerTheme) => {
-          const card = getThemeCardDefinition(maintainerTheme);
+        {BUILT_IN_THEME_CARDS.map((card) => {
+          const themeId = card.id === "default" ? null : card.id;
           return (
             <ThemeLibraryRow
-              activeModes={pickedModesFor(maintainerTheme.id)}
+              activeModes={pickedModesFor(themeId)}
               isActive={false}
-              key={maintainerTheme.id}
+              key={card.id}
               onDuplicate={() =>
                 openThemeEditor({
                   editingThemeId: null,
-                  seedThemeId: maintainerTheme.id,
-                  seedName: `${maintainerTheme.label} copy`,
+                  seedThemeId: themeId,
+                  seedName: `${card.label} copy`,
                   initialAppearance,
                 })
               }
-              onUse={() => persistTheme(maintainerTheme.id)}
-              onUseMode={handlePairPick(maintainerTheme.id)}
+              onUse={() => persistTheme(themeId ?? appearanceMode)}
+              onUseMode={handlePairPick(themeId)}
               theme={card}
             />
           );

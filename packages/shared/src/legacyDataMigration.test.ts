@@ -1,5 +1,6 @@
 // @effect-diagnostics nodeBuiltinImport:off preferSchemaOverJson:off -- exercises real temporary SQLite files and verifies the transitional JSON reviver.
 import * as NodeFSP from "node:fs/promises";
+import * as NodeChildProcess from "node:child_process";
 import * as NodeOS from "node:os";
 import * as NodePath from "node:path";
 import * as NodeSqlite from "node:sqlite";
@@ -7,10 +8,15 @@ import * as Effect from "effect/Effect";
 import { afterEach, expect, vi } from "vite-plus/test";
 import { it } from "@effect/vitest";
 import { migrateLegacyDataHome } from "./legacyDataMigration.ts";
+import { HostProcessPlatform } from "./hostProcess.ts";
 
 vi.mock("node:fs/promises", async (importOriginal) => {
   const original = await importOriginal<typeof NodeFSP>();
   return { ...original, rename: vi.fn(original.rename) };
+});
+vi.mock("node:child_process", async (importOriginal) => {
+  const original = await importOriginal<typeof NodeChildProcess>();
+  return { ...original, execFileSync: vi.fn(original.execFileSync) };
 });
 
 const homes: string[] = [];
@@ -278,6 +284,123 @@ it.effect("blocks a running WAL database and preserves the source", () =>
       expect(yield* Effect.promise(() => NodeFSP.readdir(root))).toEqual([".t3"]);
     } finally {
       db.close();
+    }
+  }),
+);
+
+it.effect("recovers committed WAL chats after a crash without deleting the original journal", () =>
+  Effect.gen(function* () {
+    const root = yield* Effect.promise(home);
+    const old = NodePath.join(root, ".t3");
+    const current = NodePath.join(root, ".elysia");
+    yield* Effect.promise(() => NodeFSP.mkdir(old));
+    const path = NodePath.join(old, "state.sqlite");
+    // Exit without closing SQLite, reproducing journals retained after a crash.
+    const child = NodeChildProcess.spawnSync(process.execPath, [
+      "--input-type=module",
+      "-e",
+      `import { DatabaseSync } from 'node:sqlite';
+       const db = new DatabaseSync(process.argv[1]);
+       db.exec("PRAGMA journal_mode=WAL; CREATE TABLE chats (id TEXT); INSERT INTO chats VALUES ('wal-chat')");
+       process.exit(0);`,
+      path,
+    ]);
+    expect(child.status, child.stderr.toString()).toBe(0);
+    const journal = yield* Effect.promise(() => NodeFSP.readFile(`${path}-wal`));
+    expect(journal.length).toBeGreaterThan(0);
+    expect(yield* Effect.promise(() => NodeFSP.stat(`${path}-shm`))).toBeDefined();
+    const platform = yield* HostProcessPlatform;
+    const execute = vi.mocked(NodeChildProcess.execFileSync);
+    const originalExecute = execute.getMockImplementation()!;
+    // CI runs on Linux; emulate macOS's lsof no-owner result there.
+    if (platform !== "darwin") {
+      execute.mockImplementation(() => {
+        throw Object.assign(new Error("No open files"), { status: 1, stdout: "", stderr: "" });
+      });
+    }
+    try {
+      yield* migrateLegacyDataHome(current).pipe(
+        Effect.provideService(HostProcessPlatform, "darwin"),
+      );
+      const copy = new NodeSqlite.DatabaseSync(NodePath.join(current, "state.sqlite"), {
+        readOnly: true,
+      });
+      try {
+        expect(copy.prepare("SELECT id FROM chats").get()?.id).toBe("wal-chat");
+      } finally {
+        copy.close();
+      }
+      const entries = yield* Effect.promise(() => NodeFSP.readdir(root));
+      const backup = entries.find((entry) => entry.includes("legacy-backup"))!;
+      expect(
+        yield* Effect.promise(() =>
+          NodeFSP.readFile(NodePath.join(root, backup, "state.sqlite-wal")),
+        ),
+      ).toEqual(journal);
+      yield* migrateLegacyDataHome(current).pipe(
+        Effect.provideService(HostProcessPlatform, "darwin"),
+      );
+      expect(yield* Effect.promise(() => NodeFSP.readdir(root))).toEqual(entries);
+    } finally {
+      execute.mockImplementation(originalExecute);
+    }
+  }),
+);
+
+it.effect("blocks a macOS database owner even without WAL sidecars", () =>
+  Effect.gen(function* () {
+    const root = yield* Effect.promise(home);
+    const old = NodePath.join(root, ".t3");
+    yield* Effect.promise(() => NodeFSP.mkdir(old));
+    const db = new NodeSqlite.DatabaseSync(NodePath.join(old, "state.sqlite"));
+    db.exec("CREATE TABLE chats (id TEXT); INSERT INTO chats VALUES ('keep')");
+    const platform = yield* HostProcessPlatform;
+    const execute = vi.mocked(NodeChildProcess.execFileSync);
+    const originalExecute = execute.getMockImplementation()!;
+    if (platform !== "darwin") {
+      execute.mockReturnValue(`p${process.pid}\n`);
+    }
+    try {
+      const error = yield* migrateLegacyDataHome(NodePath.join(root, ".elysia")).pipe(
+        Effect.provideService(HostProcessPlatform, "darwin"),
+        Effect.flip,
+      );
+      expect(String(error.cause)).toContain(`p${process.pid}`);
+      expect(yield* Effect.promise(() => NodeFSP.readdir(root))).toEqual([".t3"]);
+      expect(db.prepare("SELECT id FROM chats").get()?.id).toBe("keep");
+    } finally {
+      db.close();
+      execute.mockImplementation(originalExecute);
+    }
+  }),
+);
+
+it.effect("fails closed when macOS cannot inspect database owners", () =>
+  Effect.gen(function* () {
+    const root = yield* Effect.promise(home);
+    const old = NodePath.join(root, ".t3");
+    yield* Effect.promise(() => NodeFSP.mkdir(old));
+    const db = new NodeSqlite.DatabaseSync(NodePath.join(old, "state.sqlite"));
+    db.exec("CREATE TABLE chats (id TEXT); INSERT INTO chats VALUES ('keep')");
+    db.close();
+    const execute = vi.mocked(NodeChildProcess.execFileSync);
+    const originalExecute = execute.getMockImplementation()!;
+    execute.mockImplementation(() => {
+      throw Object.assign(new Error("Cannot inspect files"), {
+        status: 1,
+        stdout: "",
+        stderr: "Permission denied",
+      });
+    });
+    try {
+      const error = yield* migrateLegacyDataHome(NodePath.join(root, ".elysia")).pipe(
+        Effect.provideService(HostProcessPlatform, "darwin"),
+        Effect.flip,
+      );
+      expect(String(error.cause)).toContain("Could not verify");
+      expect(yield* Effect.promise(() => NodeFSP.readdir(root))).toEqual([".t3"]);
+    } finally {
+      execute.mockImplementation(originalExecute);
     }
   }),
 );

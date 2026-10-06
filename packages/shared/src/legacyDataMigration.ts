@@ -1,9 +1,11 @@
 // @effect-diagnostics nodeBuiltinImport:off preferSchemaOverJson:off -- one-release startup migration uses native SQLite/FS and a JSON reviver before app services open the profile.
 import * as NodeFSP from "node:fs/promises";
+import * as NodeChildProcess from "node:child_process";
 import * as NodePath from "node:path";
 import * as NodeSqlite from "node:sqlite";
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
+import { HostProcessPlatform } from "./hostProcess.ts";
 
 export class LegacyDataMigrationError extends Schema.TaggedError<LegacyDataMigrationError>()(
   "LegacyDataMigrationError",
@@ -55,11 +57,36 @@ async function copyConfiguration(source: string, destination: string) {
   }
 }
 
-async function assertClosed(databases: readonly string[]) {
+async function assertClosed(databases: readonly string[], platform: NodeJS.Platform) {
   for (const path of databases) {
-    // WAL shared memory is present while the old app owns its database. Never
-    // move its live profile, even though SQLite can take a consistent snapshot.
-    if (await exists(`${path}-shm`)) throw new Error("The previous database is still open.");
+    if (platform !== "darwin") {
+      if (await exists(`${path}-shm`)) throw new Error("The previous database is still open.");
+      continue;
+    }
+    // A crash or read-only connection can leave WAL files behind. On macOS,
+    // inspect actual open handles instead; never delete journals to unlock data.
+    const files = [path];
+    for (const suffix of ["-wal", "-shm"])
+      if (await exists(`${path}${suffix}`)) files.push(`${path}${suffix}`);
+    let owners: string;
+    try {
+      owners = NodeChildProcess.execFileSync("/usr/sbin/lsof", ["-nP", "-F", "p", "--", ...files], {
+        encoding: "utf8",
+        timeout: 5000,
+        stdio: ["ignore", "pipe", "pipe"],
+      });
+    } catch (error) {
+      const failure = error as { status?: number; stdout?: string; stderr?: string };
+      // lsof returns 1 with no output when no process has any selected file open.
+      if (
+        failure.status === 1 &&
+        !String(failure.stdout ?? "").trim() &&
+        !String(failure.stderr ?? "").trim()
+      )
+        continue;
+      throw new Error("Could not verify whether the previous database is open.", { cause: error });
+    }
+    if (owners.trim()) throw new Error(`The previous database is still open (${owners.trim()}).`);
   }
 }
 
@@ -151,6 +178,7 @@ function retargetDatabase(database: NodeSqlite.DatabaseSync, source: string, des
 export const migrateLegacyDataHome = Effect.fn("migrateLegacyDataHome")(function* (
   destination: string,
 ) {
+  const platform = yield* HostProcessPlatform;
   yield* Effect.tryPromise({
     try: async () => {
       // Explicit custom homes and worktree sandboxes must never touch the user's profile.
@@ -195,7 +223,7 @@ export const migrateLegacyDataHome = Effect.fn("migrateLegacyDataHome")(function
         if (!destinationExists && (await exists(destination)))
           throw new Error("The destination appeared during migration.");
         const databases = await databasePaths(source);
-        await assertClosed(databases);
+        await assertClosed(databases, platform);
         stage = await NodeFSP.mkdtemp(`${destination}.migration-`);
         await NodeFSP.cp(source, stage, {
           recursive: true,
@@ -224,7 +252,7 @@ export const migrateLegacyDataHome = Effect.fn("migrateLegacyDataHome")(function
             oldDatabase.close();
           }
         }
-        await assertClosed(databases);
+        await assertClosed(databases, platform);
         if (destinationExists) {
           // A conflicting file blocks migration rather than replacing either
           // user's configuration. The two originals remain untouched on failure.

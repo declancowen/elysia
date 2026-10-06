@@ -8,6 +8,7 @@ export type FilePreviewKind =
   | "html"
   | "markdown"
   | "text"
+  | "office"
   | "unsupported";
 
 /** Content classification is identical for captured attachments and workspace references. */
@@ -19,6 +20,7 @@ export function filePreviewKind(file: {
   const name = file.name.toLowerCase();
   const extension = name.slice(name.lastIndexOf("."));
   const generic = !mime || mime === "application/octet-stream" || mime === "text/plain";
+  if (officePreviewFormat(file) !== null) return "office";
   if (mime === "application/pdf") return "pdf";
   if (mime === "text/html") return "html";
   if (mime === "text/markdown" || mime === "text/x-markdown") return "markdown";
@@ -52,6 +54,33 @@ export function filePreviewKind(file: {
     return "text";
   return "unsupported";
 }
+
+export type OfficePreviewFormat = "docx" | "pptx" | "xlsx" | "xls";
+
+const OFFICE_MIME_TYPES = {
+  ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  ".pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+  ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  ".xls": "application/vnd.ms-excel",
+} as const;
+
+export function officePreviewFormat(file: {
+  readonly name: string;
+  readonly mimeType?: string;
+}): OfficePreviewFormat | null {
+  const mime = file.mimeType?.split(";", 1)[0]?.trim().toLowerCase() ?? "";
+  for (const [extension, type] of Object.entries(OFFICE_MIME_TYPES)) {
+    if (
+      mime === type ||
+      ((!mime || mime === "application/octet-stream" || mime === "text/plain") &&
+        file.name.toLowerCase().endsWith(extension))
+    )
+      return extension.slice(1) as OfficePreviewFormat;
+  }
+  return null;
+}
+
+export const OFFICE_PREVIEW_MAX_BYTES = 25 * 1024 * 1024;
 
 export const FILE_TEXT_PREVIEW_MAX_BYTES = 1024 * 1024;
 
@@ -135,6 +164,7 @@ export function hostPreviewMimeTypeFromExtension(extension: string): string | nu
     mediaMimeTypeFromExtension(extension) ??
     audioMimeTypeFromExtension(extension) ??
     BROWSER_MIME_TYPE_BY_EXTENSION.get(extension.toLowerCase()) ??
+    OFFICE_MIME_TYPES[extension.toLowerCase() as keyof typeof OFFICE_MIME_TYPES] ??
     null
   );
 }

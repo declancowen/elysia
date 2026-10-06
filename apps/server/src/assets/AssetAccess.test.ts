@@ -109,6 +109,13 @@ describe("AssetAccess", () => {
         ["recording.webm", "video/webm"],
         ["report.html", "text/html"],
         ["report.pdf", "application/pdf"],
+        ["report.docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"],
+        [
+          "slides.pptx",
+          "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+        ],
+        ["budget.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"],
+        ["budget.xls", "application/vnd.ms-excel"],
       ] as const) {
         const filePath = path.join(outside, name);
         yield* fs.writeFileString(filePath, "media");

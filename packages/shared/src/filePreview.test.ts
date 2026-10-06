@@ -85,6 +85,13 @@ describe("attachment preview classification", () => {
     ["recording.mp3", "", "audio"],
     ["payload", "application/problem+json", "text"],
     ["archive.zip", "application/zip", "unsupported"],
+    ["report.DOCX", "", "office"],
+    ["slides.pptx", "application/octet-stream", "office"],
+    ["budget.xlsx", "", "office"],
+    ["budget.xls", "", "office"],
+    ["upload.bin", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "office"],
+    ["report.docx", "application/zip", "unsupported"],
+    ["old.doc", "application/msword", "unsupported"],
     ["misleading.json", "application/pdf", "pdf"],
     ["misleading.pdf", "application/zip", "unsupported"],
   ])("classifies %s (%s) as %s", (name, mimeType, expected) => {

@@ -24,6 +24,7 @@
     "@formkit/auto-animate": "^0.9.0",
     "@hugeicons/core-free-icons": "^4.3.5",
     "@hugeicons/react": "^1.1.10",
+    "@jvmr/pptx-to-html": "1.1.2",
     "@legendapp/list": "catalog:",
     "@noble/hashes": "catalog:",
     "@pierre/diffs": "catalog:",
@@ -42,6 +43,7 @@
     "@tiptap/starter-kit": "^3.31.3",
     "class-variance-authority": "^0.7.1",
     "culori": "^4.0.2",
+    "docx-preview": "0.4.1",
     "effect": "catalog:",
     "hast-util-to-html": "^9.0.5",
     "hast-util-to-jsx-runtime": "^2.3.6",
@@ -57,6 +59,7 @@
     "remark-breaks": "^4.0.0",
     "remark-gfm": "^4.0.1",
     "tailwind-merge": "^3.4.0",
+    "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz",
     "zustand": "^5.0.11"
   },
   "devDependencies": {

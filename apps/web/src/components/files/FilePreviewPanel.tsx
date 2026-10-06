@@ -8,6 +8,7 @@ import type {
 } from "@t3tools/contracts";
 import { filePreviewDelimiter } from "@t3tools/shared/delimitedPreview";
 import {
+  officePreviewFormat,
   isWorkspaceAudioPreviewPath,
   isWorkspaceImagePreviewPath,
   isWorkspaceVideoPreviewPath,
@@ -23,7 +24,7 @@ import {
 import { mediaFileReference } from "@t3tools/client-runtime/media-reference";
 import { Code2, Eye, FolderTree, Globe2, Table2, WrapTextIcon } from "~/icons";
 import * as Schema from "effect/Schema";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { isBrowserPreviewFile, openFileInPreview } from "~/browser/openFileInPreview";
 import { useAssetUrlRefresh, useAssetUrlState } from "~/assets/assetUrls";
@@ -110,6 +111,8 @@ interface FilePreviewPanelProps {
   workspaceMutationId: string | null;
 }
 
+const OfficePreview = lazy(() => import("./OfficeFilePreview"));
+
 const FILE_EXPLORER_STORAGE_KEY = "t3code.fileExplorerOpen";
 const RENDER_MARKDOWN_STORAGE_KEY = "t3code.renderMarkdown";
 const RENDER_BROWSER_FILE_STORAGE_KEY = "t3code.renderBrowserFile";
@@ -176,7 +179,7 @@ function WorkspaceImagePreview(props: {
 }
 
 /**
- * Renders an HTML or PDF file in place from its signed asset URL. HTML runs in
+ * Renders an HTML, PDF or Office file in place from its signed asset URL. HTML runs in
  * a sandboxed frame with an opaque origin, so a page cannot reach the app's
  * session or storage. A file inside the workspace may load sibling assets; a
  * host file outside it is served on its own.
@@ -200,6 +203,7 @@ function WorkspaceBrowserPreview(props: {
     [insideWorkspace, props.threadRef.threadId, props.absolutePath],
   );
   const assetUrl = useAssetUrlState(props.environmentId, resource);
+  const refreshAssetUrl = useAssetUrlRefresh(props.environmentId, resource);
   const revisionSuffix =
     props.workspaceMutationId === null
       ? ""
@@ -219,6 +223,19 @@ function WorkspaceBrowserPreview(props: {
       </div>
     );
   }
+  const officeFormat = officePreviewFormat({ name: props.absolutePath });
+  if (officeFormat)
+    return (
+      <Suspense fallback={<FileSurfaceLoading />}>
+        <OfficePreview
+          key={`${assetUrl.url}:${props.workspaceMutationId}`}
+          src={`${assetUrl.url}${revisionSuffix}`}
+          name={props.title}
+          format={officeFormat}
+          refresh={refreshAssetUrl}
+        />
+      </Suspense>
+    );
   return (
     <BrowserDocumentFrame
       src={`${assetUrl.url}${revisionSuffix}`}
@@ -940,6 +957,7 @@ export default function FilePreviewPanel({
   const isMedia = isImage || isVideo || isAudio;
   // PDFs have no text to show; HTML has, and can toggle between page and source.
   const isPdf = relativePath !== null && isPdfPreviewFile(relativePath);
+  const isOffice = relativePath !== null && officePreviewFormat({ name: relativePath }) !== null;
   const isHtml = relativePath !== null && !isPdf && isBrowserPreviewFile(relativePath);
   // A file outside the workspace (an absolute path) is shown, never edited.
   const isHostFile =
@@ -1000,7 +1018,8 @@ export default function FilePreviewPanel({
     revealLine === null ||
     (handledReveal?.path === relativePath && handledReveal.requestId === revealRequestId);
   const renderMarkdown = isMarkdown && renderMarkdownPreferred && revealHandled;
-  const renderBrowserFile = isPdf || (isHtml && renderBrowserFilePreferred && revealHandled);
+  const renderBrowserFile =
+    isOffice || isPdf || (isHtml && renderBrowserFilePreferred && revealHandled);
   const renderTable = tableDelimiter !== null && renderTablePreferred && revealHandled;
   const renderedMode = isMarkdown
     ? ("markdown" as const)
@@ -1042,7 +1061,7 @@ export default function FilePreviewPanel({
       // Media and PDFs never show their contents, so re-reading them on every
       // workspace mutation is waste. A folder named like one still re-reads, so
       // it notices when the path becomes a file.
-      (isDirectory || (!isMedia && !isPdf)) &&
+      (isDirectory || (!isMedia && !isPdf && !isOffice)) &&
       !selectedFilePending,
     mutationId: workspaceMutationId,
     refresh: file.refresh,
@@ -1309,7 +1328,7 @@ export default function FilePreviewPanel({
               selectedPathRevealId={revealRequestId}
               onOpenFile={onOpenFile}
               workspaceMutationId={workspaceMutationId}
-              {...(previewPath && !isMedia && !isPdf
+              {...(previewPath && !isMedia && !isPdf && !isOffice
                 ? { onRefreshSelectedFile: file.refresh }
                 : {})}
             />

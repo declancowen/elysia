@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vite-plus/test";
 import { FILE_TEXT_PREVIEW_MAX_BYTES } from "@t3tools/shared/filePreview";
-import { readFilePreviewResponse } from "./filePreview.ts";
+import { readFilePreviewBytes, readFilePreviewResponse } from "./filePreview.ts";
 
 describe("readFilePreviewResponse", () => {
   it("cancels a pending read when its preview closes", async () => {
@@ -64,4 +64,12 @@ describe("readFilePreviewResponse", () => {
     expect(result.truncated).toBe(true);
     expect(cancelled).toBe(true);
   });
+});
+
+it("preserves binary bytes and retains the extra byte that detects oversize files", async () => {
+  const signal = new AbortController().signal;
+  const bytes = new Uint8Array([0, 255, 128, 1, 2, 3]);
+  await expect(readFilePreviewBytes(new Response(bytes), signal, 4)).resolves.toEqual(
+    bytes.slice(0, 5),
+  );
 });

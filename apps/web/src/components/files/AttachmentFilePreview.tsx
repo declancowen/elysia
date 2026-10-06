@@ -2,7 +2,11 @@ import { filePreviewDelimiter } from "@t3tools/shared/delimitedPreview";
 import type { EnvironmentId } from "@t3tools/contracts";
 import { formatAttachmentSize } from "@t3tools/client-runtime/state/attachments";
 import { readFilePreviewResponse } from "@t3tools/client-runtime/file-preview";
-import { filePreviewKind, FILE_TEXT_PREVIEW_MAX_BYTES } from "@t3tools/shared/filePreview";
+import {
+  filePreviewKind,
+  officePreviewFormat,
+  FILE_TEXT_PREVIEW_MAX_BYTES,
+} from "@t3tools/shared/filePreview";
 import {
   CheckIcon,
   ChevronRightIcon,
@@ -35,6 +39,8 @@ import {
   FileSurfaceLoading,
   FileSurfaceNotice,
 } from "./fileSurfaceChrome";
+
+const OfficePreview = lazy(() => import("./OfficeFilePreview"));
 
 const SourcePreview = lazy(() => import("./ReadOnlySourcePreview"));
 
@@ -73,6 +79,7 @@ export function AttachmentFilePreview(props: {
   onClose?: () => void;
 }) {
   const kind = filePreviewKind(props);
+  const officeFormat = officePreviewFormat(props);
   const delimiter = filePreviewDelimiter(props);
   const renderedMode =
     kind === "markdown" ? "markdown" : kind === "html" ? "html" : delimiter ? "table" : null;
@@ -250,6 +257,16 @@ export function AttachmentFilePreview(props: {
     ) : (
       <ReadOnlySourcePreview name={props.name} text={content.text} />
     )
+  ) : officeFormat ? (
+    <Suspense fallback={<FileSurfaceLoading />}>
+      <OfficePreview
+        key={`${url}:${officeFormat}`}
+        src={url}
+        name={props.name}
+        format={officeFormat}
+        {...(props.file ? {} : { refresh })}
+      />
+    </Suspense>
   ) : kind === "pdf" || kind === "html" ? (
     <BrowserDocumentFrame src={url} title={props.name} pdf={kind === "pdf"} />
   ) : kind === "audio" ? (

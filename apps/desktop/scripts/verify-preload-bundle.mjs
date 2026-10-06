@@ -108,6 +108,8 @@ const executeBundle = (source, sandboxModules) => {
     {
       process: sandboxProcess,
       require: requireSandboxModule,
+      // Preloads register renderer lifecycle handlers before exposing their APIs.
+      window: { addEventListener: () => undefined },
     },
     {
       filename: "desktop-preload.cjs",

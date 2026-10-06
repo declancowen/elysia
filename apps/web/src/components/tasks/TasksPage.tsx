@@ -56,7 +56,6 @@ import {
   ArrowUpDownIcon,
   ListFilterIcon,
   SlidersHorizontalIcon,
-  ListIcon,
   Columns2Icon,
   AlignBoxMiddleLeftIcon,
   ChannelIcon,
@@ -90,6 +89,8 @@ import { SidebarInset } from "../ui/sidebar";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Checkbox } from "../ui/checkbox";
+import { Badge } from "../ui/badge";
+import { CollectionGroups, CollectionRows, CollectionViewPicker } from "../WorkspaceCollectionView";
 import { Select, SelectTrigger, SelectValue, SelectPopup, SelectItem } from "../ui/select";
 import {
   Dialog,
@@ -461,13 +462,7 @@ export function TasksPage() {
     if (failures.length) report(new Error(failures.join("\n")));
   };
   const renderRows = (rows: WorkTaskSummary[]) => (
-    <div
-      className={
-        view === "card"
-          ? "grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-4"
-          : "flex flex-col gap-2"
-      }
-    >
+    <CollectionRows view={view}>
       {displayRows(rows).map(({ task, depth }) => (
         <TaskDragRow
           key={task.id}
@@ -486,29 +481,6 @@ export function TasksPage() {
             selection.has(task.id) && "bg-sidebar-row-selected",
           )}
         >
-          <div
-            className={cn(
-              "flex w-4 shrink-0 items-center justify-center opacity-0 group-hover:opacity-100 focus-within:opacity-100 pointer-coarse:opacity-100",
-              selection.has(task.id) && "opacity-100",
-              view !== "list" && "absolute left-3 top-3 z-10",
-            )}
-            onPointerDown={(event) => event.stopPropagation()}
-            onKeyDown={(event) => event.stopPropagation()}
-          >
-            <Checkbox
-              aria-label={`Select ${task.title}`}
-              checked={selection.has(task.id)}
-              disabled={bulkPending}
-              onCheckedChange={(checked) =>
-                setSelection((current) => {
-                  const next = new Set(current);
-                  if (checked) next.add(task.id);
-                  else next.delete(task.id);
-                  return next;
-                })
-              }
-            />
-          </div>
           {view === "list" && depth > 0 ? (
             <span
               aria-hidden
@@ -522,7 +494,7 @@ export function TasksPage() {
             <WorkspaceItemLink
               aria-label={`Open ${task.title}`}
               onOpen={(newTab) => openTask(task, newTab)}
-              className="min-h-0 flex-1 overflow-hidden bg-muted/20 p-5 text-left text-sm text-muted-foreground"
+              className="min-h-0 flex-1 overflow-hidden bg-muted/20 p-5 pr-20 text-left text-sm text-muted-foreground"
             >
               <div className="pointer-events-none line-clamp-5">
                 <ChatMarkdown text={task.descriptionPreview} cwd={undefined} />
@@ -543,40 +515,60 @@ export function TasksPage() {
               className={cn(
                 view === "list"
                   ? "truncate text-sm"
-                  : "line-clamp-3 pr-5 text-sm font-medium leading-6",
+                  : "line-clamp-3 pr-16 text-sm font-medium leading-6",
               )}
             >
               {task.title}
             </span>
           </WorkspaceItemLink>
-          {view === "list" ? (
-            <span className="text-xs text-muted-foreground">{TASK_STATUS_LABELS[task.status]}</span>
-          ) : null}
-          {task.assigneeProjectId ? (
-            <div
-              className={
-                view === "list"
-                  ? "min-w-0 shrink-0"
-                  : "mt-auto shrink-0 border-t border-border px-4 py-3"
-              }
-            >
-              <TaskAssigneeActivity
-                assignee={
-                  agentOptions.find((option) => option.value === task.assigneeProjectId)?.label ??
-                  "Unavailable agent"
-                }
-                status={task.status}
-                sidebar
-              />
-            </div>
-          ) : null}
           <div
             className={
               view === "list"
-                ? "shrink-0 opacity-0 group-hover:opacity-100 focus-within:opacity-100 pointer-coarse:opacity-100"
-                : "absolute top-2 right-2 opacity-0 group-hover:opacity-100 focus-within:opacity-100 pointer-coarse:opacity-100"
+                ? "flex shrink-0 items-center gap-3"
+                : "mt-auto flex shrink-0 flex-col gap-2 border-t border-border px-4 py-3"
             }
           >
+            {task.assigneeProjectId ? (
+              <span className="min-w-0 text-sm">
+                {agentOptions.find((option) => option.value === task.assigneeProjectId)?.label ??
+                  "Unavailable agent"}
+              </span>
+            ) : null}
+            <div className="flex flex-wrap justify-end gap-2">
+              <Badge variant="outline">
+                {task.assigneeProjectId
+                  ? taskActivity(task.status).label
+                  : TASK_STATUS_LABELS[task.status]}
+              </Badge>
+              <Badge variant="outline">
+                <span className="max-w-32 truncate">
+                  {projects.find((project) => project.id === task.projectId)?.title ?? "No project"}
+                </span>
+              </Badge>
+            </div>
+          </div>
+          <div
+            className={cn(
+              "flex shrink-0 items-center gap-2 opacity-0 group-hover:opacity-100 focus-within:opacity-100 pointer-coarse:opacity-100",
+              selection.has(task.id) && "opacity-100",
+              view !== "list" && "absolute top-3 right-3 z-10",
+            )}
+            onPointerDown={(event) => event.stopPropagation()}
+            onKeyDown={(event) => event.stopPropagation()}
+          >
+            <Checkbox
+              aria-label={`Select ${task.title}`}
+              checked={selection.has(task.id)}
+              disabled={bulkPending}
+              onCheckedChange={(checked) =>
+                setSelection((current) => {
+                  const next = new Set(current);
+                  if (checked) next.add(task.id);
+                  else next.delete(task.id);
+                  return next;
+                })
+              }
+            />
             <Menu>
               <MenuTrigger
                 render={
@@ -615,7 +607,7 @@ export function TasksPage() {
           </div>
         </TaskDragRow>
       ))}
-    </div>
+    </CollectionRows>
   );
   const renderGroup = (
     group: TaskGroup,
@@ -781,8 +773,17 @@ export function TasksPage() {
           </>
         }
       />
-      <div className="min-h-0 flex-1 overflow-y-auto">
-        <WorkspacePageContainer width="surface" className={selectedId ? undefined : "min-h-full"}>
+      <div
+        className={
+          selectedId
+            ? "min-h-0 flex-1 overflow-y-auto"
+            : "flex min-h-0 flex-1 flex-col overflow-hidden"
+        }
+      >
+        <WorkspacePageContainer
+          width="surface"
+          className={selectedId ? undefined : "min-h-0 flex-1 pb-6"}
+        >
           {tasksQuery.error ? (
             <p role="alert" className="text-sm text-destructive">
               {tasksQuery.error}
@@ -834,18 +835,7 @@ export function TasksPage() {
                   />
                 </div>
                 <div className="ml-auto flex flex-wrap items-center gap-2">
-                  <TaskSelect
-                    compact
-                    icon={view === "board" ? <Columns2Icon /> : <ListIcon />}
-                    label="View"
-                    value={view}
-                    options={[
-                      { value: "list", label: "List" },
-                      { value: "board", label: "Board" },
-                      { value: "card", label: "Cards" },
-                    ]}
-                    onChange={(value) => setView(value as TaskView)}
-                  />
+                  <CollectionViewPicker view={view} onChange={setView} />
                   <Popover>
                     <PopoverTrigger render={<Button variant="outline" size="compact" />}>
                       <Columns2Icon />
@@ -965,15 +955,11 @@ export function TasksPage() {
                     });
                 }}
               >
-                <div
-                  className={
-                    view === "board" ? "flex gap-4 overflow-x-auto pb-4" : "flex flex-col gap-5"
-                  }
-                >
-                  {taskRows.length
-                    ? orderGroups(groups, groupOrder).map((group) => renderGroup(group))
-                    : null}
-                </div>
+                {taskRows.length ? (
+                  <CollectionGroups view={view}>
+                    {orderGroups(groups, groupOrder).map((group) => renderGroup(group))}
+                  </CollectionGroups>
+                ) : null}
               </DndContext>
               {tasksQuery.data && !tasksQuery.isPending && !taskRows.length ? (
                 <Empty>

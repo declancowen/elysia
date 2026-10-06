@@ -20,6 +20,7 @@ import {
   Columns2Icon,
   PlusIcon,
   SearchIcon,
+  MoreHorizontalIcon,
   SlidersHorizontalIcon,
 } from "../../icons";
 import { formatRelativeTimeLabel } from "../../timestampFormat";
@@ -38,6 +39,7 @@ import { Select, SelectTrigger, SelectValue, SelectPopup, SelectItem } from "../
 import {
   Menu,
   MenuTrigger,
+  MenuItem,
   MenuPopup,
   MenuGroup,
   MenuGroupLabel,
@@ -57,6 +59,13 @@ import {
 } from "../ui/dialog";
 import { groupPages } from "./PagesPage.logic";
 import { Checkbox } from "../ui/checkbox";
+import { Badge } from "../ui/badge";
+import {
+  CollectionGroups,
+  CollectionRows,
+  CollectionViewPicker,
+  type CollectionView,
+} from "../WorkspaceCollectionView";
 import { ensureLocalApi } from "../../localApi";
 import { showContextMenuFallback } from "../../contextMenuFallback";
 import { cn } from "../../lib/utils";
@@ -73,6 +82,7 @@ export function PagesPage() {
   const navigate = useNavigate();
   const navigateTab = useConversationTabNavigation();
   const [search, setSearch] = useState("");
+  const [view, setView] = useState<CollectionView>("list");
   const [groupByProject, setGroupByProject] = useState(true);
   const [groupDescending, setGroupDescending] = useState(false);
   const [hideEmpty, setHideEmpty] = useState(true);
@@ -219,8 +229,8 @@ export function PagesPage() {
           </Button>
         }
       />
-      <div className="min-h-0 flex-1 overflow-y-auto">
-        <WorkspacePageContainer width="surface" className="min-h-full">
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+        <WorkspacePageContainer width="surface" className="min-h-0 flex-1 pb-6">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="w-60 max-w-full">
               <InputGroup>
@@ -236,7 +246,8 @@ export function PagesPage() {
                 />
               </InputGroup>
             </div>
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="ml-auto flex flex-wrap items-center gap-2">
+              <CollectionViewPicker view={view} onChange={setView} />
               <Menu>
                 <MenuTrigger
                   render={<Button variant="outline" size="compact" />}
@@ -341,9 +352,12 @@ export function PagesPage() {
               </EmptyHeader>
             </Empty>
           ) : (
-            <div className="space-y-4">
+            <CollectionGroups view={view}>
               {groups.map((group) => (
-                <section key={group.key} className="space-y-1">
+                <section
+                  key={group.key}
+                  className={cn("min-w-0 space-y-3", view === "board" && "w-72 shrink-0")}
+                >
                   {group.title ? (
                     <h2>
                       <button
@@ -368,8 +382,9 @@ export function PagesPage() {
                       </button>
                     </h2>
                   ) : null}
-                  {!collapsed[group.key]
-                    ? group.pages.map((page) => (
+                  {!collapsed[group.key] ? (
+                    <CollectionRows view={view}>
+                      {group.pages.map((page) => (
                         <div
                           key={page.id}
                           onContextMenu={(event) => {
@@ -380,14 +395,55 @@ export function PagesPage() {
                             }).catch((error) => setError(String(error)));
                           }}
                           className={cn(
-                            "group flex w-full items-center gap-3 rounded-md px-3 hover:bg-sidebar-row-hover",
+                            "group relative flex min-w-0 gap-3 rounded-lg hover:bg-sidebar-row-hover",
+                            view === "list"
+                              ? "items-center px-3"
+                              : "flex-col border border-border bg-card p-4",
                             selection.has(page.id) && "bg-sidebar-row-selected",
                           )}
                         >
+                          <WorkspaceItemLink
+                            onOpen={(newTab) => openPage(page, newTab)}
+                            className={cn(
+                              "flex min-w-0 flex-1 gap-3 rounded-md text-left outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                              view === "list" ? "items-center py-3" : "flex-col pr-16",
+                              view === "card" && "min-h-32",
+                            )}
+                          >
+                            <FileTextIcon className="size-4 shrink-0 text-muted-foreground" />
+                            <span
+                              className={
+                                view === "list"
+                                  ? "min-w-0 flex-1 truncate text-sm"
+                                  : "line-clamp-3 text-sm font-medium leading-6"
+                              }
+                            >
+                              {page.title}
+                            </span>
+                          </WorkspaceItemLink>
                           <div
                             className={cn(
-                              "flex w-4 shrink-0 items-center justify-center opacity-0 group-hover:opacity-100 focus-within:opacity-100 pointer-coarse:opacity-100",
+                              "flex gap-3",
+                              view === "list"
+                                ? "shrink-0 items-center"
+                                : "flex-wrap items-center justify-between",
+                            )}
+                          >
+                            <span className="shrink-0 text-xs text-muted-foreground">
+                              {formatRelativeTimeLabel(page.updatedAt)}
+                            </span>
+                            <Badge variant="outline">
+                              <span className="max-w-32 truncate">
+                                {projects.find((project) => project.id === page.projectId)?.title ??
+                                  "No project"}
+                              </span>
+                            </Badge>
+                          </div>
+                          <div
+                            className={cn(
+                              "flex shrink-0 items-center gap-2 opacity-0 group-hover:opacity-100 focus-within:opacity-100 pointer-coarse:opacity-100",
                               selection.has(page.id) && "opacity-100",
+                              view !== "list" && "absolute top-3 right-3",
                             )}
                           >
                             <Checkbox
@@ -403,21 +459,30 @@ export function PagesPage() {
                                 })
                               }
                             />
+                            <Menu>
+                              <MenuTrigger
+                                render={
+                                  <Button
+                                    variant="ghost-muted"
+                                    size="icon-xs"
+                                    aria-label={`Options for ${page.title}`}
+                                  />
+                                }
+                              >
+                                <MoreHorizontalIcon />
+                              </MenuTrigger>
+                              <MenuPopup>
+                                <MenuItem onClick={() => openPage(page)}>Open page</MenuItem>
+                                <MenuItem onClick={() => openPage(page, true)}>
+                                  Open in new tab
+                                </MenuItem>
+                              </MenuPopup>
+                            </Menu>
                           </div>
-                          <WorkspaceItemLink
-                            type="button"
-                            onOpen={(newTab) => openPage(page, newTab)}
-                            className="flex min-w-0 flex-1 cursor-pointer items-center gap-3 rounded-md py-3 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                          >
-                            <FileTextIcon className="size-4 shrink-0 text-muted-foreground" />
-                            <span className="min-w-0 flex-1 truncate text-sm">{page.title}</span>
-                            <span className="shrink-0 text-xs text-muted-foreground">
-                              {formatRelativeTimeLabel(page.updatedAt)}
-                            </span>
-                          </WorkspaceItemLink>
                         </div>
-                      ))
-                    : null}
+                      ))}
+                    </CollectionRows>
+                  ) : null}
                   {!collapsed[group.key] && group.pages.length === 0 ? (
                     <p className="px-8 py-2 text-sm text-muted-foreground">No pages.</p>
                   ) : null}
@@ -426,7 +491,7 @@ export function PagesPage() {
               {groups.every((group) => group.pages.length === 0) ? (
                 <p className="px-3 text-sm text-muted-foreground">No matching pages.</p>
               ) : null}
-            </div>
+            </CollectionGroups>
           )}
         </WorkspacePageContainer>
       </div>

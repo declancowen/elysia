@@ -44,11 +44,13 @@ export const TASK_STATUS_LABELS: Record<WorkTaskStatus, string> = {
 };
 export function taskActivity(status: WorkTaskStatus) {
   if (status === "done") return { label: "Completed", description: "has completed this task" };
-  if (status === "in_progress") return { label: "Working", description: "is working on this task" };
+  if (status === "in_progress")
+    return { label: "In progress", description: "is working on this task" };
+  if (status === "canceled") return { label: "Canceled", description: "has canceled this task" };
   return { label: "Waiting", description: "is waiting to work on this task" };
 }
 export type TaskGrouping = "none" | "status" | "project";
-export type TaskView = "list" | "board" | "card";
+export type TaskView = import("../WorkspaceCollectionView").CollectionView;
 export type TaskSort = "updated" | "created" | "title";
 export interface TaskGroup {
   key: string;

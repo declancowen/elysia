@@ -30,14 +30,18 @@ const task = (
 });
 it("describes the assigned worker consistently in task content and properties", () => {
   expect(taskActivity("in_progress")).toEqual({
-    label: "Working",
+    label: "In progress",
     description: "is working on this task",
   });
   expect(taskActivity("done")).toEqual({
     label: "Completed",
     description: "has completed this task",
   });
-  for (const status of ["todo", "backlog", "canceled"] as const)
+  expect(taskActivity("canceled")).toEqual({
+    label: "Canceled",
+    description: "has canceled this task",
+  });
+  for (const status of ["todo", "backlog"] as const)
     expect(taskActivity(status)).toEqual({
       label: "Waiting",
       description: "is waiting to work on this task",

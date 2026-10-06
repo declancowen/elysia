@@ -1,5 +1,4 @@
 import { useDraggable, useDroppable } from "@dnd-kit/core";
-import { CSS } from "@dnd-kit/utilities";
 import type { ReactNode, MouseEventHandler } from "react";
 import type { WorkTaskSummary } from "@t3tools/contracts";
 import type { TaskGroup } from "./taskViews";
@@ -17,7 +16,7 @@ export function TaskDragRow({
   children: ReactNode;
   onContextMenu?: MouseEventHandler<HTMLDivElement>;
 }) {
-  const { setNodeRef, attributes, listeners, transform, isDragging } = useDraggable({
+  const { setNodeRef, attributes, listeners, isDragging } = useDraggable({
     id: task.id,
     data: { task },
   });
@@ -28,11 +27,10 @@ export function TaskDragRow({
       {...listeners}
       onContextMenu={onContextMenu}
       style={{
-        transform: CSS.Translate.toString(transform),
         touchAction: "none",
         marginInlineStart: depth * 24,
       }}
-      className={cn(className, isDragging && "relative z-20")}
+      className={cn(className, isDragging && "opacity-0")}
     >
       {children}
     </div>

@@ -23,7 +23,6 @@ import {
   MoreHorizontalIcon,
   SlidersHorizontalIcon,
 } from "../../icons";
-import { formatRelativeTimeLabel } from "../../timestampFormat";
 import { useConversationTabNavigation } from "../../hooks/useConversationTabNavigation";
 import { useConversationTabsStore } from "../../conversationTabsStore";
 import { WorkspaceItemTabs } from "../WorkspaceItemTabs";
@@ -131,7 +130,7 @@ export function PagesPage() {
           label: "Change project",
           icon: "workspace-project",
           children: [
-            { id: "project:none", label: "No project", icon: "workspace-project" },
+            { id: "project:none", label: "No Project", icon: "workspace-project" },
             ...projects.map((project) => ({
               id: `project:${project.id}`,
               label: project.title,
@@ -421,24 +420,16 @@ export function PagesPage() {
                               {page.title}
                             </span>
                           </WorkspaceItemLink>
-                          <div
-                            className={cn(
-                              "flex gap-3",
-                              view === "list"
-                                ? "shrink-0 items-center"
-                                : "flex-wrap items-center justify-between",
-                            )}
-                          >
-                            <span className="shrink-0 text-xs text-muted-foreground">
-                              {formatRelativeTimeLabel(page.updatedAt)}
-                            </span>
-                            <Badge variant="outline">
-                              <span className="max-w-32 truncate">
-                                {projects.find((project) => project.id === page.projectId)?.title ??
-                                  "No project"}
-                              </span>
-                            </Badge>
-                          </div>
+                          {!groupByProject ? (
+                            <div className="flex justify-end">
+                              <Badge variant="outline">
+                                <span className="max-w-32 truncate">
+                                  {projects.find((project) => project.id === page.projectId)
+                                    ?.title ?? "No Project"}
+                                </span>
+                              </Badge>
+                            </div>
+                          ) : null}
                           <div
                             className={cn(
                               "flex shrink-0 items-center gap-2 opacity-0 group-hover:opacity-100 focus-within:opacity-100 pointer-coarse:opacity-100",

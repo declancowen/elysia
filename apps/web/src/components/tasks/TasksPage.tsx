@@ -1,6 +1,8 @@
+import { createPortal } from "react-dom";
 import { formatCalendarDate } from "@t3tools/shared/dateFormat";
 import {
   DndContext,
+  DragOverlay,
   pointerWithin,
   rectIntersection,
   PointerSensor,
@@ -104,6 +106,7 @@ import { toastManager, stackedThreadToast } from "../ui/toast";
 import { AgentAvatar } from "../agents/AgentAvatar";
 import {
   groupTasks,
+  taskMetadata,
   visibleTasks,
   TASK_STATUS_LABELS,
   taskActivity,
@@ -179,6 +182,7 @@ const groupingOptions = [
   { value: "none", label: "No grouping" },
   { value: "status", label: "Status" },
   { value: "project", label: "Project" },
+  { value: "parent", label: "Parent" },
 ];
 function report(error: unknown) {
   toastManager.add(
@@ -233,6 +237,7 @@ export function TasksPage() {
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [selection, setSelection] = useState<Set<WorkTaskId>>(new Set());
   const [bulkPending, setBulkPending] = useState(false);
+  const [draggedTask, setDraggedTask] = useState<WorkTaskSummary | null>(null);
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
     useSensor(KeyboardSensor),
@@ -285,9 +290,18 @@ export function TasksPage() {
       children.set(task.parentTaskId, siblings);
     }
   }
-  const groups = groupTasks(rootRows, grouping, subGrouping, projects, hideEmpty);
+  const allTasks = tasksQuery.data?.tasks ?? [];
+  const parents = allTasks.filter((task) => !task.parentTaskId);
+  const groups = groupTasks(
+    grouping === "none" || !showSubTasks ? rootRows : taskRows,
+    grouping,
+    subGrouping,
+    projects,
+    hideEmpty,
+    parents,
+  );
   const parentOptions = [
-    { value: "none", label: "No parent" },
+    { value: "none", label: "No Parent" },
     ...(tasksQuery.data?.tasks ?? [])
       .filter((task) => task.id !== selectedId && !task.parentTaskId)
       .map((task) => ({ value: task.id, label: task.title })),
@@ -298,10 +312,12 @@ export function TasksPage() {
   ): { task: WorkTaskSummary; depth: number }[] =>
     rows.flatMap((task) => [
       { task, depth },
-      ...(showSubTasks ? displayRows(children.get(task.id) ?? [], depth + 1) : []),
+      ...(showSubTasks && grouping === "none"
+        ? displayRows(children.get(task.id) ?? [], depth + 1)
+        : []),
     ]);
   const projectOptions = [
-    { value: "none", label: "No project" },
+    { value: "none", label: "No Project" },
     ...projects.map((project) => ({ value: project.id, label: project.title })),
   ];
   const agentOptions = [
@@ -461,152 +477,160 @@ export function TasksPage() {
     setBulkPending(false);
     if (failures.length) report(new Error(failures.join("\n")));
   };
-  const renderRows = (rows: WorkTaskSummary[]) => (
+  const renderRows = (rows: WorkTaskSummary[], drop: TaskGroup["drop"]) => (
     <CollectionRows view={view}>
-      {displayRows(rows).map(({ task, depth }) => (
-        <TaskDragRow
-          key={task.id}
-          task={task}
-          depth={view === "list" ? 0 : depth}
-          onContextMenu={(event) => {
-            event.preventDefault();
-            void showSelectionMenu(task, { x: event.clientX, y: event.clientY }).catch(report);
-          }}
-          className={cn(
-            "group relative cursor-pointer overflow-hidden rounded-lg bg-card hover:bg-sidebar-row-hover",
-            view === "list"
-              ? "flex h-10 items-center gap-3 overflow-visible rounded-md bg-transparent px-3 py-2"
-              : "border border-border",
-            view === "card" && "flex h-72 flex-col",
-            selection.has(task.id) && "bg-sidebar-row-selected",
-          )}
-        >
-          {view === "list" && depth > 0 ? (
-            <span
-              aria-hidden
-              className={cn(
-                "pointer-events-none absolute bottom-[calc(50%-0.5px)] left-[calc(--spacing(12)-0.5px)] w-3 rounded-bl-md border-b border-l border-border",
-                children.get(task.parentTaskId!)?.[0]?.id === task.id ? "-top-4" : "-top-7",
-              )}
-            />
-          ) : null}
-          {view === "card" ? (
-            <WorkspaceItemLink
-              aria-label={`Open ${task.title}`}
-              onOpen={(newTab) => openTask(task, newTab)}
-              className="min-h-0 flex-1 overflow-hidden bg-muted/20 p-5 pr-20 text-left text-sm text-muted-foreground"
-            >
-              <div className="pointer-events-none line-clamp-5">
-                <ChatMarkdown text={task.descriptionPreview} cwd={undefined} />
-              </div>
-            </WorkspaceItemLink>
-          ) : null}
-          <WorkspaceItemLink
-            onOpen={(newTab) => openTask(task, newTab)}
+      {displayRows(rows).map(({ task, depth }) => {
+        const metadata = taskMetadata(task, drop, projects, allTasks);
+        const pills = Object.entries(metadata).filter((entry) => entry[1] !== null);
+        return (
+          <TaskDragRow
+            key={task.id}
+            task={task}
+            depth={view === "list" ? 0 : depth}
+            onContextMenu={(event) => {
+              event.preventDefault();
+              void showSelectionMenu(task, { x: event.clientX, y: event.clientY }).catch(report);
+            }}
             className={cn(
-              "flex min-w-0 gap-3 text-left",
-              view === "list" ? "flex-1 items-center" : "w-full items-start p-4",
-              view === "card" && "min-h-16 shrink-0 border-t border-border",
-            )}
-            style={view === "list" ? { marginInlineStart: depth * 24 } : undefined}
-          >
-            {view === "list" ? <TaskStatusIcon status={task.status} /> : null}
-            <span
-              className={cn(
-                view === "list"
-                  ? "truncate text-sm"
-                  : "line-clamp-3 pr-16 text-sm font-medium leading-6",
-              )}
-            >
-              {task.title}
-            </span>
-          </WorkspaceItemLink>
-          <div
-            className={
+              "group relative cursor-pointer overflow-hidden rounded-lg bg-card hover:bg-sidebar-row-hover",
               view === "list"
-                ? "flex shrink-0 items-center gap-3"
-                : "mt-auto flex shrink-0 flex-col gap-2 border-t border-border px-4 py-3"
-            }
-          >
-            {task.assigneeProjectId ? (
-              <span className="min-w-0 text-sm">
-                {agentOptions.find((option) => option.value === task.assigneeProjectId)?.label ??
-                  "Unavailable agent"}
-              </span>
-            ) : null}
-            <div className="flex flex-wrap justify-end gap-2">
-              <Badge variant="outline">
-                {task.assigneeProjectId
-                  ? taskActivity(task.status).label
-                  : TASK_STATUS_LABELS[task.status]}
-              </Badge>
-              <Badge variant="outline">
-                <span className="max-w-32 truncate">
-                  {projects.find((project) => project.id === task.projectId)?.title ?? "No project"}
-                </span>
-              </Badge>
-            </div>
-          </div>
-          <div
-            className={cn(
-              "flex shrink-0 items-center gap-2 opacity-0 group-hover:opacity-100 focus-within:opacity-100 pointer-coarse:opacity-100",
-              selection.has(task.id) && "opacity-100",
-              view !== "list" && "absolute top-3 right-3 z-10",
+                ? "flex h-10 items-center gap-3 overflow-visible rounded-md bg-transparent px-3 py-2"
+                : "border border-border",
+              view === "card" && "flex flex-col",
+              selection.has(task.id) && "bg-sidebar-row-selected",
             )}
-            onPointerDown={(event) => event.stopPropagation()}
-            onKeyDown={(event) => event.stopPropagation()}
           >
-            <Checkbox
-              aria-label={`Select ${task.title}`}
-              checked={selection.has(task.id)}
-              disabled={bulkPending}
-              onCheckedChange={(checked) =>
-                setSelection((current) => {
-                  const next = new Set(current);
-                  if (checked) next.add(task.id);
-                  else next.delete(task.id);
-                  return next;
-                })
-              }
-            />
-            <Menu>
-              <MenuTrigger
-                render={
-                  <Button
-                    variant="ghost-muted"
-                    size="icon-xs"
-                    aria-label={`Options for ${task.title}`}
-                  />
+            {view === "list" && depth > 0 ? (
+              <span
+                aria-hidden
+                className={cn(
+                  "pointer-events-none absolute bottom-[calc(50%-0.5px)] left-[calc(--spacing(12)-0.5px)] w-3 rounded-bl-md border-b border-l border-border",
+                  children.get(task.parentTaskId!)?.[0]?.id === task.id ? "-top-4" : "-top-7",
+                )}
+              />
+            ) : null}
+            {view === "card" ? (
+              <WorkspaceItemLink
+                aria-label={`Open ${task.title}`}
+                onOpen={(newTab) => openTask(task, newTab)}
+                className="h-40 shrink-0 overflow-hidden bg-muted/20 p-5 pr-20 text-left text-sm text-muted-foreground"
+              >
+                <div className="pointer-events-none line-clamp-5">
+                  <ChatMarkdown text={task.descriptionPreview} cwd={undefined} />
+                </div>
+              </WorkspaceItemLink>
+            ) : null}
+            <WorkspaceItemLink
+              onOpen={(newTab) => openTask(task, newTab)}
+              className={cn(
+                "flex min-w-0 gap-3 text-left",
+                view === "list" ? "flex-1 items-center" : "w-full items-start p-4",
+                view === "card" && "min-h-16 shrink-0 border-t border-border",
+              )}
+              style={view === "list" ? { marginInlineStart: depth * 24 } : undefined}
+            >
+              {view === "list" && metadata.status ? <TaskStatusIcon status={task.status} /> : null}
+              <span
+                className={cn(
+                  view === "list"
+                    ? "truncate text-sm"
+                    : "line-clamp-3 pr-16 text-sm font-medium leading-6",
+                )}
+              >
+                {task.title}
+              </span>
+            </WorkspaceItemLink>
+            {task.assigneeProjectId ? (
+              <div
+                className={
+                  view === "list"
+                    ? "flex shrink-0 items-center gap-3"
+                    : "flex shrink-0 items-center justify-between gap-3 border-t border-border px-4 py-3"
                 }
               >
-                <MoreHorizontalIcon className="size-4" />
-              </MenuTrigger>
-              <MenuPopup>
-                <MenuItem onClick={() => openTask(task)}>Open task</MenuItem>
-                <MenuItem onClick={() => openTask(task, true)}>
-                  <SquareArrowOutUpRightIcon />
-                  Open in new tab
-                </MenuItem>
-                {!task.parentTaskId ? (
-                  <MenuItem
-                    onClick={() => {
-                      setCreatingParent(task.id);
-                      setCreating(true);
-                    }}
-                  >
-                    <PlusIcon />
-                    Add subtask
+                <span className="min-w-0 text-sm">
+                  {agentOptions.find((option) => option.value === task.assigneeProjectId)?.label ??
+                    "Unavailable agent"}
+                </span>
+                <Badge variant="outline">{taskActivity(task.status).label}</Badge>
+              </div>
+            ) : null}
+            {pills.length ? (
+              <div
+                className={
+                  view === "list"
+                    ? "flex shrink-0 flex-wrap justify-end gap-2"
+                    : "flex shrink-0 flex-wrap justify-end gap-2 border-t border-border px-4 py-3"
+                }
+              >
+                {pills.map(([kind, label]) => (
+                  <Badge key={kind} variant="outline">
+                    <span className="max-w-32 truncate">{label}</span>
+                  </Badge>
+                ))}
+              </div>
+            ) : null}
+            <div
+              className={cn(
+                "flex shrink-0 items-center gap-2 opacity-0 group-hover:opacity-100 focus-within:opacity-100 pointer-coarse:opacity-100",
+                selection.has(task.id) && "opacity-100",
+                view !== "list" && "absolute top-3 right-3 z-10",
+              )}
+              onPointerDown={(event) => event.stopPropagation()}
+              onKeyDown={(event) => event.stopPropagation()}
+            >
+              <Checkbox
+                aria-label={`Select ${task.title}`}
+                checked={selection.has(task.id)}
+                disabled={bulkPending}
+                onCheckedChange={(checked) =>
+                  setSelection((current) => {
+                    const next = new Set(current);
+                    if (checked) next.add(task.id);
+                    else next.delete(task.id);
+                    return next;
+                  })
+                }
+              />
+              <Menu>
+                <MenuTrigger
+                  render={
+                    <Button
+                      variant="ghost-muted"
+                      size="icon-xs"
+                      aria-label={`Options for ${task.title}`}
+                    />
+                  }
+                >
+                  <MoreHorizontalIcon className="size-4" />
+                </MenuTrigger>
+                <MenuPopup>
+                  <MenuItem onClick={() => openTask(task)}>Open task</MenuItem>
+                  <MenuItem onClick={() => openTask(task, true)}>
+                    <SquareArrowOutUpRightIcon />
+                    Open in new tab
                   </MenuItem>
-                ) : null}
-                <MenuItem onClick={() => void remove(task)}>
-                  <Trash2Icon />
-                  Delete task
-                </MenuItem>
-              </MenuPopup>
-            </Menu>
-          </div>
-        </TaskDragRow>
-      ))}
+                  {!task.parentTaskId ? (
+                    <MenuItem
+                      onClick={() => {
+                        setCreatingParent(task.id);
+                        setCreating(true);
+                      }}
+                    >
+                      <PlusIcon />
+                      Add subtask
+                    </MenuItem>
+                  ) : null}
+                  <MenuItem onClick={() => void remove(task)}>
+                    <Trash2Icon />
+                    Delete task
+                  </MenuItem>
+                </MenuPopup>
+              </Menu>
+            </div>
+          </TaskDragRow>
+        );
+      })}
     </CollectionRows>
   );
   const renderGroup = (
@@ -664,6 +688,8 @@ export function TasksPage() {
             )}
             {group.key.startsWith("project:") ? (
               <FolderClosedIcon className="size-4" />
+            ) : group.key.startsWith("parent:") ? (
+              <TaskEdit02Icon className="size-4" />
             ) : group.key.startsWith("status:") ? (
               <TaskStatusIcon status={group.key.slice(7) as WorkTaskStatus} />
             ) : null}
@@ -701,7 +727,7 @@ export function TasksPage() {
               {orderedChildren.map((child) => renderGroup(child, drop, key))}
             </div>
           ) : (
-            renderRows(group.tasks)
+            renderRows(group.tasks, drop)
           ))}
       </TaskDropGroup>
     );
@@ -947,8 +973,15 @@ export function TasksPage() {
                     (a, b) => String(b.id).split("/").length - String(a.id).split("/").length,
                   );
                 }}
+                onDragStart={({ active }) => setDraggedTask(active.data.current?.task ?? null)}
+                onDragCancel={() => setDraggedTask(null)}
                 onDragEnd={({ active, over }) => {
-                  if (over?.data.current?.drop && active.data.current?.task)
+                  setDraggedTask(null);
+                  if (
+                    over?.data.current?.drop &&
+                    active.data.current?.task &&
+                    over.data.current.drop.parentTaskId !== active.id
+                  )
                     update({
                       id: active.data.current.task.id,
                       ...over.data.current.drop,
@@ -960,6 +993,16 @@ export function TasksPage() {
                     {orderGroups(groups, groupOrder).map((group) => renderGroup(group))}
                   </CollectionGroups>
                 ) : null}
+                {createPortal(
+                  <DragOverlay dropAnimation={null}>
+                    {draggedTask ? (
+                      <div className="pointer-events-none rounded-lg border border-border bg-card p-4 text-sm shadow-lg">
+                        {draggedTask.title}
+                      </div>
+                    ) : null}
+                  </DragOverlay>,
+                  document.body,
+                )}
               </DndContext>
               {tasksQuery.data && !tasksQuery.isPending && !taskRows.length ? (
                 <Empty>

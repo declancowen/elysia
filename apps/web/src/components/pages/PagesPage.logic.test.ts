@@ -11,7 +11,7 @@ const row = (title: string, project: ProjectId | null, time: string): PageSummar
   revision: 1,
 });
 describe("page grouping", () => {
-  it("sorts matching pages, grouping missing project links into No project", () => {
+  it("sorts matching pages, grouping missing project links into No Project", () => {
     const pages = [
       row("Zulu", null, "2026-10-01T00:00:00.000Z"),
       row("Alpha", projectId, "2026-10-02T00:00:00.000Z"),
@@ -19,7 +19,7 @@ describe("page grouping", () => {
     ];
     const projects = [{ id: projectId, title: "Product" }];
     const groups = groupPages(pages, projects, { search: "", groupByProject: true, sort: "title" });
-    expect(groups.map((group) => group.title)).toEqual(["Product", "No project"]);
+    expect(groups.map((group) => group.title)).toEqual(["Product", "No Project"]);
     expect(groups[1]?.pages.map((page) => page.title)).toEqual(["Beta", "Zulu"]);
     expect(
       groupPages(pages, projects, {
@@ -58,9 +58,9 @@ describe("page grouping", () => {
         hideEmpty: false,
         groupDescending: true,
       }).map((group) => group.title),
-    ).toEqual(["Research", "Product", "No project"]);
+    ).toEqual(["Research", "Product", "No Project"]);
   });
-  it("keeps orphaned pages in No project and preserves linked projects", () => {
+  it("keeps orphaned pages in No Project and preserves linked projects", () => {
     const projects = [
       { id: projectId, title: "Product" },
       { id: ProjectId.make("project-b"), title: "Research" },
@@ -76,7 +76,7 @@ describe("page grouping", () => {
       sort: "title",
       hideEmpty: false,
     });
-    expect(groups.map((group) => group.title)).toEqual(["Product", "Research", "No project"]);
+    expect(groups.map((group) => group.title)).toEqual(["Product", "Research", "No Project"]);
     expect(groups[0]?.pages.map((page) => page.title)).toEqual(["Linked"]);
     expect(groups[2]?.pages.map((page) => page.title)).toEqual(["Orphan", "Unlinked"]);
   });

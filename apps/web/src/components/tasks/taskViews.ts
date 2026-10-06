@@ -49,7 +49,7 @@ export function taskActivity(status: WorkTaskStatus) {
   if (status === "canceled") return { label: "Canceled", description: "has canceled this task" };
   return { label: "Waiting", description: "is waiting to work on this task" };
 }
-export type TaskGrouping = "none" | "status" | "project";
+export type TaskGrouping = "none" | "status" | "project" | "parent";
 export type TaskView = import("../WorkspaceCollectionView").CollectionView;
 export type TaskSort = "updated" | "created" | "title";
 export interface TaskGroup {
@@ -57,7 +57,7 @@ export interface TaskGroup {
   label: string;
   tasks: WorkTaskSummary[];
   children: TaskGroup[];
-  drop: Pick<WorkTaskSaveInput, "status" | "projectId">;
+  drop: Pick<WorkTaskSaveInput, "status" | "projectId" | "parentTaskId">;
 }
 export function groupTasks(
   tasks: readonly WorkTaskSummary[],
@@ -65,22 +65,32 @@ export function groupTasks(
   subGrouping: TaskGrouping,
   projects: readonly { id: WorkTaskSummary["projectId"]; title: string }[],
   hideEmpty: boolean,
+  parents: readonly Pick<WorkTaskSummary, "id" | "title">[] = tasks.filter(
+    (task) => !task.parentTaskId,
+  ),
 ): TaskGroup[] {
   if (grouping === "none")
     return [{ key: "all", label: "All tasks", tasks: [...tasks], children: [], drop: {} }];
   const projectIds = new Set(projects.map((project) => project.id));
+  const parentIds = new Set(parents.map((task) => task.id));
   const options =
     grouping === "status"
       ? Object.entries(TASK_STATUS_LABELS)
-      : [...projects.map((p) => [p.id!, p.title]), ["", "No project"]];
+      : grouping === "parent"
+        ? [...parents.map((task) => [task.id, task.title]), ["", "No Parent"]]
+        : [...projects.map((p) => [p.id!, p.title]), ["", "No Project"]];
   return options.flatMap(([value, label]) => {
     const members = tasks.filter(
       (task) =>
         (grouping === "status"
           ? task.status
-          : projectIds.has(task.projectId)
-            ? task.projectId
-            : "") === value,
+          : grouping === "parent"
+            ? task.parentTaskId && parentIds.has(task.parentTaskId)
+              ? task.parentTaskId
+              : ""
+            : projectIds.has(task.projectId)
+              ? task.projectId
+              : "") === value,
     );
     if (hideEmpty && !members.length) return [];
     return [
@@ -90,16 +100,38 @@ export function groupTasks(
         tasks: members,
         children:
           subGrouping !== "none" && subGrouping !== grouping
-            ? groupTasks(members, subGrouping, "none", projects, hideEmpty)
+            ? groupTasks(members, subGrouping, "none", projects, hideEmpty, parents)
             : [],
         drop:
           grouping === "status"
             ? { status: value as WorkTaskStatus }
-            : { projectId: projects.find((p) => p.id === value)?.id ?? null },
+            : grouping === "parent"
+              ? { parentTaskId: parents.find((task) => task.id === value)?.id ?? null }
+              : { projectId: projects.find((p) => p.id === value)?.id ?? null },
       },
     ];
   });
 }
+/** Metadata already expressed by either group level is hidden for every descendant. */
+export function taskMetadata(
+  task: WorkTaskSummary,
+  group: TaskGroup["drop"],
+  projects: readonly { id: WorkTaskSummary["projectId"]; title: string }[],
+  parents: readonly Pick<WorkTaskSummary, "id" | "title">[],
+) {
+  return {
+    status: group.status === undefined ? TASK_STATUS_LABELS[task.status] : null,
+    project:
+      group.projectId === undefined
+        ? (projects.find((project) => project.id === task.projectId)?.title ?? "No Project")
+        : null,
+    parent:
+      group.parentTaskId === undefined && task.parentTaskId
+        ? (parents.find((parent) => parent.id === task.parentTaskId)?.title ?? "No Parent")
+        : null,
+  };
+}
+
 export function visibleTasks(
   tasks: readonly WorkTaskSummary[],
   options: { search: string; status: string; project: string; sort: TaskSort },

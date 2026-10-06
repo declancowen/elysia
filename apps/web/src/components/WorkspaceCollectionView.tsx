@@ -60,7 +60,7 @@ export function CollectionRows({ view, children }: { view: CollectionView; child
     <div
       className={
         view === "card"
-          ? "grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-4"
+          ? "grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] items-start gap-4"
           : "flex flex-col gap-2"
       }
     >

@@ -8,7 +8,14 @@ import {
   type WorkTaskSummary,
 } from "@t3tools/contracts";
 import { formatComposerContextReference } from "@t3tools/shared/composerContextReferences";
-import { groupTasks, visibleTasks, taskActivity, taskResponses, isTaskRequest } from "./taskViews";
+import {
+  groupTasks,
+  taskMetadata,
+  visibleTasks,
+  taskActivity,
+  taskResponses,
+  isTaskRequest,
+} from "./taskViews";
 const task = (
   id: string,
   projectId: WorkTaskSummary["projectId"],
@@ -55,7 +62,7 @@ it("keeps unlinked and deleted-project tasks visible, groups statuses within pro
     task("TASK-3", ProjectId.make("deleted"), "todo"),
   ];
   const groups = groupTasks(tasks, "project", "status", [{ id: projectId, title: "Work" }], true);
-  expect(groups.map((g) => g.label)).toEqual(["Work", "No project"]);
+  expect(groups.map((g) => g.label)).toEqual(["Work", "No Project"]);
   expect(groups[1]?.tasks.map((t) => t.id)).toEqual(["TASK-2", "TASK-3"]);
   expect(groups[0]?.children[0]?.drop).toEqual({ status: "todo" });
   expect(groupTasks(tasks, "status", "none", [], false)).toHaveLength(5);
@@ -64,6 +71,60 @@ it("keeps unlinked and deleted-project tasks visible, groups statuses within pro
       (t) => t.id,
     ),
   ).toEqual(["TASK-1", "TASK-3"]);
+});
+
+it("places subtasks in their own status and parent groups without duplicating them", () => {
+  const parent = task("TASK-1", null, "todo");
+  const child = { ...task("TASK-2", null, "done"), parentTaskId: parent.id };
+  const tasks = [parent, child];
+  const groups = groupTasks(tasks, "parent", "status", [], true);
+  expect(groups.map((group) => [group.label, group.tasks.map((task) => task.id)])).toEqual([
+    [parent.title, [child.id]],
+    ["No Parent", [parent.id]],
+  ]);
+  expect(groups[0]?.drop).toEqual({ parentTaskId: parent.id });
+  expect(groups[0]?.children[0]?.drop).toEqual({ status: "done" });
+  expect(groups[1]?.drop).toEqual({ parentTaskId: null });
+  expect(groupTasks(tasks, "status", "none", [], true).map((group) => group.tasks)).toEqual([
+    [parent],
+    [child],
+  ]);
+});
+
+it("keeps task status separate from agent activity and hides metadata supplied by any group level", () => {
+  const projectId = ProjectId.make("project-a");
+  const projects = [{ id: projectId, title: "Work" }];
+  const parent = task("TASK-1", projectId, "todo");
+  const child = { ...task("TASK-2", projectId, "done"), parentTaskId: parent.id };
+  expect(taskMetadata(child, {}, projects, [parent])).toEqual({
+    status: "Done",
+    project: "Work",
+    parent: parent.title,
+  });
+  expect(taskActivity(child.status).label).toBe("Completed");
+  const groups = groupTasks([child], "project", "status", projects, true, [parent]);
+  expect(
+    taskMetadata(child, { ...groups[0]?.drop, ...groups[0]?.children[0]?.drop }, projects, [
+      parent,
+    ]),
+  ).toEqual({ status: null, project: null, parent: parent.title });
+  const parentGroups = groupTasks([child], "parent", "status", projects, true, [parent]);
+  expect(
+    taskMetadata(
+      child,
+      { ...parentGroups[0]?.drop, ...parentGroups[0]?.children[0]?.drop },
+      projects,
+      [parent],
+    ),
+  ).toEqual({ status: null, project: "Work", parent: null });
+  expect(taskMetadata(task("TASK-3", null, "todo"), {}, [], [])).toEqual({
+    status: "Todo",
+    project: "No Project",
+    parent: null,
+  });
+  expect(
+    taskMetadata(parent, { status: "todo", projectId: null, parentTaskId: null }, [], []),
+  ).toEqual({ status: null, project: null, parent: null });
 });
 
 it("shows only responses to the latest task run and leaves channel resolution to its delegation links", () => {

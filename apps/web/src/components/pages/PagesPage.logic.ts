@@ -26,14 +26,14 @@ export function groupPages(
   if (options.hideEmpty === false) {
     for (const project of projects)
       groups.set(project.id, { key: project.id, title: project.title, pages: [] });
-    groups.set("none", { key: "none", title: "No project", pages: [] });
+    groups.set("none", { key: "none", title: "No Project", pages: [] });
   }
   for (const page of rows) {
     const project = page.projectId ? projectsById.get(page.projectId) : undefined;
     const key = project?.id ?? "none";
     let group = groups.get(key);
     if (!group) {
-      group = { key, title: project?.title ?? "No project", pages: [] };
+      group = { key, title: project?.title ?? "No Project", pages: [] };
       groups.set(key, group);
     }
     group.pages.push(page);

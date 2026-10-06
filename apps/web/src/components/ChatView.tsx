@@ -4003,14 +4003,16 @@ export default function ChatView(props: ChatViewProps) {
   const [dockedDraftHeroThreadKey, setDockedDraftHeroThreadKey] = useState<string | null>(null);
   const draftHeroDockRequested =
     activeThreadKey !== null && dockedDraftHeroThreadKey === activeThreadKey;
-  const isDraftHeroState = resolveDraftHeroState({
-    isLocalDraftThread,
-    hasTimelineEntries: timelineEntries.length > 0,
-    isWorking,
-    draftHeroDockRequested,
-    backgroundSubmissionPending,
-    hasWorktreeSetupCard: worktreeSetup !== null,
-  });
+  const isDraftHeroState =
+    !embedded &&
+    resolveDraftHeroState({
+      isLocalDraftThread,
+      hasTimelineEntries: timelineEntries.length > 0,
+      isWorking,
+      draftHeroDockRequested,
+      backgroundSubmissionPending,
+      hasWorktreeSetupCard: worktreeSetup !== null,
+    });
   const draftHeroTransition = useDraftHeroLayoutTransition(
     isDraftHeroState,
     panelAnimationsActive,
@@ -10916,7 +10918,11 @@ ${formatComposerContextReference({
       ref={setWorkspaceLayoutElement}
       className={cn(
         "relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden",
-        embedded ? "bg-transparent" : SINGLE_PROVIDER_UI ? "bg-sidebar" : "bg-background",
+        embedded
+          ? "bg-transparent [&_[data-timeline-loading]]:bg-transparent"
+          : SINGLE_PROVIDER_UI
+            ? "bg-sidebar"
+            : "bg-background",
       )}
     >
       <Dialog

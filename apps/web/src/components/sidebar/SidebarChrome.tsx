@@ -1,3 +1,8 @@
+import { useConversationTabsStore, type ConversationTabTarget } from "../../conversationTabsStore";
+import { useConversationTabNavigation } from "../../hooks/useConversationTabNavigation";
+import { useConversationRowClick } from "../../hooks/useConversationRowClick";
+import { toastManager } from "../ui/toast";
+import { readLocalApi } from "../../localApi";
 import { useConversationSectionNavigation } from "../../hooks/useConversationTabNavigation";
 import { SINGLE_PROVIDER_UI } from "@t3tools/contracts";
 import {
@@ -400,13 +405,22 @@ function AppRailButton({
   active = false,
   onClick,
   onIntent,
+  tabTarget,
 }: {
   label: string;
   icon: ReactNode;
   active?: boolean;
   onClick: () => void;
   onIntent?: () => void;
+  tabTarget?: ConversationTabTarget | undefined;
 }) {
+  const navigateTab = useConversationTabNavigation();
+  const openInTab = () => {
+    if (!tabTarget) return onClick();
+    useConversationTabsStore.getState().open(tabTarget, true);
+    void navigateTab(tabTarget);
+  };
+  const click = useConversationRowClick(onClick, openInTab);
   return (
     <Tooltip>
       <TooltipTrigger
@@ -416,7 +430,25 @@ function AppRailButton({
             aria-current={active ? "page" : undefined}
             size="icon-xl"
             variant={active ? "secondary" : "ghost-muted"}
-            onClick={onClick}
+            {...(tabTarget ? click : { onClick })}
+            onContextMenu={
+              tabTarget
+                ? (event) => {
+                    event.preventDefault();
+                    void readLocalApi()
+                      ?.contextMenu.show([{ id: "open-tab", label: "Open in new tab" }], {
+                        x: event.clientX,
+                        y: event.clientY,
+                      })
+                      .then((action) => {
+                        if (action === "open-tab") openInTab();
+                      })
+                      .catch(() =>
+                        toastManager.add({ type: "error", title: "Could not open the tab menu" }),
+                      );
+                  }
+                : undefined
+            }
             onPointerEnter={onIntent}
             onFocus={onIntent}
           >
@@ -431,6 +463,7 @@ function AppRailButton({
 
 export const AppNavigationRail = memo(function AppNavigationRail() {
   const navigate = useNavigate();
+  const environmentId = usePrimaryEnvironmentId();
   const router = useRouter();
   const { setOpen } = useSidebar();
   const navigateToMainApp = useNavigateToMainApp();
@@ -473,6 +506,7 @@ export const AppNavigationRail = memo(function AppNavigationRail() {
         />
         <AppRailButton
           label="Agents"
+          tabTarget={{ kind: "surface", path: "/agents", title: "Agents" }}
           onIntent={() => void router.preloadRoute({ to: "/agents", search: {} })}
           icon={<BotIcon className="size-5" />}
           active={agentsActive}
@@ -485,6 +519,9 @@ export const AppNavigationRail = memo(function AppNavigationRail() {
         />
         <AppRailButton
           label="Pages"
+          tabTarget={
+            environmentId ? { kind: "page", environmentId, id: null, title: "Pages" } : undefined
+          }
           icon={<Files01Icon className="size-5" />}
           active={pathname === "/pages" || pathname.startsWith("/pages/")}
           onIntent={() => void router.preloadRoute({ to: "/pages" })}
@@ -496,6 +533,9 @@ export const AppNavigationRail = memo(function AppNavigationRail() {
         />
         <AppRailButton
           label="Tasks"
+          tabTarget={
+            environmentId ? { kind: "task", environmentId, id: null, title: "Tasks" } : undefined
+          }
           icon={<TaskEdit02Icon className="size-5" />}
           active={pathname === "/tasks"}
           onIntent={() => void router.preloadRoute({ to: "/tasks", search: {} })}
@@ -507,21 +547,25 @@ export const AppNavigationRail = memo(function AppNavigationRail() {
         />
         <AppRailButton
           label="Scheduled"
+          tabTarget={{ kind: "scheduled", selection: { kind: "empty" } }}
           onIntent={() => void router.preloadRoute({ to: "/settings/scheduled-tasks" })}
           icon={<ClockIcon className="size-5" />}
           active={pathname === "/settings/scheduled-tasks"}
           onClick={() => {
             setAgentSidebarActive(false);
+            if (navigateToTabSection("scheduled")) return;
             void navigate({ to: "/settings/scheduled-tasks" });
           }}
         />
         <AppRailButton
           label="Projects"
+          tabTarget={{ kind: "surface", path: "/projects", title: "Projects" }}
           onIntent={() => void router.preloadRoute({ to: "/projects" })}
           icon={<FolderIcon className="size-5" />}
           active={pathname === "/projects" || pathname.startsWith("/projects/")}
           onClick={() => {
             setAgentSidebarActive(false);
+            if (navigateToTabSection("projects")) return;
             void navigate({ to: "/projects" });
           }}
         />
@@ -547,11 +591,13 @@ export const AppNavigationRail = memo(function AppNavigationRail() {
       <div aria-label="Workspace controls" className="flex flex-col items-center gap-2">
         <AppRailButton
           label="Settings"
+          tabTarget={{ kind: "surface", path: "/settings/general", title: "Settings" }}
           onIntent={() => void router.preloadRoute({ to: "/settings" })}
           icon={<SettingsIcon className="size-5" />}
           active={pathname.startsWith("/settings") && pathname !== "/settings/scheduled-tasks"}
           onClick={() => {
             setAgentSidebarActive(false);
+            if (navigateToTabSection("settings")) return;
             void navigate({ to: "/settings" });
           }}
         />
@@ -566,11 +612,13 @@ export const AppNavigationRail = memo(function AppNavigationRail() {
         />
         <AppRailButton
           label="Stats"
+          tabTarget={{ kind: "surface", path: "/usage", title: "Stats" }}
           onIntent={() => void router.preloadRoute({ to: "/usage" })}
           icon={<ChartNoAxesColumnIncreasingIcon className="size-5" />}
           active={pathname === "/usage"}
           onClick={() => {
             setAgentSidebarActive(false);
+            if (navigateToTabSection("stats")) return;
             void navigate({ to: "/usage" });
           }}
         />

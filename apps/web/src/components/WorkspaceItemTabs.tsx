@@ -1,13 +1,10 @@
 import { useEffect } from "react";
-import { createPortal } from "react-dom";
 import { useConversationTabsStore, type WorkspaceItemTabTarget } from "../conversationTabsStore";
 import { useMediaQuery } from "../hooks/useMediaQuery";
-import { useAppTopbarHost } from "./AppTopbar";
 import { ConversationTabs } from "./chat/ConversationTabs";
 
 /** Register direct links and keep tab titles current after editing. */
 export function WorkspaceItemTabs({ target }: { target: WorkspaceItemTabTarget | null }) {
-  const host = useAppTopbarHost();
   const desktop = useMediaQuery("(min-width: 768px)");
   useEffect(() => {
     if (!target) return;
@@ -33,5 +30,5 @@ export function WorkspaceItemTabs({ target }: { target: WorkspaceItemTabTarget |
       state.tabs.find((tab) => tab.id === state.activeId)?.target.kind !== target.kind,
     );
   }, [target]);
-  return desktop && host ? createPortal(<ConversationTabs />, host) : <ConversationTabs />;
+  return desktop ? null : <ConversationTabs />;
 }

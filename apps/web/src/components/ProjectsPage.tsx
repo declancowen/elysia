@@ -7,9 +7,11 @@ import {
   isAtomCommandInterrupted,
   squashAtomCommandFailure,
 } from "@t3tools/client-runtime/state/runtime";
-import { Link, useNavigate } from "@tanstack/react-router";
+import { Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 
+import { useConversationTabsStore } from "../conversationTabsStore";
+import { useConversationTabNavigation } from "../hooks/useConversationTabNavigation";
 import { openCommandPalette } from "../commandPaletteBus";
 import { useNewThreadHandler } from "../hooks/useHandleNewThread";
 import { useEscapeToGoBack } from "../hooks/useNavigateBack";
@@ -38,6 +40,7 @@ import {
   useServerConfigs,
   useThreadShells,
 } from "../state/entities";
+import { useConversationRowClick } from "../hooks/useConversationRowClick";
 import { buildThreadRouteParams } from "../threadRoutes";
 import { formatRelativeTimeLabel } from "../timestampFormat";
 import type { ThreadShell } from "../types";
@@ -71,7 +74,7 @@ export function ProjectsPage() {
   const { scratchWorkspaceRootFor } = useScratchProject();
   const handleNewThread = useNewThreadHandler();
   const { pinThread, unpinThread } = useThreadActions();
-  const navigate = useNavigate();
+  const navigateTab = useConversationTabNavigation();
   const [search, setSearch] = useState("");
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [pendingPin, setPendingPin] = useState<string | null>(null);
@@ -85,8 +88,15 @@ export function ProjectsPage() {
       (error: unknown) => reportProjectActionFailure("Could not create chat", error),
     );
   };
-  const openProject = (project: SidebarProjectSnapshot) => {
-    void navigate({ to: "/projects/$projectKey", params: { projectKey: project.projectKey } });
+  const openProject = (project: SidebarProjectSnapshot, newTab = false) => {
+    const target = {
+      kind: "surface" as const,
+      path: "/settings/projects" as const,
+      title: project.displayName,
+      search: { project: project.projectKey },
+    };
+    useConversationTabsStore.getState().open(target, newTab);
+    void navigateTab(target);
   };
   const togglePin = async (thread: ThreadShell) => {
     const ref = scopeThreadRef(thread.environmentId, thread.id);
@@ -109,11 +119,13 @@ export function ProjectsPage() {
     try {
       const action = await readLocalApi()?.contextMenu.show(
         [
+          { id: "open-tab", label: "Open in new tab" },
           { id: "new-chat", label: "New chat" },
           { id: "settings", label: "Project settings" },
         ],
         position,
       );
+      if (action === "open-tab") openProject(project, true);
       if (action === "new-chat") newChat(project);
       if (action === "settings") openProject(project);
     } catch (error) {
@@ -188,6 +200,7 @@ export function ProjectsPage() {
                         "grid grid-cols-[minmax(0,1fr)_4.5rem_4.5rem] items-center gap-3 rounded-xl px-3 py-3 sm:grid-cols-[minmax(0,1fr)_6rem_5.5rem]",
                         isExpanded && "bg-secondary",
                       )}
+                      onDoubleClick={() => openProject(project, true)}
                       onContextMenu={(event) => {
                         event.preventDefault();
                         void projectContextMenu(project, { x: event.clientX, y: event.clientY });
@@ -234,6 +247,9 @@ export function ProjectsPage() {
                             <MoreHorizontalIcon />
                           </MenuTrigger>
                           <MenuPopup align="end">
+                            <MenuItem onClick={() => openProject(project, true)}>
+                              Open in new tab
+                            </MenuItem>
                             <MenuItem onClick={() => newChat(project)}>
                               <Edit03Icon />
                               New chat
@@ -269,14 +285,7 @@ export function ProjectsPage() {
                                 key={scopedThreadKey(threadRef)}
                                 className="grid grid-cols-[minmax(0,1fr)_4.5rem_4.5rem] items-center gap-3 rounded-lg px-3 py-1 sm:grid-cols-[minmax(0,1fr)_6rem_5.5rem] hover:bg-secondary/50"
                               >
-                                <Link
-                                  to="/$environmentId/$threadId"
-                                  params={buildThreadRouteParams(threadRef)}
-                                  className="flex min-w-0 items-center gap-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                                >
-                                  <MessageCircle className="size-4 shrink-0 text-muted-foreground" />
-                                  <span className="truncate">{thread.title}</span>
-                                </Link>
+                                <ProjectThreadLink thread={thread} />
                                 <time
                                   className="text-xs text-muted-foreground"
                                   dateTime={threadUpdatedAt}
@@ -311,5 +320,49 @@ export function ProjectsPage() {
         </WorkspacePageContainer>
       </div>
     </SidebarInset>
+  );
+}
+
+function ProjectThreadLink({ thread }: { thread: ThreadShell }) {
+  const threadRef = scopeThreadRef(thread.environmentId, thread.id);
+  const target = { kind: "server" as const, threadRef };
+  const navigateTab = useConversationTabNavigation();
+  const open = (newTab: boolean) => {
+    useConversationTabsStore.getState().open(target, newTab);
+    void navigateTab(target);
+  };
+  const click = useConversationRowClick(
+    () => open(false),
+    () => open(true),
+  );
+  return (
+    <Link
+      to="/$environmentId/$threadId"
+      params={buildThreadRouteParams(threadRef)}
+      onClick={(event) => {
+        if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+        event.preventDefault();
+        click.onClick(event);
+      }}
+      onDoubleClick={click.onDoubleClick}
+      onContextMenu={(event) => {
+        event.preventDefault();
+        void readLocalApi()
+          ?.contextMenu.show([{ id: "open-tab", label: "Open in new tab" }], {
+            x: event.clientX,
+            y: event.clientY,
+          })
+          .then((action) => {
+            if (action === "open-tab") open(true);
+          })
+          .catch((error: unknown) =>
+            reportProjectActionFailure("Could not open the tab menu", error),
+          );
+      }}
+      className="flex min-w-0 items-center gap-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+    >
+      <MessageCircle className="size-4 shrink-0 text-muted-foreground" />
+      <span className="truncate">{thread.title}</span>
+    </Link>
   );
 }

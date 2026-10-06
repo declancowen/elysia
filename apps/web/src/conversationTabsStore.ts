@@ -2,6 +2,9 @@ import { scopedThreadKey } from "@t3tools/client-runtime/environment";
 import type { ThreadRouteTarget } from "./threadRoutes";
 import type { PullRequestRowTarget } from "./components/pullRequest/PullRequestRow";
 import type { EnvironmentId, PageId, WorkTaskId } from "@t3tools/contracts";
+import { scheduledTabKey, type ScheduledTabTarget } from "./scheduledTabsStore";
+import type { SettingsPath } from "./components/settings/settingsSearch";
+import type { SettingsScopeSearch } from "./components/settings/settingsScope";
 import { createPaneTabsStore } from "./paneTabsStore";
 
 export type WorkspaceItemTabTarget =
@@ -9,7 +12,16 @@ export type WorkspaceItemTabTarget =
   | { kind: "page"; environmentId: EnvironmentId; id: PageId | null; title: string }
   | { kind: "task"; environmentId: EnvironmentId; id: WorkTaskId | null; title: string };
 
+export type SurfaceTabTarget = {
+  kind: "surface";
+  path: SettingsPath | "/projects" | "/usage" | "/agents";
+  title: string;
+  search?: SettingsScopeSearch;
+};
+
 export type ConversationTabTarget =
+  | SurfaceTabTarget
+  | { kind: "scheduled"; selection: ScheduledTabTarget }
   | WorkspaceItemTabTarget
   | ThreadRouteTarget
   | ({ kind: "pull-request" } & PullRequestRowTarget);
@@ -19,6 +31,14 @@ export interface ConversationTab {
 }
 
 function targetKey(target: ConversationTabTarget) {
+  if (target.kind === "scheduled") return `scheduled:${scheduledTabKey(target.selection)}`;
+  if (target.kind === "surface")
+    return JSON.stringify([
+      target.path,
+      target.search?.project,
+      target.search?.machine,
+      target.search?.checkout,
+    ]);
   if (target.kind === "agent-create") return target.channel ? "channel-create" : target.kind;
   if (target.kind === "page" || target.kind === "task") {
     return JSON.stringify([target.kind, target.environmentId, target.id]);

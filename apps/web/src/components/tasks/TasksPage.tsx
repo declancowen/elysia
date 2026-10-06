@@ -58,7 +58,7 @@ import {
   SlidersHorizontalIcon,
   ListIcon,
   Columns2Icon,
-  PanelRightIcon,
+  AlignBoxMiddleLeftIcon,
   ChannelIcon,
   SquareArrowOutUpRightIcon,
   TaskEdit02Icon,
@@ -763,7 +763,7 @@ export function TasksPage() {
                   setPanelOpen(!panelOpen);
                 }}
               >
-                <PanelRightIcon />
+                <AlignBoxMiddleLeftIcon />
               </Button>
             ) : null}
             <Button
@@ -1286,13 +1286,6 @@ function TaskEditor({
               ) : (
                 <TaskAssigneeActivity assignee={assignee} status={task.status} />
               )}
-              {responseOpen && task.startedThreadId ? (
-                <TaskAgentResponse
-                  environmentId={environmentId}
-                  threadId={task.startedThreadId}
-                  taskId={task.id}
-                />
-              ) : null}
             </div>
           ) : null}
           <WorkspaceRichTextEditor
@@ -1303,6 +1296,16 @@ function TaskEditor({
               setError(null);
             }}
           />
+          {responseOpen && task.startedThreadId ? (
+            <div className="border-t border-border pt-5">
+              <TaskAgentResponse
+                environmentId={environmentId}
+                threadId={task.startedThreadId}
+                taskId={task.id}
+                taskTitle={title}
+              />
+            </div>
+          ) : null}
           {!task.parentTaskId ? (
             <section
               aria-label="Subtasks"

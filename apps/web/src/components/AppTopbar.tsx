@@ -1,5 +1,5 @@
-import { useCanGoBack } from "@tanstack/react-router";
-import { useLayoutEffect, useState, type ReactNode } from "react";
+import { useLocation, useParams, useCanGoBack } from "@tanstack/react-router";
+import { useEffect, useLayoutEffect, useState, type ReactNode } from "react";
 import { ArrowLeftIcon, ArrowRightIcon } from "~/icons";
 import { isElectron } from "~/env";
 import { cn } from "~/lib/utils";
@@ -8,6 +8,10 @@ import { SidebarNewChatButton } from "./sidebar/SidebarChrome";
 import { ElysiaIcon } from "./Icons";
 import { useSidebarVisibility } from "./ui/sidebar";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "./ui/tooltip";
+
+import { useConversationTabsStore } from "../conversationTabsStore";
+import { surfaceTabForLocation } from "../surfaceTabs";
+import { ConversationTabs } from "./chat/ConversationTabs";
 
 const TOPBAR_CONTENT_ID = "elysia-app-topbar-content";
 
@@ -21,6 +25,21 @@ export function useAppTopbarHost() {
 }
 
 export function AppTopbar({ sidebarControl }: { sidebarControl: ReactNode }) {
+  const location = useLocation();
+  useEffect(() => {
+    const target = surfaceTabForLocation(location.pathname, location.search);
+    if (!target) return;
+    const store = useConversationTabsStore.getState();
+    const active = store.tabs.find((tab) => tab.id === store.activeId);
+    store.open(
+      target,
+      active?.target.kind !== "surface" ||
+        (active.target.path !== target.path &&
+          !(active.target.path.startsWith("/settings/") && target.path.startsWith("/settings/"))),
+    );
+  }, [location.pathname, location.search]);
+  const params = useParams({ strict: false });
+  const chatHeader = Boolean(params.threadId || params.draftId);
   const canGoBack = useCanGoBack();
   const sidebarVisible = useSidebarVisibility();
   return (
@@ -91,7 +110,9 @@ export function AppTopbar({ sidebarControl }: { sidebarControl: ReactNode }) {
         id={TOPBAR_CONTENT_ID}
         data-app-topbar-content=""
         className="relative flex h-full min-w-0 flex-1 items-center bg-sidebar"
-      />
+      >
+        {!chatHeader && <ConversationTabs />}
+      </div>
     </header>
   );
 }

@@ -1,5 +1,4 @@
 import type { EnvironmentId, ScheduledTask } from "@t3tools/contracts";
-import { createPaneTabsStore } from "./paneTabsStore";
 
 export type ScheduledTabTarget =
   | { kind: "empty" }
@@ -8,5 +7,3 @@ export type ScheduledTabTarget =
 export function scheduledTabKey(target: ScheduledTabTarget) {
   return target.kind === "empty" ? "empty" : `${target.environmentId}:${target.task?.id ?? "new"}`;
 }
-
-export const useScheduledTabsStore = createPaneTabsStore<ScheduledTabTarget>(scheduledTabKey);

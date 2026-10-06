@@ -251,10 +251,10 @@ export function useWorkspaceSideChat({
       {open && activeId && environmentId ? (
         <section
           aria-label="Side chat"
-          className="floating-panel-glass absolute right-6 bottom-6 z-30 flex min-h-0 flex-col overflow-hidden rounded-3xl workspace-panel-outline [&_.messages-timeline-scroll]:px-4!"
+          className="floating-panel-glass absolute right-6 bottom-6 z-30 flex min-h-0 flex-col overflow-hidden rounded-3xl workspace-panel-outline [--chat-content-max-width:100%] [&_.messages-timeline-scroll]:px-4!"
           style={{
-            width: expanded ? "min(900px, calc(100% - 3rem))" : "min(480px, calc(100% - 3rem))",
-            height: expanded ? "calc(100% - 6rem)" : "min(640px, calc(100% - 6rem))",
+            width: expanded ? "calc(100% - 3rem)" : "min(480px, calc(100% - 3rem))",
+            height: expanded ? "calc(100% - 3rem)" : "min(640px, calc(100% - 6rem))",
           }}
         >
           <header className="flex shrink-0 items-center gap-2 p-4">

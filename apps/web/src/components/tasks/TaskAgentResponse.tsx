@@ -14,16 +14,18 @@ import { useAtomCommand } from "../../state/use-atom-command";
 import { threadEnvironment } from "../../state/threads";
 import ChatMarkdown from "../ChatMarkdown";
 import { Button } from "../ui/button";
-import { taskResponses } from "./taskViews";
+import { isTaskRequest, taskResponses } from "./taskViews";
 
 export function TaskAgentResponse({
   environmentId,
   threadId,
   taskId,
+  taskTitle,
 }: {
   environmentId: EnvironmentId;
   threadId: ThreadId;
   taskId: WorkTaskId;
+  taskTitle: string;
 }) {
   const ref = useMemo(() => scopeThreadRef(environmentId, threadId), [environmentId, threadId]);
   const source = useThreadProjection(ref);
@@ -32,7 +34,7 @@ export function TaskAgentResponse({
   const history = useThreadHistory(ref);
   const loadEarlier = useAtomCommand(threadEnvironment.loadEarlierHistory);
   const request = source?.projection.messages.findLast(
-    (message) => message.role === "user" && message.text.startsWith(`Work on ${taskId}:`),
+    (message) => message.role === "user" && isTaskRequest(message.text, taskId),
   );
   const jobs = useMemo(
     () =>
@@ -48,7 +50,7 @@ export function TaskAgentResponse({
       )
     : taskResponses(source?.projection.messages ?? [], taskId);
   return (
-    <div className="flex flex-col gap-3 rounded-lg border border-border p-4">
+    <div className="flex flex-col gap-3">
       {responses.map((message) => (
         <ChatMarkdown
           key={message.id}
@@ -69,7 +71,7 @@ export function TaskAgentResponse({
         <WorkspaceItemContextChip
           id={taskId}
           kind="task"
-          label={request?.text.split("\n")[0]?.replace(/^Work on TASK-[1-9][0-9]*: /, "") ?? taskId}
+          label={taskTitle}
           environmentId={environmentId}
         />
       ) : null}

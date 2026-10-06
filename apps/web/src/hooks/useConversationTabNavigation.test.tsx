@@ -180,3 +180,35 @@ it("opens creation tabs in Agents and keeps channel creation separate", async ()
     replace: false,
   });
 });
+
+it("restores common surface tabs and replaces stale settings scope when changing sections", async () => {
+  const surface: ConversationTabTarget = {
+    kind: "surface",
+    path: "/settings/projects",
+    title: "Project",
+    search: { project: "project-one", machine: "local" },
+  };
+  const scheduled: ConversationTabTarget = { kind: "scheduled", selection: { kind: "empty" } };
+  const store = useConversationTabsStore.getState();
+  store.open(surface);
+  store.open(scheduled, true);
+  await act(async () => expect(navigateSection("settings")).toBe(true));
+  expect(state.navigate).toHaveBeenLastCalledWith({
+    to: "/settings/projects",
+    search: { project: "project-one", machine: "local", checkout: undefined },
+    replace: false,
+  });
+  await act(async () => expect(navigateSection("scheduled")).toBe(true));
+  expect(state.navigate).toHaveBeenLastCalledWith({
+    to: "/settings/scheduled-tasks",
+    search: { project: undefined, machine: undefined, checkout: undefined },
+    replace: false,
+  });
+  await act(async () => navigateTab({ kind: "surface", path: "/usage", title: "Stats" }));
+  expect(state.navigate).toHaveBeenLastCalledWith({
+    to: "/usage",
+    search: { project: undefined, machine: undefined, checkout: undefined },
+    replace: false,
+  });
+  expect(useConversationTabsStore.getState().tabs).toHaveLength(2);
+});

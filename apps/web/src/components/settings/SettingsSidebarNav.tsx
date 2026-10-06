@@ -1,3 +1,8 @@
+import { useConversationTabsStore } from "../../conversationTabsStore";
+import { useConversationTabNavigation } from "../../hooks/useConversationTabNavigation";
+import { useConversationRowClick } from "../../hooks/useConversationRowClick";
+import { toastManager } from "../ui/toast";
+import { readLocalApi } from "../../localApi";
 import { ClockIcon } from "~/icons";
 import { useCodeWorkspace } from "~/hooks/useSettings";
 import { CONNECTIONS_ENABLED, SINGLE_PROVIDER_UI } from "@t3tools/contracts";
@@ -11,6 +16,7 @@ import {
   useState,
   type ComponentType,
   type KeyboardEvent,
+  type ReactNode,
 } from "react";
 import {
   ArchiveIcon,
@@ -52,7 +58,7 @@ import {
 } from "./settingsSearch";
 import { isSettingsPathVisibleInWorkspace } from "./settingsWorkspace";
 import { useAvailableSettingsSearchItems } from "./useAvailableSettingsSearchItems";
-import { validateSettingsScopeSearch } from "./settingsScope";
+import { type SettingsScopeSearch, validateSettingsScopeSearch } from "./settingsScope";
 
 const SnapShotIcon = ScanIcon;
 
@@ -97,6 +103,53 @@ const SETTINGS_NAV_ITEMS: ReadonlyArray<{
 function SettingsSectionIcon({ to }: { to: SettingsPath }) {
   const Icon = SETTINGS_SECTION_ICONS[to];
   return <Icon className="mt-0.5 size-3.5 shrink-0 text-sidebar-foreground" />;
+}
+
+function SettingsTabButton({
+  to,
+  label,
+  isActive,
+  onClick,
+  scopeSearch,
+  children,
+}: {
+  to: SettingsPath;
+  label: string;
+  isActive: boolean;
+  onClick: () => void;
+  scopeSearch: SettingsScopeSearch;
+  children: ReactNode;
+}) {
+  const navigateTab = useConversationTabNavigation();
+  const openInTab = () => {
+    const target =
+      to === "/settings/scheduled-tasks"
+        ? { kind: "scheduled" as const, selection: { kind: "empty" as const } }
+        : { kind: "surface" as const, path: to, title: label, search: scopeSearch };
+    useConversationTabsStore.getState().open(target, true);
+    void navigateTab(target);
+  };
+  const click = useConversationRowClick(onClick, openInTab);
+  return (
+    <SidebarMenuButton
+      isActive={isActive}
+      {...click}
+      onContextMenu={(event) => {
+        event.preventDefault();
+        void readLocalApi()
+          ?.contextMenu.show([{ id: "open-tab", label: "Open in new tab" }], {
+            x: event.clientX,
+            y: event.clientY,
+          })
+          .then((action) => {
+            if (action === "open-tab") openInTab();
+          })
+          .catch(() => toastManager.add({ type: "error", title: "Could not open the tab menu" }));
+      }}
+    >
+      {children}
+    </SidebarMenuButton>
+  );
 }
 
 export function SettingsSidebarNav({ pathname }: { pathname: string }) {
@@ -332,13 +385,16 @@ export function SettingsSidebarNav({ pathname }: { pathname: string }) {
                     pathname.startsWith(`${item.to}/`);
                   return (
                     <SidebarMenuItem key={item.to}>
-                      <SidebarMenuButton
+                      <SettingsTabButton
+                        to={item.to}
+                        label={item.label}
+                        scopeSearch={scopeSearch}
                         isActive={isActive}
                         onClick={() => handleSectionClick(item.to)}
                       >
                         <Icon />
                         <span className="truncate">{item.label}</span>
-                      </SidebarMenuButton>
+                      </SettingsTabButton>
                     </SidebarMenuItem>
                   );
                 })}

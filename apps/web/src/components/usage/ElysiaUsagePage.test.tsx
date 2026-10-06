@@ -259,3 +259,18 @@ it("distinguishes missing usage history from a disconnected compression proxy", 
   expect(JSON.stringify(renderer!.toJSON())).toContain("Start a chat, then refresh");
   expect(displayedValues()).not.toContain("Unavailable");
 });
+
+it("retains previously loaded usage and savings when a refresh fails", async () => {
+  await mount();
+  state.usage.mockRejectedValue(new Error("offline"));
+  state.load.mockRejectedValue(new Error("offline"));
+  await act(async () =>
+    renderer!.root
+      .findAllByType("button")
+      .find((node) => node.children.includes("Refresh"))!
+      .props.onClick(),
+  );
+  expect(displayedValues()).toContain("$12.00");
+  expect(displayedValues()).toContain("3,400");
+  expect(statusText().some((text) => text.includes("last available records"))).toBe(true);
+});

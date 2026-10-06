@@ -122,8 +122,8 @@ export function ElysiaUsagePage() {
     if (statsAtom) registry.refresh(statsAtom);
     if (usageAtom) registry.refresh(usageAtom);
   };
-  const snapshot = query.error ? null : query.data;
-  const summary = usage.error ? null : usage.data;
+  const snapshot = query.data;
+  const summary = usage.data;
   const window = range === "custom" ? dates : elysiaUsageRange(Number(range), now);
   const buckets =
     summary?.buckets.filter(
@@ -397,7 +397,9 @@ export function ElysiaUsagePage() {
                 ) : null}
                 {usage.error ? (
                   <p role="status" className="text-sm text-muted-foreground">
-                    Usage records could not be read. Use Refresh to try again.
+                    {summary
+                      ? "Usage could not be refreshed. Showing the last available records. Use Refresh to try again."
+                      : "Usage records could not be read. Use Refresh to try again."}
                   </p>
                 ) : null}
               </section>
@@ -439,6 +441,11 @@ export function ElysiaUsagePage() {
                   {snapshot?.status === "unavailable"
                     ? unavailableMessages[snapshot.reason]
                     : "Compression statistics are unavailable."}
+                </p>
+              )}
+              {query.error && (
+                <p role="status" className="text-sm text-muted-foreground">
+                  Compression statistics could not be refreshed. Use Refresh to try again.
                 </p>
               )}
               <p className="text-sm text-muted-foreground">

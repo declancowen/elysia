@@ -9,6 +9,11 @@ import {
   MessageCircleIcon,
   Files01Icon,
   TaskEdit02Icon,
+  Clock3Icon,
+  FolderIcon,
+  SettingsIcon,
+  BotIcon,
+  ChartNoAxesColumnIncreasingIcon,
 } from "../../icons";
 import { clearAgentCreationDraft, useAgentDialogStore } from "../agents/agentDialogStore";
 import { useProject, useThreadShell } from "../../state/entities";
@@ -20,13 +25,24 @@ import {
 } from "../workspace/WorkspaceTabStrip";
 
 export function ConversationTabs() {
-  const { tabs, activate, close } = useConversationTabsStore();
+  const { tabs, activeId, activate, close } = useConversationTabsStore();
   const navigateTo = useConversationTabNavigation();
   const params = useParams({ strict: false });
   const search = useSearch({ strict: false });
   const pathname = useLocation({ select: (location) => location.pathname });
   const selected = tabs.find((tab) => {
     const target = tab.target;
+    if (target.kind === "scheduled")
+      return pathname === "/settings/scheduled-tasks" && tab.id === activeId;
+    if (target.kind === "surface")
+      return (
+        pathname === target.path &&
+        ["project", "machine", "checkout"].every(
+          (key) =>
+            search[key as keyof typeof search] ===
+            target.search?.[key as keyof NonNullable<typeof target.search>],
+        )
+      );
     if (target.kind === "agent-create")
       return (
         pathname === "/agents" &&
@@ -72,7 +88,33 @@ export function ConversationTabs() {
         if (next) void navigateTo(next);
       }}
       renderTab={(tab, controls) =>
-        tab.target.kind === "agent-create" ? (
+        tab.target.kind === "surface" ? (
+          <WorkspaceTab
+            {...controls}
+            title={tab.target.title}
+            icon={
+              tab.target.path === "/usage" ? (
+                <ChartNoAxesColumnIncreasingIcon className="size-4" />
+              ) : tab.target.path === "/projects" || tab.target.search?.project ? (
+                <FolderIcon className="size-4" />
+              ) : tab.target.path === "/agents" ? (
+                <BotIcon className="size-4" />
+              ) : (
+                <SettingsIcon className="size-4" />
+              )
+            }
+          />
+        ) : tab.target.kind === "scheduled" ? (
+          <WorkspaceTab
+            {...controls}
+            title={
+              tab.target.selection.kind === "empty"
+                ? "Scheduled"
+                : (tab.target.selection.task?.title ?? "New task")
+            }
+            icon={<Clock3Icon className="size-4" />}
+          />
+        ) : tab.target.kind === "agent-create" ? (
           <AgentCreationTab channel={Boolean(tab.target.channel)} controls={controls} />
         ) : tab.target.kind === "page" || tab.target.kind === "task" ? (
           <WorkspaceTab
@@ -132,7 +174,7 @@ function ConversationTabItem({
 }: {
   target: Exclude<
     ConversationTab["target"],
-    { kind: "pull-request" | "page" | "task" | "agent-create" }
+    { kind: "pull-request" | "page" | "task" | "agent-create" | "surface" | "scheduled" }
   >;
   controls: WorkspaceTabControls;
 }) {

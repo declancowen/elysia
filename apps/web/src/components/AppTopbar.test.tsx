@@ -5,7 +5,17 @@ import { expect, it, vi } from "vite-plus/test";
 import { AppTopbar } from "./AppTopbar";
 import { SidebarProvider, SidebarTrigger, useSidebar } from "./ui/sidebar";
 
-vi.mock("@tanstack/react-router", () => ({ useCanGoBack: () => true }));
+vi.mock("@tanstack/react-router", () => ({
+  useCanGoBack: () => true,
+  useLocation: () => ({ pathname: "/", search: {} }),
+  useParams: () => ({}),
+}));
+vi.mock("./sidebar/SidebarChrome", () => ({
+  SidebarNewChatButton: () => <button aria-label="New chat" />,
+}));
+vi.mock("./chat/ConversationTabs", () => ({
+  ConversationTabs: () => <nav aria-label="Shared tabs" />,
+}));
 vi.mock("~/env", () => ({ isElectron: false }));
 
 function SidebarState() {

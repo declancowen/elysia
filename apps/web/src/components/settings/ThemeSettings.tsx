@@ -91,7 +91,7 @@ function ThemeVariantTooltip({ label, children }: { label: string; children: Rea
   );
 }
 
-function ThemeLibraryCard({
+function ThemeLibraryRow({
   theme,
   isActive,
   onUse,
@@ -148,18 +148,18 @@ function ThemeLibraryCard({
         render={
           <div
             className={cn(
-              "cursor-pointer overflow-hidden rounded-xl border border-border/70 bg-card/60 transition-colors hover:bg-accent/10",
+              "flex min-h-14 cursor-pointer flex-wrap items-center gap-3 sm:flex-nowrap rounded-lg px-3 py-2 transition-colors hover:bg-accent/10",
               isActive && "bg-accent/30",
             )}
             data-theme-library-card={theme.id}
             onClick={onUse}
             style={isActive ? { boxShadow: "inset 0 0 0 1px var(--ring)" } : undefined}
           >
-            <div className="relative">
+            <div className="relative order-2 shrink-0">
               {variantNavigation ? (
                 <div
                   aria-label="Light and dark theme variants"
-                  className="relative h-20"
+                  className="relative h-20 w-60"
                   role="group"
                   onBlurCapture={(event) => {
                     const nextTarget = event.relatedTarget;
@@ -291,8 +291,8 @@ function ThemeLibraryCard({
                 />
               )}
             </div>
-            <div className="flex items-center gap-2 px-3 pb-3 pt-2">
-              <div className="min-w-0 flex-1">
+            <div className="contents">
+              <div className="order-1 min-w-24 flex-1">
                 <div className="flex items-center gap-1.5">
                   <button
                     aria-label={`Use ${variantNavigation ? `${variantNavigation.collectionLabel}, ${theme.label} variant` : `${theme.label} theme`}${isActive ? ", currently active" : ""}`}
@@ -309,7 +309,7 @@ function ThemeLibraryCard({
                 </div>
               </div>
               {onEdit || onDuplicate || onDownload || onRemove ? (
-                <div className="flex shrink-0 items-center gap-1">
+                <div className="order-3 flex shrink-0 items-center gap-1">
                   {onDuplicate ? (
                     <Tooltip>
                       <TooltipTrigger
@@ -459,7 +459,7 @@ function CustomThemeCollectionCard({
   };
 
   return (
-    <ThemeLibraryCard
+    <ThemeLibraryRow
       activeModes={activeModesFor(theme.id)}
       isActive={false}
       onDownload={() => onDownload(theme)}
@@ -759,18 +759,13 @@ export function ThemeLibrary({
       .entries(),
   ];
 
-  const renderPairGrid = () => (
-    // One shared provider so every tooltip in the grid hands off instantly to
-    // the next hovered trigger instead of stacking on top of it. The card
-    // tooltip briefly showing while crossing between a card's two circles is
-    // accepted — scoping the group tighter makes the handoffs feel sluggish.
+  const renderThemeRows = () => (
+    // One shared provider so every tooltip in the list hands off instantly to
+    // the next hovered trigger instead of stacking on top of it.
     <TooltipProvider>
-      <div
-        className="grid w-full gap-2"
-        style={{ gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 16rem), 1fr))" }}
-      >
+      <div className="flex w-full flex-col divide-y divide-border/60">
         {STANDARD_THEME_CARDS.map((standardTheme) => (
-          <ThemeLibraryCard
+          <ThemeLibraryRow
             activeModes={pickedModesFor(null)}
             isActive={false}
             key={standardTheme.id}
@@ -790,7 +785,7 @@ export function ThemeLibrary({
         {MAINTAINER_THEMES.map((maintainerTheme) => {
           const card = getThemeCardDefinition(maintainerTheme);
           return (
-            <ThemeLibraryCard
+            <ThemeLibraryRow
               activeModes={pickedModesFor(maintainerTheme.id)}
               isActive={false}
               key={maintainerTheme.id}
@@ -818,7 +813,7 @@ export function ThemeLibrary({
             // No edit or remove: the environment republishes these palettes on
             // every change, so anything saved here would be overwritten.
             // Duplicating is the way to keep a copy.
-            <ThemeLibraryCard
+            <ThemeLibraryRow
               activeModes={pickedModesFor(environmentTheme.id)}
               isActive={false}
               key={environmentTheme.id}
@@ -908,7 +903,7 @@ export function ThemeLibrary({
           </Button>
         </div>
       </div>
-      {renderPairGrid()}
+      {renderThemeRows()}
       <ThemeImportDialog
         onImportedMany={(importedThemes, { updated }) => {
           // Re-apply after collection updates. The update may remove the

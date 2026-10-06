@@ -1,7 +1,8 @@
-import { useScheduledTabsStore, scheduledTabKey } from "../../scheduledTabsStore";
+import { scheduledTabKey, type ScheduledTabTarget } from "../../scheduledTabsStore";
+import { useConversationTabsStore, type ConversationTab } from "../../conversationTabsStore";
+import { ConversationTabs } from "../chat/ConversationTabs";
+import { useConversationTabNavigation } from "../../hooks/useConversationTabNavigation";
 import { useConversationRowClick } from "../../hooks/useConversationRowClick";
-import { WorkspaceTabStrip, WorkspaceTab } from "../workspace/WorkspaceTabStrip";
-import { useAppTopbarHost } from "../AppTopbar";
 import {
   Clock3Icon,
   MoreHorizontalIcon,
@@ -12,7 +13,6 @@ import {
   SquareArrowOutUpRightIcon,
 } from "~/icons";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { createPortal } from "react-dom";
 import type {
   EnvironmentId,
   ScheduledTask,
@@ -191,12 +191,31 @@ function ScheduledTasksWorkspace(target: ScheduledTasksTarget) {
   const { scope, environments, connectedEnvironments, environment } = useSettingsScope();
   const { isMobile, setOpenMobile, setOpen } = useSidebar();
   const desktopHeader = useMediaQuery("(min-width: 768px)");
-  const headerHost = useAppTopbarHost();
-  const { tabs, activeId, open, activate, close, retarget } = useScheduledTabsStore();
+  const navigateTab = useConversationTabNavigation();
+  const state = useConversationTabsStore();
+  const tabs = state.tabs.filter(
+    (
+      tab,
+    ): tab is ConversationTab & {
+      target: Extract<ConversationTab["target"], { kind: "scheduled" }>;
+    } => tab.target.kind === "scheduled",
+  );
+  const { activeId, close } = state;
+  const open = useCallback((selection: ScheduledTabTarget, newTab = false) => {
+    const store = useConversationTabsStore.getState();
+    const active = store.tabs.find((tab) => tab.id === store.activeId);
+    store.open({ kind: "scheduled", selection }, newTab || active?.target.kind !== "scheduled");
+  }, []);
+  const retarget = (previous: ScheduledTabTarget, selection: ScheduledTabTarget) =>
+    state.retarget({ kind: "scheduled", selection: previous }, { kind: "scheduled", selection });
   const activeTab = tabs.find((tab) => tab.id === activeId);
-  const editor = activeTab?.target.kind === "task" ? activeTab.target : null;
+  const editor = activeTab?.target.selection.kind === "task" ? activeTab.target.selection : null;
   useEffect(() => {
-    if (!useScheduledTabsStore.getState().tabs.length) open({ kind: "empty" });
+    const store = useConversationTabsStore.getState();
+    if (store.tabs.find((tab) => tab.id === store.activeId)?.target.kind === "scheduled") return;
+    const existing = store.tabs.toReversed().find((tab) => tab.target.kind === "scheduled");
+    if (existing) store.activate(existing.id);
+    else open({ kind: "empty" });
   }, [open]);
   const defaultEnvironment = environment ?? connectedEnvironments[0];
   const linkedEnvironment = environments.find(
@@ -241,28 +260,6 @@ function ScheduledTasksWorkspace(target: ScheduledTasksTarget) {
       openForEdit(linkedEnvironment.environmentId, linkedTask);
     }
   }, [linkedTask, linkedEnvironment, openForEdit]);
-  const header = (
-    <WorkspacePageHeader className="relative w-full">
-      <WorkspaceTabStrip
-        tabs={tabs}
-        activeId={activeId}
-        label="Scheduled"
-        onSelect={(tab) => activate(tab.id)}
-        onClose={(tab) => {
-          close(tab.id);
-        }}
-        renderTab={(tab, controls) => (
-          <WorkspaceTab
-            {...controls}
-            title={
-              tab.target.kind === "empty" ? "Scheduled" : (tab.target.task?.title ?? "New task")
-            }
-            icon={<Clock3Icon aria-hidden className="size-4 shrink-0" />}
-          />
-        )}
-      />
-    </WorkspacePageHeader>
-  );
   return (
     <>
       <WorkspaceSidebarContent>
@@ -322,22 +319,29 @@ function ScheduledTasksWorkspace(target: ScheduledTasksTarget) {
           )}
         </SidebarContent>
       </WorkspaceSidebarContent>
-      {headerHost && desktopHeader ? createPortal(header, headerHost) : header}
+      {!desktopHeader && (
+        <WorkspacePageHeader>
+          <ConversationTabs />
+        </WorkspacePageHeader>
+      )}
       {tabs.map((tab) => (
         <div
-          key={`${tab.id}:${scheduledTabKey(tab.target)}`}
+          key={`${tab.id}:${scheduledTabKey(tab.target.selection)}`}
           className={cn("min-h-0 flex-1 flex-col", tab.id === activeId ? "flex" : "hidden")}
         >
-          {tab.target.kind === "task" ? (
+          {tab.target.selection.kind === "task" ? (
             <ScheduledTaskEditor
-              initialEnvironmentId={tab.target.environmentId}
-              task={tab.target.task}
+              initialEnvironmentId={tab.target.selection.environmentId}
+              task={tab.target.selection.task}
               onSaved={(environmentId, task) =>
-                retarget(tab.target, { kind: "task", environmentId, task })
+                retarget(tab.target.selection, { kind: "task", environmentId, task })
               }
               onClose={() => {
-                if (tabs[0]?.id === tab.id) retarget(tab.target, { kind: "empty" });
-                else close(tab.id);
+                if (state.tabs[0]?.id === tab.id) retarget(tab.target.selection, { kind: "empty" });
+                else {
+                  const next = close(tab.id);
+                  if (next) void navigateTab(next);
+                }
               }}
               inline
             />
@@ -520,8 +524,8 @@ function ScheduledTaskRow({
   const [busy, setBusy] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [contextPoint, setContextPoint] = useState<{ x: number; y: number } | null>(null);
-  const alreadyOpen = useScheduledTabsStore((state) =>
-    state.isOpen({ kind: "task", environmentId, task }),
+  const alreadyOpen = useConversationTabsStore((state) =>
+    state.isOpen({ kind: "scheduled", selection: { kind: "task", environmentId, task } }),
   );
   const toggle = useAtomCommand(serverEnvironment.setScheduledTaskEnabled, {
     label: "scheduled task enabled",

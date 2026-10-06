@@ -40,6 +40,7 @@ import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
+import * as SqlClient from "effect/unstable/sql/SqlClient";
 import * as Schema from "effect/Schema";
 import * as Semaphore from "effect/Semaphore";
 import { HttpClient, HttpClientResponse } from "effect/unstable/http";
@@ -67,6 +68,7 @@ import {
   pruneScanCache,
   type ScanCache,
 } from "./usageScanCache.ts";
+import { readElysiaAppUsage } from "./elysiaAppUsage.ts";
 import type { UsageRecord } from "./usageTranscripts.ts";
 
 const LITELLM_RATES_URL =
@@ -150,6 +152,7 @@ const layerTest = Layer.succeed(
 );
 
 export const make = Effect.gen(function* () {
+  const sql = yield* SqlClient.SqlClient;
   const crypto = yield* Crypto.Crypto;
   const fileSystem = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
@@ -760,6 +763,34 @@ export const make = Effect.gen(function* () {
       ],
       { concurrency: 2 },
     );
+
+    // Prefer native files when present, so SDK and transcript copies cannot count twice.
+    // Saved app turns recover usage after CLI transcript cleanup or profile changes.
+    if (
+      input.elysiaInstanceId !== undefined &&
+      !scannedDirs.some(
+        (source) =>
+          source.files?.some((file) => file.records.length > 0) ||
+          [...fileCache].some(
+            ([filePath, entry]) =>
+              entry.provider === source.provider &&
+              entry.mtimeMs >= retentionCutoffMs &&
+              isWithinDirectory(filePath, source.dir) &&
+              (entry.records.length > 0 || entry.tailRecords.length > 0),
+          ),
+      )
+    ) {
+      const records = yield* readElysiaAppUsage(input.elysiaInstanceId).pipe(
+        Effect.provideService(SqlClient.SqlClient, sql),
+      );
+      if (records.length)
+        scannedDirs.push({
+          provider: "claude",
+          dir: `elysia-app:${input.elysiaInstanceId}`,
+          volumeId: "app-database",
+          files: [{ path: `elysia-app:${input.elysiaInstanceId}`, records }],
+        });
+    }
 
     const aggregator = new UsageAggregator({
       timeZone: input.timeZone,

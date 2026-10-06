@@ -1,4 +1,4 @@
-import { useScheduledTabsStore } from "../../scheduledTabsStore";
+import { useConversationTabsStore } from "../../conversationTabsStore";
 import {
   EnvironmentId,
   ProjectId,
@@ -289,21 +289,37 @@ describe("scheduled task model defaults", () => {
   });
 });
 
-it("recognizes active and inactive scheduled tabs by environment and task ID", () => {
-  useScheduledTabsStore.setState({ tabs: [], activeId: null });
-  const store = useScheduledTabsStore.getState();
-  const target = {
+it("shares scheduled tabs with conversations and preserves task identity after a rename", () => {
+  useConversationTabsStore.setState({ tabs: [], activeId: null });
+  const store = useConversationTabsStore.getState();
+  const selection = {
     kind: "task" as const,
     environmentId: EnvironmentId.make("local"),
     task: legacyTask,
   };
+  const target = { kind: "scheduled" as const, selection };
   store.open(target);
-  expect(store.isOpen(target)).toBe(true);
-  store.open({ ...target, task: { ...legacyTask, id: ScheduledTaskId.make("another") } }, true);
-  expect(store.isOpen({ ...target, task: { ...legacyTask, title: "Renamed" } })).toBe(true);
-  expect(store.isOpen({ ...target, environmentId: EnvironmentId.make("remote") })).toBe(false);
-  store.activate(useScheduledTabsStore.getState().tabs[0]!.id);
-  const extra = useScheduledTabsStore.getState().tabs[1]!;
+  store.open(
+    {
+      ...target,
+      selection: { ...selection, task: { ...legacyTask, id: ScheduledTaskId.make("another") } },
+    },
+    true,
+  );
+  expect(
+    store.isOpen({
+      ...target,
+      selection: { ...selection, task: { ...legacyTask, title: "Renamed" } },
+    }),
+  ).toBe(true);
+  expect(
+    store.isOpen({
+      ...target,
+      selection: { ...selection, environmentId: EnvironmentId.make("remote") },
+    }),
+  ).toBe(false);
+  store.activate(useConversationTabsStore.getState().tabs[0]!.id);
+  const extra = useConversationTabsStore.getState().tabs[1]!;
   store.close(extra.id);
   expect(store.isOpen(extra.target)).toBe(false);
   expect(store.isOpen(target)).toBe(true);

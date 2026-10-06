@@ -11,7 +11,7 @@ import { usePrimaryEnvironmentId } from "../../state/environments";
 import { useEnvironmentQuery } from "../../state/query";
 import { serverEnvironment } from "../../state/server";
 import { useAtomCommand } from "../../state/use-atom-command";
-import { ArrowLeftIcon, PanelRightIcon, Trash2Icon } from "../../icons";
+import { ArrowLeftIcon, AlignBoxMiddleLeftIcon, Trash2Icon } from "../../icons";
 import { Button } from "../ui/button";
 import { SidebarInset } from "../ui/sidebar";
 import { Select, SelectTrigger, SelectValue, SelectPopup, SelectItem } from "../ui/select";
@@ -280,7 +280,7 @@ function PageDetail({
               }}
               disabled={!saved}
             >
-              <PanelRightIcon />
+              <AlignBoxMiddleLeftIcon />
             </Button>
           </div>
         }

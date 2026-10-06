@@ -1,6 +1,14 @@
 import { expect, it } from "vite-plus/test";
-import { MessageId, RunId, ProjectId, WorkTaskId, type WorkTaskSummary } from "@t3tools/contracts";
-import { groupTasks, visibleTasks, taskActivity, taskResponses } from "./taskViews";
+import {
+  ComposerContextId,
+  MessageId,
+  RunId,
+  ProjectId,
+  WorkTaskId,
+  type WorkTaskSummary,
+} from "@t3tools/contracts";
+import { formatComposerContextReference } from "@t3tools/shared/composerContextReferences";
+import { groupTasks, visibleTasks, taskActivity, taskResponses, isTaskRequest } from "./taskViews";
 const task = (
   id: string,
   projectId: WorkTaskSummary["projectId"],
@@ -70,7 +78,12 @@ it("shows only responses to the latest task run and leaves channel resolution to
   const messages = [
     message("old-task", "user", "Work on TASK-1: Old", "old"),
     message("old-reply", "assistant", "Old result", "old"),
-    message("task", "user", "Work on TASK-1: New", "new"),
+    message(
+      "task",
+      "user",
+      `Work on ${formatComposerContextReference({ kind: "task", contextId: ComposerContextId.make("TASK-1"), label: "New" })}\n\nDescription`,
+      "new",
+    ),
     message("other", "user", "Work on TASK-2: Different", "other"),
     message("other-reply", "assistant", "Wrong result", "other"),
     message("reply", "assistant", "Correct result", "new"),
@@ -85,4 +98,18 @@ it("shows only responses to the latest task run and leaves channel resolution to
     ),
   ).toEqual([]);
   expect(taskResponses(messages, WorkTaskId.make("TASK-9"))).toEqual([]);
+});
+
+it("matches linked task requests by identity, not title or links in the description", () => {
+  const id = WorkTaskId.make("TASK-1");
+  const link = formatComposerContextReference({
+    kind: "task",
+    contextId: ComposerContextId.make(id),
+    label: "New",
+  });
+  expect(isTaskRequest(`Work on ${link}\n\nDetails`, id)).toBe(true);
+  expect(isTaskRequest(`Work on ${link}`, WorkTaskId.make("TASK-2"))).toBe(false);
+  expect(isTaskRequest(`Discuss this task\n${link}`, id)).toBe(false);
+  expect(isTaskRequest(`Work on ${link} sometime`, id)).toBe(false);
+  expect(isTaskRequest("Work on TASK-1: Historical", id)).toBe(true);
 });

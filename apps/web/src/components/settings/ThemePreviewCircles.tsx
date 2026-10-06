@@ -146,7 +146,7 @@ export function ThemePreviewCircles({
   previews: ThemeCardDefinition["previews"];
 }) {
   return (
-    <div className="flex min-h-16 items-center justify-center gap-2.5 px-3 pt-3">
+    <div className="flex items-center justify-center gap-2">
       {previews.map((preview) => {
         const mode = preview.mode;
         const isPicked = activeModes.includes(mode);
@@ -158,7 +158,7 @@ export function ThemePreviewCircles({
                   aria-label={`Use ${label} ${mode} mode`}
                   aria-pressed={isPicked}
                   className={cn(
-                    "relative flex size-[68px] shrink-0 transform-gpu cursor-pointer items-center justify-center rounded-full p-1 outline-none transition-transform hover:scale-105 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-card",
+                    "relative flex size-10 shrink-0 transform-gpu cursor-pointer items-center justify-center rounded-full p-1 outline-none transition-transform hover:scale-105 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-card",
                     isPicked && "hover:scale-100",
                   )}
                   onClick={(event) => {
@@ -167,7 +167,7 @@ export function ThemePreviewCircles({
                   }}
                   type="button"
                 >
-                  <ThemePreviewCircle colors={preview.colors} mode={mode} />
+                  <ThemePreviewCircle colors={preview.colors} mode={mode} className="size-8" />
                   {isPicked ? (
                     <>
                       <span
@@ -177,12 +177,12 @@ export function ThemePreviewCircles({
                       />
                       <span
                         aria-hidden
-                        className="pointer-events-none absolute bottom-0.5 right-0.5 flex size-5 items-center justify-center rounded-full border border-border/70 bg-background text-foreground shadow-sm"
+                        className="pointer-events-none absolute bottom-0 right-0 flex size-4 items-center justify-center rounded-full border border-border/70 bg-background text-foreground shadow-sm"
                       >
                         {mode === "light" ? (
-                          <SunIcon className="size-3" />
+                          <SunIcon className="size-2.5" />
                         ) : (
-                          <MoonIcon className="size-3" />
+                          <MoonIcon className="size-2.5" />
                         )}
                       </span>
                     </>

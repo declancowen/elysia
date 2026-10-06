@@ -26,10 +26,12 @@ import * as Layer from "effect/Layer";
 import * as Scheduler from "effect/Scheduler";
 import * as Schema from "effect/Schema";
 import * as TestClock from "effect/testing/TestClock";
+import * as SqlClient from "effect/unstable/sql/SqlClient";
 import { HttpClient, HttpClientResponse } from "effect/unstable/http";
 
 import * as ServerConfig from "../config.ts";
 import * as ServerSettings from "../serverSettings.ts";
+import { SqlitePersistenceMemory } from "../persistence/Layers/Sqlite.ts";
 import * as UsageService from "./UsageService.ts";
 
 const encodeUnknownJson = Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown));
@@ -88,6 +90,7 @@ const serviceLayers = (input: {
 }) =>
   ServerConfig.layerTest(process.cwd(), { prefix: input.prefix }).pipe(
     Layer.provideMerge(NodeServices.layer),
+    Layer.provideMerge(SqlitePersistenceMemory),
     Layer.provideMerge(Layer.succeed(HostProcessPlatform, input.platform ?? "linux")),
     Layer.provideMerge(ServerSettings.layerTest(input.settings)),
     Layer.provideMerge(
@@ -120,6 +123,24 @@ function totalOutputTokens(summary: { buckets: readonly { totals: { outputTokens
   return summary.buckets.reduce((sum, bucket) => sum + bucket.totals.outputTokens, 0);
 }
 
+const seedSavedUsage = Effect.gen(function* () {
+  const sql = yield* SqlClient.SqlClient;
+  const payload = encodeUnknownJsonString({
+    modelSelection: { model: "deepseek-v4.1-flash" },
+    turnTokenUsage: {
+      usageStatus: "complete",
+      usageScope: "main_agent",
+      hasSubagents: false,
+      inputTokens: 10,
+      outputTokens: 7,
+    },
+  });
+  yield* sql`INSERT INTO orchestration_v2_projection_runs (run_id, thread_id, ordinal, provider, status, requested_at, payload_json) VALUES ('saved-run', 'thread', 1, 'claudeAgent', 'completed', '2026-08-01T10:00:00Z', ${payload})`;
+  yield* sql`INSERT INTO orchestration_v2_projection_nodes (node_id, thread_id, run_id, root_node_id, kind, status, payload_json) VALUES ('saved-node', 'thread', 'saved-run', 'saved-node', 'provider', 'completed', '{}')`;
+  yield* sql`INSERT INTO orchestration_v2_projection_provider_threads (provider_thread_id, thread_id, provider, driver, provider_instance_id, status, updated_at, payload_json) VALUES ('saved-thread', 'thread', 'claudeAgent', 'claudeAgent', 'claudeAgent', 'completed', '2026-08-01T10:00:00Z', '{}')`;
+  yield* sql`INSERT INTO orchestration_v2_projection_provider_turns (provider_turn_id, thread_id, provider_thread_id, node_id, ordinal, status, completed_at, payload_json) VALUES ('saved-turn', 'thread', 'saved-thread', 'saved-node', 1, 'completed', '2026-08-01T10:00:00Z', ${payload})`;
+});
+
 describe("UsageService", () => {
   it.live("reads only the isolated Elysia profile and preserves dated model costs", () =>
     Effect.gen(function* () {
@@ -142,11 +163,15 @@ describe("UsageService", () => {
             claudeLine(2, 7, "deepseek-v4.1-flash"),
           ),
         );
+        yield* seedSavedUsage;
         const service = yield* UsageService.make;
-        return yield* service.readSummary({
-          ...WINDOW,
-          elysiaInstanceId: ProviderInstanceId.make("claudeAgent"),
-        });
+        const input = { ...WINDOW, elysiaInstanceId: ProviderInstanceId.make("claudeAgent") };
+        const first = yield* service.readSummary(input);
+        yield* Effect.promise(() => NodeFSP.rm(nativeDirectory, { recursive: true }));
+        const retained = yield* service.readSummary(input);
+        assert.equal(totalOutputTokens(retained), 7);
+        assert.deepStrictEqual(retained.buckets, first.buckets);
+        return first;
       }).pipe(
         Effect.provide(
           serviceLayers({
@@ -164,6 +189,35 @@ describe("UsageService", () => {
       assert.equal(summary.buckets[0]?.day, "2026-08-01");
       assert.equal(summary.buckets[0]?.model, "deepseek-v4.1-flash");
       assert.closeTo(summary.buckets[0]!.costUsd, 0.24, 0.000001);
+    }).pipe(Effect.scoped),
+  );
+
+  it.live("recovers dated app usage when the isolated CLI profile has no transcript files", () =>
+    Effect.gen(function* () {
+      const { home, settings } = yield* setup;
+      const summary = yield* Effect.gen(function* () {
+        yield* seedSavedUsage;
+        const service = yield* UsageService.make;
+        return yield* service.readSummary({
+          ...WINDOW,
+          elysiaInstanceId: ProviderInstanceId.make("claudeAgent"),
+        });
+      }).pipe(
+        Effect.provide(
+          serviceLayers({
+            prefix: "elysia-saved-usage",
+            home,
+            settings,
+            ratesDocument: {
+              "deepseek-v4.1-flash": { input_cost_per_token: 0.01, output_cost_per_token: 0.02 },
+            },
+          }),
+        ),
+      );
+      assert.equal(totalOutputTokens(summary), 7);
+      assert.equal(summary.buckets[0]?.model, "deepseek-v4.1-flash");
+      assert.closeTo(summary.buckets[0]!.costUsd, 0.24, 0.000001);
+      assert.equal(summary.sources.find((source) => source.scannedFiles > 0)?.status, "ok");
     }).pipe(Effect.scoped),
   );
 

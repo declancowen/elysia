@@ -1,7 +1,6 @@
 import { useConversationTabNavigation } from "../hooks/useConversationTabNavigation";
 import { useConversationTabsStore } from "../conversationTabsStore";
 import { ConversationTabs } from "../components/chat/ConversationTabs";
-import { useAppTopbarHost } from "../components/AppTopbar";
 import { RefreshIcon } from "~/components/ui/refresh-icon";
 import { Spinner } from "~/components/ui/spinner";
 import {
@@ -125,7 +124,6 @@ import {
   WorkspaceBreadcrumbItem,
   WorkspaceBreadcrumbSeparator,
 } from "../components/WorkspaceBreadcrumb";
-import { createPortal } from "react-dom";
 import { useMediaQuery } from "../hooks/useMediaQuery";
 import { WorkspaceSidebarContent } from "../components/sidebar/WorkspaceSidebarContent";
 import { WorkspacePageContainer } from "../components/WorkspacePageContainer";
@@ -520,7 +518,6 @@ function PullRequestsRouteView() {
     panelAnimationDurationMs,
   );
   const isDesktop = useMediaQuery("(min-width: 768px)");
-  const topbarHost = useAppTopbarHost();
   const navigateTab = useConversationTabNavigation();
   const rightPanelPresent = rightPanelPresence.present;
   const renderedPullRequestSurface = rightPanelPresence.value?.activeSurface ?? null;
@@ -2121,14 +2118,6 @@ function PullRequestsRouteView() {
         </WorkspacePageHeader>
       ) : null}
       <div className={cn("relative flex min-h-0 flex-1", SINGLE_PROVIDER_UI && "bg-sidebar")}>
-        {SINGLE_PROVIDER_UI && isDesktop && topbarHost
-          ? createPortal(
-              <div className="flex h-full min-w-0 flex-1 items-center gap-1 pl-5 pr-3">
-                <ConversationTabs />
-              </div>,
-              topbarHost,
-            )
-          : null}
         {!SINGLE_PROVIDER_UI && pullRequestsSupported && rightPanelPresent
           ? openPanelControls
           : null}

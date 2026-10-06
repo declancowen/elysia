@@ -12,6 +12,25 @@ export function useConversationTabNavigation() {
   const navigate = useNavigate();
   return useCallback(
     (target: ConversationTabTarget, replace = false) => {
+      if (target.kind === "surface") {
+        setAgentSidebarActive(target.path === "/agents");
+        return navigate({
+          to: target.path,
+          search: { project: undefined, machine: undefined, checkout: undefined, ...target.search },
+          replace,
+        });
+      }
+      if (target.kind === "scheduled") {
+        setAgentSidebarActive(false);
+        return navigate({
+          to: "/settings/scheduled-tasks",
+          search:
+            target.selection.kind === "task"
+              ? { machine: target.selection.environmentId }
+              : { machine: undefined, project: undefined, checkout: undefined },
+          replace,
+        });
+      }
       if (target.kind === "agent-create") {
         setAgentSidebarActive(true);
         return navigate({
@@ -62,8 +81,26 @@ export function useConversationTabNavigation() {
   );
 }
 
-type TabSection = "workspace" | "agents" | "pull-requests" | "pages" | "tasks";
+type TabSection =
+  | "workspace"
+  | "agents"
+  | "pull-requests"
+  | "pages"
+  | "tasks"
+  | "scheduled"
+  | "projects"
+  | "settings"
+  | "stats";
 function tabSection(target: ConversationTabTarget): TabSection {
+  if (target.kind === "scheduled") return "scheduled";
+  if (target.kind === "surface")
+    return target.path === "/projects"
+      ? "projects"
+      : target.path === "/usage"
+        ? "stats"
+        : target.path === "/agents"
+          ? "agents"
+          : "settings";
   if (target.kind === "agent-create") return "agents";
   if (target.kind === "page") return "pages";
   if (target.kind === "task") return "tasks";

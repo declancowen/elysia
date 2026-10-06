@@ -1,5 +1,21 @@
+import { ComposerContextId } from "@t3tools/contracts";
 import type { WorkTaskSummary, WorkTaskSaveInput, WorkTaskStatus } from "@t3tools/contracts";
 import type { OrchestrationV2ConversationMessage, WorkTaskId } from "@t3tools/contracts";
+
+import { collectComposerContextReferences } from "@t3tools/shared/composerContextReferences";
+
+export function isTaskRequest(text: string, id: WorkTaskId) {
+  const firstLine = text.split("\n", 1)[0] ?? "";
+  if (firstLine.startsWith(`Work on ${id}:`)) return true;
+  const [reference] = collectComposerContextReferences(firstLine);
+  return (
+    firstLine.startsWith("Work on ") &&
+    reference?.kind === "task" &&
+    reference.contextId === ComposerContextId.make(id) &&
+    reference.start === 8 &&
+    reference.end === firstLine.length
+  );
+}
 
 /** Only replies to the most recent task run. Channels resolve their explicit delegation links. */
 export function taskResponses(
@@ -10,7 +26,7 @@ export function taskResponses(
   id: WorkTaskId,
 ) {
   const start = messages.findLastIndex(
-    (message) => message.role === "user" && message.text.startsWith(`Work on ${id}:`),
+    (message) => message.role === "user" && isTaskRequest(message.text, id),
   );
   if (start < 0) return [];
   const request = messages[start]!;

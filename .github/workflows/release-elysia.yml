@@ -184,6 +184,7 @@ jobs:
       - name: Test desktop stable updater and settings
         run: |
           vp test run --config vite.config.ts \
+            apps/desktop/src/app/DesktopClerk.test.ts \
             apps/desktop/src/settings/DesktopAppSettings.test.ts \
             apps/desktop/src/settings/DesktopClientSettings.test.ts \
             apps/desktop/src/updates/updateChannels.test.ts \

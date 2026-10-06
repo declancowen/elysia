@@ -79,8 +79,16 @@ export const desktopClerkFrontendApiHostname = resolveDesktopClerkFrontendApiHos
 );
 
 function createDesktopClerkBridge(stateDir: string, isDevelopment: boolean) {
+  // Register Electron schemes synchronously, but do not create/open the server
+  // profile before its startup migration has finished.
+  let tokenStorage: ReturnType<typeof storage> | undefined;
+  const tokens = () => (tokenStorage ??= storage({ path: stateDir }));
   return createClerkBridge({
-    storage: storage({ path: stateDir }),
+    storage: {
+      getItem: (key) => tokens().getItem(key),
+      setItem: (key, value) => tokens().setItem(key, value),
+      removeItem: (key) => tokens().removeItem(key),
+    },
     passkeys: true,
     renderer: {
       scheme: ElectronProtocol.getDesktopScheme(isDevelopment),

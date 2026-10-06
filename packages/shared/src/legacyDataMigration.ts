@@ -34,6 +34,27 @@ async function databasePaths(directory: string): Promise<string[]> {
   return paths;
 }
 
+async function copyConfiguration(source: string, destination: string) {
+  for (const entry of await NodeFSP.readdir(source, { withFileTypes: true })) {
+    const from = NodePath.join(source, entry.name);
+    const to = NodePath.join(destination, entry.name);
+    if (await exists(to)) {
+      if (entry.isDirectory() && (await NodeFSP.lstat(to)).isDirectory()) {
+        await copyConfiguration(from, to);
+      } else {
+        throw new Error(`Conflicting configuration at ${from}; refusing to overwrite either file.`);
+      }
+    } else {
+      await NodeFSP.cp(from, to, {
+        recursive: true,
+        verbatimSymlinks: true,
+        force: false,
+        errorOnExist: true,
+      });
+    }
+  }
+}
+
 async function assertClosed(databases: readonly string[]) {
   for (const path of databases) {
     // WAL shared memory is present while the old app owns its database. Never
@@ -154,9 +175,15 @@ export const migrateLegacyDataHome = Effect.fn("migrateLegacyDataHome")(function
       }
       const source = NodePath.join(NodePath.dirname(destination), ".t3");
       if (!(await exists(source))) return;
-      if (await exists(destination)) {
+      const destinationExists = await exists(destination);
+      if (destinationExists) {
         if ((await NodeFSP.realpath(source)) === (await NodeFSP.realpath(destination))) return;
-        throw new Error("Both data folders exist; refusing to overwrite either.");
+        if (!(await NodeFSP.lstat(destination)).isDirectory())
+          throw new Error("The destination is not an independent directory.");
+        // Native CLI configuration or a failed launch can create this folder
+        // without a desktop profile. Preserve those files, never merge databases.
+        if ((await databasePaths(destination)).length)
+          throw new Error("The destination contains a separate database; refusing to merge it.");
       }
       if (!(await NodeFSP.lstat(source)).isDirectory()) {
         throw new Error("The previous home is not an independent directory.");
@@ -165,7 +192,7 @@ export const migrateLegacyDataHome = Effect.fn("migrateLegacyDataHome")(function
       await NodeFSP.mkdir(lock);
       let stage: string | undefined;
       try {
-        if (await exists(destination))
+        if (!destinationExists && (await exists(destination)))
           throw new Error("The destination appeared during migration.");
         const databases = await databasePaths(source);
         await assertClosed(databases);
@@ -198,6 +225,11 @@ export const migrateLegacyDataHome = Effect.fn("migrateLegacyDataHome")(function
           }
         }
         await assertClosed(databases);
+        if (destinationExists) {
+          // A conflicting file blocks migration rather than replacing either
+          // user's configuration. The two originals remain untouched on failure.
+          await copyConfiguration(destination, stage);
+        }
         await retargetFiles(stage, source, destination);
         await NodeFSP.writeFile(
           NodePath.join(stage, ".elysia-legacy-home-v1.complete.json"),
@@ -207,9 +239,18 @@ export const migrateLegacyDataHome = Effect.fn("migrateLegacyDataHome")(function
         const backup = `${destination}.legacy-backup-${NodePath.basename(stage)}`;
         // Keep the original discoverable until the verified profile is published:
         // an interrupted migration must never boot into a new, empty profile.
-        if (await exists(destination))
+        if (!destinationExists && (await exists(destination)))
           throw new Error("The destination appeared during migration.");
-        await NodeFSP.rename(stage, destination);
+        if (destinationExists && (await databasePaths(destination)).length)
+          throw new Error("The destination acquired a database during migration.");
+        const previous = `${destination}.pre-migration-${NodePath.basename(stage)}`;
+        if (destinationExists) await NodeFSP.rename(destination, previous);
+        try {
+          await NodeFSP.rename(stage, destination);
+        } catch (error) {
+          if (destinationExists) await NodeFSP.rename(previous, destination);
+          throw error;
+        }
         stage = undefined;
         await NodeFSP.rename(source, backup);
       } finally {

@@ -74,7 +74,6 @@ import Migration0057 from "./Migrations/057_ProjectionProjectAgentProfile.ts";
 import Migration0058 from "./Migrations/058_WorkTasks.ts";
 import Migration0059 from "./Migrations/059_Pages.ts";
 import Migration0060 from "./Migrations/060_WorkspaceChatLinks.ts";
-import Migration0061 from "./Migrations/061_ElysiaToolNames.ts";
 
 /**
  * Migration loader with all migrations defined inline.
@@ -149,7 +148,8 @@ export const migrationEntries = [
   [58, "WorkTasks", Migration0058],
   [59, "Pages", Migration0059],
   [60, "WorkspaceChatLinks", Migration0060],
-  [61, "ElysiaToolNames", Migration0061],
+  // Conversion retired after v0.0.33; keep its applied history slot, never reuse it.
+  [61, "ElysiaToolNames", Effect.void],
 ] as const;
 
 export const migrationManifest = migrationEntries.map(([id, name]) => [id, name] as const);

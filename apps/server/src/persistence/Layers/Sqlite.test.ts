@@ -10,6 +10,8 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as SqlClient from "effect/unstable/sql/SqlClient";
 
+import { runMigrations } from "../Migrations.ts";
+
 import {
   SqlitePersistenceMemory,
   WAL_SIZE_LIMIT_BYTES,
@@ -92,5 +94,22 @@ it.effect("applies busy_timeout in the shared persistence setup", () =>
     const sql = yield* SqlClient.SqlClient;
     const rows = yield* sql<{ readonly timeout: number }>`PRAGMA busy_timeout`;
     assert.equal(rows[0]?.timeout, 5000);
+  }).pipe(Effect.provide(SqlitePersistenceMemory)),
+);
+
+it.effect("opens an already migrated profile after the temporary conversion is retired", () =>
+  Effect.gen(function* () {
+    const sql = yield* SqlClient.SqlClient;
+    const history =
+      yield* sql`SELECT migration_id, name FROM effect_sql_migrations WHERE migration_id = 61`;
+    assert.deepEqual(history, [{ migration_id: 61, name: "ElysiaToolNames" }]);
+    yield* sql`CREATE TABLE retained_chat (id TEXT PRIMARY KEY, message TEXT)`;
+    yield* sql`INSERT INTO retained_chat VALUES ('chat-1', 'Keep this conversation')`;
+    const before = yield* sql`SELECT * FROM effect_sql_migrations ORDER BY migration_id`;
+    assert.deepEqual(yield* runMigrations(), []);
+    assert.deepEqual(yield* sql`SELECT * FROM effect_sql_migrations ORDER BY migration_id`, before);
+    assert.deepEqual(yield* sql`SELECT * FROM retained_chat`, [
+      { id: "chat-1", message: "Keep this conversation" },
+    ]);
   }).pipe(Effect.provide(SqlitePersistenceMemory)),
 );

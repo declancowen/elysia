@@ -1,10 +1,6 @@
 // @effect-diagnostics nodeBuiltinImport:off globalFetchInEffect:off - Hosted handoff test uses a real localhost listener without an OpenAI account.
 import * as NodeHttp from "node:http";
-import * as NodeFS from "node:fs";
-import * as NodeOS from "node:os";
-import * as NodePath from "node:path";
 import * as PlatformNodePath from "@effect/platform-node/NodePath";
-import { migrateLegacyDataHome } from "@t3tools/shared/legacyDataMigration";
 import { codexAuthHandoffUrl, readCodexAuthDelivery } from "@t3tools/shared/codexAuthHandoff";
 import { EnvironmentId, ProviderInstanceId } from "@t3tools/contracts";
 import { HostProcessArguments } from "@t3tools/shared/hostProcess";
@@ -106,54 +102,6 @@ describe("DesktopClerk", () => {
     storageAdapter.getItem.mockReset().mockResolvedValue(null);
   });
 
-  it.effect("migrates the old token file before SDK storage opens the profile", () =>
-    Effect.gen(function* () {
-      const root = yield* Effect.promise(() =>
-        NodeFS.promises.mkdtemp(NodePath.join(NodeOS.tmpdir(), "elysia-clerk-migration-")),
-      );
-      try {
-        const old = NodePath.join(root, ".t3", "userdata");
-        const current = NodePath.join(root, ".elysia");
-        const stateDir = NodePath.join(current, "userdata");
-        yield* Effect.promise(() => NodeFS.promises.mkdir(old, { recursive: true }));
-        yield* Effect.promise(() =>
-          NodeFS.promises.writeFile(
-            NodePath.join(old, "clerk-tokens.json"),
-            '{"session":"retained"}',
-          ),
-        );
-        storageMock.mockImplementation(({ path }: { path: string }) => {
-          // Match electron-store's eager directory creation and read from the
-          // migrated file, rather than testing only that a callback was wired.
-          NodeFS.mkdirSync(path, { recursive: true });
-          return {
-            ...storageAdapter,
-            getItem: async (key: string) =>
-              JSON.parse(
-                await NodeFS.promises.readFile(NodePath.join(path, "clerk-tokens.json"), "utf8"),
-              )[key],
-          };
-        });
-        createClerkBridgeMock.mockReturnValue({ cleanup: vi.fn(), isPrimaryInstance: true });
-        yield* Effect.scoped(
-          Effect.gen(function* () {
-            yield* Layer.build(
-              makeDesktopClerkLayer(false, [], "darwin", undefined, undefined, stateDir),
-            );
-            assert.equal(NodeFS.existsSync(current), false);
-            yield* migrateLegacyDataHome(current);
-            const adapter = createClerkBridgeMock.mock.calls[0]![0].storage;
-            assert.equal(yield* Effect.promise(() => adapter.getItem("session")), "retained");
-            assert.equal(yield* Effect.promise(() => adapter.getItem("session")), "retained");
-            assert.equal(storageMock.mock.calls.length, 1);
-          }),
-        );
-      } finally {
-        yield* Effect.promise(() => NodeFS.promises.rm(root, { recursive: true, force: true }));
-      }
-    }),
-  );
-
   it.effect("acquires and releases the SDK bridge with the layer", () => {
     const cleanup = vi.fn();
     const events: string[] = [];
@@ -169,9 +117,6 @@ describe("DesktopClerk", () => {
       const options = createClerkBridgeMock.mock.calls[0]![0];
       assert.equal(options.passkeys, true);
       assert.deepEqual(options.renderer, { scheme: "t3code-dev", host: "app" });
-      // Constructing the SDK storage creates stateDir. Keep it unopened until
-      // startup has migrated the profile and a renderer requests a token.
-      assert.equal(storageMock.mock.calls.length, 0);
       yield* Effect.promise(() => options.storage.getItem("session"));
       assert.deepEqual(storageMock.mock.calls, [[{ path: "/tmp/t3-state" }]]);
       assert.deepEqual(storageAdapter.getItem.mock.calls, [["session"]]);

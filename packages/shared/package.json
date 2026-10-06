@@ -3,7 +3,6 @@
   "private": true,
   "type": "module",
   "exports": {
-    "./legacyDataMigration": "./src/legacyDataMigration.ts",
     "./dateFormat": "./src/dateFormat.ts",
     "./channelReplies": {
       "types": "./src/channelReplies.ts",

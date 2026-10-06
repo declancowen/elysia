@@ -1,4 +1,3 @@
-import { migrateLegacyDataHome } from "@t3tools/shared/legacyDataMigration";
 import * as MacPermissions from "./permissions/MacPermissions.ts";
 for (const stream of [process.stdout, process.stderr]) {
   stream.on("error", (err: NodeJS.ErrnoException) => {
@@ -226,24 +225,7 @@ const desktopApplicationRuntimeLayer = desktopApplicationLayer.pipe(
 // may yield, or Electron can emit ready before Clerk registers its scheme.
 const desktopRuntimeLayer = desktopClerkLayer.pipe(
   Layer.flatMap((clerkContext) =>
-    Layer.unwrap(
-      Effect.gen(function* () {
-        const environment = yield* DesktopEnvironment.DesktopEnvironment;
-        if (environment.isPackaged && !environment.isDevelopment) {
-          yield* migrateLegacyDataHome(environment.baseDir).pipe(
-            Effect.tapError((error) =>
-              Effect.sync(() =>
-                Electron.dialog.showErrorBox(
-                  "Elysia could not migrate its data",
-                  `${error.message}\n\n${String(error.cause)}`,
-                ),
-              ),
-            ),
-          );
-        }
-        return desktopApplicationRuntimeLayer;
-      }),
-    ).pipe(Layer.provideMerge(Layer.succeedContext(clerkContext))),
+    desktopApplicationRuntimeLayer.pipe(Layer.provideMerge(Layer.succeedContext(clerkContext))),
   ),
   Layer.provideMerge(DesktopPreReadyPlatform.layer),
 );

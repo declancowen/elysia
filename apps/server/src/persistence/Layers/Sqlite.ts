@@ -6,7 +6,6 @@ import * as SqlClient from "effect/unstable/sql/SqlClient";
 import * as NodeSqliteClient from "@t3tools/shared/nodeSqliteClient";
 
 import { runMigrations } from "../Migrations.ts";
-import { backupBeforeNameMigration } from "../backupBeforeNameMigration.ts";
 import { initializeV2Database } from "../initializeV2Database.ts";
 import * as ServerConfig from "../../config.ts";
 
@@ -55,7 +54,6 @@ export const layerConfig = Layer.unwrap(
   Effect.gen(function* () {
     const { dbPath } = yield* ServerConfig.ServerConfig;
     yield* initializeV2Database(dbPath);
-    yield* backupBeforeNameMigration(dbPath);
     return makeSqlitePersistenceLive(dbPath);
   }),
 );

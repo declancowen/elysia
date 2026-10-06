@@ -1367,16 +1367,8 @@ function TaskEditor({
               )}
             </div>
           ) : null}
-          <WorkspaceRichTextEditor
-            label="Task"
-            value={taskEditorContent(description)}
-            onChange={(content) => {
-              setDescription(content);
-              setError(null);
-            }}
-          />
           {responseOpen && task.startedThreadId ? (
-            <div className="border-t border-border pt-5">
+            <div className="border-b border-border pb-5">
               <TaskAgentResponse
                 environmentId={environmentId}
                 threadId={task.startedThreadId}
@@ -1385,6 +1377,14 @@ function TaskEditor({
               />
             </div>
           ) : null}
+          <WorkspaceRichTextEditor
+            label="Task"
+            value={taskEditorContent(description)}
+            onChange={(content) => {
+              setDescription(content);
+              setError(null);
+            }}
+          />
           {!task.parentTaskId ? (
             <section
               aria-label="Subtasks"

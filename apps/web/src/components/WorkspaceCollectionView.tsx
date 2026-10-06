@@ -2,9 +2,55 @@ import type { ReactNode } from "react";
 import { Columns2Icon, BlocksIcon, ListIcon } from "../icons";
 import { cn } from "../lib/utils";
 import { Button } from "./ui/button";
+import { Badge } from "./ui/badge";
 import { Menu, MenuTrigger, MenuPopup, MenuRadioGroup, MenuRadioItem } from "./ui/menu";
 
 export type CollectionView = "list" | "board" | "card";
+
+/** Editable metadata stays separate from opening or dragging a collection item. */
+export function CollectionPropertyPill({
+  label,
+  value,
+  options,
+  onChange,
+  disabled,
+  children,
+}: {
+  label: string;
+  value: string;
+  options: readonly { value: string; label: ReactNode }[];
+  onChange: (value: string) => void;
+  disabled?: boolean;
+  children: ReactNode;
+}) {
+  return (
+    <span
+      className="inline-flex"
+      onPointerDown={(event) => event.stopPropagation()}
+      onKeyDown={(event) => event.stopPropagation()}
+      onContextMenu={(event) => event.stopPropagation()}
+    >
+      <Menu>
+        <MenuTrigger
+          disabled={disabled}
+          render={<Badge variant="outline" render={<button type="button" />} />}
+          aria-label={label}
+        >
+          <span className="max-w-32 truncate">{children}</span>
+        </MenuTrigger>
+        <MenuPopup align="end">
+          <MenuRadioGroup value={value} onValueChange={onChange}>
+            {options.map((option) => (
+              <MenuRadioItem key={option.value} value={option.value} closeOnClick>
+                {option.label}
+              </MenuRadioItem>
+            ))}
+          </MenuRadioGroup>
+        </MenuPopup>
+      </Menu>
+    </span>
+  );
+}
 
 export function CollectionViewPicker({
   view,

@@ -91,8 +91,12 @@ import { SidebarInset } from "../ui/sidebar";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Checkbox } from "../ui/checkbox";
-import { Badge } from "../ui/badge";
-import { CollectionGroups, CollectionRows, CollectionViewPicker } from "../WorkspaceCollectionView";
+import {
+  CollectionGroups,
+  CollectionRows,
+  CollectionViewPicker,
+  CollectionPropertyPill,
+} from "../WorkspaceCollectionView";
 import { Select, SelectTrigger, SelectValue, SelectPopup, SelectItem } from "../ui/select";
 import {
   Dialog,
@@ -552,7 +556,21 @@ export function TasksPage() {
                   {agentOptions.find((option) => option.value === task.assigneeProjectId)?.label ??
                     "Unavailable agent"}
                 </span>
-                <Badge variant="outline">{taskActivity(task.status).label}</Badge>
+                <CollectionPropertyPill
+                  label={`Change status for ${task.title}`}
+                  value={task.status}
+                  options={statusOptions}
+                  disabled={bulkPending}
+                  onChange={(status) =>
+                    update({
+                      id: task.id,
+                      expectedRevision: task.revision,
+                      status: status as WorkTaskStatus,
+                    })
+                  }
+                >
+                  {taskActivity(task.status).label}
+                </CollectionPropertyPill>
               </div>
             ) : null}
             {pills.length ? (
@@ -564,9 +582,41 @@ export function TasksPage() {
                 }
               >
                 {pills.map(([kind, label]) => (
-                  <Badge key={kind} variant="outline">
-                    <span className="max-w-32 truncate">{label}</span>
-                  </Badge>
+                  <CollectionPropertyPill
+                    key={kind}
+                    label={`Change ${kind} for ${task.title}`}
+                    value={
+                      kind === "status"
+                        ? task.status
+                        : ((kind === "project" ? task.projectId : task.parentTaskId) ?? "none")
+                    }
+                    options={
+                      kind === "status"
+                        ? statusOptions
+                        : kind === "project"
+                          ? projectOptions
+                          : [
+                              { value: "none", label: "No Parent" },
+                              ...parents
+                                .filter((parent) => parent.id !== task.id)
+                                .map((parent) => ({ value: parent.id, label: parent.title })),
+                            ]
+                    }
+                    disabled={bulkPending}
+                    onChange={(value) =>
+                      update({
+                        id: task.id,
+                        expectedRevision: task.revision,
+                        ...(kind === "status"
+                          ? { status: value as WorkTaskStatus }
+                          : kind === "project"
+                            ? { projectId: value === "none" ? null : (value as ProjectId) }
+                            : { parentTaskId: value === "none" ? null : (value as WorkTaskId) }),
+                      })
+                    }
+                  >
+                    {label}
+                  </CollectionPropertyPill>
                 ))}
               </div>
             ) : null}

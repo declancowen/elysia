@@ -58,11 +58,11 @@ import {
 } from "../ui/dialog";
 import { groupPages } from "./PagesPage.logic";
 import { Checkbox } from "../ui/checkbox";
-import { Badge } from "../ui/badge";
 import {
   CollectionGroups,
   CollectionRows,
   CollectionViewPicker,
+  CollectionPropertyPill,
   type CollectionView,
 } from "../WorkspaceCollectionView";
 import { ensureLocalApi } from "../../localApi";
@@ -422,12 +422,38 @@ export function PagesPage() {
                           </WorkspaceItemLink>
                           {!groupByProject ? (
                             <div className="flex justify-end">
-                              <Badge variant="outline">
-                                <span className="max-w-32 truncate">
-                                  {projects.find((project) => project.id === page.projectId)
-                                    ?.title ?? "No Project"}
-                                </span>
-                              </Badge>
+                              <CollectionPropertyPill
+                                label={`Change project for ${page.title}`}
+                                value={page.projectId ?? "none"}
+                                options={[
+                                  { value: "none", label: "No Project" },
+                                  ...projects.map((project) => ({
+                                    value: project.id,
+                                    label: project.title,
+                                  })),
+                                ]}
+                                disabled={bulkPending || !environmentId}
+                                onChange={(value) => {
+                                  if (!environmentId) return;
+                                  setError(null);
+                                  void savePage({
+                                    environmentId,
+                                    input: {
+                                      id: page.id,
+                                      expectedRevision: page.revision,
+                                      projectId: value === "none" ? null : ProjectId.make(value),
+                                    },
+                                  })
+                                    .then((result) => {
+                                      if (result._tag === "Failure")
+                                        setError(String(squashAtomCommandFailure(result)));
+                                    })
+                                    .catch((error) => setError(String(error)));
+                                }}
+                              >
+                                {projects.find((project) => project.id === page.projectId)?.title ??
+                                  "No Project"}
+                              </CollectionPropertyPill>
                             </div>
                           ) : null}
                           <div

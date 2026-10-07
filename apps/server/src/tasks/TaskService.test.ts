@@ -8,6 +8,7 @@ import {
   type AgentProfile,
 } from "@t3tools/contracts";
 import * as Effect from "effect/Effect";
+import * as DateTime from "effect/DateTime";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Ref from "effect/Ref";
@@ -20,6 +21,7 @@ import * as Delegation from "../orchestration-v2/AgentDelegation.ts";
 import * as Scheduler from "../scheduling/Scheduler.ts";
 import { SqlitePersistenceMemory } from "../persistence/Layers/Sqlite.ts";
 import * as Tasks from "./TaskService.ts";
+import * as Receipts from "../orchestration-v2/CommandReceiptStore.ts";
 import { taskPrompt } from "./taskPrompt.ts";
 const agentId = ProjectId.make("task-agent");
 const channelId = ProjectId.make("task-channel");
@@ -196,6 +198,70 @@ it.effect(
         expect(yield* sql`SELECT * FROM work_task_starts`).toEqual([]);
       }).pipe(Effect.provide(Tasks.layer.pipe(Layer.provide(deps))));
     }).pipe(Effect.provide(SqlitePersistenceMemory)),
+);
+
+it.effect(
+  "retains uncertain starts, replays the same command, and reconciles acceptance after a failed projection read",
+  () =>
+    Effect.gen(function* () {
+      const receipts = yield* Receipts.CommandReceiptStoreV2;
+      const sql = yield* SqlClient.SqlClient;
+      const commands: string[] = [];
+      const deps = Layer.mergeAll(
+        NodeCrypto.layer,
+        Scheduler.layer,
+        Layer.mock(Projects.ProjectStoreV2)({
+          get: (id) => Effect.succeed(Option.some(project(id, profile))),
+        }),
+        Layer.mock(Delegation.AgentDelegation)({}),
+        Layer.mock(Threads.ThreadManagementService)({
+          sendToThread: (input) =>
+            Effect.gen(function* () {
+              commands.push(input.commandId);
+              if (commands.length > 1)
+                yield* receipts
+                  .upsert({
+                    commandId: input.commandId,
+                    threadId,
+                    commandType: "message.dispatch",
+                    acceptedAt: DateTime.makeUnsafe("2026-10-05T00:00:00.000Z"),
+                    resultSequence: 1,
+                    status: "accepted",
+                    error: null,
+                  })
+                  .pipe(Effect.orDie);
+              return yield* new Threads.ThreadManagementDurableRunProjectionError({
+                threadId,
+                messageId: input.messageId,
+              });
+            }),
+        }),
+      );
+      yield* Effect.gen(function* () {
+        const tasks = yield* Tasks.TaskService;
+        const task = (yield* tasks.save({
+          title: "Build",
+          assigneeProjectId: agentId,
+          status: "in_progress",
+        })).task;
+        expect(task.startError).toContain("retry safely");
+        expect(yield* sql`SELECT * FROM work_task_starts`).toHaveLength(1);
+        expect((yield* Effect.flip(tasks.save({ id: task.id, status: "todo" }))).message).toContain(
+          "still being confirmed",
+        );
+        const resolved = (yield* tasks.save({ id: task.id, title: "Build safely" })).task;
+        expect(commands).toHaveLength(2);
+        expect(commands[0]).toBe(commands[1]);
+        expect(resolved.startedThreadId).toBe(threadId);
+        expect(resolved.startError).toBeNull();
+        expect(yield* sql`SELECT * FROM work_task_starts`).toEqual([]);
+        // The same durable row can survive a crash after dispatch and before cleanup.
+        yield* sql`INSERT INTO work_task_starts VALUES (1,${commands[0]},${agentId})`;
+        yield* tasks.save({ id: task.id, title: "Recovered" });
+        expect(commands).toHaveLength(2);
+        expect(yield* sql`SELECT * FROM work_task_starts`).toEqual([]);
+      }).pipe(Effect.provide(Tasks.layer.pipe(Layer.provide(deps))));
+    }).pipe(Effect.provide(Receipts.layer.pipe(Layer.provideMerge(SqlitePersistenceMemory)))),
 );
 
 it.effect("validates parent links and promotes children when a parent is deleted", () =>

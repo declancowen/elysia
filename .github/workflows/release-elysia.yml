@@ -207,6 +207,13 @@ jobs:
             apps/web/src/hooks/useArchivedConversationTabs.test.tsx \
             apps/web/src/components/agents/agentSidebarStore.test.ts \
             apps/server/src/orchestration-v2/PersistentAgents.test.ts \
+            apps/server/src/orchestration-v2/PersistentAgentReset.test.ts \
+            apps/server/src/tasks/TaskService.test.ts \
+            apps/server/src/workspace/WorkspaceChatService.test.ts \
+            apps/web/src/components/WorkspaceSideChat.test.tsx \
+            apps/web/src/components/WorkspaceCollectionView.test.tsx \
+            apps/web/src/components/tasks/taskViews.test.ts \
+            packages/shared/src/composerContextReferences.test.ts \
             apps/server/src/orchestration-v2/AgentDelegation.test.ts \
             apps/server/src/orchestration-v2/RuntimePolicy.test.ts \
             apps/server/src/orchestration-v2/runtimeLayer.test.ts \

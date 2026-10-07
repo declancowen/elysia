@@ -52,18 +52,32 @@ vi.mock("./ChatView", () => ({
     threadId,
     routeKind,
     onThreadStarted,
+    onBeforeThreadStarted,
   }: {
     threadId: ThreadId;
     routeKind: string;
     onThreadStarted?: (id: ThreadId) => Promise<void>;
+    onBeforeThreadStarted?: (id: ThreadId, projectId: ProjectId) => Promise<void>;
   }) => (
-    <button data-route-kind={routeKind} onClick={() => void onThreadStarted?.(threadId)}>
+    <button
+      data-route-kind={routeKind}
+      onClick={() =>
+        void (async () => {
+          const draft = Object.values(
+            useComposerDraftStore.getState().draftThreadsByThreadKey,
+          ).find((draft) => draft.threadId === threadId)!;
+          await onBeforeThreadStarted?.(threadId, draft.projectId);
+          await onThreadStarted?.(threadId);
+        })()
+      }
+    >
       Send first message
     </button>
   ),
 }));
 
 beforeEach(() => {
+  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   state.linked = [];
   state.shells = [];
   vi.clearAllMocks();
@@ -76,12 +90,11 @@ it.each(["page", "task"] as const)(
     const host = document.createElement("div");
     document.body.append(host);
     const root = createRoot(host);
-    let projectId: ProjectId | null = ProjectId.make("project");
     const target =
       kind === "page"
         ? { kind, id: PageId.make("page-11111111-1111-1111-1111-111111111111") }
         : { kind, id: WorkTaskId.make("TASK-1") };
-    function Harness() {
+    function Harness({ projectId }: { projectId: ProjectId | null }) {
       return useWorkspaceSideChat({
         environmentId: EnvironmentId.make("local"),
         target,
@@ -98,7 +111,7 @@ it.each(["page", "task"] as const)(
       await act(async () => button!.click());
     };
     try {
-      await act(async () => root.render(<Harness />));
+      await act(async () => root.render(<Harness projectId={ProjectId.make("project")} />));
       expect(state.create).not.toHaveBeenCalled();
       expect(state.link).not.toHaveBeenCalled();
       await click("Open side chat");
@@ -112,7 +125,7 @@ it.each(["page", "task"] as const)(
       await click("Send first message");
       expect(state.link).toHaveBeenCalledWith({
         environmentId: "local",
-        input: { target, threadId: first.threadId, linked: true },
+        input: { target, threadId: first.threadId, linked: true, draftProjectId: "project" },
       });
       state.linked = [first.threadId, "agent-thread", "archived"];
       state.shells = [
@@ -138,7 +151,7 @@ it.each(["page", "task"] as const)(
           archivedAt: "2026-10-05",
         },
       ];
-      await act(async () => root.render(<Harness />));
+      await act(async () => root.render(<Harness projectId={ProjectId.make("project")} />));
       expect(host.textContent).toContain("Generated context title");
       expect(host.querySelector("[data-route-kind]")?.getAttribute("data-route-kind")).toBe(
         "server",
@@ -149,8 +162,7 @@ it.each(["page", "task"] as const)(
       await act(async () =>
         document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })),
       );
-      projectId = null;
-      await act(async () => root.render(<Harness />));
+      await act(async () => root.render(<Harness projectId={null} />));
       await click("New linked chat");
       const second = Object.values(useComposerDraftStore.getState().draftThreadsByThreadKey).at(
         -1,
@@ -159,14 +171,17 @@ it.each(["page", "task"] as const)(
       expect(state.scratch).toHaveBeenCalledOnce();
       expect(state.create).not.toHaveBeenCalled();
       // A freshly promoted chat can be archived before its link query refreshes.
-      state.shells.push({
-        id: second.threadId,
-        title: "Archived pending chat",
-        environmentId: "local",
-        projectId: "scratch",
-        archivedAt: "2026-10-05",
-      });
-      await act(async () => root.render(<Harness />));
+      state.shells = [
+        ...state.shells,
+        {
+          id: second.threadId,
+          title: "Archived pending chat",
+          environmentId: "local",
+          projectId: "scratch",
+          archivedAt: "2026-10-05",
+        },
+      ];
+      await act(async () => root.render(<Harness projectId={null} />));
       expect(host.textContent).not.toContain("Archived pending chat");
       expect(host.textContent).toContain("Generated context title");
     } finally {

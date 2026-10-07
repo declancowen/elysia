@@ -220,11 +220,17 @@ export function useWorkspaceSideChat({
       </Button>
     </>
   );
+  const prepare = async (id: ThreadId, draftProjectId: ProjectId) => {
+    if (!target || !environmentId) return;
+    const result = await link({
+      environmentId,
+      input: { target, threadId: id, linked: true, draftProjectId },
+    });
+    if (result._tag === "Failure") throw squashAtomCommandFailure(result);
+  };
   const started = async (id: ThreadId) => {
     if (!target || !environmentId) return;
     const key = targetKey;
-    const result = await link({ environmentId, input: { target, threadId: id, linked: true } });
-    if (result._tag === "Failure") throw squashAtomCommandFailure(result);
     await waitForThreadShell(scopeThreadRef(environmentId, id));
     finalizePromotedDraftThreadByRef(scopeThreadRef(environmentId, id));
     if (currentTargetKey.current !== key) return;
@@ -292,7 +298,9 @@ export function useWorkspaceSideChat({
               {...(pendingDraft?.id === activeId
                 ? ({ routeKind: "draft", draftId: pendingDraft.draftId } as const)
                 : ({ routeKind: "server" } as const))}
-              {...(pendingDraft?.id === activeId ? { onThreadStarted: started } : {})}
+              {...(pendingDraft?.id === activeId
+                ? { onBeforeThreadStarted: prepare, onThreadStarted: started }
+                : {})}
               embedded
               workspaceContext={{ ...target, label: title }}
             />

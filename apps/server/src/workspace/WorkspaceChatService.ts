@@ -78,9 +78,22 @@ const make = Effect.gen(function* () {
         Effect.gen(function* () {
           yield* exists(input.target);
           if (input.linked) {
-            if (!(yield* regular(input.threadId)))
+            const thread = yield* threads.getThreadShell(input.threadId);
+            const draftProject =
+              input.draftProjectId && !thread
+                ? yield* projects.get(input.draftProjectId)
+                : Option.none();
+            const reservable =
+              Option.isSome(draftProject) &&
+              draftProject.value.deletedAt === null &&
+              !draftProject.value.agentProfile;
+            if (!reservable && !(yield* regular(input.threadId)))
               return yield* new WorkspaceChatError({
                 message: "Choose an active regular project chat.",
+              });
+            if (thread && input.draftProjectId && thread.projectId !== input.draftProjectId)
+              return yield* new WorkspaceChatError({
+                message: "The chat belongs to another project.",
               });
             yield* sql`INSERT OR IGNORE INTO workspace_chat_links (kind,item_id,thread_id) VALUES (${input.target.kind},${input.target.id},${input.threadId})`;
           } else

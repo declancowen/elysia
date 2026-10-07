@@ -55,6 +55,7 @@ describe("V2 preview upgrade", () => {
         [59, "Pages"],
         [60, "WorkspaceChatLinks"],
         [61, "ElysiaToolNames"],
+        [62, "PersistentAgentResets"],
       ]);
       assert.deepStrictEqual(
         yield* sql`SELECT agent_profile_json FROM projection_projects WHERE project_id = 'agent'`,
@@ -78,6 +79,7 @@ describe("V2 preview upgrade", () => {
         [59, "Pages"],
         [60, "WorkspaceChatLinks"],
         [61, "ElysiaToolNames"],
+        [62, "PersistentAgentResets"],
       ]);
       assert.deepStrictEqual(yield* runMigrations(), []);
       assert.deepStrictEqual(yield* sql`SELECT * FROM orchestration_v2_legacy_imports`, imports);
@@ -162,6 +164,7 @@ describe("V2 preview upgrade", () => {
         [59, "Pages"],
         [60, "WorkspaceChatLinks"],
         [61, "ElysiaToolNames"],
+        [62, "PersistentAgentResets"],
       ]);
     }).pipe(Effect.provide(NodeSqliteClient.layer({ filename: ":memory:" }))),
   );

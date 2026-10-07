@@ -23,6 +23,7 @@ import * as ProjectStore from "../orchestration-v2/ProjectStore.ts";
 import * as ThreadManagement from "../orchestration-v2/ThreadManagementService.ts";
 import * as AgentDelegation from "../orchestration-v2/AgentDelegation.ts";
 import * as Scheduler from "../scheduling/Scheduler.ts";
+import * as CommandReceipts from "../orchestration-v2/CommandReceiptStore.ts";
 import { taskPrompt } from "./taskPrompt.ts";
 
 export class TaskService extends Context.Service<
@@ -55,6 +56,7 @@ const make = Effect.gen(function* () {
   const threads = yield* ThreadManagement.ThreadManagementService;
   const delegation = yield* AgentDelegation.AgentDelegation;
   const scheduler = yield* Scheduler.Scheduler;
+  const receipts = yield* CommandReceipts.CommandReceiptStoreV2;
   const changes = yield* PubSub.sliding<void>(1);
   // ponytail: serialize local task writes and starts; split start dispatch from writes if throughput matters.
   const lock = yield* Semaphore.make(1);
@@ -136,6 +138,8 @@ const make = Effect.gen(function* () {
           }>`SELECT * FROM work_task_starts ORDER BY task_number`;
           for (const pendingStart of pending) {
             const task = yield* read(pendingStart.task_number);
+            const commandId = CommandId.make(pendingStart.command_id);
+            const receipt = yield* receipts.getByCommandId(commandId);
             if (
               task.status !== "in_progress" ||
               task.assigneeProjectId !== pendingStart.assignee_project_id
@@ -143,64 +147,104 @@ const make = Effect.gen(function* () {
               yield* sql`DELETE FROM work_task_starts WHERE task_number = ${pendingStart.task_number}`;
               continue;
             }
-            const result = yield* Effect.result(
-              Effect.gen(function* () {
-                const assigned = yield* projects.get(task.assigneeProjectId!);
-                if (
-                  Option.isNone(assigned) ||
-                  assigned.value.deletedAt !== null ||
-                  !assigned.value.agentProfile ||
-                  assigned.value.agentProfile.archived
-                )
-                  return yield* fail("The assigned agent or channel is unavailable.");
-                const profile = assigned.value.agentProfile;
-                if (!profile.conversationThreadId)
-                  return yield* fail("The assigned conversation is unavailable.");
-                const threadId = profile.conversationThreadId;
-                const text = taskPrompt(task);
-                const commandId = CommandId.make(pendingStart.command_id);
-                const messageId = MessageId.make(`${pendingStart.command_id}:message`);
-                if (profile.group) {
-                  yield* delegation.delegate({
-                    commandId,
-                    messageId,
-                    sourceThreadId: threadId,
-                    agentProjectId: profile.group.leadProjectId,
-                    text,
-                    attachments: [],
-                  });
-                } else {
-                  yield* threads.sendToThread({
-                    projectId: assigned.value.projectId,
-                    threadId,
-                    commandId,
-                    messageId,
-                    text,
-                    attachments: [],
-                    mode: "queue",
-                    createdBy: "user",
-                    creationSource: "mcp",
-                  });
-                }
-                return threadId;
-              }),
-            );
-            yield* sql.withTransaction(
+            const result =
+              Option.isSome(receipt) && receipt.value.status === "accepted"
+                ? { _tag: "Success" as const, success: receipt.value.threadId }
+                : yield* Effect.result(
+                    Effect.gen(function* () {
+                      if (Option.isSome(receipt))
+                        return yield* fail("The task start was rejected.");
+                      const assigned = yield* projects.get(task.assigneeProjectId!);
+                      if (
+                        Option.isNone(assigned) ||
+                        assigned.value.deletedAt !== null ||
+                        !assigned.value.agentProfile ||
+                        assigned.value.agentProfile.archived
+                      )
+                        return yield* fail("The assigned agent or channel is unavailable.");
+                      const profile = assigned.value.agentProfile;
+                      if (!profile.conversationThreadId)
+                        return yield* fail("The assigned conversation is unavailable.");
+                      const threadId = profile.conversationThreadId;
+                      const text = taskPrompt(task);
+                      const messageId = MessageId.make(`${pendingStart.command_id}:message`);
+                      if (profile.group) {
+                        yield* delegation.delegate({
+                          commandId,
+                          messageId,
+                          sourceThreadId: threadId,
+                          agentProjectId: profile.group.leadProjectId,
+                          text,
+                          attachments: [],
+                        });
+                      } else {
+                        yield* threads.sendToThread({
+                          projectId: assigned.value.projectId,
+                          threadId,
+                          commandId,
+                          messageId,
+                          text,
+                          attachments: [],
+                          mode: "queue",
+                          createdBy: "user",
+                          creationSource: "mcp",
+                        });
+                      }
+                      return threadId;
+                    }),
+                  );
+            // A dispatch can commit before its projection read fails. Only a durable
+            // receipt or a known pre-dispatch rejection resolves that uncertainty.
+            const settledReceipt =
+              result._tag === "Success" ? receipt : yield* receipts.getByCommandId(commandId);
+            const accepted =
+              Option.isSome(settledReceipt) && settledReceipt.value.status === "accepted"
+                ? settledReceipt.value.threadId
+                : result._tag === "Success"
+                  ? result.success
+                  : null;
+            const rejected =
+              Option.isSome(settledReceipt) && settledReceipt.value.status === "rejected";
+            const knownFailure =
+              result._tag === "Failure" &&
+              (isTaskError(result.failure) ||
+                result.failure._tag === "ThreadManagementThreadNotFoundError" ||
+                result.failure._tag === "ThreadManagementThreadArchivedError" ||
+                // Channel admission rejects without a cause; dispatch/read failures wrap one.
+                (result.failure._tag === "OrchestrationDispatchCommandError" &&
+                  result.failure.cause === undefined));
+            const resolved = accepted !== null || rejected || knownFailure;
+            if (!resolved)
+              yield* Effect.logWarning(
+                "Task start acceptance is unresolved; retaining its command",
+                {
+                  taskId: task.id,
+                  commandId,
+                  error: result._tag === "Failure" ? result.failure : undefined,
+                },
+              );
+            const changed = yield* sql.withTransaction(
               Effect.gen(function* () {
                 const current = yield* read(pendingStart.task_number);
                 const next =
-                  result._tag === "Success"
-                    ? { ...current, startedThreadId: result.success, startError: null }
+                  accepted !== null
+                    ? { ...current, startedThreadId: accepted, startError: null }
                     : {
                         ...current,
-                        startError:
-                          "Could not start the assigned conversation. Move the task out of In progress and back to retry.",
+                        startError: resolved
+                          ? "Could not start the assigned conversation. Move the task out of In progress and back to retry."
+                          : "Confirming whether the assigned conversation started. Elysia will retry safely; do not start it again.",
                       };
-                yield* write({ ...next, revision: current.revision + 1 });
-                yield* sql`DELETE FROM work_task_starts WHERE task_number = ${pendingStart.task_number} AND command_id = ${pendingStart.command_id}`;
+                const changed =
+                  next.startError !== current.startError ||
+                  next.startedThreadId !== current.startedThreadId;
+                if (changed) yield* write({ ...next, revision: current.revision + 1 });
+                if (resolved)
+                  yield* sql`DELETE FROM work_task_starts WHERE task_number = ${pendingStart.task_number} AND command_id = ${pendingStart.command_id}`;
+                return changed;
               }),
             );
-            yield* notify;
+            if (changed) yield* notify;
           }
         }),
       ),
@@ -221,6 +265,19 @@ const make = Effect.gen(function* () {
                 return yield* fail(
                   "This task has newer edits. Your draft has been preserved; reload the latest task before retrying.",
                 );
+              if (
+                previous &&
+                ((input.status !== undefined && input.status !== previous.status) ||
+                  (input.assigneeProjectId !== undefined &&
+                    input.assigneeProjectId !== previous.assigneeProjectId))
+              ) {
+                const pending =
+                  yield* sql`SELECT 1 FROM work_task_starts WHERE task_number = ${numberOf(previous.id)}`;
+                if (pending.length)
+                  return yield* fail(
+                    "The previous task start is still being confirmed. Wait before changing its status or assigned agent.",
+                  );
+              }
               let number = previous ? numberOf(previous.id) : 0;
               if (!previous) {
                 if (!input.title) return yield* fail("A task title is required.");
@@ -326,4 +383,4 @@ const make = Effect.gen(function* () {
       ),
   });
 });
-export const layer = Layer.effect(TaskService, make);
+export const layer = Layer.effect(TaskService, make).pipe(Layer.provide(CommandReceipts.layer));

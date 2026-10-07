@@ -811,6 +811,7 @@ type ChatViewProps = {
   embedded?: boolean;
   workspaceContext?: { kind: "task" | "page"; id: string; label: string };
   onThreadStarted?: (threadId: ThreadId) => Promise<void>;
+  onBeforeThreadStarted?: (threadId: ThreadId, projectId: ProjectId) => Promise<void>;
 } & (
   | {
       environmentId: EnvironmentId;
@@ -9123,6 +9124,7 @@ ${formatComposerContextReference({
                   "The previous request may have started. Open its thread to check before sending again.",
                 );
               }
+              await props.onBeforeThreadStarted?.(targetThreadId, activeProject.id);
               const supportsInlineMessageContext =
                 appAtomRegistry.get(environmentServerConfigsAtom).get(environmentId)?.environment
                   .capabilities.inlineMessageContext === true;
@@ -9178,6 +9180,16 @@ ${formatComposerContextReference({
                 throw error;
               }
               startedCount += 1;
+              if (props.onThreadStarted) {
+                try {
+                  await props.onThreadStarted(targetThreadId);
+                } catch (error) {
+                  setThreadError(
+                    targetThreadId,
+                    error instanceof Error ? error.message : "Could not refresh linked chats.",
+                  );
+                }
+              }
             } catch (error) {
               if (requestMayHaveStarted && !uncertainMultipleSubmissionsRef.current.has(retryKey)) {
                 uncertainMultipleSubmissionsRef.current.set(retryKey, targetThreadId);
@@ -9451,6 +9463,13 @@ ${formatComposerContextReference({
       if (settingsResult._tag === "Failure") {
         failure = settingsResult;
       }
+    }
+
+    if (failure === null && isLocalDraftThread && props.onBeforeThreadStarted) {
+      const prepared = await settlePromise(() =>
+        props.onBeforeThreadStarted!(threadIdForSend, activeProject.id),
+      );
+      if (prepared._tag === "Failure") failure = prepared;
     }
 
     const turnAttachmentsResult = await settlePromise(async () => {

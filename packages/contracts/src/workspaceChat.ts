@@ -1,5 +1,5 @@
 import * as Schema from "effect/Schema";
-import { ThreadId } from "./baseSchemas.ts";
+import { ProjectId, ThreadId } from "./baseSchemas.ts";
 import { WorkTaskId } from "./workTask.ts";
 import { PageId } from "./page.ts";
 export const WorkspaceChatTarget = Schema.Union([
@@ -12,6 +12,8 @@ export const WorkspaceChatLinkInput = Schema.Struct({
   target: WorkspaceChatTarget,
   threadId: ThreadId,
   linked: Schema.Boolean,
+  // Reserve the association before a draft's first turn can create its thread.
+  draftProjectId: Schema.optional(ProjectId),
 });
 export type WorkspaceChatLinkInput = typeof WorkspaceChatLinkInput.Type;
 export class WorkspaceChatError extends Schema.TaggedError<WorkspaceChatError>()(

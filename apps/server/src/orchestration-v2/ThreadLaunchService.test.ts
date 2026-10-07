@@ -411,66 +411,57 @@ function scheduledAgentHarness(agentProfile: AgentProfile) {
   });
 }
 
-for (const workspaceStrategy of [
-  { type: "root" },
-  { type: "worktree", baseRef: "main" },
-] as const) {
-  it.effect(
-    `resumes scheduled agent work in its existing chat without ${workspaceStrategy.type} provisioning`,
-    () => {
-      const harness = scheduledAgentHarness(scheduledAgentProfile);
-      return Effect.gen(function* () {
-        const launches = yield* ThreadLaunch.ThreadLaunchService;
-        const threads = yield* ThreadManagement.ThreadManagementService;
-        yield* threads.dispatch({
-          type: "thread.create",
-          commandId: CommandId.make("command:scheduled-agent:create"),
-          threadId: scheduledAgentChat,
-          projectId,
-          title: "Existing agent chat",
-          modelSelection,
-          runtimeMode: "full-access",
-          interactionMode: "default",
-          branch: null,
-          worktreePath: null,
-          createdBy: "user",
-          creationSource: "web",
-        });
-        const input = {
-          ...scheduledAgentLaunch(workspaceStrategy),
-          modelSelection: { ...modelSelection, model: "outdated-schedule-model" },
-        };
-        const first = yield* launches.launch(input);
-        const retried = yield* launches.launch(input);
-        assert.equal(first.threadId, scheduledAgentChat);
-        assert.isTrue(first.resumed);
-        assert.equal(retried.threadId, scheduledAgentChat);
-        const projection = yield* threads.getThreadProjection(scheduledAgentChat);
-        assert.equal(projection.thread.title, "Existing agent chat");
-        assert.deepEqual(projection.thread.modelSelection, modelSelection);
-        assert.isNull(projection.thread.branch);
-        assert.isNull(projection.thread.worktreePath);
-        assert.equal(projection.messages.length, 1);
-        assert.equal(projection.messages[0]?.text, input.initialMessage.text);
-        assert.equal(projection.messages[0]?.scheduledTaskId, input.initialMessage.scheduledTaskId);
-        assert.deepEqual(
-          (yield* threads.listProjectThreads({ projectId, includeSubagents: false })).map(
-            (thread) => thread.id,
-          ),
-          [scheduledAgentChat],
-        );
-      }).pipe(Effect.provide(harness.layer));
-    },
-  );
-}
+it.effect.each([{ type: "root" }, { type: "worktree", baseRef: "main" }] as const)(
+  "resumes scheduled agent work in its existing chat without $type provisioning",
+  (workspaceStrategy) => {
+    const harness = scheduledAgentHarness(scheduledAgentProfile);
+    return Effect.gen(function* () {
+      const launches = yield* ThreadLaunch.ThreadLaunchService;
+      const threads = yield* ThreadManagement.ThreadManagementService;
+      yield* threads.dispatch({
+        type: "thread.create",
+        commandId: CommandId.make("command:scheduled-agent:create"),
+        threadId: scheduledAgentChat,
+        projectId,
+        title: "Existing agent chat",
+        modelSelection,
+        runtimeMode: "full-access",
+        interactionMode: "default",
+        branch: null,
+        worktreePath: null,
+        createdBy: "user",
+        creationSource: "web",
+      });
+      const input = {
+        ...scheduledAgentLaunch(workspaceStrategy),
+        modelSelection: { ...modelSelection, model: "outdated-schedule-model" },
+      };
+      const first = yield* launches.launch(input);
+      const retried = yield* launches.launch(input);
+      assert.equal(first.threadId, scheduledAgentChat);
+      assert.isTrue(first.resumed);
+      assert.equal(retried.threadId, scheduledAgentChat);
+      const projection = yield* threads.getThreadProjection(scheduledAgentChat);
+      assert.equal(projection.thread.title, "Existing agent chat");
+      assert.deepEqual(projection.thread.modelSelection, modelSelection);
+      assert.isNull(projection.thread.branch);
+      assert.isNull(projection.thread.worktreePath);
+      assert.equal(projection.messages.length, 1);
+      assert.equal(projection.messages[0]?.text, input.initialMessage.text);
+      assert.equal(projection.messages[0]?.scheduledTaskId, input.initialMessage.scheduledTaskId);
+      assert.deepEqual(
+        (yield* threads.listProjectThreads({ projectId, includeSubagents: false })).map(
+          (thread) => thread.id,
+        ),
+        [scheduledAgentChat],
+      );
+    }).pipe(Effect.provide(harness.layer));
+  },
+);
 
-for (const unavailable of [
-  "archived",
-  "missing binding",
-  "missing chat",
-  "conflicting identity",
-] as const) {
-  it.effect(`rejects scheduled agent work with ${unavailable} instead of creating a chat`, () => {
+it.effect.each(["archived", "missing binding", "missing chat", "conflicting identity"] as const)(
+  "rejects scheduled agent work with %s instead of creating a chat",
+  (unavailable) => {
     const profile: AgentProfile = {
       instructions: scheduledAgentProfile.instructions,
       avatar: scheduledAgentProfile.avatar,
@@ -497,8 +488,8 @@ for (const unavailable of [
         [],
       );
     }).pipe(Effect.provide(harness.layer));
-  });
-}
+  },
+);
 
 it.effect("retains automation and sender attribution while a message waits in the queue", () => {
   const harness = makeHarness({ runSetup: () => Effect.never });

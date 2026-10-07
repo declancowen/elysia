@@ -155,10 +155,11 @@ it.layer(layerTest)("RuntimePolicyV2", (it) => {
   );
 });
 
-for (const state of ["active", "archived", "group"] as const) {
-  const archived = state === "archived";
-  it.effect(`preserves named agent identity and memory at provider admission; state=${state}`, () =>
-    Effect.gen(function* () {
+it.effect.each(["active", "archived", "group"] as const)(
+  "preserves named agent identity and memory at provider admission; state=%s",
+  (state) => {
+    const archived = state === "archived";
+    return Effect.gen(function* () {
       const policy = yield* RuntimePolicy.RuntimePolicyV2;
       const thread = makeThread({
         now: yield* DateTime.now,
@@ -224,12 +225,13 @@ for (const state of ["active", "archived", "group"] as const) {
           ),
         ),
       ),
-    ),
-  );
-}
+    );
+  },
+);
 
-for (const linked of [false, true]) {
-  it.effect(`runs channel work with member identity and memory, linked=${linked}`, () =>
+it.effect.each([false, true])(
+  "runs channel work with member identity and memory, linked=%s",
+  (linked) =>
     Effect.gen(function* () {
       const policy = yield* RuntimePolicy.RuntimePolicyV2;
       const thread = makeThread({ now: yield* DateTime.now, worktreePath: null });
@@ -315,5 +317,4 @@ for (const linked of [false, true]) {
         ),
       ),
     ),
-  );
-}
+);

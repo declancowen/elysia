@@ -255,8 +255,9 @@ describe("planProjectCommand", () => {
   });
 });
 
-for (const archived of [false, true]) {
-  it(`agent reset only changes the matching conversation link (archived=${archived})`, () => {
+it.each([false, true])(
+  "agent reset only changes the matching conversation link (archived=%s)",
+  (archived) => {
     const previousThreadId = ThreadId.make("previous");
     const threadId = ThreadId.make("fresh");
     const profile = {
@@ -289,5 +290,5 @@ for (const archived of [false, true]) {
       ),
     );
     assert.isTrue(Result.isFailure(plan(command, { project: row() })));
-  });
-}
+  },
+);

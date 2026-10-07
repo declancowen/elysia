@@ -37,6 +37,7 @@ describe("workspace settings visibility", () => {
     for (const target of [
       "#new-threads",
       "#storage-worktrees",
+      "#storage-worktrees-location",
       "#git-fetch-interval",
       "#auto-settle-merged-threads",
       "#keybinding-terminal.toggle",

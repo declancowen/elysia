@@ -412,7 +412,7 @@ describe("EnvironmentProviderSettings retained upstream routing", () => {
     const notice = visitElements(panel, (element) => element.props.title === "Limited permissions");
     expect(notice).not.toBeNull();
 
-    expect(visitElements(panel, isRefreshButton)).not.toBeNull();
+    expect(visitElements(panel, isRefreshButton)).toBeNull();
     expect(visitElements(panel, isAddProviderButton)).toBeNull();
   });
 
@@ -427,23 +427,19 @@ describe("EnvironmentProviderSettings retained upstream routing", () => {
     expect(visitElements(panel, isAddProviderButton)).toBeNull();
   });
 
-  it("removes an open add-instance dialog when the provider grant is revoked", () => {
-    let panel = renderPanel();
-    const add = visitElements(panel, isAddProviderButton);
-    if (!add) throw new Error("Missing Add provider action.");
-    (add.props.onClick as () => void)();
-    panel = renderPanel();
-    expect(
-      visitElements(panel, (element) => element.type === AddProviderInstanceDialog),
-    ).not.toBeNull();
-
-    commands.canManageProviders = false;
-    panel = renderPanel({ readOnly: true });
-    expect(
-      visitElements(panel, (element) => element.type === AddProviderInstanceDialog),
-    ).toBeNull();
-    expect(settingsState.updateSettings).not.toHaveBeenCalled();
-  });
+  it.each([true, false])(
+    "does not offer additional provider instances in Elysia (provider grant=%s)",
+    (canManageProviders) => {
+      commands.canManageProviders = canManageProviders;
+      const panel = renderPanel({ readOnly: !canManageProviders });
+      expect(visitElements(panel, isAddProviderButton)).toBeNull();
+      expect(
+        visitElements(panel, (element) => element.type === AddProviderInstanceDialog),
+      ).toBeNull();
+      expect(settingsState.mutateProviderInstance).not.toHaveBeenCalled();
+      expect(settingsState.updateSettings).not.toHaveBeenCalled();
+    },
+  );
 
   it("keeps Advanced visible when search targets the provider health interval", () => {
     let panel = renderPanel();

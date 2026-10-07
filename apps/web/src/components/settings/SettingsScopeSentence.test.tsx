@@ -91,6 +91,11 @@ const named = (role: string, name: string) =>
 const click = (element: HTMLElement) => act(async () => element.click());
 beforeEach(() => {
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+  vi.stubGlobal("matchMedia", () => ({
+    matches: false,
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+  }));
   vi.stubGlobal(
     "ResizeObserver",
     class {

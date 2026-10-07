@@ -8,6 +8,7 @@ const CODE_SETTINGS_PATHS = new Set([
 const CODE_SETTINGS_TARGETS = new Set([
   "projects-and-threads",
   "storage-worktrees",
+  "storage-worktrees-location",
   "new-threads",
   "worktree-submodules",
   "start-from-origin",

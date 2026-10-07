@@ -1,6 +1,9 @@
+import { formatComposerContextReference } from "@t3tools/shared/composerContextReferences";
+import { useCopyToClipboard } from "../../hooks/useCopyToClipboard";
+import { formatCalendarDate } from "@t3tools/shared/dateFormat";
 import { useNavigate } from "@tanstack/react-router";
 import { useMemo, useRef, useState } from "react";
-import { ProjectId, type PageId, type PageSummary } from "@t3tools/contracts";
+import { ComposerContextId, ProjectId, type PageId, type PageSummary } from "@t3tools/contracts";
 import {
   isAtomCommandInterrupted,
   squashAtomCommandFailure,
@@ -58,16 +61,26 @@ import {
 } from "../ui/dialog";
 import { groupPages } from "./PagesPage.logic";
 import { Checkbox } from "../ui/checkbox";
+import { Badge } from "../ui/badge";
 import {
   CollectionGroups,
   CollectionRows,
   CollectionViewPicker,
   CollectionPropertyPill,
+  CollectionPropertiesPicker,
+  CollectionTableCell,
+  type CollectionProperty,
   type CollectionView,
 } from "../WorkspaceCollectionView";
 import { ensureLocalApi } from "../../localApi";
 import { showContextMenuFallback } from "../../contextMenuFallback";
 import { cn } from "../../lib/utils";
+
+const PAGE_PROPERTIES = [
+  { id: "project", label: "Project" },
+  { id: "createdAt", label: "Created at" },
+  { id: "updatedAt", label: "Edited at" },
+] as const;
 
 export function PagesPage() {
   const environmentId = usePrimaryEnvironmentId();
@@ -82,9 +95,14 @@ export function PagesPage() {
   const navigateTab = useConversationTabNavigation();
   const [search, setSearch] = useState("");
   const [view, setView] = useState<CollectionView>("list");
+  const [properties, setProperties] = useState<CollectionProperty[]>(["project"]);
   const [groupByProject, setGroupByProject] = useState(true);
   const [groupDescending, setGroupDescending] = useState(false);
   const [hideEmpty, setHideEmpty] = useState(true);
+  const propertyColumns = PAGE_PROPERTIES.filter(
+    (property) =>
+      properties.includes(property.id) && (property.id !== "project" || !groupByProject),
+  );
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const [sort, setSort] = useState<"updated" | "created" | "title">("updated");
   const [createOpen, setCreateOpen] = useState(false);
@@ -93,6 +111,7 @@ export function PagesPage() {
   const [saving, setSaving] = useState(false);
   const submitting = useRef(false);
   const [error, setError] = useState<string | null>(null);
+  const { copyToClipboard } = useCopyToClipboard({ onError: (error) => setError(error.message) });
   const [selection, setSelection] = useState<Set<PageId>>(new Set());
   const [bulkPending, setBulkPending] = useState(false);
   const groups = useMemo(
@@ -125,6 +144,8 @@ export function PagesPage() {
     const action = await showContextMenuFallback(
       [
         { id: "open-new-tab", label: "Open in new tab", icon: "open-new-tab" },
+        { id: "copy-id", label: "Copy ID" },
+        { id: "copy-reference", label: "Copy reference" },
         {
           id: "project",
           label: "Change project",
@@ -148,6 +169,23 @@ export function PagesPage() {
       position,
     );
     if (!action) return;
+    if (action === "copy-id" || action === "copy-reference") {
+      copyToClipboard(
+        selectedPages
+          .map((row) =>
+            action === "copy-id"
+              ? row.id
+              : formatComposerContextReference({
+                  kind: "page",
+                  contextId: ComposerContextId.make(row.id),
+                  label: row.title,
+                }),
+          )
+          .join("\n"),
+        undefined,
+      );
+      return;
+    }
     if (action === "open-new-tab") {
       openPage(page, true);
       return;
@@ -247,6 +285,11 @@ export function PagesPage() {
             </div>
             <div className="ml-auto flex flex-wrap items-center gap-2">
               <CollectionViewPicker view={view} onChange={setView} />
+              <CollectionPropertiesPicker
+                options={PAGE_PROPERTIES}
+                value={properties}
+                onChange={setProperties}
+              />
               <Menu>
                 <MenuTrigger
                   render={<Button variant="outline" size="compact" />}
@@ -382,10 +425,19 @@ export function PagesPage() {
                     </h2>
                   ) : null}
                   {!collapsed[group.key] ? (
-                    <CollectionRows view={view}>
+                    <CollectionRows
+                      view={view}
+                      label="Pages"
+                      columns={[
+                        { id: "title", label: "Title" },
+                        ...propertyColumns,
+                        { id: "actions", label: "Actions" },
+                      ]}
+                    >
                       {group.pages.map((page) => (
                         <div
                           key={page.id}
+                          role={view === "table" ? "row" : undefined}
                           onContextMenu={(event) => {
                             event.preventDefault();
                             void showSelectionMenu(page, {
@@ -394,108 +446,148 @@ export function PagesPage() {
                             }).catch((error) => setError(String(error)));
                           }}
                           className={cn(
-                            "group relative flex min-w-0 gap-3 rounded-lg hover:bg-sidebar-row-hover",
+                            "group relative min-w-0 gap-3 rounded-lg hover:bg-sidebar-row-hover",
                             view === "list"
-                              ? "items-center px-3"
-                              : "flex-col border border-border bg-card p-4",
+                              ? "flex items-center px-3"
+                              : view === "table"
+                                ? "grid grid-cols-[var(--collection-columns)] items-center rounded-none border-b border-border px-3"
+                                : "flex flex-col border border-border bg-card p-4",
                             selection.has(page.id) && "bg-sidebar-row-selected",
                           )}
                         >
-                          <WorkspaceItemLink
-                            onOpen={(newTab) => openPage(page, newTab)}
-                            className={cn(
-                              "flex min-w-0 flex-1 gap-3 rounded-md text-left outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                              view === "list" ? "items-center py-3" : "flex-col pr-16",
-                              view === "card" && "min-h-32",
-                            )}
-                          >
-                            <FileTextIcon className="size-4 shrink-0 text-muted-foreground" />
-                            <span
-                              className={
-                                view === "list"
-                                  ? "min-w-0 flex-1 truncate text-sm"
-                                  : "line-clamp-3 text-sm font-medium leading-6"
-                              }
+                          <CollectionTableCell view={view} align="left">
+                            <WorkspaceItemLink
+                              onOpen={(newTab) => openPage(page, newTab)}
+                              className={cn(
+                                "flex min-w-0 flex-1 gap-3 rounded-md text-left outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                                view === "list" || view === "table"
+                                  ? "items-center py-3"
+                                  : "flex-col pr-16",
+                                view === "card" && "min-h-32",
+                              )}
                             >
-                              {page.title}
-                            </span>
-                          </WorkspaceItemLink>
-                          {!groupByProject ? (
-                            <div className="flex justify-end">
-                              <CollectionPropertyPill
-                                label={`Change project for ${page.title}`}
-                                value={page.projectId ?? "none"}
-                                options={[
-                                  { value: "none", label: "No Project" },
-                                  ...projects.map((project) => ({
-                                    value: project.id,
-                                    label: project.title,
-                                  })),
-                                ]}
-                                disabled={bulkPending || !environmentId}
-                                onChange={(value) => {
-                                  if (!environmentId) return;
-                                  setError(null);
-                                  void savePage({
-                                    environmentId,
-                                    input: {
-                                      id: page.id,
-                                      expectedRevision: page.revision,
-                                      projectId: value === "none" ? null : ProjectId.make(value),
-                                    },
-                                  })
-                                    .then((result) => {
-                                      if (result._tag === "Failure")
-                                        setError(String(squashAtomCommandFailure(result)));
-                                    })
-                                    .catch((error) => setError(String(error)));
-                                }}
-                              >
-                                {projects.find((project) => project.id === page.projectId)?.title ??
-                                  "No Project"}
-                              </CollectionPropertyPill>
-                            </div>
-                          ) : null}
-                          <div
-                            className={cn(
-                              "flex shrink-0 items-center gap-2 opacity-0 group-hover:opacity-100 focus-within:opacity-100 pointer-coarse:opacity-100",
-                              selection.has(page.id) && "opacity-100",
-                              view !== "list" && "absolute top-3 right-3",
-                            )}
-                          >
-                            <Checkbox
-                              aria-label={`Select ${page.title}`}
-                              checked={selection.has(page.id)}
-                              disabled={bulkPending}
-                              onCheckedChange={(checked) =>
-                                setSelection((current) => {
-                                  const next = new Set(current);
-                                  if (checked) next.add(page.id);
-                                  else next.delete(page.id);
-                                  return next;
-                                })
-                              }
-                            />
-                            <Menu>
-                              <MenuTrigger
-                                render={
-                                  <Button
-                                    variant="ghost-muted"
-                                    size="icon-xs"
-                                    aria-label={`Options for ${page.title}`}
-                                  />
+                              <FileTextIcon className="size-4 shrink-0 text-muted-foreground" />
+                              <span
+                                className={
+                                  view === "list" || view === "table"
+                                    ? "min-w-0 flex-1 truncate text-sm"
+                                    : "line-clamp-3 text-sm font-medium leading-6"
                                 }
                               >
-                                <MoreHorizontalIcon />
-                              </MenuTrigger>
-                              <MenuPopup>
-                                <MenuItem onClick={() => openPage(page)}>Open page</MenuItem>
-                                <MenuItem onClick={() => openPage(page, true)}>
-                                  Open in new tab
-                                </MenuItem>
-                              </MenuPopup>
-                            </Menu>
-                          </div>
+                                {page.title}
+                              </span>
+                            </WorkspaceItemLink>
+                          </CollectionTableCell>
+                          {propertyColumns.length ? (
+                            <div
+                              className={
+                                view === "table" ? "contents" : "flex flex-wrap justify-end gap-2"
+                              }
+                            >
+                              {propertyColumns.map(({ id: kind, label }) => (
+                                <CollectionTableCell key={kind} view={view}>
+                                  {kind !== "project" ? (
+                                    <Badge variant="outline" title={label}>
+                                      {formatCalendarDate(page[kind])}
+                                    </Badge>
+                                  ) : (
+                                    <CollectionPropertyPill
+                                      label={`Change project for ${page.title}`}
+                                      value={page.projectId ?? "none"}
+                                      options={[
+                                        { value: "none", label: "No Project" },
+                                        ...projects.map((project) => ({
+                                          value: project.id,
+                                          label: project.title,
+                                        })),
+                                      ]}
+                                      disabled={bulkPending || !environmentId}
+                                      onChange={(value) => {
+                                        if (!environmentId) return;
+                                        setError(null);
+                                        void savePage({
+                                          environmentId,
+                                          input: {
+                                            id: page.id,
+                                            expectedRevision: page.revision,
+                                            projectId:
+                                              value === "none" ? null : ProjectId.make(value),
+                                          },
+                                        })
+                                          .then((result) => {
+                                            if (result._tag === "Failure")
+                                              setError(String(squashAtomCommandFailure(result)));
+                                          })
+                                          .catch((error) => setError(String(error)));
+                                      }}
+                                    >
+                                      {projects.find((project) => project.id === page.projectId)
+                                        ?.title ?? "No Project"}
+                                    </CollectionPropertyPill>
+                                  )}
+                                </CollectionTableCell>
+                              ))}
+                            </div>
+                          ) : null}
+                          <CollectionTableCell view={view}>
+                            <div
+                              className={cn(
+                                "flex shrink-0 items-center gap-2 opacity-0 group-hover:opacity-100 focus-within:opacity-100 pointer-coarse:opacity-100",
+                                selection.has(page.id) && "opacity-100",
+                                (view === "card" || view === "board") && "absolute top-3 right-3",
+                              )}
+                            >
+                              <Checkbox
+                                aria-label={`Select ${page.title}`}
+                                checked={selection.has(page.id)}
+                                disabled={bulkPending}
+                                onCheckedChange={(checked) =>
+                                  setSelection((current) => {
+                                    const next = new Set(current);
+                                    if (checked) next.add(page.id);
+                                    else next.delete(page.id);
+                                    return next;
+                                  })
+                                }
+                              />
+                              <Menu>
+                                <MenuTrigger
+                                  render={
+                                    <Button
+                                      variant="ghost-muted"
+                                      size="icon-xs"
+                                      aria-label={`Options for ${page.title}`}
+                                    />
+                                  }
+                                >
+                                  <MoreHorizontalIcon />
+                                </MenuTrigger>
+                                <MenuPopup>
+                                  <MenuItem onClick={() => copyToClipboard(page.id, undefined)}>
+                                    Copy ID
+                                  </MenuItem>
+                                  <MenuItem
+                                    onClick={() =>
+                                      copyToClipboard(
+                                        formatComposerContextReference({
+                                          kind: "page",
+                                          contextId: ComposerContextId.make(page.id),
+                                          label: page.title,
+                                        }),
+                                        undefined,
+                                      )
+                                    }
+                                  >
+                                    Copy reference
+                                  </MenuItem>
+                                  <MenuItem onClick={() => openPage(page)}>Open page</MenuItem>
+                                  <MenuItem onClick={() => openPage(page, true)}>
+                                    Open in new tab
+                                  </MenuItem>
+                                </MenuPopup>
+                              </Menu>
+                            </div>
+                          </CollectionTableCell>
                         </div>
                       ))}
                     </CollectionRows>

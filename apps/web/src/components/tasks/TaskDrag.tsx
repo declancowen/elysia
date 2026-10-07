@@ -9,12 +9,14 @@ export function TaskDragRow({
   className,
   children,
   onContextMenu,
+  table = false,
 }: {
   task: WorkTaskSummary;
   depth?: number;
   className: string;
   children: ReactNode;
   onContextMenu?: MouseEventHandler<HTMLDivElement>;
+  table?: boolean;
 }) {
   const { setNodeRef, attributes, listeners, isDragging } = useDraggable({
     id: task.id,
@@ -25,6 +27,7 @@ export function TaskDragRow({
       ref={setNodeRef}
       {...attributes}
       {...listeners}
+      role={table ? "row" : attributes.role}
       onContextMenu={onContextMenu}
       style={{
         touchAction: "none",

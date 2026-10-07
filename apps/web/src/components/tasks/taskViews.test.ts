@@ -11,6 +11,7 @@ import { formatComposerContextReference } from "@t3tools/shared/composerContextR
 import {
   groupTasks,
   taskMetadata,
+  taskVisibleProperties,
   visibleTasks,
   taskActivity,
   taskResponses,
@@ -177,4 +178,21 @@ it("matches linked task requests by identity, not title or links in the descript
   expect(isTaskRequest(`Discuss this task\n${link}`, id)).toBe(false);
   expect(isTaskRequest(`Work on ${link} sometime`, id)).toBe(false);
   expect(isTaskRequest("Work on TASK-1: Historical", id)).toBe(true);
+});
+
+it("keeps selected properties when grouping is off and suppresses both active group levels", () => {
+  const properties = ["status", "project", "parent", "createdAt", "updatedAt"] as const;
+  const noGrouping = groupTasks([], "none", "status", [], true)[0]!;
+  expect(taskVisibleProperties(properties, noGrouping.drop)).toEqual(properties);
+  expect(taskVisibleProperties(properties, { status: "todo", projectId: null })).toEqual([
+    "parent",
+    "createdAt",
+    "updatedAt",
+  ]);
+  expect(taskVisibleProperties(properties, { parentTaskId: null })).toEqual([
+    "status",
+    "project",
+    "createdAt",
+    "updatedAt",
+  ]);
 });

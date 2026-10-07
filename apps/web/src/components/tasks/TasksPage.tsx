@@ -1,4 +1,6 @@
 import { createPortal } from "react-dom";
+import { formatComposerContextReference } from "@t3tools/shared/composerContextReferences";
+import { useCopyToClipboard } from "../../hooks/useCopyToClipboard";
 import { formatCalendarDate } from "@t3tools/shared/dateFormat";
 import {
   DndContext,
@@ -23,6 +25,7 @@ import {
 } from "react";
 import { useBlocker, useNavigate, useSearch } from "@tanstack/react-router";
 import {
+  ComposerContextId,
   type WorkTaskId,
   type WorkTask,
   type WorkTaskSummary,
@@ -91,11 +94,15 @@ import { SidebarInset } from "../ui/sidebar";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Checkbox } from "../ui/checkbox";
+import { Badge } from "../ui/badge";
 import {
   CollectionGroups,
   CollectionRows,
   CollectionViewPicker,
   CollectionPropertyPill,
+  CollectionPropertiesPicker,
+  CollectionTableCell,
+  type CollectionProperty,
 } from "../WorkspaceCollectionView";
 import { Select, SelectTrigger, SelectValue, SelectPopup, SelectItem } from "../ui/select";
 import {
@@ -111,6 +118,7 @@ import { AgentAvatar } from "../agents/AgentAvatar";
 import {
   groupTasks,
   taskMetadata,
+  taskVisibleProperties,
   visibleTasks,
   TASK_STATUS_LABELS,
   taskActivity,
@@ -119,6 +127,14 @@ import {
   type TaskView,
   type TaskGroup,
 } from "./taskViews";
+
+const TASK_PROPERTIES = [
+  { id: "status", label: "Task status" },
+  { id: "project", label: "Project" },
+  { id: "parent", label: "Parent" },
+  { id: "createdAt", label: "Created at" },
+  { id: "updatedAt", label: "Edited at" },
+] as const;
 
 function TaskSelect({
   label,
@@ -230,6 +246,11 @@ export function TasksPage() {
   const [creatingParent, setCreatingParent] = useState<WorkTaskId | null>(null);
   const [showSubTasks, setShowSubTasks] = useState(true);
   const [view, setView] = useState<TaskView>("list");
+  const [properties, setProperties] = useState<CollectionProperty[]>([
+    "status",
+    "project",
+    "parent",
+  ]);
   const [grouping, setGrouping] = useState<TaskGrouping>("status");
   const [subGrouping, setSubGrouping] = useState<TaskGrouping>("none");
   const [hideEmpty, setHideEmpty] = useState(true);
@@ -241,6 +262,12 @@ export function TasksPage() {
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [selection, setSelection] = useState<Set<WorkTaskId>>(new Set());
   const [bulkPending, setBulkPending] = useState(false);
+  const { copyToClipboard } = useCopyToClipboard({
+    onError: (error) =>
+      toastManager.add(
+        stackedThreadToast({ type: "error", title: "Could not copy", description: error.message }),
+      ),
+  });
   const [draggedTask, setDraggedTask] = useState<WorkTaskSummary | null>(null);
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -398,6 +425,8 @@ export function TasksPage() {
     const action = await showContextMenuFallback(
       [
         { id: "open-new-tab", label: "Open in new tab", icon: "open-new-tab" },
+        { id: "copy-id", label: "Copy ID" },
+        { id: "copy-reference", label: "Copy reference" },
         {
           id: "assignee",
           label: "Change assigned",
@@ -443,6 +472,23 @@ export function TasksPage() {
       position,
     );
     if (!action) return;
+    if (action === "copy-id" || action === "copy-reference") {
+      copyToClipboard(
+        selectedTasks
+          .map((row) =>
+            action === "copy-id"
+              ? row.id
+              : formatComposerContextReference({
+                  kind: "task",
+                  contextId: ComposerContextId.make(row.id),
+                  label: row.title,
+                }),
+          )
+          .join("\n"),
+        undefined,
+      );
+      return;
+    }
     if (action === "open-new-tab") {
       openTask(task, true);
       return;
@@ -481,208 +527,278 @@ export function TasksPage() {
     setBulkPending(false);
     if (failures.length) report(new Error(failures.join("\n")));
   };
-  const renderRows = (rows: WorkTaskSummary[], drop: TaskGroup["drop"]) => (
-    <CollectionRows view={view}>
-      {displayRows(rows).map(({ task, depth }) => {
-        const metadata = taskMetadata(task, drop, projects, allTasks);
-        const pills = Object.entries(metadata).filter((entry) => entry[1] !== null);
-        return (
-          <TaskDragRow
-            key={task.id}
-            task={task}
-            depth={view === "list" ? 0 : depth}
-            onContextMenu={(event) => {
-              event.preventDefault();
-              void showSelectionMenu(task, { x: event.clientX, y: event.clientY }).catch(report);
-            }}
-            className={cn(
-              "group relative cursor-pointer overflow-hidden rounded-lg bg-card hover:bg-sidebar-row-hover",
-              view === "list"
-                ? "flex h-10 items-center gap-3 overflow-visible rounded-md bg-transparent px-3 py-2"
-                : "border border-border",
-              view === "card" && "flex flex-col",
-              selection.has(task.id) && "bg-sidebar-row-selected",
-            )}
-          >
-            {view === "list" && depth > 0 ? (
-              <span
-                aria-hidden
-                className={cn(
-                  "pointer-events-none absolute bottom-[calc(50%-0.5px)] left-[calc(--spacing(12)-0.5px)] w-3 rounded-bl-md border-b border-l border-border",
-                  children.get(task.parentTaskId!)?.[0]?.id === task.id ? "-top-4" : "-top-7",
-                )}
-              />
-            ) : null}
-            {view === "card" ? (
-              <WorkspaceItemLink
-                aria-label={`Open ${task.title}`}
-                onOpen={(newTab) => openTask(task, newTab)}
-                className="h-40 shrink-0 overflow-hidden bg-muted/20 p-5 pr-20 text-left text-sm text-muted-foreground"
-              >
-                <div className="pointer-events-none line-clamp-5">
-                  <ChatMarkdown text={task.descriptionPreview} cwd={undefined} />
-                </div>
-              </WorkspaceItemLink>
-            ) : null}
-            <WorkspaceItemLink
-              onOpen={(newTab) => openTask(task, newTab)}
+  const renderRows = (rows: WorkTaskSummary[], drop: TaskGroup["drop"]) => {
+    const visibleProperties = taskVisibleProperties(properties, drop);
+    const propertyColumns = TASK_PROPERTIES.filter((property) =>
+      visibleProperties.includes(property.id),
+    );
+    return (
+      <CollectionRows
+        view={view}
+        label="Tasks"
+        columns={[
+          { id: "title", label: "Title" },
+          { id: "agent", label: "Agent status" },
+          ...propertyColumns,
+          { id: "actions", label: "Actions" },
+        ]}
+      >
+        {displayRows(rows).map(({ task, depth }) => {
+          const metadata = taskMetadata(task, drop, projects, allTasks);
+          const values = {
+            ...metadata,
+            createdAt: properties.includes("createdAt") ? formatCalendarDate(task.createdAt) : null,
+            updatedAt: properties.includes("updatedAt") ? formatCalendarDate(task.updatedAt) : null,
+          };
+          const pills = propertyColumns.filter(
+            (property) => view === "table" || values[property.id] !== null,
+          );
+          return (
+            <TaskDragRow
+              key={task.id}
+              task={task}
+              table={view === "table"}
+              depth={view === "list" || view === "table" ? 0 : depth}
+              onContextMenu={(event) => {
+                event.preventDefault();
+                void showSelectionMenu(task, { x: event.clientX, y: event.clientY }).catch(report);
+              }}
               className={cn(
-                "flex min-w-0 gap-3 text-left",
-                view === "list" ? "flex-1 items-center" : "w-full items-start p-4",
-                view === "card" && "min-h-16 shrink-0 border-t border-border",
+                "group relative cursor-pointer overflow-hidden rounded-lg bg-card hover:bg-sidebar-row-hover",
+                view === "list"
+                  ? "flex h-10 items-center gap-3 overflow-visible rounded-md bg-transparent px-3 py-2"
+                  : view === "table"
+                    ? "grid grid-cols-[var(--collection-columns)] items-center gap-3 overflow-visible rounded-none border-b border-border bg-transparent px-3 py-3"
+                    : "border border-border",
+                view === "card" && "flex flex-col",
+                selection.has(task.id) && "bg-sidebar-row-selected",
               )}
-              style={view === "list" ? { marginInlineStart: depth * 24 } : undefined}
             >
-              {view === "list" && metadata.status ? <TaskStatusIcon status={task.status} /> : null}
-              <span
-                className={cn(
-                  view === "list"
-                    ? "truncate text-sm"
-                    : "line-clamp-3 pr-16 text-sm font-medium leading-6",
-                )}
-              >
-                {task.title}
-              </span>
-            </WorkspaceItemLink>
-            {task.assigneeProjectId ? (
-              <div
-                className={
-                  view === "list"
-                    ? "flex shrink-0 items-center gap-3"
-                    : "flex shrink-0 items-center justify-between gap-3 border-t border-border px-4 py-3"
-                }
-              >
-                <span className="min-w-0 text-sm">
-                  {agentOptions.find((option) => option.value === task.assigneeProjectId)?.label ??
-                    "Unavailable agent"}
-                </span>
-                <CollectionPropertyPill
-                  label={`Change status for ${task.title}`}
-                  value={task.status}
-                  options={statusOptions}
-                  disabled={bulkPending}
-                  onChange={(status) =>
-                    update({
-                      id: task.id,
-                      expectedRevision: task.revision,
-                      status: status as WorkTaskStatus,
-                    })
+              {view === "list" && depth > 0 ? (
+                <span
+                  aria-hidden
+                  className={cn(
+                    "pointer-events-none absolute bottom-[calc(50%-0.5px)] left-[calc(--spacing(12)-0.5px)] w-3 rounded-bl-md border-b border-l border-border",
+                    children.get(task.parentTaskId!)?.[0]?.id === task.id ? "-top-4" : "-top-7",
+                  )}
+                />
+              ) : null}
+              {view === "card" ? (
+                <WorkspaceItemLink
+                  aria-label={`Open ${task.title}`}
+                  onOpen={(newTab) => openTask(task, newTab)}
+                  className="h-40 shrink-0 overflow-hidden bg-muted/20 p-5 pr-20 text-left text-sm text-muted-foreground"
+                >
+                  <div className="pointer-events-none line-clamp-5">
+                    <ChatMarkdown text={task.descriptionPreview} cwd={undefined} />
+                  </div>
+                </WorkspaceItemLink>
+              ) : null}
+              <CollectionTableCell view={view} align="left">
+                <WorkspaceItemLink
+                  onOpen={(newTab) => openTask(task, newTab)}
+                  className={cn(
+                    "flex min-w-0 gap-3 text-left",
+                    view === "list" || view === "table"
+                      ? "flex-1 items-center"
+                      : "w-full items-start p-4",
+                    view === "card" && "min-h-16 shrink-0 border-t border-border",
+                  )}
+                  style={
+                    view === "list" || view === "table"
+                      ? { marginInlineStart: depth * 24 }
+                      : undefined
                   }
                 >
-                  {taskActivity(task.status).label}
-                </CollectionPropertyPill>
-              </div>
-            ) : null}
-            {pills.length ? (
-              <div
-                className={
-                  view === "list"
-                    ? "flex shrink-0 flex-wrap justify-end gap-2"
-                    : "flex shrink-0 flex-wrap justify-end gap-2 border-t border-border px-4 py-3"
-                }
-              >
-                {pills.map(([kind, label]) => (
-                  <CollectionPropertyPill
-                    key={kind}
-                    label={`Change ${kind} for ${task.title}`}
-                    value={
-                      kind === "status"
-                        ? task.status
-                        : ((kind === "project" ? task.projectId : task.parentTaskId) ?? "none")
-                    }
-                    options={
-                      kind === "status"
-                        ? statusOptions
-                        : kind === "project"
-                          ? projectOptions
-                          : [
-                              { value: "none", label: "No Parent" },
-                              ...parents
-                                .filter((parent) => parent.id !== task.id)
-                                .map((parent) => ({ value: parent.id, label: parent.title })),
-                            ]
-                    }
-                    disabled={bulkPending}
-                    onChange={(value) =>
-                      update({
-                        id: task.id,
-                        expectedRevision: task.revision,
-                        ...(kind === "status"
-                          ? { status: value as WorkTaskStatus }
-                          : kind === "project"
-                            ? { projectId: value === "none" ? null : (value as ProjectId) }
-                            : { parentTaskId: value === "none" ? null : (value as WorkTaskId) }),
-                      })
+                  {view === "list" && properties.includes("status") && metadata.status ? (
+                    <TaskStatusIcon status={task.status} />
+                  ) : null}
+                  <span
+                    className={cn(
+                      view === "list" || view === "table"
+                        ? "truncate text-sm"
+                        : "line-clamp-3 pr-16 text-sm font-medium leading-6",
+                    )}
+                  >
+                    {task.title}
+                  </span>
+                </WorkspaceItemLink>
+              </CollectionTableCell>
+              <CollectionTableCell view={view} align="left">
+                {task.assigneeProjectId ? (
+                  <div
+                    className={
+                      view === "list"
+                        ? "flex shrink-0 items-center gap-3"
+                        : view === "table"
+                          ? "flex w-full min-w-0 items-center justify-between gap-3"
+                          : "flex shrink-0 items-center justify-between gap-3 border-t border-border px-4 py-3"
                     }
                   >
-                    {label}
-                  </CollectionPropertyPill>
-                ))}
-              </div>
-            ) : null}
-            <div
-              className={cn(
-                "flex shrink-0 items-center gap-2 opacity-0 group-hover:opacity-100 focus-within:opacity-100 pointer-coarse:opacity-100",
-                selection.has(task.id) && "opacity-100",
-                view !== "list" && "absolute top-3 right-3 z-10",
-              )}
-              onPointerDown={(event) => event.stopPropagation()}
-              onKeyDown={(event) => event.stopPropagation()}
-            >
-              <Checkbox
-                aria-label={`Select ${task.title}`}
-                checked={selection.has(task.id)}
-                disabled={bulkPending}
-                onCheckedChange={(checked) =>
-                  setSelection((current) => {
-                    const next = new Set(current);
-                    if (checked) next.add(task.id);
-                    else next.delete(task.id);
-                    return next;
-                  })
-                }
-              />
-              <Menu>
-                <MenuTrigger
-                  render={
-                    <Button
-                      variant="ghost-muted"
-                      size="icon-xs"
-                      aria-label={`Options for ${task.title}`}
-                    />
+                    <span className="min-w-0 truncate text-sm">
+                      {agentOptions.find((option) => option.value === task.assigneeProjectId)
+                        ?.label ?? "Unavailable agent"}
+                    </span>
+                    <CollectionPropertyPill
+                      label={`Change agent status for ${task.title}`}
+                      value={task.status}
+                      options={statusOptions}
+                      disabled={bulkPending}
+                      onChange={(status) =>
+                        update({
+                          id: task.id,
+                          expectedRevision: task.revision,
+                          status: status as WorkTaskStatus,
+                        })
+                      }
+                    >
+                      {taskActivity(task.status).label}
+                    </CollectionPropertyPill>
+                  </div>
+                ) : null}
+              </CollectionTableCell>
+              {pills.length ? (
+                <div
+                  className={
+                    view === "table"
+                      ? "contents"
+                      : view === "list"
+                        ? "flex shrink-0 flex-wrap justify-end gap-2"
+                        : "flex shrink-0 flex-wrap justify-end gap-2 border-t border-border px-4 py-3"
                   }
                 >
-                  <MoreHorizontalIcon className="size-4" />
-                </MenuTrigger>
-                <MenuPopup>
-                  <MenuItem onClick={() => openTask(task)}>Open task</MenuItem>
-                  <MenuItem onClick={() => openTask(task, true)}>
-                    <SquareArrowOutUpRightIcon />
-                    Open in new tab
-                  </MenuItem>
-                  {!task.parentTaskId ? (
-                    <MenuItem
-                      onClick={() => {
-                        setCreatingParent(task.id);
-                        setCreating(true);
-                      }}
+                  {pills.map(({ id: kind, label }) => (
+                    <CollectionTableCell key={kind} view={view}>
+                      {kind === "createdAt" || kind === "updatedAt" ? (
+                        <Badge variant="outline" title={label}>
+                          {values[kind]}
+                        </Badge>
+                      ) : values[kind] === null ? null : (
+                        <CollectionPropertyPill
+                          label={`Change ${kind} for ${task.title}`}
+                          value={
+                            kind === "status"
+                              ? task.status
+                              : ((kind === "project" ? task.projectId : task.parentTaskId) ??
+                                "none")
+                          }
+                          options={
+                            kind === "status"
+                              ? statusOptions
+                              : kind === "project"
+                                ? projectOptions
+                                : [
+                                    { value: "none", label: "No Parent" },
+                                    ...parents
+                                      .filter((parent) => parent.id !== task.id)
+                                      .map((parent) => ({ value: parent.id, label: parent.title })),
+                                  ]
+                          }
+                          disabled={bulkPending}
+                          onChange={(value) =>
+                            update({
+                              id: task.id,
+                              expectedRevision: task.revision,
+                              ...(kind === "status"
+                                ? { status: value as WorkTaskStatus }
+                                : kind === "project"
+                                  ? { projectId: value === "none" ? null : (value as ProjectId) }
+                                  : {
+                                      parentTaskId: value === "none" ? null : (value as WorkTaskId),
+                                    }),
+                            })
+                          }
+                        >
+                          {values[kind]}
+                        </CollectionPropertyPill>
+                      )}
+                    </CollectionTableCell>
+                  ))}
+                </div>
+              ) : null}
+              <CollectionTableCell view={view}>
+                <div
+                  className={cn(
+                    "flex shrink-0 items-center gap-2 opacity-0 group-hover:opacity-100 focus-within:opacity-100 pointer-coarse:opacity-100",
+                    selection.has(task.id) && "opacity-100",
+                    (view === "card" || view === "board") && "absolute top-3 right-3 z-10",
+                  )}
+                  onPointerDown={(event) => event.stopPropagation()}
+                  onKeyDown={(event) => event.stopPropagation()}
+                >
+                  <Checkbox
+                    aria-label={`Select ${task.title}`}
+                    checked={selection.has(task.id)}
+                    disabled={bulkPending}
+                    onCheckedChange={(checked) =>
+                      setSelection((current) => {
+                        const next = new Set(current);
+                        if (checked) next.add(task.id);
+                        else next.delete(task.id);
+                        return next;
+                      })
+                    }
+                  />
+                  <Menu>
+                    <MenuTrigger
+                      render={
+                        <Button
+                          variant="ghost-muted"
+                          size="icon-xs"
+                          aria-label={`Options for ${task.title}`}
+                        />
+                      }
                     >
-                      <PlusIcon />
-                      Add subtask
-                    </MenuItem>
-                  ) : null}
-                  <MenuItem onClick={() => void remove(task)}>
-                    <Trash2Icon />
-                    Delete task
-                  </MenuItem>
-                </MenuPopup>
-              </Menu>
-            </div>
-          </TaskDragRow>
-        );
-      })}
-    </CollectionRows>
-  );
+                      <MoreHorizontalIcon className="size-4" />
+                    </MenuTrigger>
+                    <MenuPopup>
+                      <MenuItem onClick={() => copyToClipboard(task.id, undefined)}>
+                        Copy ID
+                      </MenuItem>
+                      <MenuItem
+                        onClick={() =>
+                          copyToClipboard(
+                            formatComposerContextReference({
+                              kind: "task",
+                              contextId: ComposerContextId.make(task.id),
+                              label: task.title,
+                            }),
+                            undefined,
+                          )
+                        }
+                      >
+                        Copy reference
+                      </MenuItem>
+                      <MenuItem onClick={() => openTask(task)}>Open task</MenuItem>
+                      <MenuItem onClick={() => openTask(task, true)}>
+                        <SquareArrowOutUpRightIcon />
+                        Open in new tab
+                      </MenuItem>
+                      {!task.parentTaskId ? (
+                        <MenuItem
+                          onClick={() => {
+                            setCreatingParent(task.id);
+                            setCreating(true);
+                          }}
+                        >
+                          <PlusIcon />
+                          Add subtask
+                        </MenuItem>
+                      ) : null}
+                      <MenuItem onClick={() => void remove(task)}>
+                        <Trash2Icon />
+                        Delete task
+                      </MenuItem>
+                    </MenuPopup>
+                  </Menu>
+                </div>
+              </CollectionTableCell>
+            </TaskDragRow>
+          );
+        })}
+      </CollectionRows>
+    );
+  };
   const renderGroup = (
     group: TaskGroup,
     parentDrop: TaskGroup["drop"] = {},
@@ -912,6 +1028,11 @@ export function TasksPage() {
                 </div>
                 <div className="ml-auto flex flex-wrap items-center gap-2">
                   <CollectionViewPicker view={view} onChange={setView} />
+                  <CollectionPropertiesPicker
+                    options={TASK_PROPERTIES}
+                    value={properties}
+                    onChange={setProperties}
+                  />
                   <Popover>
                     <PopoverTrigger render={<Button variant="outline" size="compact" />}>
                       <Columns2Icon />

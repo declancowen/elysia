@@ -112,6 +112,22 @@ export function groupTasks(
     ];
   });
 }
+/** Display preferences cannot repeat metadata already represented by a group. */
+export function taskVisibleProperties(
+  properties: readonly import("../WorkspaceCollectionView").CollectionProperty[],
+  group: TaskGroup["drop"],
+) {
+  return properties.filter((property) =>
+    property === "status"
+      ? group.status === undefined
+      : property === "project"
+        ? group.projectId === undefined
+        : property === "parent"
+          ? group.parentTaskId === undefined
+          : true,
+  );
+}
+
 /** Metadata already expressed by either group level is hidden for every descendant. */
 export function taskMetadata(
   task: WorkTaskSummary,

@@ -11,7 +11,7 @@ import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Logger from "effect/Logger";
-import * as SqlClient from "effect/unstable/sql/SqlClient";
+import * as SqlClient from "effect/sql/SqlClient";
 
 import * as Deferred from "effect/Deferred";
 import * as Ref from "effect/Ref";
@@ -20,7 +20,8 @@ import * as TestClock from "effect/testing/TestClock";
 
 import * as ThreadLaunchService from "../orchestration-v2/ThreadLaunchService.ts";
 import * as ThreadManagementService from "../orchestration-v2/ThreadManagementService.ts";
-import { SqlitePersistenceMemory } from "../persistence/Layers/Sqlite.ts";
+import * as SecretRequests from "../secrets/SecretRequests.ts";
+import * as SqlitePersistence from "../persistence/Sqlite.ts";
 import * as ScheduledTaskService from "./ScheduledTaskService.ts";
 
 const isScheduledTaskError = Schema.is(ScheduledTaskError);
@@ -156,7 +157,7 @@ it.effect("loads only due tasks and skips corrupt due rows without decoding sett
       last_run_status: string;
     }>`SELECT last_run_status FROM scheduled_tasks WHERE task_id = 'running'`;
     assert.equal(running[0]?.last_run_status, "running");
-  }).pipe(Effect.provide(SqlitePersistenceMemory)),
+  }).pipe(Effect.provide(SqlitePersistence.layerMemory)),
 );
 
 it.effect(
@@ -218,6 +219,7 @@ it.effect(
                   get: () => Effect.succeed(Option.none()),
                 }),
                 Layer.mock(AgentDelegation.AgentDelegation)({}),
+                Layer.mock(SecretRequests.SecretRequests)({}),
                 NodeCrypto.layer,
                 Scheduler.layer,
               ),
@@ -273,7 +275,7 @@ it.effect(
       assert.isNull(byId.get("due-huge")?.next_run_at);
       assert.equal(byId.get("due-bad-date")?.last_run_status, "never");
       assert.equal(byId.get("due-bad-date")?.run_count, 0);
-    }).pipe(Effect.provide(SqlitePersistenceMemory)),
+    }).pipe(Effect.provide(SqlitePersistence.layerMemory)),
 );
 
 it.effect(
@@ -327,6 +329,7 @@ it.effect(
                   get: () => Effect.succeed(Option.none()),
                 }),
                 Layer.mock(AgentDelegation.AgentDelegation)({}),
+                Layer.mock(SecretRequests.SecretRequests)({}),
                 NodeCrypto.layer,
                 Scheduler.layer,
               ),
@@ -357,5 +360,5 @@ it.effect(
           yield* Deferred.succeed(releaseLast, undefined);
         }),
       );
-    }).pipe(Effect.provide(SqlitePersistenceMemory)),
+    }).pipe(Effect.provide(SqlitePersistence.layerMemory)),
 );

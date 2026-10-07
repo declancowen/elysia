@@ -8,6 +8,7 @@ import {
 import { useNavigate } from "@tanstack/react-router";
 import { ArchiveIcon, ArchiveX, BotIcon, ClockIcon, Edit03Icon, ChannelIcon } from "~/icons";
 import { useLayoutEffect, useRef, useState, type RefObject } from "react";
+import { usePanelAnimationSettings } from "../../panelAnimations";
 import { Button } from "../ui/button";
 import { Popover, PopoverPopup, PopoverTitle, PopoverTrigger } from "../ui/popover";
 import { AgentAvatar } from "./AgentAvatar";
@@ -31,6 +32,7 @@ export function AgentDetailsPopover({
   wide?: boolean;
   threadBoundaryRef?: RefObject<HTMLElement | null>;
 }) {
+  const { active: animated, durationMs } = usePanelAnimationSettings();
   const agents = useAgents();
   const current = agents.find(
     ({ project }) =>
@@ -85,22 +87,20 @@ export function AgentDetailsPopover({
         <span
           ref={anchorRef}
           aria-hidden
-          className="pointer-events-none absolute top-full right-(--workspace-gutter-end) size-0"
+          className="pointer-events-none absolute top-full right-3 size-0"
         />
       ) : null}
       <PopoverPopup
         width="md"
         variant="floating"
+        style={{ transitionDuration: animated ? `${durationMs}ms` : "0ms" }}
         align="end"
         {...(threadBoundaryRef ? { anchor: anchorRef, sideOffset: 12 } : {})}
         {...(threadBoundaryRef?.current
           ? {
               collisionBoundary:
-                threadBoundaryRef.current.getAttribute("data-chat-column-maximized-away") === "true"
-                  ? (threadBoundaryRef.current.closest<HTMLElement>(
-                      "[data-chat-workspace-panels]",
-                    ) ?? threadBoundaryRef.current)
-                  : threadBoundaryRef.current,
+                threadBoundaryRef.current.closest<HTMLElement>("[data-chat-workspace-panels]") ??
+                threadBoundaryRef.current,
               collisionPadding: 12,
               collisionAvoidance: { side: "shift", align: "shift", fallbackAxisSide: "none" },
               sticky: true,

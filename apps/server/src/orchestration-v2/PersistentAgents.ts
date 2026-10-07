@@ -23,16 +23,16 @@ import * as Layer from "effect/Layer";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
-import * as SqlClient from "effect/unstable/sql/SqlClient";
+import * as SqlClient from "effect/sql/SqlClient";
 import * as Option from "effect/Option";
 
 import { ServerConfig } from "../config.ts";
-import { ProviderRegistry } from "../provider/Services/ProviderRegistry.ts";
+import { ProviderRegistry } from "../provider/ProviderRegistry.ts";
 import { ServerSettingsService } from "../serverSettings.ts";
 import * as ProjectService from "../project/ProjectService.ts";
 import * as ThreadManagement from "./ThreadManagementService.ts";
 import * as ProviderSessions from "./ProviderSessionManager.ts";
-import { makeKeyedSerialExecutor } from "./KeyedSerialExecutor.ts";
+import * as KeyedLock from "@t3tools/shared/KeyedLock";
 import * as ProjectStore from "./ProjectStore.ts";
 import * as Scheduler from "../scheduling/Scheduler.ts";
 
@@ -414,7 +414,7 @@ const make = Effect.gen(function* () {
     | Effect.Services<ReturnType<typeof resetPersistentAgentImpl>>
     | SqlClient.SqlClient
   >();
-  const resets = yield* makeKeyedSerialExecutor<ProjectId>();
+  const resets = yield* KeyedLock.make<ProjectId>();
   const reset = (input: AgentResetInput) =>
     resets.withLock(
       input.projectId,

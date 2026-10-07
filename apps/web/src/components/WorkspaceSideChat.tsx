@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useAtomValue } from "@effect/atom-react";
 import {
   ComposerContextId,
@@ -14,6 +14,8 @@ import { scopeProjectRef, scopeThreadRef } from "@t3tools/client-runtime/environ
 import { squashAtomCommandFailure } from "@t3tools/client-runtime/state/runtime";
 import { resolveProjectSettings } from "@t3tools/shared/projectSettings";
 import { formatComposerContextReference } from "@t3tools/shared/composerContextReferences";
+import { usePanelAnimationSettings, usePanelPresence } from "../panelAnimations";
+import { cn } from "../lib/utils";
 import { getDefaultServerModel } from "../providerModels";
 import { ElysiaIcon } from "./Icons";
 import { useRegularProjects } from "../hooks/useRegularProjects";
@@ -57,13 +59,18 @@ export function useWorkspaceSideChat({
   const projects = useRegularProjects();
   const shells = useThreadShells();
   const configs = useAtomValue(environmentServerConfigsAtom);
-  const [open, setOpen] = useState(false);
+  const targetKey = target ? `${environmentId}:${target.kind}:${target.id}` : "";
+  const [openTargetKey, setOpenTargetKey] = useState<string | null>(null);
+  const open = openTargetKey === targetKey;
+  const setOpen = useCallback(
+    (value: boolean) => setOpenTargetKey(value ? targetKey : null),
+    [targetKey],
+  );
   const [expanded, setExpanded] = useState(false);
   const [selected, setSelected] = useState<ThreadId | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [draft, setDraft] = useState<{ id: ThreadId; draftId: DraftId } | null>(null);
-  const targetKey = target ? `${environmentId}:${target.kind}:${target.id}` : "";
   const currentTargetKey = useRef(targetKey);
   useLayoutEffect(() => {
     currentTargetKey.current = targetKey;
@@ -74,7 +81,7 @@ export function useWorkspaceSideChat({
     setSelected(null);
     setError(null);
     setDraft(null);
-  }, [targetKey]);
+  }, [setOpen]);
   const chats = shells.filter(
     (thread) =>
       thread.environmentId === environmentId &&
@@ -106,6 +113,15 @@ export function useWorkspaceSideChat({
         )
       : (chats.find((thread) => thread.id === selected) ?? chats.at(-1));
   const activeId = pendingDraft?.id === selected ? pendingDraft.id : active?.id;
+  const { active: panelAnimationsActive, durationMs } = usePanelAnimationSettings();
+  const panelPresence = usePanelPresence(
+    open,
+    activeId ?? null,
+    panelAnimationsActive,
+    targetKey,
+    durationMs,
+  );
+  const panelThreadId = panelPresence.value;
   const show = (id: ThreadId) => {
     if (target && environmentId) {
       const ref = scopeThreadRef(environmentId, id);
@@ -120,6 +136,7 @@ export function useWorkspaceSideChat({
         store.setPrompt(ref, prompt.replace(reference, "").trimStart());
     }
     setSelected(id);
+    setExpanded(false);
     onOpen();
     setOpen(true);
   };
@@ -254,13 +271,20 @@ export function useWorkspaceSideChat({
           </Button>
         </div>
       ) : null}
-      {open && activeId && environmentId ? (
+      {panelPresence.present && panelThreadId && environmentId ? (
         <section
           aria-label="Side chat"
-          className="floating-panel-glass absolute right-6 bottom-6 z-30 flex min-h-0 flex-col overflow-hidden rounded-3xl workspace-panel-outline [--chat-content-max-width:100%] [&_.messages-timeline-scroll]:px-4!"
+          inert={!open}
+          className={cn(
+            "floating-panel-glass absolute right-6 bottom-6 z-30 flex min-h-0 flex-col overflow-hidden rounded-3xl workspace-panel-outline [--chat-content-max-width:100%] [&_.messages-timeline-scroll]:px-4!",
+            panelAnimationsActive &&
+              "transition-[opacity,translate,scale,width,height] ease-out starting:translate-y-2 starting:scale-98 starting:opacity-0",
+            !open && "pointer-events-none translate-y-2 scale-98 opacity-0",
+          )}
           style={{
-            width: expanded ? "calc(100% - 3rem)" : "min(480px, calc(100% - 3rem))",
-            height: expanded ? "calc(100% - 3rem)" : "min(640px, calc(100% - 6rem))",
+            width: expanded ? "min(720px, calc(100% - 3rem))" : "min(480px, calc(100% - 3rem))",
+            height: expanded ? "min(800px, calc(100% - 6rem))" : "min(640px, calc(100% - 6rem))",
+            transitionDuration: panelAnimationsActive ? `${durationMs}ms` : "0ms",
           }}
         >
           <header className="flex shrink-0 items-center gap-2 p-4">
@@ -292,13 +316,13 @@ export function useWorkspaceSideChat({
             }
           >
             <ChatView
-              key={activeId}
+              key={panelThreadId}
               environmentId={environmentId}
-              threadId={activeId}
-              {...(pendingDraft?.id === activeId
+              threadId={panelThreadId}
+              {...(pendingDraft?.id === panelThreadId
                 ? ({ routeKind: "draft", draftId: pendingDraft.draftId } as const)
                 : ({ routeKind: "server" } as const))}
-              {...(pendingDraft?.id === activeId
+              {...(pendingDraft?.id === panelThreadId
                 ? { onBeforeThreadStarted: prepare, onThreadStarted: started }
                 : {})}
               embedded

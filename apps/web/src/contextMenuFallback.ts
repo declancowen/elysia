@@ -6,7 +6,9 @@ import {
 } from "@t3tools/shared/agentAvatar";
 import SquareArrowOutUpRightIcon from "@hugeicons/core-free-icons/SquareArrowOutUpRightIcon";
 import Edit03Icon from "@hugeicons/core-free-icons/Edit03Icon";
+import FolderFileStorageIcon from "@hugeicons/core-free-icons/FolderFileStorageIcon";
 import FolderClosedIcon from "@hugeicons/core-free-icons/FolderClosedIcon";
+import Files01Icon from "@hugeicons/core-free-icons/Files01Icon";
 import DroneIcon from "@hugeicons/core-free-icons/DroneIcon";
 import HashtagIcon from "@hugeicons/core-free-icons/HashtagIcon";
 import Delete02Icon from "@hugeicons/core-free-icons/Delete02Icon";
@@ -159,6 +161,8 @@ const ICON_PATHS: Record<string, ReadonlyArray<{ tag: string; attrs: Record<stri
 
 for (const [name, asset] of Object.entries({
   "workspace-project": FolderClosedIcon,
+  "workspace-folder": FolderFileStorageIcon,
+  "workspace-page": Files01Icon,
   "workspace-assigned": DroneIcon,
   "workspace-channel": HashtagIcon,
   "workspace-delete": Delete02Icon,

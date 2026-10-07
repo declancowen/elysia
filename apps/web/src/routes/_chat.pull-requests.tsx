@@ -1,13 +1,26 @@
+import {
+  CompactFilterMenu,
+  PullRequestRefreshControl,
+  INVOLVEMENT_TABS,
+  STATE_TABS,
+  SORT_OPTIONS,
+} from "../components/pullRequest/PullRequestSidebarControls";
+import { PullRequestSidebarGroup } from "../components/pullRequest/PullRequestSidebarGroup";
 import { useConversationTabNavigation } from "../hooks/useConversationTabNavigation";
 import { useConversationTabsStore } from "../conversationTabsStore";
 import { ConversationTabs } from "../components/chat/ConversationTabs";
-import { RefreshIcon } from "~/components/ui/refresh-icon";
 import { Spinner } from "~/components/ui/spinner";
 import {
   SINGLE_PROVIDER_UI,
   pullRequestHostOf,
   resolveEnvironmentMachineKind,
 } from "@t3tools/contracts";
+import { useShortcutModifierState } from "~/shortcutModifierState";
+import type { PullRequestSpeedActionResult } from "~/components/pullRequest/PullRequestSpeedActions";
+import { usePullRequestCloseBatch } from "~/components/pullRequest/usePullRequestActions";
+import { SidebarPointerSensor } from "~/components/Sidebar.pointer";
+import { resolveSidebarSweepKeys } from "~/components/Sidebar.logic";
+
 import type {
   EnvironmentId,
   ProjectId,
@@ -22,24 +35,7 @@ import type {
 } from "@t3tools/contracts";
 import { useAtomValue } from "@effect/atom-react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import {
-  ArrowDownUpIcon,
-  CalendarArrowDownIcon,
-  CalendarArrowUpIcon,
-  ChevronDownIcon,
-  ClockIcon,
-  EyeIcon,
-  LayersIcon,
-  ListChecksIcon,
-  PenLineIcon,
-  UsersIcon,
-  Plug2Icon,
-  Maximize2Icon,
-  Minimize2Icon,
-  SearchIcon,
-  UserLockIcon,
-  type LucideIcon,
-} from "~/icons";
+import { ArrowDownUpIcon, LayersIcon, Plug2Icon, SearchIcon } from "~/icons";
 import {
   useCallback,
   useEffect,
@@ -104,7 +100,6 @@ import { environmentMachineIcon } from "../components/EnvironmentMachineIcon";
 import { PullRequestDetailPanel } from "../components/pullRequest/PullRequestDetailPanel";
 import {
   PullRequestFiltersMenu,
-  PullRequestFilterOptionIcon,
   PullRequestSearchInput,
   pullRequestHostLabel,
   pullRequestProjectKey,
@@ -134,9 +129,7 @@ import { resolveShortcutCommand, shortcutLabelForCommand } from "../keybindings"
 import { isTerminalFocused } from "../lib/terminalFocus";
 import { PanelLayoutControls } from "../components/chat/PanelLayoutControls";
 import { Button } from "../components/ui/button";
-import { Menu, MenuPopup, MenuRadioGroup, MenuRadioItem, MenuTrigger } from "../components/ui/menu";
 import { SidebarInset, useSidebar } from "../components/ui/sidebar";
-import { Tooltip, TooltipPopup, TooltipTrigger } from "../components/ui/tooltip";
 import { useLiveRefresh } from "../hooks/useLiveRefresh";
 import { useOpenPanelPullRequestUrl } from "../hooks/useOpenPanelPullRequestUrl";
 import { writeTextToClipboard } from "../hooks/useCopyToClipboard";
@@ -164,10 +157,8 @@ import {
 } from "../state/pullRequests";
 import { useAtomCommand } from "../state/use-atom-command";
 import { cn } from "~/lib/utils";
-import { Separator } from "~/components/ui/separator";
 import { primaryServerKeybindingsAtom } from "~/state/server";
 import { getSourceControlPresentationForKind } from "~/sourceControlPresentation";
-import { PullRequestGlyph } from "~/components/pullRequest/pullRequestIcons";
 
 function getShortcutContext() {
   return {
@@ -207,56 +198,7 @@ export interface PullRequestsSearch extends PullRequestListPreferences {
   readonly selectedEnvironmentId?: EnvironmentId;
 }
 
-/**
- * A group reads like the sidebar's shelves: its glyph, its name, how many, then a rule out
- * to the edge. The glyph is the one the involvement filter uses for the same idea.
- */
-const GROUP_ICONS: Record<string, LucideIcon> = {
-  authored: PenLineIcon,
-  reviewRequested: EyeIcon,
-  others: UsersIcon,
-};
-
-function PullRequestGroupHeader({
-  group,
-}: {
-  group: { key: string; label: string; entries: ReadonlyArray<unknown> };
-}) {
-  const Icon = GROUP_ICONS[group.key] ?? LayersIcon;
-  return (
-    <div className="flex items-center gap-2 px-3 pb-1 text-xs font-medium text-muted-foreground/70">
-      <Icon aria-hidden className="size-3.5 shrink-0" />
-      <h2 className="shrink-0">{group.label}</h2>
-      <span className="shrink-0 tabular-nums text-muted-foreground/50">{group.entries.length}</span>
-      <Separator className="min-w-2 flex-1" />
-    </div>
-  );
-}
-
 // The state filters wear the same glyphs the rows do, so the two read as one vocabulary.
-const INVOLVEMENT_TABS = [
-  { value: "all", label: "All", Icon: LayersIcon },
-  { value: "reviewing", label: "Reviewing", Icon: EyeIcon },
-  { value: "authored", label: "Authored", Icon: PenLineIcon },
-] as const satisfies ReadonlyArray<PullRequestFilterOption<PullRequestInvolvement>>;
-
-const STATE_TABS = [
-  { value: "all", label: "All", Icon: LayersIcon },
-  { value: "open", label: "Open", Icon: PullRequestGlyph.pullRequest },
-  { value: "closed", label: "Closed", Icon: PullRequestGlyph.closed },
-  { value: "merged", label: "Merged", Icon: PullRequestGlyph.merged },
-] as const satisfies ReadonlyArray<PullRequestFilterOption<PullRequestListState>>;
-
-const SORT_OPTIONS = [
-  { value: "ready", label: "Merge readiness", Icon: ListChecksIcon },
-  { value: "blocked", label: "Blocked on me", Icon: UserLockIcon },
-  { value: "updated", label: "Recently updated", Icon: ClockIcon },
-  { value: "newest", label: "Newest shown", Icon: CalendarArrowDownIcon },
-  { value: "oldest", label: "Oldest shown", Icon: CalendarArrowUpIcon },
-  { value: "largest", label: "Largest shown", Icon: Maximize2Icon },
-  { value: "smallest", label: "Smallest shown", Icon: Minimize2Icon },
-] as const satisfies ReadonlyArray<PullRequestFilterOption<PullRequestListSort>>;
-
 /** Long enough that a keystroke does not become a request, short enough to feel answered. */
 const SEARCH_DEBOUNCE_MS = 250;
 /** What `scorePullRequestMatch` gives a row none of whose own fields carry the search text. */
@@ -352,6 +294,9 @@ export const Route = createFileRoute("/_chat/pull-requests")({
 function PullRequestsRouteView() {
   useEscapeToGoBack();
   const { isMobile, setOpenMobile } = useSidebar();
+  const modifiers = useShortcutModifierState(true);
+  const speedMode =
+    modifiers.shiftKey && !modifiers.metaKey && !modifiers.ctrlKey && !modifiers.altKey;
   const search = Route.useSearch();
   const sort = search.sort ?? "ready";
   const statsPolicy: PullRequestStatsPolicy =
@@ -803,6 +748,11 @@ function PullRequestsRouteView() {
     ],
   );
   const baselineQuery = usePullRequestList(baselineTargets);
+  const baselineEmpty =
+    baselineQuery.data?.entries.length === 0 &&
+    baselineQuery.data.errors.length === 0 &&
+    !baselineQuery.isPending &&
+    baselineQuery.error === null;
   const facetTargets = useMemo(() => {
     if (!filtersOpen) return NO_LIST_TARGETS;
     return environmentQueries.map(({ environmentId, projectIds }) => ({
@@ -967,6 +917,18 @@ function PullRequestsRouteView() {
   };
   /** The detail panel's own writes, by row, so its failure takes back its own note. */
   const detailOverrideTokens = useRef(new Map<string, number | null>());
+  const speedActionRef = useRef<(result: PullRequestSpeedActionResult) => void>(() => {});
+  speedActionRef.current = ({ entry, action }) => {
+    // Some hosts accept a merge before it completes. Let the next host read declare it merged.
+    if (action !== "merge") overrideEntry(entry, action);
+  };
+  const onSpeedAction = useCallback((result: PullRequestSpeedActionResult) => {
+    speedActionRef.current(result);
+  }, []);
+  const onBatchClosed = useCallback((entry: EnvironmentPullRequestEntry) => {
+    speedActionRef.current({ entry, action: "close" });
+  }, []);
+  const { close: closeBatch, closingKeys } = usePullRequestCloseBatch(onBatchClosed);
   // A reload recreates the registry the queries live in, so with nothing held the page would
   // cold-start into skeletons even though almost every row is unchanged. The last answer for
   // this set of environments is kept across reloads and hydrated here as the carried rows: they
@@ -1005,13 +967,15 @@ function PullRequestsRouteView() {
       // stay — hydrated or previously answered — rather than being dropped for a feed that
       // merely settled first.
       const partitions =
-        partitionsWanted && authoredQuery.data !== null && reviewingQuery.data !== null
-          ? { authored: authoredQuery.data.entries, reviewing: reviewingQuery.data.entries }
-          : current !== null &&
-              current.environmentKey === environmentKey &&
-              current.scope === scopeKey
-            ? current.partitions
-            : undefined;
+        partitionsWanted && baselineEmpty
+          ? { authored: [], reviewing: [] }
+          : partitionsWanted && authoredQuery.data !== null && reviewingQuery.data !== null
+            ? { authored: authoredQuery.data.entries, reviewing: reviewingQuery.data.entries }
+            : current !== null &&
+                current.environmentKey === environmentKey &&
+                current.scope === scopeKey
+              ? current.partitions
+              : undefined;
       // A search's answer is the search's, not the workspace's, so only unsearched lists
       // persist. Written here where the held partitions are in reach, so a feed settling
       // ahead of them cannot overwrite a stored snapshot that already had both groups.
@@ -1052,6 +1016,7 @@ function PullRequestsRouteView() {
     sentQuery,
     listQuery.data,
     listQuery.isPending,
+    baselineEmpty,
     partitionsWanted,
     authoredQuery.data,
     reviewingQuery.data,
@@ -1343,6 +1308,11 @@ function PullRequestsRouteView() {
    */
   const groups = useMemo(() => {
     if (search.involvement !== "all") return [{ key: "others" as const, label: "", entries }];
+    // An empty whole-list answer also empties the priority groups. Their old snapshot must
+    // not restore the last merged rows after the partition reads are no longer mounted.
+    if (baselineEmpty) {
+      return groupPullRequestsByInvolvement(entries, viewers);
+    }
     // Until both partitions have answered, the snapshot's stand in — they are yesterday's
     // groups, but whole ones, where grouping the feed's first page locally loses every
     // authored row older than it. Once the live reads land they take over; with neither,
@@ -1372,6 +1342,7 @@ function PullRequestsRouteView() {
     return partitionPullRequestsWithPriority(entries, authored, reviewing);
   }, [
     hasLocalFilters,
+    baselineEmpty,
     localFilters,
     authoredQuery.data?.entries,
     entries,
@@ -1410,11 +1381,11 @@ function PullRequestsRouteView() {
     [statsBatches],
   );
   const statsObserver = useRef<IntersectionObserver | null>(null);
-  const statsRows = useRef(new Set<HTMLButtonElement>());
+  const statsRows = useRef(new Set<HTMLDivElement>());
   const statsPending = useRef(true);
   const statsPolicyRef = useRef(statsPolicy);
   statsPolicyRef.current = statsPolicy;
-  const registerStatsRow = useCallback((node: HTMLButtonElement | null) => {
+  const registerStatsRow = useCallback((node: HTMLDivElement | null) => {
     if (node === null || typeof IntersectionObserver === "undefined") return;
     statsRows.current.add(node);
     statsObserver.current?.observe(node);
@@ -1573,6 +1544,97 @@ function PullRequestsRouteView() {
   ]);
   /** What is actually on screen once the reader's pending answers are on the rows. */
   const shownCount = displayGroups.reduce((count, group) => count + group.entries.length, 0);
+  const [closeSweepKeys, setCloseSweepKeys] = useState<ReadonlySet<string>>(() => new Set());
+  const closeSensorRef = useRef<SidebarPointerSensor | null>(null);
+  const closeSweepRows = useMemo(
+    () =>
+      new Map(
+        displayGroups.flatMap((group) =>
+          group.entries.map(
+            (entry) => [pullRequestEntryKey(entry), { entry, groupKey: group.key }] as const,
+          ),
+        ),
+      ),
+    [displayGroups],
+  );
+  const closeSweepRef = useRef({ displayGroups, closeSweepRows, closingKeys, closeBatch });
+  closeSweepRef.current = { displayGroups, closeSweepRows, closingKeys, closeBatch };
+  useEffect(() => () => closeSensorRef.current?.cancel(), [filterKey, search.q, sort]);
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape" || closeSensorRef.current === null) return;
+      event.preventDefault();
+      closeSensorRef.current.cancel();
+    };
+    document.addEventListener("keydown", onKeyDown, true);
+    return () => document.removeEventListener("keydown", onKeyDown, true);
+  }, []);
+  const startCloseSweep = useCallback((entry: EnvironmentPullRequestEntry, event: PointerEvent) => {
+    closeSensorRef.current?.cancel();
+    const originKey = pullRequestEntryKey(entry);
+    const group = closeSweepRef.current.displayGroups.find((candidate) =>
+      candidate.entries.some((row) => pullRequestEntryKey(row) === originKey),
+    );
+    if (!group || closeSweepRef.current.closingKeys.has(originKey)) return;
+    const orderedKeys = closeSweepRef.current.displayGroups.flatMap((candidate) =>
+      candidate.entries.map(pullRequestEntryKey),
+    );
+    const canClose = (key: string) => {
+      const row = closeSweepRef.current.closeSweepRows.get(key);
+      return (
+        row?.groupKey === group.key &&
+        row.entry.state === "open" &&
+        row.entry.provider === "github" &&
+        !closeSweepRef.current.closingKeys.has(key) &&
+        !scrollRef.current?.querySelector(
+          `[data-pull-request-key="${CSS.escape(key)}"] [data-pull-request-action-pending="true"]`,
+        )
+      );
+    };
+    let sweptKeys: string[] = [];
+    let targetKey: string | null = null;
+    const sweepTo = (key: string) => {
+      if (key === targetKey) return;
+      targetKey = key;
+      sweptKeys = resolveSidebarSweepKeys(orderedKeys, originKey, key, canClose);
+      setCloseSweepKeys(new Set(sweptKeys));
+    };
+    closeSensorRef.current = new SidebarPointerSensor({
+      active: originKey,
+      event,
+      options: {
+        distance: 6,
+        onAttach: () => {},
+        onFinish: () => {
+          closeSensorRef.current = null;
+          setCloseSweepKeys(new Set());
+        },
+      },
+      onPending: () => {},
+      onStart: () => sweepTo(originKey),
+      onMove: ({ y }) => {
+        const viewport = scrollRef.current;
+        if (!viewport) return;
+        const bounds = viewport.getBoundingClientRect();
+        const visibleY = Math.min(Math.max(y, bounds.top), bounds.bottom - 1);
+        let key: string | null = null;
+        for (const row of viewport.querySelectorAll<HTMLElement>("[data-pull-request-key]")) {
+          if (key !== null && row.getBoundingClientRect().top > visibleY) break;
+          key = row.dataset.pullRequestKey ?? null;
+        }
+        if (key !== null) sweepTo(key);
+      },
+      onEnd: () => {
+        const batch = sweptKeys.filter(canClose).flatMap((key) => {
+          const row = closeSweepRef.current.closeSweepRows.get(key);
+          return row ? [row.entry] : [];
+        });
+        void closeSweepRef.current.closeBatch(batch);
+      },
+      onCancel: () => {},
+      onAbort: () => {},
+    });
+  }, []);
   const heldPullRequestsBySurface = useMemo(
     () =>
       new Map(
@@ -1812,10 +1874,9 @@ function PullRequestsRouteView() {
           onLoadMore={loadMore}
         />
       ) : (
-        <div className="space-y-3">
+        <div className={cn("space-y-4", closeSweepKeys.size > 0 && "**:pointer-events-none")}>
           {displayGroups.map((group) => (
-            <div key={group.key} className={SINGLE_PROVIDER_UI ? "space-y-1" : "space-y-0.5"}>
-              {group.label ? <PullRequestGroupHeader group={group} /> : null}
+            <PullRequestSidebarGroup key={group.key} group={group}>
               {group.entries.map((entry) => {
                 const entryKey = pullRequestEntryKey(entry);
                 return (
@@ -1843,10 +1904,15 @@ function PullRequestsRouteView() {
                       selected.number === entry.number
                     }
                     onSelect={selectEntry}
+                    speedMode={speedMode}
+                    onActed={onSpeedAction}
+                    closing={closingKeys.has(entryKey)}
+                    sweeping={closeSweepKeys.has(entryKey)}
+                    onCloseSweepStart={startCloseSweep}
                   />
                 );
               })}
-            </div>
+            </PullRequestSidebarGroup>
           ))}
         </div>
       )}
@@ -2139,6 +2205,8 @@ function PullRequestsRouteView() {
             mode={SINGLE_PROVIDER_UI ? "sidebar" : "inline"}
             {...(SINGLE_PROVIDER_UI ? { maximized: true, hideTabBar: true } : {})}
             open={rightPanelState.isOpen}
+            keybindings={keybindings}
+            getShortcutContext={getShortcutContext}
             widthStorageKey="t3code:pull-request-panel-width"
             // Default to roughly half the viewport: the PR list needs more
             // room than a chat, so the 540px chat-preview default squashes
@@ -2267,113 +2335,6 @@ function PullRequestsRouteView() {
 }
 
 /** A compact stand-in for one pill group when the header is narrow. */
-function CompactFilterMenu<Value extends string>({
-  label,
-  triggerIcon,
-  triggerLabel,
-  outlined = false,
-  iconOnly = false,
-  value,
-  options,
-  onChange,
-  className,
-}: {
-  label: string;
-  triggerIcon?: ReactNode;
-  triggerLabel?: string;
-  outlined?: boolean;
-  iconOnly?: boolean;
-  value: Value;
-  options: ReadonlyArray<PullRequestFilterOption<Value>>;
-  onChange: (value: Value) => void;
-  className?: string;
-}) {
-  const current = options.find((option) => option.value === value) ?? options[0];
-  if (!current) return null;
-  return (
-    <Menu>
-      <Tooltip>
-        <TooltipTrigger
-          render={
-            <MenuTrigger
-              aria-label={triggerLabel || iconOnly ? `${label}: ${current.label}` : label}
-              render={
-                outlined ? (
-                  <Button
-                    variant={
-                      SINGLE_PROVIDER_UI && iconOnly
-                        ? "ghost"
-                        : SINGLE_PROVIDER_UI
-                          ? "secondary"
-                          : "outline"
-                    }
-                    size={
-                      SINGLE_PROVIDER_UI && iconOnly ? "icon-xs" : iconOnly ? "icon" : "default"
-                    }
-                  />
-                ) : (
-                  <Button variant="ghost-muted" size="sm" />
-                )
-              }
-              className={cn("min-w-0", className)}
-            >
-              {iconOnly ? (
-                triggerLabel === "Sort" ? (
-                  triggerIcon
-                ) : (
-                  <current.Icon aria-hidden className="size-4" />
-                )
-              ) : triggerLabel ? (
-                <>
-                  {triggerIcon}
-                  <span>{triggerLabel}</span>
-                </>
-              ) : (
-                <>
-                  <span className="truncate">{current.label}</span>
-                  <ChevronDownIcon
-                    aria-hidden
-                    className="size-3 shrink-0 text-muted-foreground/70"
-                  />
-                </>
-              )}
-            </MenuTrigger>
-          }
-        />
-        <TooltipPopup>
-          {label}: {current.label}
-        </TooltipPopup>
-      </Tooltip>
-      <MenuPopup align="start" side="bottom">
-        <MenuRadioGroup value={value} onValueChange={(next) => onChange(next as Value)}>
-          {options.map((option) => {
-            const item = (
-              <MenuRadioItem
-                key={option.value}
-                value={option.value}
-                disabled={option.unavailable !== undefined}
-                className="data-disabled:pointer-events-auto"
-              >
-                <span className="flex min-w-0 items-center gap-2">
-                  <PullRequestFilterOptionIcon option={option} />
-                  {option.label}
-                </span>
-              </MenuRadioItem>
-            );
-            return option.unavailable === undefined ? (
-              item
-            ) : (
-              <Tooltip key={option.value}>
-                <TooltipTrigger render={item} />
-                <TooltipPopup side="right">{option.unavailable}</TooltipPopup>
-              </Tooltip>
-            );
-          })}
-        </MenuRadioGroup>
-      </MenuPopup>
-    </Menu>
-  );
-}
 
 /**
  * The search, folded to an icon until asked for. Opening moves focus into the input — the
@@ -2690,34 +2651,5 @@ function PullRequestsColumn({
         </WorkspacePageContainer>
       </div>
     </div>
-  );
-}
-
-function PullRequestRefreshControl({
-  compact = false,
-  refreshing,
-  onRefresh,
-}: {
-  compact?: boolean;
-  refreshing: boolean;
-  onRefresh: () => void;
-}) {
-  return (
-    <Tooltip>
-      <TooltipTrigger
-        render={
-          <Button
-            size={SINGLE_PROVIDER_UI && compact ? "icon-xs" : compact ? "icon-sm" : "icon"}
-            variant={SINGLE_PROVIDER_UI || compact ? "ghost" : "outline"}
-            aria-label="Refresh pull requests"
-            onClick={onRefresh}
-            disabled={refreshing}
-          >
-            <RefreshIcon size="md" refreshing={refreshing} />
-          </Button>
-        }
-      />
-      <TooltipPopup>Refresh pull requests</TooltipPopup>
-    </Tooltip>
   );
 }

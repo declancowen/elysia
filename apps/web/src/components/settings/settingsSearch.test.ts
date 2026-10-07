@@ -45,6 +45,9 @@ const ITEMS: ReadonlyArray<SettingsSearchItem> = [
 ];
 
 describe("searchSettings", () => {
+  it("does not offer the disabled upstream analytics policy", () => {
+    expect(searchSettings("privacy policy").map((item) => item.id)).not.toContain("privacy-policy");
+  });
   it.each(["Project view", "Thread view"])("finds the saved view preference by %s", (query) => {
     const target = searchSettings(query).find((item) => item.id === "legacy-sidebar");
     expect(target).toMatchObject({ title: "Project view", to: "/settings/general" });
@@ -184,6 +187,7 @@ describe("searchSettings", () => {
       "source-control-writer-model",
       "source-control-writing-style",
       "t3-connect",
+      "hold-webhooks-while-offline",
       "tailscale-https",
       "wsl-backend",
       "auto-settle-inactive-threads",
@@ -233,6 +237,24 @@ describe("searchSettings", () => {
     // Dormant cloud publishing cannot become available through environment capabilities.
     const browser = filterAvailableSettingsSearchItems(availability).map((item) => item.id);
     expect(browser).not.toContain("publish-agent-activity");
+  });
+
+  it("keeps dormant webhook holding unavailable even when a managed tunnel is reported", () => {
+    const availability = {
+      hasCloudPublicConfig: true,
+      hasEnvironment: true,
+      hasProviderSettingsEnvironment: true,
+      hasMacProviderSettingsEnvironment: false,
+      canManageLocalBackend: true,
+      isWslSettingsRowVisible: false,
+      hasThreadAutoSettlement: false,
+    };
+    const itemIds = (managedTunnelActive: boolean) =>
+      filterAvailableSettingsSearchItems({ ...availability, managedTunnelActive }).map(
+        (item) => item.id,
+      );
+    expect(itemIds(false)).not.toContain("hold-webhooks-while-offline");
+    expect(itemIds(true)).not.toContain("hold-webhooks-while-offline");
   });
 
   it("shows automatic settlement settings when the server supports them", () => {

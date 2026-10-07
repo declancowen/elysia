@@ -1,3 +1,8 @@
+import DashboardSquare02IconAsset from "@hugeicons/core-free-icons/DashboardSquare02Icon";
+import InboxIconAsset from "@hugeicons/core-free-icons/InboxIcon";
+import WorkflowIconAsset from "@hugeicons/core-free-icons/WorkflowIcon";
+import RouteIconAsset from "@hugeicons/core-free-icons/Route01Icon";
+import TargetIconAsset from "@hugeicons/core-free-icons/Target01Icon";
 import MinusSignIconAsset from "@hugeicons/core-free-icons/MinusSignIcon";
 import Heading02IconAsset from "@hugeicons/core-free-icons/Heading02Icon";
 import SourceCodeIconAsset from "@hugeicons/core-free-icons/SourceCodeIcon";
@@ -96,6 +101,7 @@ import FileTextIconAsset from "@hugeicons/core-free-icons/FileTextIcon";
 import FilesAsset from "@hugeicons/core-free-icons/Files01Icon";
 import FilmIconAsset from "@hugeicons/core-free-icons/Film01Icon";
 import FlaskConicalIconAsset from "@hugeicons/core-free-icons/FlaskConicalIcon";
+import FolderFileStorageIconAsset from "@hugeicons/core-free-icons/FolderFileStorageIcon";
 import FolderClosedIconAsset from "@hugeicons/core-free-icons/FolderClosedIcon";
 import FolderCodeIconAsset from "@hugeicons/core-free-icons/FolderCodeIcon";
 import FolderGit2IconAsset from "@hugeicons/core-free-icons/FolderGit2Icon";
@@ -222,7 +228,7 @@ import SquareTerminalIconAsset from "@hugeicons/core-free-icons/SquareTerminalIc
 import StarIconAsset from "@hugeicons/core-free-icons/StarIcon";
 import SunAsset from "@hugeicons/core-free-icons/Sun01Icon";
 import SunIconAsset from "@hugeicons/core-free-icons/Sun01Icon";
-import Table2Asset from "@hugeicons/core-free-icons/Table01Icon";
+import Table2Asset from "@hugeicons/core-free-icons/TableIcon";
 import TagIconAsset from "@hugeicons/core-free-icons/Tag01Icon";
 import TerminalIconAsset from "@hugeicons/core-free-icons/TerminalIcon";
 import TextIconAsset from "@hugeicons/core-free-icons/TextIcon";
@@ -302,6 +308,10 @@ export const ArrowUpDownIcon = /* @__PURE__ */ createIcon(ArrowUpDownIconAsset, 
 export const ArrowUpIcon = /* @__PURE__ */ createIcon(ArrowUpIconAsset, "arrow-up");
 export const ArrowUpRightIcon = /* @__PURE__ */ createIcon(ArrowUpRightIconAsset, "arrow-up-right");
 export const BatteryIcon = /* @__PURE__ */ createIcon(BatteryIconAsset, "battery");
+export const DashboardSquare02Icon = /* @__PURE__ */ createIcon(
+  DashboardSquare02IconAsset,
+  "dashboard-square-02",
+);
 export const BlocksIcon = /* @__PURE__ */ createIcon(BlocksIconAsset, "blocks");
 export const BookOpenIcon = /* @__PURE__ */ createIcon(BookOpenIconAsset, "book-open");
 export const BookmarkIcon = /* @__PURE__ */ createIcon(BookmarkIconAsset, "bookmark");
@@ -398,6 +408,10 @@ export const FileTextIcon = /* @__PURE__ */ createIcon(FileTextIconAsset, "file-
 export const Files = /* @__PURE__ */ createIcon(FilesAsset, "files");
 export const FilmIcon = /* @__PURE__ */ createIcon(FilmIconAsset, "film");
 export const FlaskConicalIcon = /* @__PURE__ */ createIcon(FlaskConicalIconAsset, "flask-conical");
+export const FolderFileStorageIcon = /* @__PURE__ */ createIcon(
+  FolderFileStorageIconAsset,
+  "folder-file-storage",
+);
 export const FolderClosedIcon = /* @__PURE__ */ createIcon(FolderClosedIconAsset, "folder-closed");
 export const FolderCodeIcon = /* @__PURE__ */ createIcon(FolderCodeIconAsset, "folder-code");
 export const FolderGit2Icon = /* @__PURE__ */ createIcon(FolderGit2IconAsset, "folder-git-2");
@@ -701,3 +715,9 @@ export const HeadingIcon = /* @__PURE__ */ createIcon(Heading02IconAsset, "headi
 export const CodeBlockIcon = /* @__PURE__ */ createIcon(SourceCodeIconAsset, "code-block");
 
 export const MinusSignIcon = /* @__PURE__ */ createIcon(MinusSignIconAsset, "MinusSignIcon");
+
+export const CodeIcon = createIcon(SourceCodeIconAsset, "code");
+export const InboxIcon = createIcon(InboxIconAsset, "inbox");
+export const WorkflowIcon = createIcon(WorkflowIconAsset, "workflow");
+export const RouteIcon = createIcon(RouteIconAsset, "route");
+export const TargetIcon = createIcon(TargetIconAsset, "target");

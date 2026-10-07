@@ -18,7 +18,7 @@ vi.mock("@tanstack/react-router", () => ({
   useLocation: (options?: {
     select: (value: { pathname: string; search: Record<string, unknown> }) => unknown;
   }) => {
-    const location = { pathname: state.pathname, search: {} };
+    const location = { pathname: state.pathname, href: state.pathname, search: {} };
     return options ? options.select(location) : location;
   },
 }));
@@ -41,12 +41,16 @@ vi.mock("../hooks/useLocalStorage", () => ({
 vi.mock("../hooks/useConversationTabNavigation", () => ({ useArchivedConversationTabs: () => {} }));
 vi.mock("../state/entities", () => ({ useProjects: () => [] }));
 vi.mock("./SidebarStageBackdrop", () => ({ useSidebarStageBackdropVariant: () => null }));
-vi.mock("../panelAnimations", () => ({
+vi.mock("../panelAnimations", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../panelAnimations")>()),
   usePanelAnimationSettings: () => ({ active: false, durationMs: 0 }),
   usePanelNavigationSuppression: () => false,
   PanelAnimationSuppressionProvider: ({ children }: { children: ReactNode }) => children,
 }));
 vi.mock("./LegacySidebar", () => ({ default: () => <p>Project navigation</p> }));
+vi.mock("./sidebar/SidebarHoverContents", () => ({
+  CollectionSidebar: ({ kind }: { kind: "pages" | "tasks" }) => <p>{kind} navigation</p>,
+}));
 vi.mock("./Sidebar", async () => {
   const { SidebarTrigger } = await import("./ui/sidebar");
   return {
@@ -72,6 +76,7 @@ vi.mock("./settings/SettingsSidebarNav", () => ({ SettingsSidebarNav: () => null
 
 it("opens and closes the mobile sidebar from the main page", async () => {
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+  vi.stubGlobal("cookieStore", { set: vi.fn(async () => {}) });
   vi.stubGlobal("innerWidth", 500);
   vi.stubGlobal("matchMedia", () => ({
     matches: true,
@@ -122,7 +127,7 @@ it("opens and closes the mobile sidebar from the main page", async () => {
     await act(async () => opener.click());
     expect(
       document.querySelector('[data-mobile="true"][data-sidebar="sidebar"]')?.textContent,
-    ).toContain("Chat navigation");
+    ).toContain("Project navigation");
   } finally {
     state.pathname = "/";
     await act(async () => root.unmount());
@@ -136,6 +141,7 @@ it("opens and closes the mobile sidebar from the main page", async () => {
 
 it("retains Agents beside its conversations and restores each Home sidebar and utility view", async () => {
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+  vi.stubGlobal("cookieStore", { set: vi.fn(async () => {}) });
   vi.stubGlobal("innerWidth", 1280);
   vi.stubGlobal("matchMedia", () => ({
     matches: false,
@@ -173,28 +179,31 @@ it("retains Agents beside its conversations and restores each Home sidebar and u
     await render();
     expect(host.querySelector("[data-app-sidebar]")?.getAttribute("aria-label")).toBe("Settings");
     expect(host.textContent).not.toContain("Agent navigation");
-    state.pathname = "/projects";
-    await render();
-    expect(host.querySelector("[data-app-sidebar]")).toBeNull();
     const sidebarToggle = () =>
       host.querySelector<HTMLButtonElement>(
         '[data-app-topbar] [aria-label="Toggle main sidebar"]',
       )!;
-    expect(sidebarToggle().disabled).toBe(true);
-    const previousState = sidebarToggle().getAttribute("aria-pressed");
-    await act(async () => sidebarToggle().click());
-    expect(sidebarToggle().getAttribute("aria-pressed")).toBe(previousState);
-    for (const pathname of ["/tasks", "/pages"]) {
-      state.pathname = pathname;
+    for (const [pathname, label, navigation] of [
+      ["/projects", "Projects", "Project navigation"],
+      ["/tasks", "Tasks", "tasks navigation"],
+      ["/pages", "Pages", "pages navigation"],
+      ["/usage", "Threads", "Project navigation"],
+    ]) {
+      state.pathname = pathname!;
       await render();
-      expect(sidebarToggle().disabled).toBe(true);
+      expect(host.querySelector("[data-app-sidebar]")?.getAttribute("aria-label")).toBe(label);
+      expect(host.textContent).toContain(navigation);
+      expect(sidebarToggle().disabled).toBe(false);
+      expect(sidebarToggle().getAttribute("aria-pressed")).toBe("true");
+      await act(async () => sidebarToggle().click());
+      expect(sidebarToggle().getAttribute("aria-pressed")).toBe("false");
+      state.pathname = "/local/agent-chat";
+      await render();
+      expect(sidebarToggle().getAttribute("aria-pressed")).toBe("false");
+      expect(host.textContent).toContain("Conversation body");
+      await act(async () => sidebarToggle().click());
+      expect(sidebarToggle().getAttribute("aria-pressed")).toBe("true");
     }
-    expect(host.textContent).toContain("Conversation body");
-    state.pathname = "/usage";
-    await render();
-    expect(host.querySelector("[data-app-sidebar]")).toBeNull();
-    expect(sidebarToggle().disabled).toBe(true);
-    expect(host.textContent).toContain("Conversation body");
     state.pathname = "/local/agent-chat";
     await render();
     expect(sidebarToggle().disabled).toBe(false);
@@ -211,6 +220,7 @@ it("retains Agents beside its conversations and restores each Home sidebar and u
 
 it("restores each surface width and resets only the current surface", async () => {
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+  vi.stubGlobal("cookieStore", { set: vi.fn(async () => {}) });
   vi.stubGlobal("innerWidth", 1440);
   vi.stubGlobal("matchMedia", () => ({
     matches: false,

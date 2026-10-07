@@ -19,7 +19,6 @@ import {
   MenuPopup,
   MenuRadioGroup,
   MenuRadioItem,
-  MenuRadioItemIndicator,
   MenuSeparator,
   MenuTrigger,
 } from "../ui/menu";
@@ -60,7 +59,7 @@ export function SettingsScopeSentence({ compact = false }: { compact?: boolean }
   const scope = useOptionalSettingsScope();
   const pathname = useLocation({ select: (location) => location.pathname });
   const { environments } = useEnvironments();
-  if (scope === null || SETTINGS_DEVICE_ONLY_PATHS.has(pathname)) return null;
+  if (scope === null || (!compact && SETTINGS_DEVICE_ONLY_PATHS.has(pathname))) return null;
   const selectedAgent = scope.groups.find(
     (group) => group.projectKey === scope.search.project && group.agentProfile,
   );
@@ -191,7 +190,6 @@ function EnvironmentScopeMenu({
               <span className="flex min-w-0 items-center gap-2">
                 <LayersIcon aria-hidden className="size-3.5" />
                 <span className="min-w-0 flex-1 truncate">All environments</span>
-                <MenuRadioItemIndicator />
               </span>
             </MenuRadioItem>
             <MenuSeparator />
@@ -211,7 +209,6 @@ function EnvironmentScopeMenu({
               {environment.connection.phase === "connected" ? null : (
                 <span className="shrink-0 text-xs text-muted-foreground">Offline</span>
               )}
-              <MenuRadioItemIndicator />
             </span>
           </MenuRadioItem>
         ))}
@@ -283,7 +280,6 @@ function ProjectScopeMenu({
             <span className="min-w-0 flex-1 truncate">
               {allProjectsLabel ?? (SINGLE_PROVIDER_UI ? "App defaults" : "All projects")}
             </span>
-            <MenuRadioItemIndicator />
           </span>
         </MenuRadioItem>
         <MenuSeparator />
@@ -294,7 +290,6 @@ function ProjectScopeMenu({
               <span className="flex min-w-0 items-center gap-2">
                 <ScopeIconSlot>{projectIcon(group)}</ScopeIconSlot>
                 <span className="min-w-0 flex-1 truncate">{projectLabel(group)}</span>
-                <MenuRadioItemIndicator />
               </span>
             </MenuRadioItem>
           ))}
@@ -309,7 +304,6 @@ function ProjectScopeMenu({
                   <span className="flex min-w-0 items-center gap-2">
                     <ScopeIconSlot>{projectIcon(group)}</ScopeIconSlot>
                     <span className="min-w-0 flex-1 truncate">{projectLabel(group)}</span>
-                    <MenuRadioItemIndicator />
                   </span>
                 </MenuRadioItem>
               ))}

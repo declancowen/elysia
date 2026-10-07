@@ -1,10 +1,9 @@
-import { useState } from "react";
 import { BotIcon, ChannelIcon, FolderPlusIcon, PlusIcon } from "../../icons";
 import { Button } from "../ui/button";
 import { Menu, MenuItem, MenuPopup, MenuTrigger } from "../ui/menu";
 import { useSidebar } from "../ui/sidebar";
-import { openAgentDialog, openChannelDialog } from "./agentDialogStore";
-import { AgentSectionDialog } from "./AgentSidebarOrganization";
+import { openAgentDialog, openChannelDialog, useAgentDialogStore } from "./agentDialogStore";
+import { useSidebarHoverPreview } from "../sidebar/SidebarHoverPreview";
 
 export function AgentCreateMenu({
   onCreate,
@@ -16,7 +15,7 @@ export function AgentCreateMenu({
   sections?: boolean;
 }) {
   const { isMobile, setOpenMobile } = useSidebar();
-  const [dialog, setDialog] = useState<"section" | null>(null);
+  const hover = useSidebarHoverPreview();
   return (
     <>
       <Menu>
@@ -36,6 +35,7 @@ export function AgentCreateMenu({
             onClick={() => {
               onCreate?.();
               openAgentDialog();
+              hover?.close();
               if (isMobile) setOpenMobile(false);
             }}
           >
@@ -46,6 +46,7 @@ export function AgentCreateMenu({
             onClick={() => {
               onCreate?.();
               openChannelDialog();
+              hover?.close();
               if (isMobile) setOpenMobile(false);
             }}
           >
@@ -56,7 +57,8 @@ export function AgentCreateMenu({
             <MenuItem
               onClick={() => {
                 onCreate?.();
-                setDialog("section");
+                useAgentDialogStore.setState({ sectionDialogOpen: true });
+                hover?.close();
               }}
             >
               <FolderPlusIcon />
@@ -65,7 +67,6 @@ export function AgentCreateMenu({
           )}
         </MenuPopup>
       </Menu>
-      {dialog === "section" ? <AgentSectionDialog onClose={() => setDialog(null)} /> : null}
     </>
   );
 }

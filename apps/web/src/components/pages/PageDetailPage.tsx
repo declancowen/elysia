@@ -36,10 +36,16 @@ import {
   AlertDialogDescription,
   AlertDialogFooter,
 } from "../ui/alert-dialog";
+import { PagesPage } from "./PagesPage";
 import { WorkspaceRichTextEditor } from "../WorkspaceRichTextEditor";
 
 export function PageDetailPage({ pageId }: { readonly pageId: string }) {
   const environmentId = usePrimaryEnvironmentId();
+  const collection = useEnvironmentQuery(
+    environmentId ? serverEnvironment.pagesLive({ environmentId, input: {} }) : null,
+  );
+  if (collection.data?.pages.some((page) => page.id === pageId && page.kind === "folder"))
+    return <PagesPage key={pageId} folderId={PageId.make(pageId)} />;
   return environmentId ? (
     <PageDetail key={`${environmentId}:${pageId}`} environmentId={environmentId} pageId={pageId} />
   ) : (

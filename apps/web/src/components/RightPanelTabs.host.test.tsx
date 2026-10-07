@@ -1,3 +1,4 @@
+import { DEFAULT_RESOLVED_KEYBINDINGS } from "@t3tools/shared/keybindings";
 // @vitest-environment jsdom
 import { act, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
@@ -49,6 +50,15 @@ it("moves the tab bar between header hosts without closing its menu or changing 
       root.render(
         <RightPanelTabs
           mode="inline"
+          keybindings={DEFAULT_RESOLVED_KEYBINDINGS}
+          getShortcutContext={() => ({
+            terminalFocus: false,
+            terminalOpen: false,
+            previewFocus: false,
+            previewOpen: false,
+            isWeb: true,
+            isDesktop: false,
+          })}
           tabBarHost={tabBarHost}
           surfaces={[agents, sources]}
           environmentId={null}

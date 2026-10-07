@@ -24,6 +24,7 @@ it("implements an agent plan in its existing conversation and keeps the new-thre
         }}
       >
         <ComposerPrimaryActions
+          canOperateThread
           compact={false}
           pendingAction={null}
           isRunning={false}

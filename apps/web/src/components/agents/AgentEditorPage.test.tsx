@@ -19,7 +19,7 @@ import {
   RouterProvider,
   useSearch,
 } from "@tanstack/react-router";
-import { AsyncResult } from "effect/unstable/reactivity";
+import { AsyncResult } from "effect/reactivity";
 import * as Cause from "effect/Cause";
 import { act, useSyncExternalStore, type ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";

@@ -636,18 +636,36 @@ export const make = Effect.gen(function* () {
 
         if (environment.platform === "darwin" && environment.isPackaged) {
           // Squirrel replaces the running bundle. Check before stopping its
-          // backend, since a mounted DMG or translocated app cannot be replaced.
-          const canReplaceBundle = yield* fileSystem
-            .access(environment.path.resolve(environment.resourcesPath, "../.."), {
-              writable: true,
-            })
-            .pipe(
-              Effect.as(true),
-              Effect.orElseSucceed(() => false),
-              Effect.onInterrupt(() => finishUpdateAction("install")),
-            );
+          // backend. Cloud-managed folders can report writable yet fail the
+          // atomic replacement; Desktop may resolve into a FileProvider folder.
+          const bundlePath = environment.path.resolve(environment.resourcesPath, "../..");
+          const resolvedBundlePath = yield* fileSystem.realPath(bundlePath).pipe(
+            Effect.orElseSucceed(() => bundlePath),
+            Effect.onInterrupt(() => finishUpdateAction("install")),
+          );
+          const inCloudManagedFolder = [
+            environment.path.join(environment.homeDirectory, "Library", "CloudStorage"),
+            environment.path.join(
+              environment.homeDirectory,
+              "Library",
+              "Mobile Documents",
+              "com~apple~CloudDocs",
+            ),
+          ].some(
+            (root) => resolvedBundlePath === root || resolvedBundlePath.startsWith(`${root}/`),
+          );
+          const canReplaceBundle = yield* (
+            inCloudManagedFolder
+              ? Effect.succeed(false)
+              : fileSystem.access(bundlePath, { writable: true }).pipe(Effect.as(true))
+          ).pipe(
+            Effect.orElseSucceed(() => false),
+            Effect.onInterrupt(() => finishUpdateAction("install")),
+          );
           if (!canReplaceBundle) {
-            const message = `The app cannot install an update from its current location. ${UPDATE_INSTALL_LOCATION_MESSAGE}`;
+            const message = inCloudManagedFolder
+              ? `The app cannot install an update inside a cloud-synced folder. ${UPDATE_INSTALL_LOCATION_MESSAGE}`
+              : `The app cannot install an update from its current location. ${UPDATE_INSTALL_LOCATION_MESSAGE}`;
             return yield* Effect.gen(function* () {
               yield* updateState((current) =>
                 reduceDesktopUpdateStateOnInstallFailure(current, message),

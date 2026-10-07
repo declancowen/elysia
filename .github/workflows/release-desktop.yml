@@ -513,6 +513,8 @@ jobs:
           verification_dir="$(mktemp -d "$RUNNER_TEMP/elysia-macos-verification.XXXXXX")"
           ditto -x -k "${app_archives[0]}" "$verification_dir"
           app_path="$verification_dir/Elysia.app"
+          grep -qx 'updaterCacheDirName: elysia-updater' "$app_path/Contents/Resources/app-update.yml"
+          [[ "$(/usr/libexec/PlistBuddy -c 'Print :NSHumanReadableCopyright' "$app_path/Contents/Info.plist")" == "Copyright © $(date +%Y) Elysia" ]]
           codesign --verify --deep --strict "$app_path"
           xcrun stapler validate "$app_path"
           spctl --assess --type execute --verbose "$app_path"

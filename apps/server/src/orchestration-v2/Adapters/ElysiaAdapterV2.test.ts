@@ -10,6 +10,7 @@ import { describe, it } from "@effect/vitest";
 import { expect } from "vite-plus/test";
 import * as Schema from "effect/Schema";
 import * as NodeServices from "@effect/platform-node/NodeServices";
+import * as Crypto from "effect/Crypto";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
@@ -46,6 +47,7 @@ describe("Elysia V2 runtime boundary", () => {
             interactionMode: "default",
           } as const;
           const adapter = makeClaudeAdapterV2({
+            crypto: yield* Crypto.Crypto,
             instanceId,
             settings: decodeClaudeSettings({ homePath: profile }),
             environment: { ELYSIA_PROFILE_ROOT: profile },
@@ -222,6 +224,7 @@ describe("Elysia V2 runtime boundary", () => {
     Effect.gen(function* () {
       const instanceId = ProviderInstanceId.make("claudeAgent");
       const adapter = makeClaudeAdapterV2({
+        crypto: yield* Crypto.Crypto,
         instanceId,
         settings: decodeClaudeSettings({}),
         environment: { ELYSIA_PROFILE_ROOT: "/tmp/elysia-v2-profile" },

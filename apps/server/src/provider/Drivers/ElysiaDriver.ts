@@ -13,8 +13,8 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
-import { HttpClient } from "effect/unstable/http";
-import { ChildProcessSpawner } from "effect/unstable/process";
+import { HttpClient } from "effect/http";
+import { ChildProcessSpawner } from "effect/process";
 import { makeClaudeTextGeneration } from "../../textGeneration/ClaudeTextGeneration.ts";
 import * as BackgroundPolicy from "../../background/BackgroundPolicy.ts";
 import { ServerConfig } from "../../config.ts";
@@ -27,13 +27,13 @@ import {
 } from "../../orchestration-v2/Adapters/ClaudeAdapterV2.ts";
 import { IdAllocatorV2 } from "../../orchestration-v2/IdAllocator.ts";
 import { ProviderContinuationRequests } from "../../orchestration-v2/ProviderContinuationRequests.ts";
-import { makeClaudeScopedLimitNames } from "../Layers/claudeUsageLimits.ts";
+import { makeClaudeScopedLimitNames } from "../claudeUsageLimits.ts";
 import {
   checkClaudeProviderStatus,
   makePendingClaudeProvider,
   probeClaudeCapabilities,
-} from "../Layers/ClaudeProvider.ts";
-import { ProviderEventLoggers } from "../Layers/ProviderEventLoggers.ts";
+} from "../ClaudeProvider.ts";
+import { ProviderEventLoggers } from "../ProviderEventLoggers.ts";
 import { makeManagedServerProvider } from "../makeManagedServerProvider.ts";
 import { type ProviderDriver, type ProviderInstance } from "../ProviderDriver.ts";
 import { withInstanceIdentity } from "./instanceIdentity.ts";
@@ -194,6 +194,7 @@ export const ElysiaDriver: ProviderDriver<ClaudeSettings, ElysiaDriverEnv> = {
         modelCatalog,
         authorizeModel: authorize,
         attachmentsDir: (yield* ServerConfig).attachmentsDir,
+        crypto: yield* Crypto.Crypto,
         fileSystem: fs,
         path,
         idAllocator: yield* IdAllocatorV2,
@@ -262,7 +263,7 @@ export const ElysiaDriver: ProviderDriver<ClaudeSettings, ElysiaDriverEnv> = {
         capacity: 1,
         timeToLive: Duration.minutes(5),
         lookup: () =>
-          probeClaudeCapabilities(effectiveConfig, processEnv, cwd, { includeUsage: false }).pipe(
+          probeClaudeCapabilities(effectiveConfig, processEnv, cwd, false).pipe(
             Effect.provideService(Path.Path, path),
           ),
       });

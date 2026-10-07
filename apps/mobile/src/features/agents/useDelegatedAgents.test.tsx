@@ -16,11 +16,11 @@ import { makeThreadShellFixture } from "../../test-fixtures";
 
 const state = vi.hoisted(() => ({ load: vi.fn<() => Promise<AgentGetDelegationResult>>() }));
 vi.mock("../../state/atom-registry", async () => {
-  const { AtomRegistry } = await import("effect/unstable/reactivity");
+  const { AtomRegistry } = await import("effect/reactivity");
   return { appAtomRegistry: AtomRegistry.make() };
 });
 vi.mock("../../state/projects", async () => {
-  const { Atom } = await import("effect/unstable/reactivity");
+  const { Atom } = await import("effect/reactivity");
   const Effect = await import("effect/Effect");
   const query = Atom.make(Effect.promise(() => state.load())).pipe(
     Atom.swr({ staleTime: 15_000, revalidateOnMount: true }),
@@ -30,7 +30,7 @@ vi.mock("../../state/projects", async () => {
 });
 vi.mock("../../state/entities", () => ({ useProjects: () => [] }));
 vi.mock("../../state/threads", async () => {
-  const { Atom } = await import("effect/unstable/reactivity");
+  const { Atom } = await import("effect/reactivity");
   const testShellsAtom = Atom.make<ReadonlyArray<EnvironmentThreadShell>>([]);
   const family = Atom.family((key: string) =>
     Atom.make((get) => {
@@ -51,7 +51,7 @@ vi.mock("../../state/threads", async () => {
 });
 import { appAtomRegistry } from "../../state/atom-registry";
 import { useDelegatedAgents } from "./useDelegatedAgents";
-import { Atom } from "effect/unstable/reactivity";
+import { Atom } from "effect/reactivity";
 const { testShellsAtom } = await vi.importMock<{
   testShellsAtom: Atom.Writable<ReadonlyArray<EnvironmentThreadShell>>;
 }>("../../state/threads");

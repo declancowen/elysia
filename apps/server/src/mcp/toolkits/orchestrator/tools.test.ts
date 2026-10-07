@@ -1,12 +1,12 @@
 import { assert, describe, it } from "@effect/vitest";
-import { Tool } from "effect/unstable/ai";
+import { Tool } from "effect/ai";
 
 import {
   CreateThreadsTool,
   DelegateTaskTool,
+  OrchestratorToolkit,
   ScheduleTaskTool,
   ThreadUpdateTool,
-  OrchestratorToolkit,
 } from "./tools.ts";
 
 describe("orchestrator MCP tool guidance", () => {
@@ -29,6 +29,16 @@ describe("orchestrator MCP tool guidance", () => {
     assert.include(DelegateTaskTool.description ?? "", "waitTimedOut");
     assert.include(DelegateTaskTool.description ?? "", "does not cancel the child");
     assert.include(DelegateTaskTool.description ?? "", "keep that taskId");
+    assert.include(DelegateTaskTool.description ?? "", "call delegate_task again");
+    assert.include(DelegateTaskTool.description ?? "", "childThreadId is backing storage");
+    assert.include(
+      OrchestratorToolkit.tools.elysia_thread_send.description ?? "",
+      "Do not use a delegated task's childThreadId to start another review round",
+    );
+    assert.include(
+      OrchestratorToolkit.tools.task_cancel.description ?? "",
+      "This includes later child-thread runs, even after the task is terminal",
+    );
   });
 
   it("documents wait timeout as a parent budget, not a child failure", () => {
@@ -71,6 +81,11 @@ describe("orchestrator MCP tool guidance", () => {
     assert.isAtLeast(schema.properties?.schedule?.anyOf?.length ?? 0, 2);
     assert.include(ScheduleTaskTool.description ?? "", "STRUCTURED OBJECT");
     assert.include(ScheduleTaskTool.description ?? "", "nextRunAt");
+    assert.include(
+      ScheduleTaskTool.description ?? "",
+      "webhook access is unavailable in this build",
+    );
+    assert.notInclude(ScheduleTaskTool.description ?? "", "enable T3 Connect");
   });
 
   it("publishes thread metadata actions from an object-root schema", () => {

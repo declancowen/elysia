@@ -14,7 +14,8 @@ import * as Stream from "effect/Stream";
 import * as Pages from "../../../pages/PageService.ts";
 import * as Threads from "../../../orchestration-v2/ThreadManagementService.ts";
 import * as Invocation from "../../McpInvocationContext.ts";
-import { PagesToolkitHandlersLive } from "./handlers.ts";
+import * as Handlers from "./handlers.ts";
+import * as McpToolAccess from "../../McpToolAccess.ts";
 import { PagesToolkit } from "./tools.ts";
 it.effect("does not let a read-only agent mutate a page", () =>
   Effect.gen(function* () {
@@ -33,9 +34,13 @@ it.effect("does not let a read-only agent mutate a page", () =>
     const dependencies = Layer.mergeAll(
       Layer.succeed(Invocation.McpInvocationContext, {
         environmentId: EnvironmentId.make("page-tool-environment"),
-        threadId,
-        providerInstanceId: instanceId,
-        providerSessionId: "page-tool-session",
+        requestNamespace: "pages-tool-session",
+        client: undefined,
+        thread: {
+          threadId,
+          providerInstanceId: instanceId,
+          providerSessionId: "page-tool-session",
+        },
         issuedAt: 0,
         capabilities: new Set(["orchestration" as const]),
       }),
@@ -46,7 +51,9 @@ it.effect("does not let a read-only agent mutate a page", () =>
       }),
     );
     const toolkit = yield* PagesToolkit.pipe(
-      Effect.provide(PagesToolkitHandlersLive.pipe(Layer.provide(dependencies))),
+      Effect.provide(
+        McpToolAccess.HandlersLayer.layer(Handlers.layer).pipe(Layer.provide(dependencies)),
+      ),
     );
     const results = yield* toolkit
       .handle("elysia_page_create", { title: "Forbidden edit" })

@@ -19,7 +19,11 @@ const state = vi.hoisted(() => ({
   roster: [] as { project: NonNullable<DelegatedAgentView["project"]> }[],
 }));
 vi.mock("~/hooks/useMediaQuery", () => ({ useMediaQuery: () => state.wide }));
-vi.mock("~/hooks/useSettings", () => ({ useCodeWorkspace: () => state.code }));
+vi.mock("~/hooks/useSettings", () => ({
+  useCodeWorkspace: () => state.code,
+  useClientSettings: (select: (settings: { panelAnimationDurationMs: number }) => unknown) =>
+    select({ panelAnimationDurationMs: 0 }),
+}));
 vi.mock("../agents/useDelegatedAgents", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../agents/useDelegatedAgents")>()),
   useDelegatedAgents: () => state.delegated,

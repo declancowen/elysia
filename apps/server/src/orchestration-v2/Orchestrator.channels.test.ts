@@ -12,14 +12,14 @@ import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import { withChannelReply, readChannelReply } from "@t3tools/shared/channelReplies";
-import { SqlitePersistenceMemory } from "../persistence/Layers/Sqlite.ts";
+import * as SqlitePersistence from "../persistence/Sqlite.ts";
 import { CodexProviderCapabilitiesV2 } from "./Adapters/CodexAdapterV2.ts";
 import * as Orchestrator from "./Orchestrator.ts";
 import * as ProjectionStore from "./ProjectionStore.ts";
 import * as ProjectStore from "./ProjectStore.ts";
 import * as ProviderAdapterRegistry from "./ProviderAdapterRegistry.ts";
 import type { ProviderAdapterV2Shape } from "./ProviderAdapter.ts";
-import { makeOrchestratorV2ReplayLayerWithRegistry } from "./testkit/ProviderReplayHarness.ts";
+import { layerWithRegistry } from "./testkit/ProviderReplayHarness.ts";
 const instanceId = ProviderInstanceId.make("claudeAgent");
 const modelSelection = { instanceId, model: "deepseek-v4.1-flash" };
 const adapter: ProviderAdapterV2Shape = {
@@ -34,14 +34,14 @@ const adapter: ProviderAdapterV2Shape = {
     ),
   openSession: () => Effect.die("Admission must not start a provider process"),
 };
-const database = SqlitePersistenceMemory;
+const database = SqlitePersistence.layerMemory;
 const layer = Layer.mergeAll(
   database,
   ProjectionStore.layer.pipe(Layer.provide(database)),
   ProjectStore.layer.pipe(Layer.provide(database)),
-  makeOrchestratorV2ReplayLayerWithRegistry(
+  layerWithRegistry(
     { name: "channel-admission" },
-    ProviderAdapterRegistry.makeLayer([adapter]),
+    ProviderAdapterRegistry.layerFromAdapters([adapter]),
     { databaseLayer: database, runEffectWorker: false },
   ),
 );

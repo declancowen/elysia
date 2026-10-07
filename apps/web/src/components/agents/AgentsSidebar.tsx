@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useId, useState } from "react";
 import { isElectron } from "../../env";
 import { SearchIcon } from "../../icons";
 import { useAllEnvironmentProjectSnapshotsReady } from "../../state/entities";
@@ -15,7 +15,8 @@ import { AgentConversationList } from "./AgentConversationList";
 import { AgentCreateMenu } from "./AgentCreateMenu";
 import { useAgents } from "./useAgents";
 
-export function AgentsSidebar() {
+export function AgentsSidebar({ preview = false }: { preview?: boolean }) {
+  const searchId = useId();
   const agents = useAgents();
   const ready = useAllEnvironmentProjectSnapshotsReady();
   const [query, setQuery] = useState("");
@@ -36,7 +37,7 @@ export function AgentsSidebar() {
                     size="icon-sm"
                     aria-label="Toggle agent search"
                     aria-expanded={searchVisible}
-                    aria-controls="agent-search"
+                    aria-controls={searchId}
                     onClick={() => {
                       setSearchVisible((visible) => !visible);
                       setQuery("");
@@ -53,7 +54,7 @@ export function AgentsSidebar() {
         }
       />
       {searchVisible && (
-        <div id="agent-search" className="shrink-0 px-3 pt-2 pb-4">
+        <div id={searchId} className="shrink-0 px-3 pt-2 pb-4">
           <InputGroup variant="filled">
             <InputGroupAddon>
               <SearchIcon className="size-4" />
@@ -74,7 +75,7 @@ export function AgentsSidebar() {
           <AgentConversationList agents={agents} ready={ready} query={query} />
         </section>
       </SidebarContent>
-      <SidebarChromeFooter />
+      {!preview ? <SidebarChromeFooter /> : null}
     </>
   );
 }

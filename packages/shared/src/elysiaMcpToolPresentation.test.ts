@@ -3,6 +3,7 @@ import { describe, expect, it } from "vite-plus/test";
 import {
   ELYSIA_MCP_TOOL_NAMES,
   resolveElysiaMcpToolPresentation,
+  resolveElysiaMcpToolId,
 } from "./elysiaMcpToolPresentation.ts";
 
 describe("resolveElysiaMcpToolPresentation", () => {
@@ -11,10 +12,7 @@ describe("resolveElysiaMcpToolPresentation", () => {
       const presentation = resolveElysiaMcpToolPresentation(tool);
       for (const prefix of [
         "mcp__elysia__",
-        "mcp__elysia__",
-        "mcp__elysia__",
         "Elysia.",
-        "mcp__elysia__",
         "elysia.",
         "elysia/",
         "elysia:",
@@ -90,6 +88,20 @@ describe("resolveElysiaMcpToolPresentation", () => {
     ]) {
       expect(resolveElysiaMcpToolPresentation(name)?.displayName).toBe("Delegate a child task");
     }
+  });
+
+  it("matches per-thread server names with underscores without accepting unknown tools", () => {
+    for (const tool of ELYSIA_MCP_TOOL_NAMES) {
+      const name = `elysia-thread_opencode2-adapter_${tool}`;
+      expect(resolveElysiaMcpToolPresentation(name), tool).toEqual(
+        resolveElysiaMcpToolPresentation(tool),
+      );
+      expect(resolveElysiaMcpToolId(name), tool).toBe(tool);
+    }
+    expect(
+      resolveElysiaMcpToolPresentation("elysia-thread_opencode2-adapter_not_a_tool"),
+    ).toBeNull();
+    expect(resolveElysiaMcpToolId("mcp__another-server__html_render")).toBeNull();
   });
 
   it("keeps unknown MCP tools on the generic renderer path", () => {

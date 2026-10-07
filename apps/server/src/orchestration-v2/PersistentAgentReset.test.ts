@@ -18,10 +18,10 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
-import * as SqlClient from "effect/unstable/sql/SqlClient";
-import { SqlitePersistenceMemory } from "../persistence/Layers/Sqlite.ts";
+import * as SqlClient from "effect/sql/SqlClient";
+import * as SqlitePersistence from "../persistence/Sqlite.ts";
 import { ServerConfig } from "../config.ts";
-import { ProviderRegistry } from "../provider/Services/ProviderRegistry.ts";
+import { ProviderRegistry } from "../provider/ProviderRegistry.ts";
 import { ServerSettingsService } from "../serverSettings.ts";
 import * as Projects from "../project/ProjectService.ts";
 import * as Threads from "./ThreadManagementService.ts";
@@ -34,16 +34,11 @@ const decodeProject = Schema.decodeUnknownEffect(Project);
 const decodeThread = Schema.decodeUnknownEffect(OrchestrationV2AppThread);
 const decodeProjection = Schema.decodeUnknownEffect(OrchestrationV2ThreadProjection);
 
-for (const scenario of [
-  "agent",
-  "channel",
-  "linked-memory",
-  "failed-detach",
-  "failed-link",
-] as const) {
-  const channel = scenario === "channel";
-  it.effect(`resets ${scenario} memory safely and retries without erasing the replacement`, () =>
-    Effect.gen(function* () {
+it.effect.each(["agent", "channel", "linked-memory", "failed-detach", "failed-link"] as const)(
+  `resets %s memory safely and retries without erasing the replacement`,
+  (scenario) => {
+    const channel = scenario === "channel";
+    return Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;
       const path = yield* Path.Path;
       const workspace = yield* fs.makeTempDirectoryScoped({ prefix: "elysia-reset-" });
@@ -273,10 +268,10 @@ for (const scenario of [
     }).pipe(
       Effect.provide(
         Layer.mergeAll(
-          SqlitePersistenceMemory.pipe(Layer.provide(NodeServices.layer)),
+          SqlitePersistence.layerMemory.pipe(Layer.provide(NodeServices.layer)),
           NodeServices.layer,
         ),
       ),
-    ),
-  );
-}
+    );
+  },
+);

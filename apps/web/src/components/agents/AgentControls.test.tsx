@@ -11,7 +11,7 @@ import { useConversationTabsStore } from "../../conversationTabsStore";
 import { scopeThreadRef, scopeProjectRef } from "@t3tools/client-runtime/environment";
 import type { AtomCommandResult } from "@t3tools/client-runtime/state/runtime";
 import * as Cause from "effect/Cause";
-import { AsyncResult } from "effect/unstable/reactivity";
+import { AsyncResult } from "effect/reactivity";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, expect, it, vi } from "vite-plus/test";
@@ -62,6 +62,7 @@ vi.mock("@tanstack/react-router", () => ({
 vi.mock("../../localApi", () => ({
   readLocalApi: () => ({ contextMenu: { show: state.contextMenu } }),
 }));
+vi.mock("../../hooks/useMediaQuery", () => ({ useMediaQuery: () => false }));
 vi.mock("../ui/sidebar", () => ({
   useSidebar: () => ({ isMobile: state.mobile, setOpenMobile: state.setOpenMobile }),
 }));

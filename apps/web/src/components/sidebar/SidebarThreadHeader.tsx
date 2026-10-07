@@ -31,6 +31,7 @@ export interface SidebarThreadHeaderProps {
 }
 
 export interface SidebarThreadSearchProps {
+  searchResultsId: string;
   searchFieldRef?: RefObject<HTMLDivElement | null>;
   shortcutLabel?: string | null;
   searchInputRef: RefObject<HTMLInputElement | null>;
@@ -44,6 +45,7 @@ export interface SidebarThreadSearchProps {
 }
 
 export function SidebarThreadSearch({
+  searchResultsId,
   searchFieldRef,
   shortcutLabel,
   searchInputRef,
@@ -80,11 +82,9 @@ export function SidebarThreadSearch({
               role="combobox"
               aria-autocomplete="list"
               aria-expanded={resultsVisible}
-              aria-controls={resultsVisible ? "sidebar-thread-search-results" : undefined}
+              aria-controls={resultsVisible ? searchResultsId : undefined}
               aria-activedescendant={
-                activeResultExists
-                  ? `sidebar-thread-search-result-${activeSearchResultIndex}`
-                  : undefined
+                activeResultExists ? `${searchResultsId}-${activeSearchResultIndex}` : undefined
               }
               className="min-w-0 flex-1"
             />

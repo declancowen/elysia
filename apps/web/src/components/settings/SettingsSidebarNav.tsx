@@ -3,6 +3,7 @@ import { useConversationTabNavigation } from "../../hooks/useConversationTabNavi
 import { useConversationRowClick } from "../../hooks/useConversationRowClick";
 import { toastManager } from "../ui/toast";
 import { readLocalApi } from "../../localApi";
+import { isElectron } from "~/env";
 import { ClockIcon } from "~/icons";
 import { useCodeWorkspace } from "~/hooks/useSettings";
 import { CONNECTIONS_ENABLED, SINGLE_PROVIDER_UI } from "@t3tools/contracts";
@@ -11,6 +12,7 @@ import {
   Suspense,
   useCallback,
   useEffect,
+  useId,
   useMemo,
   useRef,
   useState,
@@ -45,9 +47,10 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   useSidebar,
+  useSidebarVisibility,
   SidebarInput,
 } from "../ui/sidebar";
-import { SidebarUtilityMenu } from "../sidebar/SidebarChrome";
+import { SidebarChromeHeader, SidebarUtilityMenu } from "../sidebar/SidebarChrome";
 import { scrollToSettingsTarget } from "./settingsLayout";
 import {
   searchSettings,
@@ -152,7 +155,13 @@ function SettingsTabButton({
   );
 }
 
-export function SettingsSidebarNav({ pathname }: { pathname: string }) {
+export function SettingsSidebarNav({
+  pathname,
+  preview = false,
+}: {
+  pathname: string;
+  preview?: boolean;
+}) {
   const codeWorkspace = useCodeWorkspace();
   const navigate = useNavigate();
   const currentHash = useLocation({ select: (location) => location.hash });
@@ -165,9 +174,12 @@ export function SettingsSidebarNav({ pathname }: { pathname: string }) {
       isSettingsPathVisibleInWorkspace(item.to, codeWorkspace) &&
       (item.to !== "/settings/projects" || isSettingsOverviewVisible(scopeSearch)),
   );
-  const { isMobile, setOpenMobile, open, setOpen } = useSidebar();
+  const { isMobile, setOpenMobile } = useSidebar();
+  const sidebarVisible = useSidebarVisibility();
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const searchId = useId();
   const [query, setQuery] = useState("");
+  const [searchVisible, setSearchVisible] = useState(false);
   const [activeResultIndex, setActiveResultIndex] = useState(0);
   const searchableItems = useAvailableSettingsSearchItems(scopeSearch);
   const results = useMemo(() => searchSettings(query, searchableItems), [query, searchableItems]);
@@ -182,12 +194,13 @@ export function SettingsSidebarNav({ pathname }: { pathname: string }) {
     const result = results[activeResultIndex];
     if (!result) return;
     document
-      .getElementById(`settings-search-result-${result.id}`)
+      .getElementById(`${searchId}-result-${result.id}`)
       ?.scrollIntoView({ block: "nearest" });
-  }, [activeResultIndex, results]);
+  }, [activeResultIndex, results, searchId]);
 
   useEffect(() => {
     const handleKeyDown = (event: globalThis.KeyboardEvent) => {
+      if (event.defaultPrevented || (!preview && !sidebarVisible)) return;
       if (event.key !== "/" || event.metaKey || event.ctrlKey || event.altKey) return;
 
       const target = event.target;
@@ -204,11 +217,7 @@ export function SettingsSidebarNav({ pathname }: { pathname: string }) {
       }
 
       event.preventDefault();
-      if (isMobile) {
-        setOpenMobile(true);
-      } else if (!open) {
-        setOpen(true);
-      }
+      setSearchVisible(true);
       requestAnimationFrame(() => {
         searchInputRef.current?.focus();
         searchInputRef.current?.select();
@@ -216,7 +225,7 @@ export function SettingsSidebarNav({ pathname }: { pathname: string }) {
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isMobile, open, setOpen, setOpenMobile]);
+  }, [preview, sidebarVisible]);
 
   const handleSectionClick = useCallback(
     (to: SettingsPath) => {
@@ -286,52 +295,73 @@ export function SettingsSidebarNav({ pathname }: { pathname: string }) {
   );
   return (
     <>
+      <SidebarChromeHeader
+        isElectron={isElectron}
+        title="Settings"
+        search={
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            aria-label="Search settings"
+            aria-expanded={searchVisible}
+            onClick={() => {
+              setSearchVisible(!searchVisible);
+              clearSearch();
+            }}
+          >
+            <SearchIcon />
+          </Button>
+        }
+      />
       <SidebarContent className="overflow-x-hidden">
         <SidebarGroup>
           <div className="flex flex-col gap-2">
-            <div className="flex h-8 items-center gap-2 rounded-md px-2 py-1.5 text-sm font-medium text-sidebar-foreground hover:bg-sidebar-row-hover hover:text-sidebar-foreground">
-              <SearchIcon className="size-4 shrink-0 text-sidebar-foreground" />
-              <SidebarInput
-                ref={searchInputRef}
-                nativeInput
-                type="search"
-                value={query}
-                onChange={(event) => {
-                  setQuery(event.currentTarget.value);
-                  setActiveResultIndex(0);
-                }}
-                onKeyDown={handleSearchKeyDown}
-                placeholder="Search"
-                aria-label="Search settings"
-                role="combobox"
-                aria-autocomplete="list"
-                aria-expanded={isSearching && hasResults}
-                aria-controls={isSearching && hasResults ? "settings-search-results" : undefined}
-                aria-activedescendant={
-                  isSearching && results[activeResultIndex]
-                    ? `settings-search-result-${results[activeResultIndex].id}`
-                    : undefined
-                }
-                className="min-w-0 flex-1"
-              />
-              {isSearching ? (
-                <Button
-                  type="button"
-                  size="icon-micro"
-                  variant="ghost"
-                  className="shrink-0"
-                  aria-label="Clear settings search"
-                  onClick={() => {
-                    clearSearch();
-                    searchInputRef.current?.focus();
+            {searchVisible ? (
+              <div className="flex h-8 items-center gap-2 rounded-md px-2 py-1.5 text-sm font-medium text-sidebar-foreground hover:bg-sidebar-row-hover hover:text-sidebar-foreground">
+                <SearchIcon className="size-4 shrink-0 text-sidebar-foreground" />
+                <SidebarInput
+                  ref={searchInputRef}
+                  autoFocus
+                  nativeInput
+                  type="search"
+                  value={query}
+                  onChange={(event) => {
+                    setQuery(event.currentTarget.value);
+                    setActiveResultIndex(0);
                   }}
-                >
-                  <XIcon className="size-3" />
-                </Button>
-              ) : (
-                <Kbd>/</Kbd>
-              )}
-            </div>
+                  onKeyDown={handleSearchKeyDown}
+                  placeholder="Search"
+                  aria-label="Search settings"
+                  role="combobox"
+                  aria-autocomplete="list"
+                  aria-expanded={isSearching && hasResults}
+                  aria-controls={isSearching && hasResults ? `${searchId}-results` : undefined}
+                  aria-activedescendant={
+                    isSearching && results[activeResultIndex]
+                      ? `${searchId}-result-${results[activeResultIndex].id}`
+                      : undefined
+                  }
+                  className="min-w-0 flex-1"
+                />
+                {isSearching ? (
+                  <Button
+                    type="button"
+                    size="icon-micro"
+                    variant="ghost"
+                    className="shrink-0"
+                    aria-label="Clear settings search"
+                    onClick={() => {
+                      clearSearch();
+                      searchInputRef.current?.focus();
+                    }}
+                  >
+                    <XIcon className="size-3" />
+                  </Button>
+                ) : (
+                  <Kbd>/</Kbd>
+                )}
+              </div>
+            ) : null}
             {isSearching && results.length === 0 ? (
               <p
                 role="status"
@@ -342,14 +372,14 @@ export function SettingsSidebarNav({ pathname }: { pathname: string }) {
             ) : null}
             {isSearching ? (
               <SidebarMenu
-                id={hasResults ? "settings-search-results" : undefined}
+                id={hasResults ? `${searchId}-results` : undefined}
                 role={hasResults ? "listbox" : undefined}
                 aria-label={hasResults ? "Settings search results" : undefined}
               >
                 {results.map((item, index) => (
                   <SidebarMenuItem key={item.id} role="presentation">
                     <SidebarMenuButton
-                      id={`settings-search-result-${item.id}`}
+                      id={`${searchId}-result-${item.id}`}
                       role="option"
                       aria-selected={index === activeResultIndex}
                       tabIndex={-1}

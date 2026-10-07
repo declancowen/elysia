@@ -11,7 +11,9 @@ export const Route = createFileRoute("/tasks")({
     )
       throw redirect({ to: "/pair", replace: true });
   },
-  validateSearch: (search: Record<string, unknown>): { task?: WorkTaskId } =>
-    isTaskId(search.task) ? { task: search.task } : {},
+  validateSearch: (search: Record<string, unknown>): { task?: WorkTaskId; create?: boolean } => ({
+    ...(isTaskId(search.task) ? { task: search.task } : {}),
+    ...(search.create === true ? { create: true } : {}),
+  }),
   component: TasksPage,
 });

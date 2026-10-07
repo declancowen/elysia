@@ -8,9 +8,9 @@
  * schema is always up to date before the application starts.
  */
 
-import * as Migrator from "effect/unstable/sql/Migrator";
+import * as Migrator from "effect/sql/Migrator";
 import * as Effect from "effect/Effect";
-import * as SqlClient from "effect/unstable/sql/SqlClient";
+import * as SqlClient from "effect/sql/SqlClient";
 import { reconcileV2PreviewMigration } from "./reconcileV2PreviewMigration.ts";
 
 // Import all migrations statically
@@ -75,6 +75,9 @@ import Migration0058 from "./Migrations/058_WorkTasks.ts";
 import Migration0059 from "./Migrations/059_Pages.ts";
 import Migration0060 from "./Migrations/060_WorkspaceChatLinks.ts";
 import Migration0062 from "./Migrations/062_PersistentAgentResets.ts";
+import Migration0063 from "./Migrations/063_ScheduledTaskWebhooks.ts";
+import Migration0064 from "./Migrations/064_WebhookRelayDeliveries.ts";
+import Migration0065 from "./Migrations/065_PageFolders.ts";
 
 /**
  * Migration loader with all migrations defined inline.
@@ -152,6 +155,9 @@ export const migrationEntries = [
   // Conversion retired after v0.0.33; keep its applied history slot, never reuse it.
   [61, "ElysiaToolNames", Effect.void],
   [62, "PersistentAgentResets", Migration0062],
+  [63, "ScheduledTaskWebhooks", Migration0063],
+  [64, "WebhookRelayDeliveries", Migration0064],
+  [65, "PageFolders", Migration0065],
 ] as const;
 
 export const migrationManifest = migrationEntries.map(([id, name]) => [id, name] as const);

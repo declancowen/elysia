@@ -7,7 +7,9 @@ import type * as React from "react";
 import { cn } from "~/lib/utils";
 import { buttonVariants } from "./button";
 
-const Menu = MenuPrimitive.Root;
+function Menu({ modal = false, ...props }: MenuPrimitive.Root.Props) {
+  return <MenuPrimitive.Root modal={modal} {...props} />;
+}
 
 function MenuTrigger({ className, children, ...props }: MenuPrimitive.Trigger.Props) {
   return (
@@ -135,7 +137,7 @@ function MenuCheckboxItem({
         "grid min-h-8 in-data-[side=none]:min-w-[calc(var(--anchor-width)+1.25rem)] cursor-pointer items-center gap-2 rounded-sm py-1 ps-2 text-base text-foreground outline-none data-disabled:pointer-events-none data-disabled:cursor-not-allowed data-highlighted:bg-accent data-highlighted:text-accent-foreground data-disabled:opacity-64 sm:min-h-7 sm:text-sm [&_svg:not([class*='size-'])]:size-4.5 sm:[&_svg:not([class*='size-'])]:size-4 [&_svg]:pointer-events-none [&_svg]:shrink-0",
         variant === "switch"
           ? "grid-cols-[1fr_auto] gap-4 pe-1.5"
-          : "grid-cols-[1rem_minmax(0,1fr)] pe-4",
+          : "grid-cols-[minmax(0,1fr)_1rem] pe-2",
         className,
       )}
       data-slot="menu-checkbox-item"
@@ -153,10 +155,10 @@ function MenuCheckboxItem({
         </>
       ) : (
         <>
-          <MenuPrimitive.CheckboxItemIndicator className="col-start-1">
+          <span className="col-start-1">{children}</span>
+          <MenuPrimitive.CheckboxItemIndicator className="col-start-2">
             <CheckIcon strokeWidth={3} aria-hidden="true" />
           </MenuPrimitive.CheckboxItemIndicator>
-          <span className="col-start-2">{children}</span>
         </>
       )}
     </MenuPrimitive.CheckboxItem>
@@ -170,7 +172,7 @@ function MenuRadioGroup(props: MenuPrimitive.RadioGroup.Props) {
 function MenuRadioItem({
   className,
   children,
-  hideIndicator: _hideIndicator = false,
+  hideIndicator = false,
   ...props
 }: MenuPrimitive.RadioItem.Props & {
   hideIndicator?: boolean;
@@ -185,6 +187,11 @@ function MenuRadioItem({
       {...props}
     >
       <span className="min-w-0 flex-1">{children}</span>
+      {!hideIndicator ? (
+        <span className="ms-2 flex w-4 shrink-0 justify-end">
+          <MenuRadioItemIndicator />
+        </span>
+      ) : null}
     </MenuPrimitive.RadioItem>
   );
 }
@@ -216,7 +223,7 @@ function MenuGroupLabel({
   return (
     <MenuPrimitive.GroupLabel
       className={cn(
-        "px-2 py-1.5 font-medium text-muted-foreground text-xs data-inset:ps-9 sm:data-inset:ps-8",
+        "px-2 py-1.5 font-medium text-foreground/70 text-xs data-inset:ps-9 sm:data-inset:ps-8",
         className,
       )}
       data-inset={inset}

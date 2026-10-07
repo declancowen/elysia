@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useRef, useState } from "react";
+import { createContext, useContext, useEffect, useState } from "react";
 import { type PanelAnimationDurationMs } from "@t3tools/contracts/settings";
 
 import { useMediaQuery } from "./hooks/useMediaQuery";
@@ -49,33 +49,24 @@ export function usePanelPresence<T>(
   scopeKey: string | null,
   durationMs: PanelAnimationDurationMs,
 ): { present: boolean; value: T | null } {
-  const [present, setPresent] = useState(open);
-  const retainedRef = useRef<{ scopeKey: string | null; value: T | null } | null>(
+  const [retained, setRetained] = useState<{ scopeKey: string | null; value: T | null } | null>(
     open ? { scopeKey, value } : null,
   );
+  // Callers supply primitive or memoized values; preserve the last open snapshot in state.
+  if (open && (retained === null || retained.scopeKey !== scopeKey || retained.value !== value)) {
+    setRetained({ scopeKey, value });
+  } else if (!open && retained !== null && (!animated || retained.scopeKey !== scopeKey)) {
+    setRetained(null);
+  }
 
   useEffect(() => {
-    if (open) retainedRef.current = { scopeKey, value };
-  }, [open, scopeKey, value]);
-
-  useEffect(() => {
-    if (open) {
-      setPresent(true);
-      return;
-    }
-    if (!animated) {
-      setPresent(false);
-      return;
-    }
-
-    const timeout = window.setTimeout(() => setPresent(false), durationMs);
+    if (open || !animated) return;
+    const timeout = window.setTimeout(() => setRetained(null), durationMs);
     return () => window.clearTimeout(timeout);
-  }, [animated, durationMs, open]);
+  }, [animated, durationMs, open, scopeKey]);
 
-  const retainedValue =
-    retainedRef.current?.scopeKey === scopeKey ? retainedRef.current.value : null;
-  const visible = open || (animated && present && retainedRef.current?.scopeKey === scopeKey);
-  return { present: visible, value: open ? value : visible ? retainedValue : null };
+  const visible = open || (animated && retained !== null && retained.scopeKey === scopeKey);
+  return { present: visible, value: open ? value : visible ? (retained?.value ?? null) : null };
 }
 
 export function observeResponsiveBreakpointFade(options: {

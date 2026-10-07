@@ -122,12 +122,12 @@ describe("theme files", () => {
     expectThemeColors(dark, {
       canvas: "#002244",
       sidebar: "#062d52",
-      sidebarRowActive: "#28b4ff",
-      sidebarRowSelected: "#28b4ff",
+      sidebarRowActive: "#00558c",
+      sidebarRowSelected: "#00558c",
       accentForeground: "#002244",
       messageSurface: "#10375c",
     });
-    expect(contrastRatio(dark.accentForeground, dark.sidebarRowSelected)).toBeGreaterThanOrEqual(
+    expect(contrastRatio(dark.sidebarForeground, dark.sidebarRowSelected)).toBeGreaterThanOrEqual(
       4.5,
     );
   });
@@ -1168,3 +1168,45 @@ it("keeps workspace sidebar text readable across every native theme and custom m
     expect(contrastRatio(colors.surface, colors.muted)).toBeGreaterThanOrEqual(4.5);
   }
 });
+
+it.each(["light", "dark"] as const)(
+  "keeps text readable across every built-in theme and its %s interaction states",
+  (mode) => {
+    for (const theme of [DEFAULT_THEME, ...BUILT_IN_THEMES]) {
+      const colors = getThemeColorsForMode(theme, mode);
+      expect(colors, `${theme.label} supports ${mode}`).not.toBeNull();
+      if (!colors) continue;
+      for (const [foreground, background] of [
+        ["text", "canvas"],
+        ["text", "surface"],
+        ["text", "surfaceRaised"],
+        ["text", "surfaceOverlay"],
+        ["textMuted", "canvas"],
+        ["textMuted", "surface"],
+        ["secondaryForeground", "secondary"],
+        ["mutedForeground", "muted"],
+        ["toolbarForeground", "toolbar"],
+        ["toolbarControlForeground", "toolbarControl"],
+        ["toolbarControlForeground", "toolbarControlHover"],
+        ["placeholder", "surface"],
+        ["secondaryLabel", "canvas"],
+        ["sidebarForeground", "sidebar"],
+        ["sidebarForeground", "sidebarControlSurface"],
+        ["sidebarForeground", "sidebarRowHover"],
+        ["sidebarForeground", "sidebarRowActive"],
+        ["sidebarForeground", "sidebarRowSelected"],
+        ["sidebarMutedForeground", "sidebar"],
+        ["messageForeground", "messageSurface"],
+        ["messageActionForeground", "messageAction"],
+        ["messageActionForeground", "messageActionHover"],
+        ["codeForeground", "codeBackground"],
+        ["terminalForeground", "terminalBackground"],
+      ] as const) {
+        expect(
+          contrastRatio(colors[foreground], colors[background]),
+          `${theme.label} ${mode}: ${foreground} on ${background}`,
+        ).toBeGreaterThanOrEqual(4.5);
+      }
+    }
+  },
+);

@@ -14,6 +14,9 @@ export const PageSummary = Schema.Struct({
   id: PageId,
   title,
   projectId: Schema.NullOr(ProjectId),
+  kind: Schema.optional(Schema.Literals(["page", "folder"])),
+  parentFolderId: Schema.optional(Schema.NullOr(PageId)),
+  contentPreview: Schema.optional(Schema.String),
   createdAt: IsoDateTime,
   updatedAt: IsoDateTime,
   revision: Schema.Int.check(Schema.isGreaterThan(0)),
@@ -31,6 +34,8 @@ export const PageSaveInput = Schema.Struct({
   title: Schema.optional(title),
   content: Schema.optional(content),
   projectId: Schema.optional(Schema.NullOr(ProjectId)),
+  kind: Schema.optional(Schema.Literals(["page", "folder"])),
+  parentFolderId: Schema.optional(Schema.NullOr(PageId)),
   expectedRevision: Schema.optional(Schema.Int.check(Schema.isGreaterThan(0))),
 });
 export type PageSaveInput = typeof PageSaveInput.Type;

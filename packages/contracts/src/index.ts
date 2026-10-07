@@ -9,6 +9,7 @@ export * from "./environment.ts";
 export * from "./environmentHttp.ts";
 export * from "./relayClient.ts";
 export * from "./desktopBootstrap.ts";
+export * from "./desktopBrowser.ts";
 export * from "./desktopAppActivation.ts";
 export * from "./remoteAccess.ts";
 export * from "./ipc.ts";
@@ -68,3 +69,5 @@ export * from "./workTask.ts";
 
 export * from "./page.ts";
 export * from "./workspaceChat.ts";
+export * from "./secretRequest.ts";
+export * from "./clientRpcPermissions.ts";

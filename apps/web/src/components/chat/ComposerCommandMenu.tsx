@@ -5,6 +5,7 @@ import {
 import {
   type PageId,
   type WorkTaskId,
+  type ScheduledTaskId,
   type ProjectEntry,
   type ProjectId,
   type AgentProfile,
@@ -16,6 +17,7 @@ import {
 } from "@t3tools/contracts";
 import {
   Files01Icon,
+  ClockIcon,
   TaskEdit02Icon,
   BlocksIcon,
   FolderIcon,
@@ -38,6 +40,14 @@ import { resolvePullRequestState } from "../pullRequest/pullRequestPresentation"
 import { AgentAvatar } from "../agents/AgentAvatar";
 
 export type ComposerCommandItem =
+  | { id: string; type: "project"; projectId: ProjectId; label: string; description: string }
+  | {
+      id: string;
+      type: "scheduled";
+      scheduledTaskId: ScheduledTaskId;
+      label: string;
+      description: string;
+    }
   | { id: string; type: "page"; pageId: PageId; label: string; description: string }
   | { id: string; type: "task"; taskId: WorkTaskId; label: string; description: string }
   | {
@@ -165,7 +175,7 @@ export const ComposerCommandMenu = memo(function ComposerCommandMenu(props: {
                   (props.triggerKind === "skill"
                     ? "No skills found. Try / to browse provider commands."
                     : props.triggerKind === "path"
-                      ? "No matching agents, tasks, pages, threads, files or folders."
+                      ? "No matching agents, projects, tasks, scheduled tasks, pages, pull requests, threads, files or folders."
                       : "No matching command."))}
             </p>
           </div>
@@ -224,6 +234,12 @@ const ComposerCommandMenuItem = memo(function ComposerCommandMenuItem(props: {
         <Files01Icon className="size-4 shrink-0" />
       ) : props.item.type === "task" ? (
         <TaskEdit02Icon aria-hidden className="size-4 shrink-0 text-secondary-label" />
+      ) : null}
+      {props.item.type === "project" ? (
+        <FolderIcon aria-hidden className="size-4 shrink-0" />
+      ) : null}
+      {props.item.type === "scheduled" ? (
+        <ClockIcon aria-hidden className="size-4 shrink-0" />
       ) : null}
       {props.item.type === "thread" ? (
         <MessagesSquareIcon aria-hidden="true" className="size-4 shrink-0 text-secondary-label" />

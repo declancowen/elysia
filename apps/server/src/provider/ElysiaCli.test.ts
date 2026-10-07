@@ -14,7 +14,7 @@ import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import * as Sink from "effect/Sink";
 import * as Stream from "effect/Stream";
-import { ChildProcessSpawner } from "effect/unstable/process";
+import { ChildProcessSpawner } from "effect/process";
 import { ELYSIA_CLI_BRIDGE, makeElysiaCli, syncElysiaExtensions } from "./ElysiaCli.ts";
 import { elysiaAgentProtection } from "./ElysiaAgentProtection.ts";
 
@@ -611,8 +611,9 @@ it("preserves the owned port when native compression is disabled", () => {
   });
 });
 
-for (const platform of ["mac", "windows"] as const) {
-  it(`${platform}: restores a stopped enabled native compression service without changing routing or tracing`, () => {
+it.each(["mac", "windows"] as const)(
+  `%s: restores a stopped enabled native compression service without changing routing or tracing`,
+  (platform) => {
     const { source, profile, run } = fixture();
     NodeFS.appendFileSync(
       source,
@@ -651,11 +652,12 @@ def enable_compression():
     });
     expect(NodeFS.readFileSync(settingsPath, "utf8")).toBe(settings);
     expect(JSON.parse(NodeFS.readFileSync(statePath, "utf8"))).toEqual({ ...state, enabled: true });
-  });
-}
+  },
+);
 
-for (const status of [200, 503] as const) {
-  it(`leaves a listening compression port untouched when /health returns ${status}`, async () => {
+it.each([200, 503] as const)(
+  `leaves a listening compression port untouched when /health returns %s`,
+  async (status) => {
     const { profile, run } = fixture();
     expect(run("--init").status).toBe(0);
     const server = NodeChildProcess.spawn("python3", [
@@ -694,8 +696,8 @@ server.serve_forever()
       server.kill();
       await exited;
     }
-  });
-}
+  },
+);
 
 it("keeps disabled compression disabled and rejects invalid ports without starting a proxy", () => {
   const { profile, run } = fixture();

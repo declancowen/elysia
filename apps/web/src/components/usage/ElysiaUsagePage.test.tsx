@@ -1,5 +1,5 @@
 import { RegistryContext } from "@effect/atom-react";
-import { AtomRegistry } from "effect/unstable/reactivity";
+import { AtomRegistry } from "effect/reactivity";
 import { act } from "react";
 import { create, type ReactTestRenderer } from "react-test-renderer";
 import { USAGE_CONTRACT_VERSION, UsageDay, type UsageSummary } from "@t3tools/contracts";
@@ -12,7 +12,7 @@ const state = vi.hoisted(() => ({
 }));
 
 vi.mock("../../state/server", async () => {
-  const { Atom } = await import("effect/unstable/reactivity");
+  const { Atom } = await import("effect/reactivity");
   const Effect = await import("effect/Effect");
   const query = Atom.make(Effect.promise(() => state.load()));
   const usage = Atom.make(Effect.promise(() => state.usage()));

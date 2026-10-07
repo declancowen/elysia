@@ -5,6 +5,15 @@
 /* Window Controls Overlay: active when Electron exposes native titlebar control geometry. */
 @custom-variant wco (&:is(.wco, .wco *));
 
+/* Secondary hovering pointers reveal sidebar actions on touch-primary devices. */
+@custom-variant any-hover {
+  @media (any-hover: hover) {
+    &:hover {
+      @slot;
+    }
+  }
+}
+
 /* On mobile, morph the expanded hero composer into the compact docked
    composer while it moves; the rest of the app remains visually stationary. */
 html[data-mobile-composer-route-transition="true"]::view-transition-old(root),
@@ -137,7 +146,7 @@ html[data-mobile-composer-route-transition="true"]::view-transition-old(t3-mobil
 }
 
 .wco {
-  --workspace-topbar-height: env(titlebar-area-height, 40px);
+  --workspace-topbar-height: max(40px, env(titlebar-area-height, 40px));
   --workspace-controls-top: env(titlebar-area-y, 0px);
   --workspace-controls-left: calc(env(titlebar-area-x, 0px) + 0.75rem);
   --workspace-controls-right: calc(
@@ -253,6 +262,7 @@ html[data-mobile-composer-route-transition="true"]::view-transition-old(t3-mobil
   --color-surface-raised: var(--surface-raised);
   --color-message: var(--message-surface);
   --color-message-foreground: var(--contrast-message-foreground);
+  --color-chat-foreground: var(--chat-foreground, var(--contrast-foreground));
   --color-message-action: var(--message-action);
   --color-message-action-foreground: var(--message-action-foreground);
   --color-message-action-hover: var(--message-action-hover);
@@ -2056,7 +2066,7 @@ code {
 .chat-markdown blockquote {
   border-left: 2px solid var(--contrast-border);
   padding-left: 0.8rem;
-  color: var(--contrast-muted-foreground);
+  color: var(--chat-foreground, var(--contrast-muted-foreground));
 }
 
 .chat-markdown section[data-footnotes] {

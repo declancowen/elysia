@@ -1,7 +1,7 @@
 import { TurnTokenUsage, UsageReadError, type ProviderInstanceId } from "@t3tools/contracts";
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
-import * as SqlClient from "effect/unstable/sql/SqlClient";
+import * as SqlClient from "effect/sql/SqlClient";
 import type { UsageRecord } from "./usageTranscripts.ts";
 
 const Row = Schema.Struct({
@@ -60,7 +60,7 @@ export const readElysiaAppUsage = Effect.fn("UsageService.readElysiaAppUsage")(f
       reasoningTokens: row.usage.reasoningTokens ?? 0,
     },
     reportedCostUsd: null,
-    fast: false,
+    speed: "standard",
     dedupeKey: `elysia-turn:${row.id}`,
   }));
 });

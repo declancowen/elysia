@@ -13,12 +13,23 @@ describe("Elysia orchestration provider instructions", () => {
     assert.include(ELYSIA_ORCHESTRATION_INSTRUCTIONS, "ordinary top-level Elysia conversations");
     assert.include(ELYSIA_ORCHESTRATION_INSTRUCTIONS, "Never use them merely");
     assert.include(ELYSIA_ORCHESTRATION_INSTRUCTIONS, "cross-provider");
+    assert.include(ELYSIA_ORCHESTRATION_INSTRUCTIONS, "call `delegate_task` again");
+    assert.include(
+      ELYSIA_ORCHESTRATION_INSTRUCTIONS,
+      "Do not use `elysia_thread_send` on `childThreadId`",
+    );
   });
 
   it("documents structured schedules instead of JSON strings", () => {
     assert.include(ELYSIA_ORCHESTRATION_INSTRUCTIONS, "structured object, never as JSON text");
     assert.include(ELYSIA_ORCHESTRATION_INSTRUCTIONS, '"everyMs":3600000');
     assert.include(ELYSIA_ORCHESTRATION_INSTRUCTIONS, "bindToCurrentThread=false");
+  });
+
+  it("uses the exact environment keys supplied to the ACP bridge", () => {
+    assert.include(ELYSIA_ORCHESTRATION_INSTRUCTIONS, "$ELYSIA_ACP_MCP_NODE");
+    assert.include(ELYSIA_ORCHESTRATION_INSTRUCTIONS, "$ELYSIA_ACP_MCP_ENTRYPOINT");
+    assert.notInclude(ELYSIA_ORCHESTRATION_INSTRUCTIONS, "Elysia_ACP_MCP_");
   });
 
   it("injects prompt fallback only for an MCP-enabled first run", () => {

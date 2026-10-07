@@ -438,7 +438,12 @@ export function ComposerContextReferenceChip(props: {
 }): ReactElement {
   const records = use(ComposerContextRecordsContext);
   const { environmentId } = use(ComposerContextActionsContext);
-  if (props.kind === "task" || props.kind === "page")
+  if (
+    props.kind === "task" ||
+    props.kind === "page" ||
+    props.kind === "project" ||
+    props.kind === "scheduled"
+  )
     return (
       <WorkspaceItemContextChip
         kind={props.kind}

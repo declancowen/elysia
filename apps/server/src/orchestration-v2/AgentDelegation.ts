@@ -28,13 +28,13 @@ import * as FileSystem from "effect/FileSystem";
 import * as ServerConfig from "../config.ts";
 import * as Crypto from "effect/Crypto";
 import * as DateTime from "effect/DateTime";
-import * as Encoding from "effect/Encoding";
+import * as Hex from "effect/encoding/Hex";
 import * as Effect from "effect/Effect";
 import * as Context from "effect/Context";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
-import * as SqlClient from "effect/unstable/sql/SqlClient";
+import * as SqlClient from "effect/sql/SqlClient";
 import * as Scheduler from "../scheduling/Scheduler.ts";
 import * as AttachmentClaims from "./AttachmentClaims.ts";
 import * as CommandReceiptStore from "./CommandReceiptStore.ts";
@@ -593,7 +593,7 @@ const delegateToPersistentAgentImpl = Effect.fn("delegateToPersistentAgent")(fun
 const yieldCryptoDigest = Effect.fnUntraced(function* (encoded: string) {
   return yield* (yield* Crypto.Crypto)
     .digest("SHA-256", new TextEncoder().encode(encoded))
-    .pipe(Effect.map(Encoding.encodeHex));
+    .pipe(Effect.map(Hex.encode));
 });
 
 const getAgentDelegationImpl = Effect.fn("getAgentDelegation")(function* (

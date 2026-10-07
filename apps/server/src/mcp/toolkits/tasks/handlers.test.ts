@@ -14,7 +14,8 @@ import * as Stream from "effect/Stream";
 import * as Tasks from "../../../tasks/TaskService.ts";
 import * as Threads from "../../../orchestration-v2/ThreadManagementService.ts";
 import * as Invocation from "../../McpInvocationContext.ts";
-import { TaskHandlersLive } from "./handlers.ts";
+import * as Handlers from "./handlers.ts";
+import * as McpToolAccess from "../../McpToolAccess.ts";
 import { TaskToolkit } from "./tools.ts";
 it.effect("does not let a read-only agent mutate a task", () =>
   Effect.gen(function* () {
@@ -33,9 +34,13 @@ it.effect("does not let a read-only agent mutate a task", () =>
     const dependencies = Layer.mergeAll(
       Layer.succeed(Invocation.McpInvocationContext, {
         environmentId: EnvironmentId.make("task-tool-environment"),
-        threadId,
-        providerInstanceId: instanceId,
-        providerSessionId: "task-tool-session",
+        requestNamespace: "tasks-tool-session",
+        client: undefined,
+        thread: {
+          threadId,
+          providerInstanceId: instanceId,
+          providerSessionId: "task-tool-session",
+        },
         issuedAt: 0,
         capabilities: new Set(["orchestration" as const]),
       }),
@@ -46,7 +51,9 @@ it.effect("does not let a read-only agent mutate a task", () =>
       }),
     );
     const toolkit = yield* TaskToolkit.pipe(
-      Effect.provide(TaskHandlersLive.pipe(Layer.provide(dependencies))),
+      Effect.provide(
+        McpToolAccess.HandlersLayer.layer(Handlers.layer).pipe(Layer.provide(dependencies)),
+      ),
     );
     const results = yield* toolkit
       .handle("elysia_task_create", { title: "Forbidden edit" })

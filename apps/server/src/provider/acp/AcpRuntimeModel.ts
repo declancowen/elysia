@@ -3,7 +3,9 @@ import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Ref from "effect/Ref";
-import type * as EffectAcpSchema from "effect-acp/compat";
+import * as Schema from "effect/Schema";
+import * as EffectAcpSchema from "effect-acp/compat";
+import * as EffectAcpSchemaV1 from "effect-acp/schema-v1";
 import {
   deriveToolActivityPresentation,
   mergeToolActivityData,
@@ -19,39 +21,10 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-function isSessionModelState(value: unknown): value is EffectAcpSchema.SessionModelState {
-  if (!isRecord(value) || typeof value.currentModelId !== "string") {
-    return false;
-  }
-  if (!Array.isArray(value.availableModels)) {
-    return false;
-  }
-  return value.availableModels.every(
-    (model) =>
-      isRecord(model) &&
-      typeof model.modelId === "string" &&
-      typeof model.name === "string" &&
-      (model.description === undefined ||
-        model.description === null ||
-        typeof model.description === "string"),
-  );
-}
-
-function isSessionModeState(value: unknown): value is EffectAcpSchema.SessionModeState {
-  if (!isRecord(value) || typeof value.currentModeId !== "string") {
-    return false;
-  }
-  if (!Array.isArray(value.availableModes)) {
-    return false;
-  }
-  return value.availableModes.every(
-    (mode) =>
-      isRecord(mode) &&
-      typeof mode.id === "string" &&
-      typeof mode.name === "string" &&
-      (mode.description === undefined || typeof mode.description === "string"),
-  );
-}
+// Guards for the untyped `initialize._meta` states some agents (Grok) advertise.
+// Modes were removed from ACP v2, so the v1 wire schema is the source of truth.
+const isSessionModelState = Schema.is(EffectAcpSchema.SessionModelState);
+const isSessionModeState = Schema.is(EffectAcpSchemaV1.SessionModeState);
 
 export interface AcpSessionMode {
   readonly id: string;
@@ -1160,15 +1133,18 @@ export function extractMcpToolCallIdentity(
       }
     }
   }
-  // A present-but-foreign origin assertion marks the whole call as another
-  // server's MCP call, so no loose name matching (meta or title) may brand it.
   const gooseExtension =
     typeof gooseToolCall?.extensionName === "string" ? gooseToolCall.extensionName.trim() : "";
   const assertsForeignOrigin =
     (metaServerId.length > 0 && !/^elysia$/i.test(metaServerId)) ||
     (gooseExtension.length > 0 && !/^elysia$/i.test(gooseExtension));
   if (assertsForeignOrigin) {
-    return undefined;
+    if (metaServerId.length === 0 || metaToolName.length === 0) return undefined;
+    const prefix = [`mcp__${metaServerId}__`, `mcp::${metaServerId}::`].find((prefix) =>
+      metaToolName.startsWith(prefix),
+    );
+    const tool = prefix === undefined ? metaToolName : metaToolName.slice(prefix.length);
+    return tool ? { server: metaServerId, tool } : undefined;
   }
   const candidates = [
     meta?.toolName,
@@ -1178,6 +1154,9 @@ export function extractMcpToolCallIdentity(
   ].filter((value): value is string => typeof value === "string");
   for (const candidate of candidates) {
     const trimmed = candidate.trim();
+    const qualified = /^mcp__(.+?)__(.+)$/i.exec(trimmed);
+    if (qualified?.[1] && qualified[2] && !/^elysia$/i.test(qualified[1]))
+      return { server: qualified[1], tool: qualified[2] };
     for (const pattern of [
       ELYSIA_MCP_TITLE_CALL,
       ELYSIA_MCP_TITLE_SUFFIX_CALL,

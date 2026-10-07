@@ -2,7 +2,7 @@ import { useAtomValue } from "@effect/atom-react";
 import { scopedProjectKey } from "@t3tools/client-runtime/environment";
 import type { AgentConversationPreviewsResult, EnvironmentId, ProjectId } from "@t3tools/contracts";
 import * as Option from "effect/Option";
-import { AsyncResult, Atom } from "effect/unstable/reactivity";
+import { AsyncResult, Atom } from "effect/reactivity";
 import { useEffect, useMemo, useRef } from "react";
 import { appAtomRegistry } from "../../rpc/atomRegistry";
 import { projectEnvironment } from "../../state/projects";

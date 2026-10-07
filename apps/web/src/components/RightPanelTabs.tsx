@@ -13,6 +13,7 @@ import type {
   PreviewSessionSnapshot,
   ProjectId,
   PullRequestState,
+  ResolvedKeybindingsConfig,
 } from "@t3tools/contracts";
 import { getTerminalLabel } from "@t3tools/shared/terminalLabels";
 import {
@@ -39,6 +40,7 @@ import {
   useCallback,
   useEffect,
   useLayoutEffect,
+  useEffectEvent,
   useMemo,
   useRef,
   useState,
@@ -50,6 +52,7 @@ import { isElectron } from "~/env";
 import type { DesktopPreviewOverlay } from "~/previewStateStore";
 import type { RightPanelSurface } from "~/rightPanelStore";
 import { cn } from "~/lib/utils";
+import { resolveShortcutCommand, type ShortcutMatchContext } from "~/keybindings";
 import { readLocalApi } from "~/localApi";
 import { Button } from "~/components/ui/button";
 import { AndroidIcon, AppleIcon } from "~/components/Icons";
@@ -91,6 +94,8 @@ interface RightPanelTabsProps {
   maximized?: boolean;
   inlineSize?: import("~/hooks/usePreviewPanelInlineSize").PreviewPanelInlineSize;
   open?: boolean;
+  keybindings: ResolvedKeybindingsConfig;
+  getShortcutContext: () => ShortcutMatchContext;
   /** Forwarded to PreviewPanelShell so this surface persists its own width. */
   widthStorageKey?: string;
   /** Forwarded to PreviewPanelShell as the initial width before a user resize. */
@@ -875,6 +880,31 @@ export function RightPanelTabs(props: RightPanelTabsProps) {
   const [renamingDevice, setRenamingDevice] = useState<string | null>(null);
   const [addSurfaceMenuOpen, setAddSurfaceMenuOpen] = useState(false);
   const codeWorkspace = useCodeWorkspace();
+  const addSurfaceTriggerRef = useRef<HTMLButtonElement>(null);
+  if (props.open === false && addSurfaceMenuOpen) setAddSurfaceMenuOpen(false);
+
+  const onNewSurfaceKeyDown = useEffectEvent((event: KeyboardEvent) => {
+    if (event.defaultPrevented || event.isComposing) return;
+    if (
+      resolveShortcutCommand(event, props.keybindings, {
+        context: { ...props.getShortcutContext(), rightPanelOpen: true },
+      }) !== "rightPanel.new"
+    )
+      return;
+    if (!addSurfaceMenuOpen && document.querySelector(LAUNCHER_SHORTCUT_BLOCKING_LAYERS)) return;
+    event.preventDefault();
+    event.stopPropagation();
+    if (!event.repeat) {
+      addSurfaceTriggerRef.current?.focus();
+      setAddSurfaceMenuOpen(true);
+    }
+  });
+  useEffect(() => {
+    if (props.open === false) return;
+    document.addEventListener("keydown", onNewSurfaceKeyDown, true);
+    return () => document.removeEventListener("keydown", onNewSurfaceKeyDown, true);
+  }, [props.open]);
+
   const addSurfaceActions = [
     {
       label: "Browser",
@@ -1262,7 +1292,7 @@ export function RightPanelTabs(props: RightPanelTabsProps) {
               </div>
             );
           })}
-          {props.surfaces.length > 0 && addSurfaceActions.some((action) => action.available) ? (
+          {props.open !== false && addSurfaceActions.some((action) => action.available) ? (
             <Menu open={addSurfaceMenuOpen} onOpenChange={setAddSurfaceMenuOpen}>
               <Tooltip>
                 <TooltipTrigger
@@ -1270,6 +1300,7 @@ export function RightPanelTabs(props: RightPanelTabsProps) {
                     <MenuTrigger
                       render={
                         <Button
+                          ref={addSurfaceTriggerRef}
                           aria-label="Add panel surface"
                           data-workspace-panel-action={
                             props.tabBarHost !== undefined ? "" : undefined

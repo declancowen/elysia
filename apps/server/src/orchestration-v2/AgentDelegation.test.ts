@@ -25,10 +25,10 @@ import { createPendingAttachmentId, resolveAttachmentPath } from "../attachmentS
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
-import * as SqlClient from "effect/unstable/sql/SqlClient";
+import * as SqlClient from "effect/sql/SqlClient";
 import * as LegacyV1ThreadImporter from "./legacy/LegacyV1ThreadImporter.ts";
 import { ServerConfig } from "../config.ts";
-import { SqlitePersistenceMemory } from "../persistence/Layers/Sqlite.ts";
+import * as SqlitePersistence from "../persistence/Sqlite.ts";
 import {
   AgentDelegation,
   delegateToPersistentAgent,
@@ -59,7 +59,7 @@ const stores = Layer.mergeAll(
   CommandReceiptStore.layer,
   EffectOutbox.layer,
   TurnItemPositionStore.layer,
-).pipe(Layer.provideMerge(SqlitePersistenceMemory));
+).pipe(Layer.provideMerge(SqlitePersistence.layerMemory));
 const sink = EventSink.layerFromStores.pipe(Layer.provideMerge(stores));
 const threads = Layer.unwrap(
   Effect.gen(function* () {
@@ -154,7 +154,7 @@ const dependencies = Layer.mergeAll(
 const testLayer = delegationLayer.pipe(Layer.provideMerge(dependencies));
 
 describe("V2 persistent delegation", () => {
-  for (const scenario of [
+  it.effect.each([
     "complete",
     "archive",
     "new-work",
@@ -171,17 +171,90 @@ describe("V2 persistent delegation", () => {
     "target-group-outsider",
     "target-group-nested",
     "target-group-archived",
-  ] as const)
-    it.effect(`returns original results durably; source state ${scenario}`, () =>
-      Effect.gen(function* () {
-        const projects = yield* ProjectStore.ProjectStoreV2;
-        const events = yield* EventSink.EventSinkV2;
-        const projections = yield* ProjectionStore.ProjectionStoreV2;
+  ] as const)(`returns original results durably; source state %s`, (scenario) =>
+    Effect.gen(function* () {
+      const projects = yield* ProjectStore.ProjectStoreV2;
+      const events = yield* EventSink.EventSinkV2;
+      const projections = yield* ProjectionStore.ProjectionStoreV2;
+      yield* projects.apply({
+        sequence: 1,
+        eventId: EventId.make("project-agent"),
+        aggregateKind: "project",
+        aggregateId: agentId,
+        occurredAt: DateTime.formatIso(at),
+        commandId: null,
+        causationEventId: null,
+        correlationId: null,
+        metadata: {},
+        type: "project.created",
+        payload: {
+          projectId: agentId,
+          title: "Alex",
+          workspaceRoot: "/tmp/agent-alex",
+          defaultModelSelection: modelSelection,
+          scripts: [],
+          agentProfile: {
+            instructions: "Help",
+            avatar: { preset: "brain", color: "blue" },
+            archived: false,
+            notificationsEnabled: true,
+            conversationThreadId: agentThreadId,
+          },
+          createdAt: DateTime.formatIso(at),
+          updatedAt: DateTime.formatIso(at),
+        },
+      });
+      yield* projects.apply({
+        sequence: 2,
+        eventId: EventId.make("source-project-created"),
+        aggregateKind: "project",
+        aggregateId: ProjectId.make("source-project"),
+        occurredAt: DateTime.formatIso(at),
+        commandId: null,
+        causationEventId: null,
+        correlationId: null,
+        metadata: {},
+        type: "project.created",
+        payload: {
+          projectId: ProjectId.make("source-project"),
+          title: "Source",
+          workspaceRoot: "/tmp/source",
+          defaultModelSelection: modelSelection,
+          scripts: [],
+          ...(scenario.startsWith("group") || scenario === "target-group-nested"
+            ? {
+                agentProfile: {
+                  instructions: "Coordinate the release checklist.",
+                  avatar: { preset: "brain" as const, color: "blue" as const },
+                  archived: false,
+                  notificationsEnabled: true,
+                  conversationThreadId: sourceId,
+                  group: {
+                    workspaceRoot: "/tmp/channel-link",
+                    memberProjectIds: [
+                      scenario === "group-nonmember" ? ProjectId.make("other") : agentId,
+                      ProjectId.make("second"),
+                    ],
+                    leadProjectId:
+                      scenario === "group-nonmember" ? ProjectId.make("other") : agentId,
+                  },
+                },
+              }
+            : {}),
+          createdAt: DateTime.formatIso(at),
+          updatedAt: DateTime.formatIso(at),
+        },
+      });
+      const targetGroup = scenario.startsWith("target-group");
+      const groupId = ProjectId.make("team");
+      const groupThreadId = ThreadId.make("team-chat");
+      const withAttachments = scenario === "attachments" || scenario === "target-group-attachments";
+      if (targetGroup) {
         yield* projects.apply({
-          sequence: 1,
-          eventId: EventId.make("project-agent"),
+          sequence: 3,
+          eventId: EventId.make("group-created"),
           aggregateKind: "project",
-          aggregateId: agentId,
+          aggregateId: groupId,
           occurredAt: DateTime.formatIso(at),
           commandId: null,
           causationEventId: null,
@@ -189,784 +262,708 @@ describe("V2 persistent delegation", () => {
           metadata: {},
           type: "project.created",
           payload: {
-            projectId: agentId,
-            title: "Alex",
-            workspaceRoot: "/tmp/agent-alex",
+            projectId: groupId,
+            title: "Team",
+            workspaceRoot: "/tmp/team",
             defaultModelSelection: modelSelection,
             scripts: [],
             agentProfile: {
-              instructions: "Help",
+              instructions: "",
               avatar: { preset: "brain", color: "blue" },
-              archived: false,
+              archived: scenario === "target-group-archived",
               notificationsEnabled: true,
-              conversationThreadId: agentThreadId,
+              conversationThreadId: groupThreadId,
+              group: {
+                memberProjectIds: [agentId, ProjectId.make("second")],
+                leadProjectId:
+                  scenario === "target-group-member" ? ProjectId.make("second") : agentId,
+              },
             },
             createdAt: DateTime.formatIso(at),
             updatedAt: DateTime.formatIso(at),
           },
         });
-        yield* projects.apply({
-          sequence: 2,
-          eventId: EventId.make("source-project-created"),
-          aggregateKind: "project",
-          aggregateId: ProjectId.make("source-project"),
-          occurredAt: DateTime.formatIso(at),
-          commandId: null,
-          causationEventId: null,
-          correlationId: null,
-          metadata: {},
-          type: "project.created",
-          payload: {
-            projectId: ProjectId.make("source-project"),
-            title: "Source",
-            workspaceRoot: "/tmp/source",
-            defaultModelSelection: modelSelection,
-            scripts: [],
-            ...(scenario.startsWith("group") || scenario === "target-group-nested"
-              ? {
-                  agentProfile: {
-                    instructions: "Coordinate the release checklist.",
-                    avatar: { preset: "brain" as const, color: "blue" as const },
-                    archived: false,
-                    notificationsEnabled: true,
-                    conversationThreadId: sourceId,
-                    group: {
-                      workspaceRoot: "/tmp/channel-link",
-                      memberProjectIds: [
-                        scenario === "group-nonmember" ? ProjectId.make("other") : agentId,
-                        ProjectId.make("second"),
-                      ],
-                      leadProjectId:
-                        scenario === "group-nonmember" ? ProjectId.make("other") : agentId,
-                    },
-                  },
-                }
-              : {}),
-            createdAt: DateTime.formatIso(at),
-            updatedAt: DateTime.formatIso(at),
-          },
+      }
+      for (const id of [sourceId, agentThreadId, ...(targetGroup ? [groupThreadId] : [])]) {
+        const thread = yield* decodeThread({
+          id,
+          projectId:
+            id === agentThreadId ? agentId : id === groupThreadId ? groupId : "source-project",
+          title: String(id),
+          providerInstanceId: modelSelection.instanceId,
+          modelSelection,
+          runtimeMode: "full-access",
+          interactionMode: "default",
+          branch: null,
+          worktreePath: null,
+          activeProviderThreadId: null,
+          lineage: { rootThreadId: id, parentThreadId: null, relationshipToParent: null },
+          forkedFrom: null,
+          createdAt: at,
+          updatedAt: at,
+          archivedAt: null,
+          deletedAt: null,
+          createdBy: "user",
+          creationSource: "web",
         });
-        const targetGroup = scenario.startsWith("target-group");
-        const groupId = ProjectId.make("team");
-        const groupThreadId = ThreadId.make("team-chat");
-        const withAttachments =
-          scenario === "attachments" || scenario === "target-group-attachments";
-        if (targetGroup) {
-          yield* projects.apply({
-            sequence: 3,
-            eventId: EventId.make("group-created"),
-            aggregateKind: "project",
-            aggregateId: groupId,
-            occurredAt: DateTime.formatIso(at),
-            commandId: null,
-            causationEventId: null,
-            correlationId: null,
-            metadata: {},
-            type: "project.created",
-            payload: {
-              projectId: groupId,
-              title: "Team",
-              workspaceRoot: "/tmp/team",
-              defaultModelSelection: modelSelection,
-              scripts: [],
-              agentProfile: {
-                instructions: "",
-                avatar: { preset: "brain", color: "blue" },
-                archived: scenario === "target-group-archived",
-                notificationsEnabled: true,
-                conversationThreadId: groupThreadId,
-                group: {
-                  memberProjectIds: [agentId, ProjectId.make("second")],
-                  leadProjectId:
-                    scenario === "target-group-member" ? ProjectId.make("second") : agentId,
-                },
-              },
-              createdAt: DateTime.formatIso(at),
-              updatedAt: DateTime.formatIso(at),
-            },
-          });
-        }
-        for (const id of [sourceId, agentThreadId, ...(targetGroup ? [groupThreadId] : [])]) {
-          const thread = yield* decodeThread({
-            id,
-            projectId:
-              id === agentThreadId ? agentId : id === groupThreadId ? groupId : "source-project",
-            title: String(id),
-            providerInstanceId: modelSelection.instanceId,
-            modelSelection,
-            runtimeMode: "full-access",
-            interactionMode: "default",
-            branch: null,
-            worktreePath: null,
-            activeProviderThreadId: null,
-            lineage: { rootThreadId: id, parentThreadId: null, relationshipToParent: null },
-            forkedFrom: null,
-            createdAt: at,
-            updatedAt: at,
-            archivedAt: null,
-            deletedAt: null,
-            createdBy: "user",
-            creationSource: "web",
-          });
-          yield* events.write({
-            events: [
-              {
-                id: EventId.make(`${id}:created`),
-                type: "thread.created",
-                threadId: id,
-                occurredAt: at,
-                payload: thread,
-              },
-            ],
-          });
-        }
-        const fs = yield* FileSystem.FileSystem;
-        const path = yield* Path.Path;
-        const config = yield* ServerConfig;
-        let copyCount = 0;
-        const retryFs = FileSystem.FileSystem.of({
-          ...fs,
-          copyFile: (from, to) => {
-            copyCount += 1;
-            return fs.copyFile(
-              from,
-              scenario === "attachments" && copyCount === 2
-                ? path.join(to, "cannot-exist", "failure")
-                : to,
-            );
-          },
-        });
-        const entered = yield* Deferred.make<void>();
-        const release = yield* Deferred.make<void>();
-        const originalDispatcher = yield* ThreadManagement.ThreadManagementService;
-        const gatedDispatcher = ThreadManagement.ThreadManagementService.of({
-          ...originalDispatcher,
-          dispatch: (command) =>
-            scenario === "source-admission-race" &&
-            command.type === "message.dispatch" &&
-            command.threadId === agentThreadId
-              ? Deferred.succeed(entered, undefined).pipe(
-                  Effect.andThen(Deferred.await(release)),
-                  Effect.andThen(originalDispatcher.dispatch(command)),
-                )
-              : originalDispatcher.dispatch(command),
-        });
-        const delegate = (input: AgentDelegateInput) =>
-          delegateToPersistentAgent(input).pipe(
-            Effect.provide(
-              Layer.fresh(delegationLayer).pipe(
-                Layer.provide(
-                  Layer.merge(
-                    Layer.succeed(FileSystem.FileSystem, retryFs),
-                    Layer.succeed(ThreadManagement.ThreadManagementService, gatedDispatcher),
-                  ),
-                ),
-              ),
-            ),
-          );
-        const pendingId = ChatAttachmentId.make(createPendingAttachmentId("txt"));
-        if (withAttachments)
-          yield* fs.writeFileString(
-            path.join(config.attachmentsDir, `${pendingId}.txt`),
-            "Original attachment",
-          );
-        const input: AgentDelegateInput = {
-          commandId: CommandId.make("delegate"),
-          sourceThreadId: sourceId,
-          agentProjectId: targetGroup ? groupId : agentId,
-          messageId: MessageId.make("ask"),
-          text: targetGroup
-            ? `${formatAgentMention(groupId, "Team")} ${
-                scenario === "target-group-member"
-                  ? formatAgentMention(agentId, "Alex")
-                  : scenario === "target-group-outsider"
-                    ? formatAgentMention(ProjectId.make("outsider"), "Other")
-                    : ""
-              } Review this.`
-            : "Review this.",
-          ...(withAttachments
-            ? {
-                attachments: [
-                  {
-                    type: "file",
-                    id: pendingId,
-                    name: "notes.txt",
-                    mimeType: "text/plain",
-                    sizeBytes: 19,
-                  },
-                ] as const,
-              }
-            : {}),
-        };
-        if (
-          scenario === "target-group-outsider" ||
-          scenario === "target-group-nested" ||
-          scenario === "target-group-archived"
-        ) {
-          const error = yield* delegate(input).pipe(Effect.flip);
-          assert.include(
-            error.message,
-            scenario === "target-group-outsider"
-              ? "belongs to this channel"
-              : scenario === "target-group-archived"
-                ? "Restore this agent"
-                : "cannot send a message to another channel",
-          );
-          assert.lengthOf((yield* projections.getThreadProjection(groupThreadId)).messages, 0);
-          assert.lengthOf((yield* projections.getThreadProjection(agentThreadId)).messages, 0);
-          return;
-        }
-        if (scenario === "group-nonmember") {
-          const error = yield* delegate(input).pipe(Effect.flip);
-          assert.equal(error.message, "Choose an agent who belongs to this channel.");
-          assert.lengthOf((yield* projections.getThreadProjection(agentThreadId)).messages, 0);
-          return;
-        }
-        if (scenario === "attachments") {
-          yield* delegate(input).pipe(Effect.flip);
-          assert.lengthOf(yield* fs.readDirectory(config.attachmentsDir), 1);
-        }
-        let first;
-        let originalSourceItemOrdinal = 0;
-        if (scenario === "source-admission-race" || scenario === "existing-request-race") {
-          const initial = yield* decodeRun({
-            id: RunId.make("source-existing-run"),
-            threadId: sourceId,
-            ordinal: 1,
-            providerInstanceId: modelSelection.instanceId,
-            modelSelection,
-            providerThreadId: null,
-            userMessageId: MessageId.make("prior-ask"),
-            rootNodeId: null,
-            activeAttemptId: null,
-            status: "running",
-            requestedAt: at,
-            startedAt: at,
-            completedAt: null,
-            checkpointId: null,
-            contextHandoffId: null,
-          });
-          yield* events.write({
-            events: [
-              {
-                id: EventId.make("source-existing-run"),
-                type: "run.updated",
-                threadId: sourceId,
-                occurredAt: at,
-                payload: initial,
-              },
-            ],
-          });
-          const now = yield* DateTime.now;
-          if (scenario === "existing-request-race") {
-            yield* events.write({
-              events: [
-                {
-                  id: EventId.make("existing-request-message"),
-                  type: "message.updated",
-                  threadId: sourceId,
-                  occurredAt: now,
-                  payload: {
-                    id: input.messageId,
-                    threadId: sourceId,
-                    runId: initial.id,
-                    nodeId: null,
-                    role: "user",
-                    text: input.text,
-                    attachments: [],
-                    streaming: false,
-                    createdAt: now,
-                    updatedAt: now,
-                    createdBy: "user",
-                    creationSource: "web",
-                  },
-                },
-                {
-                  id: EventId.make("existing-request-item-event"),
-                  type: "turn-item.updated",
-                  threadId: sourceId,
-                  occurredAt: now,
-                  payload: {
-                    id: TurnItemId.make("existing-request-item"),
-                    threadId: sourceId,
-                    runId: initial.id,
-                    nodeId: null,
-                    providerThreadId: null,
-                    providerTurnId: null,
-                    nativeItemRef: null,
-                    parentItemId: null,
-                    ordinal: 0,
-                    status: "completed",
-                    title: null,
-                    startedAt: now,
-                    completedAt: now,
-                    updatedAt: now,
-                    type: "user_message",
-                    messageId: input.messageId,
-                    text: input.text,
-                    attachments: [],
-                    createdBy: "user",
-                    creationSource: "web",
-                    inputIntent: "turn_start",
-                  },
-                },
-              ],
-            });
-            originalSourceItemOrdinal = (yield* projections.getThreadProjection(
-              sourceId,
-            )).turnItems.find((item) => item.id === "existing-request-item")!.ordinal;
-          }
-          const handoff =
-            scenario === "source-admission-race"
-              ? yield* delegate(input).pipe(Effect.forkChild)
-              : undefined;
-          if (handoff) yield* Deferred.await(entered);
-          // New human steering reuses the existing run and TestClock instant.
-          yield* (yield* ThreadCommandExecutor.ThreadCommandExecutor).withLock(
-            sourceId,
-            events.write({
-              events: [
-                {
-                  id: EventId.make("human-during-target-admission"),
-                  type: "message.updated",
-                  threadId: sourceId,
-                  occurredAt: now,
-                  payload: {
-                    id: MessageId.make("human-during-target-admission"),
-                    threadId: sourceId,
-                    runId: initial.id,
-                    nodeId: null,
-                    role: "user",
-                    text: "Newer steering",
-                    attachments: [],
-                    createdBy: "user",
-                    creationSource: "web",
-                    streaming: false,
-                    createdAt: now,
-                    updatedAt: now,
-                  },
-                },
-                {
-                  id: EventId.make("human-during-target-item"),
-                  type: "turn-item.updated",
-                  threadId: sourceId,
-                  occurredAt: now,
-                  payload: {
-                    id: TurnItemId.make("human-during-target-item"),
-                    threadId: sourceId,
-                    runId: initial.id,
-                    nodeId: null,
-                    providerThreadId: null,
-                    providerTurnId: null,
-                    nativeItemRef: null,
-                    parentItemId: null,
-                    ordinal: 0,
-                    status: "completed",
-                    title: null,
-                    startedAt: now,
-                    completedAt: now,
-                    updatedAt: now,
-                    type: "user_message",
-                    messageId: MessageId.make("human-during-target-admission"),
-                    text: "Newer steering",
-                    attachments: [],
-                    createdBy: "user",
-                    creationSource: "web",
-                    inputIntent: "steer",
-                  },
-                },
-              ],
-            }),
-          );
-          if (handoff) {
-            yield* Deferred.succeed(release, undefined);
-            first = yield* Fiber.join(handoff);
-          } else first = yield* delegate(input);
-        } else first = yield* delegate(input);
-        assert.deepEqual(yield* delegate(input), first);
-        const changed = yield* delegate({ ...input, text: "Different task" }).pipe(Effect.flip);
-        assert.include(changed.message, "different task");
-        const source = yield* projections.getThreadProjection(sourceId);
-        if (scenario === "group" || scenario === "group-new-work" || targetGroup) {
-          const channelId = targetGroup ? groupThreadId : sourceId;
-          const shared = yield* projections.getThreadProjection(channelId);
-          assert.lengthOf(shared.runs, 1);
-          assert.lengthOf(shared.messages, 1);
-          assert.equal(shared.messages[0]!.text, input.text);
-          assert.equal(shared.runs[0]!.channelAgentProjectId, agentId);
-          assert.lengthOf((yield* projections.getThreadProjection(agentThreadId)).messages, 0);
-          assert.lengthOf((yield* projections.getThreadProjection(agentThreadId)).runs, 0);
-          if (!targetGroup) {
-            assert.deepEqual(first, {
-              projectId: ProjectId.make("source-project"),
-              threadId: sourceId,
-            });
-            assert.isFalse(
-              shared.turnItems.some(
-                (item) => item.type === "system_notice" && !!item.agentDelegation,
-              ),
-            );
-          }
-          const run = shared.runs[0]!;
-          yield* events.write({
-            events: [
-              {
-                id: EventId.make("channel-complete"),
-                type: "run.updated",
-                threadId: channelId,
-                occurredAt: at,
-                payload: { ...run, status: "completed", completedAt: at },
-              },
-              {
-                id: EventId.make("channel-response"),
-                type: "message.updated",
-                threadId: channelId,
-                occurredAt: at,
-                payload: {
-                  id: MessageId.make("channel-answer"),
-                  threadId: channelId,
-                  runId: run.id,
-                  nodeId: null,
-                  role: "assistant",
-                  text: "Channel result",
-                  attachments: [],
-                  streaming: false,
-                  createdAt: at,
-                  updatedAt: at,
-                  createdBy: "agent",
-                  creationSource: "server",
-                },
-              },
-            ],
-          });
-          yield* (yield* AgentDelegation).reconcile();
-          assert.lengthOf((yield* projections.getThreadProjection(agentThreadId)).messages, 0);
-          assert.lengthOf((yield* projections.getThreadProjection(channelId)).messages, 2);
-          if (targetGroup) {
-            const result = (yield* projections.getThreadProjection(sourceId)).messages.find(
-              (message) => message.id.startsWith("agent-delegate:result:"),
-            );
-            assert.isUndefined(result);
-            const response = yield* getAgentDelegation({
-              sourceThreadId: sourceId,
-              activityId: EventId.make(
-                source.turnItems.find(
-                  (item) => item.type === "system_notice" && item.agentDelegation,
-                )!.id,
-              ),
-            });
-            assert.equal(response.respondingAgentProjectId, agentId);
-            assert.include(
-              response.messages.map((message) => message.text).join("\n"),
-              "Channel result",
-            );
-          }
-          return;
-        }
-        const notice = source.turnItems.find((item) => item.type === "system_notice");
-        assert.isDefined(notice);
-        if (!notice || notice.type !== "system_notice" || !notice.agentDelegation) return;
-        const target = yield* projections.getThreadProjection(agentThreadId);
-        assert.isNull(target.thread.lineage.parentThreadId);
-        assert.lengthOf(target.runs, 1);
-
-        if (scenario === "attachments") {
-          const sourceFile = source.messages[0]!.attachments![0]!;
-          const targetFile = target.messages[0]!.attachments![0]!;
-          assert.notEqual(sourceFile.id, targetFile.id);
-          const sourcePath = resolveAttachmentPath({
-            attachmentsDir: config.attachmentsDir,
-            attachment: sourceFile,
-          });
-          if (sourcePath === null) return yield* Effect.die("Missing source attachment path");
-          assert.equal(yield* fs.readFileString(sourcePath), "Original attachment");
-          const targetPath = resolveAttachmentPath({
-            attachmentsDir: config.attachmentsDir,
-            attachment: targetFile,
-          });
-          if (targetPath === null) return yield* Effect.die("Missing target attachment path");
-          assert.equal(yield* fs.readFileString(targetPath), "Original attachment");
-          assert.lengthOf(yield* fs.readDirectory(config.attachmentsDir), 3);
-          assert.equal(copyCount, 4);
-        }
-
-        if (scenario === "source-admission-race" || scenario === "existing-request-race") {
-          assert.equal(notice.agentDelegation.sourceRunOrdinal, 1);
-          assert.equal(notice.agentDelegation.sourceTurnItemOrdinal, originalSourceItemOrdinal);
-          const preserved = (yield* projections.getThreadProjection(sourceId)).turnItems.find(
-            (item) => item.type === "system_notice",
-          );
-          assert.deepEqual(preserved, notice);
-        }
-        if (scenario === "source-admission-race") {
-          const secondProjectId = ProjectId.make("second-agent");
-          const secondThreadId = ThreadId.make("second-agent-chat");
-          const profile = Option.getOrThrow(yield* projects.get(agentId)).agentProfile!;
-          yield* projects.apply({
-            sequence: 100,
-            eventId: EventId.make("second-agent-project"),
-            aggregateKind: "project",
-            aggregateId: secondProjectId,
-            occurredAt: DateTime.formatIso(at),
-            commandId: null,
-            causationEventId: null,
-            correlationId: null,
-            metadata: {},
-            type: "project.created",
-            payload: {
-              projectId: secondProjectId,
-              title: "Blair",
-              workspaceRoot: "/tmp/agent-blair",
-              defaultModelSelection: modelSelection,
-              scripts: [],
-              agentProfile: { ...profile, conversationThreadId: secondThreadId },
-              createdAt: DateTime.formatIso(at),
-              updatedAt: DateTime.formatIso(at),
-            },
-          });
-          yield* events.write({
-            events: [
-              {
-                id: EventId.make("second-agent-created"),
-                type: "thread.created",
-                threadId: secondThreadId,
-                occurredAt: at,
-                payload: {
-                  ...target.thread,
-                  id: secondThreadId,
-                  projectId: secondProjectId,
-                  lineage: {
-                    rootThreadId: secondThreadId,
-                    parentThreadId: null,
-                    relationshipToParent: null,
-                  },
-                },
-              },
-            ],
-          });
-          const secondInput = {
-            ...input,
-            commandId: CommandId.make("delegate-second-agent"),
-            agentProjectId: secondProjectId,
-          };
-          yield* delegate(secondInput);
-          yield* delegate(secondInput);
-          const secondNotice = (yield* projections.getThreadProjection(sourceId)).turnItems.find(
-            (item) =>
-              item.type === "system_notice" &&
-              item.agentDelegation?.agentProjectId === secondProjectId,
-          );
-          if (!secondNotice || secondNotice.type !== "system_notice")
-            return yield* Effect.die("Missing second agent acknowledgment");
-          assert.equal(secondNotice.agentDelegation?.sourceTurnItemOrdinal, 0);
-          assert.equal(
-            secondNotice.agentDelegation?.sourceRunOrdinal,
-            notice.agentDelegation.sourceRunOrdinal,
-          );
-          assert.equal(
-            secondNotice.agentDelegation?.sourceRequestedAt,
-            notice.agentDelegation.sourceRequestedAt,
-          );
-          const second = yield* projections.getThreadProjection(secondThreadId);
-          yield* events.write({
-            events: [
-              {
-                id: EventId.make("second-agent-run-completed"),
-                type: "run.updated",
-                threadId: secondThreadId,
-                occurredAt: at,
-                payload: { ...second.runs[0]!, status: "completed", completedAt: at },
-              },
-              {
-                id: EventId.make("second-agent-reply"),
-                type: "message.updated",
-                threadId: secondThreadId,
-                occurredAt: at,
-                payload: {
-                  id: MessageId.make("second-agent-reply"),
-                  threadId: secondThreadId,
-                  runId: second.runs[0]!.id,
-                  nodeId: null,
-                  role: "assistant",
-                  text: "Second result",
-                  attachments: [],
-                  streaming: false,
-                  createdAt: at,
-                  updatedAt: at,
-                  createdBy: "agent",
-                  creationSource: "provider",
-                },
-              },
-            ],
-          });
-        }
-        const run = target.runs[0]!;
         yield* events.write({
           events: [
             {
-              id: EventId.make("run-completed"),
-              type: "run.updated",
-              threadId: agentThreadId,
+              id: EventId.make(`${id}:created`),
+              type: "thread.created",
+              threadId: id,
               occurredAt: at,
-              payload: { ...run, status: "completed", completedAt: at },
+              payload: thread,
             },
-            ...[run.id, RunId.make("later-unrelated-run")].map((runId, index) => ({
-              id: EventId.make(`reply-${index}`),
-              type: "message.updated" as const,
-              threadId: agentThreadId,
-              occurredAt: at,
-              payload: {
-                id: MessageId.make(`reply-${index}`),
-                threadId: agentThreadId,
-                runId,
-                nodeId: null,
-                role: "assistant" as const,
-                text: index ? "Later reply" : "Original result",
-                attachments: [],
-                streaming: false,
-                createdAt: at,
-                updatedAt: at,
-                createdBy: "agent" as const,
-                creationSource: "provider" as const,
-              },
-            })),
           ],
         });
-        if (scenario === "legacy") {
-          const sql = yield* SqlClient.SqlClient;
-          yield* sql`INSERT INTO projection_turns
-            (thread_id, turn_id, pending_message_id, state, requested_at, checkpoint_files_json)
-            VALUES (${agentThreadId}, 'legacy-task-turn', ${notice.agentDelegation.targetMessageId},
-              'completed', ${DateTime.formatIso(at)}, '[]')`;
-          for (const [id, turnId, text] of [
-            ["legacy-task-reply", "legacy-task-turn", "Original result"],
-            ["legacy-other-reply", "other-legacy-turn", "Unrelated old reply"],
-          ]) {
-            yield* sql`INSERT INTO projection_thread_messages
-              (message_id, thread_id, turn_id, role, text, is_streaming, created_at, updated_at, attachments_json)
-              VALUES (${id}, ${agentThreadId}, ${turnId}, 'assistant', ${text}, 0,
-                ${DateTime.formatIso(at)}, ${DateTime.formatIso(at)}, '[]')`;
-          }
+      }
+      const fs = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+      const config = yield* ServerConfig;
+      let copyCount = 0;
+      const retryFs = FileSystem.FileSystem.of({
+        ...fs,
+        copyFile: (from, to) => {
+          copyCount += 1;
+          return fs.copyFile(
+            from,
+            scenario === "attachments" && copyCount === 2
+              ? path.join(to, "cannot-exist", "failure")
+              : to,
+          );
+        },
+      });
+      const entered = yield* Deferred.make<void>();
+      const release = yield* Deferred.make<void>();
+      const originalDispatcher = yield* ThreadManagement.ThreadManagementService;
+      const gatedDispatcher = ThreadManagement.ThreadManagementService.of({
+        ...originalDispatcher,
+        dispatch: (command) =>
+          scenario === "source-admission-race" &&
+          command.type === "message.dispatch" &&
+          command.threadId === agentThreadId
+            ? Deferred.succeed(entered, undefined).pipe(
+                Effect.andThen(Deferred.await(release)),
+                Effect.andThen(originalDispatcher.dispatch(command)),
+              )
+            : originalDispatcher.dispatch(command),
+      });
+      const delegate = (input: AgentDelegateInput) =>
+        delegateToPersistentAgent(input).pipe(
+          Effect.provide(
+            Layer.fresh(delegationLayer).pipe(
+              Layer.provide(
+                Layer.merge(
+                  Layer.succeed(FileSystem.FileSystem, retryFs),
+                  Layer.succeed(ThreadManagement.ThreadManagementService, gatedDispatcher),
+                ),
+              ),
+            ),
+          ),
+        );
+      const pendingId = ChatAttachmentId.make(createPendingAttachmentId("txt"));
+      if (withAttachments)
+        yield* fs.writeFileString(
+          path.join(config.attachmentsDir, `${pendingId}.txt`),
+          "Original attachment",
+        );
+      const input: AgentDelegateInput = {
+        commandId: CommandId.make("delegate"),
+        sourceThreadId: sourceId,
+        agentProjectId: targetGroup ? groupId : agentId,
+        messageId: MessageId.make("ask"),
+        text: targetGroup
+          ? `${formatAgentMention(groupId, "Team")} ${
+              scenario === "target-group-member"
+                ? formatAgentMention(agentId, "Alex")
+                : scenario === "target-group-outsider"
+                  ? formatAgentMention(ProjectId.make("outsider"), "Other")
+                  : ""
+            } Review this.`
+          : "Review this.",
+        ...(withAttachments
+          ? {
+              attachments: [
+                {
+                  type: "file",
+                  id: pendingId,
+                  name: "notes.txt",
+                  mimeType: "text/plain",
+                  sizeBytes: 19,
+                },
+              ] as const,
+            }
+          : {}),
+      };
+      if (
+        scenario === "target-group-outsider" ||
+        scenario === "target-group-nested" ||
+        scenario === "target-group-archived"
+      ) {
+        const error = yield* delegate(input).pipe(Effect.flip);
+        assert.include(
+          error.message,
+          scenario === "target-group-outsider"
+            ? "belongs to this channel"
+            : scenario === "target-group-archived"
+              ? "Restore this agent"
+              : "cannot send a message to another channel",
+        );
+        assert.lengthOf((yield* projections.getThreadProjection(groupThreadId)).messages, 0);
+        assert.lengthOf((yield* projections.getThreadProjection(agentThreadId)).messages, 0);
+        return;
+      }
+      if (scenario === "group-nonmember") {
+        const error = yield* delegate(input).pipe(Effect.flip);
+        assert.equal(error.message, "Choose an agent who belongs to this channel.");
+        assert.lengthOf((yield* projections.getThreadProjection(agentThreadId)).messages, 0);
+        return;
+      }
+      if (scenario === "attachments") {
+        yield* delegate(input).pipe(Effect.flip);
+        assert.lengthOf(yield* fs.readDirectory(config.attachmentsDir), 1);
+      }
+      let first;
+      let originalSourceItemOrdinal = 0;
+      if (scenario === "source-admission-race" || scenario === "existing-request-race") {
+        const initial = yield* decodeRun({
+          id: RunId.make("source-existing-run"),
+          threadId: sourceId,
+          ordinal: 1,
+          providerInstanceId: modelSelection.instanceId,
+          modelSelection,
+          providerThreadId: null,
+          userMessageId: MessageId.make("prior-ask"),
+          rootNodeId: null,
+          activeAttemptId: null,
+          status: "running",
+          requestedAt: at,
+          startedAt: at,
+          completedAt: null,
+          checkpointId: null,
+          contextHandoffId: null,
+        });
+        yield* events.write({
+          events: [
+            {
+              id: EventId.make("source-existing-run"),
+              type: "run.updated",
+              threadId: sourceId,
+              occurredAt: at,
+              payload: initial,
+            },
+          ],
+        });
+        const now = yield* DateTime.now;
+        if (scenario === "existing-request-race") {
           yield* events.write({
             events: [
               {
-                id: EventId.make("legacy-target-message"),
+                id: EventId.make("existing-request-message"),
                 type: "message.updated",
-                threadId: agentThreadId,
-                occurredAt: at,
-                payload: { ...target.messages[0]!, runId: null },
+                threadId: sourceId,
+                occurredAt: now,
+                payload: {
+                  id: input.messageId,
+                  threadId: sourceId,
+                  runId: initial.id,
+                  nodeId: null,
+                  role: "user",
+                  text: input.text,
+                  attachments: [],
+                  streaming: false,
+                  createdAt: now,
+                  updatedAt: now,
+                  createdBy: "user",
+                  creationSource: "web",
+                },
               },
               {
-                id: EventId.make("legacy-source-notice"),
+                id: EventId.make("existing-request-item-event"),
                 type: "turn-item.updated",
                 threadId: sourceId,
-                occurredAt: at,
+                occurredAt: now,
                 payload: {
-                  ...notice,
-                  agentDelegation: { ...notice.agentDelegation, targetTurnId: null },
+                  id: TurnItemId.make("existing-request-item"),
+                  threadId: sourceId,
+                  runId: initial.id,
+                  nodeId: null,
+                  providerThreadId: null,
+                  providerTurnId: null,
+                  nativeItemRef: null,
+                  parentItemId: null,
+                  ordinal: 0,
+                  status: "completed",
+                  title: null,
+                  startedAt: now,
+                  completedAt: now,
+                  updatedAt: now,
+                  type: "user_message",
+                  messageId: input.messageId,
+                  text: input.text,
+                  attachments: [],
+                  createdBy: "user",
+                  creationSource: "web",
+                  inputIntent: "turn_start",
                 },
               },
             ],
           });
+          originalSourceItemOrdinal = (yield* projections.getThreadProjection(
+            sourceId,
+          )).turnItems.find((item) => item.id === "existing-request-item")!.ordinal;
         }
-        const result = yield* getAgentDelegation({
-          sourceThreadId: sourceId,
-          activityId: EventId.make(notice.id),
-        });
-        assert.equal(result.status, "completed");
-        assert.deepEqual(
-          result.messages.map((message) => message.text),
-          ["Original result"],
-        );
-        assert.equal(
-          result.targetTurnId,
-          scenario === "legacy" ? "legacy-task-turn" : notice.agentDelegation.targetTurnId,
-        );
-        if (scenario === "legacy") {
-          const sql = yield* SqlClient.SqlClient;
-          yield* sql`UPDATE projection_thread_messages SET attachments_json = '{invalid'
-            WHERE message_id = 'legacy-task-reply'`;
-          const failure = yield* getAgentDelegation({
-            sourceThreadId: sourceId,
-            activityId: EventId.make(notice.id),
-          }).pipe(Effect.flip);
-          assert.equal(failure.message, "Could not read the agent conversation. Try again.");
-          return;
-        }
-        if (scenario === "archive") {
-          const sourceThread = (yield* projections.getThreadProjection(sourceId)).thread;
-          yield* events.write({
+        const handoff =
+          scenario === "source-admission-race"
+            ? yield* delegate(input).pipe(Effect.forkChild)
+            : undefined;
+        if (handoff) yield* Deferred.await(entered);
+        // New human steering reuses the existing run and TestClock instant.
+        yield* (yield* ThreadCommandExecutor.ThreadCommandExecutor).withLock(
+          sourceId,
+          events.write({
             events: [
               {
-                id: EventId.make("source-archived"),
-                type: "thread.archived",
-                threadId: sourceId,
-                occurredAt: at,
-                payload: { ...sourceThread, archivedAt: at },
-              },
-            ],
-          });
-        }
-        if (scenario === "new-work") {
-          const later = DateTime.makeUnsafe("2099-01-01T00:00:00Z");
-          yield* events.write({
-            events: [
-              {
-                id: EventId.make("new-human-request"),
+                id: EventId.make("human-during-target-admission"),
                 type: "message.updated",
                 threadId: sourceId,
-                occurredAt: later,
+                occurredAt: now,
                 payload: {
-                  id: MessageId.make("later-human-request"),
+                  id: MessageId.make("human-during-target-admission"),
                   threadId: sourceId,
-                  runId: null,
+                  runId: initial.id,
                   nodeId: null,
                   role: "user",
-                  text: "Do other work now",
+                  text: "Newer steering",
                   attachments: [],
                   createdBy: "user",
                   creationSource: "web",
                   streaming: false,
-                  createdAt: later,
-                  updatedAt: later,
+                  createdAt: now,
+                  updatedAt: now,
+                },
+              },
+              {
+                id: EventId.make("human-during-target-item"),
+                type: "turn-item.updated",
+                threadId: sourceId,
+                occurredAt: now,
+                payload: {
+                  id: TurnItemId.make("human-during-target-item"),
+                  threadId: sourceId,
+                  runId: initial.id,
+                  nodeId: null,
+                  providerThreadId: null,
+                  providerTurnId: null,
+                  nativeItemRef: null,
+                  parentItemId: null,
+                  ordinal: 0,
+                  status: "completed",
+                  title: null,
+                  startedAt: now,
+                  completedAt: now,
+                  updatedAt: now,
+                  type: "user_message",
+                  messageId: MessageId.make("human-during-target-admission"),
+                  text: "Newer steering",
+                  attachments: [],
+                  createdBy: "user",
+                  creationSource: "web",
+                  inputIntent: "steer",
                 },
               },
             ],
+          }),
+        );
+        if (handoff) {
+          yield* Deferred.succeed(release, undefined);
+          first = yield* Fiber.join(handoff);
+        } else first = yield* delegate(input);
+      } else first = yield* delegate(input);
+      assert.deepEqual(yield* delegate(input), first);
+      const changed = yield* delegate({ ...input, text: "Different task" }).pipe(Effect.flip);
+      assert.include(changed.message, "different task");
+      const source = yield* projections.getThreadProjection(sourceId);
+      if (scenario === "group" || scenario === "group-new-work" || targetGroup) {
+        const channelId = targetGroup ? groupThreadId : sourceId;
+        const shared = yield* projections.getThreadProjection(channelId);
+        assert.lengthOf(shared.runs, 1);
+        assert.lengthOf(shared.messages, 1);
+        assert.equal(shared.messages[0]!.text, input.text);
+        assert.equal(shared.runs[0]!.channelAgentProjectId, agentId);
+        assert.lengthOf((yield* projections.getThreadProjection(agentThreadId)).messages, 0);
+        assert.lengthOf((yield* projections.getThreadProjection(agentThreadId)).runs, 0);
+        if (!targetGroup) {
+          assert.deepEqual(first, {
+            projectId: ProjectId.make("source-project"),
+            threadId: sourceId,
           });
-        }
-        yield* (yield* AgentDelegation).reconcile();
-        // Reconstruct the service around the same persisted stores, then drain again.
-        yield* Effect.gen(function* () {
-          yield* (yield* AgentDelegation).reconcile();
-        }).pipe(Effect.provide(Layer.fresh(delegationLayer)));
-        const after = yield* projections.getThreadProjection(sourceId);
-        const deliveries = after.messages.filter((message) =>
-          message.id.startsWith("agent-delegate:result:"),
-        );
-        assert.lengthOf(deliveries, 0);
-        assert.equal(after.runs.length, source.runs.length);
-        const receipt = yield* (yield* CommandReceiptStore.CommandReceiptStoreV2).getByCommandId(
-          CommandId.make(`agent-delegate:result:${notice.id}`),
-        );
-        assert.equal(Option.getOrThrow(receipt).status, "accepted");
-        if (scenario === "source-admission-race") {
-          const notices = after.turnItems.filter(
-            (item) => item.type === "system_notice" && item.agentDelegation,
+          assert.isFalse(
+            shared.turnItems.some(
+              (item) => item.type === "system_notice" && !!item.agentDelegation,
+            ),
           );
-          assert.lengthOf(notices, 2);
-          for (const notice of notices) {
-            const disposed =
-              yield* (yield* CommandReceiptStore.CommandReceiptStoreV2).getByCommandId(
-                CommandId.make(`agent-delegate:result:${notice.id}`),
-              );
-            assert.equal(Option.getOrThrow(disposed).status, "accepted");
-          }
         }
+        const run = shared.runs[0]!;
+        yield* events.write({
+          events: [
+            {
+              id: EventId.make("channel-complete"),
+              type: "run.updated",
+              threadId: channelId,
+              occurredAt: at,
+              payload: { ...run, status: "completed", completedAt: at },
+            },
+            {
+              id: EventId.make("channel-response"),
+              type: "message.updated",
+              threadId: channelId,
+              occurredAt: at,
+              payload: {
+                id: MessageId.make("channel-answer"),
+                threadId: channelId,
+                runId: run.id,
+                nodeId: null,
+                role: "assistant",
+                text: "Channel result",
+                attachments: [],
+                streaming: false,
+                createdAt: at,
+                updatedAt: at,
+                createdBy: "agent",
+                creationSource: "server",
+              },
+            },
+          ],
+        });
+        yield* (yield* AgentDelegation).reconcile();
+        assert.lengthOf((yield* projections.getThreadProjection(agentThreadId)).messages, 0);
+        assert.lengthOf((yield* projections.getThreadProjection(channelId)).messages, 2);
+        if (targetGroup) {
+          const result = (yield* projections.getThreadProjection(sourceId)).messages.find(
+            (message) => message.id.startsWith("agent-delegate:result:"),
+          );
+          assert.isUndefined(result);
+          const response = yield* getAgentDelegation({
+            sourceThreadId: sourceId,
+            activityId: EventId.make(
+              source.turnItems.find(
+                (item) => item.type === "system_notice" && item.agentDelegation,
+              )!.id,
+            ),
+          });
+          assert.equal(response.respondingAgentProjectId, agentId);
+          assert.include(
+            response.messages.map((message) => message.text).join("\n"),
+            "Channel result",
+          );
+        }
+        return;
+      }
+      const notice = source.turnItems.find((item) => item.type === "system_notice");
+      assert.isDefined(notice);
+      if (!notice || notice.type !== "system_notice" || !notice.agentDelegation) return;
+      const target = yield* projections.getThreadProjection(agentThreadId);
+      assert.isNull(target.thread.lineage.parentThreadId);
+      assert.lengthOf(target.runs, 1);
 
-        assert.equal(
-          Option.getOrThrow(yield* projects.get(agentId)).agentProfile?.conversationThreadId,
-          agentThreadId,
+      if (scenario === "attachments") {
+        const sourceFile = source.messages[0]!.attachments![0]!;
+        const targetFile = target.messages[0]!.attachments![0]!;
+        assert.notEqual(sourceFile.id, targetFile.id);
+        const sourcePath = resolveAttachmentPath({
+          attachmentsDir: config.attachmentsDir,
+          attachment: sourceFile,
+        });
+        if (sourcePath === null) return yield* Effect.die("Missing source attachment path");
+        assert.equal(yield* fs.readFileString(sourcePath), "Original attachment");
+        const targetPath = resolveAttachmentPath({
+          attachmentsDir: config.attachmentsDir,
+          attachment: targetFile,
+        });
+        if (targetPath === null) return yield* Effect.die("Missing target attachment path");
+        assert.equal(yield* fs.readFileString(targetPath), "Original attachment");
+        assert.lengthOf(yield* fs.readDirectory(config.attachmentsDir), 3);
+        assert.equal(copyCount, 4);
+      }
+
+      if (scenario === "source-admission-race" || scenario === "existing-request-race") {
+        assert.equal(notice.agentDelegation.sourceRunOrdinal, 1);
+        assert.equal(notice.agentDelegation.sourceTurnItemOrdinal, originalSourceItemOrdinal);
+        const preserved = (yield* projections.getThreadProjection(sourceId)).turnItems.find(
+          (item) => item.type === "system_notice",
         );
-      }).pipe(Effect.provide(testLayer)),
-    );
+        assert.deepEqual(preserved, notice);
+      }
+      if (scenario === "source-admission-race") {
+        const secondProjectId = ProjectId.make("second-agent");
+        const secondThreadId = ThreadId.make("second-agent-chat");
+        const profile = Option.getOrThrow(yield* projects.get(agentId)).agentProfile!;
+        yield* projects.apply({
+          sequence: 100,
+          eventId: EventId.make("second-agent-project"),
+          aggregateKind: "project",
+          aggregateId: secondProjectId,
+          occurredAt: DateTime.formatIso(at),
+          commandId: null,
+          causationEventId: null,
+          correlationId: null,
+          metadata: {},
+          type: "project.created",
+          payload: {
+            projectId: secondProjectId,
+            title: "Blair",
+            workspaceRoot: "/tmp/agent-blair",
+            defaultModelSelection: modelSelection,
+            scripts: [],
+            agentProfile: { ...profile, conversationThreadId: secondThreadId },
+            createdAt: DateTime.formatIso(at),
+            updatedAt: DateTime.formatIso(at),
+          },
+        });
+        yield* events.write({
+          events: [
+            {
+              id: EventId.make("second-agent-created"),
+              type: "thread.created",
+              threadId: secondThreadId,
+              occurredAt: at,
+              payload: {
+                ...target.thread,
+                id: secondThreadId,
+                projectId: secondProjectId,
+                lineage: {
+                  rootThreadId: secondThreadId,
+                  parentThreadId: null,
+                  relationshipToParent: null,
+                },
+              },
+            },
+          ],
+        });
+        const secondInput = {
+          ...input,
+          commandId: CommandId.make("delegate-second-agent"),
+          agentProjectId: secondProjectId,
+        };
+        yield* delegate(secondInput);
+        yield* delegate(secondInput);
+        const secondNotice = (yield* projections.getThreadProjection(sourceId)).turnItems.find(
+          (item) =>
+            item.type === "system_notice" &&
+            item.agentDelegation?.agentProjectId === secondProjectId,
+        );
+        if (!secondNotice || secondNotice.type !== "system_notice")
+          return yield* Effect.die("Missing second agent acknowledgment");
+        assert.equal(secondNotice.agentDelegation?.sourceTurnItemOrdinal, 0);
+        assert.equal(
+          secondNotice.agentDelegation?.sourceRunOrdinal,
+          notice.agentDelegation.sourceRunOrdinal,
+        );
+        assert.equal(
+          secondNotice.agentDelegation?.sourceRequestedAt,
+          notice.agentDelegation.sourceRequestedAt,
+        );
+        const second = yield* projections.getThreadProjection(secondThreadId);
+        yield* events.write({
+          events: [
+            {
+              id: EventId.make("second-agent-run-completed"),
+              type: "run.updated",
+              threadId: secondThreadId,
+              occurredAt: at,
+              payload: { ...second.runs[0]!, status: "completed", completedAt: at },
+            },
+            {
+              id: EventId.make("second-agent-reply"),
+              type: "message.updated",
+              threadId: secondThreadId,
+              occurredAt: at,
+              payload: {
+                id: MessageId.make("second-agent-reply"),
+                threadId: secondThreadId,
+                runId: second.runs[0]!.id,
+                nodeId: null,
+                role: "assistant",
+                text: "Second result",
+                attachments: [],
+                streaming: false,
+                createdAt: at,
+                updatedAt: at,
+                createdBy: "agent",
+                creationSource: "provider",
+              },
+            },
+          ],
+        });
+      }
+      const run = target.runs[0]!;
+      yield* events.write({
+        events: [
+          {
+            id: EventId.make("run-completed"),
+            type: "run.updated",
+            threadId: agentThreadId,
+            occurredAt: at,
+            payload: { ...run, status: "completed", completedAt: at },
+          },
+          ...[run.id, RunId.make("later-unrelated-run")].map((runId, index) => ({
+            id: EventId.make(`reply-${index}`),
+            type: "message.updated" as const,
+            threadId: agentThreadId,
+            occurredAt: at,
+            payload: {
+              id: MessageId.make(`reply-${index}`),
+              threadId: agentThreadId,
+              runId,
+              nodeId: null,
+              role: "assistant" as const,
+              text: index ? "Later reply" : "Original result",
+              attachments: [],
+              streaming: false,
+              createdAt: at,
+              updatedAt: at,
+              createdBy: "agent" as const,
+              creationSource: "provider" as const,
+            },
+          })),
+        ],
+      });
+      if (scenario === "legacy") {
+        const sql = yield* SqlClient.SqlClient;
+        yield* sql`INSERT INTO projection_turns
+            (thread_id, turn_id, pending_message_id, state, requested_at, checkpoint_files_json)
+            VALUES (${agentThreadId}, 'legacy-task-turn', ${notice.agentDelegation.targetMessageId},
+              'completed', ${DateTime.formatIso(at)}, '[]')`;
+        for (const [id, turnId, text] of [
+          ["legacy-task-reply", "legacy-task-turn", "Original result"],
+          ["legacy-other-reply", "other-legacy-turn", "Unrelated old reply"],
+        ]) {
+          yield* sql`INSERT INTO projection_thread_messages
+              (message_id, thread_id, turn_id, role, text, is_streaming, created_at, updated_at, attachments_json)
+              VALUES (${id}, ${agentThreadId}, ${turnId}, 'assistant', ${text}, 0,
+                ${DateTime.formatIso(at)}, ${DateTime.formatIso(at)}, '[]')`;
+        }
+        yield* events.write({
+          events: [
+            {
+              id: EventId.make("legacy-target-message"),
+              type: "message.updated",
+              threadId: agentThreadId,
+              occurredAt: at,
+              payload: { ...target.messages[0]!, runId: null },
+            },
+            {
+              id: EventId.make("legacy-source-notice"),
+              type: "turn-item.updated",
+              threadId: sourceId,
+              occurredAt: at,
+              payload: {
+                ...notice,
+                agentDelegation: { ...notice.agentDelegation, targetTurnId: null },
+              },
+            },
+          ],
+        });
+      }
+      const result = yield* getAgentDelegation({
+        sourceThreadId: sourceId,
+        activityId: EventId.make(notice.id),
+      });
+      assert.equal(result.status, "completed");
+      assert.deepEqual(
+        result.messages.map((message) => message.text),
+        ["Original result"],
+      );
+      assert.equal(
+        result.targetTurnId,
+        scenario === "legacy" ? "legacy-task-turn" : notice.agentDelegation.targetTurnId,
+      );
+      if (scenario === "legacy") {
+        const sql = yield* SqlClient.SqlClient;
+        yield* sql`UPDATE projection_thread_messages SET attachments_json = '{invalid'
+            WHERE message_id = 'legacy-task-reply'`;
+        const failure = yield* getAgentDelegation({
+          sourceThreadId: sourceId,
+          activityId: EventId.make(notice.id),
+        }).pipe(Effect.flip);
+        assert.equal(failure.message, "Could not read the agent conversation. Try again.");
+        return;
+      }
+      if (scenario === "archive") {
+        const sourceThread = (yield* projections.getThreadProjection(sourceId)).thread;
+        yield* events.write({
+          events: [
+            {
+              id: EventId.make("source-archived"),
+              type: "thread.archived",
+              threadId: sourceId,
+              occurredAt: at,
+              payload: { ...sourceThread, archivedAt: at },
+            },
+          ],
+        });
+      }
+      if (scenario === "new-work") {
+        const later = DateTime.makeUnsafe("2099-01-01T00:00:00Z");
+        yield* events.write({
+          events: [
+            {
+              id: EventId.make("new-human-request"),
+              type: "message.updated",
+              threadId: sourceId,
+              occurredAt: later,
+              payload: {
+                id: MessageId.make("later-human-request"),
+                threadId: sourceId,
+                runId: null,
+                nodeId: null,
+                role: "user",
+                text: "Do other work now",
+                attachments: [],
+                createdBy: "user",
+                creationSource: "web",
+                streaming: false,
+                createdAt: later,
+                updatedAt: later,
+              },
+            },
+          ],
+        });
+      }
+      yield* (yield* AgentDelegation).reconcile();
+      // Reconstruct the service around the same persisted stores, then drain again.
+      yield* Effect.gen(function* () {
+        yield* (yield* AgentDelegation).reconcile();
+      }).pipe(Effect.provide(Layer.fresh(delegationLayer)));
+      const after = yield* projections.getThreadProjection(sourceId);
+      const deliveries = after.messages.filter((message) =>
+        message.id.startsWith("agent-delegate:result:"),
+      );
+      assert.lengthOf(deliveries, 0);
+      assert.equal(after.runs.length, source.runs.length);
+      const receipt = yield* (yield* CommandReceiptStore.CommandReceiptStoreV2).getByCommandId(
+        CommandId.make(`agent-delegate:result:${notice.id}`),
+      );
+      assert.equal(Option.getOrThrow(receipt).status, "accepted");
+      if (scenario === "source-admission-race") {
+        const notices = after.turnItems.filter(
+          (item) => item.type === "system_notice" && item.agentDelegation,
+        );
+        assert.lengthOf(notices, 2);
+        for (const notice of notices) {
+          const disposed = yield* (yield* CommandReceiptStore.CommandReceiptStoreV2).getByCommandId(
+            CommandId.make(`agent-delegate:result:${notice.id}`),
+          );
+          assert.equal(Option.getOrThrow(disposed).status, "accepted");
+        }
+      }
+
+      assert.equal(
+        Option.getOrThrow(yield* projects.get(agentId)).agentProfile?.conversationThreadId,
+        agentThreadId,
+      );
+    }).pipe(Effect.provide(testLayer)),
+  );
 });

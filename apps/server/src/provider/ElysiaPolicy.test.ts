@@ -12,7 +12,7 @@ import {
 } from "@t3tools/contracts";
 import { expect, it } from "vite-plus/test";
 import { BUILT_IN_DRIVERS } from "./builtInDrivers.ts";
-import { deriveProviderInstanceConfigMap } from "./Layers/ProviderInstanceRegistryHydration.ts";
+import { deriveProviderInstanceConfigMap } from "./ProviderInstanceRegistryHydration.ts";
 import { elysiaModelCatalog, ELYSIA_MODELS, elysiaModelEnvironment } from "./ElysiaModelCatalog.ts";
 import { BUNDLED_MODEL_MANIFEST } from "./ModelManifest.ts";
 import { applyProviderCompatibility } from "./providerCompatibility.ts";

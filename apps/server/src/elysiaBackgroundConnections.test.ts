@@ -5,7 +5,7 @@ import * as RelayClient from "@t3tools/shared/relayClient";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Stream from "effect/Stream";
-import { ChildProcessSpawner } from "effect/unstable/process";
+import { ChildProcessSpawner } from "effect/process";
 import * as ServerSecretStore from "./auth/ServerSecretStore.ts";
 import * as ServerEnvironment from "./environment/ServerEnvironment.ts";
 import * as ThreadManagement from "./orchestration-v2/ThreadManagementService.ts";

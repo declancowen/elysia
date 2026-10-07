@@ -14,20 +14,12 @@ import {
 } from "react";
 import { useParams } from "@tanstack/react-router";
 import { type ScopedThreadRef, type ThreadId } from "@t3tools/contracts";
-import {
-  CheckIcon,
-  ChevronDownIcon,
-  ChevronUpIcon,
-  CircleAlertIcon,
-  CircleCheckIcon,
-  CopyIcon,
-  InfoIcon,
-  TriangleAlertIcon,
-  XIcon,
-} from "~/icons";
+import { CircleAlertIcon, CircleCheckIcon, InfoIcon, TriangleAlertIcon, XIcon } from "~/icons";
+import { Check, ChevronDown, ChevronUpIcon as ChevronUp, CopyIcon as Copy } from "~/icons";
 
 import { cn } from "~/lib/utils";
 import { Button, buttonVariants } from "~/components/ui/button";
+import { MorphIcon } from "~/components/MorphIcon";
 import { useComposerDraftStore } from "~/composerDraftStore";
 import { useCopyToClipboard } from "~/hooks/useCopyToClipboard";
 import { resolveThreadRouteTarget } from "~/threadRoutes";
@@ -136,7 +128,10 @@ function CopyErrorButton({ text }: { text: string }) {
           />
         }
       >
-        {isCopied ? <CheckIcon className="size-3 text-success" /> : <CopyIcon className="size-3" />}
+        <MorphIcon
+          className={cn("size-3", isCopied && "text-success")}
+          icon={isCopied ? Check : Copy}
+        />
       </TooltipTrigger>
       <TooltipPopup side="top">{label}</TooltipPopup>
     </Tooltip>
@@ -166,11 +161,11 @@ function ToastExpandableSection({
         onClick={() => setOpen((prev) => !prev)}
         type="button"
       >
-        {open ? (
-          <ChevronUpIcon className="size-3.5 shrink-0 opacity-80" strokeWidth={2.25} />
-        ) : (
-          <ChevronDownIcon className="size-3.5 shrink-0 opacity-80" strokeWidth={2.25} />
-        )}
+        <MorphIcon
+          className="size-3.5 shrink-0 opacity-80"
+          icon={open ? ChevronUp : ChevronDown}
+          strokeWidth={2.25}
+        />
         {open ? collapseLabel : expandLabel}
       </button>
       {open ? <div className={toastExpandablePanelClassName}>{children}</div> : null}
@@ -250,19 +245,12 @@ function ToastDescriptionAndExpandable({
               data-slot="toast-description"
             />
           </div>
-          {open ? (
-            <ChevronUpIcon
-              aria-hidden
-              className="mt-0.5 size-3.5 shrink-0 text-muted-foreground opacity-80"
-              strokeWidth={2.25}
-            />
-          ) : (
-            <ChevronDownIcon
-              aria-hidden
-              className="mt-0.5 size-3.5 shrink-0 text-muted-foreground opacity-80"
-              strokeWidth={2.25}
-            />
-          )}
+          <MorphIcon
+            aria-hidden
+            className="mt-0.5 size-3.5 shrink-0 text-muted-foreground opacity-80"
+            icon={open ? ChevronUp : ChevronDown}
+            strokeWidth={2.25}
+          />
         </TooltipTrigger>
         <TooltipPopup side="top">{open ? collapseLabel : expandLabel}</TooltipPopup>
       </Tooltip>
@@ -365,7 +353,7 @@ function ToastBodyContent({
               className="[&>svg]:h-lh [&>svg]:w-4 [&_svg]:pointer-events-none [&_svg]:shrink-0"
               data-slot="toast-icon"
             >
-              <Icon className="in-data-[type=error]:text-destructive in-data-[type=info]:text-info in-data-[type=success]:text-success in-data-[type=warning]:text-warning in-data-[type=loading]:opacity-80" />
+              <Icon />
             </div>
           ) : null}
           <Toast.Title className="min-w-0 wrap-break-word font-medium" data-slot="toast-title" />

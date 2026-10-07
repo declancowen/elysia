@@ -228,7 +228,7 @@ function Sidebar({
       <SidebarInstanceContext value={instanceContextValue}>
         <div
           className={cn(
-            "flex h-full w-(--sidebar-width) flex-col bg-sidebar text-sidebar-foreground",
+            "flex h-full min-h-0 w-(--sidebar-width) flex-col bg-sidebar text-sidebar-foreground",
             variant !== "panel" && "surface-grain",
             variant === "panel" && "bg-workspace-sidebar",
             className,
@@ -583,7 +583,6 @@ function SidebarInset({
           ? "md:[--workspace-fixed-controls-top:var(--workspace-controls-top)] md:me-2 md:w-auto md:max-h-full md:overflow-hidden md:rounded-xl md:ms-1 md:group-data-[sidebar-state=collapsed]/sidebar-wrapper:ms-0 md:peer-data-[state=collapsed]:rounded-xl md:peer-data-[state=collapsed]:[&_[data-chat-column]]:rounded-xl"
           : "md:peer-data-[variant=inset]:peer-data-[state=collapsed]:ms-2 md:peer-data-[variant=inset]:m-2 md:peer-data-[variant=inset]:ms-0 md:peer-data-[variant=inset]:rounded-xl md:peer-data-[variant=inset]:shadow-sm/5",
         SINGLE_PROVIDER_UI && variant !== "split" && "workspace-panel-frame",
-        SINGLE_PROVIDER_UI && variant === "standalone" && "md:ms-0",
         className,
       )}
       data-slot="sidebar-inset"

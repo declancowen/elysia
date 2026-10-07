@@ -69,6 +69,7 @@ import {
   setAgentSidebarActive,
   useAgentSidebarStore,
 } from "../agents/agentSidebarStore";
+import { useSidebarHoverPreview, type SidebarHoverSection } from "./SidebarHoverPreview";
 import { PullRequestGlyph } from "~/components/pullRequest/pullRequestIcons";
 
 export const SidebarChromeHeader = memo(function SidebarChromeHeader({
@@ -162,6 +163,37 @@ function SidebarThreadViewSwitcher() {
       />
       <TooltipPopup>{label}</TooltipPopup>
     </Tooltip>
+  );
+}
+
+// Measures the brand at its titlebar inset, plus the header's right padding and the
+// sidebar border, so the sidebar minimum follows font size, zoom and macOS window controls.
+export function SidebarBrandWidthProbe({
+  onWidthChange,
+}: {
+  onWidthChange: (width: number) => void;
+}) {
+  const observeWidth = useCallback(
+    (probe: HTMLDivElement) => {
+      const observer = new ResizeObserver(([entry]) => {
+        if (entry) onWidthChange(entry.borderBoxSize[0]?.inlineSize ?? probe.offsetWidth);
+      });
+      observer.observe(probe);
+      return () => observer.disconnect();
+    },
+    [onWidthChange],
+  );
+
+  return (
+    <div
+      aria-hidden="true"
+      className="pointer-events-none invisible fixed top-0 left-0 flex w-max border-r border-transparent pr-3"
+      ref={observeWidth}
+    >
+      <div className="ml-[var(--workspace-titlebar-content-left)] flex">
+        <ElysiaWordmark aria-label="Elysia" className="h-5 w-auto shrink-0" />
+      </div>
+    </div>
   );
 }
 
@@ -406,6 +438,7 @@ function AppRailButton({
   onClick,
   onIntent,
   tabTarget,
+  hoverSection,
 }: {
   label: string;
   icon: ReactNode;
@@ -413,8 +446,10 @@ function AppRailButton({
   onClick: () => void;
   onIntent?: () => void;
   tabTarget?: ConversationTabTarget | undefined;
+  hoverSection?: SidebarHoverSection;
 }) {
   const navigateTab = useConversationTabNavigation();
+  const hover = useSidebarHoverPreview();
   const openInTab = () => {
     if (!tabTarget) return onClick();
     useConversationTabsStore.getState().open(tabTarget, true);
@@ -422,7 +457,7 @@ function AppRailButton({
   };
   const click = useConversationRowClick(onClick, openInTab);
   return (
-    <Tooltip>
+    <Tooltip open={hoverSection && hover?.section === hoverSection ? false : undefined}>
       <TooltipTrigger
         render={
           <Button
@@ -449,7 +484,12 @@ function AppRailButton({
                   }
                 : undefined
             }
-            onPointerEnter={onIntent}
+            onPointerEnter={() => {
+              onIntent?.();
+              if (hoverSection) hover?.enter(hoverSection);
+            }}
+            onPointerLeave={hoverSection ? hover?.leave : undefined}
+            onPointerDown={hoverSection ? hover?.close : undefined}
             onFocus={onIntent}
           >
             {icon}
@@ -465,7 +505,6 @@ export const AppNavigationRail = memo(function AppNavigationRail() {
   const navigate = useNavigate();
   const environmentId = usePrimaryEnvironmentId();
   const router = useRouter();
-  const { setOpen } = useSidebar();
   const navigateToMainApp = useNavigateToMainApp();
   const navigateToTabSection = useConversationSectionNavigation();
   const pathname = useLocation({ select: (location) => location.pathname });
@@ -491,6 +530,7 @@ export const AppNavigationRail = memo(function AppNavigationRail() {
       <nav aria-label="Workspace pages" className="flex flex-col items-center gap-2">
         <AppRailButton
           label="Workspace"
+          hoverSection="workspace"
           icon={<Home className="size-5" />}
           active={
             !agentsActive &&
@@ -506,19 +546,20 @@ export const AppNavigationRail = memo(function AppNavigationRail() {
         />
         <AppRailButton
           label="Agents"
+          hoverSection="agents"
           tabTarget={{ kind: "surface", path: "/agents", title: "Agents" }}
           onIntent={() => void router.preloadRoute({ to: "/agents", search: {} })}
           icon={<BotIcon className="size-5" />}
           active={agentsActive}
           onClick={() => {
             setAgentSidebarActive(true);
-            setOpen(true);
             if (navigateToTabSection("agents")) return;
             void navigate({ to: "/agents", search: {} });
           }}
         />
         <AppRailButton
           label="Pages"
+          hoverSection="pages"
           tabTarget={
             environmentId ? { kind: "page", environmentId, id: null, title: "Pages" } : undefined
           }
@@ -533,6 +574,7 @@ export const AppNavigationRail = memo(function AppNavigationRail() {
         />
         <AppRailButton
           label="Tasks"
+          hoverSection="tasks"
           tabTarget={
             environmentId ? { kind: "task", environmentId, id: null, title: "Tasks" } : undefined
           }
@@ -547,6 +589,7 @@ export const AppNavigationRail = memo(function AppNavigationRail() {
         />
         <AppRailButton
           label="Scheduled"
+          hoverSection="scheduled"
           tabTarget={{ kind: "scheduled", selection: { kind: "empty" } }}
           onIntent={() => void router.preloadRoute({ to: "/settings/scheduled-tasks" })}
           icon={<ClockIcon className="size-5" />}
@@ -559,6 +602,7 @@ export const AppNavigationRail = memo(function AppNavigationRail() {
         />
         <AppRailButton
           label="Projects"
+          hoverSection="projects"
           tabTarget={{ kind: "surface", path: "/projects", title: "Projects" }}
           onIntent={() => void router.preloadRoute({ to: "/projects" })}
           icon={<FolderIcon className="size-5" />}
@@ -572,6 +616,7 @@ export const AppNavigationRail = memo(function AppNavigationRail() {
         {codeWorkspace && pullRequestsSupported ? (
           <AppRailButton
             label="Pull requests"
+            hoverSection="pull-requests"
             onIntent={() =>
               void router.preloadRoute({
                 to: "/pull-requests",
@@ -591,6 +636,7 @@ export const AppNavigationRail = memo(function AppNavigationRail() {
       <div aria-label="Workspace controls" className="flex flex-col items-center gap-2">
         <AppRailButton
           label="Settings"
+          hoverSection="settings"
           tabTarget={{ kind: "surface", path: "/settings/general", title: "Settings" }}
           onIntent={() => void router.preloadRoute({ to: "/settings" })}
           icon={<SettingsIcon className="size-5" />}

@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>com.informa.elysia</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>MIT</project_license>
+  <name>Elysia</name>
+  <summary>Desktop GUI for coding agents</summary>
+  <developer id="com.informa">
+    <name>Informa</name>
+  </developer>
+  <description>
+    <p>
+      Elysia is a desktop app for working with agents. Review code changes
+      and run commands in your projects.
+    </p>
+  </description>
+  <launchable type="desktop-id">t3code.desktop</launchable>
+  <icon type="stock">t3code</icon>
+  <provides>
+    <binary>t3code</binary>
+  </provides>
+  <categories>
+    <category>Development</category>
+  </categories>
+  <url type="homepage">https://github.com/declancowen/elysia</url>
+  <url type="bugtracker">https://github.com/declancowen/elysia/issues</url>
+  <url type="vcs-browser">https://github.com/declancowen/elysia</url>
+</component>

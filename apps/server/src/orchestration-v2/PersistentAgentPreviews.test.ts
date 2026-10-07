@@ -16,10 +16,10 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Schema from "effect/Schema";
 import { ServerConfig } from "../config.ts";
-import { ProviderRegistry } from "../provider/Services/ProviderRegistry.ts";
+import { ProviderRegistry } from "../provider/ProviderRegistry.ts";
 import { ServerSettingsService } from "../serverSettings.ts";
 import * as ProjectService from "../project/ProjectService.ts";
-import { SqlitePersistenceMemory } from "../persistence/Layers/Sqlite.ts";
+import * as SqlitePersistence from "../persistence/Sqlite.ts";
 import * as EventSink from "./EventSink.ts";
 import * as EventStore from "./EventStore.ts";
 import * as CommandReceiptStore from "./CommandReceiptStore.ts";
@@ -40,7 +40,7 @@ const stores = Layer.mergeAll(
   CommandReceiptStore.layer,
   EffectOutbox.layer,
   TurnItemPositionStore.layer,
-).pipe(Layer.provideMerge(SqlitePersistenceMemory));
+).pipe(Layer.provideMerge(SqlitePersistence.layerMemory));
 const dependencies = Layer.mergeAll(
   stores,
   EventSink.layerFromStores.pipe(Layer.provide(stores)),

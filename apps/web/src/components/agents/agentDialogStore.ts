@@ -24,11 +24,18 @@ type ChannelCreationDraft = {
 };
 
 export const useAgentDialogStore = create<{
+  sectionDialogOpen: boolean;
   target: AgentEditorTarget | null;
   returnHref: string | null;
   creationDraft: AgentCreationDraft | null;
   channelCreationDraft: ChannelCreationDraft | null;
-}>(() => ({ target: null, returnHref: null, creationDraft: null, channelCreationDraft: null }));
+}>(() => ({
+  sectionDialogOpen: false,
+  target: null,
+  returnHref: null,
+  creationDraft: null,
+  channelCreationDraft: null,
+}));
 
 export function clearAgentCreationDraft(channel = false): void {
   useAgentDialogStore.setState(channel ? { channelCreationDraft: null } : { creationDraft: null });

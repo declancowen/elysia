@@ -13,6 +13,10 @@ export const isConnectionsRpcMethod = (method: string): boolean =>
   method === "subscribeAuthAccess";
 
 export const isConnectionsHttpPath = (path: string): boolean =>
+  path === "/.well-known/oauth-protected-resource" ||
+  path === "/.well-known/oauth-protected-resource/mcp" ||
+  path === "/.well-known/oauth-authorization-server" ||
+  path.startsWith("/oauth/mcp/") ||
   path.startsWith("/api/connect/") ||
   path.startsWith("/api/t3-connect/") ||
   path.startsWith("/api/auth/pairing-") ||

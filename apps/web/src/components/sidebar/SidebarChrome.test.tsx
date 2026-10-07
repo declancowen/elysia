@@ -4,7 +4,7 @@ import { act, useRef, useState, useSyncExternalStore } from "react";
 import { createRoot } from "react-dom/client";
 import { expect, it, vi } from "vite-plus/test";
 
-import { SidebarProvider } from "../ui/sidebar";
+import { SidebarProvider, useSidebar } from "../ui/sidebar";
 import { RECENT_THREADS_EXPANSION_KEY, RecentThreadsHeader } from "./RecentThreadsHeader";
 import {
   AppNavigationRail,
@@ -62,6 +62,11 @@ vi.mock("~/state/environments", () => ({
   },
 }));
 
+function SidebarVisibility() {
+  const { open } = useSidebar();
+  return <output aria-label="Sidebar visibility">{open ? "Open" : "Closed"}</output>;
+}
+
 it("navigates rail pages and keeps the thread switcher in Workspace", async () => {
   vi.stubGlobal("cookieStore", { set: vi.fn(async () => {}) });
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
@@ -84,7 +89,8 @@ it("navigates rail pages and keeps the thread switcher in Workspace", async () =
   const render = () => {
     for (const listener of state.listeners) listener();
     root.render(
-      <SidebarProvider>
+      <SidebarProvider defaultOpen={false}>
+        <SidebarVisibility />
         <AppNavigationRail />
         <SidebarChromeHeader isElectron={false} />
         <SidebarChromeFooter />
@@ -113,7 +119,13 @@ it("navigates rail pages and keeps the thread switcher in Workspace", async () =
       "Switch to Thread view",
     ]);
     expect(button("Stats").getAttribute("aria-current")).toBe("page");
+    expect(container.querySelector('[aria-label="Sidebar visibility"]')?.textContent).toBe(
+      "Closed",
+    );
     await act(async () => button("Agents").click());
+    expect(container.querySelector('[aria-label="Sidebar visibility"]')?.textContent).toBe(
+      "Closed",
+    );
     expect(state.navigate).toHaveBeenLastCalledWith({ to: "/agents", search: {} });
     state.pathname = "/local/agent-thread";
     await act(async () => render());
@@ -357,6 +369,7 @@ it("opens search from its icon in each view and keeps the command shortcut avail
     const [query, setQuery] = useState("");
     return (
       <SidebarThreadSearch
+        searchResultsId="search-results"
         searchInputRef={input}
         shortcutLabel="⌘K"
         searchQuery={query}

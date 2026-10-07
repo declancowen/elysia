@@ -1,4 +1,8 @@
-import { scopedProjectKey } from "@t3tools/client-runtime/environment";
+import {
+  scopedProjectKey,
+  scopedThreadKey,
+  scopeThreadRef,
+} from "@t3tools/client-runtime/environment";
 import { isScratchProject } from "@t3tools/client-runtime/state/projects";
 import type { EnvironmentId } from "@t3tools/contracts";
 
@@ -13,8 +17,10 @@ export function buildProjectsPageRows(
   threads: readonly ThreadShell[],
   search: string,
   scratchWorkspaceRootFor: (environmentId: EnvironmentId) => string | null,
+  manualThreadOrder: readonly string[] = [],
 ) {
   const query = search.trim().toLocaleLowerCase();
+  const ranks = new Map(manualThreadOrder.map((key, index) => [key, index]));
   const threadsByProject = new Map<string, ThreadShell[]>();
   for (const thread of filterSidebarV2VisibleThreads(threads, null)) {
     const key = scopedProjectKey({
@@ -44,6 +50,12 @@ export function buildProjectsPageRows(
           (ref) => threadsByProject.get(scopedProjectKey(ref)) ?? [],
         ),
         "updated_at",
+      ).toSorted(
+        (a, b) =>
+          (ranks.get(scopedThreadKey(scopeThreadRef(a.environmentId, a.id))) ??
+            Number.MAX_SAFE_INTEGER) -
+          (ranks.get(scopedThreadKey(scopeThreadRef(b.environmentId, b.id))) ??
+            Number.MAX_SAFE_INTEGER),
       );
       return {
         project,

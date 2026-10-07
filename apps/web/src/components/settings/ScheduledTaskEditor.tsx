@@ -1,3 +1,10 @@
+import { WebhookEndpointField } from "./ScheduledTaskWebhook";
+import { DEFAULT_WEBHOOK_PROMPT } from "@t3tools/client-runtime/scheduled-task-webhook";
+import {
+  AuthOrchestrationOperateScope,
+  MAX_WEBHOOK_DELIVERY_AGE_MINUTES,
+} from "@t3tools/contracts";
+import { readEnvironmentScope } from "../../state/session";
 import { formatAgentMention } from "@t3tools/shared/agentMentions";
 import { useAtomValue } from "@effect/atom-react";
 import { scopeThreadRef } from "@t3tools/client-runtime/environment";
@@ -39,6 +46,8 @@ import { EnvironmentMachineIcon } from "../EnvironmentMachineIcon";
 import { useSettingsScope } from "./SettingsScopeContext";
 import {
   WEEKDAY_LABELS,
+  WEBHOOK_SIGNATURE_DEFAULTS,
+  scheduleFromDraft,
   matchesScheduledTaskScope,
   scheduledTaskDefaultModel,
   scheduledTaskWorkspaceStrategy,
@@ -94,6 +103,10 @@ const EMPTY_DRAFT: DraftState = {
   runtimeMode: "full-access",
   interactionMode: "default",
   baseModelSelection: null,
+  signatureEnabled: false,
+  ...WEBHOOK_SIGNATURE_DEFAULTS,
+  signatureSecret: "",
+  maxDeliveryAgeMinutes: "",
 };
 
 /** Labelled field: a caption sitting above its control. */
@@ -127,19 +140,6 @@ function splitModelKey(value: string): ModelSelection | null {
   return {
     instanceId: ProviderInstanceId.make(value.slice(0, index)),
     model: value.slice(index + 1),
-  };
-}
-
-function scheduleFromDraft(draft: DraftState): ScheduledTaskSchedule {
-  if (draft.scheduleMode === "interval") {
-    const everyMs = Math.round(Number(draft.intervalMinutes) * 60_000);
-    return { type: "interval", everyMs };
-  }
-  const selectedEveryDay = draft.weekdays.size === 0 || draft.weekdays.size === 7;
-  return {
-    type: "fixed_time",
-    timeOfDay: draft.timeOfDay || "09:00",
-    ...(selectedEveryDay ? {} : { weekdays: [...draft.weekdays].toSorted() }),
   };
 }
 
@@ -202,6 +202,12 @@ export function ScheduledTaskEditor({
         },
   );
   const [saving, setSaving] = useState(false);
+  const liveTask = task
+    ? (tasksQuery.data?.tasks.find((entry) => entry.id === task.id) ?? task)
+    : null;
+  const canOperate = useAtomValue(
+    serverEnvironment.upsertScheduledTask.permissionAtom(environmentId),
+  );
   const submissionPending = useRef(false);
   const editingTaskMissing =
     draft.editingId !== null &&
@@ -249,6 +255,7 @@ export function ScheduledTaskEditor({
 
   const submit = async () => {
     if (
+      !readEnvironmentScope(environmentId, AuthOrchestrationOperateScope) ||
       submissionPending.current ||
       saving ||
       editingTaskMissing ||
@@ -271,6 +278,24 @@ export function ScheduledTaskEditor({
       return;
     }
     const schedule = scheduleFromDraft(draft);
+    if (schedule === null) {
+      reportFailure(
+        "Invalid age limit",
+        `Enter whole minutes from 1 to ${MAX_WEBHOOK_DELIVERY_AGE_MINUTES}, or leave it blank.`,
+      );
+      return;
+    }
+    if (
+      schedule.type === "webhook" &&
+      schedule.signature &&
+      (!schedule.signature.header ||
+        (!schedule.signature.secret &&
+          !(liveTask?.schedule.type === "webhook" && liveTask.webhook?.hasSecret)))
+    ) {
+      reportFailure("Signing secret is required", "Enter the signature header and secret.");
+      return;
+    }
+
     if (
       schedule.type === "interval" &&
       (!Number.isSafeInteger(schedule.everyMs) || schedule.everyMs < MIN_SCHEDULED_TASK_INTERVAL_MS)
@@ -332,7 +357,7 @@ export function ScheduledTaskEditor({
   };
 
   const fields = (
-    <fieldset disabled={saving} className="space-y-5">
+    <fieldset disabled={saving || !canOperate} className="space-y-5">
       {!connected ? (
         <p className="text-sm text-destructive">Reconnect this environment before saving.</p>
       ) : null}
@@ -560,16 +585,136 @@ export function ScheduledTaskEditor({
             value={[draft.scheduleMode]}
             onValueChange={(values) => {
               const mode = values[0];
-              if (mode === "fixed" || mode === "interval")
-                setDraft((current) => ({ ...current, scheduleMode: mode }));
+              if (mode === "fixed" || mode === "interval" || mode === "webhook")
+                setDraft((current) => ({
+                  ...current,
+                  scheduleMode: mode,
+                  prompt:
+                    mode === "webhook" && !current.prompt.trim()
+                      ? DEFAULT_WEBHOOK_PROMPT
+                      : current.prompt,
+                }));
             }}
           >
             <Toggle value="fixed">At a time</Toggle>
             <Toggle value="interval">Every interval</Toggle>
+            <Toggle value="webhook">On webhook</Toggle>
           </ToggleGroup>
         </div>
 
-        {draft.scheduleMode === "fixed" ? (
+        {draft.scheduleMode === "webhook" ? (
+          <div className="space-y-4">
+            <WebhookEndpointField environmentId={environmentId} task={liveTask} />
+            <p className="text-xs text-muted-foreground">
+              {
+                "Each request runs the prompt. Use {{body.path}}, {{headers.name}}, {{query.name}}, {{body}} or {{request}} in the prompt; only what it names reaches the agent."
+              }
+            </p>
+            <Field
+              label="Skip requests older than"
+              hint="minutes, optional"
+              htmlFor={`${formId}-scheduled-task-max-age`}
+            >
+              <Input
+                id={`${formId}-scheduled-task-max-age`}
+                type="number"
+                nativeInput
+                min={1}
+                max={MAX_WEBHOOK_DELIVERY_AGE_MINUTES}
+                placeholder="Run every request"
+                value={draft.maxDeliveryAgeMinutes}
+                onChange={(event) =>
+                  setDraft((current) => ({
+                    ...current,
+                    maxDeliveryAgeMinutes: event.target.value,
+                  }))
+                }
+              />
+            </Field>
+            <div className="flex items-center justify-between gap-4">
+              <div className="min-w-0 space-y-1">
+                <Label htmlFor={`${formId}-scheduled-task-signature`}>Require signature</Label>
+                <p className="text-sm text-muted-foreground">
+                  Reject requests without a valid HMAC-SHA256 signature of the body.
+                </p>
+              </div>
+              <Switch
+                id={`${formId}-scheduled-task-signature`}
+                checked={draft.signatureEnabled}
+                onCheckedChange={(signatureEnabled) =>
+                  setDraft((current) => ({ ...current, signatureEnabled }))
+                }
+              />
+            </div>
+            {draft.signatureEnabled ? (
+              <div className="grid gap-3 sm:grid-cols-2">
+                <Field label="Header" htmlFor={`${formId}-scheduled-task-signature-header`}>
+                  <Input
+                    id={`${formId}-scheduled-task-signature-header`}
+                    value={draft.signatureHeader}
+                    onChange={(event) =>
+                      setDraft((current) => ({
+                        ...current,
+                        signatureHeader: event.target.value,
+                      }))
+                    }
+                  />
+                </Field>
+                <Field label="Prefix" htmlFor={`${formId}-scheduled-task-signature-prefix`}>
+                  <Input
+                    id={`${formId}-scheduled-task-signature-prefix`}
+                    value={draft.signaturePrefix}
+                    placeholder="None"
+                    onChange={(event) =>
+                      setDraft((current) => ({
+                        ...current,
+                        signaturePrefix: event.target.value,
+                      }))
+                    }
+                  />
+                </Field>
+                <Field label="Encoding" htmlFor={`${formId}-scheduled-task-signature-encoding`}>
+                  <Select
+                    value={draft.signatureEncoding}
+                    onValueChange={(value) =>
+                      setDraft((current) => ({
+                        ...current,
+                        signatureEncoding: value === "base64" ? "base64" : "hex",
+                      }))
+                    }
+                  >
+                    <SelectTrigger size="sm" id={`${formId}-scheduled-task-signature-encoding`}>
+                      <SelectValue>{draft.signatureEncoding}</SelectValue>
+                    </SelectTrigger>
+                    <SelectPopup>
+                      <SelectItem value="hex">hex</SelectItem>
+                      <SelectItem value="base64">base64</SelectItem>
+                    </SelectPopup>
+                  </Select>
+                </Field>
+                <Field label="Secret" htmlFor={`${formId}-scheduled-task-signature-secret`}>
+                  <Input
+                    id={`${formId}-scheduled-task-signature-secret`}
+                    type="password"
+                    autoComplete="off"
+                    value={draft.signatureSecret}
+                    placeholder={
+                      liveTask?.schedule.type === "webhook" && liveTask.webhook?.hasSecret
+                        ? "Unchanged"
+                        : "Shared secret"
+                    }
+                    onChange={(event) =>
+                      setDraft((current) => ({
+                        ...current,
+                        signatureSecret: event.target.value,
+                      }))
+                    }
+                  />
+                </Field>
+              </div>
+            ) : null}
+          </div>
+        ) : draft.scheduleMode === "fixed" ? (
           <div className="flex items-center justify-between gap-4">
             <Label className="shrink-0" htmlFor={`${formId}-scheduled-task-time`}>
               Run at
@@ -658,7 +803,7 @@ export function ScheduledTaskEditor({
       </Button>
       <Button
         variant="outline"
-        disabled={saving || editingTaskMissing || !connected || !tasksQuery.data}
+        disabled={!canOperate || saving || editingTaskMissing || !connected || !tasksQuery.data}
         onClick={() => void submit()}
       >
         {draft.editingId ? "Save task" : "Create task"}
@@ -666,7 +811,7 @@ export function ScheduledTaskEditor({
     </>
   );
   const title = draft.editingId ? "Edit task" : "New task";
-  const description = "Run a prompt automatically — on an interval or at a fixed time.";
+  const description = "Run a prompt automatically — on a schedule or when a webhook arrives.";
   if (inline)
     return (
       <section aria-label={title} className="min-h-0 flex-1 overflow-y-auto">

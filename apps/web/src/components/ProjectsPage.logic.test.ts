@@ -1,3 +1,4 @@
+import { scopedThreadKey, scopeThreadRef } from "@t3tools/client-runtime/environment";
 import { EnvironmentId, ProjectId, ProviderInstanceId, ThreadId } from "@t3tools/contracts";
 import { describe, expect, it } from "vite-plus/test";
 
@@ -117,5 +118,32 @@ describe("Projects page rows", () => {
     const rows = buildProjectsPageRows(projects, [older, newer], "", scratchRoot);
     expect(rows.map(({ project }) => project.displayName)).toEqual(["empty", "busy"]);
     expect(rows[1]?.threads.map((thread) => thread.id)).toEqual([newer.id, older.id]);
+  });
+});
+
+describe("Projects surface manual chat order", () => {
+  it("uses the persisted sidebar order while preserving project and environment ownership", () => {
+    const entries = groups([project("same", local), project("same", remote)]);
+    const first = makeThreadFixture({
+      id: ThreadId.make("first"),
+      projectId: ProjectId.make("same"),
+      environmentId: local,
+      updatedAt: "2026-10-01T12:00:00.000Z",
+    });
+    const newer = makeThreadFixture({
+      ...first,
+      id: ThreadId.make("newer"),
+      updatedAt: "2026-10-03T12:00:00.000Z",
+    });
+    const other = makeThreadFixture({ ...newer, environmentId: remote });
+    const rows = buildProjectsPageRows(entries, [first, newer, other], "", scratchRoot, [
+      scopedThreadKey(scopeThreadRef(local, first.id)),
+    ]);
+    expect(
+      rows
+        .find((entry) => entry.project.environmentId === local)
+        ?.threads.map((thread) => thread.id),
+    ).toEqual([first.id, newer.id]);
+    expect(rows.find((entry) => entry.project.environmentId === remote)?.threads).toEqual([other]);
   });
 });

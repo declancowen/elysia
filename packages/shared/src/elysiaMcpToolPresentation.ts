@@ -48,6 +48,7 @@ export type ElysiaMcpToolSummaryAction =
   | "question-list"
   | "question-read"
   | "question-respond"
+  | "secret-request"
   | "worktree-handoff"
   | "worktree-list"
   | "worktree-status"
@@ -65,8 +66,12 @@ export type ElysiaMcpToolSummaryAction =
   | "link-pr"
   | "unlink-pr"
   | "list-prs"
+  | "watch-pr"
+  | "unwatch-pr"
   | "browser"
-  | "device";
+  | "device"
+  | "html-preview"
+  | "html-render";
 
 export interface ElysiaMcpToolDefinition {
   readonly displayName: string;
@@ -113,6 +118,16 @@ const ELYSIA_MCP_TOOLS: Readonly<Record<string, ElysiaMcpToolDefinition>> = {
     "list-prs",
     "pull-request",
   ),
+  watch_pull_request: tool(
+    ["Watch", "Watching", "Watching", "a pull request"],
+    "watch-pr",
+    "pull-request",
+  ),
+  unwatch_pull_request: tool(
+    ["Stop watching", "Stopping watching", "Stopped watching", "a pull request"],
+    "unwatch-pr",
+    "pull-request",
+  ),
   orchestrator_capabilities: tool(
     ["Get", "Getting", "Got", "orchestration capabilities"],
     "capabilities",
@@ -136,6 +151,7 @@ const ELYSIA_MCP_TOOLS: Readonly<Record<string, ElysiaMcpToolDefinition>> = {
     ["Delete", "Deleting", "Requested deletion of", "a scheduled task"],
     "schedule-delete",
   ),
+  request_secret: tool(["Ask for", "Asking for", "Asked for", "a secret"], "secret-request"),
   create_threads: tool(["Create", "Creating", "Created", "Elysia chats"], "thread-create"),
   elysia_thread_start: tool(["Start", "Starting", "Started", "an Elysia chat"], "thread-create"),
   elysia_thread_list: tool(["List", "Listing", "Listed", "Elysia chats"], "thread-list"),
@@ -165,6 +181,11 @@ const ELYSIA_MCP_TOOLS: Readonly<Record<string, ElysiaMcpToolDefinition>> = {
     "browser",
     "browser",
   ),
+  preview_dialog: tool(
+    ["Respond", "Responding", "Responded", "to a preview browser dialog"],
+    "browser",
+    "browser",
+  ),
   preview_snapshot: tool(
     ["Take a snapshot of", "Taking a snapshot of", "Took a snapshot of", "the preview page"],
     "browser",
@@ -182,6 +203,26 @@ const ELYSIA_MCP_TOOLS: Readonly<Record<string, ElysiaMcpToolDefinition>> = {
     "browser",
   ),
   preview_type: tool(["Type", "Typing", "Typed", "in the preview browser"], "browser", "browser"),
+  preview_hover: tool(
+    ["Hover", "Hovering", "Hovered", "in the preview browser"],
+    "browser",
+    "browser",
+  ),
+  preview_select: tool(
+    ["Choose", "Choosing", "Chose", "an option in the preview browser"],
+    "browser",
+    "browser",
+  ),
+  preview_drag: tool(
+    ["Drag", "Dragging", "Dragged", "in the preview browser"],
+    "browser",
+    "browser",
+  ),
+  preview_upload: tool(
+    ["Upload", "Uploading", "Uploaded", "files to the preview browser"],
+    "browser",
+    "browser",
+  ),
   preview_scroll: tool(
     ["Scroll", "Scrolling", "Scrolled", "the preview browser"],
     "browser",
@@ -325,6 +366,8 @@ const ELYSIA_MCP_TOOLS: Readonly<Record<string, ElysiaMcpToolDefinition>> = {
     ["Send", "Sending", "Sent", "attachments"],
     "attachment-send",
   ),
+  html_preview: tool(["Preview", "Previewing", "Previewed", "an HTML page"], "html-preview"),
+  html_render: tool(["Render", "Rendering", "Rendered", "an HTML page"], "html-render"),
 };
 
 /**
@@ -364,7 +407,22 @@ function resolveElysiaMcpToolName(value: string): string | null {
 
   const prefixed = /^(?:mcp[-_]{1,2})?elysia(?:__|[-_.:/ ])(?<tool>.+)$/i.exec(label);
   const candidate = prefixed?.groups?.tool ?? label;
-  return Object.hasOwn(ELYSIA_MCP_TOOLS, candidate) ? candidate : null;
+  if (Object.hasOwn(ELYSIA_MCP_TOOLS, candidate)) return candidate;
+  // OpenCode 2 registers one server per thread, `elysia-<thread>`, and joins
+  // it to the tool with `_`. Thread ids can hold `_` too, so take the longest
+  // known tool name that ends the label.
+  if (!/^elysia-/i.test(label)) return null;
+  let longest: string | null = null;
+  for (const tool of Object.keys(ELYSIA_MCP_TOOLS)) {
+    if (label.endsWith(`_${tool}`) && tool.length > (longest?.length ?? 0)) longest = tool;
+  }
+  return longest;
+}
+
+/** The bare Elysia tool name (`html_render`) for any provider's spelling of it. */
+export function resolveElysiaMcpToolId(toolName: string | null | undefined): string | null {
+  const name = toolName == null ? null : resolveElysiaMcpToolName(toolName);
+  return name !== null && Object.hasOwn(ELYSIA_MCP_TOOLS, name) ? name : null;
 }
 
 export function resolveElysiaMcpToolDefinition(

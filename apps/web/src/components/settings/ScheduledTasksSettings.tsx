@@ -1,3 +1,5 @@
+import { useAtomValue } from "@effect/atom-react";
+import { WebhookDeliveriesDialog } from "./ScheduledTaskWebhook";
 import { scheduledTabKey, type ScheduledTabTarget } from "../../scheduledTabsStore";
 import { useConversationTabsStore, type ConversationTab } from "../../conversationTabsStore";
 import { ConversationTabs } from "../chat/ConversationTabs";
@@ -5,6 +7,7 @@ import { useConversationTabNavigation } from "../../hooks/useConversationTabNavi
 import { useConversationRowClick } from "../../hooks/useConversationRowClick";
 import {
   Clock3Icon,
+  InboxIcon,
   MoreHorizontalIcon,
   Edit03Icon,
   PlayIcon,
@@ -30,11 +33,13 @@ import { useEnvironmentQuery } from "../../state/query";
 import { serverEnvironment } from "../../state/server";
 import { useAtomCommand } from "../../state/use-atom-command";
 import { EnvironmentMachineIcon } from "../EnvironmentMachineIcon";
+import { AuthOrchestrationOperateScope } from "@t3tools/contracts";
+import { readEnvironmentScope } from "~/state/session";
 import { useSettingsScope } from "./SettingsScopeContext";
 import { WEEKDAY_LABELS, matchesScheduledTaskScope } from "./scheduledTasksSettings.logic";
 import { WorkspaceSidebarContent } from "../sidebar/WorkspaceSidebarContent";
 import { SettingsScopeSentence } from "./SettingsScopeSentence";
-import { SidebarChromeHeader, SidebarCommandShortcut } from "../sidebar/SidebarChrome";
+import { CollectionSidebarHeader } from "../sidebar/CollectionSidebarHeader";
 import { SidebarContent, SidebarGroup, useSidebar } from "../ui/sidebar";
 import { WorkspacePageHeader } from "../WorkspacePageHeader";
 import { cn } from "../../lib/utils";
@@ -55,6 +60,7 @@ import {
 import { ScheduledTaskEditor } from "./ScheduledTaskEditor";
 
 export function scheduleLabel(schedule: ScheduledTaskSchedule): string {
+  if (schedule.type === "webhook") return "On webhook";
   if (schedule.type === "interval") {
     const minutes = schedule.everyMs / 60_000;
     return Number.isInteger(minutes)
@@ -122,6 +128,9 @@ function LegacyScheduledTasksSettings(target: ScheduledTasksTarget) {
     setEditor({ environmentId, task });
   }, []);
   const defaultEnvironment = environment ?? connectedEnvironments[0];
+  const canCreate = useAtomValue(
+    serverEnvironment.upsertScheduledTask.permissionAtom(defaultEnvironment?.environmentId ?? null),
+  );
   return (
     <SettingsPageContainer>
       <SettingsSection
@@ -131,7 +140,7 @@ function LegacyScheduledTasksSettings(target: ScheduledTasksTarget) {
           <Button
             size="xs"
             variant="ghost-muted"
-            disabled={!defaultEnvironment}
+            disabled={!defaultEnvironment || !canCreate}
             onClick={() =>
               defaultEnvironment &&
               setEditor({ environmentId: defaultEnvironment.environmentId, task: null })
@@ -188,6 +197,7 @@ function LegacyScheduledTasksSettings(target: ScheduledTasksTarget) {
 }
 
 function ScheduledTasksWorkspace(target: ScheduledTasksTarget) {
+  const [search, setSearch] = useState("");
   const { scope, environments, connectedEnvironments, environment } = useSettingsScope();
   const { isMobile, setOpenMobile, setOpen } = useSidebar();
   const desktopHeader = useMediaQuery("(min-width: 768px)");
@@ -263,22 +273,20 @@ function ScheduledTasksWorkspace(target: ScheduledTasksTarget) {
   return (
     <>
       <WorkspaceSidebarContent>
-        <SidebarChromeHeader
-          isElectron={false}
+        <CollectionSidebarHeader
           title="Scheduled"
-          search={
-            <>
-              <SidebarCommandShortcut />
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                aria-label="New task"
-                disabled={!defaultEnvironment}
-                onClick={createTask}
-              >
-                <PlusIcon />
-              </Button>
-            </>
+          query={search}
+          onQueryChange={setSearch}
+          actions={
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              aria-label="Create scheduled task"
+              disabled={!defaultEnvironment}
+              onClick={createTask}
+            >
+              <PlusIcon />
+            </Button>
           }
         />
         <SidebarContent
@@ -311,6 +319,7 @@ function ScheduledTasksWorkspace(target: ScheduledTasksTarget) {
                 onEdit={openForEdit}
                 onEditInNewTab={(environmentId, task) => openForEdit(environmentId, task, true)}
                 compact
+                search={search}
                 selectedTaskId={
                   editor?.environmentId === entry.environmentId ? editor.task?.id : undefined
                 }
@@ -371,7 +380,7 @@ function ScheduledTasksWorkspace(target: ScheduledTasksTarget) {
   );
 }
 
-function ScheduledTaskEnvironmentSection({
+export function ScheduledTaskEnvironmentSection({
   environment,
   showEnvironmentHeading,
   taskId,
@@ -379,11 +388,13 @@ function ScheduledTaskEnvironmentSection({
   onEditInNewTab,
   compact = false,
   selectedTaskId,
+  search = "",
 }: {
   readonly onEditInNewTab?:
     | ((environmentId: EnvironmentId, task: ScheduledTask) => void)
     | undefined;
   readonly compact?: boolean;
+  readonly search?: string;
   readonly selectedTaskId?: ScheduledTaskId | undefined;
   readonly environment: EnvironmentPresentation;
   readonly showEnvironmentHeading: boolean;
@@ -401,10 +412,12 @@ function ScheduledTaskEnvironmentSection({
         })
       : null,
   );
-  const tasks = tasksQuery.data?.tasks.filter((task) =>
-    matchesScheduledTaskScope(scope, environment.environmentId, task.projectId),
+  const tasks = tasksQuery.data?.tasks.filter(
+    (task) =>
+      matchesScheduledTaskScope(scope, environment.environmentId, task.projectId) &&
+      task.title.toLowerCase().includes(search.trim().toLowerCase()),
   );
-  const linkedTask = tasks?.find((task) => task.id === taskId);
+  const linkedTask = tasksQuery.data?.tasks.find((task) => task.id === taskId);
   const openedLink = useRef(false);
   useEffect(() => {
     if (!compact && !openedLink.current && linkedTask) {
@@ -459,7 +472,7 @@ function ScheduledTaskEnvironmentSection({
           ) : null}
           {tasks.length === 0 ? (
             compact ? (
-              <p className="px-3 py-2 text-sm text-muted-foreground">No scheduled tasks</p>
+              <p className="px-2.5 py-2 text-sm text-muted-foreground">No scheduled tasks</p>
             ) : (
               <SettingsRow
                 title="No scheduled tasks"
@@ -527,6 +540,11 @@ function ScheduledTaskRow({
   const alreadyOpen = useConversationTabsStore((state) =>
     state.isOpen({ kind: "scheduled", selection: { kind: "task", environmentId, task } }),
   );
+  const canOperate = useAtomValue(
+    serverEnvironment.upsertScheduledTask.permissionAtom(environmentId),
+  );
+  const [deliveriesOpen, setDeliveriesOpen] = useState(false);
+  const isWebhook = task.schedule.type === "webhook";
   const toggle = useAtomCommand(serverEnvironment.setScheduledTaskEnabled, {
     label: "scheduled task enabled",
   });
@@ -537,7 +555,7 @@ function ScheduledTaskRow({
     label: "scheduled task delete",
   });
   const act = async (action: "toggle" | "run" | "delete") => {
-    if (busy) return;
+    if (busy || !readEnvironmentScope(environmentId, AuthOrchestrationOperateScope)) return;
     setBusy(true);
     const result =
       action === "toggle"
@@ -557,66 +575,82 @@ function ScheduledTaskRow({
     }
   };
   const controls = (
-    <div className="flex items-center gap-2">
-      {!compact && (
-        <Switch
-          checked={task.enabled}
-          disabled={busy}
-          aria-label={`Enable ${task.title}`}
-          onCheckedChange={() => void act("toggle")}
-        />
-      )}
-      <Menu
-        open={menuOpen}
-        onOpenChange={(value) => {
-          setMenuOpen(value);
-          if (!value) setContextPoint(null);
-        }}
-      >
-        <MenuTrigger
-          render={
-            <Button
-              size="icon-sm"
-              variant="ghost"
-              disabled={busy}
-              aria-label={`Actions for ${task.title}`}
-            />
-          }
+    <>
+      <div className="flex items-center gap-2">
+        {!compact && (
+          <Switch
+            checked={task.enabled}
+            disabled={busy || !canOperate}
+            aria-label={`Enable ${task.title}`}
+            onCheckedChange={() => void act("toggle")}
+          />
+        )}
+        <Menu
+          open={menuOpen}
+          onOpenChange={(value) => {
+            setMenuOpen(value);
+            if (!value) setContextPoint(null);
+          }}
         >
-          <MoreHorizontalIcon className="size-4" />
-        </MenuTrigger>
-        <MenuPopup
-          align={contextPoint ? "start" : "end"}
-          anchor={
-            contextPoint
-              ? {
-                  getBoundingClientRect: () => new DOMRect(contextPoint.x, contextPoint.y, 0, 0),
-                }
-              : undefined
-          }
-        >
-          {SINGLE_PROVIDER_UI && onEditInNewTab && !alreadyOpen ? (
-            <MenuItem onClick={onEditInNewTab}>
-              <SquareArrowOutUpRightIcon />
-              Open in new tab
+          <MenuTrigger
+            render={
+              <Button
+                size="icon-sm"
+                variant="ghost"
+                disabled={busy || !canOperate}
+                aria-label={`Actions for ${task.title}`}
+              />
+            }
+          >
+            <MoreHorizontalIcon className="size-4" />
+          </MenuTrigger>
+          <MenuPopup
+            align={contextPoint ? "start" : "end"}
+            anchor={
+              contextPoint
+                ? {
+                    getBoundingClientRect: () => new DOMRect(contextPoint.x, contextPoint.y, 0, 0),
+                  }
+                : undefined
+            }
+          >
+            {SINGLE_PROVIDER_UI && onEditInNewTab && !alreadyOpen ? (
+              <MenuItem onClick={onEditInNewTab}>
+                <SquareArrowOutUpRightIcon />
+                Open in new tab
+              </MenuItem>
+            ) : null}
+            <MenuItem onClick={onEdit}>
+              <Edit03Icon />
+              Edit
             </MenuItem>
-          ) : null}
-          <MenuItem onClick={onEdit}>
-            <Edit03Icon />
-            Edit
-          </MenuItem>
-          <MenuItem onClick={() => void act("run")}>
-            <PlayIcon />
-            Run now
-          </MenuItem>
-          <MenuSeparator />
-          <MenuItem onClick={() => void act("delete")}>
-            <Trash2Icon />
-            Delete
-          </MenuItem>
-        </MenuPopup>
-      </Menu>
-    </div>
+            {isWebhook ? (
+              <MenuItem onClick={() => setDeliveriesOpen(true)}>
+                <InboxIcon />
+                Deliveries
+              </MenuItem>
+            ) : (
+              <MenuItem onClick={() => void act("run")}>
+                <PlayIcon />
+                Run now
+              </MenuItem>
+            )}
+            <MenuSeparator />
+            <MenuItem onClick={() => void act("delete")}>
+              <Trash2Icon />
+              Delete
+            </MenuItem>
+          </MenuPopup>
+        </Menu>
+      </div>
+      {deliveriesOpen ? (
+        <WebhookDeliveriesDialog
+          environmentId={environmentId}
+          task={task}
+          onClose={() => setDeliveriesOpen(false)}
+        />
+      ) : null}
+    </>
   );
   if (compact)
     return (
@@ -666,11 +700,13 @@ function ScheduledTaskRow({
         <div className="flex flex-wrap items-center gap-2">
           <span>
             {scheduleLabel(task.schedule)} ·{" "}
-            {task.enabled
-              ? task.nextRunAt
-                ? `Next run ${relativeLabel(task.nextRunAt)}`
-                : "Not scheduled"
-              : "Paused"}
+            {!task.enabled
+              ? "Paused"
+              : isWebhook
+                ? "Listening"
+                : task.nextRunAt
+                  ? `Next run ${relativeLabel(task.nextRunAt)}`
+                  : "Not scheduled"}
           </span>
           {task.lastRunStatus !== "never" ? (
             <Badge variant={statusVariant(task.lastRunStatus)}>{task.lastRunStatus}</Badge>

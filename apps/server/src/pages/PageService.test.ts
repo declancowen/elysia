@@ -5,24 +5,110 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Stream from "effect/Stream";
-import * as SqlClient from "effect/unstable/sql/SqlClient";
+import * as SqlClient from "effect/sql/SqlClient";
 import * as ProjectStore from "../orchestration-v2/ProjectStore.ts";
 import * as Pages from "./PageService.ts";
-import { SqlitePersistenceMemory } from "../persistence/Layers/Sqlite.ts";
+import * as SqlitePersistence from "../persistence/Sqlite.ts";
 import migration from "../persistence/Migrations/059_Pages.ts";
+import foldersMigration from "../persistence/Migrations/065_PageFolders.ts";
 const database = Layer.effectDiscard(
   Effect.gen(function* () {
     const sql = yield* SqlClient.SqlClient;
     const columns = yield* sql`PRAGMA table_info(pages)`;
     if (columns.length === 0) yield* migration;
+    if (!columns.some((column) => column.name === "kind")) yield* foldersMigration;
   }),
-).pipe(Layer.provideMerge(SqlitePersistenceMemory));
+).pipe(Layer.provideMerge(SqlitePersistence.layerMemory));
 const testLayer = Pages.layer.pipe(
   Layer.provideMerge(ProjectStore.layer),
   Layer.provideMerge(database),
   Layer.provide(NodeCrypto.layer),
 );
 it.layer(testLayer)("PageService", (it) => {
+  it.effect(
+    "inherits folder projects, cascades moves atomically, rejects cycles and deletes subtrees",
+    () =>
+      Effect.gen(function* () {
+        const pages = yield* Pages.PageService;
+        const projects = yield* ProjectStore.ProjectStoreV2;
+        const projectId = ProjectId.make("folder-project");
+        const timestamp = "2026-10-07T00:00:00.000Z";
+        yield* projects.apply({
+          sequence: 1,
+          eventId: EventId.make("folder-project-event"),
+          aggregateKind: "project",
+          aggregateId: projectId,
+          occurredAt: timestamp,
+          commandId: null,
+          causationEventId: null,
+          correlationId: null,
+          metadata: {},
+          type: "project.created",
+          payload: {
+            projectId,
+            title: "Folder project",
+            workspaceRoot: "/tmp/folder-project",
+            defaultModelSelection: null,
+            scripts: [],
+            createdAt: timestamp,
+            updatedAt: timestamp,
+          },
+        });
+        const root = (yield* pages.save({ title: "Root", kind: "folder", projectId })).page;
+        const child = (yield* pages.save({
+          title: "Child",
+          kind: "folder",
+          parentFolderId: root.id,
+        })).page;
+        const note = (yield* pages.save({
+          title: "Note",
+          content: "<p>Keep me</p>",
+          parentFolderId: child.id,
+        })).page;
+        assert.equal(child.projectId, projectId);
+        assert.equal(note.projectId, projectId);
+        assert.equal(
+          (yield* Effect.flip(
+            pages.save({ id: root.id, expectedRevision: root.revision, parentFolderId: child.id }),
+          )).code,
+          "invalid_request",
+        );
+        assert.equal(
+          (yield* Effect.flip(
+            pages.save({ id: note.id, expectedRevision: note.revision, projectId: null }),
+          )).code,
+          "invalid_request",
+        );
+        assert.equal(
+          (yield* Effect.flip(pages.save({ title: "Invalid parent", parentFolderId: note.id })))
+            .code,
+          "invalid_request",
+        );
+        const unlinked = (yield* pages.save({ title: "Unlinked", kind: "folder" })).page;
+        yield* pages.save({
+          id: child.id,
+          expectedRevision: child.revision,
+          parentFolderId: unlinked.id,
+        });
+        const moved = (yield* pages.get({ id: note.id })).page;
+        assert.isNull(moved.projectId);
+        assert.equal(moved.revision, note.revision + 1);
+        assert.equal(moved.content, "<p>Keep me</p>");
+        assert.equal(
+          (yield* Effect.flip(
+            pages.save({ id: note.id, expectedRevision: note.revision, title: "Stale" }),
+          )).code,
+          "conflict",
+        );
+        yield* pages.save({ id: unlinked.id, expectedRevision: unlinked.revision, projectId });
+        assert.equal((yield* pages.get({ id: note.id })).page.projectId, projectId);
+        yield* pages.delete({ id: unlinked.id });
+        assert.equal((yield* Effect.flip(pages.get({ id: note.id }))).code, "not_found");
+        assert.equal((yield* Effect.flip(pages.get({ id: child.id }))).code, "not_found");
+        yield* pages.delete({ id: root.id });
+      }),
+  );
+
   it.effect("persists rich content, protects concurrent edits and permanently deletes pages", () =>
     Effect.gen(function* () {
       const pages = yield* Pages.PageService;

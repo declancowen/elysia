@@ -11,8 +11,8 @@ import {
 import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
-import * as SqlClient from "effect/unstable/sql/SqlClient";
-import { SqlitePersistenceMemory } from "../persistence/Layers/Sqlite.ts";
+import * as SqlClient from "effect/sql/SqlClient";
+import * as SqlitePersistence from "../persistence/Sqlite.ts";
 import * as ProjectionStore from "../orchestration-v2/ProjectionStore.ts";
 import * as ProjectStore from "../orchestration-v2/ProjectStore.ts";
 import * as Threads from "../orchestration-v2/ThreadManagementService.ts";
@@ -27,7 +27,7 @@ const threadManagement = Layer.unwrap(
 const TestLayer = Chats.layer.pipe(
   Layer.provideMerge(threadManagement),
   Layer.provideMerge(Layer.mergeAll(ProjectionStore.layer, ProjectStore.layer)),
-  Layer.provideMerge(SqlitePersistenceMemory),
+  Layer.provideMerge(SqlitePersistence.layerMemory),
 );
 const providerInstanceId = ProviderInstanceId.make("claudeAgent");
 const at = (minute: number) => DateTime.makeUnsafe(Date.UTC(2026, 9, 5, 0, minute));
@@ -92,65 +92,61 @@ const thread = (
 });
 
 it.layer(TestLayer)("Workspace linked chats", (it) => {
-  for (const kind of ["task", "page"] as const) {
-    it.effect(
-      `reserves a ${kind} association before launch and recovers it without a post-launch request`,
-      () =>
-        Effect.gen(function* () {
-          const sql = yield* SqlClient.SqlClient;
-          const number = kind === "task" ? 98 : 99;
-          const projectId = ProjectId.make(`reserved-project:${kind}`);
-          const id = ThreadId.make(`reserved-chat:${kind}`);
-          const pageId = PageId.make(`page-11111111-1111-1111-1111-1111111111${number}`);
-          const target =
-            kind === "task"
-              ? { kind, id: WorkTaskId.make(`TASK-${number}`) }
-              : { kind, id: pageId };
-          yield* sql`INSERT INTO work_tasks (number,data_json) VALUES (${number},'{}')`;
-          yield* sql`INSERT INTO pages (id,title,content,project_id,created_at,updated_at,revision) VALUES (${pageId},'Notes','',NULL,'2026-10-05T00:00:00.000Z','2026-10-05T00:00:00.000Z',1)`;
-          yield* createProject(projectId);
-          const chats = yield* Chats.WorkspaceChatService;
-          assert.isTrue(
-            (yield* Effect.result(chats.link({ target, threadId: id, linked: true })))._tag ===
-              "Failure",
-          );
-          assert.isTrue(
-            (yield* Effect.result(
-              chats.link({
-                target,
-                threadId: id,
-                linked: true,
-                draftProjectId: ProjectId.make("missing"),
-              }),
-            ))._tag === "Failure",
-          );
-          assert.deepEqual(
-            yield* chats.link({ target, threadId: id, linked: true, draftProjectId: projectId }),
-            { threadIds: [] },
-          );
-          assert.lengthOf(
-            yield* sql`SELECT * FROM workspace_chat_links WHERE item_id=${target.id}`,
-            1,
-          );
-          // Simulate losing the launch acknowledgement: only the thread becomes durable.
-          yield* (yield* ProjectionStore.ProjectionStoreV2).apply(thread(id, projectId));
-          const recovered = yield* Effect.flatMap(Chats.WorkspaceChatService, (reopened) =>
-            reopened.list(target),
-          ).pipe(Effect.provide(Chats.layer));
-          assert.deepEqual(recovered.threadIds, [id]);
-          assert.isTrue(
-            (yield* Effect.result(
-              chats.link({
-                target,
-                threadId: id,
-                linked: true,
-                draftProjectId: ProjectId.make("other"),
-              }),
-            ))._tag === "Failure",
-          );
-        }),
-    );
-  }
+  it.effect.each(["task", "page"] as const)(
+    `reserves a %s association before launch and recovers it without a post-launch request`,
+    (kind) =>
+      Effect.gen(function* () {
+        const sql = yield* SqlClient.SqlClient;
+        const number = kind === "task" ? 98 : 99;
+        const projectId = ProjectId.make(`reserved-project:${kind}`);
+        const id = ThreadId.make(`reserved-chat:${kind}`);
+        const pageId = PageId.make(`page-11111111-1111-1111-1111-1111111111${number}`);
+        const target =
+          kind === "task" ? { kind, id: WorkTaskId.make(`TASK-${number}`) } : { kind, id: pageId };
+        yield* sql`INSERT INTO work_tasks (number,data_json) VALUES (${number},'{}')`;
+        yield* sql`INSERT INTO pages (id,title,content,project_id,created_at,updated_at,revision) VALUES (${pageId},'Notes','',NULL,'2026-10-05T00:00:00.000Z','2026-10-05T00:00:00.000Z',1)`;
+        yield* createProject(projectId);
+        const chats = yield* Chats.WorkspaceChatService;
+        assert.isTrue(
+          (yield* Effect.result(chats.link({ target, threadId: id, linked: true })))._tag ===
+            "Failure",
+        );
+        assert.isTrue(
+          (yield* Effect.result(
+            chats.link({
+              target,
+              threadId: id,
+              linked: true,
+              draftProjectId: ProjectId.make("missing"),
+            }),
+          ))._tag === "Failure",
+        );
+        assert.deepEqual(
+          yield* chats.link({ target, threadId: id, linked: true, draftProjectId: projectId }),
+          { threadIds: [] },
+        );
+        assert.lengthOf(
+          yield* sql`SELECT * FROM workspace_chat_links WHERE item_id=${target.id}`,
+          1,
+        );
+        // Simulate losing the launch acknowledgement: only the thread becomes durable.
+        yield* (yield* ProjectionStore.ProjectionStoreV2).apply(thread(id, projectId));
+        const recovered = yield* Effect.flatMap(Chats.WorkspaceChatService, (reopened) =>
+          reopened.list(target),
+        ).pipe(Effect.provide(Chats.layer));
+        assert.deepEqual(recovered.threadIds, [id]);
+        assert.isTrue(
+          (yield* Effect.result(
+            chats.link({
+              target,
+              threadId: id,
+              linked: true,
+              draftProjectId: ProjectId.make("other"),
+            }),
+          ))._tag === "Failure",
+        );
+      }),
+  );
   it.effect(
     "keeps task/page links isolated, deduplicates, unlinks, and excludes unavailable conversations",
     () =>

@@ -5,6 +5,7 @@ import { cn } from "../../lib/utils";
 import { Popover, PopoverPopup, PopoverCreateHandle } from "../ui/popover";
 import { selectThreadPanelOpen, useRightPanelStore } from "../../rightPanelStore";
 import type { ThreadPanelPresentation } from "../../rightPanelLayout";
+import { usePanelAnimationSettings, usePanelPresence } from "../../panelAnimations";
 import { useChatCanvas } from "./ChatCanvasContext";
 import {
   resolveThreadDetailsCardDensity,
@@ -29,12 +30,17 @@ export function ThreadDetailsCard({
   const preferredPlacement = canvas
     ? resolveThreadDetailsCardLayout({
         container: canvas.container,
-        chat: canvas.layout.chat,
+        lane: canvas.lane,
         frame: null,
       })
     : null;
   const placement = canvas
-    ? resolveThreadDetailsCardLayout({ container: canvas.container, ...canvas.layout })
+    ? resolveThreadDetailsCardLayout({
+        container: canvas.container,
+        lane: canvas.lane,
+        frame: canvas.layout.frame,
+        overlapsDetailsCard: canvas.layout.overlapsDetailsCard,
+      })
     : null;
   const mode = placement ? "inline" : "popover";
   const inlineOpen = useRightPanelStore((state) =>
@@ -43,11 +49,20 @@ export function ThreadDetailsCard({
   const popoverOpen = useRightPanelStore((state) =>
     selectThreadPanelOpen(state.threadPanelVisibilityByThreadKey, threadRef, "popover"),
   );
+  const { active: panelAnimationsActive, durationMs } = usePanelAnimationSettings();
+  const inlinePresence = usePanelPresence(
+    inlineOpen,
+    true,
+    panelAnimationsActive,
+    `${threadRef.environmentId}:${threadRef.threadId}`,
+    durationMs,
+  );
   const [contentElement, setContentElement] = useState<HTMLDivElement | null>(null);
   const measurementKey = `${threadRef.environmentId}:${threadRef.threadId}:${preferredPlacement?.width ?? "popup"}`;
   const [measurements, setMeasurements] = useState({
     key: measurementKey,
     heights: { full: 0, compact: 0 },
+    fullContentHeight: 0,
   });
   const contentHeights =
     measurements.key === measurementKey ? measurements.heights : { full: 0, compact: 0 };
@@ -59,8 +74,8 @@ export function ThreadDetailsCard({
     ? preferredPlacement.x + preferredPlacement.width
     : undefined;
   const cardBottom =
-    preferredPlacement && contentHeights.full > 0
-      ? preferredPlacement.y + Math.min(contentHeights.full, preferredPlacement.height)
+    preferredPlacement && measurements.key === measurementKey && measurements.fullContentHeight > 0
+      ? preferredPlacement.y + Math.min(measurements.fullContentHeight, preferredPlacement.height)
       : undefined;
   useLayoutEffect(() => {
     reportDetailsCard?.(
@@ -83,11 +98,27 @@ export function ThreadDetailsCard({
     const measure = () => {
       const frame = element.closest<HTMLElement>("[data-thread-details-card]");
       const next = element.offsetHeight + (frame ? frame.offsetHeight - frame.clientHeight : 0);
+      // Lineage scrolls as it expands. Counting it toward density would hide
+      // the section and workspace controls when the user asks to see more rows.
+      const lineage = element.querySelector<HTMLElement>("[data-thread-relationships-panel]");
+      const fittingHeight = next - (lineage?.offsetHeight ?? 0);
       setMeasurements((current) => {
         const heights = current.key === measurementKey ? current.heights : { full: 0, compact: 0 };
-        return current.key === measurementKey && heights[density] === next
+        const fullContentHeight =
+          density === "full"
+            ? next
+            : current.key === measurementKey
+              ? current.fullContentHeight
+              : 0;
+        return current.key === measurementKey &&
+          heights[density] === fittingHeight &&
+          current.fullContentHeight === fullContentHeight
           ? current
-          : { key: measurementKey, heights: { ...heights, [density]: next } };
+          : {
+              key: measurementKey,
+              heights: { ...heights, [density]: fittingHeight },
+              fullContentHeight,
+            };
       });
     };
     measure();
@@ -119,15 +150,22 @@ export function ThreadDetailsCard({
       }
     >
       {placement ? (
-        inlineOpen ? (
+        inlinePresence.present ? (
           <aside
             aria-label="Thread details"
-            className="absolute z-20"
+            inert={!inlineOpen}
+            className={cn(
+              "absolute z-20 origin-top-right",
+              panelAnimationsActive &&
+                "transition-[opacity,scale] ease-out starting:scale-98 starting:opacity-0",
+              !inlineOpen && "pointer-events-none scale-98 opacity-0",
+            )}
             style={{
               left: placement.x,
               top: placement.y,
               width: placement.width,
               maxHeight: height,
+              transitionDuration: panelAnimationsActive ? `${durationMs}ms` : "0ms",
             }}
             data-density={density}
             data-thread-details-panel="inline"

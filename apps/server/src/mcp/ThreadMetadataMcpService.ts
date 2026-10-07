@@ -57,7 +57,7 @@ function commandId(input: {
     [
       "command",
       "mcp",
-      stablePart(input.scope.providerSessionId),
+      stablePart(input.scope.requestNamespace),
       "thread-update",
       stablePart(input.threadId),
       stablePart(input.action),
@@ -146,36 +146,49 @@ const make = Effect.gen(function* () {
       );
     }
 
-    const parentShell = yield* threadManagement
-      .getThreadShell(scope.threadId)
-      .pipe(
-        Effect.mapError((error) =>
-          failure(
-            "orchestration_error",
-            `Unable to locate calling thread ${scope.threadId}: ${errorMessage(error)}`,
-          ),
-        ),
+    const threadId = input.threadId ?? scope.thread?.threadId;
+    if (threadId === undefined) {
+      return yield* failure(
+        "target_required",
+        "Pass threadId: this MCP client is not running inside an Elysia thread.",
       );
-    if (parentShell === null) {
-      return yield* failure("thread_not_found", `Calling thread ${scope.threadId} was not found.`);
     }
-    const parent = yield* threadManagement
-      .getThreadRecords(scope.threadId, [])
+    const shell = yield* threadManagement
+      .getThreadShell(threadId)
       .pipe(
         Effect.mapError((error) =>
           failure(
             "orchestration_error",
-            `Unable to read calling thread ${scope.threadId}: ${errorMessage(error)}`,
+            `Unable to locate thread ${threadId}: ${errorMessage(error)}`,
           ),
         ),
       );
-    const threadId = input.threadId ?? scope.threadId;
-    const target =
-      threadId === scope.threadId
-        ? parent
-        : yield* threadManagement
-            .getProjectThreadRecords({ projectId: parent.thread.projectId, threadId }, [])
-            .pipe(Effect.mapError(threadLookupFailure));
+    if (shell === null || shell.deletedAt !== null) {
+      return yield* failure("thread_not_found", `Thread ${threadId} was not found.`);
+    }
+    const callerShell =
+      scope.thread === undefined
+        ? shell
+        : scope.thread.threadId === threadId
+          ? shell
+          : yield* threadManagement
+              .getThreadShell(scope.thread.threadId)
+              .pipe(
+                Effect.mapError((error) => failure("orchestration_error", errorMessage(error))),
+              );
+    if (
+      callerShell === null ||
+      callerShell.deletedAt !== null ||
+      callerShell.projectId !== shell.projectId
+    ) {
+      return yield* failure(
+        "thread_not_found",
+        `Thread ${threadId} was not found in the calling project.`,
+      );
+    }
+    const target = yield* threadManagement
+      .getProjectThreadRecords({ projectId: callerShell.projectId, threadId }, [])
+      .pipe(Effect.mapError(threadLookupFailure));
     const requestKey =
       input.clientRequestId === undefined
         ? yield* crypto.randomUUIDv4.pipe(Effect.orDie)

@@ -1,5 +1,5 @@
 import { useDraggable, useDroppable } from "@dnd-kit/core";
-import type { ReactNode, MouseEventHandler } from "react";
+import type { ReactNode, MouseEventHandler, CSSProperties } from "react";
 import type { WorkTaskSummary } from "@t3tools/contracts";
 import type { TaskGroup } from "./taskViews";
 import { cn } from "../../lib/utils";
@@ -44,9 +44,11 @@ export function TaskDropGroup({
   drop,
   className,
   children,
+  style,
 }: {
   id: string;
   drop: TaskGroup["drop"];
+  style?: CSSProperties | undefined;
   className: string;
   children: ReactNode;
 }) {
@@ -56,7 +58,7 @@ export function TaskDropGroup({
     disabled: !Object.keys(drop).length,
   });
   return (
-    <section ref={setNodeRef} className={cn(className, isOver && "bg-muted/30")}>
+    <section ref={setNodeRef} style={style} className={cn(className, isOver && "bg-muted/30")}>
       {children}
     </section>
   );

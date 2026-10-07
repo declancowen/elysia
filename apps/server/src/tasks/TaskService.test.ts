@@ -14,12 +14,12 @@ import * as Option from "effect/Option";
 import * as Ref from "effect/Ref";
 import * as Stream from "effect/Stream";
 import * as TestClock from "effect/testing/TestClock";
-import * as SqlClient from "effect/unstable/sql/SqlClient";
+import * as SqlClient from "effect/sql/SqlClient";
 import * as Projects from "../orchestration-v2/ProjectStore.ts";
 import * as Threads from "../orchestration-v2/ThreadManagementService.ts";
 import * as Delegation from "../orchestration-v2/AgentDelegation.ts";
 import * as Scheduler from "../scheduling/Scheduler.ts";
-import { SqlitePersistenceMemory } from "../persistence/Layers/Sqlite.ts";
+import * as SqlitePersistence from "../persistence/Sqlite.ts";
 import * as Tasks from "./TaskService.ts";
 import * as Receipts from "../orchestration-v2/CommandReceiptStore.ts";
 import { taskPrompt } from "./taskPrompt.ts";
@@ -97,7 +97,7 @@ it.effect("preserves dates, patches fields, and permanently deletes without reus
       );
       expect((yield* tasks.save({ title: "New" })).task.id).toBe("TASK-2");
     }).pipe(Effect.provide(Tasks.layer.pipe(Layer.provide(deps))));
-  }).pipe(Effect.provide(SqlitePersistenceMemory)),
+  }).pipe(Effect.provide(SqlitePersistence.layerMemory)),
 );
 it.effect(
   "starts assigned conversations exactly once on entry and keeps channel work in the channel",
@@ -197,7 +197,7 @@ it.effect(
         const sql = yield* SqlClient.SqlClient;
         expect(yield* sql`SELECT * FROM work_task_starts`).toEqual([]);
       }).pipe(Effect.provide(Tasks.layer.pipe(Layer.provide(deps))));
-    }).pipe(Effect.provide(SqlitePersistenceMemory)),
+    }).pipe(Effect.provide(SqlitePersistence.layerMemory)),
 );
 
 it.effect(
@@ -261,7 +261,7 @@ it.effect(
         expect(commands).toHaveLength(2);
         expect(yield* sql`SELECT * FROM work_task_starts`).toEqual([]);
       }).pipe(Effect.provide(Tasks.layer.pipe(Layer.provide(deps))));
-    }).pipe(Effect.provide(Receipts.layer.pipe(Layer.provideMerge(SqlitePersistenceMemory)))),
+    }).pipe(Effect.provide(Receipts.layer.pipe(Layer.provideMerge(SqlitePersistence.layerMemory)))),
 );
 
 it.effect("validates parent links and promotes children when a parent is deleted", () =>
@@ -300,5 +300,5 @@ it.effect("validates parent links and promotes children when a parent is deleted
       ).toBe("Task not found.");
       expect((yield* tasks.list()).tasks).toHaveLength(1);
     }).pipe(Effect.provide(Tasks.layer.pipe(Layer.provide(deps))));
-  }).pipe(Effect.provide(SqlitePersistenceMemory)),
+  }).pipe(Effect.provide(SqlitePersistence.layerMemory)),
 );

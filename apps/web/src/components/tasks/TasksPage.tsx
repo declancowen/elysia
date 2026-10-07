@@ -12,6 +12,7 @@ import {
   useSensor,
   useSensors,
 } from "@dnd-kit/core";
+import { useWorkspaceCollectionGrouping } from "../workspaceCollectionGrouping";
 import { TaskAgentResponse } from "./TaskAgentResponse";
 import { TaskDragRow, TaskDropGroup } from "./TaskDrag";
 import {
@@ -73,6 +74,8 @@ import {
   Menu,
   MenuTrigger,
   MenuPopup,
+  MenuGroup,
+  MenuGroupLabel,
   MenuItem,
   MenuRadioGroup,
   MenuRadioItem,
@@ -102,6 +105,9 @@ import {
   CollectionPropertyPill,
   CollectionPropertiesPicker,
   CollectionTableCell,
+  CollectionCardSizePicker,
+  CARD_WIDTHS,
+  type CollectionCardSize,
   type CollectionProperty,
 } from "../WorkspaceCollectionView";
 import { Select, SelectTrigger, SelectValue, SelectPopup, SelectItem } from "../ui/select";
@@ -158,14 +164,17 @@ function TaskSelect({
           {icon}
           {options.find((item) => item.value === value)?.label ?? label}
         </MenuTrigger>
-        <MenuPopup align="end">
-          <MenuRadioGroup value={value} onValueChange={onChange}>
-            {options.map((item) => (
-              <MenuRadioItem key={item.value} value={item.value}>
-                {item.label}
-              </MenuRadioItem>
-            ))}
-          </MenuRadioGroup>
+        <MenuPopup align="start">
+          <MenuGroup>
+            <MenuGroupLabel>{label}</MenuGroupLabel>
+            <MenuRadioGroup value={value} onValueChange={onChange}>
+              {options.map((item) => (
+                <MenuRadioItem key={item.value} value={item.value}>
+                  {item.label}
+                </MenuRadioItem>
+              ))}
+            </MenuRadioGroup>
+          </MenuGroup>
         </MenuPopup>
       </Menu>
     );
@@ -239,11 +248,17 @@ export function TasksPage() {
   const deleteCommand = useAtomCommand(serverEnvironment.deleteTask);
   const navigate = useNavigate();
   const navigateTab = useConversationTabNavigation();
-  const { task: selectedId } = useSearch({ from: "/tasks" });
+  const { task: selectedId, create: requestedCreate } = useSearch({ from: "/tasks" });
   const [panelOpen, setPanelOpen] = useState(true);
   const panelAnchor = useRef<HTMLButtonElement | null>(null);
   const [creating, setCreating] = useState(false);
   const [creatingParent, setCreatingParent] = useState<WorkTaskId | null>(null);
+  useEffect(() => {
+    if (!requestedCreate) return;
+    setCreatingParent(null);
+    setCreating(true);
+    void navigate({ to: "/tasks", search: {}, replace: true });
+  }, [requestedCreate, navigate]);
   const [showSubTasks, setShowSubTasks] = useState(true);
   const [view, setView] = useState<TaskView>("list");
   const [properties, setProperties] = useState<CollectionProperty[]>([
@@ -251,8 +266,12 @@ export function TasksPage() {
     "project",
     "parent",
   ]);
-  const [grouping, setGrouping] = useState<TaskGrouping>("status");
-  const [subGrouping, setSubGrouping] = useState<TaskGrouping>("none");
+  const grouping = useWorkspaceCollectionGrouping((state) => state.tasks);
+  const subGrouping = useWorkspaceCollectionGrouping((state) => state.taskSubgroups);
+  const setGrouping = (tasks: TaskGrouping) => useWorkspaceCollectionGrouping.setState({ tasks });
+  const setSubGrouping = (taskSubgroups: TaskGrouping) =>
+    useWorkspaceCollectionGrouping.setState({ taskSubgroups });
+  const [cardSize, setCardSize] = useState<CollectionCardSize>("medium");
   const [hideEmpty, setHideEmpty] = useState(true);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
@@ -425,8 +444,8 @@ export function TasksPage() {
     const action = await showContextMenuFallback(
       [
         { id: "open-new-tab", label: "Open in new tab", icon: "open-new-tab" },
-        { id: "copy-id", label: "Copy ID" },
-        { id: "copy-reference", label: "Copy reference" },
+        { id: "copy-id", label: "Copy ID", icon: "hash" },
+        { id: "copy-reference", label: "Copy reference", icon: "copy" },
         {
           id: "assignee",
           label: "Change assigned",
@@ -528,17 +547,23 @@ export function TasksPage() {
     if (failures.length) report(new Error(failures.join("\n")));
   };
   const renderRows = (rows: WorkTaskSummary[], drop: TaskGroup["drop"]) => {
-    const visibleProperties = taskVisibleProperties(properties, drop);
+    const visibleProperties =
+      view === "table"
+        ? properties.filter((id) => id !== grouping && id !== subGrouping)
+        : taskVisibleProperties(properties, drop);
     const propertyColumns = TASK_PROPERTIES.filter((property) =>
       visibleProperties.includes(property.id),
     );
     return (
       <CollectionRows
         view={view}
+        header={false}
+        cardSize={cardSize}
         label="Tasks"
         columns={[
           { id: "title", label: "Title" },
-          { id: "agent", label: "Agent status" },
+          { id: "agent", label: "Assigned agent" },
+          { id: "agentStatus", label: "Agent status" },
           ...propertyColumns,
           { id: "actions", label: "Actions" },
         ]}
@@ -552,6 +577,21 @@ export function TasksPage() {
           };
           const pills = propertyColumns.filter(
             (property) => view === "table" || values[property.id] !== null,
+          );
+          const selectionControl = (
+            <Checkbox
+              aria-label={`Select ${task.title}`}
+              checked={selection.has(task.id)}
+              disabled={bulkPending}
+              onCheckedChange={(checked) =>
+                setSelection((current) => {
+                  const next = new Set(current);
+                  if (checked) next.add(task.id);
+                  else next.delete(task.id);
+                  return next;
+                })
+              }
+            />
           );
           return (
             <TaskDragRow
@@ -574,6 +614,18 @@ export function TasksPage() {
                 selection.has(task.id) && "bg-sidebar-row-selected",
               )}
             >
+              {view === "list" ? (
+                <div
+                  className={cn(
+                    "flex shrink-0 items-center opacity-0 group-hover:opacity-100 focus-within:opacity-100 pointer-coarse:opacity-100",
+                    selection.has(task.id) && "opacity-100",
+                  )}
+                  onPointerDown={(event) => event.stopPropagation()}
+                  onKeyDown={(event) => event.stopPropagation()}
+                >
+                  {selectionControl}
+                </div>
+              ) : null}
               {view === "list" && depth > 0 ? (
                 <span
                   aria-hidden
@@ -624,39 +676,65 @@ export function TasksPage() {
                   </span>
                 </WorkspaceItemLink>
               </CollectionTableCell>
-              <CollectionTableCell view={view} align="left">
-                {task.assigneeProjectId ? (
-                  <div
-                    className={
-                      view === "list"
-                        ? "flex shrink-0 items-center gap-3"
-                        : view === "table"
-                          ? "flex w-full min-w-0 items-center justify-between gap-3"
-                          : "flex shrink-0 items-center justify-between gap-3 border-t border-border px-4 py-3"
+              {view === "table" ? (
+                <>
+                  <CollectionTableCell view={view} align="left">
+                    {task.assigneeProjectId ? (
+                      <span className="min-w-0 truncate text-sm">
+                        {agentOptions.find((option) => option.value === task.assigneeProjectId)
+                          ?.label ?? "Unavailable agent"}
+                      </span>
+                    ) : null}
+                  </CollectionTableCell>
+                  <CollectionTableCell view={view}>
+                    {task.assigneeProjectId ? (
+                      <CollectionPropertyPill
+                        label={`Change agent status for ${task.title}`}
+                        value={task.status}
+                        options={statusOptions}
+                        disabled={bulkPending}
+                        onChange={(status) =>
+                          update({
+                            id: task.id,
+                            expectedRevision: task.revision,
+                            status: status as WorkTaskStatus,
+                          })
+                        }
+                      >
+                        {taskActivity(task.status).label}
+                      </CollectionPropertyPill>
+                    ) : null}
+                  </CollectionTableCell>
+                </>
+              ) : task.assigneeProjectId ? (
+                <div
+                  className={
+                    view === "list"
+                      ? "flex shrink-0 items-center gap-3"
+                      : "flex shrink-0 items-center justify-between gap-3 border-t border-border px-4 py-3"
+                  }
+                >
+                  <span className="min-w-0 truncate text-sm">
+                    {agentOptions.find((option) => option.value === task.assigneeProjectId)
+                      ?.label ?? "Unavailable agent"}
+                  </span>
+                  <CollectionPropertyPill
+                    label={`Change agent status for ${task.title}`}
+                    value={task.status}
+                    options={statusOptions}
+                    disabled={bulkPending}
+                    onChange={(status) =>
+                      update({
+                        id: task.id,
+                        expectedRevision: task.revision,
+                        status: status as WorkTaskStatus,
+                      })
                     }
                   >
-                    <span className="min-w-0 truncate text-sm">
-                      {agentOptions.find((option) => option.value === task.assigneeProjectId)
-                        ?.label ?? "Unavailable agent"}
-                    </span>
-                    <CollectionPropertyPill
-                      label={`Change agent status for ${task.title}`}
-                      value={task.status}
-                      options={statusOptions}
-                      disabled={bulkPending}
-                      onChange={(status) =>
-                        update({
-                          id: task.id,
-                          expectedRevision: task.revision,
-                          status: status as WorkTaskStatus,
-                        })
-                      }
-                    >
-                      {taskActivity(task.status).label}
-                    </CollectionPropertyPill>
-                  </div>
-                ) : null}
-              </CollectionTableCell>
+                    {taskActivity(task.status).label}
+                  </CollectionPropertyPill>
+                </div>
+              ) : null}
               {pills.length ? (
                 <div
                   className={
@@ -664,7 +742,7 @@ export function TasksPage() {
                       ? "contents"
                       : view === "list"
                         ? "flex shrink-0 flex-wrap justify-end gap-2"
-                        : "flex shrink-0 flex-wrap justify-end gap-2 border-t border-border px-4 py-3"
+                        : "flex shrink-0 flex-wrap justify-start gap-2 px-4 py-3"
                   }
                 >
                   {pills.map(({ id: kind, label }) => (
@@ -726,19 +804,7 @@ export function TasksPage() {
                   onPointerDown={(event) => event.stopPropagation()}
                   onKeyDown={(event) => event.stopPropagation()}
                 >
-                  <Checkbox
-                    aria-label={`Select ${task.title}`}
-                    checked={selection.has(task.id)}
-                    disabled={bulkPending}
-                    onCheckedChange={(checked) =>
-                      setSelection((current) => {
-                        const next = new Set(current);
-                        if (checked) next.add(task.id);
-                        else next.delete(task.id);
-                        return next;
-                      })
-                    }
-                  />
+                  {view !== "list" ? selectionControl : null}
                   <Menu>
                     <MenuTrigger
                       render={
@@ -831,11 +897,12 @@ export function TasksPage() {
         key={key}
         id={key}
         drop={drop}
-        className={cn("min-w-0", view === "board" && "w-72 shrink-0")}
+        className={cn("min-w-0", view === "board" && "shrink-0")}
+        style={view === "board" ? { width: CARD_WIDTHS[cardSize] } : undefined}
       >
         <div
           className={cn(
-            "mb-3 flex items-center gap-2 hover:bg-sidebar-row-hover",
+            "mb-3 flex items-center gap-2 pr-3 hover:bg-sidebar-row-hover",
             parentKey
               ? "ring-1 ring-inset ring-transparent"
               : "rounded-md bg-card/30 ring-1 ring-inset ring-border",
@@ -845,7 +912,7 @@ export function TasksPage() {
             type="button"
             aria-expanded={!closed}
             onClick={() => toggle(key)}
-            className="flex min-w-0 flex-1 items-center gap-3 rounded-md px-3 py-2 text-left text-sm text-muted-foreground"
+            className="flex min-w-0 flex-1 cursor-pointer items-center gap-3 rounded-md px-3 py-2 text-left text-sm text-muted-foreground"
           >
             {closed ? (
               <ChevronRightIcon className="size-4" />
@@ -1038,9 +1105,10 @@ export function TasksPage() {
                       <Columns2Icon />
                       Group
                     </PopoverTrigger>
-                    <PopoverPopup align="end" width="md">
+                    <PopoverPopup align="start" width="md">
+                      <p className="mb-3 text-xs font-medium text-foreground/70">Group</p>
                       <div className="grid grid-cols-2 gap-4">
-                        <label className="flex flex-col gap-2 text-xs">
+                        <label className="flex flex-col gap-2 text-xs text-foreground/70">
                           Group by
                           <TaskSelect
                             label="Group by"
@@ -1052,7 +1120,7 @@ export function TasksPage() {
                             }}
                           />
                         </label>
-                        <label className="flex flex-col gap-2 text-xs">
+                        <label className="flex flex-col gap-2 text-xs text-foreground/70">
                           Subgroup by
                           <TaskSelect
                             label="Subgroup by"
@@ -1084,8 +1152,9 @@ export function TasksPage() {
                       Filters{statusFilter || projectFilter ? " ·" : ""}
                     </PopoverTrigger>
                     <PopoverPopup align="end" width="sm">
+                      <p className="mb-3 text-xs font-medium text-foreground/70">Filters</p>
                       <div className="flex flex-col gap-4">
-                        <label className="flex flex-col gap-2 text-xs">
+                        <label className="flex flex-col gap-2 text-xs text-foreground/70">
                           Status
                           <TaskSelect
                             label="Status filter"
@@ -1094,7 +1163,7 @@ export function TasksPage() {
                             onChange={setStatusFilter}
                           />
                         </label>
-                        <label className="flex flex-col gap-2 text-xs">
+                        <label className="flex flex-col gap-2 text-xs text-foreground/70">
                           Project
                           <TaskSelect
                             label="Project filter"
@@ -1115,20 +1184,26 @@ export function TasksPage() {
                       <SlidersHorizontalIcon />
                     </MenuTrigger>
                     <MenuPopup align="end">
-                      <MenuCheckboxItem
-                        checked={hideEmpty}
-                        onCheckedChange={setHideEmpty}
-                        closeOnClick={false}
-                      >
-                        Hide empty groups
-                      </MenuCheckboxItem>
-                      <MenuCheckboxItem
-                        checked={showSubTasks}
-                        onCheckedChange={setShowSubTasks}
-                        closeOnClick={false}
-                      >
-                        Show subtasks
-                      </MenuCheckboxItem>
+                      <MenuGroup>
+                        <MenuGroupLabel>Settings</MenuGroupLabel>
+                        <MenuCheckboxItem
+                          checked={hideEmpty}
+                          onCheckedChange={setHideEmpty}
+                          closeOnClick={false}
+                        >
+                          Hide empty groups
+                        </MenuCheckboxItem>
+                        <MenuCheckboxItem
+                          checked={showSubTasks}
+                          onCheckedChange={setShowSubTasks}
+                          closeOnClick={false}
+                        >
+                          Show subtasks
+                        </MenuCheckboxItem>
+                      </MenuGroup>
+                      {view === "card" || view === "board" ? (
+                        <CollectionCardSizePicker value={cardSize} onChange={setCardSize} />
+                      ) : null}
                     </MenuPopup>
                   </Menu>
                 </div>
@@ -1160,7 +1235,19 @@ export function TasksPage() {
                 }}
               >
                 {taskRows.length ? (
-                  <CollectionGroups view={view}>
+                  <CollectionGroups
+                    view={view}
+                    columns={[
+                      { id: "title", label: "Title" },
+                      { id: "agent", label: "Assigned agent" },
+                      { id: "agentStatus", label: "Agent status" },
+                      ...TASK_PROPERTIES.filter(
+                        (p) =>
+                          properties.includes(p.id) && p.id !== grouping && p.id !== subGrouping,
+                      ),
+                      { id: "actions", label: "Actions" },
+                    ]}
+                  >
                     {orderGroups(groups, groupOrder).map((group) => renderGroup(group))}
                   </CollectionGroups>
                 ) : null}

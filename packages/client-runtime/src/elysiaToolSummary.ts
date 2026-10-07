@@ -321,6 +321,9 @@ export function summarizeElysiaToolCalls(
         quantity(countEntities(entityIds("requestId")), "pending question request"),
       );
       break;
+    case "secret-request":
+      label = phrase("Asked for", "ask for", quantity(selected.length, "secret"));
+      break;
     case "worktree-handoff":
       label = phrase(
         "Handed off to",
@@ -408,6 +411,16 @@ export function summarizeElysiaToolCalls(
     case "unlink-pr":
       label = phrase("Unlinked", "unlink", quantity(selected.length, "pull request"));
       break;
+    case "watch-pr":
+      label = phrase("Watching", "watch", quantity(selected.length, "pull request"));
+      break;
+    case "unwatch-pr":
+      label = phrase(
+        "Stopped watching",
+        "stop watching",
+        quantity(selected.length, "pull request"),
+      );
+      break;
     case "list-prs":
       label = phrase(
         "Checked",
@@ -420,6 +433,12 @@ export function summarizeElysiaToolCalls(
       break;
     case "device":
       label = phrase("Used", "use", `device controls ${times}`);
+      break;
+    case "html-preview":
+      label = phrase("Previewed", "preview", quantity(selected.length, "HTML page"));
+      break;
+    case "html-render":
+      label = phrase("Rendered", "render", quantity(selected.length, "HTML page"));
       break;
     case "capabilities":
       label = phrase("Checked", "check", `orchestration capabilities ${times}`);

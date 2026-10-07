@@ -78,6 +78,11 @@ vi.mock("./ChatView", () => ({
 
 beforeEach(() => {
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+  vi.stubGlobal("matchMedia", () => ({
+    matches: false,
+    addEventListener: () => {},
+    removeEventListener: () => {},
+  }));
   state.linked = [];
   state.shells = [];
   vi.clearAllMocks();

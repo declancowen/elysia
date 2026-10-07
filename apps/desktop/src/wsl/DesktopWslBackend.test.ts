@@ -63,7 +63,7 @@ const primarySnapshot: DesktopBackendSnapshot = {
   restartScheduled: false,
 };
 
-const serverExposureLayer = Layer.succeed(DesktopServerExposure.DesktopServerExposure, {
+const layerServerExposure = Layer.succeed(DesktopServerExposure.DesktopServerExposure, {
   getState: Effect.die("unexpected getState"),
   backendConfig: Effect.succeed({
     port: 3773,
@@ -78,16 +78,17 @@ const serverExposureLayer = Layer.succeed(DesktopServerExposure.DesktopServerExp
   getAdvertisedEndpoints: Effect.succeed([]),
 } satisfies DesktopServerExposure.DesktopServerExposure["Service"]);
 
-const backendConfigurationLayer = Layer.succeed(
+const layerBackendConfiguration = Layer.succeed(
   DesktopBackendConfiguration.DesktopBackendConfiguration,
   {
     resolvePrimary: Effect.die("unexpected resolvePrimary"),
     resolvePrimaryLabel: Effect.succeed("Windows"),
     resolveWsl: () => Effect.die("unexpected resolveWsl"),
+    currentBootstrapToken: Effect.die("unexpected currentBootstrapToken"),
   } satisfies DesktopBackendConfiguration.DesktopBackendConfiguration["Service"],
 );
 
-const netLayer = Layer.succeed(NetService.NetService, {
+const layerNet = Layer.succeed(NetService.NetService, {
   canListenOnHost: () => Effect.succeed(true),
   isPortAvailableOnLoopback: () => Effect.succeed(true),
   hasListenerOnHost: () => Effect.succeed(false),
@@ -109,9 +110,9 @@ describe("DesktopWslBackend", () => {
         Effect.provide(
           DesktopWslBackend.layer.pipe(
             Layer.provide(Layer.mock(DesktopBackendPool.DesktopBackendPool, {})),
-            Layer.provide(backendConfigurationLayer),
-            Layer.provide(serverExposureLayer),
-            Layer.provide(netLayer),
+            Layer.provide(layerBackendConfiguration),
+            Layer.provide(layerServerExposure),
+            Layer.provide(layerNet),
             Layer.provide(
               Layer.mock(DesktopWslEnvironment.DesktopWslEnvironment)({
                 isAvailable: Effect.sync(() => {
@@ -144,7 +145,7 @@ describe("DesktopWslBackend", () => {
       label: "WSL (Ubuntu)",
       snapshot: primarySnapshot,
     });
-    const poolLayer = Layer.succeed(DesktopBackendPool.DesktopBackendPool, {
+    const layerPool = Layer.succeed(DesktopBackendPool.DesktopBackendPool, {
       get: (id) =>
         Effect.succeed(
           id === DesktopBackendPool.PRIMARY_INSTANCE_ID
@@ -186,10 +187,10 @@ describe("DesktopWslBackend", () => {
     }).pipe(
       Effect.provide(
         DesktopWslBackend.layer.pipe(
-          Layer.provideMerge(poolLayer),
-          Layer.provideMerge(backendConfigurationLayer),
-          Layer.provideMerge(serverExposureLayer),
-          Layer.provideMerge(netLayer),
+          Layer.provideMerge(layerPool),
+          Layer.provideMerge(layerBackendConfiguration),
+          Layer.provideMerge(layerServerExposure),
+          Layer.provideMerge(layerNet),
           Layer.provideMerge(
             DesktopAppSettings.layerTest({
               ...DesktopAppSettings.DEFAULT_DESKTOP_SETTINGS,
@@ -230,9 +231,9 @@ describe("DesktopWslBackend", () => {
       Effect.provide(
         DesktopWslBackend.layer.pipe(
           Layer.provideMerge(DesktopBackendPool.layerTest([primary, wsl])),
-          Layer.provideMerge(backendConfigurationLayer),
-          Layer.provideMerge(serverExposureLayer),
-          Layer.provideMerge(netLayer),
+          Layer.provideMerge(layerBackendConfiguration),
+          Layer.provideMerge(layerServerExposure),
+          Layer.provideMerge(layerNet),
           Layer.provideMerge(
             DesktopAppSettings.layerTest({
               ...DesktopAppSettings.DEFAULT_DESKTOP_SETTINGS,

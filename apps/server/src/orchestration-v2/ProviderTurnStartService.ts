@@ -3,6 +3,7 @@ import { modelSelectionsEqual } from "@t3tools/shared/model";
 import { projectComposerContextForProvider } from "@t3tools/shared/composerContextReferences";
 import {
   CommandId,
+  latestProviderTurnForAttempt,
   type OrchestrationV2DomainEvent,
   type OrchestrationV2ExecutionNode,
   type OrchestrationV2ProviderThread,
@@ -23,7 +24,7 @@ import * as Schema from "effect/Schema";
 
 import * as GitWorkflowService from "../git/GitWorkflowService.ts";
 import * as ProjectService from "../project/ProjectService.ts";
-import * as ProviderAuthService from "../provider/Services/ProviderAuthService.ts";
+import * as ProviderAuthService from "../provider/ProviderAuthService.ts";
 import * as EventSink from "./EventSink.ts";
 import * as ContextHandoffService from "./ContextHandoffService.ts";
 import {
@@ -125,13 +126,14 @@ export const layer: Layer.Layer<
     }) => {
       // Guards and background routing need live execution state, not a fresh
       // allocation of every completed message and tool output in the thread.
+      // `false` means the run moved on or is gone. A failed read is an error,
+      // so the caller fails the start or the run instead of skipping it.
       const isCurrentAttemptInStatus = (expectedStatus: OrchestrationV2Run["status"]) =>
         projectionStore.getRuntimeRecoveryProjection(input.threadId).pipe(
           Effect.map((current) => {
             const run = current.runs.find((candidate) => candidate.id === input.runId);
             return run?.activeAttemptId === input.attemptId && run.status === expectedStatus;
           }),
-          Effect.catchCause(() => Effect.succeed(false)),
         );
       return {
         isCurrentAttemptInStatus,
@@ -158,7 +160,6 @@ export const layer: Layer.Layer<
                 (run.status === "starting" || run.status === "running")
               );
             }),
-            Effect.catchCause(() => Effect.succeed(false)),
           ),
         hasUnpairedRunInterruptRequest: () =>
           projectionStore
@@ -619,11 +620,11 @@ export const layer: Layer.Layer<
           const sourceAttempt = sourceProjection.attempts.find(
             (candidate) => candidate.id === sourceRun?.activeAttemptId,
           );
-          const sourceProviderTurn = sourceProjection.providerTurns.find(
-            (candidate) =>
-              candidate.id === sourceAttempt?.providerTurnId ||
-              candidate.runAttemptId === sourceAttempt?.id,
-          );
+          const sourceProviderTurn =
+            latestProviderTurnForAttempt(sourceProjection.providerTurns, sourceAttempt?.id) ??
+            sourceProjection.providerTurns.find(
+              (candidate) => candidate.id === sourceAttempt?.providerTurnId,
+            );
           if (sourceRun === undefined || sourceProviderThread === undefined) {
             return yield* new ProviderTurnStartError({
               runId,
@@ -977,6 +978,7 @@ export const layer: Layer.Layer<
         run,
         projection.runs,
         projection.providerTurns,
+        projection.attempts,
       );
       const restartCancelledWork = pendingRestartCancelledBackgroundWork({
         runs: projection.runs,
@@ -991,9 +993,7 @@ export const layer: Layer.Layer<
             .map((candidate) => candidate.id),
         ),
         run,
-        runAttemptIds: projection.attempts
-          .filter((candidate) => candidate.runId === run.id)
-          .map((candidate) => candidate.id),
+        attempts: projection.attempts,
       });
       const restartNote =
         restartCancelledWork.length === 0
@@ -1256,6 +1256,13 @@ export const layer: Layer.Layer<
               .filter((turn) => turn.providerThreadId === providerThread.id)
               .map((turn) => turn.ordinal),
           ) + 1,
+        // Legacy accepted attempts have no native id. They count only before
+        // a replacement, while no accepted attempt records a native identity.
+        nativeThreadHasTurns:
+          nativeInputRunIds.size > 0 ||
+          (legacyInputRunIds.size > 0 &&
+            sameNativeThread &&
+            !acceptedAttempts.some((source) => source.nativeThreadId !== undefined)),
         shouldStartProviderTurn: runControls.shouldStartProviderTurn,
         shouldFinalizeRun: runControls.shouldFinalizeRun,
         hasUnpairedRunInterruptRequest: runControls.hasUnpairedRunInterruptRequest,

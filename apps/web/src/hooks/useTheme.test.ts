@@ -36,6 +36,24 @@ describe("theme failure handling", () => {
     expect(storage.length).toBe(0);
   });
 
+  it.each(["light", "dark"] as const)(
+    "uses Midnight when %s mode is selected without a saved theme",
+    async (mode) => {
+      const storage = createStorage();
+      storage.setItem("t3code:theme-appearance-mode", mode);
+      vi.stubGlobal("window", { localStorage: storage });
+      const { readThemePreference, readAppearanceModePreference } = await import("./useTheme");
+      const { getThemeDefinition, getThemeColorsForMode, resolveThemeHalf } =
+        await import("../themePalette");
+      const theme = readThemePreference();
+      expect(theme).toBe("midnight");
+      expect(readAppearanceModePreference(theme)).toBe(mode);
+      expect(resolveThemeHalf(theme, null, mode)).toBe("midnight");
+      expect(getThemeColorsForMode(getThemeDefinition(theme)!, mode)).not.toBeNull();
+      expect(storage.getItem("t3code:theme")).toBeNull();
+    },
+  );
+
   it.each(["default", "graphite", "paper", "light", "dark", "system"])(
     "preserves the saved %s theme on startup",
     async (theme) => {

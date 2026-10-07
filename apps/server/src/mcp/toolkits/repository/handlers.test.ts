@@ -26,7 +26,7 @@ import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Ref from "effect/Ref";
 import * as Stream from "effect/Stream";
-import { McpSchema, McpServer } from "effect/unstable/ai";
+import { McpSchema, McpServer } from "effect/ai";
 import { ServerConfig } from "../../../config.ts";
 import { layerTest as configLayerTest } from "../../../config.ts";
 import * as NodeServices from "@effect/platform-node/NodeServices";
@@ -34,8 +34,11 @@ import * as NodeServices from "@effect/platform-node/NodeServices";
 import { VcsProvisioningService } from "../../../vcs/VcsProvisioningService.ts";
 import { VcsStatusBroadcaster } from "../../../vcs/VcsStatusBroadcaster.ts";
 import * as McpInvocationContext from "../../McpInvocationContext.ts";
-import { RepositoryToolkitRegistrationLive } from "../../McpHttpServer.ts";
-import { RepositoryToolkitHandlersLive } from "./handlers.ts";
+import { layerRepositoryToolkit } from "../../McpHttpServer.ts";
+import { HandlersLayer } from "../../McpToolAccess.ts";
+import * as ThreadManagement from "../../../orchestration-v2/ThreadManagementService.ts";
+import { liveThreadShell } from "../../McpToolAccess.testkit.ts";
+import { layer as layerRepositoryHandlers } from "./handlers.ts";
 import { RepositoryToolkit } from "./tools.ts";
 
 const projectId = ProjectId.make("repository-project");
@@ -43,9 +46,13 @@ const threadId = ThreadId.make("repository-thread");
 const instanceId = ProviderInstanceId.make("claude-code");
 const invocation: McpInvocationContext.McpInvocationScope = {
   environmentId: EnvironmentId.make("repository-environment"),
-  threadId,
-  providerSessionId: "repository-provider-session",
-  providerInstanceId: instanceId,
+  requestNamespace: "repository-provider-session",
+  thread: {
+    threadId,
+    providerSessionId: "repository-provider-session",
+    providerInstanceId: instanceId,
+  },
+  client: undefined,
   capabilities: new Set(["repository"]),
   issuedAt: 1,
 };
@@ -83,7 +90,7 @@ const thread: OrchestrationV2AppThread & { session: OrchestrationV2ProviderSessi
   lastVisitedAt: null,
   deletedAt: null,
   session: {
-    id: ProviderSessionId.make(invocation.providerSessionId),
+    id: ProviderSessionId.make(invocation.thread!.providerSessionId),
     driver: ProviderDriverKind.make("claudeAgent"),
     providerInstanceId: instanceId,
     status: "running",
@@ -130,6 +137,14 @@ const makeHarness = Effect.fn("makeRepositoryToolkitHarness")(function* (
   const dependencies = Layer.mergeAll(
     Layer.succeed(ServerConfig, { ...config, baseDir: "/state" }),
     NodeServices.layer,
+    Layer.mock(ThreadManagement.ThreadManagementService)({
+      getThreadShell: (id) =>
+        Ref.get(currentThread).pipe(
+          Effect.map((value) =>
+            value !== null && id === threadId ? { ...liveThreadShell(id), ...value } : null,
+          ),
+        ),
+    }),
     Layer.mock(ProjectionStore.ProjectionStoreV2)({
       getThreadRecords: (id) =>
         Ref.get(currentThread).pipe(
@@ -206,7 +221,7 @@ const makeHarness = Effect.fn("makeRepositoryToolkitHarness")(function* (
   );
   const toolkit = yield* RepositoryToolkit.pipe(
     Effect.provide(
-      RepositoryToolkitHandlersLive.pipe(
+      HandlersLayer.layer(layerRepositoryHandlers).pipe(
         Layer.provide(RepositoryInitialization.layer),
         Layer.provide(dependencies),
       ),
@@ -222,7 +237,7 @@ const makeHarness = Effect.fn("makeRepositoryToolkitHarness")(function* (
     );
   const initialize = (input = invocation) =>
     Effect.flatMap(RepositoryInitialization.RepositoryInitialization, (service) =>
-      service.initialize(input),
+      service.initialize(input.thread!),
     ).pipe(Effect.provide(RepositoryInitialization.layer.pipe(Layer.provide(dependencies))));
   return { calls, refreshed, currentThread, currentProject, dependencies, call, initialize };
 });
@@ -233,7 +248,10 @@ describe("repository toolkit", () => {
       const harness = yield* makeHarness();
       expect(
         yield* harness
-          .initialize({ ...invocation, providerSessionId: "different-session" })
+          .initialize({
+            ...invocation,
+            thread: { ...invocation.thread!, providerSessionId: "different-session" },
+          })
           .pipe(Effect.flip),
       ).toMatchObject({ _tag: "RepositoryInitializationDeniedError" });
       expect(yield* Ref.get(harness.calls)).toEqual([]);
@@ -318,9 +336,12 @@ describe("repository toolkit", () => {
       ).toMatchObject({ _tag: "McpCapabilityUnavailableError", capability: "repository" });
       expect(
         yield* harness
-          .call({ ...invocation, threadId: ThreadId.make("other-thread") })
+          .call({
+            ...invocation,
+            thread: { ...invocation.thread!, threadId: ThreadId.make("other-thread") },
+          })
           .pipe(Effect.flip),
-      ).toMatchObject({ _tag: "RepositoryInitializationDeniedError" });
+      ).toMatchObject({ _tag: "OrchestratorMcpFailure", code: "thread_not_found" });
       expect(yield* Ref.get(harness.calls)).toEqual([]);
     }),
   );
@@ -347,9 +368,14 @@ describe("repository toolkit", () => {
   ])("rejects missing, archived, planning or stale session targets %#", (target) =>
     Effect.gen(function* () {
       const harness = yield* makeHarness(target);
-      expect(yield* harness.call().pipe(Effect.flip)).toMatchObject({
-        _tag: "RepositoryInitializationDeniedError",
-      });
+      const caller = target.thread;
+      expect(yield* harness.call().pipe(Effect.flip)).toMatchObject(
+        caller === null || (caller?.deletedAt !== null && caller?.deletedAt !== undefined)
+          ? { _tag: "OrchestratorMcpFailure", code: "thread_not_found" }
+          : caller?.archivedAt !== null && caller?.archivedAt !== undefined
+            ? { _tag: "OrchestratorMcpFailure", code: "parent_not_active" }
+            : { _tag: "RepositoryInitializationDeniedError" },
+      );
       expect(yield* Ref.get(harness.calls)).toEqual([]);
       expect(yield* Deferred.isDone(harness.refreshed)).toBe(false);
     }),
@@ -421,7 +447,7 @@ describe("repository toolkit", () => {
           expect(result.isError).toBeFalsy();
         }).pipe(
           Effect.provide(
-            RepositoryToolkitRegistrationLive.pipe(
+            layerRepositoryToolkit.pipe(
               Layer.provide(RepositoryInitialization.layer),
               Layer.provideMerge(McpServer.McpServer.layer),
               Layer.provide(harness.dependencies),

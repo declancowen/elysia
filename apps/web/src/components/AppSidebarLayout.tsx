@@ -1,8 +1,11 @@
+import { useAgentDialogStore } from "./agents/agentDialogStore";
+import { AgentSectionDialog } from "./agents/AgentSidebarOrganization";
 import { useAtomValue } from "@effect/atom-react";
 import * as Schema from "effect/Schema";
 import { SINGLE_PROVIDER_UI } from "@t3tools/contracts";
 import {
   useEffect,
+  useLayoutEffect,
   useMemo,
   useState,
   useSyncExternalStore,
@@ -34,6 +37,7 @@ import {
   usePanelNavigationSuppression,
 } from "../panelAnimations";
 import LegacyThreadSidebar from "./LegacySidebar";
+import { CollectionSidebar } from "./sidebar/SidebarHoverContents";
 import { useThreadVisitedMigration } from "../hooks/useThreadVisitedMigration";
 import ThreadSidebar from "./Sidebar";
 import { AgentsSidebar } from "./agents/AgentsSidebar";
@@ -47,18 +51,20 @@ import {
   WorkspaceSidebarContentHost,
   WorkspaceSidebarContentProvider,
 } from "./sidebar/WorkspaceSidebarContent";
-import { AppNavigationRail, SidebarChromeHeader } from "./sidebar/SidebarChrome";
+import { AppNavigationRail, SidebarBrandWidthProbe } from "./sidebar/SidebarChrome";
+import { SidebarHoverPreviewProvider } from "./sidebar/SidebarHoverPreview";
 import { AppTopbar } from "./AppTopbar";
 import { MainAppLocationTracker, isSidebarUtilityPage } from "./sidebar/mainAppLocation";
 import { useSidebarStageBackdropVariant } from "./SidebarStageBackdrop";
 import { useArchivedConversationTabs } from "../hooks/useConversationTabNavigation";
 import { useProjects } from "../state/entities";
 import {
+  clampThreadSidebarWidth,
+  resolveThreadSidebarMinimumWidth,
   resolveInitialThreadSidebarWidth,
   resolveThreadSidebarMaximumWidth,
   THREAD_MAIN_CONTENT_MIN_WIDTH,
   APP_NAVIGATION_RAIL_WIDTH,
-  THREAD_SIDEBAR_MIN_WIDTH,
   THREAD_SIDEBAR_WIDTH_STORAGE_KEY,
 } from "./threadSidebarWidth";
 import {
@@ -246,14 +252,28 @@ export function AppSidebarLayout({ children }: { children: ReactNode }) {
   const pathname = useLocation({ select: (location) => location.pathname });
   const panelAnimationsSuppressed = usePanelNavigationSuppression(pathname);
   const routePanelAnimationsActive = panelAnimationsActive && !panelAnimationsSuppressed;
+  useLayoutEffect(() => {
+    const root = document.documentElement;
+    const previous = root.style.getPropertyValue("--panel-animation-duration");
+    root.style.setProperty(
+      "--panel-animation-duration",
+      routePanelAnimationsActive ? `${panelAnimationDurationMs}ms` : "0ms",
+    );
+    return () => {
+      if (previous) root.style.setProperty("--panel-animation-duration", previous);
+      else root.style.removeProperty("--panel-animation-duration");
+    };
+  }, [panelAnimationDurationMs, routePanelAnimationsActive]);
   const isOnSettings = pathname === "/settings" || pathname.startsWith("/settings/");
   const isOnScheduled = SINGLE_PROVIDER_UI && pathname === "/settings/scheduled-tasks";
   const isPullRequestsPage = SINGLE_PROVIDER_UI && pathname === "/pull-requests";
-  const isProjectsPage =
-    pathname === "/projects" ||
-    pathname === "/tasks" ||
-    pathname === "/pages" ||
-    pathname.startsWith("/pages/");
+  const collectionKind =
+    pathname === "/tasks"
+      ? "tasks"
+      : pathname === "/pages" || pathname.startsWith("/pages/")
+        ? "pages"
+        : null;
+  const isProjectsPage = pathname === "/projects";
   const editingAgent = useLocation({
     select: (location) =>
       location.pathname === "/agents" &&
@@ -296,8 +316,10 @@ export function AppSidebarLayout({ children }: { children: ReactNode }) {
   // and a clamped drag ends with an unchanged width, which skips the re-render
   // that would otherwise refresh a render-time snapshot.
   const viewportWidth = useSyncExternalStore(subscribeToViewportWidth, readViewportWidth);
-  const hideThreadSidebar = (isProjectsPage || pathname === "/usage") && viewportWidth >= 768;
-  const sidebarMaximumWidth = resolveThreadSidebarMaximumWidth(viewportWidth);
+
+  const [brandWidth, setBrandWidth] = useState(0);
+  const sidebarMinimumWidth = resolveThreadSidebarMinimumWidth(brandWidth);
+  const sidebarMaximumWidth = resolveThreadSidebarMaximumWidth(viewportWidth, sidebarMinimumWidth);
   const resetSidebarWidth = () => {
     try {
       removeLocalStorageItem(sidebarStorageKey);
@@ -313,8 +335,8 @@ export function AppSidebarLayout({ children }: { children: ReactNode }) {
       : false;
   });
   const sidebarProviderStyle = {
-    "--sidebar-width": `${sidebarWidth}px`,
-    "--workspace-sidebar-width": hideThreadSidebar ? "0px" : "var(--sidebar-width)",
+    "--sidebar-width": `${clampThreadSidebarWidth(sidebarWidth, sidebarMinimumWidth, sidebarMaximumWidth)}px`,
+    "--workspace-sidebar-width": "var(--sidebar-width)",
     "--workspace-mobile-header-inset": "calc(var(--workspace-controls-left) + 2.5rem)",
     "--app-navigation-rail-width": `${APP_NAVIGATION_RAIL_WIDTH}px`,
     "--panel-animation-duration": `${panelAnimationDurationMs}ms`,
@@ -360,6 +382,7 @@ export function AppSidebarLayout({ children }: { children: ReactNode }) {
     };
   }, [navigate, pathname]);
 
+  const sectionDialogOpen = useAgentDialogStore((state) => state.sectionDialogOpen);
   return (
     <PanelAnimationSuppressionProvider value={panelAnimationsSuppressed}>
       <WorkspaceSidebarContentProvider>
@@ -369,85 +392,100 @@ export function AppSidebarLayout({ children }: { children: ReactNode }) {
           defaultOpen
           style={sidebarProviderStyle}
         >
-          <ProjectProjectionRetention />
-          {SINGLE_PROVIDER_UI ? (
-            <AppTopbar sidebarControl={<SidebarControl disabled={hideThreadSidebar} />} />
-          ) : null}
-          {SINGLE_PROVIDER_UI ? (
-            <div
-              data-mobile-sidebar-control
-              className="fixed left-[var(--workspace-controls-left)] top-[var(--workspace-controls-top)] z-50 flex h-[var(--workspace-topbar-height)] items-center md:hidden"
-            >
-              <Tooltip>
-                <TooltipTrigger render={<SidebarTrigger aria-label="Toggle main sidebar" />} />
-                <TooltipPopup side="bottom">Toggle main sidebar</TooltipPopup>
-              </Tooltip>
-            </div>
-          ) : null}
-          <div
-            className={cn(
-              "flex min-h-0 min-w-0 flex-1",
-              SINGLE_PROVIDER_UI &&
-                "md:h-[calc(100dvh-var(--workspace-topbar-height)-0.25rem)] md:pt-1 md:pb-2 md:[&>[data-slot=sidebar-inset]]:h-full",
-            )}
-          >
-            {SINGLE_PROVIDER_UI ? <AppNavigationRail /> : null}
-            {!hideThreadSidebar ? (
-              <Sidebar
-                className={
-                  SINGLE_PROVIDER_UI
-                    ? "md:top-[calc(var(--workspace-topbar-height)+0.5rem)] md:left-[var(--app-navigation-rail-width)] md:h-[calc(100dvh-var(--workspace-topbar-height)-1rem)] md:group-data-[collapsible=offcanvas]:left-[calc(var(--app-navigation-rail-width)-var(--sidebar-width))]"
-                    : undefined
-                }
-                side="left"
-                variant={SINGLE_PROVIDER_UI ? "panel" : "sidebar"}
-                collapsible="offcanvas"
-                data-app-sidebar=""
-                role="navigation"
-                aria-label={
-                  isPullRequestsPage
-                    ? "Pull requests"
-                    : isOnScheduled
-                      ? "Scheduled"
-                      : isOnSettings
-                        ? "Settings"
-                        : showAgentsSidebar
-                          ? "Agents"
-                          : "Threads"
-                }
-                resizable={{
-                  maxWidth: sidebarMaximumWidth,
-                  minWidth: THREAD_SIDEBAR_MIN_WIDTH,
-                  shouldAcceptWidth: ({ currentWidth, nextWidth, wrapper }) =>
-                    nextWidth <= currentWidth ||
-                    wrapper.clientWidth - nextWidth - APP_NAVIGATION_RAIL_WIDTH >=
-                      THREAD_MAIN_CONTENT_MIN_WIDTH,
-                  storageKey: sidebarStorageKey,
-                  onResize: setSidebarWidth,
-                }}
+          <SidebarHoverPreviewProvider sidebarAvailable>
+            {!SINGLE_PROVIDER_UI ? <SidebarBrandWidthProbe onWidthChange={setBrandWidth} /> : null}
+            <ProjectProjectionRetention />
+            {SINGLE_PROVIDER_UI ? <AppTopbar sidebarControl={<SidebarControl />} /> : null}
+            {SINGLE_PROVIDER_UI ? (
+              <div
+                data-mobile-sidebar-control
+                className="fixed left-[var(--workspace-controls-left)] top-[var(--workspace-controls-top)] z-50 flex h-[var(--workspace-topbar-height)] items-center md:hidden"
               >
-                {isOnScheduled || isPullRequestsPage ? (
-                  <WorkspaceSidebarContentHost />
-                ) : isOnSettings ? (
-                  <>
-                    <SidebarChromeHeader isElectron={isElectron} title="Settings" />
-                    <SettingsSidebarNav pathname={pathname} />
-                  </>
-                ) : showAgentsSidebar ? (
-                  <AgentsSidebar />
-                ) : legacySidebarEnabled ? (
-                  <LegacyThreadSidebar />
-                ) : (
-                  <ThreadSidebar />
-                )}
-                <SidebarRail onDoubleClick={resetSidebarWidth} />
-              </Sidebar>
+                <Tooltip>
+                  <TooltipTrigger render={<SidebarTrigger aria-label="Toggle main sidebar" />} />
+                  <TooltipPopup side="bottom">Toggle main sidebar</TooltipPopup>
+                </Tooltip>
+              </div>
             ) : null}
-            {children}
-          </div>
-          {!SINGLE_PROVIDER_UI ? <SidebarControl /> : null}
-          <NavigationHistoryShortcuts />
-          <MainAppLocationTracker />
+            <div
+              className={cn(
+                "flex min-h-0 min-w-0 flex-1",
+                SINGLE_PROVIDER_UI &&
+                  "md:h-[calc(100dvh-var(--workspace-topbar-height)-0.25rem)] md:pt-1 md:pb-2 md:[&>[data-slot=sidebar-inset]]:h-full",
+              )}
+            >
+              {SINGLE_PROVIDER_UI ? <AppNavigationRail /> : null}
+              {
+                <Sidebar
+                  className={
+                    SINGLE_PROVIDER_UI
+                      ? "md:top-[calc(var(--workspace-topbar-height)+0.5rem)] md:left-[var(--app-navigation-rail-width)] md:h-[calc(100dvh-var(--workspace-topbar-height)-1rem)] md:group-data-[collapsible=offcanvas]:left-[calc(var(--app-navigation-rail-width)-var(--sidebar-width))]"
+                      : undefined
+                  }
+                  side="left"
+                  variant={SINGLE_PROVIDER_UI ? "panel" : "sidebar"}
+                  collapsible="offcanvas"
+                  data-app-sidebar=""
+                  role="navigation"
+                  aria-label={
+                    collectionKind === "pages"
+                      ? "Pages"
+                      : collectionKind === "tasks"
+                        ? "Tasks"
+                        : isProjectsPage
+                          ? "Projects"
+                          : isPullRequestsPage
+                            ? "Pull requests"
+                            : isOnScheduled
+                              ? "Scheduled"
+                              : isOnSettings
+                                ? "Settings"
+                                : showAgentsSidebar
+                                  ? "Agents"
+                                  : "Threads"
+                  }
+                  resizable={{
+                    maxWidth: sidebarMaximumWidth,
+                    minWidth: sidebarMinimumWidth,
+                    shouldAcceptWidth: ({ currentWidth, nextWidth, wrapper }) =>
+                      nextWidth <= currentWidth ||
+                      wrapper.clientWidth - nextWidth - APP_NAVIGATION_RAIL_WIDTH >=
+                        THREAD_MAIN_CONTENT_MIN_WIDTH,
+                    storageKey: sidebarStorageKey,
+                    onResize: setSidebarWidth,
+                  }}
+                >
+                  {collectionKind ? (
+                    <CollectionSidebar kind={collectionKind} />
+                  ) : isProjectsPage ? (
+                    <LegacyThreadSidebar projectsOnly />
+                  ) : isOnScheduled || isPullRequestsPage ? (
+                    <WorkspaceSidebarContentHost />
+                  ) : isOnSettings ? (
+                    <>
+                      <SettingsSidebarNav pathname={pathname} />
+                    </>
+                  ) : showAgentsSidebar ? (
+                    <AgentsSidebar />
+                  ) : legacySidebarEnabled ? (
+                    <LegacyThreadSidebar />
+                  ) : (
+                    <ThreadSidebar />
+                  )}
+                  <SidebarRail onDoubleClick={resetSidebarWidth} />
+                </Sidebar>
+              }
+              {children}
+            </div>
+            {!SINGLE_PROVIDER_UI ? <SidebarControl /> : null}
+            <NavigationHistoryShortcuts />
+            <MainAppLocationTracker />
+            {sectionDialogOpen ? (
+              <AgentSectionDialog
+                onClose={() => useAgentDialogStore.setState({ sectionDialogOpen: false })}
+              />
+            ) : null}
+          </SidebarHoverPreviewProvider>
         </SidebarProvider>
       </WorkspaceSidebarContentProvider>
     </PanelAnimationSuppressionProvider>

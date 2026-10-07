@@ -1,45 +1,6 @@
 # Elysia
 
-This repository is **Elysia**, the company fork of **T3 Code**. T3 Code supplies the underlying application infrastructure; Elysia owns the shipped product, UI design, branding, and native CLI integration. Call the app **Elysia** in UI text and agent responses. App-owned names and identifiers use Elysia; upstream attribution and third-party identities remain accurate.
-
-These Elysia instructions take precedence over the upstream guidance below, including guidance brought in by future pull requests or merges. An upstream default is not authorization to change Elysia's product policy.
-
-## Preserve Elysia's product
-
-- Preserve Elysia's current navigation, workspace and agent experiences, tabs, pane layout, themes, iconography, and settings design. Bring useful upstream behavior into these existing surfaces; do not replace them with upstream UI or undo deliberate Elysia design decisions while resolving conflicts.
-- Keep the native **Elysia CLI (`elysia-code`)** integration through Claude Code. The enabled internal driver is `claudeAgent`; this does not mean the shipped product should become generic Claude Code or expose other agent harnesses. Models available through the Elysia gateway are not separate provider integrations.
-- Preserve native model routing, compression, slash commands, skills, session continuity, and LangSmith tracing. Credential protection must continue to work without bypassing or breaking those native capabilities. Keep the isolated Elysia provider profile and the existing orchestration-v2 integration.
-- Preserve Elysia branding, stable updates, and its release/signing pipeline. Do not switch releases to upstream repositories, update feeds, analytics, or prerelease channels.
-
-## Elysia naming and migration policy
-
-- Preserve Elysia-owned names when merging upstream. Adapt new app-owned UI text, MCP tools, injected instructions, package/module names, configuration keys, environment variables, storage identifiers, and native integrations to Elysia naming. Do not restore upstream names over Elysia equivalents. Rename producers and all consumers together, with focused checks.
-- Keep actual upstream credits, licenses, third-party names, and external service identifiers accurate. Those are attribution or integration contracts, not Elysia product branding.
-- Migrate existing chats, settings, references, and database state before switching persisted identifiers or data locations. Never resolve a rename by creating an empty profile, overwriting existing data, or relying on users to repair broken chats afterward.
-- The legacy Elysia data-folder and tool-name migration completed for all existing users in v0.0.33 and has been removed. Do not restore that bridge, legacy reads, or its startup checks when merging upstream. Preserve existing Elysia data and recoverable backups.
-- For future persisted renames, keep transitional legacy reads confined to a verified migration, never permanent runtime aliases. Remove completed migration code from source in a later signed build; never self-delete bundled files. Preserve applied database migration IDs and never reuse them. Migration 61 is retired; the next schema migration must start at 62 or higher.
-- Upstream merges must preserve this policy and Elysia's existing product behavior. This section takes precedence over upstream naming and compatibility defaults below.
-
-## Retain upstream capabilities without enabling them
-
-Continue bringing in useful upstream fixes and infrastructure, including connection/environment management, remote and relay support, and other provider/harness adapters. Keep their implementations, contracts, and relevant tests available for future merges, even when Elysia does not expose or run them. Do not delete them merely because they are dormant in this fork.
-
-[Fork policy](packages/contracts/src/forkPolicy.ts) is the central source of truth for the existing runtime gates. The shipped app remains Elysia-only: connection management, other harnesses, external usage sources, and upstream analytics stay disabled; updates stay on the Elysia stable channel. Preserve environment-scoped contracts and authenticated app communication used by active features. Retaining connection code does not mean enabling connection onboarding, pairing, relay services, or their settings.
-
-Enforce these boundaries in the existing server/runtime policy as well as the UI. Hiding a control alone is insufficient, and legacy or custom settings must not reactivate a disabled capability. New upstream entry points must respect the same gates. Enabling a dormant capability or replacing Elysia's UI/CLI policy requires explicit product direction.
-
-## Upstream pull requests and merges
-
-1. Inspect the upstream intent and the corresponding Elysia implementation before resolving conflicts. Preserve Elysia's product behavior while incorporating compatible correctness, security, performance, orchestration, and platform improvements.
-2. Keep shared fixes in their existing owners. Prefer the existing fork policy and adapter boundaries over duplicated services, scattered Elysia conditionals, or a second implementation of the upstream subsystem.
-3. Adapt upstream UI changes to Elysia's components and design. If a feature depends on a disabled capability, retain its implementation behind the existing policy instead of exposing it in Elysia.
-4. Check all connected entry points: UI, settings, command palette, keybindings, RPC/HTTP, MCP, scheduled tasks, and persisted settings. Preserve both the active Elysia path and dormant upstream compatibility.
-5. Run focused checks for the affected behavior and fork boundaries. Relevant guards include `ElysiaPolicy.test.ts`, `ElysiaCli.test.ts`, `ElysiaAgentProtection.test.ts`, and orchestration-v2 `RuntimePolicy.test.ts`. Follow the verification guidance below for UI/native checks; do not claim an untested surface works.
-6. In the merge or PR summary, identify which upstream changes were adopted, which remain gated, and any deliberate Elysia divergence. Do not claim upstream behavior is enabled merely because its code merged.
-
-The upstream development guidance follows below. Its product history, branding, and remote/multiple-provider defaults describe T3 Code; the Elysia policy above governs this app.
-
-# T3 Code
+Elysia is based on T3 Code. The following development guidance is adapted from upstream.
 
 T3 Code is a minimal GUI for coding agents. A Node WebSocket server wraps provider CLIs and agents (Codex, Claude Code, Cursor, Grok, OpenCode, Antigravity) and serves web, desktop, and mobile clients.
 
@@ -100,7 +61,7 @@ We need to be on the same page with terminology. When communicating, use this la
 ## The three ways to hurt yourself
 
 1. **Killing by pattern.** Never `pkill -f`, `pgrep | kill`, or `kill` a PID you found by matching a name, path, or worktree string. Your own agent process has this worktree's path in its argv, and this machine runs several other dev servers at once. Kill only a PID you captured at spawn, or the owner of your port from `ss -H -ltnp` after confirming `/proc/<pid>/cwd` is your worktree.
-2. **Writing to the live install.** `~/.t3/userdata` is the developer's real T3 Code database, in use while you work. Reading it and copying from it are fine, and a good way to get real test data (see Test data). Never start a server against it, never open it read-write, never clean it up.
+2. **Writing to the live install.** `~/.elysia/userdata` is the developer's real Elysia database, in use while you work. Reading it and copying from it are fine, and a good way to get real test data (see Test data). Never start a server against it, never open it read-write, never clean it up.
 3. **Baking in origins.** Never set `VITE_HTTP_URL` or `VITE_WS_URL` for dev. Dev is single-origin and Vite proxies `/api`, `/ws`, `/oauth`, and `/.well-known`. Setting them bakes localhost into the bundle and silently breaks every remote browser.
 
 ## Hit every surface
@@ -119,7 +80,7 @@ The most common defect in this repo is a change that works on the path you teste
 ## Dev servers
 
 - `vp i` installs. Worktrees get this from the t3.json setup script; if module resolution looks broken, it probably did not run.
-- `vp run dev` starts server and web. In a worktree, state defaults to that worktree's gitignored `.t3`, which deliberately outranks an ambient `T3CODE_HOME` so you cannot land on shared state by accident. An explicit `--home-dir` still wins.
+- `vp run dev` starts server and web. In a worktree, state defaults to that worktree's gitignored `.elysia`, which deliberately outranks an ambient `T3CODE_HOME` so you cannot land on shared state by accident. An explicit `--home-dir` still wins.
 - Ports derive from the worktree path and are stable across restarts, but read the real ones from the `[dev-runner]` line since occupied ports shift.
 - Sharing over the tailnet is three steps: run `vp run dev --share` in the background, wait for the `pairingUrl:` line in its output, then give that full URL to an unpaired browser. Do not wire up `tailscale serve` by hand, open the URL yourself, or consume the user's pairing link. A browser with the reusable dev cookie can use the bare origin. If a normal one-time token was consumed, mint a fresh one with `node apps/server/src/bin.ts pair`. It carries standard scopes, while the startup URL carries admin scopes needed for Connections settings.
 - To reuse web dev auth across worktrees, configure one fixed `T3CODE_DEV_AUTH_TOKEN` in the main checkout's gitignored `.env`. The `t3.json` setup links that file into worktrees. Never commit or publish the token or a startup URL. See [Reusable dev credential](docs/operations/development.md#reusable-dev-credential).
@@ -127,19 +88,10 @@ The most common defect in this repo is a change that works on the path you teste
 
 ## Test data
 
-An empty database is a bad test. Seed your worktree's `.t3` with a copy of real data instead of pointing at live state:
+An empty database is a bad test. Seed your worktree's `.elysia` with a copy of real data instead of pointing at live state:
 
-- Copy from `~/.t3/userdata` (the developer's real data, the most realistic test set) or `~/.t3/dev`. Worktree state lives at `<worktree>/.t3/userdata`.
-- Snapshot the database with `VACUUM INTO`, which is safe even while a server has the source open and yields one consistent file:
-
-  ```bash
-  mkdir -p .t3/userdata
-  rm -f .t3/userdata/state.sqlite*  # VACUUM INTO refuses to overwrite
-  bun -e "new (require('bun:sqlite').Database)(process.env.HOME + '/.t3/userdata/state.sqlite', { readonly: true }).run(\"VACUUM INTO '.t3/userdata/state.sqlite'\")"
-  ```
-
-  A plain `cp` is only safe when no server has the source open, and must bring the `-wal` and `-shm` siblings along. A live file copy is a corrupt copy.
-
+- Run `vp run migrate-dev-db` with your dev server stopped. It rebuilds `<worktree>/.elysia/userdata/statev2.sqlite` from a read-only snapshot of `~/.elysia/userdata/statev2.sqlite`, the developer's real data. It keeps recent projects and their stopped threads, and drops scheduled tasks, pending work, and auth sessions, so your dev server never runs the developer's agents. Raise `--projects` and `--threads-per-project` for more data.
+- Refresh `statev2.sqlite`, not `state.sqlite`. The server copies the V1 `state.sqlite` only when `statev2.sqlite` is missing.
 - Bring `secrets` and `settings.json` only if the flow under test needs them.
 - Copy in, never symlink. Data flows one way: into your sandbox, never back out.
 
@@ -149,7 +101,7 @@ An empty database is a bad test. Seed your worktree's `.t3` with a copy of real 
 - Test meaningful logic or observable behavior. Do not render components to static markup to assert props or attributes, or add tests that merely assert callback wiring or mirror the implementation.
 - **Do not run repo-wide checks.** No `vp check`, no `vp run -r test`, no `vp run -r typecheck` unless I ask. CI owns the full suite.
 - Backend behavior changes ship with focused tests for that behavior.
-- The server is event-sourced and its async flows emit typed receipts. Wait on receipts and worker drains, never on sleeps or polling. A test that needs a timeout to pass is wrong.
+- The server is event-sourced, and side effects run after the command commits. In tests, drain the effect worker (`OrchestrationEffectWorkerV2.drain`) or await the specific persisted event or `Deferred` that marks the milestone. Never wait on sleeps or polling. A test that needs a timeout to pass is wrong.
 - Upon request, user-visible frontend changes should get one integrated pass in a real client: `test-elysia-app` for web, `test-elysia-mobile` for mobile. The primary agent does this once after integrating. Subagents do not launch their own dev servers. Ask permission before doing computer use or spinning up browsers.
 
 For authorized mobile verification, a missing or outdated native client is a build step, not a blocker. Run `node scripts/mobile-native-client.ts ensure <ios|android> <device-id>` on the simulator host before starting Metro. It checks the local Expo fingerprint and builds/installs when needed. See `test-elysia-mobile` for the full workflow.
@@ -161,7 +113,7 @@ For authorized mobile verification, a missing or outdated native client is a bui
 - Body: the problem in a sentence or two, then how you fixed it. End with the model and harness that did the work.
 - UI changes need before/after images. Motion or timing needs a short video.
 - Upload PR evidence to GitHub. Never commit PR-only screenshots or assets such as `.github/pr-assets/`.
-- One concern per PR. If the description says "also", split it.
+- One request is one PR. Split it only when the maintainer asks. Outside contributions follow the stricter [one problem per PR](CONTRIBUTING.md#one-problem) rule.
 - When babysitting: poll checks and comments newer than the last push, verify each bot finding against the source, fix real ones, dismiss false positives with a written reason. Stay quiet when nothing is new. Stop when the bots are green on the latest commit.
 
 ## Documentation
@@ -184,9 +136,9 @@ Most code changes do not need an internal documentation change. Agents can read 
 
 ## How it works
 
-Clients send typed WebSocket requests. The server turns them into _commands_, a pure _decider_ turns commands into persisted _events_, and a _projector_ derives the read model the UI renders. Provider CLIs run as subprocesses; per-provider _adapters_ translate their native protocols into orchestration events. Side effects run in queue-backed _reactors_ that emit _receipts_ when milestones land. Each turn ends with a _checkpoint_, a hidden git ref, so the app can diff and restore.
+Clients send typed WebSocket requests. The server turns them into _commands_. The _orchestrator_ (`apps/server/src/orchestration-v2/Orchestrator.ts`) serializes commands and decides _events_ without doing any I/O. The _event sink_ commits those events, the _projections_ the UI reads, the _command receipt_, and _outbox_ effects in one transaction. The _effect worker_ then runs the effects, such as starting a provider turn or capturing a checkpoint, and feeds results back as commands. Provider CLIs run as subprocesses; per-provider _adapters_ translate their native protocols into orchestration events. Each turn ends with a _checkpoint_, a hidden git ref, so the app can diff and restore.
 
-Full glossary with file links: `docs/internals/glossary.md`
+Architecture and its constraints: `docs/internals/overview.md`. Glossary: `docs/internals/glossary.md`
 
 ## Where code lives
 
@@ -200,8 +152,9 @@ Full glossary with file links: `docs/internals/glossary.md`
 ## Taste
 
 - Complexity belongs at the adapter boundary. Orchestration stays pure, UI stays dumb.
+- Client mutations use `createEnvironmentRpcCommand`. Add protected methods to `CLIENT_GUARDED_RPC_SCOPES` in contracts and use the command's `permissionAtom` for UI availability. Grants are checked at execution against the destination environment; the server remains authoritative. Keep raw RPC clients inside `rpc/`, and extend the permission behavior tests when adding a protected method.
 - Server features are services; transports stay thin. A `ws.ts` RPC handler, HTTP route, or MCP tool decodes input, calls one service method, and maps errors. See [Effect services](docs/internals/effect-services.md).
-- `apps/web/src/components/ui` exports own their look. Pick a `variant` or `size`; do not restyle one with `className`. If none fits and the look is a generic concept, add a variant to the component; a look that belongs to one feature stays in that feature's own component, not in `components/ui`. Layout classes (width, flex, margin, position) belong on the parent. `shadcn/no-restyle` fails lint on violations.
+- `apps/web/src/components/ui` exports own their look. Pick a `variant` or `size`; do not restyle one with `className`. If none fits and the look is a generic concept, add a variant to the component; a look that belongs to one feature stays in that feature's own component, not in `components/ui`. Layout classes (width, flex, margin, position) belong on the parent. `shadcn/no-restyle` fails lint on violations. See [Web UI](docs/internals/web-ui.md).
 - Inferred types over annotations. `any` is the enemy.
 - Comments describe how a thing is used, and move when the code moves. To be used mostly to describe functions, not to annotate every line of behavior.
 - Our users drive agents all day and notice a dropped frame, a lying spinner, and a stale label. No continuously repainting animations; they peg the GPU on high-refresh displays.

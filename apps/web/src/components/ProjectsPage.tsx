@@ -9,6 +9,12 @@ import {
 } from "@t3tools/client-runtime/state/runtime";
 import { Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
+import { useUiStateStore } from "../uiStateStore";
+import {
+  SidebarOrderedList,
+  SidebarOrderedRow,
+  useSidebarRowDrag,
+} from "./sidebar/SidebarOrderedList";
 
 import { useConversationTabsStore } from "../conversationTabsStore";
 import { useConversationTabNavigation } from "../hooks/useConversationTabNavigation";
@@ -69,6 +75,7 @@ export function ProjectsPage() {
   useEscapeToGoBack();
   const groups = useSettingsProjectGroups();
   const threads = useThreadShells();
+  const manualThreadOrder = useUiStateStore((state) => state.sidebarThreadOrder);
   const projectsReady = useAllEnvironmentProjectSnapshotsReady();
   const serverConfigs = useServerConfigs();
   const { scratchWorkspaceRootFor } = useScratchProject();
@@ -79,8 +86,9 @@ export function ProjectsPage() {
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [pendingPin, setPendingPin] = useState<string | null>(null);
   const rows = useMemo(
-    () => buildProjectsPageRows(groups, threads, search, scratchWorkspaceRootFor),
-    [groups, threads, search, scratchWorkspaceRootFor],
+    () =>
+      buildProjectsPageRows(groups, threads, search, scratchWorkspaceRootFor, manualThreadOrder),
+    [groups, threads, search, scratchWorkspaceRootFor, manualThreadOrder],
   );
 
   const newChat = (project: SidebarProjectSnapshot) => {
@@ -277,38 +285,55 @@ export function ProjectsPage() {
                             No threads yet.
                           </p>
                         ) : (
-                          projectThreads.map((thread) => {
-                            const threadRef = scopeThreadRef(thread.environmentId, thread.id);
-                            const threadUpdatedAt = projectThreadUpdatedAt(thread);
-                            return (
-                              <div
-                                key={scopedThreadKey(threadRef)}
-                                className="grid grid-cols-[minmax(0,1fr)_4.5rem_4.5rem] items-center gap-3 rounded-lg px-3 py-1 sm:grid-cols-[minmax(0,1fr)_6rem_5.5rem] hover:bg-secondary/50"
-                              >
-                                <ProjectThreadLink thread={thread} />
-                                <time
-                                  className="text-xs text-muted-foreground"
-                                  dateTime={threadUpdatedAt}
+                          <SidebarOrderedList
+                            ids={projectThreads.map((thread) =>
+                              scopedThreadKey(scopeThreadRef(thread.environmentId, thread.id)),
+                            )}
+                            onReorder={(keys) =>
+                              useUiStateStore.setState((state) => ({
+                                sidebarThreadOrder: [
+                                  ...keys,
+                                  ...(state.sidebarThreadOrder ?? []).filter(
+                                    (key) => !keys.includes(key),
+                                  ),
+                                ],
+                              }))
+                            }
+                          >
+                            {projectThreads.map((thread) => {
+                              const threadRef = scopeThreadRef(thread.environmentId, thread.id);
+                              const threadUpdatedAt = projectThreadUpdatedAt(thread);
+                              return (
+                                <SidebarOrderedRow
+                                  key={scopedThreadKey(threadRef)}
+                                  id={scopedThreadKey(threadRef)}
+                                  className="grid grid-cols-[minmax(0,1fr)_4.5rem_4.5rem] items-center gap-3 rounded-lg px-3 py-1 sm:grid-cols-[minmax(0,1fr)_6rem_5.5rem] hover:bg-secondary/50"
                                 >
-                                  {formatRelativeTimeLabel(threadUpdatedAt)}
-                                </time>
-                                <div className="flex justify-end">
-                                  {serverConfigs.get(thread.environmentId)?.environment.capabilities
-                                    .threadPinning ? (
-                                    <Button
-                                      variant="ghost"
-                                      size="icon-sm"
-                                      aria-label={`${thread.pinnedAt == null ? "Pin" : "Unpin"} ${thread.title}`}
-                                      disabled={pendingPin !== null}
-                                      onClick={() => void togglePin(thread)}
-                                    >
-                                      {thread.pinnedAt == null ? <PinIcon /> : <PinOffIcon />}
-                                    </Button>
-                                  ) : null}
-                                </div>
-                              </div>
-                            );
-                          })
+                                  <ProjectThreadLink thread={thread} />
+                                  <time
+                                    className="text-xs text-muted-foreground"
+                                    dateTime={threadUpdatedAt}
+                                  >
+                                    {formatRelativeTimeLabel(threadUpdatedAt)}
+                                  </time>
+                                  <div className="flex justify-end">
+                                    {serverConfigs.get(thread.environmentId)?.environment
+                                      .capabilities.threadPinning ? (
+                                      <Button
+                                        variant="ghost"
+                                        size="icon-sm"
+                                        aria-label={`${thread.pinnedAt == null ? "Pin" : "Unpin"} ${thread.title}`}
+                                        disabled={pendingPin !== null}
+                                        onClick={() => void togglePin(thread)}
+                                      >
+                                        {thread.pinnedAt == null ? <PinIcon /> : <PinOffIcon />}
+                                      </Button>
+                                    ) : null}
+                                  </div>
+                                </SidebarOrderedRow>
+                              );
+                            })}
+                          </SidebarOrderedList>
                         )}
                       </div>
                     ) : null}
@@ -324,6 +349,7 @@ export function ProjectsPage() {
 }
 
 function ProjectThreadLink({ thread }: { thread: ThreadShell }) {
+  const drag = useSidebarRowDrag();
   const threadRef = scopeThreadRef(thread.environmentId, thread.id);
   const target = { kind: "server" as const, threadRef };
   const navigateTab = useConversationTabNavigation();
@@ -339,6 +365,9 @@ function ProjectThreadLink({ thread }: { thread: ThreadShell }) {
     <Link
       to="/$environmentId/$threadId"
       params={buildThreadRouteParams(threadRef)}
+      ref={drag?.setActivatorNodeRef}
+      {...drag?.attributes}
+      {...drag?.listeners}
       onClick={(event) => {
         if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
         event.preventDefault();
@@ -359,7 +388,7 @@ function ProjectThreadLink({ thread }: { thread: ThreadShell }) {
             reportProjectActionFailure("Could not open the tab menu", error),
           );
       }}
-      className="flex min-w-0 items-center gap-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      className="flex min-w-0 cursor-pointer touch-none items-center gap-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
     >
       <MessageCircle className="size-4 shrink-0 text-muted-foreground" />
       <span className="truncate">{thread.title}</span>

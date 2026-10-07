@@ -18,6 +18,7 @@ import { type DelegatedAgent } from "@t3tools/shared/agentMentions";
 import type { RuntimeSubagent } from "@t3tools/client-runtime/state/subagentRuntime";
 import { useMediaQuery } from "~/hooks/useMediaQuery";
 import { useCodeWorkspace } from "~/hooks/useSettings";
+import { usePanelAnimationSettings } from "~/panelAnimations";
 import {
   BotIcon,
   ArrowLeftIcon,
@@ -108,6 +109,7 @@ function OverviewPopover({
   wide,
 }: ThreadOverviewPanelProps & { wide: boolean }) {
   const codeWorkspace = useCodeWorkspace();
+  const { active: panelAnimationsActive, durationMs } = usePanelAnimationSettings();
   const roster = useAgents();
   const currentChannel = roster.find(
     ({ thread }) =>
@@ -308,7 +310,7 @@ function OverviewPopover({
       <span
         ref={anchorRef}
         aria-hidden
-        className="pointer-events-none absolute top-full right-(--workspace-gutter-end) size-0"
+        className="pointer-events-none absolute top-full right-3 size-0"
       />
       <PopoverPrimitive.Portal>
         <PopoverPrimitive.Positioner
@@ -340,8 +342,9 @@ function OverviewPopover({
               maxHeight: availableSize.height,
               width: view && expanded ? expandedWidth : collapsedWidth,
               maxWidth: availableSize.width,
+              transitionDuration: panelAnimationsActive ? `${durationMs}ms` : "0ms",
             }}
-            className="flex max-h-(--available-height) flex-col overflow-hidden rounded-3xl workspace-panel-outline text-foreground outline-none floating-panel-glass"
+            className="flex max-h-(--available-height) flex-col overflow-hidden rounded-3xl workspace-panel-outline text-foreground outline-none floating-panel-glass origin-top-right transition-[opacity,scale,width,height] ease-out data-starting-style:scale-98 data-starting-style:opacity-0 data-ending-style:scale-98 data-ending-style:opacity-0 motion-reduce:transition-none"
           >
             <header className="flex shrink-0 items-center gap-2 px-5 pt-5 pb-2">
               {view ? (

@@ -1,4 +1,4 @@
 interface:
-  display_name: "T3 App Testing"
-  short_description: "Test web and desktop in T3's Browser panel"
-  default_prompt: "Use $test-t3-app to verify the affected web or desktop flow through T3's Browser panel."
+  display_name: "Elysia App Testing"
+  short_description: "Test web and desktop in Elysia's Browser panel"
+  default_prompt: "Use $test-elysia-app to verify the affected web or desktop flow through Elysia's Browser panel."

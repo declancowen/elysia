@@ -10,7 +10,7 @@ import {
 import * as Effect from "effect/Effect";
 import * as Data from "effect/Data";
 import * as Schema from "effect/Schema";
-import { FetchHttpClient, HttpClient, HttpClientResponse } from "effect/unstable/http";
+import { FetchHttpClient, HttpClient, HttpClientResponse } from "effect/http";
 
 const NativeTotals = Schema.Struct({
   requests: ElysiaStatsCount,

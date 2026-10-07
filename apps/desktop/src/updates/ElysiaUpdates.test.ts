@@ -136,30 +136,77 @@ describe("Elysia stable updates", () => {
     }),
   );
 
-  for (const bundlePath of [
+  it.effect.each([
+    "/Applications/Elysia.app",
     "/Users/test/Downloads/Elysia.app",
     "/Users/test/Desktop/Elysia.app",
     "/Volumes/Writable External/Elysia.app",
-  ]) {
-    it.effect(`permits an update from a writable macOS bundle at ${bundlePath}`, () => {
-      const harness = makeHarness({ resourcesPath: `${bundlePath}/Contents/Resources` });
-      return Effect.scoped(
-        Effect.gen(function* () {
-          const updates = yield* DesktopUpdates.DesktopUpdates;
-          yield* updates.configure;
-          harness.emit("update-downloaded", { version: "0.0.2" });
-          yield* flushCallbacks;
-          const result = yield* updates.installPrepared("0.0.2");
-          assert.isFalse(result.failed);
-          assert.deepEqual(harness.installLocationChecks, [bundlePath]);
-          assert.equal(harness.quitAndInstalls(), 1);
-        }),
-      ).pipe(Effect.provide(Layer.merge(TestClock.layer(), harness.layer)));
-    });
-  }
+  ])("permits an update from a writable macOS bundle at %s", (bundlePath) => {
+    const harness = makeHarness({ resourcesPath: `${bundlePath}/Contents/Resources` });
+    return Effect.scoped(
+      Effect.gen(function* () {
+        const updates = yield* DesktopUpdates.DesktopUpdates;
+        yield* updates.configure;
+        harness.emit("update-downloaded", { version: "0.0.2" });
+        yield* flushCallbacks;
+        const result = yield* updates.installPrepared("0.0.2");
+        assert.isFalse(result.failed);
+        assert.deepEqual(harness.installLocationChecks, [bundlePath]);
+        assert.equal(harness.quitAndInstalls(), 1);
+      }),
+    ).pipe(Effect.provide(Layer.merge(TestClock.layer(), harness.layer)));
+  });
 
-  for (const platform of ["darwin", "win32"] as const) {
-    it.effect(`checks the fork feed and admits the 0.0.1 → 0.0.2 update on ${platform}`, () => {
+  it.effect.each([
+    "/Users/test/Library/CloudStorage/OneDrive-Company/Desktop/Elysia.app",
+    "/Users/test/Library/Mobile Documents/com~apple~CloudDocs/Desktop/Elysia.app",
+  ])("keeps the app running when Desktop resolves into %s", (resolvedInstallLocation) => {
+    const harness = makeHarness({
+      homeDirectory: "/Users/test",
+      resourcesPath: "/Users/test/Desktop/Elysia.app/Contents/Resources",
+      resolvedInstallLocation,
+      stopBackend: Effect.die("must not stop a backend for a blocked install"),
+    });
+    return Effect.scoped(
+      Effect.gen(function* () {
+        const updates = yield* DesktopUpdates.DesktopUpdates;
+        const state = yield* DesktopState.DesktopState;
+        yield* updates.configure;
+        harness.emit("update-downloaded", { version: "0.0.2" });
+        yield* flushCallbacks;
+        const result = yield* updates.installPrepared("0.0.2");
+        assert.isTrue(result.failed);
+        assert.include(result.state.message, "cloud-synced folder");
+        assert.include(result.state.message, "move it to Applications");
+        assert.equal(result.state.downloadedVersion, "0.0.2");
+        assert.equal(harness.quitAndInstalls(), 0);
+        assert.equal(harness.updateRestartMarkers.size, 0);
+        assert.isFalse(yield* Ref.get(state.quitting));
+        assert.isFalse(yield* updates.isActionActive);
+      }),
+    ).pipe(Effect.provide(Layer.merge(TestClock.layer(), harness.layer)));
+  });
+
+  it.effect("permits a similarly named local folder outside the cloud-managed root", () => {
+    const harness = makeHarness({
+      homeDirectory: "/Users/test",
+      resourcesPath: "/Users/test/Library/CloudStorage-backup/Elysia.app/Contents/Resources",
+    });
+    return Effect.scoped(
+      Effect.gen(function* () {
+        const updates = yield* DesktopUpdates.DesktopUpdates;
+        yield* updates.configure;
+        harness.emit("update-downloaded", { version: "0.0.2" });
+        yield* flushCallbacks;
+        assert.isFalse((yield* updates.installPrepared("0.0.2")).failed);
+        assert.equal(harness.quitAndInstalls(), 1);
+      }),
+    ).pipe(Effect.provide(Layer.merge(TestClock.layer(), harness.layer)));
+  });
+
+  it.effect.each(["darwin", "win32"] as const)(
+    "checks the fork feed and admits the 0.0.1 → 0.0.2 update on %s",
+    (platform) => {
       const harness = makeHarness({
         platform,
         appVersion: "0.0.1",
@@ -191,8 +238,8 @@ describe("Elysia stable updates", () => {
           assert.lengthOf(harness.installLocationChecks, platform === "darwin" ? 1 : 0);
         }),
       ).pipe(Effect.provide(Layer.merge(TestClock.layer(), harness.layer)));
-    });
-  }
+    },
+  );
 
   it.effect("keeps the stable channel when a caller requests nightly", () => {
     const harness = makeHarness();

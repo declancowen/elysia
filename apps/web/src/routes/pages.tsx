@@ -7,5 +7,7 @@ export const Route = createFileRoute("/pages")({
     )
       throw redirect({ to: "/pair", replace: true });
   },
+  validateSearch: (search: Record<string, unknown>): { create?: "page" | "folder" } =>
+    search.create === "page" || search.create === "folder" ? { create: search.create } : {},
   component: Outlet,
 });

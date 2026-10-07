@@ -24,7 +24,7 @@ export function AgentMessageBubble({
   return (
     <div
       className={cn(
-        "relative min-w-0 text-sm leading-relaxed",
+        "relative min-w-0 text-sm leading-relaxed [--chat-foreground:light-dark(#000,#fff)] text-chat-foreground",
         (group || avatar) && "pl-4 sm:pl-7",
       )}
     >
@@ -33,11 +33,7 @@ export function AgentMessageBubble({
       ) : avatar ? (
         <AgentAvatar avatar={avatar} working={working} className={identityClassName} />
       ) : null}
-      {bubble ? (
-        <div className="rounded-2xl bg-message p-3 text-message-foreground">{children}</div>
-      ) : (
-        children
-      )}
+      {bubble ? <div className="rounded-2xl bg-message p-3">{children}</div> : children}
     </div>
   );
 }

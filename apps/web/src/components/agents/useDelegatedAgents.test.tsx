@@ -13,11 +13,11 @@ const state = vi.hoisted(() => ({
   shells: [] as SidebarThreadSummary[],
 }));
 vi.mock("../../rpc/atomRegistry", async () => {
-  const { AtomRegistry } = await import("effect/unstable/reactivity");
+  const { AtomRegistry } = await import("effect/reactivity");
   return { appAtomRegistry: AtomRegistry.make() };
 });
 vi.mock("../../state/projects", async () => {
-  const { Atom } = await import("effect/unstable/reactivity");
+  const { Atom } = await import("effect/reactivity");
   const Effect = await import("effect/Effect");
   const query = Atom.make(Effect.promise(() => state.load())).pipe(
     Atom.swr({ staleTime: 15_000, revalidateOnMount: true }),

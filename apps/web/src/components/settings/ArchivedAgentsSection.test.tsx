@@ -32,6 +32,7 @@ vi.mock("../../state/entities", () => ({
   useProjects: () => useSyncExternalStore(subscribe, () => state.projects),
 }));
 vi.mock("../../state/environments", () => ({
+  usePrimaryEnvironmentId: () => EnvironmentId.make("local"),
   useEnvironments: () => ({
     environments: ["local", "other"].map((environmentId) => ({
       environmentId,

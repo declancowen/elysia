@@ -58,6 +58,7 @@ describe("V2 preview upgrade", () => {
         [62, "PersistentAgentResets"],
         [63, "ScheduledTaskWebhooks"],
         [64, "WebhookRelayDeliveries"],
+        [65, "PageFolders"],
       ]);
       assert.deepStrictEqual(
         yield* sql`SELECT agent_profile_json FROM projection_projects WHERE project_id = 'agent'`,
@@ -84,6 +85,7 @@ describe("V2 preview upgrade", () => {
         [62, "PersistentAgentResets"],
         [63, "ScheduledTaskWebhooks"],
         [64, "WebhookRelayDeliveries"],
+        [65, "PageFolders"],
       ]);
       assert.deepStrictEqual(yield* runMigrations(), []);
       assert.deepStrictEqual(yield* sql`SELECT * FROM orchestration_v2_legacy_imports`, imports);
@@ -171,6 +173,7 @@ describe("V2 preview upgrade", () => {
         [62, "PersistentAgentResets"],
         [63, "ScheduledTaskWebhooks"],
         [64, "WebhookRelayDeliveries"],
+        [65, "PageFolders"],
       ]);
     }).pipe(Effect.provide(NodeSqliteClient.layer({ filename: ":memory:" }))),
   );

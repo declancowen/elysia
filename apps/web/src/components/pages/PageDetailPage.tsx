@@ -37,7 +37,10 @@ import {
   AlertDialogFooter,
 } from "../ui/alert-dialog";
 import { PagesPage } from "./PagesPage";
-import { WorkspaceRichTextEditor } from "../WorkspaceRichTextEditor";
+import {
+  WorkspaceRichTextEditor,
+  type WorkspaceRichTextEditorHandle,
+} from "../WorkspaceRichTextEditor";
 
 export function PageDetailPage({ pageId }: { readonly pageId: string }) {
   const environmentId = usePrimaryEnvironmentId();
@@ -86,6 +89,7 @@ function PageDetail({
   });
   const submitting = useRef(false);
   const detailsAnchor = useRef<HTMLButtonElement>(null);
+  const bodyEditor = useRef<WorkspaceRichTextEditorHandle>(null);
   const [width, setWidth] = useState(() =>
     readPageCanvasWidth(typeof window === "undefined" ? undefined : window.localStorage),
   );
@@ -342,6 +346,12 @@ function PageDetail({
                   maxLength={200}
                   disabled={removed}
                   value={draft.title}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" && !event.nativeEvent.isComposing) {
+                      event.preventDefault();
+                      bodyEditor.current?.focus();
+                    }
+                  }}
                   onChange={(event) => {
                     const title = event.target.value;
                     setDraft((current) => (current ? { ...current, title } : current));
@@ -349,6 +359,7 @@ function PageDetail({
                 />
               </div>
               <WorkspaceRichTextEditor
+                ref={bodyEditor}
                 value={draft.content}
                 onChange={(content) =>
                   setDraft((current) => (current ? { ...current, content } : current))

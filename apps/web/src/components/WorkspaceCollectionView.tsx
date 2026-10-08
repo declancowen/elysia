@@ -22,7 +22,13 @@ import {
 } from "./ui/menu";
 
 export type CollectionView = "list" | "board" | "card" | "table" | "wall";
-export type CollectionProperty = "status" | "project" | "parent" | "createdAt" | "updatedAt";
+export type CollectionProperty =
+  | "status"
+  | "project"
+  | "parent"
+  | "createdAt"
+  | "updatedAt"
+  | "completedAt";
 export type CollectionColumn = {
   id: CollectionProperty | "title" | "agent" | "agentStatus" | "actions";
   label: string;

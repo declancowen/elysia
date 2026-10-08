@@ -2,7 +2,8 @@ import { EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { TaskList } from "@tiptap/extension-task-list";
 import { TaskItem } from "@tiptap/extension-task-item";
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { TableKit } from "@tiptap/extension-table";
+import { useEffect, useImperativeHandle, useLayoutEffect, useRef, useState, type Ref } from "react";
 import {
   CodeBlockIcon,
   HeadingIcon,
@@ -12,12 +13,17 @@ import {
   QuoteIcon,
   TextIcon,
   MinusSignIcon,
+  Table2,
+  PlusIcon,
+  Trash2Icon,
 } from "../icons";
 import {
   pageSlashMatch,
   movePageCommandSelection,
   runPageBlockCommand,
 } from "./WorkspaceEditorCommands";
+import { Button } from "./ui/button";
+import { Menu, MenuTrigger, MenuPopup, MenuItem, MenuSeparator } from "./ui/menu";
 
 const blockIcons = {
   paragraph: TextIcon,
@@ -30,16 +36,21 @@ const blockIcons = {
   quote: QuoteIcon,
   code: CodeBlockIcon,
   divider: MinusSignIcon,
+  table: Table2,
 };
 type SlashState = NonNullable<ReturnType<typeof pageSlashMatch>> & { left: number; top: number };
 
+export type WorkspaceRichTextEditorHandle = { focus: () => void };
+
 /** A personal document canvas; the HTML emitted here is also the agent-editing format. */
 export function WorkspaceRichTextEditor({
+  ref,
   value,
   onChange,
   disabled = false,
   label = "Page",
 }: {
+  readonly ref?: Ref<WorkspaceRichTextEditorHandle>;
   readonly value: string;
   readonly onChange: (content: string) => void;
   readonly disabled?: boolean;
@@ -57,6 +68,7 @@ export function WorkspaceRichTextEditor({
       StarterKit.configure({ link: { openOnClick: false } }),
       TaskList,
       TaskItem.configure({ nested: true }),
+      TableKit.configure({ table: { renderWrapper: true } }),
     ],
     content: value,
     editable: !disabled,
@@ -126,6 +138,15 @@ export function WorkspaceRichTextEditor({
       setSlash(next);
     },
   });
+  useImperativeHandle(
+    ref,
+    () => ({
+      focus: () => {
+        if (!disabled) editor?.commands.focus("start");
+      },
+    }),
+    [editor, disabled],
+  );
   useEffect(() => {
     if (editor && editor.getHTML() !== value)
       editor.commands.setContent(value, { emitUpdate: false });
@@ -145,9 +166,54 @@ export function WorkspaceRichTextEditor({
     );
   return (
     <div>
+      <div className="mb-3">
+        <Menu>
+          <MenuTrigger render={<Button variant="outline" size="compact" disabled={disabled} />}>
+            <Table2 />
+            Table
+          </MenuTrigger>
+          <MenuPopup align="start" finalFocus={false}>
+            <MenuItem
+              onClick={() =>
+                editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()
+              }
+              disabled={editor.isActive("table")}
+            >
+              <Table2 />
+              Insert table
+            </MenuItem>
+            {editor.isActive("table") ? (
+              <>
+                <MenuSeparator />
+                <MenuItem onClick={() => editor.chain().focus().addRowAfter().run()}>
+                  <PlusIcon />
+                  Add row
+                </MenuItem>
+                <MenuItem onClick={() => editor.chain().focus().addColumnAfter().run()}>
+                  <PlusIcon />
+                  Add column
+                </MenuItem>
+                <MenuItem onClick={() => editor.chain().focus().deleteRow().run()}>
+                  <MinusSignIcon />
+                  Delete row
+                </MenuItem>
+                <MenuItem onClick={() => editor.chain().focus().deleteColumn().run()}>
+                  <MinusSignIcon />
+                  Delete column
+                </MenuItem>
+                <MenuSeparator />
+                <MenuItem onClick={() => editor.chain().focus().deleteTable().run()}>
+                  <Trash2Icon />
+                  Delete table
+                </MenuItem>
+              </>
+            ) : null}
+          </MenuPopup>
+        </Menu>
+      </div>
       <div
         ref={container}
-        className="relative text-base leading-7 text-foreground [&_.tiptap_p]:my-3 [&_.tiptap_h1]:my-6 [&_.tiptap_h1]:text-3xl [&_.tiptap_h2]:my-5 [&_.tiptap_h2]:text-2xl [&_.tiptap_h3]:my-4 [&_.tiptap_h3]:text-xl [&_.tiptap_h4]:my-4 [&_.tiptap_h4]:font-semibold [&_.tiptap_ul]:list-disc [&_.tiptap_ul]:pl-6 [&_.tiptap_ol]:list-decimal [&_.tiptap_ol]:pl-6 [&_.tiptap_blockquote]:border-l-2 [&_.tiptap_blockquote]:border-border [&_.tiptap_blockquote]:pl-4 [&_.tiptap_pre]:overflow-x-auto [&_.tiptap_pre]:rounded-xl [&_.tiptap_pre]:bg-secondary [&_.tiptap_pre]:text-secondary-foreground [&_.tiptap_pre]:p-4 [&_.tiptap_a]:text-primary [&_.tiptap_a]:underline [&_.tiptap_ul[data-type=taskList]]:list-none [&_.tiptap_ul[data-type=taskList]]:pl-0 [&_.tiptap_li[data-checked]]:flex [&_.tiptap_li[data-checked]]:items-start [&_.tiptap_li[data-checked]]:gap-3 [&_.tiptap_li[data-checked]>label]:mt-1.5 [&_.tiptap_li[data-checked]>label]:flex [&_.tiptap_li[data-checked]>label]:shrink-0 [&_.tiptap_li[data-checked]>label]:items-center [&_.tiptap_li[data-checked]>div]:min-w-0 [&_.tiptap_li[data-checked]>div]:flex-1 [&_.tiptap_li[data-checked]>div>p]:my-0 [&_.tiptap_input[type=checkbox]]:m-0 [&_.tiptap_input[type=checkbox]]:accent-primary"
+        className="relative text-base leading-7 text-foreground [&_.tiptap_p]:my-3 [&_.tiptap_h1]:my-6 [&_.tiptap_h1]:text-3xl [&_.tiptap_h2]:my-5 [&_.tiptap_h2]:text-2xl [&_.tiptap_h3]:my-4 [&_.tiptap_h3]:text-xl [&_.tiptap_h4]:my-4 [&_.tiptap_h4]:font-semibold [&_.tiptap_ul]:list-disc [&_.tiptap_ul]:pl-6 [&_.tiptap_ol]:list-decimal [&_.tiptap_ol]:pl-6 [&_.tiptap_blockquote]:border-l-2 [&_.tiptap_blockquote]:border-border [&_.tiptap_blockquote]:pl-4 [&_.tiptap_pre]:overflow-x-auto [&_.tiptap_pre]:rounded-xl [&_.tiptap_pre]:bg-secondary [&_.tiptap_pre]:text-secondary-foreground [&_.tiptap_pre]:p-4 [&_.tiptap_a]:text-primary [&_.tiptap_a]:underline [&_.tiptap_ul[data-type=taskList]]:list-none [&_.tiptap_ul[data-type=taskList]]:pl-0 [&_.tiptap_li[data-checked]]:flex [&_.tiptap_li[data-checked]]:items-start [&_.tiptap_li[data-checked]]:gap-3 [&_.tiptap_li[data-checked]>label]:mt-1.5 [&_.tiptap_li[data-checked]>label]:flex [&_.tiptap_li[data-checked]>label]:shrink-0 [&_.tiptap_li[data-checked]>label]:items-center [&_.tiptap_li[data-checked]>div]:min-w-0 [&_.tiptap_li[data-checked]>div]:flex-1 [&_.tiptap_li[data-checked]>div>p]:my-0 [&_.tiptap_input[type=checkbox]]:m-0 [&_.tiptap_input[type=checkbox]]:accent-primary [&_.tableWrapper]:overflow-x-auto [&_.tiptap_table]:my-3 [&_.tiptap_table]:w-full [&_.tiptap_table]:table-fixed [&_.tiptap_table]:border-collapse [&_.tiptap_td]:relative [&_.tiptap_td]:border [&_.tiptap_td]:border-border [&_.tiptap_td]:p-2 [&_.tiptap_td]:align-top [&_.tiptap_th]:relative [&_.tiptap_th]:border [&_.tiptap_th]:border-border [&_.tiptap_th]:bg-muted [&_.tiptap_th]:p-2 [&_.tiptap_th]:text-left [&_.tiptap_th]:align-top [&_.tiptap_th]:font-medium [&_.tiptap_td_p]:my-0 [&_.tiptap_th_p]:my-0 [&_.tiptap_.selectedCell]:bg-accent"
       >
         <EditorContent editor={editor} />
         {slash && !disabled ? (

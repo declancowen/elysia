@@ -141,6 +141,7 @@ const TASK_PROPERTIES = [
   { id: "parent", label: "Parent" },
   { id: "createdAt", label: "Created at" },
   { id: "updatedAt", label: "Edited at" },
+  { id: "completedAt", label: "Completed at" },
 ] as const;
 
 function TaskSelect({
@@ -576,6 +577,10 @@ export function TasksPage() {
             ...metadata,
             createdAt: properties.includes("createdAt") ? formatCalendarDate(task.createdAt) : null,
             updatedAt: properties.includes("updatedAt") ? formatCalendarDate(task.updatedAt) : null,
+            completedAt:
+              properties.includes("completedAt") && task.completedAt
+                ? formatCalendarDate(task.completedAt)
+                : null,
           };
           const pills = propertyColumns.filter(
             (property) => view === "table" || values[property.id] !== null,
@@ -772,11 +777,13 @@ export function TasksPage() {
                     >
                       {pills.map(({ id: kind, label }) => (
                         <CollectionTableCell key={kind} view={view}>
-                          {kind === "createdAt" || kind === "updatedAt" ? (
+                          {values[kind] === null ? null : kind === "createdAt" ||
+                            kind === "updatedAt" ||
+                            kind === "completedAt" ? (
                             <Badge variant="outline" title={label}>
                               {values[kind]}
                             </Badge>
-                          ) : values[kind] === null ? null : (
+                          ) : (
                             <CollectionPropertyPill
                               label={`Change ${kind} for ${task.title}`}
                               value={

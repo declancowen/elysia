@@ -12,6 +12,7 @@ export const PAGE_BLOCK_COMMANDS = [
   { id: "quote", label: "Quote", keywords: "blockquote" },
   { id: "code", label: "Code block", keywords: "source" },
   { id: "divider", label: "Divider", keywords: "horizontal rule separator" },
+  { id: "table", label: "Table", keywords: "rows columns grid" },
 ] as const;
 export type PageBlockCommand = (typeof PAGE_BLOCK_COMMANDS)[number];
 
@@ -63,5 +64,7 @@ export function runPageBlockCommand(
       return chain.toggleCodeBlock().run();
     case "divider":
       return chain.setHorizontalRule().run();
+    case "table":
+      return chain.insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run();
   }
 }

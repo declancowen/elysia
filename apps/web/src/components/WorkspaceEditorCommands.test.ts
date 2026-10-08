@@ -4,6 +4,7 @@ import { Editor } from "@tiptap/core";
 import StarterKit from "@tiptap/starter-kit";
 import TaskList from "@tiptap/extension-task-list";
 import TaskItem from "@tiptap/extension-task-item";
+import { TableKit } from "@tiptap/extension-table";
 import {
   PAGE_BLOCK_COMMANDS,
   pageSlashMatch,
@@ -13,7 +14,7 @@ import {
 const editors: Editor[] = [];
 function create(content: string) {
   const editor = new Editor({
-    extensions: [StarterKit, TaskList, TaskItem.configure({ nested: true })],
+    extensions: [StarterKit, TaskList, TaskItem.configure({ nested: true }), TableKit],
     content,
   });
   editors.push(editor);
@@ -65,6 +66,25 @@ describe("document block commands", () => {
           divider: "horizontalRule",
         }[id as "bullet" | "ordered" | "quote" | "code" | "divider"];
     expect(nodeNames).toContain(expected);
+  });
+  it("inserts, edits and reloads a table without retaining the slash trigger", () => {
+    const editor = create("<p>/table</p>");
+    const match = pageSlashMatch(editor.state);
+    expect(match?.commands.map((command) => command.id)).toEqual(["table"]);
+    if (!match || !match.commands[0]) throw new Error("Expected table command");
+    expect(runPageBlockCommand(editor, match.commands[0], match)).toBe(true);
+    editor.commands.insertContent("First cell");
+    expect(editor.commands.addRowAfter()).toBe(true);
+    expect(editor.commands.addColumnAfter()).toBe(true);
+    const html = editor.getHTML();
+    const reloaded = create(html);
+    expect(reloaded.view.dom.querySelectorAll("tr")).toHaveLength(4);
+    expect(reloaded.view.dom.querySelectorAll("tr:first-child th")).toHaveLength(4);
+    expect(reloaded.getText()).toContain("First cell");
+    expect(reloaded.getText()).not.toContain("/table");
+    reloaded.commands.setTextSelection(4);
+    expect(reloaded.commands.deleteTable()).toBe(true);
+    expect(reloaded.getHTML()).not.toContain("<table");
   });
   it("does not treat prose, code blocks, or selected text as slash menus", () => {
     expect(pageSlashMatch(create("<p>Visit /heading</p>").state)).toBeNull();

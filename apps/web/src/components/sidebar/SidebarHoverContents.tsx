@@ -66,12 +66,14 @@ import { useSidebarHoverPreview, type SidebarHoverSection } from "./SidebarHover
 
 function CollectionRow({
   target,
+  indent = 0,
   folder = false,
   actions,
   children,
   ...props
 }: {
   folder?: boolean;
+  indent?: number;
   actions?: ReactNode;
   target: Extract<ConversationTabTarget, { kind: "task" | "page" }>;
 } & ComponentProps<"li">) {
@@ -89,7 +91,7 @@ function CollectionRow({
       <div className={actions ? "pr-8" : undefined}>
         <SidebarMenuButton {...click}>
           {target.kind === "task" ? (
-            <TaskEdit02Icon />
+            <TaskEdit02Icon style={{ marginInlineStart: indent }} />
           ) : folder ? (
             <FolderFileStorageIcon />
           ) : (
@@ -107,11 +109,13 @@ function CollectionRow({
 function CollectionSection({
   id,
   label,
+  indent = 0,
   children,
   ...props
 }: {
   id: string;
   label: string | null;
+  indent?: number;
   children: ReactNode;
 } & ComponentProps<"section">) {
   const { expanded, setExpanded } = useSidebarSectionExpansion(`sidebar-collection:${id}`);
@@ -130,6 +134,7 @@ function CollectionSection({
       {label ? (
         <SidebarSectionHeader
           label={label}
+          indent={indent}
           expanded={expanded}
           onToggle={() => setExpanded(!expanded)}
         />
@@ -192,10 +197,11 @@ export function CollectionSidebar({ kind }: { kind: "tasks" | "pages" }) {
     hideEmpty: true,
   });
   const renderTaskGroup = (group: TaskGroup, level = 0) => (
-    <div key={group.key} className={level ? "pl-3" : undefined}>
+    <div key={group.key}>
       <CollectionSection
         id={`tasks:${group.key}`}
         label={grouping.tasks !== "none" ? group.label : null}
+        indent={level * 12}
       >
         {group.children.length ? (
           group.children.map((child) => renderTaskGroup(child, level + 1))
@@ -205,6 +211,7 @@ export function CollectionSidebar({ kind }: { kind: "tasks" | "pages" }) {
               ? group.tasks.map((task) => (
                   <CollectionRow
                     key={task.id}
+                    indent={level * 12}
                     target={{ kind: "task", environmentId, id: task.id, title: task.title }}
                   />
                 ))

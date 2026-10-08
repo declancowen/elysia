@@ -16,11 +16,13 @@ export function SidebarSectionHeader({
   label,
   expanded,
   onToggle,
+  indent = 0,
   children,
 }: {
   label: string;
   expanded: boolean;
   onToggle: () => void;
+  indent?: number;
   children?: ReactNode;
 }) {
   const labelClassName =
@@ -33,7 +35,9 @@ export function SidebarSectionHeader({
         onClick={onToggle}
         className={`${labelClassName} cursor-pointer`}
       >
-        <span className="saturate-0">{label}</span>
+        <span className="saturate-0" style={{ marginInlineStart: indent }}>
+          {label}
+        </span>
         {!expanded && <ChevronRightIcon aria-hidden className="size-3.5 saturate-0" />}
       </SidebarSectionDragLabel>
       <div className="absolute top-1/2 right-0.5 flex -translate-y-1/2 items-center gap-1">

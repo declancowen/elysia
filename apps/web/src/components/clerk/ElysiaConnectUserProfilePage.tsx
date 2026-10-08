@@ -37,7 +37,7 @@ function endpointLabel(environment: RelayClientEnvironmentRecord): string {
     : "Activity publishing only";
 }
 
-export function T3ConnectEnvironmentRow(props: {
+export function ElysiaConnectEnvironmentRow(props: {
   readonly environment: RelayClientEnvironmentRecord;
   readonly confirmationOpen: boolean;
   readonly mutationPending: boolean;
@@ -219,7 +219,7 @@ export function ElysiaConnectUserProfilePage() {
         ) : environments.length > 0 ? (
           <ul className="border-t">
             {environments.map((environment) => (
-              <T3ConnectEnvironmentRow
+              <ElysiaConnectEnvironmentRow
                 key={environment.environmentId}
                 environment={environment}
                 confirmationOpen={confirmingEnvironmentId === environment.environmentId}

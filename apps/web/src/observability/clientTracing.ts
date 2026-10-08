@@ -20,7 +20,7 @@ const DEFAULT_EXPORT_INTERVAL_MS = 1_000;
 const CLIENT_TRACING_RESOURCE = {
   serviceName: "elysia-web",
   attributes: {
-    "service.namespace": "t3code",
+    "service.namespace": "elysia",
     "service.runtime": "t3-web",
     "service.mode": isElectron ? "electron" : "browser",
     "service.version": APP_VERSION,

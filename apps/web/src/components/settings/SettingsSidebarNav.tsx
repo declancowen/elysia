@@ -70,9 +70,9 @@ const ElysiaConnectSidebarSignIn = lazy(() =>
     default: module.ElysiaConnectSidebarSignIn,
   })),
 );
-const T3ConnectSidebarAvatar = lazy(() =>
+const ElysiaConnectSidebarAvatar = lazy(() =>
   import("../clerk/ElysiaConnectSidebarSignIn").then((module) => ({
-    default: module.T3ConnectSidebarAvatar,
+    default: module.ElysiaConnectSidebarAvatar,
   })),
 );
 
@@ -445,7 +445,7 @@ export function SettingsSidebarNav({
           </div>
           {CONNECTIONS_ENABLED ? (
             <Suspense fallback={null}>
-              <T3ConnectSidebarAvatar />
+              <ElysiaConnectSidebarAvatar />
             </Suspense>
           ) : null}
         </div>

@@ -12,13 +12,13 @@ export function ElysiaConnectSidebarSignIn() {
   return <ConfiguredElysiaConnectSidebarSignIn />;
 }
 
-export function T3ConnectSidebarAvatar() {
+export function ElysiaConnectSidebarAvatar() {
   if (!hasCloudPublicConfig()) return null;
 
-  return <ConfiguredT3ConnectSidebarAvatar />;
+  return <ConfiguredElysiaConnectSidebarAvatar />;
 }
 
-function ConfiguredT3ConnectSidebarAvatar() {
+function ConfiguredElysiaConnectSidebarAvatar() {
   const { isLoaded, isSignedIn } = useAuth();
 
   if (!isLoaded || !isSignedIn) return null;

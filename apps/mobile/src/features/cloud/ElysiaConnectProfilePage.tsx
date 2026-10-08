@@ -60,7 +60,7 @@ function confirmDeregister(environment: RelayClientEnvironmentRecord, onConfirm:
  * deregistration. Mirrors the web UserButton page; connections on this device
  * are managed in Settings instead.
  */
-export function T3ConnectProfilePage() {
+export function ElysiaConnectProfilePage() {
   const environmentsState = useManagedRelayEnvironments();
   const deregisterEnvironment = useAtomCommand(deregisterManagedRelayEnvironmentCommand, {
     reportFailure: false,

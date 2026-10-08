@@ -3,7 +3,7 @@ import type { RelayClientEnvironmentRecord } from "@elysiatools/contracts/relay"
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vite-plus/test";
 
-import { T3ConnectEnvironmentRow } from "./ElysiaConnectUserProfilePage";
+import { ElysiaConnectEnvironmentRow } from "./ElysiaConnectUserProfilePage";
 
 const environment: RelayClientEnvironmentRecord = {
   environmentId: "environment-1" as EnvironmentId,
@@ -24,7 +24,7 @@ function renderRow({
   readonly mutationPending?: boolean;
 } = {}) {
   return renderToStaticMarkup(
-    <T3ConnectEnvironmentRow
+    <ElysiaConnectEnvironmentRow
       environment={environment}
       confirmationOpen={confirmationOpen}
       mutationPending={mutationPending}

@@ -428,13 +428,59 @@ it("imports and validates existing native credentials without changing the globa
   expect(NodeFS.statSync(NodePath.join(profile, ".claude/settings.json")).mode & 0o777).toBe(0o600);
   expect(run("validate").status).toBe(0);
   NodeFS.rmSync(NodePath.join(profile, ".claude/plugins/installed_plugins.json"));
-  expect(run("validate").stderr).toContain("ELYSIA_ERROR:tracing");
+  expect(run("validate").status).toBe(0);
   expect(
     JSON.parse(NodeFS.readFileSync(NodePath.join(profile, ".claude/settings.json"), "utf8")).env
       .TRACE_TO_LANGSMITH,
   ).toBe("true");
   NodeFS.writeFileSync(NodePath.join(profile, "disconnected"), "");
   expect(run("adopt").status).toBe(1);
+});
+
+it("keeps native sign-in valid when the tracing installer reports a warning", () => {
+  const { directory, profile, run, source } = fixture();
+  NodeFS.appendFileSync(
+    source,
+    `
+def install_langsmith_plugin():
+    print("Tracing plugin install timed out — skipping")
+initialise = main
+def main():
+    initialise()
+    settings = CLAUDE_DIR / "settings.json"
+    data = json.loads(settings.read_text())
+    data["env"]["TRACE_TO_LANGSMITH"] = "true"
+    settings.write_text(json.dumps(data))
+    install_langsmith_plugin()
+`,
+  );
+  expect(run("--init").status).toBe(0);
+  const settingsFile = NodePath.join(profile, ".claude/settings.json");
+  const data = JSON.parse(NodeFS.readFileSync(settingsFile, "utf8"));
+  const certificate = NodePath.join(directory, "native-ca.pem");
+  NodeFS.copyFileSync(NodePath.join(profile, "ca.pem"), certificate);
+  data.env.NODE_EXTRA_CA_CERTS = certificate;
+  data.env.TRACE_TO_LANGSMITH = "true";
+  data.env.LANGSMITH_HIDE_INPUTS = "true";
+  data.env.LANGSMITH_HIDE_OUTPUTS = "false";
+  const nativeDir = NodePath.join(directory, "native-claude");
+  NodeFS.mkdirSync(nativeDir);
+  const nativeSettings = JSON.stringify(data);
+  NodeFS.writeFileSync(NodePath.join(nativeDir, "settings.json"), nativeSettings);
+  NodeFS.rmSync(profile, { recursive: true });
+
+  const adopted = run("adopt", "fixture-secret", { ELYSIA_NATIVE_CLAUDE_DIR: nativeDir });
+  expect(adopted.status).toBe(0);
+  expect(NodeFS.existsSync(NodePath.join(profile, "ready"))).toBe(true);
+  expect(run("validate").status).toBe(0);
+  expect(JSON.parse(NodeFS.readFileSync(settingsFile, "utf8")).env).toMatchObject({
+    TRACE_TO_LANGSMITH: "true",
+    LANGSMITH_HIDE_INPUTS: "true",
+    LANGSMITH_HIDE_OUTPUTS: "false",
+  });
+  expect(NodeFS.readFileSync(NodePath.join(nativeDir, "settings.json"), "utf8")).toBe(
+    nativeSettings,
+  );
 });
 
 it("keeps incomplete CLI configuration and invalid certificates out of the workspace", () => {

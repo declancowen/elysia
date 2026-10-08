@@ -39,7 +39,7 @@ export function WizardHeader({
   readonly children?: ReactNode;
 }) {
   return (
-    <DialogHeader>
+    <DialogHeader variant={identity ? "balanced" : "default"}>
       <DialogTitle className={identity ? "sr-only" : undefined}>{title}</DialogTitle>
       {identity}
       {description ? <DialogDescription>{description}</DialogDescription> : null}

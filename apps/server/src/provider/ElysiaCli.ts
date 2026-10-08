@@ -268,7 +268,7 @@ def urlopen(*args, **kwargs):
         raise
 urllib.request.urlopen = urlopen
 
-def validate_profile(check_tracing=True):
+def validate_profile():
     global validation_error
     validation_error = "credentials"
     settings = json.loads((native.CLAUDE_DIR / "settings.json").read_text())
@@ -293,12 +293,6 @@ def validate_profile(check_tracing=True):
     context.load_verify_locations(str(native.CERT_FILE))
     # Native --init owns gateway authentication. Reading an existing sign-in
     # must not add a different request/model protocol or a GUI VPN probe.
-    if check_tracing and env.get("TRACE_TO_LANGSMITH") == "true":
-        validation_error = "tracing"
-        plugin = "langsmith-tracing@langsmith-claude-code-plugins"
-        installed = json.loads((native.CLAUDE_DIR / "plugins/installed_plugins.json").read_text())
-        if not settings.get("enabledPlugins", {}).get(plugin) or not any(Path(entry["installPath"]).is_dir() for entry in installed.get("plugins", {}).get(plugin, [])):
-            raise ValueError("Native tracing plugin unavailable")
 
 def restore_compression():
     global validation_error
@@ -383,9 +377,8 @@ def adopt_profile():
         except OSError:
             listener.bind(("127.0.0.1", 0))
         native.COMPRESSION_STATE.write_text(json.dumps({"enabled": False, "port": listener.getsockname()[1]}))
-    # Validate credentials before downloading dependencies. The final pass
-    # also checks the native tracing plugin in the newly adopted profile.
-    validate_profile(check_tracing=False)
+    # Native plugin installation warnings must not revoke a valid company sign-in.
+    validate_profile()
     validation_error = "prerequisites"
     native.install_langsmith_plugin()
     configure_native_addons()
@@ -652,9 +645,7 @@ export const makeElysiaCli = Effect.fn("makeElysiaCli")(function* (input: {
                     ? "Elysia compression is unavailable. Retry setup to install and start the local proxy."
                     : diagnostic.includes("ELYSIA_ERROR:gateway")
                       ? "The native Elysia CLI could not complete the gateway request. Retry or check the CLI connection."
-                      : diagnostic.includes("ELYSIA_ERROR:tracing")
-                        ? "The native LangSmith tracing plugin is unavailable. Retry setup to install and enable it without changing your tracing preferences."
-                        : "Elysia setup failed. Check Node.js 18+, Python 3.11+, Claude Code, the CLI path, company VPN/Zscaler and credentials, then retry.",
+                      : "Elysia setup failed. Check Node.js 18+, Python 3.11+, Claude Code, the CLI path, company VPN/Zscaler and credentials, then retry.",
     });
   const command = (
     operation: string,

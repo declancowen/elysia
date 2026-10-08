@@ -166,6 +166,20 @@ minimumReleaseAgeExclude:
   - "@opencode/schema@2.0.23"
 
 overrides:
+  # Security fixes for transitive pins; retain CommonJS for xcode and dbus-next.
+  "@modelcontextprotocol/sdk": 1.31.0
+  "seroval": 1.6.3
+  "proxy-addr": 2.0.8
+  "shell-quote": 1.11.0
+  "sharp": 0.35.5
+  "compression": 1.8.2
+  "source-map-js": 1.2.2
+  "http-cache-semantics": 4.3.0
+  "smol-toml": 1.9.0
+  "valibot": 1.4.2
+  "katex": 0.18.2
+  "xcode>uuid": 11.1.1
+  "dbus-next>xml2js": 0.6.0
   # Keep jsdom's optional peer consistent so Vite+ has one test-runner instance.
   "@exodus/bytes>@noble/hashes": "1.8.0"
   # Earlier React Navigation declarations create a circular type alias in TypeScript 7.
@@ -285,6 +299,9 @@ patchedDependencies:
   react-native-keyboard-controller@1.22.6: patches/react-native-keyboard-controller@1.22.6.patch
   react-native-nitro-modules@0.35.9: patches/react-native-nitro-modules@0.35.9.patch
   react-native-screens@4.28.0: patches/react-native-screens@4.28.0.patch
+  decode-uri-component@0.2.2: patches/decode-uri-component@0.2.2.patch
+  node-forge@1.4.0: patches/node-forge@1.4.0.patch
+  braces@3.0.3: patches/braces@3.0.3.patch
 
 peerDependencyRules:
   allowAny:

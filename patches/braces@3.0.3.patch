@@ -1,0 +1,22 @@
+diff --git a/lib/parse.js b/lib/parse.js
+index 3a6988e629f52aee6609dc5ec290a5e9ff47cecb..fec7a67f7b0efb42013d18857cdf239c4ca46320 100644
+--- a/lib/parse.js
++++ b/lib/parse.js
+@@ -144,6 +144,8 @@ const parse = (input, options = {}) => {
+ 
+     if (value === CHAR_LEFT_PARENTHESES) {
+       block = push({ type: 'paren', nodes: [] });
++      // Bound recursive AST walkers before deeply nested input reaches them.
++      if (stack.length >= 128) throw new SyntaxError('Pattern nesting exceeds 128 levels');
+       stack.push(block);
+       push({ type: 'text', value });
+       continue;
+@@ -210,6 +212,8 @@ const parse = (input, options = {}) => {
+       };
+ 
+       block = push(brace);
++      // Bound recursive AST walkers before deeply nested input reaches them.
++      if (stack.length >= 128) throw new SyntaxError('Pattern nesting exceeds 128 levels');
+       stack.push(block);
+       push({ type: 'open', value });
+       continue;

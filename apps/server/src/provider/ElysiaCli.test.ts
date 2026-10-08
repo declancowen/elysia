@@ -177,6 +177,13 @@ for (const [platform, scenario] of [
           } else if (id === "Python.Python.3.13") installed.add(python);
           else if (id === "Git.Git") installed.add("git");
         } else if (binary === "curl") {
+          expect(args.slice(args.indexOf("--proto"), args.indexOf("--proto") + 2)).toEqual([
+            "--proto",
+            "=https",
+          ]);
+          expect(
+            args.slice(args.indexOf("--proto-redir"), args.indexOf("--proto-redir") + 2),
+          ).toEqual(["--proto-redir", "=https"]);
           if (args.at(-1)?.endsWith("SHASUMS256.txt"))
             stdout = `${checksum}  node-v24.21.0-darwin-arm64.tar.gz\n`;
           else if (args.at(-1)?.endsWith(".sha256")) stdout = checksum;
@@ -279,6 +286,8 @@ from pathlib import Path
 original_run = subprocess.run
 def installer(command, *args, **kwargs):
     if command[0] == "curl":
+        assert command[command.index("--proto") + 1] == "=https"
+        assert command[command.index("--proto-redir") + 1] == "=https"
         assert command[-1] == "https://pilots.ai.informa.com/elysia-code/releases/elysia-code-latest.zip"
         target = Path(command[command.index("--output") + 1])
         assert target.parent.parent.name == "profile"

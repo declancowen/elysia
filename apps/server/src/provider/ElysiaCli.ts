@@ -46,6 +46,7 @@ if operation == "bootstrap" and not Path(source).is_file() and not script.is_fil
         try:
             result = subprocess.run(["curl.exe" if os.name == "nt" else "curl",
                 "--fail", "--silent", "--show-error", "--location",
+                "--proto", "=https", "--proto-redir", "=https",
                 "--connect-timeout", "15", "--max-time", "120", "--max-filesize", "33554432",
                 "--output", str(archive_path),
                 "https://pilots.ai.informa.com/elysia-code/releases/elysia-code-latest.zip"],
@@ -693,6 +694,10 @@ export const makeElysiaCli = Effect.fn("makeElysiaCli")(function* (input: {
         "--silent",
         "--show-error",
         "--location",
+        "--proto",
+        "=https",
+        "--proto-redir",
+        "=https",
         baseUrl + (runtime === "node" ? "SHASUMS256.txt" : `${filename}.sha256`),
       ]);
       const expected =
@@ -717,6 +722,10 @@ export const makeElysiaCli = Effect.fn("makeElysiaCli")(function* (input: {
             "--silent",
             "--show-error",
             "--location",
+            "--proto",
+            "=https",
+            "--proto-redir",
+            "=https",
             "--output",
             archive,
             baseUrl + filename,

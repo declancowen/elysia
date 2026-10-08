@@ -25,8 +25,8 @@ import * as Clock from "effect/Clock";
 import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
-import { identity } from "effect/Function";
 import * as Layer from "effect/Layer";
+import * as Option from "effect/Option";
 import * as Cookies from "effect/http/Cookies";
 import * as HttpEffect from "effect/http/HttpEffect";
 import { HttpServerRequest, HttpServerResponse } from "effect/http";
@@ -199,13 +199,26 @@ export function failEnvironmentInternal(reason: EnvironmentInternalErrorReason, 
   });
 }
 
-const appendSessionCookie = (cookieName: string, token: string, expiresAt: DateTime.DateTime) =>
-  Effect.fromResult(
+const sessionCookieOptions = (request: HttpServerRequest.HttpServerRequest) => ({
+  httpOnly: true,
+  path: "/",
+  sameSite: "lax" as const,
+  // Forwarded HTTPS can only tighten cookie transport; it grants no request authority.
+  secure:
+    (request.source instanceof Request && new URL(request.source.url).protocol === "https:") ||
+    Option.exists(HttpServerRequest.toURL(request), (url) => url.protocol === "https:"),
+});
+
+const appendSessionCookie = Effect.fn(function* (
+  cookieName: string,
+  token: string,
+  expiresAt: DateTime.DateTime,
+) {
+  const request = yield* HttpServerRequest.HttpServerRequest;
+  return yield* Effect.fromResult(
     Cookies.set(Cookies.empty, cookieName, token, {
       expires: DateTime.toDate(expiresAt),
-      httpOnly: true,
-      path: "/",
-      sameSite: "lax",
+      ...sessionCookieOptions(request),
     }),
   ).pipe(
     Effect.catch(() => failEnvironmentInternal("browser_session_cookie_failed")),
@@ -215,6 +228,7 @@ const appendSessionCookie = (cookieName: string, token: string, expiresAt: DateT
       ),
     ),
   );
+});
 
 export const requireEnvironmentScope = Effect.fn("environment.auth.requireScope")(function* (
   scope: AuthEnvironmentScope,
@@ -318,17 +332,13 @@ export const layer = HttpApiBuilder.group(
             const selectedCookie = yield* Effect.fromResult(
               Cookies.set(Cookies.empty, cookieName, result.sessionToken, {
                 expires: DateTime.toDate(result.response.expiresAt),
-                httpOnly: true,
-                path: "/",
-                sameSite: "lax",
+                ...sessionCookieOptions(request),
               }),
             ).pipe(Effect.catch(() => failEnvironmentInternal("browser_session_cookie_failed")));
             const sessionCookies = result.expireNormalCookie
               ? yield* Effect.fromResult(
                   Cookies.expireCookie(selectedCookie, sessions.cookieName, {
-                    httpOnly: true,
-                    path: "/",
-                    sameSite: "lax",
+                    ...sessionCookieOptions(request),
                   }),
                 ).pipe(Effect.catch(() => failEnvironmentInternal("browser_session_cookie_failed")))
               : selectedCookie;

@@ -59,7 +59,7 @@
     "@elysiatools/ssh": "workspace:*",
     "@elysiatools/tailscale": "workspace:*",
     "@elysiatools/web": "workspace:*",
-    "@modelcontextprotocol/sdk": "1.29.0",
+    "@modelcontextprotocol/sdk": "1.31.0",
     "@types/node": "catalog:",
     "@types/proper-lockfile": "^4.1.4",
     "@types/yauzl": "^3.4.0",

@@ -673,6 +673,7 @@ export function EnvironmentProviderSettings({
           toastManager.add({
             type: "error",
             title: "Could not check for updates",
+            data: { position: "bottom-right" },
             description: error instanceof Error ? error.message : "Try checking again.",
           });
           console.warn("Failed to refresh providers", {
@@ -684,6 +685,7 @@ export function EnvironmentProviderSettings({
           toastManager.add({
             type: "success",
             title: "Update check complete",
+            data: { position: "bottom-right" },
             description: "Claude Code and Elysia CLI status has been refreshed.",
           });
         }
@@ -722,6 +724,7 @@ export function EnvironmentProviderSettings({
           stackedThreadToast({
             type: "error",
             title: `Could not update ${PROVIDER_DISPLAY_NAMES[candidate.driver] ?? candidate.driver}`,
+            data: { position: "bottom-right" },
             description:
               error instanceof Error
                 ? error.message

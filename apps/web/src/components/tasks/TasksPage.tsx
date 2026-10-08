@@ -15,6 +15,7 @@ import {
 import { useWorkspaceCollectionGrouping } from "../workspaceCollectionGrouping";
 import { TaskAgentResponse } from "./TaskAgentResponse";
 import { TaskDragRow, TaskDropGroup } from "./TaskDrag";
+import { useTaskCardLayout } from "./useTaskCardLayout";
 import {
   useEffect,
   useMemo,
@@ -261,6 +262,7 @@ export function TasksPage() {
   }, [requestedCreate, navigate]);
   const [showSubTasks, setShowSubTasks] = useState(true);
   const [view, setView] = useState<TaskView>("list");
+  const cardLayoutRef = useTaskCardLayout(view === "card");
   const [properties, setProperties] = useState<CollectionProperty[]>([
     "status",
     "project",
@@ -654,7 +656,8 @@ export function TasksPage() {
                     view === "list" || view === "table"
                       ? "flex-1 items-center"
                       : "w-full items-start p-4",
-                    view === "card" && "min-h-16 shrink-0 border-t border-border",
+                    view === "card" &&
+                      "min-h-[calc(var(--task-card-title-height,24px)+32px)] shrink-0 items-center border-t border-border",
                   )}
                   style={
                     view === "list" || view === "table"
@@ -666,28 +669,80 @@ export function TasksPage() {
                     <TaskStatusIcon status={task.status} />
                   ) : null}
                   <span
+                    data-task-card-title={view === "card" ? "" : undefined}
                     className={cn(
                       view === "list" || view === "table"
                         ? "truncate text-sm"
-                        : "line-clamp-3 pr-16 text-sm font-medium leading-6",
+                        : view === "card"
+                          ? "line-clamp-2 pr-16 text-sm font-medium leading-6"
+                          : "line-clamp-3 pr-16 text-sm font-medium leading-6",
                     )}
                   >
                     {task.title}
                   </span>
                 </WorkspaceItemLink>
               </CollectionTableCell>
-              {view === "table" ? (
-                <>
-                  <CollectionTableCell view={view} align="left">
-                    {task.assigneeProjectId ? (
+              <div
+                className={
+                  view === "card"
+                    ? "min-h-[var(--task-card-metadata-height,0px)] shrink-0"
+                    : "contents"
+                }
+              >
+                <div
+                  data-task-card-metadata={view === "card" ? "" : undefined}
+                  className={
+                    view === "card" || view === "board"
+                      ? cn(
+                          "flex flex-col gap-2",
+                          (task.assigneeProjectId || pills.length > 0) &&
+                            "border-t border-border px-4 py-3",
+                        )
+                      : "contents"
+                  }
+                >
+                  {view === "table" ? (
+                    <>
+                      <CollectionTableCell view={view} align="left">
+                        {task.assigneeProjectId ? (
+                          <span className="min-w-0 truncate text-sm">
+                            {agentOptions.find((option) => option.value === task.assigneeProjectId)
+                              ?.label ?? "Unavailable agent"}
+                          </span>
+                        ) : null}
+                      </CollectionTableCell>
+                      <CollectionTableCell view={view}>
+                        {task.assigneeProjectId ? (
+                          <CollectionPropertyPill
+                            label={`Change agent status for ${task.title}`}
+                            value={task.status}
+                            options={statusOptions}
+                            disabled={bulkPending}
+                            onChange={(status) =>
+                              update({
+                                id: task.id,
+                                expectedRevision: task.revision,
+                                status: status as WorkTaskStatus,
+                              })
+                            }
+                          >
+                            {taskActivity(task.status).label}
+                          </CollectionPropertyPill>
+                        ) : null}
+                      </CollectionTableCell>
+                    </>
+                  ) : task.assigneeProjectId ? (
+                    <div
+                      className={
+                        view === "list"
+                          ? "flex shrink-0 items-center gap-3"
+                          : "flex shrink-0 items-center justify-between gap-3"
+                      }
+                    >
                       <span className="min-w-0 truncate text-sm">
                         {agentOptions.find((option) => option.value === task.assigneeProjectId)
                           ?.label ?? "Unavailable agent"}
                       </span>
-                    ) : null}
-                  </CollectionTableCell>
-                  <CollectionTableCell view={view}>
-                    {task.assigneeProjectId ? (
                       <CollectionPropertyPill
                         label={`Change agent status for ${task.title}`}
                         value={task.status}
@@ -703,97 +758,75 @@ export function TasksPage() {
                       >
                         {taskActivity(task.status).label}
                       </CollectionPropertyPill>
-                    ) : null}
-                  </CollectionTableCell>
-                </>
-              ) : task.assigneeProjectId ? (
-                <div
-                  className={
-                    view === "list"
-                      ? "flex shrink-0 items-center gap-3"
-                      : "flex shrink-0 items-center justify-between gap-3 border-t border-border px-4 py-3"
-                  }
-                >
-                  <span className="min-w-0 truncate text-sm">
-                    {agentOptions.find((option) => option.value === task.assigneeProjectId)
-                      ?.label ?? "Unavailable agent"}
-                  </span>
-                  <CollectionPropertyPill
-                    label={`Change agent status for ${task.title}`}
-                    value={task.status}
-                    options={statusOptions}
-                    disabled={bulkPending}
-                    onChange={(status) =>
-                      update({
-                        id: task.id,
-                        expectedRevision: task.revision,
-                        status: status as WorkTaskStatus,
-                      })
-                    }
-                  >
-                    {taskActivity(task.status).label}
-                  </CollectionPropertyPill>
+                    </div>
+                  ) : null}
+                  {pills.length ? (
+                    <div
+                      className={
+                        view === "table"
+                          ? "contents"
+                          : view === "list"
+                            ? "flex shrink-0 flex-wrap justify-end gap-2"
+                            : "flex shrink-0 flex-wrap justify-start gap-2"
+                      }
+                    >
+                      {pills.map(({ id: kind, label }) => (
+                        <CollectionTableCell key={kind} view={view}>
+                          {kind === "createdAt" || kind === "updatedAt" ? (
+                            <Badge variant="outline" title={label}>
+                              {values[kind]}
+                            </Badge>
+                          ) : values[kind] === null ? null : (
+                            <CollectionPropertyPill
+                              label={`Change ${kind} for ${task.title}`}
+                              value={
+                                kind === "status"
+                                  ? task.status
+                                  : ((kind === "project" ? task.projectId : task.parentTaskId) ??
+                                    "none")
+                              }
+                              options={
+                                kind === "status"
+                                  ? statusOptions
+                                  : kind === "project"
+                                    ? projectOptions
+                                    : [
+                                        { value: "none", label: "No Parent" },
+                                        ...parents
+                                          .filter((parent) => parent.id !== task.id)
+                                          .map((parent) => ({
+                                            value: parent.id,
+                                            label: parent.title,
+                                          })),
+                                      ]
+                              }
+                              disabled={bulkPending}
+                              onChange={(value) =>
+                                update({
+                                  id: task.id,
+                                  expectedRevision: task.revision,
+                                  ...(kind === "status"
+                                    ? { status: value as WorkTaskStatus }
+                                    : kind === "project"
+                                      ? {
+                                          projectId: value === "none" ? null : (value as ProjectId),
+                                        }
+                                      : {
+                                          parentTaskId:
+                                            value === "none" ? null : (value as WorkTaskId),
+                                        }),
+                                })
+                              }
+                            >
+                              {values[kind]}
+                            </CollectionPropertyPill>
+                          )}
+                        </CollectionTableCell>
+                      ))}
+                    </div>
+                  ) : null}
                 </div>
-              ) : null}
-              {pills.length ? (
-                <div
-                  className={
-                    view === "table"
-                      ? "contents"
-                      : view === "list"
-                        ? "flex shrink-0 flex-wrap justify-end gap-2"
-                        : "flex shrink-0 flex-wrap justify-start gap-2 px-4 py-3"
-                  }
-                >
-                  {pills.map(({ id: kind, label }) => (
-                    <CollectionTableCell key={kind} view={view}>
-                      {kind === "createdAt" || kind === "updatedAt" ? (
-                        <Badge variant="outline" title={label}>
-                          {values[kind]}
-                        </Badge>
-                      ) : values[kind] === null ? null : (
-                        <CollectionPropertyPill
-                          label={`Change ${kind} for ${task.title}`}
-                          value={
-                            kind === "status"
-                              ? task.status
-                              : ((kind === "project" ? task.projectId : task.parentTaskId) ??
-                                "none")
-                          }
-                          options={
-                            kind === "status"
-                              ? statusOptions
-                              : kind === "project"
-                                ? projectOptions
-                                : [
-                                    { value: "none", label: "No Parent" },
-                                    ...parents
-                                      .filter((parent) => parent.id !== task.id)
-                                      .map((parent) => ({ value: parent.id, label: parent.title })),
-                                  ]
-                          }
-                          disabled={bulkPending}
-                          onChange={(value) =>
-                            update({
-                              id: task.id,
-                              expectedRevision: task.revision,
-                              ...(kind === "status"
-                                ? { status: value as WorkTaskStatus }
-                                : kind === "project"
-                                  ? { projectId: value === "none" ? null : (value as ProjectId) }
-                                  : {
-                                      parentTaskId: value === "none" ? null : (value as WorkTaskId),
-                                    }),
-                            })
-                          }
-                        >
-                          {values[kind]}
-                        </CollectionPropertyPill>
-                      )}
-                    </CollectionTableCell>
-                  ))}
-                </div>
-              ) : null}
+              </div>
               <CollectionTableCell view={view}>
                 <div
                   className={cn(
@@ -1236,6 +1269,7 @@ export function TasksPage() {
               >
                 {taskRows.length ? (
                   <CollectionGroups
+                    ref={cardLayoutRef}
                     view={view}
                     columns={[
                       { id: "title", label: "Title" },

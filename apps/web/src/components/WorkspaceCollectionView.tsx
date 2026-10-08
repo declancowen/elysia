@@ -1,4 +1,4 @@
-import type { CSSProperties, ReactNode } from "react";
+import type { CSSProperties, ReactNode, Ref } from "react";
 import {
   Columns2Icon,
   BlocksIcon,
@@ -176,17 +176,19 @@ export function CollectionViewPicker({
 
 /** One remaining-height scroll area for both page and task collections. */
 export function CollectionGroups({
+  ref,
   view,
   children,
   columns,
 }: {
+  ref?: Ref<HTMLDivElement>;
   view: CollectionView;
   children: ReactNode;
   columns?: readonly CollectionColumn[];
 }) {
   if (view === "table" && columns)
     return (
-      <div className="min-h-0 flex-1 overflow-auto">
+      <div ref={ref} className="min-h-0 flex-1 overflow-auto">
         <div role="table" style={tableStyle(columns)} className="flex flex-col gap-5">
           <CollectionTableHeader columns={columns} />
           {children}
@@ -195,6 +197,7 @@ export function CollectionGroups({
     );
   return (
     <div
+      ref={ref}
       className={cn(
         "min-h-0 flex-1 overflow-auto",
         view === "board" ? "flex items-start gap-4 pb-4" : "flex flex-col gap-5",
@@ -269,10 +272,7 @@ export function CollectionRows({
         view === "wall"
           ? "grid grid-cols-1 items-start gap-4 sm:grid-cols-2 lg:grid-cols-[repeat(var(--collection-wall-columns),minmax(0,1fr))] [&>*]:overflow-hidden"
           : view === "card"
-            ? cn(
-                "grid grid-cols-[repeat(auto-fill,minmax(min(100%,var(--collection-card-width)),1fr))] items-start gap-4 [&>*]:overflow-hidden",
-                folderHeight === undefined && "[&>*]:h-96",
-              )
+            ? "grid grid-cols-[repeat(auto-fill,minmax(min(100%,var(--collection-card-width)),1fr))] items-start gap-4 [&>*]:overflow-hidden"
             : "flex flex-col gap-2"
       }
     >

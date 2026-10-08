@@ -78,6 +78,7 @@ function addProviderUpdateToast(input: {
       timeout: 0,
       actionProps: hiddenToastActionProps,
       data: {
+        position: "bottom-right",
         hideCopyButton: true,
         ...(input.view.dismissAfterVisibleMs !== undefined
           ? { dismissAfterVisibleMs: input.view.dismissAfterVisibleMs }
@@ -99,6 +100,7 @@ function addProviderUpdateToast(input: {
       },
       actionVariant: "outline",
       data: {
+        position: "bottom-right",
         hideCopyButton: true,
       },
     }),
@@ -333,6 +335,7 @@ export function ProviderUpdatePrimaryNotification() {
             },
       actionVariant: "outline",
       data: {
+        position: "bottom-right",
         leadingIcon:
           updateProviders.length > 0 &&
           updateProviders.every((provider) => provider.driver === updateProviders[0]!.driver) ? (

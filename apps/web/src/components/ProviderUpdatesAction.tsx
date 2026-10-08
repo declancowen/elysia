@@ -73,6 +73,7 @@ export function ProviderUpdatesAction() {
         toastManager.add(
           stackedThreadToast({
             ...view,
+            data: { position: "bottom-right" },
             description: <span className="whitespace-pre-line">{view.description}</span>,
           }),
         );

@@ -4,6 +4,7 @@ import {
   ElysiaStatsPercent,
   isEnabledProviderDriver,
   type ElysiaStatsSnapshot,
+  type ElysiaAccountUsageSnapshot,
   type ProviderInstanceId,
   type ServerProvider,
 } from "@elysiatools/contracts";
@@ -11,6 +12,28 @@ import * as Effect from "effect/Effect";
 import * as Data from "effect/Data";
 import * as Schema from "effect/Schema";
 import { FetchHttpClient, HttpClient, HttpClientResponse } from "effect/http";
+import { ProviderInstanceRegistry } from "./ProviderInstanceRegistry.ts";
+
+export const readElysiaAccountUsage = Effect.fnUntraced(function* (
+  providers: ReadonlyArray<ServerProvider>,
+  instanceId?: ProviderInstanceId,
+): Effect.fn.Return<ElysiaAccountUsageSnapshot, never, ProviderInstanceRegistry> {
+  const provider = providers.find(
+    (candidate) =>
+      candidate.driver === "claudeAgent" &&
+      isEnabledProviderDriver(candidate.driver) &&
+      candidate.enabled &&
+      candidate.installed &&
+      candidate.auth.status === "authenticated" &&
+      (instanceId === undefined || candidate.instanceId === instanceId),
+  );
+  if (!provider) return { status: "unavailable", reason: "not-connected" };
+  const instances = yield* ProviderInstanceRegistry;
+  const instance = yield* instances.getInstance(provider.instanceId);
+  if (!instance?.enabled || instance.driverKind !== "claudeAgent" || !instance.elysiaAccountUsage)
+    return { status: "unavailable", reason: "not-connected" };
+  return yield* instance.elysiaAccountUsage;
+});
 
 const NativeTotals = Schema.Struct({
   requests: ElysiaStatsCount,

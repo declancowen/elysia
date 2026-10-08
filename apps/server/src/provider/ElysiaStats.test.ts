@@ -5,14 +5,18 @@ import {
   ProviderDriverKind,
   ProviderInstanceId,
   type ServerProvider,
+  type ElysiaAccountUsageSnapshot,
 } from "@elysiatools/contracts";
 import * as Context from "effect/Context";
 import * as Deferred from "effect/Deferred";
 import * as Effect from "effect/Effect";
 import * as Fiber from "effect/Fiber";
+import * as Layer from "effect/Layer";
 import * as TestClock from "effect/testing/TestClock";
 import { FetchHttpClient, HttpClient, HttpClientResponse } from "effect/http";
-import { readElysiaStats } from "./ElysiaStats.ts";
+import { readElysiaStats, readElysiaAccountUsage } from "./ElysiaStats.ts";
+import { ProviderInstanceRegistry } from "./ProviderInstanceRegistry.ts";
+import type { ProviderInstance } from "./ProviderDriver.ts";
 
 const provider = (overrides: Partial<ServerProvider> = {}): ServerProvider => ({
   instanceId: ProviderInstanceId.make("claudeAgent"),
@@ -43,6 +47,70 @@ const native = {
   recent_requests: [{ prompt: "private prompt", api_key: "private key" }],
   credentials: { token: "private token" },
 };
+
+it.effect(
+  "reads account usage only from the selected active native instance, independently of compression",
+  () =>
+    Effect.gen(function* () {
+      const calls: string[] = [];
+      const account: ElysiaAccountUsageSnapshot = {
+        status: "available",
+        usedUsd: 171.1899,
+        limitUsd: 350,
+        accountStatus: "Active",
+        resetPeriod: "Monthly",
+        expiresOn: null,
+      };
+      const selected = provider({
+        instanceId: ProviderInstanceId.make("work"),
+        elysiaCompression: { enabled: false, port: 9123 },
+      });
+      const instance: ProviderInstance = {
+        instanceId: selected.instanceId,
+        driverKind: selected.driver,
+        enabled: true,
+        displayName: "Elysia",
+        continuationIdentity: { driverKind: selected.driver, continuationKey: "work" },
+        elysiaAccountUsage: Effect.sync(() => {
+          calls.push(selected.instanceId);
+          return account;
+        }),
+        get snapshot(): never {
+          throw new Error("Account reads must not probe authentication");
+        },
+        get orchestrationAdapter(): never {
+          throw new Error("Account reads must not start a turn");
+        },
+        get textGeneration(): never {
+          throw new Error("Account reads must not generate text");
+        },
+      };
+      const instances = Layer.mock(ProviderInstanceRegistry)({
+        getInstance: (id) => Effect.succeed(id === instance.instanceId ? instance : undefined),
+      });
+      assert.deepEqual(
+        yield* readElysiaAccountUsage([provider(), selected], selected.instanceId).pipe(
+          Effect.provide(instances),
+        ),
+        account,
+      );
+      for (const candidate of [
+        provider({ enabled: false }),
+        provider({ installed: false }),
+        provider({ auth: { status: "unauthenticated" } }),
+        provider({ driver: ProviderDriverKind.make("codex") }),
+        provider(),
+      ]) {
+        assert.deepEqual(
+          yield* readElysiaAccountUsage([candidate], selected.instanceId).pipe(
+            Effect.provide(instances),
+          ),
+          { status: "unavailable", reason: "not-connected" },
+        );
+      }
+      assert.deepEqual(calls, [selected.instanceId]);
+    }),
+);
 
 describe("native Elysia stats", () => {
   it.effect(

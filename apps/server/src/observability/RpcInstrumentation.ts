@@ -26,6 +26,7 @@ const RPC_AGGREGATES = {
   [WS_METHODS.pagesSave]: "pages",
   [WS_METHODS.pagesSubscribe]: "pages",
   [WS_METHODS.serverGetElysiaStats]: "server",
+  [WS_METHODS.serverGetElysiaAccountUsage]: "server",
   [WS_METHODS.tasksDelete]: "tasks",
   [WS_METHODS.tasksGet]: "tasks",
   [WS_METHODS.tasksList]: "tasks",

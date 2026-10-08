@@ -15,7 +15,12 @@ import * as Schema from "effect/Schema";
 import * as Sink from "effect/Sink";
 import * as Stream from "effect/Stream";
 import { ChildProcessSpawner } from "effect/process";
-import { ELYSIA_CLI_BRIDGE, makeElysiaCli, syncElysiaExtensions } from "./ElysiaCli.ts";
+import {
+  ELYSIA_CLI_BRIDGE,
+  makeElysiaCli,
+  syncElysiaExtensions,
+  parseElysiaAccountUsage,
+} from "./ElysiaCli.ts";
 import { elysiaAgentProtection } from "./ElysiaAgentProtection.ts";
 
 const fixtures: string[] = [];
@@ -78,6 +83,8 @@ def main():
         config = HOME / ".claude"
         config.mkdir(exist_ok=True)
         (config / "settings.json").write_text(json.dumps({"env": {"ANTHROPIC_AUTH_TOKEN": key, "ANTHROPIC_BASE_URL": "https://fixture.invalid", "ANTHROPIC_CUSTOM_HEADERS": "x-portkey-api-key: " + key + "\nx-portkey-config:config", "CC_LANGSMITH_METADATA": json.dumps({"workspace_id": "workspace", "config_id": "config", "user_id": "user", "compression": "disabled"}), "NODE_EXTRA_CA_CERTS": str(CERT_FILE)}, "allowed_models": ["deepseek-v4.1-flash"], "model": "deepseek-v4.1-flash"}))
+        setup_ssl()
+        validate_gateway_credentials(key, "config", "deepseek-v4.1-flash")
         deploy_elysia_compression_command()
         record()
     elif "--config" in sys.argv:
@@ -483,19 +490,162 @@ def main():
   );
 });
 
-it("keeps incomplete CLI configuration and invalid certificates out of the workspace", () => {
+it("keeps incomplete CLI configuration out of the workspace", () => {
   const { directory, profile, run } = fixture();
   NodeFS.mkdirSync(NodePath.join(directory, ".claude"));
   const original = NodePath.join(directory, ".claude/settings.json");
   NodeFS.writeFileSync(original, "{}");
   expect(run("adopt").stderr).toContain("ELYSIA_ERROR:credentials");
   expect(NodeFS.existsSync(NodePath.join(profile, "ready"))).toBe(false);
+});
+
+it.each(["macOS", "Windows"])(
+  "%s reuses native sign-in without reopening an unused CA file or rerunning certificate setup",
+  (platform) => {
+    const { profile, run, source } = fixture(
+      nativeFixture + (platform === "Windows" ? "\nIS_MAC, IS_WINDOWS = False, True\n" : ""),
+    );
+    expect(run("--init").status).toBe(0);
+    const file = NodePath.join(profile, ".claude/settings.json");
+    const settings = JSON.parse(NodeFS.readFileSync(file, "utf8"));
+    const selected = NodePath.join(profile, "selected-ca.pem");
+    NodeFS.renameSync(NodePath.join(profile, "ca.pem"), selected);
+    settings.env.NODE_EXTRA_CA_CERTS = settings.env.SSL_CERT_FILE = selected;
+    NodeFS.writeFileSync(file, JSON.stringify(settings));
+    NodeFS.appendFileSync(
+      source,
+      '\ndef setup_ssl():\n    raise RuntimeError("Must not export certificates on reuse")\n',
+    );
+    expect(run("validate").status).toBe(0);
+    expect(JSON.parse(NodeFS.readFileSync(file, "utf8")).env.NODE_EXTRA_CA_CERTS).toBe(selected);
+    NodeFS.writeFileSync(NodePath.join(profile, "ca.pem"), "unused stale certificate");
+    expect(run("validate").status).toBe(0);
+  },
+);
+
+it("adopts a native Windows sign-in using system trust without adding a missing CA file", () => {
+  const { profile, run, directory, source } = fixture(
+    nativeFixture + "\nIS_MAC, IS_WINDOWS = False, True\n",
+  );
   expect(run("--init").status).toBe(0);
-  NodeFS.writeFileSync(NodePath.join(profile, "ca.pem"), "invalid certificate");
-  const result = run("validate");
+  const settings = JSON.parse(
+    NodeFS.readFileSync(NodePath.join(profile, ".claude/settings.json"), "utf8"),
+  );
+  delete settings.env.NODE_EXTRA_CA_CERTS;
+  const original = JSON.stringify(settings);
+  const nativeDir = NodePath.join(directory, ".claude");
+  NodeFS.mkdirSync(nativeDir);
+  NodeFS.writeFileSync(NodePath.join(nativeDir, "settings.json"), original);
+  NodeFS.rmSync(profile, { recursive: true });
+  NodeFS.appendFileSync(
+    source,
+    '\ndef setup_ssl():\n    raise RuntimeError("Native sign-in already configured")\n',
+  );
+  expect(run("adopt").status).toBe(0);
+  expect(run("validate").status).toBe(0);
+  const adopted = JSON.parse(
+    NodeFS.readFileSync(NodePath.join(profile, ".claude/settings.json"), "utf8"),
+  );
+  expect(adopted.env.NODE_EXTRA_CA_CERTS).toBeUndefined();
+  expect(adopted.env.SSL_CERT_FILE).toBeUndefined();
+  expect(NodeFS.readFileSync(NodePath.join(nativeDir, "settings.json"), "utf8")).toBe(original);
+});
+
+it("reads only native account totals and never substitutes local estimates or profile identifiers", () => {
+  const output = `Elysia Config\nWorkspace : private-workspace\nConfig ID : private-config\nUsage\n--------------\nStatus : Active\nUsed : $171.1899 / $350.00\nResets : Monthly\nExpires : 2026-12-31\nCompression\nStatus : disabled`;
+  expect(parseElysiaAccountUsage(output)).toEqual({
+    status: "available",
+    usedUsd: 171.1899,
+    limitUsd: 350,
+    accountStatus: "Active",
+    resetPeriod: "Monthly",
+    expiresOn: "2026-12-31",
+  });
+  expect(JSON.stringify(parseElysiaAccountUsage(output))).not.toContain("private");
+  expect(parseElysiaAccountUsage(output.replace("171.1899", "0.0000"))).toMatchObject({
+    status: "available",
+    usedUsd: 0,
+  });
+  expect(parseElysiaAccountUsage(output.replace("171.1899", "400.0000"))).toMatchObject({
+    status: "available",
+    usedUsd: 400,
+  });
+  for (const invalid of [
+    output.replace("350.00", "0.00"),
+    output.replace("171.1899", "1.2.3"),
+    output.replace("2026-12-31", "private-secret"),
+    output.replace("171.1899", "-1"),
+  ])
+    expect(parseElysiaAccountUsage(invalid)).toEqual({
+      status: "unavailable",
+      reason: "invalid-data",
+    });
+  expect(parseElysiaAccountUsage("Usage : (could not fetch)")).toEqual({
+    status: "unavailable",
+    reason: "cli-unavailable",
+  });
+});
+
+effectIt.effect(
+  "reads native --config through the adapter without exposing secrets or changing sign-in on failure",
+  () => {
+    const { directory, source } = fixture(
+      nativeFixture +
+        String.raw`
+original_main = main
+def main():
+    original_main()
+    if "--config" in sys.argv:
+        if (HOME / "usage-unavailable").exists():
+            sys.exit(1)
+        print("Usage\n--------------\nStatus : Active\nUsed : $171.1899 / $350.00\nResets : Monthly\nExpires : 2026-12-31\nCompression\nStatus : disabled")
+`,
+    );
+    return Effect.gen(function* () {
+      const cli = yield* makeElysiaCli({
+        instanceId: ProviderInstanceId.make("account-test"),
+        stateDir: directory,
+        config: decodeClaudeSettings({
+          enabled: true,
+          elysiaScriptPath: source,
+          elysiaPythonPath: "python3",
+        }),
+        environment: {
+          ...process.env,
+          CLAUDE_CONFIG_DIR: NodePath.join(directory, "native-empty"),
+        },
+        checkUpdates: Effect.succeed(false),
+      });
+      expect(yield* cli.accountUsage).toEqual({ status: "unavailable", reason: "not-connected" });
+      yield* cli.run("--init", {
+        workspace_id: "workspace",
+        config_id: "config",
+        user_id: "user",
+        api_key: "fixture-secret",
+      });
+      const before = NodeFS.readFileSync(NodePath.join(cli.root, ".claude/settings.json"), "utf8");
+      const usage = yield* cli.accountUsage;
+      expect(usage).toMatchObject({ status: "available", usedUsd: 171.1899, limitUsd: 350 });
+      expect(JSON.stringify(usage)).not.toContain("fixture-secret");
+      NodeFS.writeFileSync(NodePath.join(cli.root, "usage-unavailable"), "");
+      expect(yield* cli.accountUsage).toEqual({ status: "unavailable", reason: "cli-unavailable" });
+      expect(yield* cli.ready).toBe(true);
+      expect(NodeFS.readFileSync(NodePath.join(cli.root, ".claude/settings.json"), "utf8")).toBe(
+        before,
+      );
+    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer));
+  },
+);
+
+it("rejects native CLI certificate verification failures during fresh sign-in", () => {
+  const { profile, run } = fixture(
+    nativeFixture +
+      '\ndef validate_gateway_credentials(*args):\n    raise ssl.SSLCertVerificationError("certificate verify failed")\n',
+  );
+  const result = run("--init");
   expect(result.status).toBe(1);
-  expect(result.stderr).toContain("ELYSIA_ERROR:tls");
   expect(result.stdout + result.stderr).not.toContain("fixture-secret");
+  expect(NodeFS.existsSync(NodePath.join(profile, "ready"))).toBe(false);
 });
 
 it.each(["adopt", "validate"])("configures native 0.3.9 addons once during %s", (operation) => {

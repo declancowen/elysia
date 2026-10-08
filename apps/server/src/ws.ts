@@ -114,7 +114,7 @@ import { RpcSerialization, RpcServer } from "effect/rpc";
 
 import * as CheckpointDiffQuery from "./checkpointing/CheckpointDiffQuery.ts";
 import * as ServerConfig from "./config.ts";
-import { readElysiaStats } from "./provider/ElysiaStats.ts";
+import { readElysiaStats, readElysiaAccountUsage } from "./provider/ElysiaStats.ts";
 import * as EnvironmentTheme from "./environmentTheme.ts";
 import * as Keybindings from "./keybindings.ts";
 import * as ExternalLauncher from "./process/externalLauncher.ts";
@@ -2069,6 +2069,15 @@ const layerWsRpc = (
         [WS_METHODS.serverGetElysiaStats]: (input) =>
           Effect.flatMap(providerRegistry.getProviders, (providers) =>
             readElysiaStats(providers, input.instanceId),
+          ),
+        [WS_METHODS.serverGetElysiaAccountUsage]: (input) =>
+          Effect.flatMap(providerRegistry.getProviders, (providers) =>
+            readElysiaAccountUsage(providers, input.instanceId).pipe(
+              Effect.provideService(
+                ProviderInstanceRegistry.ProviderInstanceRegistry,
+                providerInstances,
+              ),
+            ),
           ),
         [WS_METHODS.scheduledTasksRotateWebhookToken]: (input) =>
           Effect.annotateCurrentSpan({ "scheduled_task.id": input.id }).pipe(

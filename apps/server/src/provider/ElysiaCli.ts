@@ -6,6 +6,7 @@ import { resolveSpawnCommand } from "@elysiatools/shared/shell";
 import { compareSemverVersions } from "@elysiatools/shared/semver";
 import {
   type ClaudeSettings,
+  ElysiaAccountUsageSnapshot,
   ProviderDriverKind,
   type ProviderInstanceId,
   ProviderSetupError,
@@ -20,6 +21,29 @@ import { expandHomePath } from "../pathExpansion.ts";
 import { spawnAndCollect } from "./providerSnapshot.ts";
 import { makeProviderMaintenanceCapabilities } from "./providerMaintenance.ts";
 import { resolveClaudeHomePath } from "./Drivers/ClaudeHome.ts";
+
+const decodeAccountUsage = Schema.decodeUnknownOption(ElysiaAccountUsageSnapshot);
+
+export function parseElysiaAccountUsage(output: string): ElysiaAccountUsageSnapshot {
+  // Read only the native --config Usage section; never return profile IDs or credentials.
+  const usage = output.split(/^Usage\s*$/m)[1]?.split(/^Compression\s*$/m)[0];
+  if (!usage) return { status: "unavailable", reason: "cli-unavailable" };
+  const amounts = /^Used\s*:\s*\$([\d.]+)\s*\/\s*\$([\d.]+)\s*$/m.exec(usage);
+  const field = (name: string) => {
+    const value = new RegExp(`^${name}\\s*:\\s*(.*)$`, "m").exec(usage)?.[1]?.trim();
+    return !value || value === "-" || value === "None" ? null : value;
+  };
+  if (!amounts) return { status: "unavailable", reason: "invalid-data" };
+  const result = decodeAccountUsage({
+    status: "available",
+    usedUsd: Number(amounts[1]),
+    limitUsd: Number(amounts[2]),
+    accountStatus: field("Status"),
+    resetPeriod: field("Resets"),
+    expiresOn: field("Expires"),
+  });
+  return result._tag === "Some" ? result.value : { status: "unavailable", reason: "invalid-data" };
+}
 
 // ponytail: 0.3.8 has global paths rather than a profile flag. Import the actual
 // package in an isolated home; replace this bridge when the CLI adds --home.
@@ -286,13 +310,8 @@ def validate_profile():
     validation_error = "prerequisites"
     native.check_claude_installed()
     native._init_globals()
-    validation_error = "tls"
-    if not native.CERT_FILE.is_file():
-        native.setup_ssl()
-    context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
-    context.load_verify_locations(str(native.CERT_FILE))
     # Native --init owns gateway authentication. Reading an existing sign-in
-    # must not add a different request/model protocol or a GUI VPN probe.
+    # must not rerun certificate setup or add a GUI connection probe.
 
 def restore_compression():
     global validation_error
@@ -363,10 +382,12 @@ def adopt_profile():
     config = real_home / ".elysia/config"
     if config.is_file():
         shutil.copyfile(config, native.ELYSIA_DIR / "config")
-    certificate = Path(data["env"]["NODE_EXTRA_CA_CERTS"])
-    if certificate.is_file():
-        shutil.copyfile(certificate, native.CERT_FILE)
-    data["env"]["SSL_CERT_FILE"] = data["env"]["NODE_EXTRA_CA_CERTS"] = str(native.CERT_FILE)
+    certificate_path = data["env"].get("NODE_EXTRA_CA_CERTS")
+    if certificate_path and Path(certificate_path).is_file():
+        shutil.copyfile(certificate_path, native.CERT_FILE)
+        for name in ["SSL_CERT_FILE", "NODE_EXTRA_CA_CERTS"]:
+            if data["env"].get(name) == certificate_path:
+                data["env"][name] = str(native.CERT_FILE)
     native._init_globals()
     was_compressed = metadata.get("compression") == "enabled"
     data["env"]["ANTHROPIC_BASE_URL"] = native.GATEWAY_URL
@@ -638,7 +659,7 @@ export const makeElysiaCli = Effect.fn("makeElysiaCli")(function* (input: {
             : operation === "install-git" && platform === "darwin"
               ? "Git is required for native tracing. Finish Apple's Command Line Tools installation, then continue setup."
               : diagnostic.includes("ELYSIA_ERROR:tls")
-                ? "Certificate verification failed. Connect Zscaler and your company VPN, then retry Elysia setup."
+                ? "The native Elysia CLI could not verify the connection certificate. Retry native CLI setup."
                 : diagnostic.includes("ELYSIA_ERROR:credentials")
                   ? "Elysia credentials are incomplete or were rejected. Check your workspace, config and user IDs, and API key."
                   : diagnostic.includes("ELYSIA_ERROR:compression")
@@ -958,6 +979,19 @@ export const makeElysiaCli = Effect.fn("makeElysiaCli")(function* (input: {
       });
     yield* refreshEnvironment;
   });
+  const accountUsage = Effect.gen(function* () {
+    if (!input.config.enabled || !(yield* ready))
+      return { status: "unavailable", reason: "not-connected" } as const;
+    const result = yield* spawnAndCollect(python, command("--config")).pipe(
+      Effect.provideService(ChildProcessSpawner.ChildProcessSpawner, spawner),
+      Effect.timeout("15 seconds"),
+      Effect.option,
+      Effect.withTracerEnabled(false),
+    );
+    if (result._tag === "None" || result.value.code !== 0)
+      return { status: "unavailable", reason: "cli-unavailable" } as const;
+    return parseElysiaAccountUsage(result.value.stdout);
+  });
   const version = fs.readFileString(script).pipe(
     Effect.catch(() => fs.readFileString(source)),
     Effect.map((source) => /CLI_VERSION\s*=\s*"([^"]+)"/.exec(source)?.[1] ?? null),
@@ -1006,6 +1040,7 @@ export const makeElysiaCli = Effect.fn("makeElysiaCli")(function* (input: {
     maintenance,
     bootstrap,
     reuseCredentials,
+    accountUsage,
     restoreCompression: run("restore-compression").pipe(
       Effect.timeout("20 seconds"),
       Effect.mapError(() => failure("restore-compression", "ELYSIA_ERROR:compression")),

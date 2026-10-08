@@ -533,6 +533,7 @@ export const ElysiaDriver: ProviderDriver<ClaudeSettings, ElysiaDriverEnv> = {
         orchestrationAdapter,
         textGeneration,
         auth,
+        elysiaAccountUsage: elysia.accountUsage,
         invalidateCaches: Cache.invalidateAll(capabilities).pipe(
           Effect.andThen(elysia.refreshEnvironment),
         ),

@@ -52,6 +52,9 @@ describe("RPC authorization scopes", () => {
     expect(requiredScopeForRpcMethod(WS_METHODS.serverGetElysiaStats)).toBe(
       AuthOrchestrationReadScope,
     );
+    expect(requiredScopeForRpcMethod(WS_METHODS.serverGetElysiaAccountUsage)).toBe(
+      AuthOrchestrationReadScope,
+    );
   });
 
   it("authorizes background policy reporting and observation deliberately", () => {

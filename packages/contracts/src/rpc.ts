@@ -167,7 +167,7 @@ import {
   AgentConversationPreviewsInput,
   AgentConversationPreviewsResult,
 } from "./agents.ts";
-import { ElysiaStatsSnapshot } from "./elysiaStats.ts";
+import { ElysiaStatsSnapshot, ElysiaAccountUsageSnapshot } from "./elysiaStats.ts";
 import { KeybindingsConfigError } from "./keybindings.ts";
 import {
   OrchestrationSearchThreadsError,
@@ -479,6 +479,7 @@ export const WS_METHODS = {
   // Server meta
   serverProbe: "server.probe",
   serverGetElysiaStats: "server.getElysiaStats",
+  serverGetElysiaAccountUsage: "server.getElysiaAccountUsage",
   serverGetConfig: "server.getConfig",
   serverRefreshProviders: "server.refreshProviders",
   serverUpdateProvider: "server.updateProvider",
@@ -627,6 +628,12 @@ const WsServerGetConfigRpc = Rpc.make(WS_METHODS.serverGetConfig, {
 const WsServerGetElysiaStatsRpc = Rpc.make(WS_METHODS.serverGetElysiaStats, {
   payload: Schema.Struct({ instanceId: Schema.optional(ProviderInstanceId) }),
   success: ElysiaStatsSnapshot,
+  error: EnvironmentAuthorizationError,
+});
+
+const WsServerGetElysiaAccountUsageRpc = Rpc.make(WS_METHODS.serverGetElysiaAccountUsage, {
+  payload: Schema.Struct({ instanceId: Schema.optional(ProviderInstanceId) }),
+  success: ElysiaAccountUsageSnapshot,
   error: EnvironmentAuthorizationError,
 });
 
@@ -1902,6 +1909,7 @@ export const WsRpcGroup = RpcGroup.make(
   WsServerProbeRpc,
   WsServerGetConfigRpc,
   WsServerGetElysiaStatsRpc,
+  WsServerGetElysiaAccountUsageRpc,
   WsServerRefreshProvidersRpc,
   WsServerUpdateProviderRpc,
   WsProviderConsumeResetCreditRpc,

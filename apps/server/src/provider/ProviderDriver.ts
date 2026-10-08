@@ -32,6 +32,7 @@ import type {
   ProviderInstanceId,
   ServerProvider,
   ServerProviderWorkspaceSnapshot,
+  ElysiaAccountUsageSnapshot,
 } from "@elysiatools/contracts";
 import type * as Effect from "effect/Effect";
 import type * as Schema from "effect/Schema";
@@ -86,6 +87,7 @@ export interface ProviderInstance {
   readonly refreshModels?: () => Effect.Effect<void, ProviderDriverError>;
   /** Invalidate Elysia-owned discovery caches before an explicit provider refresh. */
   readonly invalidateCaches?: Effect.Effect<void>;
+  readonly elysiaAccountUsage?: Effect.Effect<ElysiaAccountUsageSnapshot>;
   /**
    * Redeem one banked rate-limit reset credit on the signed-in account, then
    * re-probe so the snapshot reflects the cleared windows. Account-level,

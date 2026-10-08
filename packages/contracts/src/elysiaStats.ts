@@ -40,3 +40,19 @@ export const ElysiaStatsSnapshot = Schema.Union([
   }),
 ]);
 export type ElysiaStatsSnapshot = typeof ElysiaStatsSnapshot.Type;
+
+export const ElysiaAccountUsageSnapshot = Schema.Union([
+  Schema.Struct({
+    status: Schema.Literal("available"),
+    usedUsd: ElysiaStatsAmount,
+    limitUsd: ElysiaStatsAmount.check(Schema.isGreaterThan(0)),
+    accountStatus: Schema.NullOr(Schema.String.check(Schema.isMaxLength(80))),
+    resetPeriod: Schema.NullOr(Schema.String.check(Schema.isMaxLength(80))),
+    expiresOn: Schema.NullOr(Schema.String.check(Schema.isPattern(/^\d{4}-\d{2}-\d{2}$/))),
+  }),
+  Schema.Struct({
+    status: Schema.Literal("unavailable"),
+    reason: Schema.Literals(["not-connected", "cli-unavailable", "invalid-data"]),
+  }),
+]);
+export type ElysiaAccountUsageSnapshot = typeof ElysiaAccountUsageSnapshot.Type;

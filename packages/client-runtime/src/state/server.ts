@@ -1144,6 +1144,11 @@ export function createServerEnvironmentAtoms<R, E>(
       tag: WS_METHODS.serverGetElysiaStats,
       staleTimeMs: 0,
     }),
+    elysiaAccountUsage: createEnvironmentRpcQueryAtomFamily(runtime, {
+      label: "environment-data:server:elysia-account-usage",
+      tag: WS_METHODS.serverGetElysiaAccountUsage,
+      staleTimeMs: 0,
+    }),
     configProjection,
     welcome,
     legacyThreadMigration: createEnvironmentRpcSubscriptionAtomFamily(runtime, {

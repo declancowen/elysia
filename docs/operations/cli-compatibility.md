@@ -49,6 +49,12 @@ Release source: [v0.0.37](https://github.com/declancowen/elysia/tree/v0.0.37). T
 
 On macOS, the supplied native setup passed isolated initialization, managed update, existing-sign-in adoption and one-time existing-profile migration checks. The 189 focused integration tests passed. External services and marketplace commands used controlled substitutes as detailed below. Live company authentication, Tavily search, shunt delegation and native Windows setup: **Not verified**. Desktop packaging and macOS signing are separately gated by the release workflow.
 
+## App v0.0.38 replacement verification
+
+Release source: [v0.0.38](https://github.com/declancowen/elysia/tree/v0.0.38). Native CLI 0.3.9 and Claude Agent SDK 0.3.276 remain the compatibility baseline, using the supplied package checksum below.
+
+The native CLI's macOS and Windows certificate-export branches were exercised on macOS with controlled OS certificate stores and a local HTTPS gateway. Native initialization verified TLS and hostname matching, rejected an untrusted certificate and rejected invalid credentials. Existing-profile reuse preserved a selected CA without certificate export or a gateway request. Native `--config` returned account spend, allowance, reset and expiry from a controlled account response independently of compression. The 106 focused regressions cover setup, adoption, system trust, Stats read authorization and failure behavior. Live company authentication, private plugin installation and execution on a Windows host: **Not verified**. Native managed update and addon integration retain the v0.0.37 checks above; app reuse no longer adds certificate validation to them.
+
 ## CLI 0.3.9 review
 
 Release notes and the native 0.3.9 ZIP supplied by the maintainer on 2026-10-08. Package SHA-256: `56027c720207be2707129a7941040da344a8d938417d7ef0f6720005db993631`. The supplied setup implementation was exercised on macOS in temporary managed profiles. Gateway/CA requests, the update download and Claude marketplace commands used controlled substitutes; no live search, routed delegation, company authentication, or Windows runtime was tested. This establishes setup integration, not live-service certification.

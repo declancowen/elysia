@@ -3,11 +3,12 @@ import { AtomRegistry } from "effect/reactivity";
 import { act } from "react";
 import { create, type ReactTestRenderer } from "react-test-renderer";
 import { USAGE_CONTRACT_VERSION, UsageDay, type UsageSummary } from "@elysiatools/contracts";
-import type { ElysiaStatsSnapshot } from "@elysiatools/contracts";
+import type { ElysiaAccountUsageSnapshot, ElysiaStatsSnapshot } from "@elysiatools/contracts";
 import { afterEach, beforeEach, expect, it, vi } from "vite-plus/test";
 
 const state = vi.hoisted(() => ({
   load: vi.fn<() => Promise<ElysiaStatsSnapshot>>(),
+  account: vi.fn<() => Promise<ElysiaAccountUsageSnapshot>>(),
   usage: vi.fn<() => Promise<UsageSummary>>(),
 }));
 
@@ -16,11 +17,16 @@ vi.mock("../../state/server", async () => {
   const Effect = await import("effect/Effect");
   const query = Atom.make(Effect.promise(() => state.load()));
   const usage = Atom.make(Effect.promise(() => state.usage()));
+  const account = Atom.make(Effect.promise(() => state.account()));
   return {
     primaryServerProvidersAtom: Atom.make([
       { instanceId: "claudeAgent", driver: "claudeAgent", enabled: true },
     ]),
-    serverEnvironment: { elysiaStats: () => query, usageSummary: () => usage },
+    serverEnvironment: {
+      elysiaStats: () => query,
+      usageSummary: () => usage,
+      elysiaAccountUsage: () => account,
+    },
   };
 });
 vi.mock("../../state/environments", () => ({ usePrimaryEnvironmentId: () => "local" }));
@@ -67,6 +73,15 @@ beforeEach(() => {
   registry = AtomRegistry.make();
   state.load.mockReset();
   state.load.mockResolvedValue(available);
+  state.account.mockReset();
+  state.account.mockResolvedValue({
+    status: "available",
+    usedUsd: 171.1899,
+    limitUsd: 350,
+    accountStatus: "Active",
+    resetPeriod: "Monthly",
+    expiresOn: "2026-12-31",
+  });
   state.usage.mockReset();
   state.usage.mockResolvedValue({
     contractVersion: USAGE_CONTRACT_VERSION,
@@ -163,6 +178,7 @@ it("loads when opened and refreshes only on request", async () => {
   await mount();
   expect(state.load).toHaveBeenCalledTimes(1);
   expect(state.usage).toHaveBeenCalledTimes(1);
+  expect(state.account).toHaveBeenCalledTimes(1);
   expect(
     renderer!.root.findAllByType("button").some((node) => node.children.includes("Refresh")),
   ).toBe(true);
@@ -176,18 +192,19 @@ it("loads when opened and refreshes only on request", async () => {
       .props.onClick(),
   );
   expect(state.load.mock.calls.length).toBeGreaterThan(reads);
+  expect(state.account).toHaveBeenCalledTimes(2);
 });
-it("uses dated usage for range totals, lifetime and the calendar monthly target", async () => {
+it("keeps CLI account totals separate from dated estimates across ranges", async () => {
   await mount();
   expect(displayedValues()).toContain("$12.00");
   expect(displayedValues()).not.toContain("$20.00");
-  expect(renderer!.root.findByProps({ role: "meter" }).props["aria-valuenow"]).toBe(12);
+  expect(renderer!.root.findByProps({ role: "meter" }).props["aria-valuenow"]).toBe(171.1899);
   await changeScope("lifetime");
   expect(displayedValues()).toContain("$20.00");
   expect(displayedValues()).toContain("9,900");
-  expect(renderer!.root.findByProps({ role: "meter" }).props["aria-valuenow"]).toBe(12);
+  expect(renderer!.root.findByProps({ role: "meter" }).props["aria-valuenow"]).toBe(171.1899);
 });
-it("labels the API month naturally and resets its pace and cost at the next month", async () => {
+it("keeps native account spend until refreshed while updating the calendar pace", async () => {
   await mount();
   expect(JSON.stringify(renderer!.toJSON())).toContain("October 2026");
   expect(JSON.stringify(renderer!.toJSON())).not.toContain("Calendar month");
@@ -198,7 +215,7 @@ it("labels the API month naturally and resets its pace and cost at the next mont
   vi.setSystemTime(new Date(2026, 10, 1));
   await changeScope("lifetime");
   expect(JSON.stringify(renderer!.toJSON())).toContain("November 2026");
-  expect(renderer!.root.findByProps({ role: "meter" }).props["aria-valuenow"]).toBe(0);
+  expect(renderer!.root.findByProps({ role: "meter" }).props["aria-valuenow"]).toBe(171.1899);
   expect(marker().props.style.left).toBe("0%");
 });
 it("keeps usage readable when compression is unavailable and recovers on Refresh", async () => {
@@ -264,6 +281,7 @@ it("retains previously loaded usage and savings when a refresh fails", async () 
   await mount();
   state.usage.mockRejectedValue(new Error("offline"));
   state.load.mockRejectedValue(new Error("offline"));
+  state.account.mockRejectedValue(new Error("offline"));
   await act(async () =>
     renderer!.root
       .findAllByType("button")
@@ -273,4 +291,51 @@ it("retains previously loaded usage and savings when a refresh fails", async () 
   expect(displayedValues()).toContain("$12.00");
   expect(displayedValues()).toContain("3,400");
   expect(statusText().some((text) => text.includes("last available records"))).toBe(true);
+});
+
+it("uses the native allowance and reset period without compression or local usage history", async () => {
+  state.load.mockResolvedValue({ status: "unavailable", reason: "compression-disabled" });
+  const summary = await state.usage();
+  state.usage.mockResolvedValue({ ...summary, buckets: [] });
+  state.account.mockResolvedValue({
+    status: "available",
+    usedUsd: 450,
+    limitUsd: 400,
+    resetPeriod: "Weekly",
+    accountStatus: "Active",
+    expiresOn: null,
+  });
+  await mount();
+  const meter = renderer!.root.findByProps({ role: "meter" });
+  expect(meter.props["aria-valuemax"]).toBe(400);
+  expect(meter.props["aria-valuenow"]).toBe(400);
+  expect(meter.props["aria-valuetext"]).toBe("$450.00 of $400.00");
+  const text = JSON.stringify(renderer!.toJSON());
+  expect(text).toContain("$450.00 / $400.00");
+  expect(text).toContain("Resets weekly");
+  expect(
+    renderer!.root.findAllByType("span").some((node) => node.props.style?.left !== undefined),
+  ).toBe(false);
+});
+it("does not invent an account budget when the CLI cannot return account totals", async () => {
+  state.account.mockResolvedValue({ status: "unavailable", reason: "cli-unavailable" });
+  await mount();
+  expect(renderer!.root.findAllByProps({ role: "meter" })).toHaveLength(0);
+  const text = JSON.stringify(renderer!.toJSON());
+  expect(text).toContain("Account totals could not be read");
+  expect(text).not.toContain("$200");
+  expect(displayedValues()).toContain("$12.00");
+});
+it("shows accurate zero account spend", async () => {
+  state.account.mockResolvedValue({
+    status: "available",
+    usedUsd: 0,
+    limitUsd: 350,
+    resetPeriod: "Monthly",
+    accountStatus: "Active",
+    expiresOn: null,
+  });
+  await mount();
+  expect(renderer!.root.findByProps({ role: "meter" }).props["aria-valuenow"]).toBe(0);
+  expect(JSON.stringify(renderer!.toJSON())).toContain("$0.00 / $350.00");
 });

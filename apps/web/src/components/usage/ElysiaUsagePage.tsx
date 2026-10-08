@@ -85,6 +85,13 @@ export function ElysiaUsagePage() {
     environmentId && provider
       ? serverEnvironment.elysiaStats({ environmentId, input: { instanceId: provider.instanceId } })
       : null;
+  const accountAtom =
+    environmentId && provider
+      ? serverEnvironment.elysiaAccountUsage({
+          environmentId,
+          input: { instanceId: provider.instanceId },
+        })
+      : null;
   const [scope, setScope] = useState("current");
   const [range, setRange] = useState("30");
   const [dates, setDates] = useState(() => elysiaUsageRange(30, new Date()));
@@ -107,22 +114,29 @@ export function ElysiaUsagePage() {
       : null;
   const query = useEnvironmentQuery(statsAtom);
   const usage = useEnvironmentQuery(usageAtom);
+  const account = useEnvironmentQuery(accountAtom);
   useEffect(() => {
     // New queries load on subscription; reopen cached queries once without duplicate in-flight reads.
     if (statsAtom) {
       const result = registry.get(statsAtom);
       if (!result.waiting && result._tag !== "Initial") registry.refresh(statsAtom);
     }
+    if (accountAtom) {
+      const result = registry.get(accountAtom);
+      if (!result.waiting && result._tag !== "Initial") registry.refresh(accountAtom);
+    }
     if (usageAtom) {
       const result = registry.get(usageAtom);
       if (!result.waiting && result._tag !== "Initial") registry.refresh(usageAtom);
     }
-  }, [registry, statsAtom, usageAtom]);
+  }, [registry, statsAtom, usageAtom, accountAtom]);
   const refresh = () => {
     if (statsAtom) registry.refresh(statsAtom);
     if (usageAtom) registry.refresh(usageAtom);
+    if (accountAtom) registry.refresh(accountAtom);
   };
   const snapshot = query.data;
+  const accountTotals = account.data?.status === "available" ? account.data : null;
   const summary = usage.data;
   const window = range === "custom" ? dates : elysiaUsageRange(Number(range), now);
   const buckets =
@@ -143,7 +157,6 @@ export function ElysiaUsagePage() {
     summary?.sources.length && summary.sources.every((source) => source.status === "missing"),
   );
   const cost = buckets.reduce((sum, bucket) => sum + bucket.costUsd, 0);
-  const month = today.slice(0, 7);
   const monthLabel = new Intl.DateTimeFormat("en-GB", {
     month: "long",
     year: "numeric",
@@ -151,11 +164,6 @@ export function ElysiaUsagePage() {
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
   const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 1).getTime();
   const monthElapsed = ((now.getTime() - monthStart) / (monthEnd - monthStart)) * 100;
-  const monthly = summary?.buckets.filter((bucket) => bucket.day.startsWith(month)) ?? [];
-  const monthlyCost = monthly.reduce((sum, bucket) => sum + bucket.costUsd, 0);
-  const monthlyPriced = monthly.some((bucket) => bucket.records > bucket.unpricedRecords);
-  const monthlyAvailable = coverage && (monthlyPriced || monthly.length === 0);
-  const monthlyUnknown = monthly.some((bucket) => bucket.unpricedRecords > 0);
   const models = new Map<string, { cost: number; records: number; unpriced: number }>();
   for (const bucket of buckets) {
     const value = models.get(bucket.model) ?? { cost: 0, records: 0, unpriced: 0 };
@@ -178,10 +186,12 @@ export function ElysiaUsagePage() {
           <Button
             variant="secondary"
             size="sm"
-            disabled={!provider || !environmentId || query.isPending || usage.isPending}
+            disabled={
+              !provider || !environmentId || query.isPending || usage.isPending || account.isPending
+            }
             onClick={refresh}
           >
-            {query.isPending || usage.isPending ? "Refreshing…" : "Refresh"}
+            {query.isPending || usage.isPending || account.isPending ? "Refreshing…" : "Refresh"}
           </Button>
         }
       />
@@ -220,56 +230,84 @@ export function ElysiaUsagePage() {
               </ToggleGroup>
             </div>
           </div>
-          {query.isPending || usage.isPending ? (
+          {query.isPending || usage.isPending || account.isPending ? (
             <p role="status" className="text-sm text-muted-foreground">
-              Reading local statistics…
+              Reading statistics…
             </p>
           ) : null}
           <div className="flex min-w-0 flex-col gap-6">
             <div className="flex min-w-0 flex-col gap-6">
               <section className="flex flex-col gap-3 rounded-xl border border-border/60 bg-card/40 p-5 shadow-xs/5">
-                <h2 className="text-sm font-medium">Monthly API usage</h2>
+                <h2 className="text-sm font-medium">Account API usage</h2>
                 <p className="text-sm tabular-nums">
-                  {monthlyAvailable
-                    ? savingsFormat.format(monthlyCost)
-                    : missingUsageHistory
-                      ? "No usage yet"
-                      : "Unavailable"}{" "}
-                  / $200
-                  {monthlyUnknown ? " · partial" : ""}
+                  {accountTotals
+                    ? `${savingsFormat.format(accountTotals.usedUsd)} / ${savingsFormat.format(accountTotals.limitUsd)}`
+                    : account.isPending
+                      ? "Reading CLI account usage…"
+                      : "Unavailable"}
                 </p>
-                {monthlyAvailable ? (
+                {accountTotals ? (
                   <Tooltip>
                     <TooltipTrigger
                       render={
                         <div
                           role="meter"
                           tabIndex={0}
-                          aria-label="Monthly estimated usage cost"
+                          aria-label="Account API usage"
                           aria-valuemin={0}
-                          aria-valuemax={200}
-                          aria-valuenow={Math.min(200, monthlyCost)}
-                          aria-valuetext={`${savingsFormat.format(monthlyCost)} of $200`}
+                          aria-valuemax={accountTotals.limitUsd}
+                          aria-valuenow={Math.min(accountTotals.limitUsd, accountTotals.usedUsd)}
+                          aria-valuetext={`${savingsFormat.format(accountTotals.usedUsd)} of ${savingsFormat.format(accountTotals.limitUsd)}`}
                           className="relative h-6 cursor-default rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                         >
                           <UsageBarTrack
                             color={PROVIDER_PRESENTATION.claude.color}
-                            fillPercent={Math.min(100, monthlyCost / 2)}
-                            markerPercent={monthElapsed}
+                            fillPercent={Math.min(
+                              100,
+                              (accountTotals.usedUsd / accountTotals.limitUsd) * 100,
+                            )}
+                            markerPercent={
+                              accountTotals.resetPeriod?.toLowerCase() === "monthly"
+                                ? monthElapsed
+                                : null
+                            }
                           />
                         </div>
                       }
                     />
                     <TooltipPopup>
-                      Elysia · {savingsFormat.format(monthlyCost)} of $200 monthly target
-                      {monthlyUnknown ? " · partial estimate" : ""}
-                      <div className="text-muted-foreground">
-                        The line shows the month's elapsed time.
-                      </div>
+                      Elysia · {savingsFormat.format(accountTotals.usedUsd)} of{" "}
+                      {savingsFormat.format(accountTotals.limitUsd)}
+                      {accountTotals.resetPeriod?.toLowerCase() === "monthly" ? (
+                        <div className="text-muted-foreground">
+                          The line shows the month's elapsed time.
+                        </div>
+                      ) : null}
                     </TooltipPopup>
                   </Tooltip>
                 ) : null}
-                <p className="text-sm text-muted-foreground">{monthLabel} · API estimate</p>
+                <p className="text-sm text-muted-foreground">
+                  {accountTotals
+                    ? [
+                        accountTotals.accountStatus,
+                        accountTotals.resetPeriod
+                          ? `Resets ${accountTotals.resetPeriod.toLowerCase()}`
+                          : null,
+                        accountTotals.resetPeriod?.toLowerCase() === "monthly" ? monthLabel : null,
+                        accountTotals.expiresOn ? `Expires ${accountTotals.expiresOn}` : null,
+                        "CLI account totals",
+                      ]
+                        .filter(Boolean)
+                        .join(" · ")
+                    : "Account totals could not be read from the Elysia CLI. Use Refresh to try again."}
+                </p>
+                {account.error ? (
+                  <p role="status" className="text-sm text-muted-foreground">
+                    {accountTotals
+                      ? "Account usage could not be refreshed. Showing the last CLI totals."
+                      : "Account usage could not be read. Use Refresh to try again."}
+                  </p>
+                ) : null}
               </section>
               <section className="flex flex-col gap-4 rounded-xl border border-border/60 bg-card/40 p-5 shadow-xs/5">
                 <div className="flex flex-wrap items-center justify-between gap-3">
@@ -404,7 +442,7 @@ export function ElysiaUsagePage() {
                 ) : null}
               </section>
               <section className="flex flex-col gap-3 rounded-xl border border-border/60 bg-card/40 p-5 shadow-xs/5">
-                <h2 className="text-base font-medium">Cost by model</h2>
+                <h2 className="text-base font-medium">Estimated cost by model</h2>
                 <dl className="flex flex-col gap-2">
                   {[...models]
                     .sort(([, a], [, b]) => b.cost - a.cost)

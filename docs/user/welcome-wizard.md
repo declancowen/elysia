@@ -10,4 +10,4 @@ Set **Default model** in Providers for new threads and the managed CLI. Existing
 
 The company build uses Elysia exclusively. Other provider runtimes and Connections are disabled.
 
-To view savings, open **Stats** or type `/elysia-compression stats` inside Claude Code. The default compression dashboard is `http://localhost:8787/dashboard`; Stats displays the native dashboard using its active local port.
+Open **Stats** to see your CLI account spend, allowance and reset period, alongside compression savings. Account totals are available even when compression is disabled. Use **Refresh** to read the latest totals. Usage history and costs by model are estimates from retained activity, rather than a model-level bill. You can also type `/elysia-compression stats` inside Claude Code to view compression savings.

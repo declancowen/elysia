@@ -81,6 +81,7 @@ it.layer(testLayer)("Elysia startup", (it) => {
             ),
             bootstrap: () => Effect.succeed(undefined),
             reuseCredentials: () => Effect.succeed(ready),
+            accountUsage: Effect.succeed({ status: "unavailable", reason: "cli-unavailable" }),
             restoreCompression: Deferred.succeed(restoreStarted, undefined).pipe(
               Effect.andThen(Effect.never),
             ),

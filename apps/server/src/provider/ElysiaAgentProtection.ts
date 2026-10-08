@@ -106,13 +106,16 @@ export function elysiaAgentProtection(
               // credentials never become readable by the sandboxed command.
               const nativeCommand =
                 input.tool_name === "Bash" && typeof args.command === "string"
-                  ? /^\s*elysia-code\s+(--config|--models|--model|--compression-stats|--compression-enable|--compression-disable)(?:\s+([a-zA-Z0-9._-]+))?\s*$/.exec(
+                  ? /^\s*elysia-code\s+(--config|--models|--model|--compression-stats|--compression-enable|--compression-disable)(?:\s+(--json|[a-zA-Z0-9._-]+))?\s*$/.exec(
                       args.command,
                     )
                   : null;
               if (
                 nativeCommand &&
-                (nativeCommand[1] === "--model" ? nativeCommand[2] : !nativeCommand[2])
+                (nativeCommand[1] === "--model"
+                  ? nativeCommand[2] && nativeCommand[2] !== "--json"
+                  : !nativeCommand[2] ||
+                    (nativeCommand[1] === "--compression-stats" && nativeCommand[2] === "--json"))
               ) {
                 try {
                   if (nativeCommand[1] === "--model") {

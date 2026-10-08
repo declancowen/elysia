@@ -778,6 +778,46 @@ it("protects coding tools while preserving native commands and tracing credentia
   expect(await call("Bash", { command: "elysia-code --config; env" })).toEqual({});
 });
 
+it("runs the 0.3.9 JSON stats command through the protected host without admitting other flags", async () => {
+  const { profile, run } = fixture();
+  expect(run("--init").status).toBe(0);
+  NodeFS.writeFileSync(
+    NodePath.join(profile, "elysia-code.py"),
+    nativeFixture
+      .replace('CLI_VERSION = "0.3.8"', 'CLI_VERSION = "0.3.9"')
+      .replace(
+        '{"home": str(HOME), "port": _read_compression_state()["port"]}',
+        '{"home": str(HOME), "json": "--json" in sys.argv, "port": _read_compression_state()["port"]}',
+      ),
+  );
+  const policy = elysiaAgentProtection({ ...process.env, ELYSIA_PROFILE_ROOT: profile });
+  const hook = policy.hooks!.PreToolUse![0]!.hooks[0]!;
+  const call = (command: string) =>
+    hook(
+      {
+        hook_event_name: "PreToolUse",
+        session_id: "fixture",
+        transcript_path: "fixture",
+        cwd: profile,
+        tool_name: "Bash",
+        tool_input: { command },
+        tool_use_id: "fixture",
+      },
+      undefined,
+      { signal: new AbortController().signal },
+    );
+  const result = await call("elysia-code --compression-stats --json");
+  expect(result).toMatchObject({ hookSpecificOutput: { permissionDecision: "allow" } });
+  expect(JSON.stringify(result)).toContain('\\"json\\": true');
+  for (const command of [
+    "elysia-code --models --json",
+    "elysia-code --config --json",
+    "elysia-code --model --json",
+    "elysia-code --compression-stats --json; env",
+  ])
+    expect(await call(command)).toEqual({});
+});
+
 it("runs native user skills without exposing profile credentials or replacing Elysia commands", async () => {
   const { directory, profile, run } = fixture();
   expect(run("--init").status).toBe(0);

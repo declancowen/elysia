@@ -11,6 +11,8 @@ optional Azure Trusted Signing secrets listed below and runs the native Elysia C
 apps, installers and WSL runtime archives are not built or published for Elysia.
 
 1. Commit and push the desired source to `main`.
+   Record the app/CLI versions and native verification results in the
+   [CLI compatibility history](cli-compatibility.md); a fixture version is not native verification.
 2. Run **Release Elysia** from `main` with a new stable `X.Y.Z` version. Leave **publish** unchecked
    to validate the entire build and download Actions artifacts without creating a release.
 3. After validation, run the same workflow with **publish** checked, or push a `vX.Y.Z` tag on the

@@ -9,7 +9,7 @@ import Edit03Icon from "@hugeicons/core-free-icons/Edit03Icon";
 import FolderFileStorageIcon from "@hugeicons/core-free-icons/FolderFileStorageIcon";
 import FolderClosedIcon from "@hugeicons/core-free-icons/FolderClosedIcon";
 import Files01Icon from "@hugeicons/core-free-icons/Files01Icon";
-import DroneIcon from "@hugeicons/core-free-icons/DroneIcon";
+import BubblesIcon from "@hugeicons/core-free-icons/BubblesIcon";
 import HashtagIcon from "@hugeicons/core-free-icons/HashtagIcon";
 import Delete02Icon from "@hugeicons/core-free-icons/Delete02Icon";
 import CircleDashedIcon from "@hugeicons/core-free-icons/CircleDashedIcon";
@@ -163,7 +163,7 @@ for (const [name, asset] of Object.entries({
   "workspace-project": FolderClosedIcon,
   "workspace-folder": FolderFileStorageIcon,
   "workspace-page": Files01Icon,
-  "workspace-assigned": DroneIcon,
+  "workspace-assigned": BubblesIcon,
   "workspace-channel": HashtagIcon,
   "workspace-delete": Delete02Icon,
   "task-backlog": CircleDashedIcon,

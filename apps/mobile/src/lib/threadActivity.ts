@@ -1,20 +1,23 @@
-import { delegatedAgentsFromTurnItems, type DelegatedAgent } from "@t3tools/shared/agentMentions";
+import {
+  delegatedAgentsFromTurnItems,
+  type DelegatedAgent,
+} from "@elysiatools/shared/agentMentions";
 import type {
   ThreadPendingApproval,
   ThreadPendingUserInput,
   ThreadUserInputQuestion,
-} from "@t3tools/client-runtime/state/thread-requests";
-import { turnItemIsWorkspacePreparation } from "@t3tools/client-runtime/state/turn-item-presentation";
-import { formatSubagentDisplayTitle } from "@t3tools/client-runtime/state/subagent-display";
-import { extractToolActivityPresentation } from "@t3tools/client-runtime/work-log/tool-presentation";
+} from "@elysiatools/client-runtime/state/thread-requests";
+import { turnItemIsWorkspacePreparation } from "@elysiatools/client-runtime/state/turn-item-presentation";
+import { formatSubagentDisplayTitle } from "@elysiatools/client-runtime/state/subagent-display";
+import { extractToolActivityPresentation } from "@elysiatools/client-runtime/work-log/tool-presentation";
 import {
   turnItemHasDetail,
   turnItemNeedsDetailFetch,
-} from "@t3tools/client-runtime/work-log/item-detail";
+} from "@elysiatools/client-runtime/work-log/item-detail";
 import {
   commandDisplayText,
   commandProgramName,
-} from "@t3tools/client-runtime/work-log/command-label";
+} from "@elysiatools/client-runtime/work-log/command-label";
 import {
   contextCompactionLabel,
   toolItemForDisplay,
@@ -27,13 +30,13 @@ import {
   type ToolGroupSummaryKind,
   type WorkLogPresentationEntry,
   type WorkLogToolLifecycleStatus,
-} from "@t3tools/client-runtime/work-log/presentation";
+} from "@elysiatools/client-runtime/work-log/presentation";
 import {
   resolveElysiaMcpToolDefinition,
   resolveElysiaMcpToolPresentation,
   type ElysiaMcpToolLogo,
   type ElysiaMcpToolPresentation,
-} from "@t3tools/shared/elysiaMcpToolPresentation";
+} from "@elysiatools/shared/elysiaMcpToolPresentation";
 import type {
   ChatAttachment,
   MessageId,
@@ -48,18 +51,18 @@ import type {
   OrchestrationV2UserMessageInputIntent,
   RunAttemptId,
   ScheduledTaskId,
-} from "@t3tools/contracts";
-import { RunId, ThreadId } from "@t3tools/contracts";
+} from "@elysiatools/contracts";
+import { RunId, ThreadId } from "@elysiatools/contracts";
 import {
   classifyToolActivity,
   collectToolFilePaths,
   dynamicToolTitle,
   formatReadToolLabel,
   formatSearchToolLabel,
-} from "@t3tools/shared/toolActivity";
-import { formatDuration } from "@t3tools/shared/orchestrationTiming";
-import type { HtmlRenderReference } from "@t3tools/shared/htmlRender";
-import { compactDynamicToolOutput, htmlRenderFromToolItem } from "@t3tools/shared/toolOutput";
+} from "@elysiatools/shared/toolActivity";
+import { formatDuration } from "@elysiatools/shared/orchestrationTiming";
+import type { HtmlRenderReference } from "@elysiatools/shared/htmlRender";
+import { compactDynamicToolOutput, htmlRenderFromToolItem } from "@elysiatools/shared/toolOutput";
 import * as DateTime from "effect/DateTime";
 
 export type PendingApproval = ThreadPendingApproval;
@@ -113,7 +116,7 @@ export interface ThreadFeedActivity {
 }
 
 export interface ThreadFeedMessage {
-  readonly context?: import("@t3tools/contracts").OrchestrationMessageContext | undefined;
+  readonly context?: import("@elysiatools/contracts").OrchestrationMessageContext | undefined;
   readonly id: MessageId;
   readonly role: "user" | "assistant";
   readonly text: string;

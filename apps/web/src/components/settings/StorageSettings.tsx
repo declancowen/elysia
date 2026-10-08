@@ -1,11 +1,11 @@
-import type { StorageCleanupSettings, WorktreeCleanupRules } from "@t3tools/contracts";
-import { resolveWorktreeCleanup } from "@t3tools/shared/projectSettings";
+import type { StorageCleanupSettings, WorktreeCleanupRules } from "@elysiatools/contracts";
+import { resolveWorktreeCleanup } from "@elysiatools/shared/projectSettings";
 import { useRef, useState } from "react";
 
 import { Input } from "../ui/input";
 import { Select, SelectItem, SelectPopup, SelectTrigger, SelectValue } from "../ui/select";
 import { Switch } from "../ui/switch";
-import { SINGLE_PROVIDER_UI } from "@t3tools/contracts";
+import { SINGLE_PROVIDER_UI } from "@elysiatools/contracts";
 import {
   NumberField,
   NumberFieldDecrement,
@@ -49,7 +49,7 @@ function WorktreesDirectoryRow() {
     <SettingsRow
       {...searchableSetting("storage-worktrees-location")}
       description={
-        "Folder where new worktrees are created, on any drive, such as D:\\worktrees or ~/worktrees. Existing worktrees stay where they are. Leave empty to use the T3 home folder."
+        "Folder where new worktrees are created, on any drive, such as D:\\worktrees or ~/worktrees. Existing worktrees stay where they are. Leave empty to use the Elysia home folder."
       }
       serverScoped
       settingKeys={["worktreesDirectory"]}

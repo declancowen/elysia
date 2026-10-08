@@ -1,7 +1,7 @@
 import { PermissionChecklist, PermissionContinueButton } from "../permissions/PermissionChecklist";
 import { usePermissionStatus } from "../permissions/usePermissionStatus";
-import type { BrowserImportSource } from "@t3tools/contracts";
-import { BROWSER_IMPORT_FAILURE_COPY } from "@t3tools/contracts";
+import type { BrowserImportSource } from "@elysiatools/contracts";
+import { BROWSER_IMPORT_FAILURE_COPY } from "@elysiatools/contracts";
 import { ArrowDownIcon, ArrowRightIcon, CheckIcon, HardDriveIcon } from "~/icons";
 import { useRef, useState } from "react";
 

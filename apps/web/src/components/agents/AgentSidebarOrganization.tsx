@@ -1,6 +1,6 @@
 import { randomUUID } from "../../lib/utils";
 import { useState, type ReactNode } from "react";
-import { scopedProjectKey, scopeProjectRef } from "@t3tools/client-runtime/environment";
+import { scopedProjectKey, scopeProjectRef } from "@elysiatools/client-runtime/environment";
 import { Edit03Icon, MoreHorizontalIcon, PinIcon, Trash2Icon } from "../../icons";
 import { Button } from "../ui/button";
 import {

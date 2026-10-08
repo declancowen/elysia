@@ -1,6 +1,6 @@
 import { parseFragment, type DefaultTreeAdapterTypes } from "parse5";
-import { ComposerContextId, type WorkTask } from "@t3tools/contracts";
-import { formatComposerContextReference } from "@t3tools/shared/composerContextReferences";
+import { ComposerContextId, type WorkTask } from "@elysiatools/contracts";
+import { formatComposerContextReference } from "@elysiatools/shared/composerContextReferences";
 
 function descriptionText(description: string): string {
   // API callers can supply plain text as well as the editor's HTML.

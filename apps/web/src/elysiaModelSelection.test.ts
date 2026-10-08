@@ -1,6 +1,10 @@
-import { ProviderDriverKind, ProviderInstanceId, type ServerProvider } from "@t3tools/contracts";
-import { DEFAULT_UNIFIED_SETTINGS, type UnifiedSettings } from "@t3tools/contracts/settings";
-import { createModelSelection } from "@t3tools/shared/model";
+import {
+  ProviderDriverKind,
+  ProviderInstanceId,
+  type ServerProvider,
+} from "@elysiatools/contracts";
+import { DEFAULT_UNIFIED_SETTINGS, type UnifiedSettings } from "@elysiatools/contracts/settings";
+import { createModelSelection } from "@elysiatools/shared/model";
 import { describe, expect, it } from "vite-plus/test";
 
 import {

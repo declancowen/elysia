@@ -1,4 +1,4 @@
-import type { AssetResource } from "@t3tools/contracts";
+import type { AssetResource } from "@elysiatools/contracts";
 import {
   AssetAttachmentNotFoundError,
   PROVIDER_SEND_TURN_MAX_IMAGE_BYTES,
@@ -17,7 +17,7 @@ import {
   ThreadId,
   ToolActivityNativeAppReference,
   TurnItemId,
-} from "@t3tools/contracts";
+} from "@elysiatools/contracts";
 import {
   audioMimeTypeFromExtension,
   hostPreviewMimeTypeFromExtension,
@@ -25,15 +25,15 @@ import {
   isWorkspacePreviewEntryPath,
   WORKSPACE_BROWSER_PREVIEW_EXTENSIONS,
   WORKSPACE_IMAGE_PREVIEW_EXTENSIONS,
-} from "@t3tools/shared/filePreview";
+} from "@elysiatools/shared/filePreview";
 import {
   IMAGE_DIMENSIONS_HEADER_BYTES,
   readImageDimensions,
   type ImageDimensions,
-} from "@t3tools/shared/imageDimensions";
-import { githubMediaFetchUrl, githubMediaFileName } from "@t3tools/shared/githubMedia";
-import { PROJECT_FAVICON_FALLBACK_MARKER } from "@t3tools/shared/projectFavicon";
-import { toolOutputImages } from "@t3tools/shared/toolOutput";
+} from "@elysiatools/shared/imageDimensions";
+import { githubMediaFetchUrl, githubMediaFileName } from "@elysiatools/shared/githubMedia";
+import { PROJECT_FAVICON_FALLBACK_MARKER } from "@elysiatools/shared/projectFavicon";
+import { toolOutputImages } from "@elysiatools/shared/toolOutput";
 import * as Clock from "effect/Clock";
 import * as Crypto from "effect/Crypto";
 import * as Effect from "effect/Effect";

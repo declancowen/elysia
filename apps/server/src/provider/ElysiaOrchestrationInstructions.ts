@@ -1,4 +1,4 @@
-import type { ProviderInteractionMode } from "@t3tools/contracts";
+import type { ProviderInteractionMode } from "@elysiatools/contracts";
 
 export const ELYSIA_ORCHESTRATION_INSTRUCTIONS = `
 

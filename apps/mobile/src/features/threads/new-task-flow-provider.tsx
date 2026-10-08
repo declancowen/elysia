@@ -1,4 +1,4 @@
-import { resolveFilesystemReadAccess } from "@t3tools/client-runtime/state/filesystem";
+import { resolveFilesystemReadAccess } from "@elysiatools/client-runtime/state/filesystem";
 import { useEnvironmentPresentation } from "../../state/presentation";
 import { environmentSession } from "../../state/session";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -12,7 +12,7 @@ import type {
   ProviderOptionSelection,
   RuntimeMode,
   ServerProvider,
-} from "@t3tools/contracts";
+} from "@elysiatools/contracts";
 import {
   CommandId,
   DEFAULT_PROVIDER_INTERACTION_MODE,
@@ -20,12 +20,18 @@ import {
   DEFAULT_SERVER_SETTINGS,
   MessageId,
   repositoryGroupingKeyOf,
-  T3_PROJECT_FILE_NAME,
+  ELYSIA_PROJECT_FILE_NAME,
+  LEGACY_PROJECT_FILE_NAME,
   ThreadId,
-} from "@t3tools/contracts";
-import { sanitizeNewRefName } from "@t3tools/shared/git";
-import { resolveProjectSettings } from "@t3tools/shared/projectSettings";
-import { parseT3ProjectFile } from "@t3tools/shared/t3ProjectFile";
+} from "@elysiatools/contracts";
+import { sanitizeNewRefName } from "@elysiatools/shared/git";
+import { resolveProjectSettings } from "@elysiatools/shared/projectSettings";
+import {
+  isMissingProjectFileError,
+  parseElysiaProjectFile,
+} from "@elysiatools/shared/elysiaProjectFile";
+import * as Cause from "effect/Cause";
+import { Atom } from "effect/reactivity";
 import * as Arr from "effect/Array";
 import { pipe } from "effect/Function";
 
@@ -96,14 +102,14 @@ import {
   useRemoteConnectionStatus,
   useSavedRemoteConnections,
 } from "../../state/use-remote-environment-registry";
-import { availableScratchWorkspaceRoot } from "@t3tools/client-runtime/operations/projects";
+import { availableScratchWorkspaceRoot } from "@elysiatools/client-runtime/operations/projects";
 import {
   isAtomCommandInterrupted,
   squashAtomCommandFailure,
-} from "@t3tools/client-runtime/state/runtime";
-import { isScratchProject } from "@t3tools/client-runtime/state/projects";
-import { EnvironmentProject } from "@t3tools/client-runtime/state/shell";
-import { type VcsRef } from "@t3tools/client-runtime/state/vcs";
+} from "@elysiatools/client-runtime/state/runtime";
+import { isScratchProject } from "@elysiatools/client-runtime/state/projects";
+import { EnvironmentProject } from "@elysiatools/client-runtime/state/shell";
+import { type VcsRef } from "@elysiatools/client-runtime/state/vcs";
 import {
   buildHomeProjectScopes,
   sortHomeProjectScopes,
@@ -487,7 +493,7 @@ export function NewTaskFlowProvider(props: React.PropsWithChildren) {
   const attachments = selectedProjectDraft.attachments;
   // Default mode until the user picks one explicitly — same resolution web
   // uses for new draft threads: per-project setting, then the repo's
-  // checked-in t3.json, then the server's configured default.
+  // checked-in elysia.json, then the server's configured default.
   const fileAccessSession = useEnvironmentQuery(
     selectedProject !== null && selectedProject.workspaceRoot !== ""
       ? environmentSession.sessionStateAtom(selectedProject.environmentId)
@@ -503,23 +509,37 @@ export function NewTaskFlowProvider(props: React.PropsWithChildren) {
   const { canReadFiles } = fileAccess;
   const fileAccessPending =
     selectedProject !== null && selectedProject.workspaceRoot !== "" && fileAccess.isPending;
-  const t3ProjectFileQuery = useEnvironmentQuery(
-    canReadFiles && selectedProject !== null && selectedProject.workspaceRoot !== ""
-      ? projectEnvironment.readFile({
-          environmentId: selectedProject.environmentId,
-          input: { cwd: selectedProject.workspaceRoot, relativePath: T3_PROJECT_FILE_NAME },
-        })
-      : null,
-  );
-  const t3ProjectFileData = t3ProjectFileQuery.data as ProjectReadFileResult | null;
-  const t3ProjectFile = useMemo(
+  const projectFileAtom = useMemo(
     () =>
-      t3ProjectFileData === null || t3ProjectFileData.truncated
-        ? null
-        : parseT3ProjectFile(t3ProjectFileData.contents),
-    [t3ProjectFileData],
+      canReadFiles && selectedProject !== null && selectedProject.workspaceRoot !== ""
+        ? Atom.make((get) => {
+            const read = (relativePath: string) =>
+              get(
+                projectEnvironment.readFile({
+                  environmentId: selectedProject.environmentId,
+                  input: { cwd: selectedProject.workspaceRoot, relativePath },
+                }),
+              );
+            const primary = read(ELYSIA_PROJECT_FILE_NAME);
+            return primary._tag === "Failure" &&
+              !primary.waiting &&
+              isMissingProjectFileError(Cause.squash(primary.cause))
+              ? read(LEGACY_PROJECT_FILE_NAME)
+              : primary;
+          })
+        : null,
+    [canReadFiles, selectedProject],
   );
-  // Environment settings with the project's overrides and its t3.json
+  const elysiaProjectFileQuery = useEnvironmentQuery(projectFileAtom);
+  const elysiaProjectFileData = elysiaProjectFileQuery.data as ProjectReadFileResult | null;
+  const elysiaProjectFile = useMemo(
+    () =>
+      elysiaProjectFileData === null || elysiaProjectFileData.truncated
+        ? null
+        : parseElysiaProjectFile(elysiaProjectFileData.contents),
+    [elysiaProjectFileData],
+  );
+  // Environment settings with the project's overrides and its elysia.json
   // applied; the aggregate's own legacy fields still count until the server
   // folds them.
   const projectSettings = useMemo(
@@ -528,9 +548,9 @@ export function NewTaskFlowProvider(props: React.PropsWithChildren) {
         selectedEnvironmentServerConfig?.settings ?? DEFAULT_SERVER_SETTINGS,
         selectedProject?.id ?? null,
         selectedProject,
-        t3ProjectFile,
+        elysiaProjectFile,
       ),
-    [selectedEnvironmentServerConfig?.settings, selectedProject, t3ProjectFile],
+    [selectedEnvironmentServerConfig?.settings, selectedProject, elysiaProjectFile],
   );
   // A thread without a project runs in a plain folder, so worktree mode
   // would leave it unsendable: it is always local and offers no choice.
@@ -541,11 +561,11 @@ export function NewTaskFlowProvider(props: React.PropsWithChildren) {
   // While the file read is pending and nothing above it decided, the
   // resolved default is provisional. Nothing may write it into the draft
   // during that window (the auto-branch effect does), or the frozen interim
-  // value beats the t3.json default once it loads.
+  // value beats the elysia.json default once it loads.
   const defaultWorkspaceModeSettled =
     selectedProjectDraft.workspaceSelection?.mode !== undefined ||
     projectSettings.sources.defaultThreadEnvMode !== "environment" ||
-    (!t3ProjectFileQuery.isPending && !fileAccessPending);
+    (!elysiaProjectFileQuery.isPending && !fileAccessPending);
   const workspaceMode = canChooseWorkspace
     ? (selectedProjectDraft.workspaceSelection?.mode ?? defaultWorkspaceMode)
     : "local";

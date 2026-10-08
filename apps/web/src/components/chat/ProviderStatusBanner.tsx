@@ -1,4 +1,4 @@
-import { type ProviderInstanceId, type ServerProvider } from "@t3tools/contracts";
+import { type ProviderInstanceId, type ServerProvider } from "@elysiatools/contracts";
 import { memo } from "react";
 import { InfoIcon, XIcon } from "~/icons";
 import { Alert, AlertAction, AlertDescription, AlertTitle } from "../ui/alert";

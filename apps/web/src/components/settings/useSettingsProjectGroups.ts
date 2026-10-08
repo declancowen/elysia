@@ -1,8 +1,8 @@
-import { SINGLE_PROVIDER_UI } from "@t3tools/contracts";
+import { SINGLE_PROVIDER_UI } from "@elysiatools/contracts";
 import { useProjects } from "../../state/entities";
 import { selectRegularProjects } from "../../agentPresentation";
 import { useMemo } from "react";
-import { isScratchProject } from "@t3tools/client-runtime/state/projects";
+import { isScratchProject } from "@elysiatools/client-runtime/state/projects";
 
 import { useClientSettings } from "../../hooks/useSettings";
 import { selectProjectGroupingSettings } from "../../logicalProject";

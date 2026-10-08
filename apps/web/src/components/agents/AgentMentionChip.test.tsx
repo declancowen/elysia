@@ -10,7 +10,7 @@ import {
   type OrchestrationV2TurnItem,
   TurnItemId,
   type AgentGetDelegationResult,
-} from "@t3tools/contracts";
+} from "@elysiatools/contracts";
 import { expect, it, vi } from "vite-plus/test";
 
 const state = vi.hoisted(() => ({
@@ -39,7 +39,7 @@ vi.mock("~/state/entities", () => ({
 vi.mock("./useDelegatedAgents", () => ({
   useDelegatedAgents: (
     _source: unknown,
-    jobs: import("@t3tools/shared/agentMentions").DelegatedAgent[],
+    jobs: import("@elysiatools/shared/agentMentions").DelegatedAgent[],
   ) =>
     jobs.map((job) => ({
       job,

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { EnvironmentId } from "@t3tools/contracts";
+import type { EnvironmentId } from "@elysiatools/contracts";
 import { filesystemEnvironment } from "../../state/filesystem";
 import { useEnvironmentQuery } from "../../state/query";
 import { FolderIcon, ArrowLeftIcon } from "../../icons";

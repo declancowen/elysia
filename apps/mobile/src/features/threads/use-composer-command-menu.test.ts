@@ -5,12 +5,12 @@ import {
   ProviderDriverKind,
   ProviderInstanceId,
   type ServerProvider,
-} from "@t3tools/contracts";
+} from "@elysiatools/contracts";
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 
 const refreshProviders = vi.hoisted(() => vi.fn());
-import { mentionedAgentProjectIds } from "@t3tools/shared/agentMentions";
+import { mentionedAgentProjectIds } from "@elysiatools/shared/agentMentions";
 vi.mock("react-native", () => ({ Alert: { alert: vi.fn() } }));
 
 vi.mock("../../state/queries", () => ({

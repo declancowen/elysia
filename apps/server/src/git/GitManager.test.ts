@@ -30,7 +30,7 @@ import type {
   GitManagerServiceError,
   GitPreparePullRequestThreadInput,
   ModelSelection,
-} from "@t3tools/contracts";
+} from "@elysiatools/contracts";
 
 import {
   DEFAULT_SERVER_SETTINGS,
@@ -41,7 +41,7 @@ import {
   ProviderInstanceId,
   TextGenerationError,
   ThreadId,
-} from "@t3tools/contracts";
+} from "@elysiatools/contracts";
 import * as DateTime from "effect/DateTime";
 import * as GitHubApi from "../sourceControl/GitHubApi.ts";
 import * as GitHubCli from "../sourceControl/GitHubCli.ts";
@@ -696,7 +696,7 @@ function makeManager(input?: {
   const { service: gitHubCli, ghCalls } = createGitHubCliWithFakeGh(input?.ghScenario);
   const textGeneration = createTextGeneration(input?.textGeneration);
   const layerServerConfig = ServerConfig.layerTest(process.cwd(), {
-    prefix: "t3-git-manager-test-",
+    prefix: "elysia-git-manager-test-",
   });
 
   const layerServerSettings = ServerSettings.ServerSettingsService.layerTest(input?.serverSettings);
@@ -784,7 +784,7 @@ function makeManager(input?: {
 const asThreadId = (threadId: string) => threadId as ThreadId;
 
 const layerGitManagerTest = GitVcsDriver.layer.pipe(
-  Layer.provide(ServerConfig.layerTest(process.cwd(), { prefix: "t3-git-manager-test-" })),
+  Layer.provide(ServerConfig.layerTest(process.cwd(), { prefix: "elysia-git-manager-test-" })),
   Layer.provideMerge(VcsProcess.layer),
   Layer.provideMerge(NodeServices.layer),
 );

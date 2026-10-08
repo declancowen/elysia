@@ -1,4 +1,4 @@
-import type { AgentProfile } from "@t3tools/contracts";
+import type { AgentProfile } from "@elysiatools/contracts";
 
 // Static body and face geometry adapted from Akeru Bot (MIT).
 // See legal/licenses/MIT-Akeru.txt. Both clients draw the same local characters.

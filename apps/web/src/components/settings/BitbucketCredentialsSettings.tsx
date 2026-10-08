@@ -1,4 +1,4 @@
-import type { BitbucketSettings, EnvironmentId } from "@t3tools/contracts";
+import type { BitbucketSettings, EnvironmentId } from "@elysiatools/contracts";
 import { ExternalLinkIcon } from "~/icons";
 import { useState } from "react";
 

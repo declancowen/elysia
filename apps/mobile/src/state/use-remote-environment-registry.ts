@@ -1,6 +1,6 @@
 import { useAtomValue } from "@effect/atom-react";
 import { useNavigation } from "@react-navigation/native";
-import type { EnvironmentId } from "@t3tools/contracts";
+import type { EnvironmentId } from "@elysiatools/contracts";
 import * as Cause from "effect/Cause";
 import { AsyncResult, Atom } from "effect/reactivity";
 import { useCallback } from "react";
@@ -173,11 +173,11 @@ export function useRemoteConnections() {
       if (environment.isRelayManaged) {
         Alert.alert(
           "Remove from this device?",
-          `Forget ${environment.environmentLabel} and its cached threads on this device.\n\nIt stays on your Connections account and keeps its host space. Deregister it under T3 Account → Connections to free it.`,
+          `Forget ${environment.environmentLabel} and its cached threads on this device.\n\nIt stays on your Connections account and keeps its host space. Deregister it under Elysia Account → Connections to free it.`,
           [
             { text: "Cancel", style: "cancel" },
             {
-              text: "Open T3 Account",
+              text: "Open Elysia Account",
               onPress: () => navigation.navigate("SettingsSheet", { screen: "SettingsAuth" }),
             },
             remove,

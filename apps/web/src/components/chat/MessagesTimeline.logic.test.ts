@@ -1,4 +1,4 @@
-import { ProjectId, ThreadId, type WorktreeSetupSnapshot } from "@t3tools/contracts";
+import { ProjectId, ThreadId, type WorktreeSetupSnapshot } from "@elysiatools/contracts";
 import {
   CheckpointRef,
   NodeId,
@@ -6,7 +6,7 @@ import {
   TurnItemId,
   RuntimeRequestId,
   type OrchestrationV2ProjectedTurnItem,
-} from "@t3tools/contracts";
+} from "@elysiatools/contracts";
 import * as DateTime from "effect/DateTime";
 import {
   deriveTimelineEntriesFromVisibleTurnItems,
@@ -17,7 +17,7 @@ import {
 import { makeStreamingTimelineFixture } from "../../test-fixtures";
 import type { TurnDiffSummary } from "../../types";
 import { describe, expect, it } from "vite-plus/test";
-import { EventId, MessageId, RunId } from "@t3tools/contracts";
+import { EventId, MessageId, RunId } from "@elysiatools/contracts";
 import {
   taskLinksByReply,
   computeStableMessagesTimelineRows,

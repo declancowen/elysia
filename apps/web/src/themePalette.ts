@@ -1,4 +1,4 @@
-import { SINGLE_PROVIDER_UI } from "@t3tools/contracts";
+import { SINGLE_PROVIDER_UI } from "@elysiatools/contracts";
 import * as Equal from "effect/Equal";
 import * as Schema from "effect/Schema";
 import "culori/css";
@@ -10,9 +10,9 @@ import {
   IRIS_THEME,
   OCEAN_THEME,
   DEFAULT_THEME,
-  T3_CHAT_THEME,
-  T3_CODE_LIGHT_THEME_COLORS,
-  T3_CODE_DARK_THEME_COLORS,
+  ELYSIA_CHAT_THEME,
+  ELYSIA_LIGHT_THEME_COLORS,
+  ELYSIA_DARK_THEME_COLORS,
   RESERVED_THEME_IDS,
   THEME_COLOR_ROLES,
   type ThemeAppearance,
@@ -20,7 +20,7 @@ import {
   type ThemeColors,
   type ThemeDefinition,
   type ThemeVariants,
-} from "@t3tools/shared/themePalettes";
+} from "@elysiatools/shared/themePalettes";
 
 export {
   BUILT_IN_THEMES,
@@ -28,21 +28,21 @@ export {
   GROVE_THEME,
   IRIS_THEME,
   OCEAN_THEME,
-  T3_CHAT_THEME,
+  ELYSIA_CHAT_THEME,
   THEME_COLOR_ROLES,
 };
 export type { ThemeAppearance, ThemeColorRole, ThemeColors, ThemeDefinition, ThemeVariants };
 
-export const T3_CHAT_THEME_ID = "t3-chat" as const;
+export const ELYSIA_CHAT_THEME_ID = "t3-chat" as const;
 const GROVE_THEME_ID = "grove" as const;
 export const OCEAN_THEME_ID = "ocean" as const;
 const EMBER_THEME_ID = "ember" as const;
 const IRIS_THEME_ID = "iris" as const;
 export const THEME_FILE_VERSION = 1 as const;
-export const CUSTOM_THEMES_STORAGE_KEY = "t3code:themes:v1";
-export const THEME_FOLLOW_SYSTEM_STORAGE_KEY = "t3code:theme-follow-system";
-export const THEME_APPEARANCE_MODE_STORAGE_KEY = "t3code:theme-appearance-mode";
-export const THEME_HALVES_STORAGE_KEY = "t3code:theme-halves:v1";
+export const CUSTOM_THEMES_STORAGE_KEY = "elysia:themes:v1";
+export const THEME_FOLLOW_SYSTEM_STORAGE_KEY = "elysia:theme-follow-system";
+export const THEME_APPEARANCE_MODE_STORAGE_KEY = "elysia:theme-appearance-mode";
+export const THEME_HALVES_STORAGE_KEY = "elysia:theme-halves:v1";
 
 const LEGACY_T3_CHAT_DARK_THEME_ID = "t3-chat-dark";
 
@@ -304,9 +304,8 @@ export function subscribeToCustomThemes(listener: () => void): () => void {
   };
 }
 
-// Earlier builds shipped every maintainer theme under a t3- prefix; only the
-// genuinely T3-branded palette keeps it. Stored preferences and mixes with the
-// old ids stay readable through this alias table.
+// Stored preferences and mixes with older theme IDs stay readable through
+// this alias table.
 const LEGACY_THEME_ID_ALIASES: Readonly<Record<string, string>> = {
   "t3-chat": "default",
   [LEGACY_T3_CHAT_DARK_THEME_ID]: "default",
@@ -333,7 +332,7 @@ function themeIdFromPreference(theme: ThemePreference): string {
   return normalizeThemeId(theme);
 }
 
-// Older builds stored the dark T3 Chat palette as a separate theme. Keep
+// Older builds stored the dark legacy chat theme palette as a separate theme. Keep
 // those preferences readable while mapping them to the dark variant.
 function legacyThemeMode(theme: ThemePreference): ThemeAppearance | null {
   return theme === LEGACY_T3_CHAT_DARK_THEME_ID ? "dark" : null;
@@ -345,9 +344,9 @@ function legacyThemeMode(theme: ThemePreference): ThemeAppearance | null {
  */
 export function getStandardThemeColors(appearance: ThemeAppearance): ThemeColors {
   if (appearance === "dark") {
-    return (standardDarkThemeColors ??= decodeThemeColors(T3_CODE_DARK_THEME_COLORS));
+    return (standardDarkThemeColors ??= decodeThemeColors(ELYSIA_DARK_THEME_COLORS));
   }
-  return (standardLightThemeColors ??= decodeThemeColors(T3_CODE_LIGHT_THEME_COLORS));
+  return (standardLightThemeColors ??= decodeThemeColors(ELYSIA_LIGHT_THEME_COLORS));
 }
 
 type ThemeRgbColor = {

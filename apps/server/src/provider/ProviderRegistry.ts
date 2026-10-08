@@ -34,7 +34,7 @@ import {
   type ProviderInstanceId,
   type ServerProvider,
   type ServerProviderUpdateState,
-} from "@t3tools/contracts";
+} from "@elysiatools/contracts";
 import * as Cause from "effect/Cause";
 import * as Context from "effect/Context";
 import * as Deferred from "effect/Deferred";
@@ -144,7 +144,7 @@ export class ProviderRegistry extends Context.Service<
      */
     readonly streamChanges: Stream.Stream<ReadonlyArray<ServerProvider>>;
   }
->()("t3/provider/ProviderRegistry") {}
+>()("@elysiatools/server/provider/ProviderRegistry") {}
 
 const loadProviders = (
   providerSources: ReadonlyArray<ProviderSnapshotSource>,

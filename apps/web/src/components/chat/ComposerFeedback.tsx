@@ -1,7 +1,7 @@
 import {
   codexFeedbackNotice,
   type CodexFeedbackSubmission,
-} from "@t3tools/client-runtime/state/threads";
+} from "@elysiatools/client-runtime/state/threads";
 import { MessageSquareIcon } from "~/icons";
 
 import { writeTextToClipboard } from "../../hooks/useCopyToClipboard";

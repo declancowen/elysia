@@ -1,4 +1,4 @@
-import type { OrchestrationV2HistoricalMessage } from "@t3tools/contracts";
+import type { OrchestrationV2HistoricalMessage } from "@elysiatools/contracts";
 import {
   ChatAttachment,
   CheckpointId,
@@ -33,7 +33,7 @@ import {
   RunAttemptId,
   RunId,
   ThreadId,
-} from "@t3tools/contracts";
+} from "@elysiatools/contracts";
 import * as Context from "effect/Context";
 import * as Schema from "effect/Schema";
 import type * as Effect from "effect/Effect";
@@ -598,5 +598,5 @@ export interface ProviderAdapterV2Shape {
 }
 
 export class ProviderAdapterV2 extends Context.Service<ProviderAdapterV2, ProviderAdapterV2Shape>()(
-  "t3/orchestration-v2/ProviderAdapter/ProviderAdapterV2",
+  "@elysiatools/server/orchestration-v2/ProviderAdapter/ProviderAdapterV2",
 ) {}

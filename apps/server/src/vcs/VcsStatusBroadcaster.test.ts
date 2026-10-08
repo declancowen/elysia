@@ -21,13 +21,13 @@ import type {
   VcsStatusRemoteResult,
   VcsStatusResult,
   VcsStatusStreamEvent,
-} from "@t3tools/contracts";
-import { GitManagerError } from "@t3tools/contracts";
+} from "@elysiatools/contracts";
+import { GitManagerError } from "@elysiatools/contracts";
 
 import * as VcsStatusBroadcaster from "./VcsStatusBroadcaster.ts";
 import * as BackgroundPolicy from "../background/BackgroundPolicy.ts";
 import * as GitWorkflowService from "../git/GitWorkflowService.ts";
-import { symlinksSupported } from "@t3tools/shared/testing/symlinks";
+import { symlinksSupported } from "@elysiatools/shared/testing/symlinks";
 
 const TEST_EPOCH = DateTime.makeUnsafe("1970-01-01T00:00:00.000Z");
 
@@ -195,10 +195,10 @@ describe("VcsStatusBroadcaster", () => {
         const fileSystem = yield* FileSystem.FileSystem;
         const path = yield* Path.Path;
         const realDir = yield* fileSystem.makeTempDirectoryScoped({
-          prefix: "t3-vcs-auto-pull-real-",
+          prefix: "elysia-vcs-auto-pull-real-",
         });
         const linkParent = yield* fileSystem.makeTempDirectoryScoped({
-          prefix: "t3-vcs-auto-pull-link-",
+          prefix: "elysia-vcs-auto-pull-link-",
         });
         configuredWorkspaceRoot = path.join(linkParent, "repo-link");
         yield* fileSystem.symlink(realDir, configuredWorkspaceRoot);
@@ -574,10 +574,10 @@ describe("VcsStatusBroadcaster", () => {
         const fileSystem = yield* FileSystem.FileSystem;
         const path = yield* Path.Path;
         const realDir = yield* fileSystem.makeTempDirectoryScoped({
-          prefix: "t3-vcs-status-real-",
+          prefix: "elysia-vcs-status-real-",
         });
         const linkParent = yield* fileSystem.makeTempDirectoryScoped({
-          prefix: "t3-vcs-status-link-",
+          prefix: "elysia-vcs-status-link-",
         });
         const linkDir = path.join(linkParent, "repo-link");
         yield* fileSystem.symlink(realDir, linkDir);

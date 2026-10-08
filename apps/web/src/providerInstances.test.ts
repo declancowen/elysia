@@ -1,4 +1,8 @@
-import { ProviderDriverKind, ProviderInstanceId, type ServerProvider } from "@t3tools/contracts";
+import {
+  ProviderDriverKind,
+  ProviderInstanceId,
+  type ServerProvider,
+} from "@elysiatools/contracts";
 import { describe, expect, it, vi } from "vite-plus/test";
 import {
   applyProviderInstanceSettings,

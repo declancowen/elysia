@@ -4,11 +4,11 @@ import type {
   ProjectScript,
   ResolvedKeybindingsConfig,
   ThreadId,
-} from "@t3tools/contracts";
+} from "@elysiatools/contracts";
 import { AlertTriangleIcon, XIcon } from "~/icons";
 
 import type { DraftId } from "../../composerDraftStore";
-import { useT3ProjectFileScripts } from "../../hooks/useT3ProjectFileScripts";
+import { useElysiaProjectFileScripts } from "../../hooks/useElysiaProjectFileScripts";
 import {
   shouldShowEnvironmentIndicator,
   type EnvMode,
@@ -78,7 +78,7 @@ export interface ThreadDetailsPanelProps extends Pick<
 }
 
 export function ThreadDetailsPanel(props: ThreadDetailsPanelProps) {
-  const fileScripts = useT3ProjectFileScripts(
+  const fileScripts = useElysiaProjectFileScripts(
     props.environmentId,
     props.activeProjectScripts ? props.gitCwd : null,
   );

@@ -2,8 +2,8 @@ import {
   duoFoldState,
   type DuoCommand,
   type DuoControlState,
-} from "@t3tools/client-runtime/device/duo-control";
-import type { DeviceScreenSize } from "@t3tools/client-runtime/device/stream";
+} from "@elysiatools/client-runtime/device/duo-control";
+import type { DeviceScreenSize } from "@elysiatools/client-runtime/device/stream";
 import { DeviceDuoGlyph } from "./DeviceDuoGlyph";
 import { Button } from "~/components/ui/button";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "~/components/ui/tooltip";

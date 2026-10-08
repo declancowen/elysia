@@ -6,13 +6,13 @@ import type {
   VcsStatusRemoteResult,
   VcsStatusResult,
   VcsStatusStreamEvent,
-} from "@t3tools/contracts";
+} from "@elysiatools/contracts";
 import * as Arr from "effect/Array";
 import * as Result from "effect/Result";
 import { detectSourceControlProviderFromRemoteUrl } from "./sourceControl.ts";
 
-export const WORKTREE_BRANCH_PREFIX = "t3";
-// Canonical form is `t3/<8 hex>`. `t3-<8 hex>` is the fallback when a plain `t3`
+export const WORKTREE_BRANCH_PREFIX = "elysia";
+// Canonical form is `elysia/<8 hex>`. `elysia-<8 hex>` is the fallback when a plain `elysia`
 // branch blocks the namespace. The matcher also accepts every legacy shape, so
 // existing threads stay eligible for branch regeneration: `t3code/<8 hex>` and
 // `t3code-<8 hex>` from before the prefix was shortened, and `t3code/<uuid>` from
@@ -22,7 +22,7 @@ const TEMP_WORKTREE_HEX_TOKEN = "[0-9a-f]{8}";
 const TEMP_WORKTREE_UUID_V4_TOKEN =
   "[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}";
 const TEMP_WORKTREE_BRANCH_PATTERN = new RegExp(
-  `^(?:${WORKTREE_BRANCH_PREFIX}[-/]${TEMP_WORKTREE_HEX_TOKEN}|t3code(?:[-/]${TEMP_WORKTREE_HEX_TOKEN}|\\/${TEMP_WORKTREE_UUID_V4_TOKEN}))$`,
+  `^(?:(?:${WORKTREE_BRANCH_PREFIX}|t3)[-/]${TEMP_WORKTREE_HEX_TOKEN}|t3code(?:[-/]${TEMP_WORKTREE_HEX_TOKEN}|\\/${TEMP_WORKTREE_UUID_V4_TOKEN}))$`,
 );
 
 /**
@@ -129,8 +129,8 @@ export function buildTemporaryWorktreeBranchName(
 }
 
 /**
- * Git stores refs as paths, so a plain `t3` branch makes every `t3/<hex>`
- * ref impossible. This moves a temporary name to the flat `t3-<hex>` sibling.
+ * Git stores refs as paths, so a plain `elysia` branch makes every `elysia/<hex>`
+ * ref impossible. This moves a temporary name to the flat `elysia-<hex>` sibling.
  */
 export function flattenTemporaryWorktreeBranchName(refName: string): string {
   // Keep only the canonical 8-hex token so legacy `t3code/` and UUID names map cleanly.

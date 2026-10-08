@@ -16,7 +16,7 @@ import {
   ThreadId,
   type OrchestrationV2ProviderThread,
   type OrchestrationV2ProviderTurn,
-} from "@t3tools/contracts";
+} from "@elysiatools/contracts";
 import * as Effect from "effect/Effect";
 import * as Clock from "effect/Clock";
 import * as DateTime from "effect/DateTime";
@@ -2528,7 +2528,7 @@ describe("OpenCodeAdapterV2", () => {
         Layer.mergeAll(
           IdAllocator.layer,
           ServerConfig.layerTest(process.cwd(), {
-            prefix: "t3-opencode-v2-adapter-",
+            prefix: "elysia-opencode-v2-adapter-",
           }).pipe(Layer.provide(NodeServices.layer)),
         ),
       ),

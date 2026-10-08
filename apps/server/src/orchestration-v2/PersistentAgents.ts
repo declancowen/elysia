@@ -15,7 +15,7 @@ import {
   RuntimeMode,
   ProviderInteractionMode,
   ProviderSessionId,
-} from "@t3tools/contracts";
+} from "@elysiatools/contracts";
 import * as Crypto from "effect/Crypto";
 import * as Effect from "effect/Effect";
 import * as Context from "effect/Context";
@@ -32,7 +32,7 @@ import { ServerSettingsService } from "../serverSettings.ts";
 import * as ProjectService from "../project/ProjectService.ts";
 import * as ThreadManagement from "./ThreadManagementService.ts";
 import * as ProviderSessions from "./ProviderSessionManager.ts";
-import * as KeyedLock from "@t3tools/shared/KeyedLock";
+import * as KeyedLock from "@elysiatools/shared/KeyedLock";
 import * as ProjectStore from "./ProjectStore.ts";
 import * as Scheduler from "../scheduling/Scheduler.ts";
 
@@ -407,7 +407,7 @@ export class PersistentAgents extends Context.Service<
       input: AgentCreateInput,
     ) => Effect.Effect<AgentCreateResult, OrchestrationDispatchCommandError>;
   }
->()("t3/orchestration-v2/PersistentAgents") {}
+>()("@elysiatools/server/orchestration-v2/PersistentAgents") {}
 const make = Effect.gen(function* () {
   const context = yield* Effect.context<
     | Effect.Services<ReturnType<typeof createPersistentAgentImpl>>

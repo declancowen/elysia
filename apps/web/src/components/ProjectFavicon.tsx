@@ -1,12 +1,12 @@
-import type { EnvironmentProject } from "@t3tools/client-runtime/state/shell";
+import type { EnvironmentProject } from "@elysiatools/client-runtime/state/shell";
 import {
   getProjectFaviconResourceKey,
   isProjectFaviconFallbackUrl,
-} from "@t3tools/shared/projectFavicon";
+} from "@elysiatools/shared/projectFavicon";
 import {
   resolveAutomaticProjectIcon,
   type AutomaticProjectIconName,
-} from "@t3tools/shared/projectIcon";
+} from "@elysiatools/shared/projectIcon";
 import {
   BookOpenIcon,
   BotIcon,

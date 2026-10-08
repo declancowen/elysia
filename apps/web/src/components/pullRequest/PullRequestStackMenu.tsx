@@ -4,8 +4,8 @@ import type {
   PullRequestRef,
   PullRequestStack,
   PullRequestMergeMethod,
-} from "@t3tools/contracts";
-import { squashAtomCommandFailure } from "@t3tools/client-runtime/state/runtime";
+} from "@elysiatools/contracts";
+import { squashAtomCommandFailure } from "@elysiatools/client-runtime/state/runtime";
 import { RefreshCwIcon, TriangleAlertIcon } from "~/icons";
 import { useState } from "react";
 import { useAtomCommand } from "~/state/use-atom-command";

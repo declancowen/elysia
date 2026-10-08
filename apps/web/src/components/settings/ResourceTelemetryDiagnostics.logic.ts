@@ -1,4 +1,7 @@
-import type { ResourceTelemetryProcess, ResourceTelemetrySourceStatus } from "@t3tools/contracts";
+import type {
+  ResourceTelemetryProcess,
+  ResourceTelemetrySourceStatus,
+} from "@elysiatools/contracts";
 
 function processIdentityKey(process: ResourceTelemetryProcess): string {
   return `${process.identity.pid}:${process.identity.startTimeMs}`;

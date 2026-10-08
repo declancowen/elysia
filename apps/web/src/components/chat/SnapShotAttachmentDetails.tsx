@@ -1,4 +1,4 @@
-import type { SnapShotSource } from "@t3tools/contracts";
+import type { SnapShotSource } from "@elysiatools/contracts";
 import { ImageIcon, TextIcon } from "~/icons";
 import { Suspense } from "react";
 

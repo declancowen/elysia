@@ -9,9 +9,9 @@ import {
   ThreadId,
   type DesktopAppActivationRequest,
   type DesktopAppActivationResponse,
-} from "@t3tools/contracts";
-import { resolveDesktopAppControlAddress } from "@t3tools/shared/desktopAppControl";
-import { HostProcessPlatform, HostProcessUserId } from "@t3tools/shared/hostProcess";
+} from "@elysiatools/contracts";
+import { resolveDesktopAppControlAddress } from "@elysiatools/shared/desktopAppControl";
+import { HostProcessPlatform, HostProcessUserId } from "@elysiatools/shared/hostProcess";
 import { it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import { afterEach, describe, expect } from "vite-plus/test";

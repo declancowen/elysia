@@ -1,6 +1,6 @@
 import { useConversationTabsStore } from "../../conversationTabsStore";
 import { useConversationRowClick } from "../../hooks/useConversationRowClick";
-import { scopeThreadRef, scopeProjectRef } from "@t3tools/client-runtime/environment";
+import { scopeThreadRef, scopeProjectRef } from "@elysiatools/client-runtime/environment";
 import { useParams } from "@tanstack/react-router";
 import { ArchiveIcon, Edit03Icon, MoreHorizontalIcon } from "~/icons";
 import { cn } from "../../lib/utils";

@@ -2,8 +2,8 @@ import { RegistryContext } from "@effect/atom-react";
 import { AtomRegistry } from "effect/reactivity";
 import { act } from "react";
 import { create, type ReactTestRenderer } from "react-test-renderer";
-import { USAGE_CONTRACT_VERSION, UsageDay, type UsageSummary } from "@t3tools/contracts";
-import type { ElysiaStatsSnapshot } from "@t3tools/contracts";
+import { USAGE_CONTRACT_VERSION, UsageDay, type UsageSummary } from "@elysiatools/contracts";
+import type { ElysiaStatsSnapshot } from "@elysiatools/contracts";
 import { afterEach, beforeEach, expect, it, vi } from "vite-plus/test";
 
 const state = vi.hoisted(() => ({

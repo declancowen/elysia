@@ -1,5 +1,5 @@
 import { readPullRequestListPreferences } from "../components/pullRequest/pullRequestListPreferences";
-import { scopeProjectRef } from "@t3tools/client-runtime/environment";
+import { scopeProjectRef } from "@elysiatools/client-runtime/environment";
 import { useLocation, useNavigate } from "@tanstack/react-router";
 import { useCallback, useEffect } from "react";
 import { useConversationTabsStore, type ConversationTabTarget } from "../conversationTabsStore";

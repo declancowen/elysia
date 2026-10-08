@@ -26,7 +26,7 @@ import {
 } from "../components/settings/settingsSearch";
 
 import { useCodeWorkspace } from "../hooks/useSettings";
-import { SINGLE_PROVIDER_UI } from "@t3tools/contracts";
+import { SINGLE_PROVIDER_UI } from "@elysiatools/contracts";
 import {
   isSettingsPathVisibleInWorkspace,
   isSettingsTargetVisibleInWorkspace,

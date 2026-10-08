@@ -1,6 +1,6 @@
-import { makeWindow } from "@t3tools/shared/usageFormat";
-import type { UsageBucket } from "@t3tools/contracts";
-import type { DailyTotals } from "@t3tools/shared/usageMerge";
+import { makeWindow } from "@elysiatools/shared/usageFormat";
+import type { UsageBucket } from "@elysiatools/contracts";
+import type { DailyTotals } from "@elysiatools/shared/usageMerge";
 
 export type ElysiaUsageResolution = "day" | "week" | "month" | "year";
 

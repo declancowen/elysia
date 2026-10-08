@@ -1,5 +1,10 @@
 import { describe, expect, it } from "@effect/vitest";
-import { EnvironmentId, ProjectId, type ScopedProjectRef, WS_METHODS } from "@t3tools/contracts";
+import {
+  EnvironmentId,
+  ProjectId,
+  type ScopedProjectRef,
+  WS_METHODS,
+} from "@elysiatools/contracts";
 import * as Crypto from "effect/Crypto";
 import * as Effect from "effect/Effect";
 import * as Fiber from "effect/Fiber";

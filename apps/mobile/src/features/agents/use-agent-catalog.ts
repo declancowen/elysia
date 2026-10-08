@@ -1,4 +1,4 @@
-import type { EnvironmentId, ProjectId } from "@t3tools/contracts";
+import type { EnvironmentId, ProjectId } from "@elysiatools/contracts";
 import { useMemo } from "react";
 
 import { useProjects, useThreadShells, useNavigationThreadShells } from "../../state/entities";

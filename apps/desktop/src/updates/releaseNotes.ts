@@ -1,4 +1,4 @@
-import type { DesktopUpdateChannel, DesktopUpdateReleaseNote } from "@t3tools/contracts";
+import type { DesktopUpdateChannel, DesktopUpdateReleaseNote } from "@elysiatools/contracts";
 
 import { resolveDesktopReleaseChannel } from "./updateChannels.ts";
 

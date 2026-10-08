@@ -18,7 +18,7 @@ import {
   EventId,
   type VcsInitInput,
   type VcsStatusResult,
-} from "@t3tools/contracts";
+} from "@elysiatools/contracts";
 import { describe, expect, it } from "@effect/vitest";
 import * as Deferred from "effect/Deferred";
 import * as Effect from "effect/Effect";

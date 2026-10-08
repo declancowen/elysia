@@ -1,14 +1,14 @@
-import { CONNECTIONS_ENABLED } from "@t3tools/contracts";
+import { CONNECTIONS_ENABLED } from "@elysiatools/contracts";
 import {
   AuthRelayWriteScope,
   EnvironmentHttpApi,
   type RelayClientInstallProgressEvent,
   type RelayClientInstallProgressStage,
-} from "@t3tools/contracts";
-import { RelayOkResponse } from "@t3tools/contracts/relay";
-import { HostProcessPlatform } from "@t3tools/shared/hostProcess";
-import * as RelayClient from "@t3tools/shared/relayClient";
-import { withRelayClientTracing } from "@t3tools/shared/relayTracing";
+} from "@elysiatools/contracts";
+import { RelayOkResponse } from "@elysiatools/contracts/relay";
+import { HostProcessPlatform } from "@elysiatools/shared/hostProcess";
+import * as RelayClient from "@elysiatools/shared/relayClient";
+import { withRelayClientTracing } from "@elysiatools/shared/relayTracing";
 import * as Cause from "effect/Cause";
 import * as Config from "effect/Config";
 import * as Console from "effect/Console";

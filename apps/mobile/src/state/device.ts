@@ -1,6 +1,6 @@
-import { createDeviceEnvironmentAtoms } from "@t3tools/client-runtime/state/device";
-import { resolveDeviceHubAccess } from "@t3tools/client-runtime/state/deviceHubAccess";
-import type { EnvironmentId } from "@t3tools/contracts";
+import { createDeviceEnvironmentAtoms } from "@elysiatools/client-runtime/state/device";
+import { resolveDeviceHubAccess } from "@elysiatools/client-runtime/state/deviceHubAccess";
+import type { EnvironmentId } from "@elysiatools/contracts";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import { Atom } from "effect/reactivity";

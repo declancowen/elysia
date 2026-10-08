@@ -5,7 +5,7 @@ import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import * as Semaphore from "effect/Semaphore";
-import { PositiveInt, type PullRequestChecks } from "@t3tools/contracts";
+import { PositiveInt, type PullRequestChecks } from "@elysiatools/contracts";
 
 import * as GitHubApi from "../sourceControl/GitHubApi.ts";
 import type { GitHubPullRequestDetail } from "./gitHubPullRequestJson.ts";
@@ -43,7 +43,7 @@ export type KnownWorkflowRun = typeof WorkflowRunSchema.Type;
 export const KnownWorkflowRuns = Context.Reference<{
   readonly headSha: string;
   readonly runs: ReadonlyArray<KnownWorkflowRun>;
-} | null>("elysia/pullRequest/KnownWorkflowRuns", { defaultValue: () => null });
+} | null>("@elysiatools/server/pullRequest/KnownWorkflowRuns", { defaultValue: () => null });
 
 type Validator = { etag: string | undefined; next: boolean; body: string };
 

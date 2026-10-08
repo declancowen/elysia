@@ -1,7 +1,7 @@
 import { vi } from "vite-plus/test";
 
 type ForkPolicy = Pick<
-  typeof import("@t3tools/contracts"),
+  typeof import("@elysiatools/contracts"),
   | "SINGLE_PROVIDER_UI"
   | "APP_NAME"
   | "CONNECTIONS_ENABLED"

@@ -1,5 +1,5 @@
-import { EnvironmentId, ProjectId } from "@t3tools/contracts";
-import { scopeProjectRef } from "@t3tools/client-runtime/environment";
+import { EnvironmentId, ProjectId } from "@elysiatools/contracts";
+import { scopeProjectRef } from "@elysiatools/client-runtime/environment";
 import { afterEach, expect, it } from "vite-plus/test";
 import {
   closeAgentDialog,

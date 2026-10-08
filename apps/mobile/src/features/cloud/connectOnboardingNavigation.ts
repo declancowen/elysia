@@ -1,4 +1,4 @@
-import { CONNECTIONS_ENABLED } from "@t3tools/contracts";
+import { CONNECTIONS_ENABLED } from "@elysiatools/contracts";
 import { useAtomValue } from "@effect/atom-react";
 import { useNavigation } from "@react-navigation/native";
 import { useEffect } from "react";

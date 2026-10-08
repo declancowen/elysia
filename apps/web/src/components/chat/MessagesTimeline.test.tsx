@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { withChannelReply } from "@t3tools/shared/channelReplies";
+import { withChannelReply } from "@elysiatools/shared/channelReplies";
 import {
   ApprovalRequestId,
   CheckpointRef,
@@ -9,7 +9,7 @@ import {
   ProjectId,
   RunId,
   ThreadId,
-} from "@t3tools/contracts";
+} from "@elysiatools/contracts";
 import {
   act,
   createRef,

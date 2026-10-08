@@ -25,16 +25,16 @@ import {
   ProviderDriverKind,
   type ProviderInstanceId,
   type ScopedThreadRef,
-} from "@t3tools/contracts";
-import { scopeThreadRef } from "@t3tools/client-runtime/environment";
-import { isScratchProject } from "@t3tools/client-runtime/state/projects";
+} from "@elysiatools/contracts";
+import { scopeThreadRef } from "@elysiatools/client-runtime/environment";
+import { isScratchProject } from "@elysiatools/client-runtime/state/projects";
 import { useEnvironments } from "../../state/environments";
-import { presentThreadShell } from "@t3tools/client-runtime/state/shell";
+import { presentThreadShell } from "@elysiatools/client-runtime/state/shell";
 import {
   isAtomCommandInterrupted,
   settlePromise,
   squashAtomCommandFailure,
-} from "@t3tools/client-runtime/state/runtime";
+} from "@elysiatools/client-runtime/state/runtime";
 import {
   DEFAULT_UNIFIED_SETTINGS,
   type ChatWidth,
@@ -58,9 +58,9 @@ import {
   MIN_TERMINAL_FONT_SIZE,
   type QuitConfirmationMode,
   SidebarProjectSortOrder,
-} from "@t3tools/contracts/settings";
-import { resolveServerBackgroundActivitySettings } from "@t3tools/shared/backgroundActivitySettings";
-import { createModelSelection } from "@t3tools/shared/model";
+} from "@elysiatools/contracts/settings";
+import { resolveServerBackgroundActivitySettings } from "@elysiatools/shared/backgroundActivitySettings";
+import { createModelSelection } from "@elysiatools/shared/model";
 import * as Duration from "effect/Duration";
 import * as Equal from "effect/Equal";
 import * as Schema from "effect/Schema";
@@ -3179,7 +3179,7 @@ function GeneralSettingsContent({ scopeActions }: { scopeActions: ReactNode }) {
         {UPSTREAM_ANALYTICS_ENABLED ? (
           <SettingsRow
             {...searchableSetting("privacy-policy")}
-            description="How we handle your data, including the anonymous usage data T3 Code collects."
+            description="How your data is handled."
             control={
               <Button
                 render={<a href={PRIVACY_POLICY_URL} target="_blank" rel="noreferrer noopener" />}

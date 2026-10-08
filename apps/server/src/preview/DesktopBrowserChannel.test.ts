@@ -31,7 +31,7 @@ const channelOver = (events: ReadonlyArray<Record<string, unknown>>) =>
       (fd) => Effect.sync(() => NodeFS.closeSync(fd)),
     );
     const base = yield* ServerConfig.ServerConfig.pipe(
-      Effect.provide(ServerConfig.layerTest(process.cwd(), { prefix: "t3-desktop-browser-" })),
+      Effect.provide(ServerConfig.layerTest(process.cwd(), { prefix: "elysia-desktop-browser-" })),
     );
     const config = Layer.succeed(ServerConfig.ServerConfig, {
       ...base,

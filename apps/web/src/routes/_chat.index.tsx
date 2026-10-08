@@ -1,7 +1,7 @@
 import { useRegularProjects } from "../hooks/useRegularProjects";
-import { CONNECTIONS_ENABLED } from "@t3tools/contracts";
+import { CONNECTIONS_ENABLED } from "@elysiatools/contracts";
 import { RefreshIcon } from "~/components/ui/refresh-icon";
-import { scopeProjectRef } from "@t3tools/client-runtime/environment";
+import { scopeProjectRef } from "@elysiatools/client-runtime/environment";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { LinkIcon, PlusIcon } from "~/icons";
 import { useEffect, useMemo, useRef, useState } from "react";

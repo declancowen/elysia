@@ -21,19 +21,19 @@ import type {
   ScheduledTask,
   ScheduledTaskId,
   ScheduledTaskSchedule,
-} from "@t3tools/contracts";
-import { SINGLE_PROVIDER_UI, resolveEnvironmentMachineKind } from "@t3tools/contracts";
+} from "@elysiatools/contracts";
+import { SINGLE_PROVIDER_UI, resolveEnvironmentMachineKind } from "@elysiatools/contracts";
 import {
   isAtomCommandInterrupted,
   squashAtomCommandFailure,
-} from "@t3tools/client-runtime/state/runtime";
+} from "@elysiatools/client-runtime/state/runtime";
 import { formatRelativeTime } from "../../timestampFormat";
 import { type EnvironmentPresentation } from "../../state/environments";
 import { useEnvironmentQuery } from "../../state/query";
 import { serverEnvironment } from "../../state/server";
 import { useAtomCommand } from "../../state/use-atom-command";
 import { EnvironmentMachineIcon } from "../EnvironmentMachineIcon";
-import { AuthOrchestrationOperateScope } from "@t3tools/contracts";
+import { AuthOrchestrationOperateScope } from "@elysiatools/contracts";
 import { readEnvironmentScope } from "~/state/session";
 import { useSettingsScope } from "./SettingsScopeContext";
 import { WEEKDAY_LABELS, matchesScheduledTaskScope } from "./scheduledTasksSettings.logic";

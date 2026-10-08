@@ -3,8 +3,8 @@ import type {
   OrchestrationV2ThreadShell,
   OrchestrationProjectShell,
   ServerProvider,
-} from "@t3tools/contracts";
-import { formatModelSlugName, resolveSelectableModel } from "@t3tools/shared/model";
+} from "@elysiatools/contracts";
+import { formatModelSlugName, resolveSelectableModel } from "@elysiatools/shared/model";
 import { fileBasename } from "../markdownLinks.ts";
 import { isTerminalSubagentStatus } from "./subagentRuntime.ts";
 

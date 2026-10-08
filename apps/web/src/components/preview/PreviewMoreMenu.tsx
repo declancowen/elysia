@@ -1,6 +1,6 @@
 "use client";
 
-import type { DesktopPreviewColorScheme } from "@t3tools/contracts";
+import type { DesktopPreviewColorScheme } from "@elysiatools/contracts";
 import { Minus, MoreVertical, Plus as PlusIcon, RotateCcw } from "~/icons";
 
 import { Button } from "~/components/ui/button";

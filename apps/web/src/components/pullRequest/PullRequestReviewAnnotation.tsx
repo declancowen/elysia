@@ -8,7 +8,7 @@ import type {
   PullRequestReviewThread,
   PullRequestThreadCommentsResult,
   PullRequestThreadComment,
-} from "@t3tools/contracts";
+} from "@elysiatools/contracts";
 import { CheckCircle2Icon, CircleIcon, HammerIcon, MessageSquareIcon, Trash2Icon } from "~/icons";
 import { useRef, useState } from "react";
 

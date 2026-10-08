@@ -1,4 +1,4 @@
-import { APP_DATA_DIRECTORY } from "@t3tools/contracts";
+import { APP_DATA_DIRECTORY } from "@elysiatools/contracts";
 import * as Option from "effect/Option";
 
 export type JoinPath = (first: string, ...segments: string[]) => string;

@@ -2,8 +2,8 @@ import {
   EnvironmentId,
   ORCHESTRATION_PROTOCOL_VERSION,
   type DesktopSshEnvironmentTarget,
-} from "@t3tools/contracts";
-import { RelayClientTracer } from "@t3tools/shared/relayTracing";
+} from "@elysiatools/contracts";
+import { RelayClientTracer } from "@elysiatools/shared/relayTracing";
 import { describe, expect, it } from "@effect/vitest";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -14,8 +14,8 @@ import { beforeEach, vi } from "vite-plus/test";
 
 // Exercise the retained upstream broker paths; the fork guard has its own regression below.
 const forkPolicy = vi.hoisted(() => ({ connectionsEnabled: true }));
-vi.mock("@t3tools/contracts", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@t3tools/contracts")>()),
+vi.mock("@elysiatools/contracts", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@elysiatools/contracts")>()),
   get CONNECTIONS_ENABLED() {
     return forkPolicy.connectionsEnabled;
   },

@@ -1,6 +1,6 @@
-import { readChannelReply } from "@t3tools/shared/channelReplies";
-import { modelSelectionsEqual } from "@t3tools/shared/model";
-import { projectComposerContextForProvider } from "@t3tools/shared/composerContextReferences";
+import { readChannelReply } from "@elysiatools/shared/channelReplies";
+import { modelSelectionsEqual } from "@elysiatools/shared/model";
+import { projectComposerContextForProvider } from "@elysiatools/shared/composerContextReferences";
 import {
   CommandId,
   latestProviderTurnForAttempt,
@@ -12,7 +12,7 @@ import {
   type OrchestrationV2TurnItem,
   RunId,
   ThreadId,
-} from "@t3tools/contracts";
+} from "@elysiatools/contracts";
 import * as Context from "effect/Context";
 import * as Cause from "effect/Cause";
 import * as DateTime from "effect/DateTime";
@@ -81,7 +81,7 @@ export interface ProviderTurnStartServiceV2Shape {
 export class ProviderTurnStartServiceV2 extends Context.Service<
   ProviderTurnStartServiceV2,
   ProviderTurnStartServiceV2Shape
->()("t3/orchestration-v2/ProviderTurnStartService/ProviderTurnStartServiceV2") {}
+>()("@elysiatools/server/orchestration-v2/ProviderTurnStartService/ProviderTurnStartServiceV2") {}
 
 export const layer: Layer.Layer<
   ProviderTurnStartServiceV2,

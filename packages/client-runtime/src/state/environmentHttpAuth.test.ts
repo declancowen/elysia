@@ -9,8 +9,8 @@ import {
   OrchestrationV2ThreadDetailSnapshot,
   OrchestrationV2ThreadBoundedSnapshot,
   type OrchestrationV2ThreadHistoryPage,
-} from "@t3tools/contracts";
-import { RelayClientTracer } from "@t3tools/shared/relayTracing";
+} from "@elysiatools/contracts";
+import { RelayClientTracer } from "@elysiatools/shared/relayTracing";
 import * as Deferred from "effect/Deferred";
 import * as Effect from "effect/Effect";
 import * as Fiber from "effect/Fiber";
@@ -656,7 +656,7 @@ describe("authenticated environment HTTP requests", () => {
 });
 
 describe("relay request tracing", () => {
-  it.effect("starts an exported trace for a T3 Connect request", () =>
+  it.effect("starts an exported trace for a Elysia Connect request", () =>
     Effect.gen(function* () {
       const productSpans: Array<{ readonly name: string; readonly root: boolean }> = [];
       const productTracer = Tracer.make({

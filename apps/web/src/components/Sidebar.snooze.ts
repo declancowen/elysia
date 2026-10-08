@@ -1,10 +1,10 @@
-import { formatCalendarDate } from "@t3tools/shared/dateFormat";
-import type { TimestampFormat } from "@t3tools/contracts/settings";
+import { formatCalendarDate } from "@elysiatools/shared/dateFormat";
+import type { TimestampFormat } from "@elysiatools/contracts/settings";
 import {
   resolveSnoozePresets as resolveSharedSnoozePresets,
   snoozeWakeLabel,
   type SnoozePreset,
-} from "@t3tools/client-runtime/state/thread-settled";
+} from "@elysiatools/client-runtime/state/thread-settled";
 
 import { formatShortTimestamp, parseTimestampDate } from "../timestampFormat";
 

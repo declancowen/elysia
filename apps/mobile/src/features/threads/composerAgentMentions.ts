@@ -1,8 +1,8 @@
 import type {
   EnvironmentProject,
   EnvironmentThreadShell,
-} from "@t3tools/client-runtime/state/shell";
-import type { EnvironmentId, ThreadId } from "@t3tools/contracts";
+} from "@elysiatools/client-runtime/state/shell";
+import type { EnvironmentId, ThreadId } from "@elysiatools/contracts";
 import { selectAgentRoster } from "../agents/agentPresentation";
 import type { ComposerCommandItem } from "./ComposerCommandPopover";
 

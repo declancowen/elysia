@@ -1,4 +1,4 @@
-import type { AgentProfile, ModelSelection, ThreadId } from "@t3tools/contracts";
+import type { AgentProfile, ModelSelection, ThreadId } from "@elysiatools/contracts";
 import { agentThreadIsBusy, getAgentConversation } from "../../agentPresentation";
 import type { Project, SidebarThreadSummary } from "../../types";
 

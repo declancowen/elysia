@@ -1,12 +1,12 @@
-import * as NetService from "@t3tools/shared/Net";
+import * as NetService from "@elysiatools/shared/Net";
 import {
   OtlpHeadersFromString,
   OtlpProtocol,
   type SignalExport,
-} from "@t3tools/shared/observability";
-import * as OtelEnvironment from "@t3tools/shared/otelEnvironment";
-import { parsePersistedServerObservabilitySettings } from "@t3tools/shared/serverSettings";
-import { DesktopBackendBootstrap, PortSchema } from "@t3tools/contracts";
+} from "@elysiatools/shared/observability";
+import * as OtelEnvironment from "@elysiatools/shared/otelEnvironment";
+import { parsePersistedServerObservabilitySettings } from "@elysiatools/shared/serverSettings";
+import { DesktopBackendBootstrap, PortSchema } from "@elysiatools/contracts";
 import * as Config from "effect/Config";
 import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";

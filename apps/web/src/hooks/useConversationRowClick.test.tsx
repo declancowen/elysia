@@ -4,8 +4,8 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, expect, it, vi } from "vite-plus/test";
 import { useConversationRowClick } from "./useConversationRowClick";
 
-vi.mock("@t3tools/contracts", async (original) => ({
-  ...(await original<typeof import("@t3tools/contracts")>()),
+vi.mock("@elysiatools/contracts", async (original) => ({
+  ...(await original<typeof import("@elysiatools/contracts")>()),
   SINGLE_PROVIDER_UI: true,
 }));
 const single = vi.fn();

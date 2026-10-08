@@ -7,9 +7,9 @@ import {
   ProviderInstanceId,
   ThreadId,
   type AgentCreateResult,
-} from "@t3tools/contracts";
-import { scopeProjectRef } from "@t3tools/client-runtime/environment";
-import type { AtomCommandResult } from "@t3tools/client-runtime/state/runtime";
+} from "@elysiatools/contracts";
+import { scopeProjectRef } from "@elysiatools/client-runtime/environment";
+import type { AtomCommandResult } from "@elysiatools/client-runtime/state/runtime";
 import {
   createMemoryHistory,
   createRootRoute,

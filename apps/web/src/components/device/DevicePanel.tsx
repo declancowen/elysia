@@ -4,7 +4,7 @@ import type {
   DeviceServiceState,
   DeviceSummary,
   ScopedThreadRef,
-} from "@t3tools/contracts";
+} from "@elysiatools/contracts";
 import { Smartphone, X } from "~/icons";
 import { useEffect, useMemo, useState } from "react";
 

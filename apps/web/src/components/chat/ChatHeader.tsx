@@ -8,16 +8,16 @@ import {
   type ProjectScript,
   type ResolvedKeybindingsConfig,
   type ThreadId,
-} from "@t3tools/contracts";
-import { scopeProjectRef, scopeThreadRef } from "@t3tools/client-runtime/environment";
-import { isScratchProject } from "@t3tools/client-runtime/state/projects";
+} from "@elysiatools/contracts";
+import { scopeProjectRef, scopeThreadRef } from "@elysiatools/client-runtime/environment";
+import { isScratchProject } from "@elysiatools/client-runtime/state/projects";
 import { useAtomValue } from "@effect/atom-react";
 import { serverEnvironment } from "../../state/server";
-import type { EnvironmentProject } from "@t3tools/client-runtime/state/shell";
+import type { EnvironmentProject } from "@elysiatools/client-runtime/state/shell";
 import {
   isAtomCommandInterrupted,
   squashAtomCommandFailure,
-} from "@t3tools/client-runtime/state/runtime";
+} from "@elysiatools/client-runtime/state/runtime";
 import { ChevronDownIcon, FolderClosedIcon, MessageCircleIcon, ChannelIcon } from "~/icons";
 import {
   memo,
@@ -42,7 +42,7 @@ import ProjectScriptsControl, {
 import { OpenInPicker } from "./OpenInPicker";
 import { useRemoteOpenState, type RemoteOpenMode } from "../../remoteOpen";
 import { usePrimaryEnvironmentId } from "../../state/environments";
-import { useT3ProjectFileScripts } from "~/hooks/useT3ProjectFileScripts";
+import { useElysiaProjectFileScripts } from "~/hooks/useElysiaProjectFileScripts";
 import { useThreadActionMenu } from "~/hooks/useThreadActionMenu";
 import { readLocalApi } from "~/localApi";
 import { threadEnvironment } from "../../state/threads";
@@ -183,7 +183,7 @@ export const ChatHeader = memo(function ChatHeader({
   const primaryEnvironmentId = usePrimaryEnvironmentId();
   const activeProjectName = projectless ? "Chats" : activeProject?.title;
   const activeProjectCwd = activeProject?.workspaceRoot ?? null;
-  const fileScripts = useT3ProjectFileScripts(
+  const fileScripts = useElysiaProjectFileScripts(
     activeThreadEnvironmentId,
     activeProjectScripts ? activeProjectCwd : null,
   );

@@ -20,7 +20,7 @@ import {
   type OrchestrationV2ThreadProjection,
   type ProjectMutation,
   type AgentProfile,
-} from "@t3tools/contracts";
+} from "@elysiatools/contracts";
 import { describe, expect, it } from "@effect/vitest";
 import * as Crypto from "effect/Crypto";
 import * as Effect from "effect/Effect";

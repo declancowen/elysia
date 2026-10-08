@@ -1,4 +1,4 @@
-import { APP_NAME, type DesktopUpdateChannel } from "@t3tools/contracts";
+import { APP_NAME, type DesktopUpdateChannel } from "@elysiatools/contracts";
 
 const NIGHTLY_VERSION_PATTERN = /^[^-+]+-nightly\.\d{8}\.\d+$/;
 const STABLE_VERSION_PATTERN = /^\d+\.\d+\.\d+(?:\+[0-9A-Za-z.-]+)?$/;

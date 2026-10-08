@@ -1,5 +1,5 @@
 {
-  "name": "@t3tools/shared",
+  "name": "@elysiatools/shared",
   "private": true,
   "type": "module",
   "exports": {
@@ -164,9 +164,9 @@
       "types": "./src/projectSettings.ts",
       "import": "./src/projectSettings.ts"
     },
-    "./t3ProjectFile": {
-      "types": "./src/t3ProjectFile.ts",
-      "import": "./src/t3ProjectFile.ts"
+    "./elysiaProjectFile": {
+      "types": "./src/elysiaProjectFile.ts",
+      "import": "./src/elysiaProjectFile.ts"
     },
     "./orchestrationTiming": {
       "types": "./src/orchestrationTiming.ts",
@@ -422,9 +422,9 @@
     "test": "vp test run --config ../../vite.config.ts --dir ."
   },
   "dependencies": {
+    "@elysiatools/contracts": "workspace:*",
     "@noble/curves": "catalog:",
     "@noble/hashes": "catalog:",
-    "@t3tools/contracts": "workspace:*",
     "effect": "catalog:",
     "jose": "catalog:",
     "yaml": "catalog:"

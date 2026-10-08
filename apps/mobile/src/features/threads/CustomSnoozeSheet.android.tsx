@@ -1,4 +1,4 @@
-import { formatCalendarDate } from "@t3tools/shared/dateFormat";
+import { formatCalendarDate } from "@elysiatools/shared/dateFormat";
 import { MaterialSegmentedButtons } from "../../components/MaterialSegmentedButtons.android";
 import {
   BasicAlertDialog,
@@ -25,7 +25,7 @@ import {
   localSnoozeTime,
   resolveCustomSnooze,
   type CustomSnoozeInput,
-} from "@t3tools/client-runtime/state/thread-settled";
+} from "@elysiatools/client-runtime/state/thread-settled";
 import { requireNativeModule } from "expo";
 import { useEffect, useState } from "react";
 import { AppState, useWindowDimensions } from "react-native";

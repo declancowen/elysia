@@ -1,7 +1,11 @@
 // @effect-diagnostics preferSchemaOverJson:off - Native HTTP fixtures deliberately include unknown fields.
 import { assert, it } from "@effect/vitest";
 import { describe } from "vite-plus/test";
-import { ProviderDriverKind, ProviderInstanceId, type ServerProvider } from "@t3tools/contracts";
+import {
+  ProviderDriverKind,
+  ProviderInstanceId,
+  type ServerProvider,
+} from "@elysiatools/contracts";
 import * as Context from "effect/Context";
 import * as Deferred from "effect/Deferred";
 import * as Effect from "effect/Effect";

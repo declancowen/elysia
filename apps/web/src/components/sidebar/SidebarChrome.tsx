@@ -4,7 +4,7 @@ import { useConversationRowClick } from "../../hooks/useConversationRowClick";
 import { toastManager } from "../ui/toast";
 import { readLocalApi } from "../../localApi";
 import { useConversationSectionNavigation } from "../../hooks/useConversationTabNavigation";
-import { SINGLE_PROVIDER_UI } from "@t3tools/contracts";
+import { SINGLE_PROVIDER_UI } from "@elysiatools/contracts";
 import {
   ArrowLeftIcon,
   BriefcaseIcon,

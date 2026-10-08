@@ -1,9 +1,9 @@
 import { useMemo } from "react";
-import { delegatedAgentsFromTurnItems } from "@t3tools/shared/agentMentions";
+import { delegatedAgentsFromTurnItems } from "@elysiatools/shared/agentMentions";
 import { useDelegatedAgents } from "../agents/useDelegatedAgents";
 import { WorkspaceItemContextChip } from "../WorkspaceItemContextChip";
-import type { EnvironmentId, ThreadId, WorkTaskId } from "@t3tools/contracts";
-import { scopeThreadRef, scopeProjectRef } from "@t3tools/client-runtime/environment";
+import type { EnvironmentId, ThreadId, WorkTaskId } from "@elysiatools/contracts";
+import { scopeThreadRef, scopeProjectRef } from "@elysiatools/client-runtime/environment";
 import {
   useThreadProjection,
   useThreadHistory,

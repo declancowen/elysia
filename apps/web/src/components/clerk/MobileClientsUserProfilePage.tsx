@@ -1,4 +1,4 @@
-import type { RelayClientDeviceRecord } from "@t3tools/contracts/relay";
+import type { RelayClientDeviceRecord } from "@elysiatools/contracts/relay";
 import { SmartphoneIcon } from "~/icons";
 
 import { useManagedRelayDevices } from "../../cloud/managedRelayState";

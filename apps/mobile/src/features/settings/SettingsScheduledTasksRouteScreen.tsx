@@ -1,27 +1,27 @@
 import { useAtomValue } from "@effect/atom-react";
-import { AuthOrchestrationOperateScope } from "@t3tools/contracts";
+import { AuthOrchestrationOperateScope } from "@elysiatools/contracts";
 import { readEnvironmentScope } from "../../state/session";
 import type {
   EnvironmentId,
   ProjectId,
   ScheduledTask,
   ScheduledTaskUpsertInput,
-} from "@t3tools/contracts";
+} from "@elysiatools/contracts";
 import {
   MAX_WEBHOOK_DELIVERY_AGE_MINUTES,
   resolveEnvironmentMachineKind,
-} from "@t3tools/contracts";
+} from "@elysiatools/contracts";
 import type { MenuAction } from "@react-native-menu/menu";
 import { DateTimePicker } from "@expo/ui/community/datetime-picker";
 import {
   isAtomCommandInterrupted,
   squashAtomCommandFailure,
   type AtomCommandResult,
-} from "@t3tools/client-runtime/state/runtime";
+} from "@elysiatools/client-runtime/state/runtime";
 import {
   DEFAULT_WEBHOOK_PROMPT,
   parseMaxDeliveryAge,
-} from "@t3tools/client-runtime/scheduled-task-webhook";
+} from "@elysiatools/client-runtime/scheduled-task-webhook";
 import {
   useCallback,
   useEffect,
@@ -47,7 +47,7 @@ import type { ComposerEditorSelection } from "../../components/ComposerEditor";
 import { ScreenScrollView as ScrollView } from "../../components/ScreenScrollView";
 import { SegmentedControl } from "../../components/SegmentedControl";
 import { ThemedSwitch } from "../../components/ThemedSwitch";
-import { webhookAddress } from "@t3tools/client-runtime/webhook-address";
+import { webhookAddress } from "@elysiatools/client-runtime/webhook-address";
 import { tryCopyTextWithHaptic } from "../../lib/copyTextWithHaptic";
 import { usePreparedConnection } from "../../state/session";
 import { buildModelOptions } from "../../lib/modelOptions";
@@ -1035,7 +1035,7 @@ function WebhookScheduleDetails({
   const httpBaseUrl =
     preparedConnection._tag === "Some" ? preparedConnection.value.httpBaseUrl : null;
   const webhook = task?.schedule.type === "webhook" ? task.webhook : undefined;
-  // Without T3 Connect, the path is resolved on the address this phone uses.
+  // Without Elysia Connect, the path is resolved on the address this phone uses.
   const resolved = webhook ? webhookAddress(webhook, httpBaseUrl) : null;
   return (
     <View className="gap-2 border-t border-border-subtle px-4 py-3">

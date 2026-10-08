@@ -4,13 +4,13 @@ import {
   type OrchestrationV2ShellSnapshot,
   ORCHESTRATION_PROTOCOL_VERSION,
   type ExecutionEnvironmentDescriptor,
-} from "@t3tools/contracts";
+} from "@elysiatools/contracts";
 import { describe, expect, it } from "@effect/vitest";
 import { beforeEach, vi } from "vite-plus/test";
 
 const forkPolicy = vi.hoisted(() => ({ connectionsEnabled: true }));
-vi.mock("@t3tools/contracts", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@t3tools/contracts")>()),
+vi.mock("@elysiatools/contracts", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@elysiatools/contracts")>()),
   get CONNECTIONS_ENABLED() {
     return forkPolicy.connectionsEnabled;
   },
@@ -77,7 +77,7 @@ import * as EnvironmentSupervisor from "./supervisor.ts";
 import * as ConnectionWakeups from "./wakeups.ts";
 import { watchDiscoveredCompatibility } from "./layer.ts";
 import * as RelayEnvironmentDiscovery from "../relay/discovery.ts";
-import type { RelayEnvironmentStatusResponse } from "@t3tools/contracts/relay";
+import type { RelayEnvironmentStatusResponse } from "@elysiatools/contracts/relay";
 import { runDesktopCommitWithReconnectObserver } from "../state/server.ts";
 import { v2ShellSnapshot } from "../state/orchestrationV2TestFixtures.ts";
 
@@ -1935,7 +1935,7 @@ describe("EnvironmentRegistry routes", () => {
   const lanRegistration = (target = LAN_TARGET, profile = LAN_PROFILE) =>
     new BearerConnectionRegistration({ target, profile, credential: BEARER_CREDENTIAL });
 
-  it.effect("adds a paired LAN route ahead of T3 Connect instead of replacing it", () =>
+  it.effect("adds a paired LAN route ahead of Elysia Connect instead of replacing it", () =>
     Effect.gen(function* () {
       const harness = yield* makeHarness([RELAY_TARGET]);
       yield* Effect.gen(function* () {
@@ -2036,7 +2036,7 @@ describe("EnvironmentRegistry routes", () => {
       }),
   );
 
-  it.effect("signing out of T3 Connect keeps an environment that still has a LAN route", () =>
+  it.effect("signing out of Elysia Connect keeps an environment that still has a LAN route", () =>
     Effect.gen(function* () {
       const harness = yield* makeHarness(
         [LAN_TARGET, RELAY_TARGET, SECOND_RELAY_TARGET],

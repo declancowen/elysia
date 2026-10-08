@@ -1,4 +1,5 @@
-import { parseSemver } from "@t3tools/shared/semver";
+import { CONNECTIONS_ENABLED } from "@elysiatools/contracts";
+import { parseSemver } from "@elysiatools/shared/semver";
 import { useNavigate } from "@tanstack/react-router";
 import * as Schema from "effect/Schema";
 import { SmartphoneIcon } from "~/icons";
@@ -18,7 +19,7 @@ import { toastManager } from "./ui/toast";
 // still V1 and cannot connect to a V2 server, so Nightly users need the V2 beta
 // app. Delete this file when the store apps move to V2. See #14871.
 
-/** True on Nightly desktop, `npx t3@nightly`, and the hosted Nightly app. */
+/** True on Nightly desktop, `elysia`, and the hosted Nightly app. */
 export const IS_NIGHTLY_BUILD =
   parseSemver(APP_VERSION)?.prerelease[0] === "nightly" || HOSTED_APP_CHANNEL === "nightly";
 
@@ -27,7 +28,7 @@ const ANDROID_BETA_GROUP_URL = "https://groups.google.com/g/t3-code-v2-beta";
 const ANDROID_PLAY_TESTING_URL = "https://play.google.com/apps/testing/com.t3tools.t3code";
 
 const ROW_ID = "nightly-mobile-beta";
-const NOTICE_DISMISSED_STORAGE_KEY = "t3code:nightly-mobile-beta-notice-dismissed:v1";
+const NOTICE_DISMISSED_STORAGE_KEY = "elysia:nightly-mobile-beta-notice-dismissed:v1";
 
 // Guards against a second toast from a remount or a Strict Mode effect replay.
 let noticeShown = false;
@@ -56,12 +57,12 @@ export function NightlyMobileBetaNotice() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (!IS_NIGHTLY_BUILD || noticeShown || isNoticeDismissed()) return;
+    if (!CONNECTIONS_ENABLED || !IS_NIGHTLY_BUILD || noticeShown || isNoticeDismissed()) return;
     noticeShown = true;
     const toastId = toastManager.add({
       title: "Nightly needs the beta mobile app",
       description:
-        "Nightly uses the new orchestrator. The App Store and Google Play versions of T3 Code cannot connect to it.",
+        "Nightly uses the new orchestrator. The App Store and Google Play versions of Elysia cannot connect to it.",
       timeout: 0,
       onClose: dismissNotice,
       actionProps: {
@@ -103,6 +104,7 @@ function BetaLinkQr({ url, label }: { url: string; label: string }) {
 
 /** Settings → General → About row with the beta app links. Render it only for Nightly. */
 export function NightlyMobileBetaRow() {
+  if (!CONNECTIONS_ENABLED) return null;
   return (
     <SettingsRow
       id={ROW_ID}

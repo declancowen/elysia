@@ -21,7 +21,7 @@ import {
   type ScheduledTaskRunNowResult,
   type ScheduledTaskSetEnabledInput,
   type ScheduledTaskUpsertInput,
-} from "@t3tools/contracts";
+} from "@elysiatools/contracts";
 import * as Cause from "effect/Cause";
 import * as Context from "effect/Context";
 import * as Crypto from "effect/Crypto";
@@ -40,7 +40,7 @@ import * as Semaphore from "effect/Semaphore";
 import * as Stream from "effect/Stream";
 import * as SqlClient from "effect/sql/SqlClient";
 
-import { formatAgentMention } from "@t3tools/shared/agentMentions";
+import { formatAgentMention } from "@elysiatools/shared/agentMentions";
 import * as ProjectStore from "../orchestration-v2/ProjectStore.ts";
 import * as AgentDelegation from "../orchestration-v2/AgentDelegation.ts";
 import * as ThreadLaunchService from "../orchestration-v2/ThreadLaunchService.ts";
@@ -72,7 +72,7 @@ const WEBHOOK_RATE_LIMIT_PER_MINUTE = 60;
 
 /**
  * Where a webhook task's public URL points: `${relayHookBaseUrl}/${taskId}/${token}`.
- * Null when the environment has no managed tunnel on T3 Connect; clients then show the path.
+ * Null when the environment has no managed tunnel on Elysia Connect; clients then show the path.
  */
 interface WebhookOrigin {
   readonly relayHookBaseUrl: string | null;
@@ -98,7 +98,7 @@ export function relayHookBaseUrl(input: {
 }
 
 export class ScheduledTaskWebhookOrigin extends Context.Reference<Effect.Effect<WebhookOrigin>>(
-  "elysia/scheduledTasks/ScheduledTaskWebhookOrigin",
+  "@elysiatools/server/scheduledTasks/ScheduledTaskWebhookOrigin",
   {
     defaultValue: () => Effect.succeed({ relayHookBaseUrl: null }),
   },
@@ -119,7 +119,7 @@ export interface WebhookTriggerRequest extends WebhookRequest {
   readonly hookId: string;
   readonly token: string;
   readonly body: Uint8Array;
-  /** Set by T3 Connect; the same id is never dispatched twice. */
+  /** Set by Elysia Connect; the same id is never dispatched twice. */
   readonly relayDeliveryId?: string;
   /** When the relay received a held request; defaults to now. */
   readonly receivedAt?: string;
@@ -257,7 +257,7 @@ export class ScheduledTaskService extends Context.Service<
       request: WebhookTriggerRequest,
     ) => Effect.Effect<WebhookTriggerResult, ScheduledTaskError>;
   }
->()("t3/scheduledTasks/ScheduledTaskService") {}
+>()("@elysiatools/server/scheduledTasks/ScheduledTaskService") {}
 
 function taskError(message: string, input?: { taskId?: ScheduledTaskId; cause?: unknown }) {
   return new ScheduledTaskError({

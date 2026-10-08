@@ -5,7 +5,7 @@ import {
   ProjectId,
   ScheduledTaskId,
   type EnvironmentId,
-} from "@t3tools/contracts";
+} from "@elysiatools/contracts";
 import * as Schema from "effect/Schema";
 import { Files01Icon, TaskEdit02Icon, FolderIcon, ClockIcon } from "../icons";
 import { usePrimaryEnvironmentId } from "../state/environments";

@@ -1,12 +1,12 @@
-import { APP_DATA_DIRECTORY } from "@t3tools/contracts";
-import { HostProcessEnvironment, HostProcessPlatform } from "@t3tools/shared/hostProcess";
+import { APP_DATA_DIRECTORY } from "@elysiatools/contracts";
+import { HostProcessEnvironment, HostProcessPlatform } from "@elysiatools/shared/hostProcess";
 import {
   listLoginShellCandidates,
   mergePathEntries,
   readPathFromLoginShell,
   readPathFromLaunchctl,
   resolveWindowsEnvironment,
-} from "@t3tools/shared/shell";
+} from "@elysiatools/shared/shell";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";

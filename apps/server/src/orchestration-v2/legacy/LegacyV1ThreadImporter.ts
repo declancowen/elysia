@@ -1,7 +1,7 @@
 import {
   threadPullRequestKeysEqual,
   threadPullRequestsOf,
-} from "@t3tools/shared/threadPullRequests";
+} from "@elysiatools/shared/threadPullRequests";
 import {
   ChatAttachment,
   type AgentGetDelegationResult,
@@ -24,8 +24,8 @@ import {
   ThreadLinkedPullRequest,
   ThreadPullRequestLink,
   TurnItemId,
-} from "@t3tools/contracts";
-import * as KeyedLock from "@t3tools/shared/KeyedLock";
+} from "@elysiatools/contracts";
+import * as KeyedLock from "@elysiatools/shared/KeyedLock";
 import * as Context from "effect/Context";
 import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
@@ -130,7 +130,7 @@ export interface LegacyV1ThreadImporterShape {
 export class LegacyV1ThreadImporter extends Context.Service<
   LegacyV1ThreadImporter,
   LegacyV1ThreadImporterShape
->()("t3/orchestration-v2/legacy/LegacyV1ThreadImporter") {}
+>()("@elysiatools/server/orchestration-v2/legacy/LegacyV1ThreadImporter") {}
 
 const decodeLegacyAttachments = Schema.decodeUnknownEffect(
   Schema.fromJsonString(Schema.Array(ChatAttachment)),

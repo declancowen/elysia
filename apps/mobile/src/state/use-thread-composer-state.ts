@@ -4,21 +4,21 @@ import {
   channelConversationItems,
   channelWorkStartedAt,
   delegatedAgentsFromTurnItems,
-} from "@t3tools/shared/agentMentions";
+} from "@elysiatools/shared/agentMentions";
 import { useDelegatedAgents } from "../features/agents/useDelegatedAgents";
-import { squashAtomCommandFailure } from "@t3tools/client-runtime/state/runtime";
-import { AuthOrchestrationOperateScope } from "@t3tools/contracts";
+import { squashAtomCommandFailure } from "@elysiatools/client-runtime/state/runtime";
+import { AuthOrchestrationOperateScope } from "@elysiatools/contracts";
 import { readEnvironmentScope } from "./session";
 import type { ComposerTextPaste } from "../native/T3ComposerEditor.types";
 import { useAtomValue } from "@effect/atom-react";
-import { threadRuntimeIsActive } from "@t3tools/client-runtime/state/shell";
+import { threadRuntimeIsActive } from "@elysiatools/client-runtime/state/shell";
 import {
   deriveProviderSubagentStatus,
   deriveRunlessWorkStartedAt,
   deriveThreadActivityRun,
   deriveThreadRuntime,
   threadRuntimeHasInterruptibleRun,
-} from "@t3tools/client-runtime/state/thread-execution";
+} from "@elysiatools/client-runtime/state/thread-execution";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Alert } from "react-native";
 
@@ -33,17 +33,20 @@ import {
   type ProviderInteractionMode,
   type RuntimeMode,
   type ThreadId,
-} from "@t3tools/contracts";
-import { safeErrorLogAttributes } from "@t3tools/client-runtime/errors";
-import { clampFileAttachmentUploadBytes } from "@t3tools/client-runtime/state/attachments";
-import { nextPastedTextFileName, pastedTextDisposition } from "@t3tools/client-runtime/text-paste";
+} from "@elysiatools/contracts";
+import { safeErrorLogAttributes } from "@elysiatools/client-runtime/errors";
+import { clampFileAttachmentUploadBytes } from "@elysiatools/client-runtime/state/attachments";
+import {
+  nextPastedTextFileName,
+  pastedTextDisposition,
+} from "@elysiatools/client-runtime/text-paste";
 import {
   parseCodexFeedbackCommand,
   submitCodexFeedback,
   type CodexFeedbackSubmission,
-} from "@t3tools/client-runtime/state/threads";
-import { resolveThreadWorkingStartedAt } from "@t3tools/client-runtime/state/models";
-import { upgradeLegacyContextMessage } from "@t3tools/shared/composerContextLegacy";
+} from "@elysiatools/client-runtime/state/threads";
+import { resolveThreadWorkingStartedAt } from "@elysiatools/client-runtime/state/models";
+import { upgradeLegacyContextMessage } from "@elysiatools/shared/composerContextLegacy";
 import {
   composerContextSendBlockReason,
   reidentifyComposerContext,
@@ -101,7 +104,7 @@ import {
 import {
   resolveComposerDispatchMode,
   type ActiveTurnComposerAction,
-} from "@t3tools/client-runtime/state/composer-dispatch";
+} from "@elysiatools/client-runtime/state/composer-dispatch";
 import { Atom } from "effect/reactivity";
 import { AsyncResult } from "effect/reactivity";
 import { DEFAULT_FOLLOW_UP_BEHAVIOR } from "../lib/followUpBehavior";

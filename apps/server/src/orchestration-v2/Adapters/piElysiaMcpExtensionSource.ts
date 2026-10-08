@@ -108,8 +108,8 @@ function formatMcpContent(result: unknown): string {
       if (part?.type === "text" && typeof part.text === "string") texts.push(part.text);
     }
   }
-  // Most T3 tools mirror structuredContent in a text block. Repeating it would
-  // leave T3's own output parsing two JSON documents instead of one.
+  // Most Elysia tools mirror structuredContent in a text block. Repeating it would
+  // leave Elysia's own output parsing two JSON documents instead of one.
   if (record.structuredContent !== undefined) {
     const structured = JSON.stringify(record.structuredContent);
     if (!texts.includes(structured)) texts.push(structured);

@@ -1,6 +1,6 @@
 import { useComposerMenuState } from "../chat/useComposerMenuState";
 import { useOrchestrationCommand } from "../../state/use-orchestration-command";
-import { AuthOrchestrationOperateScope } from "@t3tools/contracts";
+import { AuthOrchestrationOperateScope } from "@elysiatools/contracts";
 import { useEnvironmentsWithScope, readEnvironmentScope } from "../../state/session";
 import {
   isAtomCommandInterrupted,
@@ -8,15 +8,15 @@ import {
   settlePromise,
   squashAtomCommandFailure,
   type AtomCommandResult,
-} from "@t3tools/client-runtime/state/runtime";
-import { scopeProjectRef, scopeThreadRef } from "@t3tools/client-runtime/environment";
-import { isScratchProject } from "@t3tools/client-runtime/state/projects";
+} from "@elysiatools/client-runtime/state/runtime";
+import { scopeProjectRef, scopeThreadRef } from "@elysiatools/client-runtime/environment";
+import { isScratchProject } from "@elysiatools/client-runtime/state/projects";
 import { AsyncResult } from "effect/reactivity";
 import {
   SINGLE_PROVIDER_UI,
   type EnvironmentId,
   type ProjectIconOverride,
-} from "@t3tools/contracts";
+} from "@elysiatools/contracts";
 import { useLocation, useNavigate } from "@tanstack/react-router";
 import * as Cause from "effect/Cause";
 import { InfoIcon, Trash2Icon } from "~/icons";

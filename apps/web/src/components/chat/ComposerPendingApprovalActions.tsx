@@ -2,7 +2,7 @@ import {
   type ProviderApprovalDecision,
   type ProviderApprovalOption,
   type RuntimeRequestId,
-} from "@t3tools/contracts";
+} from "@elysiatools/contracts";
 import { memo } from "react";
 import { EllipsisIcon, TriangleAlertIcon } from "~/icons";
 import { Button } from "../ui/button";

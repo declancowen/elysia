@@ -1,5 +1,5 @@
 import { useParams, useSearch, useLocation } from "@tanstack/react-router";
-import { scopeProjectRef, scopeThreadRef } from "@t3tools/client-runtime/environment";
+import { scopeProjectRef, scopeThreadRef } from "@elysiatools/client-runtime/environment";
 import { useConversationTabNavigation } from "../../hooks/useConversationTabNavigation";
 import { useComposerDraftStore } from "../../composerDraftStore";
 import { useConversationTabsStore, type ConversationTab } from "../../conversationTabsStore";

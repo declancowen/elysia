@@ -7,7 +7,7 @@ import {
   type ProviderAuthState,
   type ProviderInstanceId,
   type ProviderSessionId,
-} from "@t3tools/contracts";
+} from "@elysiatools/contracts";
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -106,7 +106,7 @@ export class ProviderAuthService extends Context.Service<
       input: ProviderAuthTarget & { readonly text: string; readonly hasAttachments: boolean },
     ) => Effect.Effect<boolean, ProviderSetupError>;
   }
->()("t3/provider/ProviderAuthService") {}
+>()("@elysiatools/server/provider/ProviderAuthService") {}
 
 export const makeProviderAuthService = Effect.gen(function* () {
   const registry = yield* ProviderInstanceRegistry.ProviderInstanceRegistry;

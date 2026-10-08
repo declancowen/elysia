@@ -6,7 +6,7 @@ import { useEnvironments } from "../../state/environments";
 import type { SettingsScopeSearch } from "./settingsScope";
 import { useSettingsProjectGroups } from "./useSettingsProjectGroups";
 import { useLocation, useNavigate } from "@tanstack/react-router";
-import { SINGLE_PROVIDER_UI, type EnvironmentId } from "@t3tools/contracts";
+import { SINGLE_PROVIDER_UI, type EnvironmentId } from "@elysiatools/contracts";
 
 /** Offer an explicit target change when a category has no settings at this scope. */
 export function SettingsScopeNotice({

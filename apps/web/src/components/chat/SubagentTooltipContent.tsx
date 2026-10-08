@@ -6,12 +6,15 @@ import type {
   ProviderDriverKind,
   ProviderInstanceId,
   OrchestrationV2Subagent,
-} from "@t3tools/contracts";
+} from "@elysiatools/contracts";
 import {
   resolveSubagentMetadata,
   subagentDetailPreview,
-} from "@t3tools/client-runtime/state/subagent-display";
-import { getModelSelectionStringOptionValue, resolveSelectableModel } from "@t3tools/shared/model";
+} from "@elysiatools/client-runtime/state/subagent-display";
+import {
+  getModelSelectionStringOptionValue,
+  resolveSelectableModel,
+} from "@elysiatools/shared/model";
 import { getTraitsSpeedDisplay, TraitsSpeedIcon } from "./TraitsSpeed";
 import type { ReactNode } from "react";
 import {

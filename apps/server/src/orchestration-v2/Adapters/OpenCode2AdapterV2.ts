@@ -16,7 +16,7 @@
  *
  * A `subagent` call runs in a child session shown as a subagent thread. A
  * background one outlives its turn; when it ends, OpenCode starts a parent
- * execution T3 did not ask for, which waits here for the continuation turn T3
+ * execution Elysia did not ask for, which waits here for the continuation turn Elysia
  * opens for it.
  *
  * @module orchestration-v2/Adapters/OpenCode2AdapterV2
@@ -54,7 +54,7 @@ import {
   type ProviderInstanceId,
   type RunId,
   type RuntimeRequestId,
-} from "@t3tools/contracts";
+} from "@elysiatools/contracts";
 import type * as Cause from "effect/Cause";
 import * as DateTime from "effect/DateTime";
 import * as Deferred from "effect/Deferred";
@@ -80,10 +80,13 @@ import {
 import * as McpProviderSession from "../../mcp/McpProviderSession.ts";
 import { buildRuntimeInstructions } from "../../provider/RuntimeInstructions.ts";
 import { elysiaOrchestrationSystemPrompt } from "../../provider/ElysiaOrchestrationInstructions.ts";
-import { SKILL_MENTION_PATTERN } from "@t3tools/shared/composerInlineTokens";
-import * as KeyedLock from "@t3tools/shared/KeyedLock";
-import { getModelSelectionStringOptionValue, modelSelectionsEqual } from "@t3tools/shared/model";
-import { causeErrorTag } from "@t3tools/shared/observability";
+import { SKILL_MENTION_PATTERN } from "@elysiatools/shared/composerInlineTokens";
+import * as KeyedLock from "@elysiatools/shared/KeyedLock";
+import {
+  getModelSelectionStringOptionValue,
+  modelSelectionsEqual,
+} from "@elysiatools/shared/model";
+import { causeErrorTag } from "@elysiatools/shared/observability";
 
 import { providerMessageTextWithAttachmentPaths } from "../AttachmentPrompt.ts";
 import * as IdAllocator from "../IdAllocator.ts";
@@ -126,7 +129,7 @@ const OpenCode2ProviderCapabilities = {
     supportsInterrupt: true,
     supportsActiveSteering: true,
     supportsSteeringByInterruptRestart: true,
-    // T3 holds queued messages and starts each as its own turn once the one
+    // Elysia holds queued messages and starts each as its own turn once the one
     // before it ends, so OpenCode's own `queue` delivery is never used.
     supportsQueuedMessages: true,
     terminalStatusQuality: "strong",
@@ -233,7 +236,7 @@ interface ActiveTurn {
   lastStep: Tokens | undefined;
   /**
    * The history item this turn's execution follows, for a turn with no prompt
-   * id of T3's: the session's newest item before a `/name` command (null when
+   * id of Elysia's: the session's newest item before a `/name` command (null when
    * the history was empty), since `session.command` takes no id and answers
    * without one; the report a continuation turn's execution answers; or, on a
    * subagent's session, the first item queued for its turn. A reconnect
@@ -298,9 +301,9 @@ interface SubagentCall {
 }
 
 /**
- * An execution OpenCode ran on a thread's session without T3 asking: the
+ * An execution OpenCode ran on a thread's session without Elysia asking: the
  * parent's answer once a background subagent ended. Its events are held until
- * the continuation turn T3 opens for it takes them.
+ * the continuation turn Elysia opens for it takes them.
  */
 interface Wake {
   readonly events: Array<OpenCode2StreamEvent>;
@@ -334,7 +337,7 @@ interface ThreadState {
   /**
    * Set when a turn ended here while OpenCode may still be running it: a Stop
    * that timed out, a prompt whose request failed without a clear answer, or a
-   * request T3 could not answer. Execution events carry only the session id,
+   * request Elysia could not answer. Execution events carry only the session id,
    * so the next execution end belongs to that run; it clears this and ends no turn.
    */
   unsettled: boolean;
@@ -345,10 +348,10 @@ interface ThreadState {
    * rules stay in force, and a changed mode switches it before prompting.
    */
   agent: string;
-  /** The native session's rules as T3 last read or wrote them, and the policy they are for. */
+  /** The native session's rules as Elysia last read or wrote them, and the policy they are for. */
   rules: ReadonlyArray<Rule> | undefined;
   policy: RulesPolicy;
-  /** "Allow … this session" answers, kept in the session's rules while T3 has it open. */
+  /** "Allow … this session" answers, kept in the session's rules while Elysia has it open. */
   readonly grants: Array<Rule>;
   /** The session's `subagent` calls still running, by tool call id. */
   readonly calls: Map<string, SubagentCall>;
@@ -387,7 +390,7 @@ interface ThreadState {
     }
   >;
   /**
-   * Background subagent sessions T3 stopped. OpenCode wakes the parent to
+   * Background subagent sessions Elysia stopped. OpenCode wakes the parent to
    * report them; a wake that reports only these is stopped as well.
    */
   readonly stoppedChildren: Set<string>;
@@ -424,7 +427,7 @@ interface PendingRequest {
   readonly turn: ActiveTurn;
   /** The session that asked: the thread's own, or one of its subagents'. */
   readonly sessionId: string;
-  /** Set once T3 sends its answer; the orchestrator has already recorded it. */
+  /** Set once Elysia sends its answer; the orchestrator has already recorded it. */
   answering: boolean;
   readonly native:
     | {
@@ -530,7 +533,7 @@ const sessionGrantLabel = (action: string, save: ReadonlyArray<string>) =>
 const text = (value: string | undefined, fallback: string) => value?.trim() || fallback;
 
 /**
- * A form's fields as T3 questions, or why T3 cannot ask them: a link to open,
+ * A form's fields as Elysia questions, or why Elysia cannot ask them: a link to open,
  * a field shown only for another answer, a hidden field, or a number or yes/no
  * value. OpenCode's question tool only asks text and multi-select fields.
  */
@@ -564,7 +567,7 @@ const formQuestions = (
   return { questions };
 };
 
-/** T3's answers in OpenCode's shape: a list for a multi-select, text otherwise. */
+/** Elysia's answers in OpenCode's shape: a list for a multi-select, text otherwise. */
 const formAnswer = (form: NativeForm, answers: Readonly<Record<string, unknown>>) => {
   const answer: Record<string, string | ReadonlyArray<string>> = {};
   for (const field of form.fields) {
@@ -596,7 +599,7 @@ const formGone = {
   SessionNotFoundError: () => Effect.void,
 };
 
-/** The session rules an agent keeps for its own directories, which T3's blanket rules would override. */
+/** The session rules an agent keeps for its own directories, which Elysia's blanket rules would override. */
 const agentPaths = (rules: ReadonlyArray<Rule>) =>
   rules.filter(
     (entry) =>
@@ -654,7 +657,7 @@ const isWakeTurn = (turn: OrchestrationV2ProviderTurn) =>
   turn.nativeTurnRef?.nativeId?.includes(":wake:") === true;
 
 const INTERRUPT_TIMEOUT = "10 seconds";
-/** The session instructions entry T3 writes its per-turn system prompt to. */
+/** The session instructions entry Elysia writes its per-turn system prompt to. */
 const INSTRUCTIONS_KEY = "elysia";
 /** A lost event stream is resubscribed this many times, this far apart, before the session breaks. */
 const RECONNECT_ATTEMPTS = 5;
@@ -693,12 +696,12 @@ const deliver = <E>(answer: Effect.Effect<void, E>) =>
 type ModelRef = ReturnType<typeof Model.Ref.make>;
 
 /**
- * The user message ids T3 prompts under. OpenCode takes a client id (it must
+ * The user message ids Elysia prompts under. OpenCode takes a client id (it must
  * start with `msg_`) and answers a repeat of one in the same session with the
  * item it already has, so a retried request never queues a second message,
  * and a turn knows the message fork and rollback cut at before OpenCode
  * answers. The id is unique across the whole server, which refuses it in any
- * other session (409), so it names the session: another T3 database or
+ * other session (409), so it names the session: another Elysia database or
  * environment on the same server repeats thread ids and run ordinals, never
  * session ids. A turn keeps its id in `nativeTurnRef`.
  */
@@ -708,7 +711,7 @@ const steerPromptId = (sessionId: string, messageId: string) =>
   SessionMessage.ID.make(`msg_t3_steer_${sessionId}:${messageId}`);
 
 /**
- * The user message a turn prompted with. Turns from before T3 chose prompt ids
+ * The user message a turn prompted with. Turns from before Elysia chose prompt ids
  * recorded `<session>:attempt:<id>`, which is no message.
  */
 const promptOf = (turn: OrchestrationV2ProviderTurn) => {
@@ -723,7 +726,7 @@ const promptOf = (turn: OrchestrationV2ProviderTurn) => {
  * prompt, or for a continuation the report it answers. A turn refused before
  * it prompted is not in the session and is passed over, and so is a
  * continuation that took no report. `null` means nothing follows, so there is
- * no cut; a later turn from before T3 chose prompt ids has no known message,
+ * no cut; a later turn from before Elysia chose prompt ids has no known message,
  * so no cut is safe.
  */
 const boundaryAfter = (
@@ -760,7 +763,7 @@ const isProviderAdapterError = Schema.is(ProviderAdapter.ProviderAdapterV2Error)
 /**
  * The model OpenCode should run for a `provider/model` slug and its reasoning
  * variant, or undefined for any other slug: sending none would run OpenCode's
- * default while T3 records the requested model.
+ * default while Elysia records the requested model.
  */
 const modelRef = (selection: ProviderAdapter.ProviderAdapterV2TurnInput["modelSelection"]) => {
   const parsed = parseOpenCodeModelSlug(selection.model);
@@ -779,7 +782,7 @@ const sameModel = (left: ModelRef, right: ModelRef | undefined) =>
   left.id === right?.id &&
   (left.variant ?? "default") === (right?.variant ?? "default");
 
-/** OpenCode's own agents for T3's interaction modes; plan mode is its read-only `plan` agent. */
+/** OpenCode's own agents for Elysia's interaction modes; plan mode is its read-only `plan` agent. */
 const agentFor = (input: ProviderAdapter.ProviderAdapterV2TurnInput) =>
   input.runtimePolicy.interactionMode === "plan" ? "plan" : "build";
 
@@ -869,7 +872,7 @@ export const make = Effect.fn("OpenCode2Adapter.make")(function* (instanceId: Pr
     // OpenCode config can change a model's limits, and this one runtime serves
     // the instance's threads in every directory.
     const contextWindows = new Map<string, Map<string, number>>();
-    /** A thread without a worktree runs where T3 does, as its session is created. */
+    /** A thread without a worktree runs where Elysia does, as its session is created. */
     const directoryOf = (cwd: string | null | undefined) => cwd ?? serverConfig.cwd;
     const windowOf = (cwd: string | null | undefined, model: string) =>
       contextWindows.get(directoryOf(cwd))?.get(model);
@@ -1761,7 +1764,7 @@ export const make = Effect.fn("OpenCode2Adapter.make")(function* (instanceId: Pr
             }),
       });
       // A subagent's session is its call's to settle: a turn there is runless,
-      // and T3 has no terminal to wait on.
+      // and Elysia has no terminal to wait on.
       if (state.subagent !== undefined) {
         const call = state.subagent.call;
         if (!call.background && terminal.status !== "completed") {
@@ -1812,7 +1815,7 @@ export const make = Effect.fn("OpenCode2Adapter.make")(function* (instanceId: Pr
     });
 
     /**
-     * Ends the turn a request T3 could not answer would block, and stops the
+     * Ends the turn a request Elysia could not answer would block, and stops the
      * session: OpenCode waits on an unanswered request forever. The stopped
      * run's end is its own, not the next turn's.
      */
@@ -1844,7 +1847,7 @@ export const make = Effect.fn("OpenCode2Adapter.make")(function* (instanceId: Pr
     });
 
     /**
-     * Settles a request OpenCode answered or dropped on its own. T3's own
+     * Settles a request OpenCode answered or dropped on its own. Elysia's own
      * answers are only forgotten: the orchestrator already recorded them.
      */
     const settleRequest = Effect.fnUntraced(function* (
@@ -1873,7 +1876,7 @@ export const make = Effect.fn("OpenCode2Adapter.make")(function* (instanceId: Pr
     });
 
     /**
-     * Stops a run no turn of T3's waits on (one a Stop left running, or one
+     * Stops a run no turn of Elysia's waits on (one a Stop left running, or one
      * found asking after a reconnect): a reject without a message and a
      * cancelled form both end OpenCode's execution. Its end is not a turn's.
      */
@@ -1903,7 +1906,7 @@ export const make = Effect.fn("OpenCode2Adapter.make")(function* (instanceId: Pr
 
     /**
      * Stops what a session still waits on when this runtime first loads it:
-     * T3 shows none of those requests (a restart or a closed session expired
+     * Elysia shows none of those requests (a restart or a closed session expired
      * them), and OpenCode would wait on them forever.
      */
     const stopLeftoverRequests = Effect.fnUntraced(function* (state: ThreadState) {
@@ -1930,7 +1933,7 @@ export const make = Effect.fn("OpenCode2Adapter.make")(function* (instanceId: Pr
     /**
      * Shows a permission ask or question form on the thread whose session (or
      * subagent session) asked, under that thread's running turn. A request no
-     * turn of T3's is waiting on is left for OpenCode's own clients.
+     * turn of Elysia's is waiting on is left for OpenCode's own clients.
      */
     const showRequest = Effect.fnUntraced(function* (
       sessionId: string,
@@ -2060,7 +2063,7 @@ export const make = Effect.fn("OpenCode2Adapter.make")(function* (instanceId: Pr
           requestKind: openCodePermissionRequestKind(data.action, toolName),
           prompt: data.resources.length === 0 ? data.action : data.resources.join("\n"),
           // "Always" in OpenCode saves a grant for the whole project, so the
-          // session-wide choice is T3's own rule on this session instead.
+          // session-wide choice is Elysia's own rule on this session instead.
           options: [
             { decision: "cancel", label: "Cancel" },
             { decision: "decline", label: "Decline" },
@@ -2317,7 +2320,7 @@ export const make = Effect.fn("OpenCode2Adapter.make")(function* (instanceId: Pr
     });
 
     /**
-     * An execution OpenCode started on a thread's session with no turn of T3's
+     * An execution OpenCode started on a thread's session with no turn of Elysia's
      * running: the parent's answer to a background subagent's report. It is
      * held for the continuation turn it asks for, or stopped when it only
      * reports subagents a Stop ended.
@@ -2444,7 +2447,7 @@ export const make = Effect.fn("OpenCode2Adapter.make")(function* (instanceId: Pr
       const sessionId = sessionOfEvent(event);
       // `revert.clear` wakes the session into an empty execution of its own
       // (2.0.18's `Session.revert.clear` ends with a wake). It is no run of
-      // T3's, and no follow-up to a subagent either.
+      // Elysia's, and no follow-up to a subagent either.
       const cleared = sessionId === undefined ? undefined : clearing.get(sessionId);
       if (cleared !== undefined) {
         if (event.type === "unreadable.execution.ended" || executionEnd(event.type)) {
@@ -2544,7 +2547,7 @@ export const make = Effect.fn("OpenCode2Adapter.make")(function* (instanceId: Pr
         return yield* onAsked({ type: "form", form: event.data.form });
       // Answered in another OpenCode client, or dropped by OpenCode: a reject
       // it sends on its own (a Stop, or another reject in the same session)
-      // cancels the request. T3's own answers are settled where they are sent.
+      // cancels the request. Elysia's own answers are settled where they are sent.
       if (
         event.type === "permission.replied" ||
         event.type === "form.replied" ||
@@ -2637,7 +2640,7 @@ export const make = Effect.fn("OpenCode2Adapter.make")(function* (instanceId: Pr
     // execution it lost. So a lost stream reconnects, then reconciles each
     // running turn from the server's own state (see `reconcile`). Only when
     // reconnecting keeps failing are the turns failed and the session broken,
-    // so T3 reopens it. Set first, so a turn starting meanwhile waits or refuses.
+    // so Elysia reopens it. Set first, so a turn starting meanwhile waits or refuses.
     let streamFailure: string | undefined;
     let reconnected = yield* Deferred.make<void>();
     const failAll = Effect.fnUntraced(function* (message: string) {
@@ -2660,7 +2663,7 @@ export const make = Effect.fn("OpenCode2Adapter.make")(function* (instanceId: Pr
      * Emits what a running turn missed while the stream was down, from the
      * session's history since the turn began: text, reasoning and tools, each
      * under the same native id its live events would have used, so nothing
-     * already shown is duplicated. A turn begins at its prompt, whose id T3
+     * already shown is duplicated. A turn begins at its prompt, whose id Elysia
      * chose (`nativeTurnRef`), or after `before` for a `/name` command or a
      * continuation.
      * Returns how that history says the turn's execution ended: the `idle` item
@@ -2794,7 +2797,7 @@ export const make = Effect.fn("OpenCode2Adapter.make")(function* (instanceId: Pr
         }
       }
       // A request asked while the stream was down was never shown, and the
-      // run waits on it; one T3 shows that OpenCode no longer lists was
+      // run waits on it; one Elysia shows that OpenCode no longer lists was
       // answered elsewhere or dropped with its execution. A session that
       // stopped dropped its requests.
       const listed = new Map<string, Set<string>>();
@@ -2885,7 +2888,7 @@ export const make = Effect.fn("OpenCode2Adapter.make")(function* (instanceId: Pr
     // Subscribed before any session or prompt call, so no event of theirs is missed.
     yield* follow(yield* connection.events).pipe(Effect.forkScoped);
 
-    // A server T3 did not start keeps running after T3 stops, so stop the turns
+    // A server Elysia did not start keeps running after Elysia stops, so stop the turns
     // it would otherwise finish unseen. A spawned server stops with its owner.
     if (connection.external) {
       yield* Effect.addFinalizer(() =>
@@ -3035,10 +3038,10 @@ export const make = Effect.fn("OpenCode2Adapter.make")(function* (instanceId: Pr
 
     /**
      * Refuses to cut or copy a session's history while something writes to
-     * it: a turn of T3's, an execution seen running on the stream (a held
+     * it: a turn of Elysia's, an execution seen running on the stream (a held
      * follow-up), or a run on the server this runtime does not own: one a
      * timed-out Stop or an unanswered request left behind, or any run on a
-     * session loaded after the server outlived T3. Only that last case asks
+     * session loaded after the server outlived Elysia. Only that last case asks
      * the server. A rollback also waits for background subagents, whose
      * reports wake the session into the history it would cut.
      */
@@ -3088,7 +3091,7 @@ export const make = Effect.fn("OpenCode2Adapter.make")(function* (instanceId: Pr
 
     /**
      * Clears a staged revert and waits out the empty execution `clear` runs,
-     * which is no turn of T3's. 2.0.18 wakes the session after every clear,
+     * which is no turn of Elysia's. 2.0.18 wakes the session after every clear,
      * with or without a stage (seen live), so that execution always comes.
      */
     const clearRevert = Effect.fnUntraced(function* (sessionId: string) {
@@ -3109,7 +3112,7 @@ export const make = Effect.fn("OpenCode2Adapter.make")(function* (instanceId: Pr
      * revert, then commits it. If either fails or is interrupted the stage is
      * cleared, since OpenCode commits a staged revert on the next prompt; a
      * clear that fails too is tried again before that prompt. Files stay where
-     * they are: T3 restores its own checkpoint when the user asked for files,
+     * they are: Elysia restores its own checkpoint when the user asked for files,
      * and a rewind without files must not touch them.
      */
     const rollBackTo = Effect.fnUntraced(function* (
@@ -3150,7 +3153,7 @@ export const make = Effect.fn("OpenCode2Adapter.make")(function* (instanceId: Pr
         ),
       );
 
-    /** The session's history as V2 messages, read after any change T3 made to it. */
+    /** The session's history as V2 messages, read after any change Elysia made to it. */
     const snapshotOf = Effect.fnUntraced(function* (
       providerThread: OrchestrationV2ProviderThread,
       sessionId: string,
@@ -3259,7 +3262,7 @@ export const make = Effect.fn("OpenCode2Adapter.make")(function* (instanceId: Pr
         yield* removeMcp(state.mcp);
         state.mcp = undefined;
       }
-      // T3's tools are an addition: a server that cannot add them still runs the turn.
+      // Elysia's tools are an addition: a server that cannot add them still runs the turn.
       if (wanted !== undefined && state.mcp === undefined) {
         const added = yield* client.mcp
           .add({
@@ -3305,7 +3308,7 @@ export const make = Effect.fn("OpenCode2Adapter.make")(function* (instanceId: Pr
         if (turn !== undefined) turn.before = before;
       });
 
-    /** Installs a turn T3 started; every path after it ends the turn with a terminal. */
+    /** Installs a turn Elysia started; every path after it ends the turn with a terminal. */
     const beginTurn = (
       state: ThreadState,
       turnInput: ProviderAdapter.ProviderAdapterV2TurnInput,
@@ -3526,7 +3529,7 @@ export const make = Effect.fn("OpenCode2Adapter.make")(function* (instanceId: Pr
           Effect.orElseSucceed(() => []),
         );
         if (commands.some((entry) => entry.name === command.name)) {
-          // `session.command` takes no id of T3's and its answer carries none,
+          // `session.command` takes no id of Elysia's and its answer carries none,
           // so the turn remembers where the history stood before it.
           const newest = yield* client.message.list({ sessionID, order: "desc", limit: 1 });
           yield* markBefore(sessionId, newest.data[0]?.id ?? null);
@@ -3655,7 +3658,7 @@ export const make = Effect.fn("OpenCode2Adapter.make")(function* (instanceId: Pr
             yield* readModelsOnce(threadInput.runtimePolicy.cwd);
           }
           // 1.x session ids survive the upgrade; a server without this session
-          // fails the resume, so T3 recreates the thread with a handoff.
+          // fails the resume, so Elysia recreates the thread with a handoff.
           const native = yield* client.session.get({ sessionID: Session.ID.make(sessionId) });
           const providerThread: OrchestrationV2ProviderThread = {
             ...threadInput.providerThread,
@@ -3667,7 +3670,7 @@ export const make = Effect.fn("OpenCode2Adapter.make")(function* (instanceId: Pr
           const loaded = threads.has(sessionId);
           const state = register(providerThread, native, cwd ?? native.location.directory);
           // OpenCode keeps no request across its own restart, but a server that
-          // outlived T3 may still wait on one T3 no longer shows.
+          // outlived Elysia may still wait on one Elysia no longer shows.
           if (!loaded) yield* stopLeftoverRequests(state);
           // The session gets the rules for this thread's mode: it may have run
           // another mode, or been made by 1.x or an earlier build.
@@ -3763,7 +3766,7 @@ export const make = Effect.fn("OpenCode2Adapter.make")(function* (instanceId: Pr
                   }),
                 });
               }
-              // A turn T3 will not run still starts and fails, so the refusal is what
+              // A turn Elysia will not run still starts and fails, so the refusal is what
               // the user reads.
               const model = modelRef(turnInput.modelSelection);
               if (model === undefined) {
@@ -3820,7 +3823,7 @@ export const make = Effect.fn("OpenCode2Adapter.make")(function* (instanceId: Pr
           if (started === undefined) return;
           const { state, sessionId, turn } = started;
           yield* submit(sessionId, turnInput, state, turn).pipe(
-            // Deleted outside T3: the thread is broken, and forgetting it makes
+            // Deleted outside Elysia: the thread is broken, and forgetting it makes
             // the next turn resume, fail, and recreate it with a handoff.
             Effect.catchTags({
               SessionNotFoundError: () =>
@@ -4137,7 +4140,7 @@ export const make = Effect.fn("OpenCode2Adapter.make")(function* (instanceId: Pr
             yield* rollBackTo(sessionId, SessionMessage.ID.make(boundary));
           }
           // The turns after the target left the history with their messages.
-          // The snapshot lists the ones kept as T3 recorded them, which a
+          // The snapshot lists the ones kept as Elysia recorded them, which a
           // runtime that loaded the session after they ran never saw.
           const keptOrdinal = target.type === "provider_turn" ? target.providerTurn.ordinal : 0;
           const loaded = threads.get(sessionId);
@@ -4196,7 +4199,7 @@ export const make = Effect.fn("OpenCode2Adapter.make")(function* (instanceId: Pr
                   yield* userMessages(sourceId),
                 );
           // A fork copies the source's history, model, location and rules; its
-          // message ids are new, so it has no turns T3 could cut at yet.
+          // message ids are new, so it has no turns Elysia could cut at yet.
           const forked = yield* client.session.fork({
             sessionID: Session.ID.make(sourceId),
             ...(before === null ? {} : { before: SessionMessage.ID.make(before) }),

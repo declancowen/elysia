@@ -1,6 +1,6 @@
 import { useAtomValue } from "@effect/atom-react";
-import { squashAtomCommandFailure } from "@t3tools/client-runtime/state/runtime";
-import { CONNECTIONS_ENABLED, type EnvironmentId } from "@t3tools/contracts";
+import { squashAtomCommandFailure } from "@elysiatools/client-runtime/state/runtime";
+import { CONNECTIONS_ENABLED, type EnvironmentId } from "@elysiatools/contracts";
 import { useCallback } from "react";
 
 import {

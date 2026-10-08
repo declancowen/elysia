@@ -36,7 +36,7 @@
       ],
       // Keep the transitive Effect runtime pinned for standalone npm installs.
       // The Vite+ web build prerequisite.
-      "ignoreDependencies": ["@effect/platform-node-shared", "@t3tools/web"],
+      "ignoreDependencies": ["@effect/platform-node-shared", "@elysiatools/web"],
       // Elysia's runtime policy disables upstream triage; retain its implementation for merges.
       "ignoreIssues": { "src/cli/triage.ts": ["files"] },
     },
@@ -73,7 +73,7 @@
         "src/components/ui/*.tsx": ["exports", "nsExports", "duplicates"],
         // Elysia disables upstream connections and usage UI. Keep the dormant source for merges;
         // suppress only unused-file reports so dependency analysis remains active.
-        "src/components/clerk/RemoveT3ConnectEnvironmentDialog.tsx": ["files"],
+        "src/components/clerk/RemoveElysiaConnectEnvironmentDialog.tsx": ["files"],
         "src/components/settings/AddUsageLimitSourceDialog.tsx": ["files"],
         "src/components/settings/ConnectionsSettings.tsx": ["files"],
         "src/components/settings/LocalEnvironmentSetting.tsx": ["files"],
@@ -94,8 +94,8 @@
       // Fonts are configured as asset paths; Expo autolinks the native packages.
       "ignoreDependencies": [
         "@expo-google-fonts/dm-sans",
-        "@t3tools/mobile-review-diff-native",
-        "@t3tools/mobile-terminal-native",
+        "@elysiatools/mobile-review-diff-native",
+        "@elysiatools/mobile-terminal-native",
       ],
       // Elysia's runtime policy hides upstream grouping and usage screens, retained for merges.
       "ignoreIssues": {

@@ -18,12 +18,12 @@ import {
   OrchestrationV2TurnItemJson,
   type OrchestrationV2ConversationMessage,
   type OrchestrationV2DomainEvent,
-} from "@t3tools/contracts";
+} from "@elysiatools/contracts";
 import {
   replaceComposerContextReferences,
   remapComposerContextAttachments,
-} from "@t3tools/shared/composerContextReferences";
-import { agentGroupResponder } from "@t3tools/shared/agentMentions";
+} from "@elysiatools/shared/composerContextReferences";
+import { agentGroupResponder } from "@elysiatools/shared/agentMentions";
 import * as FileSystem from "effect/FileSystem";
 import * as ServerConfig from "../config.ts";
 import * as Crypto from "effect/Crypto";
@@ -870,7 +870,7 @@ export class AgentDelegation extends Context.Service<
       input: AgentGetDelegationInput,
     ) => Effect.Effect<AgentGetDelegationResult, OrchestrationDispatchCommandError>;
   }
->()("t3/orchestration-v2/AgentDelegation") {}
+>()("@elysiatools/server/orchestration-v2/AgentDelegation") {}
 const make = Effect.gen(function* () {
   const context = yield* Effect.context<
     | Effect.Services<ReturnType<typeof delegateToPersistentAgentImpl>>

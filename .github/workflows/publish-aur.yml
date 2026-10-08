@@ -37,7 +37,8 @@ concurrency:
 jobs:
   publish:
     name: Validate and publish
-    if: github.repository == 'pingdotgg/t3code'
+    # Elysia does not publish Linux/AUR artifacts.
+    if: ${{ false }}
     runs-on: blacksmith-8vcpu-ubuntu-2404
     timeout-minutes: 30
     container:

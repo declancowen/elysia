@@ -1,4 +1,4 @@
-import type { DevicePlatformAvailability } from "@t3tools/contracts";
+import type { DevicePlatformAvailability } from "@elysiatools/contracts";
 import { Check, Minus } from "~/icons";
 import { Tooltip, TooltipTrigger, TooltipPopup } from "../ui/tooltip";
 

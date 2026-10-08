@@ -9,7 +9,7 @@ import {
   HostProcessInvokedAs,
   HostProcessPlatform,
   HostProcessWorkingDirectory,
-} from "@t3tools/shared/hostProcess";
+} from "@elysiatools/shared/hostProcess";
 
 import { repointLauncher, resolveLauncherPath } from "./update.ts";
 
@@ -18,7 +18,7 @@ it.layer(NodeServices.layer)("t3 update launcher", (it) => {
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;
       const path = yield* Path.Path;
-      const root = yield* fs.makeTempDirectoryScoped({ prefix: "t3-update-" });
+      const root = yield* fs.makeTempDirectoryScoped({ prefix: "elysia-update-" });
       const oldExe = path.join(root, "runtime/versions/1.0.0/t3");
       const newExe = path.join(root, "runtime/versions/2.0.0/t3");
       const launcher = path.join(root, "bin/t3");
@@ -44,7 +44,7 @@ it.layer(NodeServices.layer)("t3 update launcher", (it) => {
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;
       const path = yield* Path.Path;
-      const root = yield* fs.makeTempDirectoryScoped({ prefix: "t3-update-" });
+      const root = yield* fs.makeTempDirectoryScoped({ prefix: "elysia-update-" });
       const newExe = path.join(root, "runtime/versions/2.0.0/t3");
       const copy = path.join(root, "copy/t3");
       const foreign = path.join(root, "foreign/t3");
@@ -78,7 +78,7 @@ it.layer(NodeServices.layer)("t3 update launcher", (it) => {
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;
       const path = yield* Path.Path;
-      const root = yield* fs.makeTempDirectoryScoped({ prefix: "t3-update-" });
+      const root = yield* fs.makeTempDirectoryScoped({ prefix: "elysia-update-" });
       const launcher = path.join(root, "bin/t3");
       yield* fs.makeDirectory(path.dirname(launcher), { recursive: true });
       yield* fs.writeFileString(launcher, "");

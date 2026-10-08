@@ -7,7 +7,7 @@ import {
   type ProviderInstanceId,
   type RuntimeMode,
   type ThreadId,
-} from "@t3tools/contracts";
+} from "@elysiatools/contracts";
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
 
@@ -64,7 +64,7 @@ export interface McpInvocationScope {
 export class McpInvocationContext extends Context.Service<
   McpInvocationContext,
   McpInvocationScope
->()("t3/mcp/McpInvocationContext") {}
+>()("@elysiatools/server/mcp/McpInvocationContext") {}
 
 /** The error a missing capability surfaces as; preview keeps its own so the broker can route it. */
 export type McpCapabilityError<C extends McpCapability> = C extends "preview"

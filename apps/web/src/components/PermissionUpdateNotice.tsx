@@ -3,7 +3,7 @@ import {
   CONNECTIONS_ENABLED,
   sessionHasLegacyPermissions,
   type EnvironmentId,
-} from "@t3tools/contracts";
+} from "@elysiatools/contracts";
 import { useNavigate } from "@tanstack/react-router";
 import * as Schema from "effect/Schema";
 import { useEffect } from "react";

@@ -1,5 +1,5 @@
-import { workspaceRelativeFilePath } from "@t3tools/client-runtime/markdown-links";
-import type { ProjectReadFileError } from "@t3tools/contracts";
+import { workspaceRelativeFilePath } from "@elysiatools/client-runtime/markdown-links";
+import type { ProjectReadFileError } from "@elysiatools/contracts";
 import { isAbsolutePath } from "~/terminal-links";
 
 /** Resolve workspace links before choosing between the explorer and a file preview. */

@@ -1,4 +1,4 @@
-import type { ModelCapabilities } from "@t3tools/contracts";
+import type { ModelCapabilities } from "@elysiatools/contracts";
 import { BUNDLED_CLAUDE_MODEL_CATALOG, type ClaudeModelCatalog } from "./ClaudeModelCatalog.ts";
 
 // Gateway IDs from the supplied Elysia 0.3.8 package; native settings take

@@ -1,19 +1,19 @@
 /**
  * DirectEndpoints - the LAN and tailnet addresses this server listens on now.
  *
- * Clients connected one way (often T3 Connect) save these as extra routes so
+ * Clients connected one way (often Elysia Connect) save these as extra routes so
  * they can move to a faster path when one is reachable, and replace a saved
  * LAN address when DHCP or a new Wi-Fi network changes it. Only addresses the
  * server is actually bound to are listed: a loopback-only server lists none,
  * because its loopback address means a different machine to every client.
  */
-import type { ServerDirectEndpoint } from "@t3tools/contracts";
+import type { ServerDirectEndpoint } from "@elysiatools/contracts";
 import {
   buildTailscaleHttpsBaseUrl,
   isTailscaleIpv4Address,
   probeTailscaleHttpsEndpoint,
   readTailscaleStatus,
-} from "@t3tools/tailscale";
+} from "@elysiatools/tailscale";
 import * as Context from "effect/Context";
 import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
@@ -24,7 +24,7 @@ import * as ChildProcessSpawner from "effect/process/ChildProcessSpawner";
 import * as NodeNet from "node:net";
 import * as NodeOS from "node:os";
 
-import { isPrivateNetworkHost } from "@t3tools/shared/hostClassification";
+import { isPrivateNetworkHost } from "@elysiatools/shared/hostClassification";
 
 import * as ServerConfig from "../config.ts";
 import { formatHostForUrl, isLoopbackHost, isWildcardHost } from "../startupAccess.ts";
@@ -43,7 +43,7 @@ export class DirectEndpoints extends Context.Service<
   {
     readonly resolve: () => Effect.Effect<ReadonlyArray<ServerDirectEndpoint>>;
   }
->()("t3/environment/DirectEndpoints") {}
+>()("@elysiatools/server/environment/DirectEndpoints") {}
 
 /**
  * Only numeric private-network and tailnet IPv4 addresses are reported. These

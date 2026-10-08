@@ -2,17 +2,17 @@ import {
   scopeProjectRef,
   scopedThreadKey,
   scopeThreadRef,
-} from "@t3tools/client-runtime/environment";
+} from "@elysiatools/client-runtime/environment";
 import { useSupportsMultiplePullRequests } from "~/hooks/useSupportsMultiplePullRequests";
 
-import { pullRequestDetailToVcsStatus } from "@t3tools/client-runtime/state/pull-requests";
+import { pullRequestDetailToVcsStatus } from "@elysiatools/client-runtime/state/pull-requests";
 import {
   resolveEnvironmentMachineKind,
   type EnvironmentId,
   type ThreadLinkedPullRequest,
   type ThreadPullRequestLink,
   type VcsStatusResult,
-} from "@t3tools/contracts";
+} from "@elysiatools/contracts";
 import { Atom } from "effect/reactivity";
 import { useCallback, useMemo } from "react";
 import { appAtomRegistry } from "../rpc/atomRegistry";
@@ -24,7 +24,7 @@ import {
   resolveThreadPullRequestChains,
   visibleThreadPullRequests,
   type ThreadPullRequestBadge,
-} from "@t3tools/shared/threadPullRequests";
+} from "@elysiatools/shared/threadPullRequests";
 import { FolderGit2Icon, TerminalIcon } from "~/icons";
 import { useRender } from "@base-ui/react/use-render";
 import { type ReactNode, type AnimationEvent, type MouseEvent, type ReactElement } from "react";
@@ -156,7 +156,7 @@ export function linkedPullRequestSnapshotStatus(
 export {
   resolveThreadPullRequestBadge,
   type ThreadPullRequestBadge,
-} from "@t3tools/shared/threadPullRequests";
+} from "@elysiatools/shared/threadPullRequests";
 
 export interface ThreadPullRequestBadgePresentation {
   readonly Icon: PullRequestGlyphIcon;

@@ -4,7 +4,7 @@ import {
   ProjectId,
   ProviderInstanceId,
   type RuntimeMode,
-} from "@t3tools/contracts";
+} from "@elysiatools/contracts";
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -59,7 +59,7 @@ export interface RuntimePolicyV2Shape {
 }
 
 export class RuntimePolicyV2 extends Context.Service<RuntimePolicyV2, RuntimePolicyV2Shape>()(
-  "t3/orchestration-v2/RuntimePolicy/RuntimePolicyV2",
+  "@elysiatools/server/orchestration-v2/RuntimePolicy/RuntimePolicyV2",
 ) {}
 
 /**
@@ -77,7 +77,7 @@ export const layer: Layer.Layer<RuntimePolicyV2> = Layer.succeed(RuntimePolicyV2
 /**
  * The mode a provider runs a thread in. A mode the provider does not offer
  * (a thread set before it stopped offering it, or a stale client) runs in
- * Supervised rather than having T3 imitate it.
+ * Supervised rather than having Elysia imitate it.
  */
 function providerRuntimeMode(
   runtimeMode: RuntimeMode,

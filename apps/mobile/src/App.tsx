@@ -1,4 +1,4 @@
-import { CONNECTIONS_ENABLED, SINGLE_PROVIDER_UI } from "@t3tools/contracts";
+import { CONNECTIONS_ENABLED, SINGLE_PROVIDER_UI } from "@elysiatools/contracts";
 import { PermissionUpdateNotice } from "./components/PermissionUpdateNotice";
 import * as Linking from "expo-linking";
 import * as SplashScreen from "expo-splash-screen";

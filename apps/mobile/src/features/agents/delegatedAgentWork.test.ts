@@ -1,4 +1,4 @@
-import { ProviderInstanceId, RunId, ThreadId } from "@t3tools/contracts";
+import { ProviderInstanceId, RunId, ThreadId } from "@elysiatools/contracts";
 import { describe, expect, it } from "vite-plus/test";
 import { makeThreadShellFixture } from "../../test-fixtures";
 import {

@@ -1,11 +1,11 @@
-import type { ThreadId, ProviderInstanceId } from "@t3tools/contracts";
+import type { ThreadId, ProviderInstanceId } from "@elysiatools/contracts";
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
-import { normalizeProjectPathForComparison } from "@t3tools/shared/path";
+import { normalizeProjectPathForComparison } from "@elysiatools/shared/path";
 import { ServerConfig } from "../config.ts";
 import * as ProjectionStore from "../orchestration-v2/ProjectionStore.ts";
 import * as ProjectStore from "../orchestration-v2/ProjectStore.ts";
@@ -42,7 +42,7 @@ export class RepositoryInitialization extends Context.Service<
       RepositoryInitializationDeniedError | RepositoryInitializationFailedError
     >;
   }
->()("t3/project/RepositoryInitialization") {}
+>()("@elysiatools/server/project/RepositoryInitialization") {}
 
 const make = Effect.gen(function* () {
   const snapshots = yield* ProjectionStore.ProjectionStoreV2;

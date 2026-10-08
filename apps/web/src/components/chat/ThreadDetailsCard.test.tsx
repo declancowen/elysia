@@ -1,7 +1,7 @@
 import { act, create, type ReactTestRenderer } from "react-test-renderer";
 import type { ReactNode } from "react";
 import { afterEach, expect, it, vi } from "vite-plus/test";
-import { EnvironmentId, ThreadId } from "@t3tools/contracts";
+import { EnvironmentId, ThreadId } from "@elysiatools/contracts";
 
 vi.mock("../../hooks/useSettings", () => ({
   useClientSettings: (select: (settings: { panelAnimationDurationMs: number }) => unknown) =>

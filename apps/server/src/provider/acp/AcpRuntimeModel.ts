@@ -9,13 +9,13 @@ import * as EffectAcpSchemaV1 from "effect-acp/schema-v1";
 import {
   deriveToolActivityPresentation,
   mergeToolActivityData,
-} from "@t3tools/shared/toolActivity";
-import { ELYSIA_MCP_TOOL_NAMES } from "@t3tools/shared/elysiaMcpToolPresentation";
+} from "@elysiatools/shared/toolActivity";
+import { ELYSIA_MCP_TOOL_NAMES } from "@elysiatools/shared/elysiaMcpToolPresentation";
 import type {
   OrchestrationV2ProviderThreadNativeMetadata,
   ThreadTokenUsageSnapshot,
   ToolLifecycleItemType,
-} from "@t3tools/contracts";
+} from "@elysiatools/contracts";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -1029,7 +1029,7 @@ export interface AcpMcpToolCallIdentity {
   readonly input?: Record<string, unknown>;
 }
 
-/** Matches an invocation of T3's `acp-mcp-call` bridge fallback CLI. */
+/** Matches an invocation of Elysia's `acp-mcp-call` bridge fallback CLI. */
 const ACP_MCP_FALLBACK_CALL = /(?:^|[\s"'=])acp-mcp-call[\s"']+([A-Za-z0-9_.-]+)(?:\s+(.+?))?\s*$/u;
 
 function acpMcpFallbackInput(value: string | undefined): Record<string, unknown> | undefined {
@@ -1084,7 +1084,7 @@ const ELYSIA_MCP_BARE_TITLE_CALL = /^(?<tool>[A-Za-z0-9_]+)(?::\s|$)/;
  *
  * ACP has no typed MCP tool-call item, so agents surface MCP calls in
  * agent-specific shapes: codex-acp tags execute calls with
- * `rawInput.server`/`rawInput.tool`, while agents on T3's terminal fallback
+ * `rawInput.server`/`rawInput.tool`, while agents on Elysia's terminal fallback
  * run the `acp-mcp-call <tool>` CLI through their command or an embedded
  * client terminal. Recovered identity lets the projection render the same
  * branded MCP item that native providers produce.
@@ -1109,7 +1109,7 @@ export function extractMcpToolCallIdentity(
   // titleless or LLM-enriched update replaces the presentation title, so
   // match those rather than the summarized state title. Name-derived matches
   // are gated on the known Elysia tool inventory so path-like titles (for
-  // example "elysia/README.md") never brand.
+  // example "@elysiatools/server/README.md") never brand.
   const claudeCode = isRecord(meta?.claudeCode) ? meta.claudeCode : undefined;
   const gooseToolCall = isRecord(meta?.goose)
     ? isRecord(meta.goose.toolCall)

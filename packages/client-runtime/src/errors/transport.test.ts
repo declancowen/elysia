@@ -47,10 +47,21 @@ describe("isTransportConnectionErrorMessage", () => {
     ).toBe(false);
   });
 
-  it("returns true for the T3 server WebSocket message", () => {
+  it("returns true for the Elysia server WebSocket message", () => {
+    expect(
+      isTransportConnectionErrorMessage("Unable to connect to the Elysia server WebSocket."),
+    ).toBe(true);
+  });
+
+  it("recognizes older server disconnect errors", () => {
     expect(isTransportConnectionErrorMessage("Unable to connect to the T3 server WebSocket.")).toBe(
       true,
     );
+    expect(
+      isTransportConnectionErrorMessage(
+        `Relay environment disconnected. ${NETWORK_BLOCKING_HINT.replace("Elysia Connect", "T3 Connect")}`,
+      ),
+    ).toBe(true);
   });
 
   it("returns true for ping timeout", () => {

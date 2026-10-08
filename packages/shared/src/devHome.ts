@@ -1,4 +1,4 @@
-import { APP_DATA_DIRECTORY } from "@t3tools/contracts";
+import { APP_DATA_DIRECTORY } from "@elysiatools/contracts";
 /**
  * Where development state lives, and how to keep it away from the shared
  * `~/.elysia` that a user's installed Elysia runs against.
@@ -91,7 +91,7 @@ export const resolveGitWorktreePath = (
  * worktree. Deliberately does not require the directory to exist yet: falling
  * back because it is missing would send callers at the shared home.
  */
-export const resolveWorktreeT3Home = (
+export const resolveWorktreeElysiaHome = (
   cwd: string,
 ): Effect.Effect<string | undefined, never, FileSystem.FileSystem | Path.Path> =>
   Effect.gen(function* () {

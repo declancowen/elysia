@@ -3,7 +3,7 @@ import {
   type AcpRegistrySettings,
   type ProviderAuthMethod,
   type ProviderInstanceId,
-} from "@t3tools/contracts";
+} from "@elysiatools/contracts";
 import * as Crypto from "effect/Crypto";
 import * as Deferred from "effect/Deferred";
 import * as Effect from "effect/Effect";
@@ -71,7 +71,7 @@ export const makeAcpRegistryAuth = Effect.fn("makeAcpRegistryAuth")(function* (o
               fs: { readTextFile: false, writeTextFile: false },
               terminal: false,
             },
-            clientInfo: { name: "t3-code-provider-auth", version: "0.0.0" },
+            clientInfo: { name: "elysia-provider-auth", version: "0.0.0" },
           }).pipe(
             Layer.provide(
               Layer.mergeAll(

@@ -1,4 +1,4 @@
-import { isEnabledProviderDriver } from "@t3tools/contracts";
+import { isEnabledProviderDriver } from "@elysiatools/contracts";
 /**
  * Instance-aware view over the wire `ServerProvider[]`.
  *
@@ -24,12 +24,12 @@ import {
   type ServerProviderModel,
   type ServerSettings,
   type ServerProviderState,
-} from "@t3tools/contracts";
+} from "@elysiatools/contracts";
 import {
   normalizeProviderAccentColor,
   resolveProviderInstanceDisplayName,
   shouldShowInstanceBadge,
-} from "@t3tools/client-runtime/state/provider-instance-display";
+} from "@elysiatools/client-runtime/state/provider-instance-display";
 
 export { normalizeProviderAccentColor, shouldShowInstanceBadge };
 

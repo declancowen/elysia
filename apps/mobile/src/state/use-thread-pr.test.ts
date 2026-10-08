@@ -1,4 +1,8 @@
-import { ProjectId, type ThreadPullRequestLink, type VcsStatusResult } from "@t3tools/contracts";
+import {
+  ProjectId,
+  type ThreadPullRequestLink,
+  type VcsStatusResult,
+} from "@elysiatools/contracts";
 import { describe, expect, it } from "vite-plus/test";
 
 import {

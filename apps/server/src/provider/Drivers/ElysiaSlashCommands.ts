@@ -1,4 +1,4 @@
-import type { ServerProviderSkill, ServerProviderSlashCommand } from "@t3tools/contracts";
+import type { ServerProviderSkill, ServerProviderSlashCommand } from "@elysiatools/contracts";
 
 // These open or configure Claude's terminal UI. Sending them as an SDK chat
 // message cannot reproduce that UI; custom skills with these names still run.

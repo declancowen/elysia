@@ -1,4 +1,4 @@
-import { EXTERNAL_USAGE_SOURCES_ENABLED } from "@t3tools/contracts";
+import { EXTERNAL_USAGE_SOURCES_ENABLED } from "@elysiatools/contracts";
 /**
  * UsageLimitSources — quota from places this environment cannot run turns
  * on, today a CLIProxyAPI hub pooling several subscription accounts.
@@ -21,8 +21,8 @@ import {
   type UsageLimitSourceConfig,
   type UsageLimitSourceId,
   type UsageLimitSourceSnapshot,
-} from "@t3tools/contracts";
-import { resolveServerBackgroundActivitySettings } from "@t3tools/shared/backgroundActivitySettings";
+} from "@elysiatools/contracts";
+import { resolveServerBackgroundActivitySettings } from "@elysiatools/shared/backgroundActivitySettings";
 import * as Context from "effect/Context";
 import * as DateTime from "effect/DateTime";
 import * as Duration from "effect/Duration";
@@ -50,7 +50,7 @@ export class UsageLimitSources extends Context.Service<
       input: UsageLimitSourceConsumeResetCreditInput,
     ) => Effect.Effect<ProviderConsumeResetCreditResult, UsageLimitSourceError>;
   }
->()("t3/usage/UsageLimitSources") {}
+>()("@elysiatools/server/usage/UsageLimitSources") {}
 
 function sourceLabel(id: string, config: UsageLimitSourceConfig): string {
   if (config.label) return config.label;

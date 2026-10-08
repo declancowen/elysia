@@ -1,4 +1,4 @@
-import type { DesktopBridge } from "@t3tools/contracts";
+import type { DesktopBridge } from "@elysiatools/contracts";
 
 import { toastManager } from "./ui/toast";
 

@@ -1,6 +1,6 @@
-import { resolveMediaSource } from "@t3tools/client-runtime/media-source";
-import type { EnvironmentId, ThreadId } from "@t3tools/contracts";
-import { normalizeNativeMarkdownUrl } from "@t3tools/mobile-markdown-text/links";
+import { resolveMediaSource } from "@elysiatools/client-runtime/media-source";
+import type { EnvironmentId, ThreadId } from "@elysiatools/contracts";
+import { normalizeNativeMarkdownUrl } from "@elysiatools/mobile-markdown-text/links";
 
 import type { FilePreviewSource } from "../components/FilePreviewModal";
 import type { MediaVideoPreviewSource } from "./videoPreviewSource";

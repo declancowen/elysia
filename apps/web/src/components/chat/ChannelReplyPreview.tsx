@@ -5,8 +5,8 @@ import ChatMarkdown from "../ChatMarkdown";
 import { ComposerBanner } from "./ComposerBanner";
 import { AgentAvatar } from "../agents/AgentAvatar";
 import { useProject, useThreadShell } from "~/state/entities";
-import { scopeProjectRef, scopeThreadRef } from "@t3tools/client-runtime/environment";
-import type { ProjectId, ScopedThreadRef } from "@t3tools/contracts";
+import { scopeProjectRef, scopeThreadRef } from "@elysiatools/client-runtime/environment";
+import type { ProjectId, ScopedThreadRef } from "@elysiatools/contracts";
 import { stripInlineContextReferences } from "~/lib/composerContextReferences";
 import type { ChatMessage } from "~/types";
 

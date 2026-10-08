@@ -3,13 +3,13 @@ import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 
-import type { ServerInstallation } from "@t3tools/contracts";
+import type { ServerInstallation } from "@elysiatools/contracts";
 import {
   HostProcessArguments,
   HostProcessExecutablePath,
   HostProcessIsExecutable,
   HostProcessPlatform,
-} from "@t3tools/shared/hostProcess";
+} from "@elysiatools/shared/hostProcess";
 
 import packageJson from "../../package.json" with { type: "json" };
 

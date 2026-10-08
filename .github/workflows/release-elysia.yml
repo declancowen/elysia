@@ -107,13 +107,13 @@ jobs:
         run: node scripts/update-release-package-versions.ts "$RELEASE_VERSION"
 
       - name: Ensure Electron runtime is installed
-        run: vp run --filter @t3tools/desktop ensure:electron
+        run: vp run --filter @elysiatools/desktop ensure:electron
 
       - name: Check
         run: vp check
 
       - name: Typecheck
-        run: vp run --concurrency-limit 2 --filter @t3tools/desktop... --filter @t3tools/web... --filter t3... --filter @t3tools/scripts... typecheck
+        run: vp run --concurrency-limit 2 --filter @elysiatools/desktop... --filter @elysiatools/web... --filter @elysiatools/server... --filter @elysiatools/scripts... typecheck
 
       - name: Test release guards
         run: node --test .github/scripts/check-*-release.test.cjs
@@ -150,6 +150,9 @@ jobs:
             apps/web/src/elysiaModelSelection.test.ts \
             apps/web/src/themePalette.test.ts \
             apps/web/src/themeBoot.test.ts \
+            apps/web/src/lib/browserStorageMigration.test.ts \
+            apps/server/src/project/ElysiaProjectFileLoader.test.ts \
+            packages/shared/src/elysiaProjectFile.test.ts \
             apps/web/src/components/Sidebar.logic.test.ts \
             apps/web/src/components/ProjectFavicon.test.tsx \
             packages/shared/src/projectIcon.test.ts \
@@ -368,7 +371,7 @@ jobs:
           cache: true
           run-install: |
             args:
-              - --filter=@t3tools/scripts...
+              - --filter=@elysiatools/scripts...
 
       - name: Download desktop artifacts
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8

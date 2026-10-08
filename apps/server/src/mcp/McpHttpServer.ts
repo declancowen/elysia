@@ -17,7 +17,7 @@ import * as Stream from "effect/Stream";
 import type * as Types from "effect/Types";
 import { AiError, McpProtocol, McpSchema, McpServer, Tool, type Toolkit } from "effect/ai";
 import { HttpRouter, HttpServerRequest, HttpServerResponse } from "effect/http";
-import { OrchestratorMcpFailure, PreviewAutomationError } from "@t3tools/contracts";
+import { OrchestratorMcpFailure, PreviewAutomationError } from "@elysiatools/contracts";
 
 import packageJson from "../../package.json" with { type: "json" };
 import * as ServerConfig from "../config.ts";
@@ -110,7 +110,7 @@ const unauthorized = (input: {
 
 /**
  * Resolves a bearer token that is not a provider-session token: an OAuth
- * client signed in from outside T3. Undefined when the token is not one.
+ * client signed in from outside Elysia. Undefined when the token is not one.
  */
 export class McpClientAuthenticator extends Context.Service<
   McpClientAuthenticator,
@@ -119,7 +119,7 @@ export class McpClientAuthenticator extends Context.Service<
       request: HttpServerRequest.HttpServerRequest,
     ) => Effect.Effect<McpInvocationContext.McpInvocationScope | undefined>;
   }
->()("t3/mcp/McpHttpServer/McpClientAuthenticator") {}
+>()("@elysiatools/server/mcp/McpHttpServer/McpClientAuthenticator") {}
 
 type AuthenticatedHttpEffect = Effect.Effect<
   HttpServerResponse.HttpServerResponse,

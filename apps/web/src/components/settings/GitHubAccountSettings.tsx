@@ -1,4 +1,4 @@
-import type { EnvironmentId, SourceControlProviderAuth } from "@t3tools/contracts";
+import type { EnvironmentId, SourceControlProviderAuth } from "@elysiatools/contracts";
 import { EyeIcon, EyeOffIcon } from "~/icons";
 import { useState } from "react";
 

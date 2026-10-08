@@ -6,9 +6,9 @@ import {
   type ServerProviderAuth,
   type ServerProviderModel,
   type ServerProviderSlashCommand,
-} from "@t3tools/contracts";
+} from "@elysiatools/contracts";
 import type * as EffectAcpSchema from "effect-acp/compat";
-import { causeErrorTag } from "@t3tools/shared/observability";
+import { causeErrorTag } from "@elysiatools/shared/observability";
 import * as Crypto from "effect/Crypto";
 import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
@@ -18,8 +18,8 @@ import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 import { HttpClient } from "effect/http";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
-import { createModelCapabilities } from "@t3tools/shared/model";
-import { resolveSpawnCommand } from "@t3tools/shared/shell";
+import { createModelCapabilities } from "@elysiatools/shared/model";
+import { resolveSpawnCommand } from "@elysiatools/shared/shell";
 
 import {
   AUTH_PROBE_TIMEOUT_MS,
@@ -331,7 +331,7 @@ export function grokSlashCommandsFromInitialize(
     if (Option.isNone(decoded)) continue;
     const command = decoded.value;
     const name = command.name.trim();
-    // Permission changes must go through T3 so the client and provider agree.
+    // Permission changes must go through Elysia so the client and provider agree.
     if (!name || name.toLowerCase() === "always-approve") continue;
     // Grok advertises /context, but its ACP handler completes without emitting output.
     if (name.toLowerCase() === "context") continue;
@@ -361,7 +361,7 @@ const discoverGrokMetadataViaAcpInitialize = (
       environment,
       childProcessSpawner,
       cwd: process.cwd(),
-      clientInfo: { name: "t3-code-provider-probe", version: "0.0.0" },
+      clientInfo: { name: "elysia-provider-probe", version: "0.0.0" },
     });
     const initialized = yield* acp.initialize();
     return {

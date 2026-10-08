@@ -1,6 +1,6 @@
 import {
-  T3_CODE_LIGHT_THEME_COLORS,
-  T3_CODE_DARK_THEME_COLORS,
+  ELYSIA_LIGHT_THEME_COLORS,
+  ELYSIA_DARK_THEME_COLORS,
   type ThemeAppearance,
 } from "./themePalettes.ts";
 
@@ -14,14 +14,14 @@ export type ThemePreviewColors = Readonly<{
 export const STANDARD_THEME_PREVIEW_COLORS: Readonly<Record<ThemeAppearance, ThemePreviewColors>> =
   {
     light: {
-      canvas: T3_CODE_LIGHT_THEME_COLORS.canvas,
-      accent: T3_CODE_LIGHT_THEME_COLORS.accent,
-      messageAction: T3_CODE_LIGHT_THEME_COLORS.messageAction,
+      canvas: ELYSIA_LIGHT_THEME_COLORS.canvas,
+      accent: ELYSIA_LIGHT_THEME_COLORS.accent,
+      messageAction: ELYSIA_LIGHT_THEME_COLORS.messageAction,
     },
     dark: {
-      canvas: T3_CODE_DARK_THEME_COLORS.canvas,
-      accent: T3_CODE_DARK_THEME_COLORS.accent,
-      messageAction: T3_CODE_DARK_THEME_COLORS.messageAction,
+      canvas: ELYSIA_DARK_THEME_COLORS.canvas,
+      accent: ELYSIA_DARK_THEME_COLORS.accent,
+      messageAction: ELYSIA_DARK_THEME_COLORS.messageAction,
     },
   };
 

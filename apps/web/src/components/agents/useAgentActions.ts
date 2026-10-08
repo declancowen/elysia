@@ -1,7 +1,7 @@
-import { scopeThreadRef } from "@t3tools/client-runtime/environment";
-import { squashAtomCommandFailure } from "@t3tools/client-runtime/state/runtime";
+import { scopeThreadRef } from "@elysiatools/client-runtime/environment";
+import { squashAtomCommandFailure } from "@elysiatools/client-runtime/state/runtime";
 import { useNavigate } from "@tanstack/react-router";
-import { SINGLE_PROVIDER_UI } from "@t3tools/contracts";
+import { SINGLE_PROVIDER_UI } from "@elysiatools/contracts";
 import { useRef, useState } from "react";
 import { projectEnvironment } from "../../state/projects";
 import { threadEnvironment } from "../../state/threads";

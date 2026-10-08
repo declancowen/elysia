@@ -1,7 +1,7 @@
 import { ChannelFolderPicker } from "./ChannelFolderPicker";
-import { scopeThreadRef } from "@t3tools/client-runtime/environment";
-import { squashAtomCommandFailure } from "@t3tools/client-runtime/state/runtime";
-import type { ProjectId } from "@t3tools/contracts";
+import { scopeThreadRef } from "@elysiatools/client-runtime/environment";
+import { squashAtomCommandFailure } from "@elysiatools/client-runtime/state/runtime";
+import type { ProjectId } from "@elysiatools/contracts";
 import { useNavigate, useRouter } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 

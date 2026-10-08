@@ -1,4 +1,8 @@
-import type { ProviderDriverKind, ProviderInstanceId, ServerProvider } from "@t3tools/contracts";
+import type {
+  ProviderDriverKind,
+  ProviderInstanceId,
+  ServerProvider,
+} from "@elysiatools/contracts";
 import type * as Stream from "effect/Stream";
 import type { ServerProviderShape } from "./ServerProvider.ts";
 

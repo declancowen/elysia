@@ -11,17 +11,17 @@ import {
   type AcpRegistryDistribution as AcpRegistryDistributionKind,
   type AcpRegistryDistributionPreference,
   type AcpRegistrySettings,
-} from "@t3tools/contracts";
+} from "@elysiatools/contracts";
 import {
   HostProcessArchitecture,
   HostProcessEnvironment,
   HostProcessPlatform,
-} from "@t3tools/shared/hostProcess";
+} from "@elysiatools/shared/hostProcess";
 import {
   mergePathEntries,
   resolveSpawnCommand,
   SpawnExecutableResolution,
-} from "@t3tools/shared/shell";
+} from "@elysiatools/shared/shell";
 import * as Clock from "effect/Clock";
 import * as Context from "effect/Context";
 import * as Duration from "effect/Duration";
@@ -503,7 +503,7 @@ export class AcpRegistryCatalog extends Context.Service<
       input: AcpRegistryManagedBinaryUninstallInput,
     ) => Effect.Effect<AcpRegistryManagedBinaryUninstallResult, AcpRegistryError>;
   }
->()("t3/provider/acp/AcpRegistrySupport/AcpRegistryCatalog") {
+>()("@elysiatools/server/provider/acp/AcpRegistrySupport/AcpRegistryCatalog") {
   static layer(options: AcpRegistryCatalogOptions) {
     return Layer.effect(AcpRegistryCatalog, makeAcpRegistryCatalog(options));
   }

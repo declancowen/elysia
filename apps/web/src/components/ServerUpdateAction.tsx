@@ -3,29 +3,32 @@ import {
   AuthEnvironmentMaintainScope,
   type AuthSessionState,
   sessionGrantsScope,
-} from "@t3tools/contracts";
+} from "@elysiatools/contracts";
 import type { AsyncResult } from "effect/reactivity";
 import { environmentSession } from "~/state/session";
 import type {
   EnvironmentId,
   ServerInstallation,
   ServerSelfUpdateCapability,
-} from "@t3tools/contracts";
-import type { ServerUpdateStage, ServerUpdateState } from "@t3tools/client-runtime/state/server";
+} from "@elysiatools/contracts";
+import type {
+  ServerUpdateStage,
+  ServerUpdateState,
+} from "@elysiatools/client-runtime/state/server";
 import {
   isAtomCommandInterrupted,
   squashAtomCommandFailure,
-} from "@t3tools/client-runtime/state/runtime";
+} from "@elysiatools/client-runtime/state/runtime";
 import { CircleArrowUpIcon } from "~/icons";
 import { type ComponentProps, useRef, useState } from "react";
 
 import { requestConfirmDialog } from "~/confirmDialog";
-import { useCopyToClipboard } from "~/hooks/useCopyToClipboard";
+import { useOpenLink } from "~/browser/useOpenLink";
 import { useEnvironmentSettings } from "~/hooks/useSettings";
 import { serverEnvironment, updateOutdatedServer } from "~/state/server";
 import { appAtomRegistry } from "~/rpc/atomRegistry";
 import { useAtomCommand } from "~/state/use-atom-command";
-import { manualServerUpdateCommand } from "~/versionSkew";
+import { manualServerUpdateUrl } from "~/versionSkew";
 import { Button } from "./ui/button";
 import { toastManager } from "./ui/toast";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "./ui/tooltip";
@@ -211,7 +214,6 @@ export function ServerUpdateAction({
   environmentId,
   serverLabel,
   selfUpdate,
-  installation,
   desktopAppUpdate = false,
   threadContinuation = false,
   targetVersion,
@@ -229,27 +231,7 @@ export function ServerUpdateAction({
     (settings) => settings.continueThreadsAfterServerUpdate,
   );
   const update = useServerUpdate();
-  const { copyToClipboard } = useCopyToClipboard<{ command: string }>({
-    target: installation?.kind === "npm-global" ? "update command" : "relaunch command",
-    onCopy: ({ command }) => {
-      toastManager.add({
-        type: "success",
-        title:
-          installation?.kind === "npm-global" ? "Update command copied" : "Relaunch command copied",
-        description:
-          installation?.kind === "npm-global"
-            ? `Run \`${command}\` on ${serverLabel}, then restart t3 with your usual options.`
-            : `Stop t3 on ${serverLabel}, then relaunch with \`${command}\` using the same subcommand and options. This does not update an installed t3 command.`,
-      });
-    },
-    onError: (error) => {
-      toastManager.add({
-        type: "error",
-        title: "Could not copy update command",
-        description: error.message,
-      });
-    },
-  });
+  const openLink = useOpenLink(null);
 
   const handleUpdate = async () => {
     if (
@@ -290,17 +272,18 @@ export function ServerUpdateAction({
     );
   }
 
-  const manualCommand =
-    selfUpdate === null ? manualServerUpdateCommand(targetVersion, installation) : null;
-  const actionLabel =
-    manualCommand !== null
-      ? installation?.kind === "npm-global"
-        ? "Copy update command"
-        : "Copy relaunch command"
-      : label;
+  const manualUrl = selfUpdate === null ? manualServerUpdateUrl(targetVersion) : null;
+  const actionLabel = manualUrl !== null ? "Download Elysia update" : label;
   const onClick =
-    manualCommand !== null
-      ? () => copyToClipboard(manualCommand, { command: manualCommand })
+    manualUrl !== null
+      ? () =>
+          void openLink(manualUrl).catch((error) =>
+            toastManager.add({
+              type: "error",
+              title: "Could not open Elysia release",
+              description: updateFailureMessage(error),
+            }),
+          )
       : () => void handleUpdate();
 
   if (appearance === "icon") {
@@ -313,7 +296,7 @@ export function ServerUpdateAction({
               variant="ghost-muted"
               className={className}
               aria-label={`${actionLabel} for ${serverLabel}`}
-              disabled={manualCommand === null && !canUpdate}
+              disabled={manualUrl === null && !canUpdate}
               onClick={onClick}
             />
           }
@@ -330,7 +313,7 @@ export function ServerUpdateAction({
       size={size}
       variant={variant}
       className={className}
-      disabled={manualCommand === null && !canUpdate}
+      disabled={manualUrl === null && !canUpdate}
       onClick={onClick}
     >
       {actionLabel}

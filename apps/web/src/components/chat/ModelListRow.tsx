@@ -1,4 +1,4 @@
-import { type ProviderDriverKind, type ProviderInstanceId } from "@t3tools/contracts";
+import { type ProviderDriverKind, type ProviderInstanceId } from "@elysiatools/contracts";
 import { memo } from "react";
 import { CheckIcon, StarIcon } from "~/icons";
 import {

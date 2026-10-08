@@ -1,6 +1,6 @@
 import { useDelegatedWork } from "./useDelegatedAgents";
-import type { AgentGetDelegationResult, EnvironmentId, ThreadId } from "@t3tools/contracts";
-import { isAgentDelegationActive, type DelegatedAgent } from "@t3tools/shared/agentMentions";
+import type { AgentGetDelegationResult, EnvironmentId, ThreadId } from "@elysiatools/contracts";
+import { isAgentDelegationActive, type DelegatedAgent } from "@elysiatools/shared/agentMentions";
 import { useCallback, useEffect, useState } from "react";
 import { Modal, Platform, Pressable, ScrollView, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";

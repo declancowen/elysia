@@ -1,7 +1,7 @@
 import {
   resolveProviderSkillSourceKind,
   type ProviderSkillSourceKind,
-} from "@t3tools/client-runtime/providerSkills";
+} from "@elysiatools/client-runtime/providerSkills";
 import type {
   AgentProfile,
   ProjectId,
@@ -9,8 +9,8 @@ import type {
   ScopedThreadRef,
   ServerProviderSkill,
   ServerProviderSlashCommand,
-} from "@t3tools/contracts";
-import type { ComposerTriggerKind } from "@t3tools/shared/composerTrigger";
+} from "@elysiatools/contracts";
+import type { ComposerTriggerKind } from "@elysiatools/shared/composerTrigger";
 import { Fragment, memo } from "react";
 import { Pressable, ScrollView, StyleSheet, View, type ViewStyle } from "react-native";
 

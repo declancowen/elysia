@@ -1,5 +1,5 @@
-import { scopeProjectRef } from "@t3tools/client-runtime/environment";
-import type { ScopedProjectRef } from "@t3tools/contracts";
+import { scopeProjectRef } from "@elysiatools/client-runtime/environment";
+import type { ScopedProjectRef } from "@elysiatools/contracts";
 import { useClientSettings } from "../../hooks/useSettings";
 import {
   deriveLogicalProjectKeyFromSettings,

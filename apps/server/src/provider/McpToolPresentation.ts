@@ -1,5 +1,5 @@
-import type { ToolActivityIcon, ToolActivitySource } from "@t3tools/contracts";
-import { resolveElysiaMcpToolDefinition } from "@t3tools/shared/elysiaMcpToolPresentation";
+import type { ToolActivityIcon, ToolActivitySource } from "@elysiatools/contracts";
+import { resolveElysiaMcpToolDefinition } from "@elysiatools/shared/elysiaMcpToolPresentation";
 
 export function normalizeMcpText(value: unknown, maxLength = 160): string | undefined {
   if (typeof value !== "string") return undefined;

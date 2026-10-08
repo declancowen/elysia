@@ -1,12 +1,12 @@
-import { worktreeSetupAgentStarted } from "@t3tools/client-runtime/worktree-setup";
-export { worktreeSetupAgentStarted } from "@t3tools/client-runtime/worktree-setup";
+import { worktreeSetupAgentStarted } from "@elysiatools/client-runtime/worktree-setup";
+export { worktreeSetupAgentStarted } from "@elysiatools/client-runtime/worktree-setup";
 import * as Equal from "effect/Equal";
 import { shallow } from "zustand/vanilla/shallow";
-import { renderCodexDirectivesForCopy } from "@t3tools/client-runtime/codex-markdown-directives";
+import { renderCodexDirectivesForCopy } from "@elysiatools/client-runtime/codex-markdown-directives";
 import {
   commandDisplayText,
   commandProgramName,
-} from "@t3tools/client-runtime/work-log/command-label";
+} from "@elysiatools/client-runtime/work-log/command-label";
 import {
   liveActivityToolStatus,
   normalizeCompactToolLabel,
@@ -15,11 +15,11 @@ import {
   toolGroupAction,
   toolGroupSummaryKind,
   type ToolGroupSummaryKind,
-} from "@t3tools/client-runtime/work-log/presentation";
+} from "@elysiatools/client-runtime/work-log/presentation";
 export {
   normalizeCompactToolLabel,
   toolGroupAction,
-} from "@t3tools/client-runtime/work-log/presentation";
+} from "@elysiatools/client-runtime/work-log/presentation";
 import {
   deriveRevertTurnCountByUserMessageId,
   formatDuration,
@@ -41,24 +41,27 @@ import {
   type OrchestrationV2ProjectedTurnItem,
   type RunAttemptId,
   RunId,
-} from "@t3tools/contracts";
-import type { ThreadRunSummary } from "@t3tools/client-runtime/state/shell";
+} from "@elysiatools/contracts";
+import type { ThreadRunSummary } from "@elysiatools/client-runtime/state/shell";
 import {
   resolveElysiaMcpToolDefinition,
   resolveElysiaMcpToolPresentation,
   type ElysiaMcpToolPresentation,
-} from "@t3tools/shared/elysiaMcpToolPresentation";
-import { compactDynamicToolOutput } from "@t3tools/shared/toolOutput";
-import { htmlRenderReferencesEqual, type HtmlRenderReference } from "@t3tools/shared/htmlRender";
-import { dynamicToolTitle } from "@t3tools/shared/toolActivity";
+} from "@elysiatools/shared/elysiaMcpToolPresentation";
+import { compactDynamicToolOutput } from "@elysiatools/shared/toolOutput";
+import {
+  htmlRenderReferencesEqual,
+  type HtmlRenderReference,
+} from "@elysiatools/shared/htmlRender";
+import { dynamicToolTitle } from "@elysiatools/shared/toolActivity";
 import { formatWorkspaceRelativePath } from "../../filePathDisplay";
 import {
   collectToolFilePaths,
   formatReadToolLabel,
   formatSearchToolLabel,
-} from "@t3tools/shared/toolActivity";
-import { isWindowsAbsolutePath } from "@t3tools/shared/path";
-import { collectComposerContextReferences } from "@t3tools/shared/composerContextReferences";
+} from "@elysiatools/shared/toolActivity";
+import { isWindowsAbsolutePath } from "@elysiatools/shared/path";
+import { collectComposerContextReferences } from "@elysiatools/shared/composerContextReferences";
 
 /** Automation replies inherit only their request's task link, including channel handoffs. */
 export function taskLinksByReply(entries: readonly TimelineEntry[]) {
@@ -92,7 +95,7 @@ export function taskLinksByReply(entries: readonly TimelineEntry[]) {
   return byReply;
 }
 
-export { resolveUserMessageIntentMarker } from "@t3tools/client-runtime/user-message";
+export { resolveUserMessageIntentMarker } from "@elysiatools/client-runtime/user-message";
 
 function timelineEntryRunId(entry: TimelineEntry): RunId | null {
   if (entry.kind === "message") {

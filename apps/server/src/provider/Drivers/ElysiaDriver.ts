@@ -4,7 +4,7 @@ import {
   ProviderDriverKind,
   ProviderSetupError,
   TextGenerationError,
-} from "@t3tools/contracts";
+} from "@elysiatools/contracts";
 import * as Cache from "effect/Cache";
 import * as Deferred from "effect/Deferred";
 import * as Duration from "effect/Duration";

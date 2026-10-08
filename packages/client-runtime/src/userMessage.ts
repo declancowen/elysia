@@ -3,7 +3,7 @@ import {
   type OrchestrationV2RunStatus,
   type OrchestrationV2UserMessageInputIntent,
   ScheduledTaskId,
-} from "@t3tools/contracts";
+} from "@elysiatools/contracts";
 
 /** Queue provenance survives delivery; only a live queued run is still queued. */
 export function resolveUserMessageIntentMarker(

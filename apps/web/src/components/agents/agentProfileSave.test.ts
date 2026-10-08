@@ -6,7 +6,7 @@ import {
   ProviderThreadId,
   type AgentProfile,
   type ModelSelection,
-} from "@t3tools/contracts";
+} from "@elysiatools/contracts";
 import { describe, expect, it, vi } from "vite-plus/test";
 import { saveAgentProfile } from "./agentProfileSave";
 

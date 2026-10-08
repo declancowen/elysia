@@ -1,5 +1,5 @@
-import type { AgentProfile } from "@t3tools/contracts";
-import { resolveAgentAvatar } from "@t3tools/shared/agentAvatar";
+import type { AgentProfile } from "@elysiatools/contracts";
+import { resolveAgentAvatar } from "@elysiatools/shared/agentAvatar";
 import { useEffect } from "react";
 import { AppState } from "react-native";
 import Animated, {

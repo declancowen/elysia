@@ -4,7 +4,7 @@ import * as AgentDelegation from "../orchestration-v2/AgentDelegation.ts";
 import * as Scheduler from "../scheduling/Scheduler.ts";
 import * as NodeCrypto from "@effect/platform-node/NodeCrypto";
 import { expect, it } from "@effect/vitest";
-import { ScheduledTaskUpsertInput } from "@t3tools/contracts";
+import { ScheduledTaskUpsertInput } from "@elysiatools/contracts";
 import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -153,7 +153,7 @@ it.effect(
           conversationThreadId: "lead-chat",
         },
       });
-      const calls: import("@t3tools/contracts").AgentDelegateInput[] = [];
+      const calls: import("@elysiatools/contracts").AgentDelegateInput[] = [];
       let channelArchived = false;
       let leadArchived = false;
       const dependencies = Layer.mergeAll(

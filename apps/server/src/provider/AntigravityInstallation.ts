@@ -1,12 +1,15 @@
 // @effect-diagnostics nodeBuiltinImport:off - Effect has no incremental digest or free-space query.
 import * as EffectNodeStream from "@effect/platform-node/NodeStream";
-import { ProviderDriverKind, type ProviderInstallState } from "@t3tools/contracts";
+import { ProviderDriverKind, type ProviderInstallState } from "@elysiatools/contracts";
 import {
   HostProcessArchitecture,
   HostProcessEnvironment,
   HostProcessPlatform,
-} from "@t3tools/shared/hostProcess";
-import { resolveNodeExecutable, nodeRuntimeUnavailableMessage } from "@t3tools/shared/nodeRuntime";
+} from "@elysiatools/shared/hostProcess";
+import {
+  resolveNodeExecutable,
+  nodeRuntimeUnavailableMessage,
+} from "@elysiatools/shared/nodeRuntime";
 import * as Clock from "effect/Clock";
 import * as Cause from "effect/Cause";
 import * as Context from "effect/Context";
@@ -106,7 +109,7 @@ interface AntigravityInstallationService {
 export class AntigravityInstallation extends Context.Service<
   AntigravityInstallation,
   AntigravityInstallationService
->()("t3/provider/AntigravityInstallation") {
+>()("@elysiatools/server/provider/AntigravityInstallation") {
   static readonly layer = Layer.effect(
     AntigravityInstallation,
     Effect.gen(function* () {
@@ -354,7 +357,7 @@ export const makeAntigravityInstallation = Effect.fn("AntigravityInstallation.ma
     Effect.fn("AntigravityInstallation.validate")(
       function* (executable: AntigravityExecutable, expectedVersion: string) {
         const profileDirectory = yield* fs.makeTempDirectoryScoped({
-          prefix: "t3-antigravity-validate-",
+          prefix: "elysia-antigravity-validate-",
         });
         const profile = yield* prepareAntigravityProfile({
           profileDirectory,
@@ -373,7 +376,7 @@ export const makeAntigravityInstallation = Effect.fn("AntigravityInstallation.ma
           }),
           cwd: profileDirectory,
           childProcessSpawner: spawner,
-          clientInfo: { name: "t3-code", version: "0.0.0" },
+          clientInfo: { name: "elysia", version: "0.0.0" },
         });
         const initialized = yield* runtime.initialize();
         if (

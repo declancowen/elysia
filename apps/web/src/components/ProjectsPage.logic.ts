@@ -2,9 +2,9 @@ import {
   scopedProjectKey,
   scopedThreadKey,
   scopeThreadRef,
-} from "@t3tools/client-runtime/environment";
-import { isScratchProject } from "@t3tools/client-runtime/state/projects";
-import type { EnvironmentId } from "@t3tools/contracts";
+} from "@elysiatools/client-runtime/environment";
+import { isScratchProject } from "@elysiatools/client-runtime/state/projects";
+import type { EnvironmentId } from "@elysiatools/contracts";
 
 import { isAgentProject } from "../agentPresentation";
 import { sortThreads, getThreadSortTimestamp } from "../lib/threadSort";

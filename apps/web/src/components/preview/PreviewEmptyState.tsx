@@ -1,4 +1,4 @@
-import type { EnvironmentId, ScopedThreadRef } from "@t3tools/contracts";
+import type { EnvironmentId, ScopedThreadRef } from "@elysiatools/contracts";
 import { Globe, History, RadioTower } from "~/icons";
 
 import type { BrowserHistoryEntry } from "~/browserHistoryStore";

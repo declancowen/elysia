@@ -7,7 +7,7 @@
  * AGENTS.md / SYSTEM.md context, settings.json, custom models, and auth all
  * load exactly as they do in the `pi` TUI. Sessions are stored by Pi itself
  * (default `~/.pi/agent/sessions/`), and the session file path is the durable
- * `nativeThreadRef`, so a thread started in T3 can be resumed from the TUI
+ * `nativeThreadRef`, so a thread started in Elysia can be resumed from the TUI
  * and vice versa.
  *
  * Turn lifecycle: `agent_settled` is the only terminal signal. `agent_end`
@@ -21,10 +21,10 @@
  * `select`/`input`/`editor` → user_input_request); answers travel back as
  * `extension_ui_response`. `notify` becomes a completed activity item.
  * Terminal-only decoration such as status, widget, title, and editor-text
- * updates has no matching T3 surface and is ignored.
+ * updates has no matching Elysia surface and is ignored.
  */
-import { HostProcessEnvironment } from "@t3tools/shared/hostProcess";
-import { getModelSelectionStringOptionValue } from "@t3tools/shared/model";
+import { HostProcessEnvironment } from "@elysiatools/shared/hostProcess";
+import { getModelSelectionStringOptionValue } from "@elysiatools/shared/model";
 import {
   defaultInstanceIdForDriver,
   PiSettings,
@@ -45,7 +45,7 @@ import {
   type ProviderApprovalDecision,
   type ProviderInstanceId,
   type OrchestrationV2ProviderTurnTokenUsage,
-} from "@t3tools/contracts";
+} from "@elysiatools/contracts";
 import * as Cause from "effect/Cause";
 import * as DateTime from "effect/DateTime";
 import * as Option from "effect/Option";
@@ -162,7 +162,7 @@ const PiProviderCapabilitiesV2 = {
     supportsDynamicToolCallbacks: false,
   },
   approvals: {
-    // Pi exposes a blocking tool_call extension hook. The T3 bridge uses it
+    // Pi exposes a blocking tool_call extension hook. The Elysia bridge uses it
     // for supervised and auto-accept modes and forwards its confirmations
     // through the same extension UI protocol as user-installed extensions.
     supportsCommandApproval: true,
@@ -181,7 +181,7 @@ const PiProviderCapabilitiesV2 = {
     planDeltasHaveItemIds: false,
   },
   subagents: {
-    // T3 delegation uses the shared MCP `delegate_task` path. Installed Pi
+    // Elysia delegation uses the shared MCP `delegate_task` path. Installed Pi
     // subagent extensions are observed best-effort, but their official tool
     // runs children with --no-session and exposes no resumable child id.
     supportsSubagents: true,
@@ -197,7 +197,7 @@ const PiProviderCapabilitiesV2 = {
     acceptsSyntheticUserContext: true,
     canGenerateSummaries: false,
     canConsumeHandoffSummaries: true,
-    // T3 delivers both full and delta handoffs through Pi's normal user-message
+    // Elysia delivers both full and delta handoffs through Pi's normal user-message
     // input, so neither strategy depends on a Pi-specific context hook.
     supportsDeltaHandoff: true,
     supportsFullThreadHandoff: true,
@@ -349,7 +349,7 @@ interface PendingPiPrompt {
 }
 
 /**
- * The T3 bridge confirms tool calls as `Allow <tool>?`. Edits surface as
+ * The Elysia bridge confirms tool calls as `Allow <tool>?`. Edits surface as
  * file-change approvals so clients render them like other providers' edits;
  * every other confirmation, including ones from user extensions, is a command.
  */
@@ -476,7 +476,7 @@ export function makePiAdapterV2(
       // Keep that intent beyond turn finalization so the later stdout close is
       // not mistaken for an unexpected transport failure.
       let stopRequested = false;
-      // Pi extensions can trigger an agent turn after the owning T3 turn has
+      // Pi extensions can trigger an agent turn after the owning Elysia turn has
       // settled. Until orchestration has a first-class provider-initiated run,
       // stop that runtime before it can execute tools without a timeline owner.
       let unsolicitedActivityDetected = false;
@@ -1031,7 +1031,7 @@ export function makePiAdapterV2(
       /**
        * Observe the result shape from Pi's official example subagent extension.
        * The extension runs children with --no-session, so these entries are
-       * visible in T3's shared subagent UI without inventing a child thread.
+       * visible in Elysia's shared subagent UI without inventing a child thread.
        * Unknown or changed result shapes stay ordinary dynamic tool output.
        */
       const emitSubagentTasks = Effect.fnUntraced(function* (
@@ -1208,7 +1208,7 @@ export function makePiAdapterV2(
           method !== "input" &&
           method !== "editor"
         ) {
-          // Terminal decoration has no matching T3 surface.
+          // Terminal decoration has no matching Elysia surface.
           yield* Effect.logDebug("Ignoring pi extension UI update.", { method });
           return;
         }

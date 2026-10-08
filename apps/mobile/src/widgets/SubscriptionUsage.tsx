@@ -1,4 +1,4 @@
-import { formatCalendarDateTime } from "@t3tools/shared/dateFormat";
+import { formatCalendarDateTime } from "@elysiatools/shared/dateFormat";
 import { HStack, ProgressView, Spacer, Text, VStack } from "@expo/ui/swift-ui";
 import {
   accessibilityElement,
@@ -40,8 +40,8 @@ function SubscriptionUsage(
   const monochrome =
     environment.widgetRenderingMode !== "fullColor" || environment.isLuminanceReduced;
   const providers = props.providers ?? [
-    { name: "Codex", detail: "Open T3 to connect", windows: [], expiresAt: 0 },
-    { name: "Claude", detail: "Open T3 to connect", windows: [], expiresAt: 0 },
+    { name: "Codex", detail: "Open Elysia to connect", windows: [], expiresAt: 0 },
+    { name: "Claude", detail: "Open Elysia to connect", windows: [], expiresAt: 0 },
   ];
   const columns = providers.map((provider) => {
     const stale = provider.windows.length > 0 && now >= provider.expiresAt;
@@ -74,7 +74,7 @@ function SubscriptionUsage(
               ].slice(0, limit)
             : windows.slice(0, limit);
     const detail = stale
-      ? "Open T3 to refresh"
+      ? "Open Elysia to refresh"
       : period !== "auto" && windows.length === 0 && provider.windows.length > 0
         ? `No ${period} limit reported`
         : provider.detail;
@@ -122,7 +122,7 @@ function SubscriptionUsage(
                 ? `${tightest.remaining}% left`
                 : period !== "auto" && !stale && provider.windows.length > 0
                   ? "N/A"
-                  : "Open T3"}
+                  : "Open Elysia"}
             </Text>
           </HStack>
           {tightest ? (
@@ -224,7 +224,7 @@ function SubscriptionUsage(
           >
             {(period === "auto" ? (provider.totalWindows ?? windows.length) : windows.length) -
               limit}{" "}
-            more in T3
+            more in Elysia
           </Text>
         ) : null}
       </VStack>
@@ -256,7 +256,7 @@ function SubscriptionUsage(
         >
           {props.checkedAt
             ? `As of ${formatCalendarDateTime(new Date(props.checkedAt))}`
-            : "Tap to connect in T3"}
+            : "Tap to connect in Elysia"}
         </Text>
       ) : null}
     </VStack>

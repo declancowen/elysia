@@ -1,5 +1,5 @@
-import type { DeviceHubAccess } from "@t3tools/client-runtime/state/deviceHubAccess";
-import type { DevicePermission, DeviceSummary, DeviceTextSize } from "@t3tools/contracts";
+import type { DeviceHubAccess } from "@elysiatools/client-runtime/state/deviceHubAccess";
+import type { DevicePermission, DeviceSummary, DeviceTextSize } from "@elysiatools/contracts";
 import { ChevronDown, X } from "~/icons";
 import { useEffect, useState } from "react";
 

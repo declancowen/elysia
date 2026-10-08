@@ -1,4 +1,4 @@
-import { SINGLE_PROVIDER_UI, type ScopedProjectRef } from "@t3tools/contracts";
+import { SINGLE_PROVIDER_UI, type ScopedProjectRef } from "@elysiatools/contracts";
 import { showContextMenuFallback } from "../../contextMenuFallback";
 import { readLocalApi } from "../../localApi";
 import { toastManager } from "../ui/toast";

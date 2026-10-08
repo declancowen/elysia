@@ -1,4 +1,9 @@
-import type { AgentProfile, ModelSelection, ProjectId, ScopedProjectRef } from "@t3tools/contracts";
+import type {
+  AgentProfile,
+  ModelSelection,
+  ProjectId,
+  ScopedProjectRef,
+} from "@elysiatools/contracts";
 import { create } from "zustand";
 
 type AgentEditorTarget = {

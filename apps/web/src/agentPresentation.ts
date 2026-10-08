@@ -1,4 +1,4 @@
-import type { EnvironmentId, ProjectId } from "@t3tools/contracts";
+import type { EnvironmentId, ProjectId } from "@elysiatools/contracts";
 import type { Project, SidebarThreadSummary } from "./types";
 
 type ProjectIdentity = Pick<Project, "environmentId" | "id" | "agentProfile">;

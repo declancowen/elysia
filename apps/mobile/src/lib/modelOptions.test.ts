@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vite-plus/test";
 
-import { ProviderInstanceId, type ModelSelection, type ServerConfig } from "@t3tools/contracts";
+import { ProviderInstanceId, type ModelSelection, type ServerConfig } from "@elysiatools/contracts";
 
 import {
   buildModelOptions,
@@ -500,6 +500,8 @@ describe("mobile model options", () => {
 
 // Exercise retained upstream provider behavior; Elysia's runtime policy stays native-only.
 vi.mock("../../../../packages/contracts/src/forkPolicy.ts", async (importOriginal) => ({
-  ...(await importOriginal<Pick<typeof import("@t3tools/contracts"), "isEnabledProviderDriver">>()),
+  ...(await importOriginal<
+    Pick<typeof import("@elysiatools/contracts"), "isEnabledProviderDriver">
+  >()),
   isEnabledProviderDriver: () => true,
 }));

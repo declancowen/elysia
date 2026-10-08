@@ -1,5 +1,5 @@
-import type { ThreadId } from "@t3tools/contracts";
-import { HostProcessEnvironment } from "@t3tools/shared/hostProcess";
+import type { ThreadId } from "@elysiatools/contracts";
+import { HostProcessEnvironment } from "@elysiatools/shared/hostProcess";
 import {
   clampHtmlRenderHeight,
   HTML_RENDER_COLUMN_WIDTH,
@@ -10,12 +10,12 @@ import {
   htmlRenderThemeFragment,
   injectHtmlRenderBootstrap,
   type HtmlRenderReference,
-} from "@t3tools/shared/htmlRender";
+} from "@elysiatools/shared/htmlRender";
 import {
-  T3_CODE_DARK_THEME_COLORS,
-  T3_CODE_LIGHT_THEME_COLORS,
+  ELYSIA_DARK_THEME_COLORS,
+  ELYSIA_LIGHT_THEME_COLORS,
   type ThemeAppearance,
-} from "@t3tools/shared/themePalettes";
+} from "@elysiatools/shared/themePalettes";
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
@@ -124,7 +124,7 @@ export class HtmlRender extends Context.Service<
       | HeadlessChrome.HtmlRenderBrowserError
     >;
   }
->()("t3/htmlRender/HtmlRender") {}
+>()("@elysiatools/server/htmlRender/HtmlRender") {}
 
 const IMAGE_MIME_TYPES: Record<string, string> = {
   png: "image/png",
@@ -328,7 +328,7 @@ const MEASURE_TIMEOUT = "6 seconds";
 
 // Measured in the dark theme with Arial-metric fonts, so text wraps close to how clients show it.
 const MEASURE_FRAGMENT = htmlRenderThemeFragment(
-  htmlRenderTheme(T3_CODE_DARK_THEME_COLORS, "dark", HTML_RENDER_MEASURE_FONTS),
+  htmlRenderTheme(ELYSIA_DARK_THEME_COLORS, "dark", HTML_RENDER_MEASURE_FONTS),
 );
 
 const make = Effect.gen(function* () {
@@ -460,7 +460,7 @@ const make = Effect.gen(function* () {
     const inlined = yield* inline(input.html);
     const executable = yield* previewBrowser.executable;
     const theme = htmlRenderTheme(
-      appearance === "light" ? T3_CODE_LIGHT_THEME_COLORS : T3_CODE_DARK_THEME_COLORS,
+      appearance === "light" ? ELYSIA_LIGHT_THEME_COLORS : ELYSIA_DARK_THEME_COLORS,
       appearance,
       HTML_RENDER_MEASURE_FONTS,
     );

@@ -9,7 +9,7 @@ import {
   PREVIEW_STREAM_HOST_SETUP_CLOSE_CODE,
   PreviewStreamHostSetup,
   type AuthEnvironmentScope,
-} from "@t3tools/contracts";
+} from "@elysiatools/contracts";
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
@@ -198,7 +198,7 @@ it.effect.each([
 it.effect("serves a tab's download only to an authorized session", () =>
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
-    const path = `${yield* fs.makeTempDirectoryScoped({ prefix: "t3-download-" })}/file`;
+    const path = `${yield* fs.makeTempDirectoryScoped({ prefix: "elysia-download-" })}/file`;
     yield* fs.writeFileString(path, "report contents");
     const requests: Array<unknown> = [];
     const browser = ServerBrowser.ServerBrowser.of({

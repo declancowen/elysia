@@ -1,4 +1,4 @@
-name: Deploy T3 Connect relay
+name: Deploy Elysia Connect relay
 
 on:
   push:

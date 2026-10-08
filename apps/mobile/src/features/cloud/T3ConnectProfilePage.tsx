@@ -1,12 +1,12 @@
-import { formatCalendarDate } from "@t3tools/shared/dateFormat";
-import { findErrorTraceId } from "@t3tools/client-runtime/errors";
+import { formatCalendarDate } from "@elysiatools/shared/dateFormat";
+import { findErrorTraceId } from "@elysiatools/client-runtime/errors";
 import {
   isAtomCommandInterrupted,
   squashAtomCommandFailure,
-} from "@t3tools/client-runtime/state/runtime";
+} from "@elysiatools/client-runtime/state/runtime";
 import type { MenuAction } from "@react-native-menu/menu";
-import type { EnvironmentId } from "@t3tools/contracts";
-import type { RelayClientEnvironmentRecord } from "@t3tools/contracts/relay";
+import type { EnvironmentId } from "@elysiatools/contracts";
+import type { RelayClientEnvironmentRecord } from "@elysiatools/contracts/relay";
 import { type ReactNode, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -102,7 +102,7 @@ export function T3ConnectProfilePage() {
     const cause = squashAtomCommandFailure(result);
     const message = cause instanceof Error ? cause.message : "Could not deregister the server.";
     const traceId = findErrorTraceId(cause);
-    console.error("[t3-connect] Could not deregister environment", {
+    console.error("[elysia-connect] Could not deregister environment", {
       environmentId: environment.environmentId,
       message,
       traceId,

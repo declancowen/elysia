@@ -2,7 +2,7 @@ import type {
   EnvironmentId,
   ServerSettingsPatch,
   UsageModelPriceOverride,
-} from "@t3tools/contracts";
+} from "@elysiatools/contracts";
 
 export interface UsagePriceTarget {
   readonly environmentId: EnvironmentId;

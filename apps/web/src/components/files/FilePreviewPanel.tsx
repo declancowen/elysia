@@ -5,15 +5,15 @@ import {
   type EnvironmentId,
   type ResolvedKeybindingsConfig,
   type ScopedThreadRef,
-} from "@t3tools/contracts";
-import { filePreviewDelimiter } from "@t3tools/shared/delimitedPreview";
-import { AuthFilesystemWriteScope } from "@t3tools/contracts";
+} from "@elysiatools/contracts";
+import { filePreviewDelimiter } from "@elysiatools/shared/delimitedPreview";
+import { AuthFilesystemWriteScope } from "@elysiatools/contracts";
 import {
   officePreviewFormat,
   isWorkspaceAudioPreviewPath,
   isWorkspaceImagePreviewPath,
   isWorkspaceVideoPreviewPath,
-} from "@t3tools/shared/filePreview";
+} from "@elysiatools/shared/filePreview";
 import {
   DEFAULT_TOKENIZE_MAX_LENGTH,
   VirtualizedFile,
@@ -36,8 +36,8 @@ import { useFilesystemReadAccess } from "~/state/filesystem";
 import {
   isAtomCommandInterrupted,
   squashAtomCommandFailure,
-} from "@t3tools/client-runtime/state/runtime";
-import { mediaFileReference } from "@t3tools/client-runtime/media-reference";
+} from "@elysiatools/client-runtime/state/runtime";
+import { mediaFileReference } from "@elysiatools/client-runtime/media-reference";
 import { FolderTree, Globe2, WrapTextIcon } from "~/icons";
 import { Code2, Eye, Table2 } from "~/icons";
 import * as Schema from "effect/Schema";
@@ -135,10 +135,10 @@ interface FilePreviewPanelProps {
 
 const OfficePreview = lazy(() => import("./OfficeFilePreview"));
 
-const FILE_EXPLORER_STORAGE_KEY = "t3code.fileExplorerOpen";
-const RENDER_MARKDOWN_STORAGE_KEY = "t3code.renderMarkdown";
-const RENDER_BROWSER_FILE_STORAGE_KEY = "t3code.renderBrowserFile";
-const RENDER_TABLE_STORAGE_KEY = "t3code.renderTable";
+const FILE_EXPLORER_STORAGE_KEY = "elysia.fileExplorerOpen";
+const RENDER_MARKDOWN_STORAGE_KEY = "elysia.renderMarkdown";
+const RENDER_BROWSER_FILE_STORAGE_KEY = "elysia.renderBrowserFile";
+const RENDER_TABLE_STORAGE_KEY = "elysia.renderTable";
 // Shared by the read-only and annotated surfaces, so it is generic over annotation metadata.
 type FilePostRender = <LAnnotation>(
   fileContainer: HTMLElement,

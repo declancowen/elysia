@@ -1,22 +1,25 @@
-import { resolveAssetUrl } from "@t3tools/client-runtime/state/assets";
+import { resolveAssetUrl } from "@elysiatools/client-runtime/state/assets";
 import {
   clampFileAttachmentUploadBytes,
   fileAttachmentTooLargeMessage,
   isAssetAttachmentNotFoundFailure,
   runAttachmentUploadCycle,
   verifyPersistedAttachmentUpload,
-} from "@t3tools/client-runtime/state/attachments";
-import { runAtomCommand, squashAtomCommandFailure } from "@t3tools/client-runtime/state/runtime";
+} from "@elysiatools/client-runtime/state/attachments";
+import {
+  runAtomCommand,
+  squashAtomCommandFailure,
+} from "@elysiatools/client-runtime/state/runtime";
 import type {
   ChatFileAttachment,
   ChatImageAttachment,
   EnvironmentId,
   UploadChatImageAttachment,
-} from "@t3tools/contracts";
+} from "@elysiatools/contracts";
 import {
   AuthOrchestrationOperateScope,
   PROVIDER_SEND_TURN_SUPPORTED_IMAGE_MIME_TYPES,
-} from "@t3tools/contracts";
+} from "@elysiatools/contracts";
 import * as Option from "effect/Option";
 
 import { appAtomRegistry } from "../state/atom-registry";
@@ -31,7 +34,7 @@ import {
   type DraftComposerAttachment,
   type DraftComposerImageAttachment,
 } from "./composerImages";
-import { imageMimeType } from "@t3tools/shared/image";
+import { imageMimeType } from "@elysiatools/shared/image";
 import { uuidv4 } from "./uuid";
 
 /**

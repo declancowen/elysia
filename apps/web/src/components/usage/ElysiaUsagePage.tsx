@@ -1,9 +1,9 @@
 import { RegistryContext, useAtomValue } from "@effect/atom-react";
 import { Link } from "@tanstack/react-router";
 import { useContext, useEffect, useState } from "react";
-import { makeWindow, formatTokens } from "@t3tools/shared/usageFormat";
-import { UsageDay, isEnabledProviderDriver } from "@t3tools/contracts";
-import type { ElysiaStatsTotals } from "@t3tools/contracts";
+import { makeWindow, formatTokens } from "@elysiatools/shared/usageFormat";
+import { UsageDay, isEnabledProviderDriver } from "@elysiatools/contracts";
+import type { ElysiaStatsTotals } from "@elysiatools/contracts";
 
 import { useEscapeToGoBack } from "../../hooks/useNavigateBack";
 import { usePrimaryEnvironmentId } from "../../state/environments";

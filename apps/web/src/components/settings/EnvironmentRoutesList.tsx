@@ -23,7 +23,7 @@ import {
   connectionRouteLabel,
   connectionRoutes,
   isLearned,
-} from "@t3tools/client-runtime/connection";
+} from "@elysiatools/client-runtime/connection";
 import { GripVerticalIcon, PlusIcon, XIcon } from "~/icons";
 import { useState } from "react";
 

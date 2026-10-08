@@ -1,4 +1,4 @@
-import { EnvironmentId, ProjectId, ThreadId, type AgentProfile } from "@t3tools/contracts";
+import { EnvironmentId, ProjectId, ThreadId, type AgentProfile } from "@elysiatools/contracts";
 import { describe, expect, it } from "vite-plus/test";
 import {
   getAgentConversation,

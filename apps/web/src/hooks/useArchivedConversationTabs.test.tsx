@@ -1,8 +1,8 @@
 import { act } from "react";
 import { create, type ReactTestRenderer } from "react-test-renderer";
 import { beforeEach, expect, it, vi } from "vite-plus/test";
-import { EnvironmentId, ProjectId, ThreadId } from "@t3tools/contracts";
-import { scopeThreadRef } from "@t3tools/client-runtime/environment";
+import { EnvironmentId, ProjectId, ThreadId } from "@elysiatools/contracts";
+import { scopeThreadRef } from "@elysiatools/client-runtime/environment";
 import { DraftId } from "../composerDraftStore";
 import { useConversationTabsStore } from "../conversationTabsStore";
 import { useArchivedConversationTabs } from "./useConversationTabNavigation";

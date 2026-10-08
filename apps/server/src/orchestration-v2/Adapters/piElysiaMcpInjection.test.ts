@@ -1,6 +1,6 @@
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { assert, describe, it } from "@effect/vitest";
-import { EnvironmentId, ProviderInstanceId, ThreadId } from "@t3tools/contracts";
+import { EnvironmentId, ProviderInstanceId, ThreadId } from "@elysiatools/contracts";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 
@@ -151,7 +151,7 @@ describe("pi Elysia MCP injection", () => {
   it.effect("materializes the MCP bridge with namespaced tool registration", () =>
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;
-      const cacheDir = yield* fs.makeTempDirectoryScoped({ prefix: "t3-pi-extensions-" });
+      const cacheDir = yield* fs.makeTempDirectoryScoped({ prefix: "elysia-pi-extensions-" });
       const mcpDest = yield* materializePiElysiaMcpExtension(cacheDir);
       assert.isTrue(mcpDest.endsWith(PI_ELYSIA_MCP_EXTENSION_FILENAME));
       const mcpSource = yield* fs.readFileString(mcpDest);

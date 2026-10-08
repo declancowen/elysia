@@ -5,7 +5,7 @@ import {
   WorkTaskMutationResult,
   WorkTaskSaveInput,
   OrchestratorMcpFailure,
-} from "@t3tools/contracts";
+} from "@elysiatools/contracts";
 import * as Schema from "effect/Schema";
 import { Tool, Toolkit } from "effect/ai";
 import * as TaskService from "../../../tasks/TaskService.ts";

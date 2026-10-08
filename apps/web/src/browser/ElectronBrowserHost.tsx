@@ -1,7 +1,7 @@
 "use client";
 
-import { parseScopedThreadKey } from "@t3tools/client-runtime/environment";
-import { AuthPreviewOperateScope, FILL_PREVIEW_VIEWPORT } from "@t3tools/contracts";
+import { parseScopedThreadKey } from "@elysiatools/client-runtime/environment";
+import { AuthPreviewOperateScope, FILL_PREVIEW_VIEWPORT } from "@elysiatools/contracts";
 import { useAtomValue } from "@effect/atom-react";
 import { type ComponentProps, useEffect, useMemo } from "react";
 

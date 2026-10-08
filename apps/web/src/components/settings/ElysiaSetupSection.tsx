@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef, useState } from "react";
-import type { EnvironmentId } from "@t3tools/contracts";
-import type { ProviderInstanceId, ServerProvider } from "@t3tools/contracts";
+import type { EnvironmentId } from "@elysiatools/contracts";
+import type { ProviderInstanceId, ServerProvider } from "@elysiatools/contracts";
 import { serverEnvironment } from "../../state/server";
 import { useEnvironmentQuery } from "../../state/query";
 import { useAtomCommand } from "../../state/use-atom-command";
@@ -13,7 +13,7 @@ import {
   isAtomCommandInterrupted,
   squashAtomCommandFailure,
   type AtomCommandResult,
-} from "@t3tools/client-runtime/state/runtime";
+} from "@elysiatools/client-runtime/state/runtime";
 
 export function ElysiaSetupSection({
   environmentId,

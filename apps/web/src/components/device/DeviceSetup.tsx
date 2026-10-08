@@ -1,8 +1,8 @@
 import { DeviceHostUpdates } from "./DeviceHostUpdates";
-import type { DevicePlatform, DeviceServiceState, EnvironmentId } from "@t3tools/contracts";
+import type { DevicePlatform, DeviceServiceState, EnvironmentId } from "@elysiatools/contracts";
 import { Check } from "~/icons";
 import { Check as CheckGlyph, CircleAlert } from "~/icons";
-import { AuthSettingsWriteScope } from "@t3tools/contracts";
+import { AuthSettingsWriteScope } from "@elysiatools/contracts";
 import { useState } from "react";
 
 import { Button } from "~/components/ui/button";

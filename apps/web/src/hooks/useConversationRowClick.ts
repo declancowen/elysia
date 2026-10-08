@@ -1,4 +1,4 @@
-import { SINGLE_PROVIDER_UI } from "@t3tools/contracts";
+import { SINGLE_PROVIDER_UI } from "@elysiatools/contracts";
 import { useEffect, useRef, type MouseEvent } from "react";
 
 /** A double-click opens a new tab without first replacing the tab already on screen. */

@@ -1,4 +1,4 @@
-import { CONNECTIONS_ENABLED } from "@t3tools/contracts";
+import { CONNECTIONS_ENABLED, UPSTREAM_ANALYTICS_ENABLED } from "@elysiatools/contracts";
 import {
   createPathConfigForStaticNavigation,
   getPathFromState,
@@ -837,13 +837,16 @@ const RootStackConfig = createNativeStackNavigator({
       },
     }),
     SettingsLegal: createNativeStackScreen({
-      screen: process.env.EXPO_PUBLIC_MARKETING_SITE_URL
-        ? SettingsLegalRouteScreen
-        : SettingsAboutRouteScreen,
+      screen:
+        UPSTREAM_ANALYTICS_ENABLED && process.env.EXPO_PUBLIC_MARKETING_SITE_URL
+          ? SettingsLegalRouteScreen
+          : SettingsAboutRouteScreen,
       linking: "settings/legal",
       options: {
-        ...LEGAL_DOCUMENT_HEADER_OPTIONS,
-        title: "Legal",
+        ...(UPSTREAM_ANALYTICS_ENABLED && process.env.EXPO_PUBLIC_MARKETING_SITE_URL
+          ? LEGAL_DOCUMENT_HEADER_OPTIONS
+          : SHEET_SOLID_HEADER_OPTIONS),
+        title: UPSTREAM_ANALYTICS_ENABLED ? "Legal" : "About Elysia",
       },
     }),
     ConnectOnboarding: createNativeStackScreen({

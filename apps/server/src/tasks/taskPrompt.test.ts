@@ -1,5 +1,5 @@
 import { expect, it } from "vite-plus/test";
-import { WorkTaskId } from "@t3tools/contracts";
+import { WorkTaskId } from "@elysiatools/contracts";
 import { taskPrompt } from "./taskPrompt.ts";
 
 it("sends readable task content while preserving entities, paragraphs, links and checklist states", () => {

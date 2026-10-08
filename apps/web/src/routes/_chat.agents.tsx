@@ -1,5 +1,5 @@
-import { scopeProjectRef } from "@t3tools/client-runtime/environment";
-import { EnvironmentId, ProjectId } from "@t3tools/contracts";
+import { scopeProjectRef } from "@elysiatools/client-runtime/environment";
+import { EnvironmentId, ProjectId } from "@elysiatools/contracts";
 import { createFileRoute } from "@tanstack/react-router";
 import { AgentEditorPage, AgentChannelEditorPage } from "../components/agents/AgentDialog";
 import { AgentsPage } from "../components/agents/AgentsPage";

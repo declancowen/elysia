@@ -1,4 +1,4 @@
-import type { PageSummary, ProjectId, PageId } from "@t3tools/contracts";
+import type { PageSummary, ProjectId, PageId } from "@elysiatools/contracts";
 export type PageGroup = {
   key: string;
   title: string;

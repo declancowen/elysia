@@ -1,11 +1,10 @@
 import type {
   EnvironmentId,
   ServerConfig,
-  ServerInstallation,
   ServerSelfUpdateCapability,
-} from "@t3tools/contracts";
-import type { ServerUpdateState } from "@t3tools/client-runtime/state/server";
-import { compareSemverVersions, parseSemver } from "@t3tools/shared/semver";
+} from "@elysiatools/contracts";
+import type { ServerUpdateState } from "@elysiatools/client-runtime/state/server";
+import { compareSemverVersions, parseSemver } from "@elysiatools/shared/semver";
 import * as Schema from "effect/Schema";
 
 import { APP_VERSION } from "./branding";
@@ -17,7 +16,7 @@ export interface VersionMismatch {
   readonly hint: string;
 }
 
-const VERSION_MISMATCH_DISMISSALS_STORAGE_KEY = "t3code:version-mismatch-dismissals:v1";
+const VERSION_MISMATCH_DISMISSALS_STORAGE_KEY = "elysia:version-mismatch-dismissals:v1";
 
 // Runtime failures retain their identity until the next attempt. Dismiss only
 // that attempt, across chat remounts, without clearing the error in Settings.
@@ -119,18 +118,9 @@ export function supportsServerUpdateThreadContinuation(
   return serverConfig?.environment.capabilities.serverUpdateThreadContinuation === true;
 }
 
-/** The command to hand users whose server cannot update itself. */
-export function manualServerUpdateCommand(
-  targetVersion: string,
-  installation?: ServerInstallation,
-): string {
-  if (installation?.kind === "npm-global") {
-    const prefix = `'${installation.prefix.replaceAll("'", "'\\''")}'`;
-    return `npm install --global --prefix ${prefix} t3@${targetVersion}`;
-  }
-  const runner =
-    installation?.kind === "pnpm-dlx" ? "pnpm dlx" : installation?.kind === "bunx" ? "bunx" : "npx";
-  return `${runner} t3@${targetVersion}`;
+/** The signed Elysia release for servers that cannot update themselves. */
+export function manualServerUpdateUrl(targetVersion: string): string {
+  return `https://github.com/declancowen/elysia/releases/tag/v${encodeURIComponent(targetVersion)}`;
 }
 
 export function serverUpdateGuidance(capability: ServerSelfUpdateCapability): string {

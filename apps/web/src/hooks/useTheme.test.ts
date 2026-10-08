@@ -40,7 +40,7 @@ describe("theme failure handling", () => {
     "uses Midnight when %s mode is selected without a saved theme",
     async (mode) => {
       const storage = createStorage();
-      storage.setItem("t3code:theme-appearance-mode", mode);
+      storage.setItem("elysia:theme-appearance-mode", mode);
       vi.stubGlobal("window", { localStorage: storage });
       const { readThemePreference, readAppearanceModePreference } = await import("./useTheme");
       const { getThemeDefinition, getThemeColorsForMode, resolveThemeHalf } =
@@ -50,7 +50,7 @@ describe("theme failure handling", () => {
       expect(readAppearanceModePreference(theme)).toBe(mode);
       expect(resolveThemeHalf(theme, null, mode)).toBe("midnight");
       expect(getThemeColorsForMode(getThemeDefinition(theme)!, mode)).not.toBeNull();
-      expect(storage.getItem("t3code:theme")).toBeNull();
+      expect(storage.getItem("elysia:theme")).toBeNull();
     },
   );
 
@@ -58,8 +58,8 @@ describe("theme failure handling", () => {
     "preserves the saved %s theme on startup",
     async (theme) => {
       const storage = createStorage();
-      storage.setItem("t3code:theme", theme);
-      storage.setItem("t3code:theme-appearance-mode", "light");
+      storage.setItem("elysia:theme", theme);
+      storage.setItem("elysia:theme-appearance-mode", "light");
       vi.stubGlobal("window", { localStorage: storage });
       const { readThemePreference, readAppearanceModePreference } = await import("./useTheme");
       expect(readThemePreference()).toBe(theme);
@@ -91,7 +91,7 @@ describe("theme failure handling", () => {
       expect(error).toBeInstanceOf(ThemeStorageError);
       expect(error).toMatchObject({
         operation: "read",
-        storageKey: "t3code:theme",
+        storageKey: "elysia:theme",
         cause: readCause,
       });
     }
@@ -103,7 +103,7 @@ describe("theme failure handling", () => {
       expect(error).toBeInstanceOf(ThemeStorageError);
       expect(error).toMatchObject({
         operation: "write",
-        storageKey: "t3code:theme",
+        storageKey: "elysia:theme",
         theme: "dark",
         cause: writeCause,
       });
@@ -142,10 +142,10 @@ describe("theme failure handling", () => {
     await expect(import("./useTheme")).resolves.toBeDefined();
 
     expect(errorLog).toHaveBeenCalledWith(
-      "Failed to read theme preference for t3code:theme.",
+      "Failed to read theme preference for elysia:theme.",
       expect.objectContaining({
         operation: "read",
-        storageKey: "t3code:theme",
+        storageKey: "elysia:theme",
         errorTag: "ThemeStorageError",
       }),
     );
@@ -159,7 +159,7 @@ describe("theme failure handling", () => {
     const themeGetItem = vi.fn((): string | null => {
       throw cause;
     });
-    const getItem = vi.fn((key: string) => (key === "t3code:theme" ? themeGetItem() : null));
+    const getItem = vi.fn((key: string) => (key === "elysia:theme" ? themeGetItem() : null));
     const errorLog = vi.spyOn(console, "error").mockImplementation(() => {});
     let readSnapshot: (() => unknown) | undefined;
     let subscribeToTheme: ((listener: () => void) => () => void) | undefined;
@@ -198,7 +198,7 @@ describe("theme failure handling", () => {
     expect(errorLog).toHaveBeenCalledTimes(1);
 
     const unsubscribe = subscribeToTheme?.(() => undefined);
-    storageHandler?.({ key: "t3code:theme" } as StorageEvent);
+    storageHandler?.({ key: "elysia:theme" } as StorageEvent);
     readSnapshot?.();
 
     expect(themeGetItem).toHaveBeenCalledTimes(2);

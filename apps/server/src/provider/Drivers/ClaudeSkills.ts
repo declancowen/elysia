@@ -16,13 +16,13 @@
  */
 import * as NodeOS from "node:os";
 
-import type { ClaudeSettings, ServerProviderSkill } from "@t3tools/contracts";
+import type { ClaudeSettings, ServerProviderSkill } from "@elysiatools/contracts";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
-import { HostProcessPlatform } from "@t3tools/shared/hostProcess";
-import { fromLenientJson } from "@t3tools/shared/schemaJson";
+import { HostProcessPlatform } from "@elysiatools/shared/hostProcess";
+import { fromLenientJson } from "@elysiatools/shared/schemaJson";
 import { parse as parseYamlDocument } from "yaml";
 
 import { expandHomePath } from "../../pathExpansion.ts";

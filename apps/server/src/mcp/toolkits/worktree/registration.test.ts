@@ -8,7 +8,7 @@ import * as ServerConfig from "../../../config.ts";
 import { expect, it } from "@effect/vitest";
 import { NodeHttpServer } from "@effect/platform-node";
 import * as NodeServices from "@effect/platform-node/NodeServices";
-import { ProviderInstanceId, ThreadId } from "@t3tools/contracts";
+import { ProviderInstanceId, ThreadId } from "@elysiatools/contracts";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Schema from "effect/Schema";
@@ -156,7 +156,7 @@ it.effect("production mcp layer lists worktree tools over http", () =>
     Effect.provide(
       Layer.mergeAll(
         NodeHttpServer.layerTest,
-        ServerConfig.layerTest(process.cwd(), { prefix: "t3-worktree-mcp-" }).pipe(
+        ServerConfig.layerTest(process.cwd(), { prefix: "elysia-worktree-mcp-" }).pipe(
           Layer.provide(NodeServices.layer),
         ),
         NodeServices.layer,

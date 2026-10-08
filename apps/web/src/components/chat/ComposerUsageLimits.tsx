@@ -1,5 +1,5 @@
-import type { EnvironmentId, UsageLimitsReport } from "@t3tools/contracts";
-import { limitsNotice } from "@t3tools/shared/usageLimits";
+import type { EnvironmentId, UsageLimitsReport } from "@elysiatools/contracts";
+import { limitsNotice } from "@elysiatools/shared/usageLimits";
 import { GaugeIcon } from "~/icons";
 
 import { ensureLocalApi } from "../../localApi";

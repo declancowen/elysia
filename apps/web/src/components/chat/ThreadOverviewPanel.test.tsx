@@ -2,7 +2,7 @@
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, expect, it, vi } from "vite-plus/test";
-import { EventId, MessageId, ProjectId, ThreadId, TurnId } from "@t3tools/contracts";
+import { EventId, MessageId, ProjectId, ThreadId, TurnId } from "@elysiatools/contracts";
 import type { DelegatedAgentView } from "../agents/useDelegatedAgents";
 import {
   createMemoryHistory,
@@ -33,7 +33,7 @@ vi.mock("../ChatMarkdown", () => ({ default: ({ text }: { text: string }) => <p>
 
 import { ThreadOverviewPanel, type ThreadOverviewPanelProps } from "./ThreadOverviewPanel";
 import { openThreadOverviewAgent, useThreadOverviewStore } from "./threadOverviewStore";
-import { EnvironmentId } from "@t3tools/contracts";
+import { EnvironmentId } from "@elysiatools/contracts";
 import type { ChatAttachment } from "~/types";
 
 let root: Root;
@@ -643,7 +643,7 @@ it("keeps Git available with no diff and lets it collapse before opening changes
 
 it("reveals large V2 child rosters one page at a time without losing failed results", async () => {
   const { projectedSubagentsToRuntime } =
-    await import("@t3tools/client-runtime/state/subagentRuntime");
+    await import("@elysiatools/client-runtime/state/subagentRuntime");
   const DateTime = await import("effect/DateTime");
   const now = DateTime.makeUnsafe("2026-10-02T00:00:00.000Z");
   const subagents = projectedSubagentsToRuntime(

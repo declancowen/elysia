@@ -1,4 +1,4 @@
-import { McpCapabilityUnavailableError, OrchestratorMcpFailure } from "@t3tools/contracts";
+import { McpCapabilityUnavailableError, OrchestratorMcpFailure } from "@elysiatools/contracts";
 import * as Schema from "effect/Schema";
 import * as Tool from "effect/ai/Tool";
 import * as Toolkit from "effect/ai/Toolkit";

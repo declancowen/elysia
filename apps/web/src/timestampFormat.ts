@@ -1,5 +1,5 @@
-import { formatCalendarDate } from "@t3tools/shared/dateFormat";
-import { type TimestampFormat } from "@t3tools/contracts/settings";
+import { formatCalendarDate } from "@elysiatools/shared/dateFormat";
+import { type TimestampFormat } from "@elysiatools/contracts/settings";
 
 function getTimestampFormatOptions(
   timestampFormat: TimestampFormat,

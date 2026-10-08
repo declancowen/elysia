@@ -1,5 +1,5 @@
-import * as OtelEnvironment from "@t3tools/shared/otelEnvironment";
-import { DEFAULT_SIGNAL_EXPORT } from "@t3tools/shared/observability";
+import * as OtelEnvironment from "@elysiatools/shared/otelEnvironment";
+import { DEFAULT_SIGNAL_EXPORT } from "@elysiatools/shared/observability";
 // @effect-diagnostics nodeBuiltinImport:off - CLI integration uses temporary Node paths.
 import * as NodeFS from "node:fs";
 import * as NodeOS from "node:os";
@@ -15,8 +15,8 @@ import {
   ThreadId,
   type OrchestrationV2AppThread,
   type ProjectId,
-} from "@t3tools/contracts";
-import * as NetService from "@t3tools/shared/Net";
+} from "@elysiatools/contracts";
+import * as NetService from "@elysiatools/shared/Net";
 import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
@@ -36,7 +36,7 @@ import * as ProjectEnrichmentService from "../project/ProjectEnrichmentService.t
 import * as ProjectFaviconResolver from "../project/ProjectFaviconResolver.ts";
 import * as ProjectService from "../project/ProjectService.ts";
 import * as RepositoryIdentityResolver from "../project/RepositoryIdentityResolver.ts";
-import * as T3ProjectFileLoader from "../project/T3ProjectFileLoader.ts";
+import * as ElysiaProjectFileLoader from "../project/ElysiaProjectFileLoader.ts";
 import * as WorkspacePaths from "../workspace/WorkspacePaths.ts";
 import {
   ProjectLiveServerDeclaredResponseError,
@@ -91,7 +91,7 @@ const readProjects = (baseDir: string) =>
       Layer.provideMerge(ProjectEnrichmentService.layer),
       Layer.provideMerge(RepositoryIdentityResolver.layer),
       Layer.provideMerge(ProjectFaviconResolver.layer),
-      Layer.provideMerge(T3ProjectFileLoader.layer),
+      Layer.provideMerge(ElysiaProjectFileLoader.layer),
       Layer.provideMerge(WorkspacePaths.layer),
       Layer.provideMerge(SqlitePersistence.layerConfig),
       Layer.provideMerge(NodeServices.layer),
@@ -154,7 +154,7 @@ it.effect("adds, renames, and removes projects through the V2 project CLI domain
 
 const makeProjectLookupFixture = Effect.fn("ProjectCliTest.makeProjectLookupFixture")(function* () {
   const fs = yield* FileSystem.FileSystem;
-  const root = yield* fs.makeTempDirectoryScoped({ prefix: "t3-v2-project-lookup-" });
+  const root = yield* fs.makeTempDirectoryScoped({ prefix: "elysia-v2-project-lookup-" });
   const baseDir = NodePath.join(root, "state");
   const workspaceRoot = NodePath.join(root, "workspace");
   yield* fs.makeDirectory(workspaceRoot);
@@ -388,7 +388,9 @@ it.layer(NodeServices.layer)("project lookup with unavailable workspaces", (it) 
       const fs = yield* FileSystem.FileSystem;
       const { baseDir, workspaceRoot, project } = yield* makeProjectLookupFixture();
       yield* fs.rename(workspaceRoot, `${workspaceRoot}-removed`);
-      const replacementDir = yield* fs.makeTempDirectoryScoped({ prefix: "t3-v2-project-empty-" });
+      const replacementDir = yield* fs.makeTempDirectoryScoped({
+        prefix: "elysia-v2-project-empty-",
+      });
       const error = yield* runCli([
         "project",
         "remove",

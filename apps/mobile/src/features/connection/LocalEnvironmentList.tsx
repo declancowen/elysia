@@ -1,4 +1,4 @@
-import type { EnvironmentId } from "@t3tools/contracts";
+import type { EnvironmentId } from "@elysiatools/contracts";
 import type { ComponentProps } from "react";
 import { View } from "react-native";
 

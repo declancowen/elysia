@@ -5,7 +5,7 @@ import {
   isSettingsTargetVisibleInWorkspace,
 } from "./settingsWorkspace";
 
-import { AuthEnvironmentMaintainScope } from "@t3tools/contracts";
+import { AuthEnvironmentMaintainScope } from "@elysiatools/contracts";
 
 import { usePrimaryCloudLinkState } from "~/cloud/primaryCloudLinkState";
 import { hasCloudPublicConfig } from "~/cloud/publicConfig";

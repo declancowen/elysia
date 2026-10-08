@@ -1,6 +1,6 @@
-import { scopeProjectRef, scopedThreadKey } from "@t3tools/client-runtime/environment";
-import type { ScopedThreadRef } from "@t3tools/contracts";
-import { SINGLE_PROVIDER_UI } from "@t3tools/contracts";
+import { scopeProjectRef, scopedThreadKey } from "@elysiatools/client-runtime/environment";
+import type { ScopedThreadRef } from "@elysiatools/contracts";
+import { SINGLE_PROVIDER_UI } from "@elysiatools/contracts";
 import { useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 

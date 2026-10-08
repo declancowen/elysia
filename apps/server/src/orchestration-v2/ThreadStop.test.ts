@@ -10,7 +10,7 @@ import {
   ProviderTurnId,
   ThreadId,
   TurnItemId,
-} from "@t3tools/contracts";
+} from "@elysiatools/contracts";
 import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Exit from "effect/Exit";

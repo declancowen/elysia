@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vite-plus/test";
-import { PageId, type Page, ProjectId } from "@t3tools/contracts";
+import { PageId, type Page, ProjectId } from "@elysiatools/contracts";
 import {
   pageHasUnsavedChanges,
   canAdoptPageSnapshot,

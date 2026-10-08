@@ -1,4 +1,4 @@
-import { isProviderSendTurnSupportedImageMimeType } from "@t3tools/contracts";
+import { isProviderSendTurnSupportedImageMimeType } from "@elysiatools/contracts";
 import * as Predicate from "effect/Predicate";
 
 import {

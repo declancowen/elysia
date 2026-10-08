@@ -12,7 +12,7 @@ import {
   type DesktopSnapShotEvent,
   DEFAULT_CLIENT_SETTINGS,
   SINGLE_PROVIDER_UI,
-} from "@t3tools/contracts";
+} from "@elysiatools/contracts";
 
 import * as DesktopAssets from "../app/DesktopAssets.ts";
 import * as DesktopEnvironment from "../app/DesktopEnvironment.ts";
@@ -143,7 +143,7 @@ export class DesktopWindow extends Context.Service<
     readonly zoomMain: (direction: MainWindowZoomDirection) => Effect.Effect<void>;
     readonly syncAppearance: Effect.Effect<void>;
   }
->()("@t3tools/desktop/window/DesktopWindow") {}
+>()("@elysiatools/desktop/window/DesktopWindow") {}
 
 const { logInfo: logWindowInfo, logWarning: logWindowWarning } =
   makeComponentLogger("desktop-window");

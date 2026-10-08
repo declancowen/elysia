@@ -10,16 +10,19 @@ import * as RequestResolver from "effect/RequestResolver";
 import * as Result from "effect/Result";
 import * as Schema from "effect/Schema";
 
-import { TrimmedNonEmptyString, type SourceControlRepositoryVisibility } from "@t3tools/contracts";
-import { normalizeGitRemoteUrl } from "@t3tools/shared/git";
-import { decodeJsonResult } from "@t3tools/shared/schemaJson";
+import {
+  TrimmedNonEmptyString,
+  type SourceControlRepositoryVisibility,
+} from "@elysiatools/contracts";
+import { normalizeGitRemoteUrl } from "@elysiatools/shared/git";
+import { decodeJsonResult } from "@elysiatools/shared/schemaJson";
 import {
   detectSourceControlProviderFromRemoteUrl,
   isSshRemoteUrl,
-} from "@t3tools/shared/sourceControl";
+} from "@elysiatools/shared/sourceControl";
 
 import * as GitVcsDriver from "../vcs/GitVcsDriver.ts";
-import { HostProcessEnvironment } from "@t3tools/shared/hostProcess";
+import { HostProcessEnvironment } from "@elysiatools/shared/hostProcess";
 
 import * as VcsProcess from "../vcs/VcsProcess.ts";
 import * as GitHubApi from "./GitHubApi.ts";
@@ -267,7 +270,7 @@ export class GitHubCli extends Context.Service<
       readonly force?: boolean;
     }) => Effect.Effect<void, GitHubCliError>;
   }
->()("t3/sourceControl/GitHubCli") {}
+>()("@elysiatools/server/sourceControl/GitHubCli") {}
 
 /**
  * The repository `gh pr list` reads in a checkout, picked the way gh picks one without a

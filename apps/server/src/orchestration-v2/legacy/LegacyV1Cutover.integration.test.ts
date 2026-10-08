@@ -12,8 +12,8 @@ import {
   type OrchestrationV2ProviderSession,
   type OrchestrationV2ProviderThread,
   type OrchestrationV2ThreadProjection,
-} from "@t3tools/contracts";
-import * as NodeSqliteClient from "@t3tools/shared/nodeSqliteClient";
+} from "@elysiatools/contracts";
+import * as NodeSqliteClient from "@elysiatools/shared/nodeSqliteClient";
 import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
@@ -661,7 +661,7 @@ describe("orchestration v2 legacy v1 cutover", () => {
           const fs = yield* FileSystem.FileSystem;
           const path = yield* Path.Path;
           const workspace = yield* checkpointWorkspace("legacy-v1-cutover");
-          const stateDir = yield* fs.makeTempDirectory({ prefix: "t3-v1-cutover-state-" });
+          const stateDir = yield* fs.makeTempDirectory({ prefix: "elysia-v1-cutover-state-" });
           const fixturePath = path.join(stateDir, "v1-source.sqlite");
           const copyPath = path.join(stateDir, "userdata", "state.sqlite");
           yield* fs.makeDirectory(path.join(stateDir, "userdata"), { recursive: true });

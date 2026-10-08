@@ -1,7 +1,7 @@
 import { MoonIcon, SunIcon } from "~/icons";
 import type { CSSProperties } from "react";
-import { THEME_PREVIEW_RENDER_SPECS } from "@t3tools/shared/themePreview";
-import { DEFAULT_THEME } from "@t3tools/shared/themePalettes";
+import { THEME_PREVIEW_RENDER_SPECS } from "@elysiatools/shared/themePreview";
+import { DEFAULT_THEME } from "@elysiatools/shared/themePalettes";
 import { cn } from "../../lib/utils";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
 import {

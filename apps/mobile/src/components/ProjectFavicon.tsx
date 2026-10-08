@@ -3,16 +3,16 @@ import { AppText } from "./AppText";
 import { Image } from "expo-image";
 import { memo, useLayoutEffect, useMemo, useState } from "react";
 import { View } from "react-native";
-import type { EnvironmentId, ProjectIconOverride } from "@t3tools/contracts";
+import type { EnvironmentId, ProjectIconOverride } from "@elysiatools/contracts";
 import {
   getProjectFaviconCacheKey,
   getProjectFaviconResourceKey,
   isProjectFaviconFallbackUrl,
-} from "@t3tools/shared/projectFavicon";
+} from "@elysiatools/shared/projectFavicon";
 import {
   resolveAutomaticProjectIcon,
   type AutomaticProjectIconName,
-} from "@t3tools/shared/projectIcon";
+} from "@elysiatools/shared/projectIcon";
 import { useAtomValue } from "@effect/atom-react";
 import { Atom } from "effect/reactivity";
 import { projectFaviconUrlAtom } from "../state/assets";

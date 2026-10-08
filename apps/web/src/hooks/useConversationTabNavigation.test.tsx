@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
-import { scopeThreadRef } from "@t3tools/client-runtime/environment";
-import { EnvironmentId, ProjectId, ThreadId, PageId, WorkTaskId } from "@t3tools/contracts";
+import { scopeThreadRef } from "@elysiatools/client-runtime/environment";
+import { EnvironmentId, ProjectId, ThreadId, PageId, WorkTaskId } from "@elysiatools/contracts";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, expect, it, vi } from "vite-plus/test";

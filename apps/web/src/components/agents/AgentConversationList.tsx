@@ -1,4 +1,4 @@
-import { formatCalendarDate } from "@t3tools/shared/dateFormat";
+import { formatCalendarDate } from "@elysiatools/shared/dateFormat";
 import { useConversationTabsStore } from "../../conversationTabsStore";
 import { useState } from "react";
 import { useConversationRowClick } from "../../hooks/useConversationRowClick";
@@ -6,10 +6,10 @@ import {
   scopedProjectKey,
   scopeProjectRef,
   scopeThreadRef,
-} from "@t3tools/client-runtime/environment";
-import type { AgentConversationPreviewsResult } from "@t3tools/contracts";
+} from "@elysiatools/client-runtime/environment";
+import type { AgentConversationPreviewsResult } from "@elysiatools/contracts";
 import { useParams } from "@tanstack/react-router";
-import { agentTaskHandoff } from "@t3tools/shared/agentMentions";
+import { agentTaskHandoff } from "@elysiatools/shared/agentMentions";
 import {
   ArchiveIcon,
   Edit03Icon,

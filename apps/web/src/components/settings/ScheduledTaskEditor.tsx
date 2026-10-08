@@ -1,13 +1,13 @@
 import { WebhookEndpointField } from "./ScheduledTaskWebhook";
-import { DEFAULT_WEBHOOK_PROMPT } from "@t3tools/client-runtime/scheduled-task-webhook";
+import { DEFAULT_WEBHOOK_PROMPT } from "@elysiatools/client-runtime/scheduled-task-webhook";
 import {
   AuthOrchestrationOperateScope,
   MAX_WEBHOOK_DELIVERY_AGE_MINUTES,
-} from "@t3tools/contracts";
+} from "@elysiatools/contracts";
 import { readEnvironmentScope } from "../../state/session";
-import { formatAgentMention } from "@t3tools/shared/agentMentions";
+import { formatAgentMention } from "@elysiatools/shared/agentMentions";
 import { useAtomValue } from "@effect/atom-react";
-import { scopeThreadRef } from "@t3tools/client-runtime/environment";
+import { scopeThreadRef } from "@elysiatools/client-runtime/environment";
 import { type ReactNode, useMemo, useRef, useState, useId } from "react";
 import type {
   EnvironmentId,
@@ -18,17 +18,17 @@ import type {
   ScheduledTaskSchedule,
   ScheduledTaskUpsertInput,
   ThreadId,
-} from "@t3tools/contracts";
+} from "@elysiatools/contracts";
 import {
   MIN_SCHEDULED_TASK_INTERVAL_MS,
   CONNECTIONS_ENABLED,
   ProviderInstanceId,
   resolveEnvironmentMachineKind,
-} from "@t3tools/contracts";
+} from "@elysiatools/contracts";
 import {
   isAtomCommandInterrupted,
   squashAtomCommandFailure,
-} from "@t3tools/client-runtime/state/runtime";
+} from "@elysiatools/client-runtime/state/runtime";
 import { useCodeWorkspace, useEnvironmentSettings } from "../../hooks/useSettings";
 import { getCustomModelOptionsByInstance } from "../../modelSelection";
 import {

@@ -4,14 +4,16 @@ import {
   ProjectId,
   ProviderDriverKind,
   ProviderInstanceId,
-} from "@t3tools/contracts";
+} from "@elysiatools/contracts";
 import { describe, expect, it } from "@effect/vitest";
 import { beforeEach, vi } from "vite-plus/test";
 
 // Retain upstream provider-sync fixtures without changing the production fork policy.
 const forkPolicy = vi.hoisted(() => ({ elysia: false }));
 vi.mock("../../../contracts/src/forkPolicy.ts", async (importOriginal) => ({
-  ...(await importOriginal<Pick<typeof import("@t3tools/contracts"), "isEnabledProviderDriver">>()),
+  ...(await importOriginal<
+    Pick<typeof import("@elysiatools/contracts"), "isEnabledProviderDriver">
+  >()),
   isEnabledProviderDriver: (driver: string) => !forkPolicy.elysia || driver === "claudeAgent",
 }));
 beforeEach(() => {

@@ -1,6 +1,6 @@
-import { scopedProjectKey } from "@t3tools/client-runtime/environment";
+import { scopedProjectKey } from "@elysiatools/client-runtime/environment";
 import { useEffect, useRef } from "react";
-import type { ScopedProjectRef } from "@t3tools/contracts";
+import type { ScopedProjectRef } from "@elysiatools/contracts";
 import { useNavigate } from "@tanstack/react-router";
 import { useAllEnvironmentProjectSnapshotsReady } from "../../state/entities";
 import { useAgentActions } from "./useAgentActions";

@@ -24,9 +24,9 @@ describe("branding", () => {
       value: {
         desktopBridge: {
           getAppBranding: () => ({
-            baseName: "T3 Code",
+            baseName: "Elysia",
             stageLabel: "Nightly",
-            displayName: "T3 Code (Nightly)",
+            displayName: "Elysia (Nightly)",
           }),
         },
       },
@@ -84,33 +84,33 @@ describe("branding logic", () => {
   it("keeps the base display name for nightly primary server versions", () => {
     expect(
       resolveServerBackedAppDisplayName({
-        baseName: "T3 Code",
-        fallbackDisplayName: "T3 Code (Alpha)",
+        baseName: "Elysia",
+        fallbackDisplayName: "Elysia (Alpha)",
         fallbackStageLabel: "Alpha",
         primaryServerVersion: "0.0.28-nightly.20260616.12",
       }),
-    ).toBe("T3 Code");
+    ).toBe("Elysia");
   });
 
   it("keeps the base display name for stable primary server versions", () => {
     expect(
       resolveServerBackedAppDisplayName({
-        baseName: "T3 Code",
-        fallbackDisplayName: "T3 Code (Alpha)",
+        baseName: "Elysia",
+        fallbackDisplayName: "Elysia (Alpha)",
         fallbackStageLabel: "Alpha",
         primaryServerVersion: "0.0.27",
       }),
-    ).toBe("T3 Code");
+    ).toBe("Elysia");
   });
 
   it("keeps the base display name for malformed nightly primary server versions", () => {
     expect(
       resolveServerBackedAppDisplayName({
-        baseName: "T3 Code",
-        fallbackDisplayName: "T3 Code (Alpha)",
+        baseName: "Elysia",
+        fallbackDisplayName: "Elysia (Alpha)",
         fallbackStageLabel: "Alpha",
         primaryServerVersion: "0.0.28-nightly.20260616",
       }),
-    ).toBe("T3 Code");
+    ).toBe("Elysia");
   });
 });

@@ -1,5 +1,5 @@
-import { formatCalendarDateTime } from "@t3tools/shared/dateFormat";
-import type { RelayClientDeviceRecord } from "@t3tools/contracts/relay";
+import { formatCalendarDateTime } from "@elysiatools/shared/dateFormat";
+import type { RelayClientDeviceRecord } from "@elysiatools/contracts/relay";
 
 const NOTIFICATION_PREFERENCES = [
   ["notifyOnApproval", "approvals"],

@@ -12,8 +12,8 @@ import {
   AuthOrchestrationOperateScope,
   type PageSummary,
   type PageSaveInput,
-} from "@t3tools/contracts";
-import { squashAtomCommandFailure } from "@t3tools/client-runtime/state/runtime";
+} from "@elysiatools/contracts";
+import { squashAtomCommandFailure } from "@elysiatools/client-runtime/state/runtime";
 import { useAtomCommand } from "~/state/use-atom-command";
 import { readEnvironmentScope, useEnvironmentScope } from "~/state/session";
 import { applyWorkspaceBulkAction } from "../WorkspaceBulkActions";

@@ -1,7 +1,7 @@
 import { act, create, type ReactTestRenderer } from "react-test-renderer";
 import { afterEach, expect, it, vi } from "vite-plus/test";
-import { EnvironmentId, ProjectId, ThreadId } from "@t3tools/contracts";
-import { scopeThreadRef } from "@t3tools/client-runtime/environment";
+import { EnvironmentId, ProjectId, ThreadId } from "@elysiatools/contracts";
+import { scopeThreadRef } from "@elysiatools/client-runtime/environment";
 import type { ChatMessage } from "~/types";
 import { ChannelReplyPreview } from "./ChannelReplyPreview";
 vi.mock("~/state/entities", () => ({

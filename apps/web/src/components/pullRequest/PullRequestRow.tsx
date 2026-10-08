@@ -1,6 +1,6 @@
 import { useConversationTabsStore } from "../../conversationTabsStore";
 import { useConversationRowClick } from "../../hooks/useConversationRowClick";
-import { SINGLE_PROVIDER_UI } from "@t3tools/contracts";
+import { SINGLE_PROVIDER_UI } from "@elysiatools/contracts";
 import { SearchIcon } from "~/icons";
 import { PullRequestStackPopover } from "./PullRequestStackPopover";
 import {

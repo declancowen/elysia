@@ -302,7 +302,7 @@ const launchBrowser = Effect.fnUntraced(function* (input: {
         return fulfillPage(sessionId, paused.requestId, body);
       }
       // A frame inside the page may show another site; Local Network Access
-      // still covers it. The main frame and T3's own origin serve nothing else.
+      // still covers it. The main frame and Elysia's own origin serve nothing else.
       const otherSiteFrame =
         paused.resourceType === "Document" &&
         paused.frameId !== page.mainFrameId &&
@@ -432,7 +432,7 @@ const launchBrowser = Effect.fnUntraced(function* (input: {
       Ignored,
       sessionId,
     );
-    // Pauses T3's own origin, to serve the page, and every document, to keep
+    // Pauses Elysia's own origin, to serve the page, and every document, to keep
     // the main frame on it.
     yield* send(
       "Fetch.enable",
@@ -521,7 +521,7 @@ const launchBrowser = Effect.fnUntraced(function* (input: {
 const scratchDirectory = Effect.gen(function* () {
   const fileSystem = yield* FileSystem.FileSystem;
   return yield* Effect.acquireRelease(
-    fileSystem.makeTempDirectory({ prefix: "t3-html-preview-" }),
+    fileSystem.makeTempDirectory({ prefix: "elysia-html-preview-" }),
     (directory) => fileSystem.remove(directory, { recursive: true }).pipe(Effect.ignore),
   ).pipe(
     Effect.mapError(

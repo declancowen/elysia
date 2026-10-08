@@ -8,8 +8,8 @@
  *
  * @module AnalyticsService
  */
-import { HostProcessArchitecture, HostProcessPlatform } from "@t3tools/shared/hostProcess";
-import { UPSTREAM_ANALYTICS_ENABLED, type ClientOs } from "@t3tools/contracts";
+import { HostProcessArchitecture, HostProcessPlatform } from "@elysiatools/shared/hostProcess";
+import { UPSTREAM_ANALYTICS_ENABLED, type ClientOs } from "@elysiatools/contracts";
 import * as Clock from "effect/Clock";
 import * as Config from "effect/Config";
 import * as Context from "effect/Context";
@@ -93,7 +93,7 @@ export class AnalyticsService extends Context.Service<
     /** Flush all currently queued telemetry events. */
     readonly flush: Effect.Effect<void>;
   }
->()("t3/telemetry/AnalyticsService") {
+>()("@elysiatools/server/telemetry/AnalyticsService") {
   /** No-op layer for callers that intentionally disable telemetry. */
   static readonly layerTest = Layer.succeed(
     AnalyticsService,

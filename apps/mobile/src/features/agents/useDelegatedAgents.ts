@@ -1,7 +1,7 @@
 import { useAtomValue } from "@effect/atom-react";
-import { scopeProjectRef } from "@t3tools/client-runtime/environment";
-import type { EnvironmentId, ScopedThreadRef, ThreadId } from "@t3tools/contracts";
-import { isAgentDelegationActive, type DelegatedAgent } from "@t3tools/shared/agentMentions";
+import { scopeProjectRef } from "@elysiatools/client-runtime/environment";
+import type { EnvironmentId, ScopedThreadRef, ThreadId } from "@elysiatools/contracts";
+import { isAgentDelegationActive, type DelegatedAgent } from "@elysiatools/shared/agentMentions";
 import * as Cause from "effect/Cause";
 import * as Option from "effect/Option";
 import { AsyncResult, Atom } from "effect/reactivity";

@@ -1,4 +1,4 @@
-import type { EnvironmentId } from "@t3tools/contracts";
+import type { EnvironmentId } from "@elysiatools/contracts";
 import { ExternalLinkIcon } from "~/icons";
 import { useState } from "react";
 

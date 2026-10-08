@@ -2,7 +2,7 @@ import { useAgentDialogStore } from "./agents/agentDialogStore";
 import { AgentSectionDialog } from "./agents/AgentSidebarOrganization";
 import { useAtomValue } from "@effect/atom-react";
 import * as Schema from "effect/Schema";
-import { SINGLE_PROVIDER_UI } from "@t3tools/contracts";
+import { SINGLE_PROVIDER_UI } from "@elysiatools/contracts";
 import {
   useEffect,
   useLayoutEffect,

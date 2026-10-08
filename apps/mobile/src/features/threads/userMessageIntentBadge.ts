@@ -1,8 +1,8 @@
 import type {
   OrchestrationV2UserMessageInputIntent,
   OrchestrationV2RunStatus,
-} from "@t3tools/contracts";
-import { resolveUserMessageIntentMarker } from "@t3tools/client-runtime/user-message";
+} from "@elysiatools/contracts";
+import { resolveUserMessageIntentMarker } from "@elysiatools/client-runtime/user-message";
 
 export interface UserMessageIntentBadgePresentation {
   readonly label: string;

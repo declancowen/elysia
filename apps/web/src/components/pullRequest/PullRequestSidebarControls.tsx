@@ -3,7 +3,7 @@ import {
   SINGLE_PROVIDER_UI,
   type PullRequestInvolvement,
   type PullRequestListState,
-} from "@t3tools/contracts";
+} from "@elysiatools/contracts";
 import {
   CalendarArrowDownIcon,
   CalendarArrowUpIcon,

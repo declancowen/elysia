@@ -5,7 +5,7 @@ import type {
   PullRequestChecksState,
   PullRequestRef,
   ScopedThreadRef,
-} from "@t3tools/contracts";
+} from "@elysiatools/contracts";
 import { ChevronDownIcon } from "~/icons";
 import { useState } from "react";
 

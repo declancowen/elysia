@@ -9,7 +9,7 @@ import {
   type AgentGetDelegationResult,
   type AgentProfile,
   type OrchestrationV2ProjectedTurnItem,
-} from "@t3tools/contracts";
+} from "@elysiatools/contracts";
 import * as DateTime from "effect/DateTime";
 import {
   collectComposerContextReferences,

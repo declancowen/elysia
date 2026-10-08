@@ -1,5 +1,5 @@
-import { readChannelReply, type ChannelRunReference } from "@t3tools/shared/channelReplies";
-import type { MessageId } from "@t3tools/contracts";
+import { readChannelReply, type ChannelRunReference } from "@elysiatools/shared/channelReplies";
+import type { MessageId } from "@elysiatools/contracts";
 import type { MessagesTimelineRow } from "./MessagesTimeline.logic";
 
 /** Flatten every reply under its root while keeping work and metadata with that reply. */

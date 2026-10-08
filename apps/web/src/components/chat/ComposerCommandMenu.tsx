@@ -1,7 +1,7 @@
 import {
   resolveProviderSkillSourceKind,
   type ProviderSkillSourceKind,
-} from "@t3tools/client-runtime/providerSkills";
+} from "@elysiatools/client-runtime/providerSkills";
 import {
   type PageId,
   type WorkTaskId,
@@ -14,7 +14,7 @@ import {
   type ScopedThreadRef,
   type ServerProviderSkill,
   type ServerProviderSlashCommand,
-} from "@t3tools/contracts";
+} from "@elysiatools/contracts";
 import {
   Files01Icon,
   ClockIcon,

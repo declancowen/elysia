@@ -1,4 +1,4 @@
-import { resolveThreadLineageWindow } from "@t3tools/client-runtime/state/thread-relationships";
+import { resolveThreadLineageWindow } from "@elysiatools/client-runtime/state/thread-relationships";
 import { Popover as PopoverPrimitive } from "@base-ui/react/popover";
 import { Link } from "@tanstack/react-router";
 import {
@@ -11,11 +11,11 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import { useThreadOverviewStore } from "./threadOverviewStore";
-import { scopeThreadRef } from "@t3tools/client-runtime/environment";
-import type { ScopedThreadRef } from "@t3tools/contracts";
-import { type DelegatedAgent } from "@t3tools/shared/agentMentions";
+import { scopeThreadRef } from "@elysiatools/client-runtime/environment";
+import type { ScopedThreadRef } from "@elysiatools/contracts";
+import { type DelegatedAgent } from "@elysiatools/shared/agentMentions";
 
-import type { RuntimeSubagent } from "@t3tools/client-runtime/state/subagentRuntime";
+import type { RuntimeSubagent } from "@elysiatools/client-runtime/state/subagentRuntime";
 import { useMediaQuery } from "~/hooks/useMediaQuery";
 import { useCodeWorkspace } from "~/hooks/useSettings";
 import { usePanelAnimationSettings } from "~/panelAnimations";

@@ -1,5 +1,5 @@
 import { showContextMenuFallback } from "../../contextMenuFallback";
-import { SINGLE_PROVIDER_UI, type ContextMenuItem } from "@t3tools/contracts";
+import { SINGLE_PROVIDER_UI, type ContextMenuItem } from "@elysiatools/contracts";
 
 import { writeTextToClipboard } from "~/hooks/useCopyToClipboard";
 import { readLocalApi } from "~/localApi";

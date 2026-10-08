@@ -1,8 +1,8 @@
-import { fileBasename } from "@t3tools/client-runtime/markdown-links";
-import type { ThreadId } from "@t3tools/contracts";
-import { resolveMarkdownLinkPresentation } from "@t3tools/mobile-markdown-text/links";
-import type { MarkdownFileContextMenu } from "@t3tools/mobile-markdown-text/types";
-import { hostPreviewMimeTypeFromExtension } from "@t3tools/shared/filePreview";
+import { fileBasename } from "@elysiatools/client-runtime/markdown-links";
+import type { ThreadId } from "@elysiatools/contracts";
+import { resolveMarkdownLinkPresentation } from "@elysiatools/mobile-markdown-text/links";
+import type { MarkdownFileContextMenu } from "@elysiatools/mobile-markdown-text/types";
+import { hostPreviewMimeTypeFromExtension } from "@elysiatools/shared/filePreview";
 
 import {
   isAbsolutePath,

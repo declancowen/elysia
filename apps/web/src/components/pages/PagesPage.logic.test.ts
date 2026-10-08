@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vite-plus/test";
-import { PageId, ProjectId, type PageSummary } from "@t3tools/contracts";
+import { PageId, ProjectId, type PageSummary } from "@elysiatools/contracts";
 import {
   readPageDragIds,
   groupPages,

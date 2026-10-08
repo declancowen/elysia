@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, expect, it, vi } from "vite-plus/test";
 
 const policy = vi.hoisted(() => ({ connectionsEnabled: false }));
-vi.mock("@t3tools/contracts", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@t3tools/contracts")>()),
+vi.mock("@elysiatools/contracts", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@elysiatools/contracts")>()),
   get CONNECTIONS_ENABLED() {
     return policy.connectionsEnabled;
   },

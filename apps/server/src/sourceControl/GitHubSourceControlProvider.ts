@@ -9,9 +9,9 @@ import {
   type ChangeRequest,
   type GitHubSettings,
   type SourceControlProviderDiscoveryItem,
-} from "@t3tools/contracts";
+} from "@elysiatools/contracts";
 
-import { HostProcessEnvironment } from "@t3tools/shared/hostProcess";
+import { HostProcessEnvironment } from "@elysiatools/shared/hostProcess";
 
 import * as ServerSettings from "../serverSettings.ts";
 import * as GitHubApi from "./GitHubApi.ts";

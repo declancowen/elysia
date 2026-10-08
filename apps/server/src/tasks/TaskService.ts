@@ -7,7 +7,7 @@ import {
   type WorkTaskLookupInput,
   type WorkTaskSaveInput,
   type WorkTaskMutationResult,
-} from "@t3tools/contracts";
+} from "@elysiatools/contracts";
 import * as Context from "effect/Context";
 import * as Crypto from "effect/Crypto";
 import * as DateTime from "effect/DateTime";
@@ -41,7 +41,7 @@ export class TaskService extends Context.Service<
       input: WorkTaskLookupInput,
     ) => Effect.Effect<WorkTaskLookupInput, WorkTaskError>;
   }
->()("t3/tasks/TaskService") {}
+>()("@elysiatools/server/tasks/TaskService") {}
 const fail = (message: string, cause?: unknown) =>
   new WorkTaskError({ message, ...(cause === undefined ? {} : { cause }) });
 const decode = Schema.decodeUnknownEffect(Schema.fromJsonString(WorkTask));

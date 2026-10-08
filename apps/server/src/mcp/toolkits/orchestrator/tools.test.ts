@@ -85,7 +85,7 @@ describe("orchestrator MCP tool guidance", () => {
       ScheduleTaskTool.description ?? "",
       "webhook access is unavailable in this build",
     );
-    assert.notInclude(ScheduleTaskTool.description ?? "", "enable T3 Connect");
+    assert.notInclude(ScheduleTaskTool.description ?? "", "enable Elysia Connect");
   });
 
   it("publishes thread metadata actions from an object-root schema", () => {

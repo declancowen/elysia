@@ -1,6 +1,6 @@
 import { expect, it } from "vite-plus/test";
-import { MessageId, RunId } from "@t3tools/contracts";
-import { withChannelReply } from "@t3tools/shared/channelReplies";
+import { MessageId, RunId } from "@elysiatools/contracts";
+import { withChannelReply } from "@elysiatools/shared/channelReplies";
 import type { ChatMessage } from "~/types";
 import type { MessagesTimelineRow } from "./MessagesTimeline.logic";
 import { groupChannelTimeline } from "./channelTimeline";

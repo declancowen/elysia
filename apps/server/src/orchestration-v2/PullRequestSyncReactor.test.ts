@@ -17,7 +17,7 @@ import {
   type PullRequestSummary,
   type ThreadPullRequestLink,
   type ThreadPullRequestSnapshot,
-} from "@t3tools/contracts";
+} from "@elysiatools/contracts";
 import { assert, describe, it } from "@effect/vitest";
 import * as Clock from "effect/Clock";
 import * as Crypto from "effect/Crypto";

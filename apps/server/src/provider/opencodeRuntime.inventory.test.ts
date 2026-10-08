@@ -13,7 +13,7 @@ import {
   HostProcessEnvironment,
   HostProcessExecutablePath,
   HostProcessPlatform,
-} from "@t3tools/shared/hostProcess";
+} from "@elysiatools/shared/hostProcess";
 
 import * as OpenCodeRuntime from "./opencodeRuntime.ts";
 import * as OpenCodeServerLedger from "./OpenCodeServerLedger.ts";
@@ -220,7 +220,7 @@ it.layer(layerTest)("OpenCodeRuntime inventory", (it) => {
       const hostEnvironment = yield* HostProcessEnvironment;
       const executablePath = yield* HostProcessExecutablePath;
       const hostPlatform = yield* HostProcessPlatform;
-      const tempDir = yield* fs.makeTempDirectoryScoped({ prefix: "t3-opencode-inventory-" });
+      const tempDir = yield* fs.makeTempDirectoryScoped({ prefix: "elysia-opencode-inventory-" });
       const isWindows = hostPlatform === "win32";
       const binaryPath = path.join(tempDir, isWindows ? "opencode.cmd" : "opencode");
       const scriptPath = path.join(tempDir, "opencode.mjs");

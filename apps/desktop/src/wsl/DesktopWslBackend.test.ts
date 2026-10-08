@@ -6,8 +6,8 @@ import * as Option from "effect/Option";
 import { beforeEach, vi } from "vite-plus/test";
 
 const forkPolicy = vi.hoisted(() => ({ connectionsEnabled: true }));
-vi.mock("@t3tools/contracts", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@t3tools/contracts")>()),
+vi.mock("@elysiatools/contracts", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@elysiatools/contracts")>()),
   get CONNECTIONS_ENABLED() {
     return forkPolicy.connectionsEnabled;
   },
@@ -17,7 +17,7 @@ beforeEach(() => {
   forkPolicy.connectionsEnabled = true;
 });
 
-import * as NetService from "@t3tools/shared/Net";
+import * as NetService from "@elysiatools/shared/Net";
 
 import * as DesktopBackendConfiguration from "../backend/DesktopBackendConfiguration.ts";
 import * as DesktopBackendPool from "../backend/DesktopBackendPool.ts";

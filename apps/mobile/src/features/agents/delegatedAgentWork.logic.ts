@@ -1,6 +1,6 @@
-import type { AgentGetDelegationResult } from "@t3tools/contracts";
-import type { EnvironmentThreadShell } from "@t3tools/client-runtime/state/shell";
-import { isAgentDelegationActive } from "@t3tools/shared/agentMentions";
+import type { AgentGetDelegationResult } from "@elysiatools/contracts";
+import type { EnvironmentThreadShell } from "@elysiatools/client-runtime/state/shell";
+import { isAgentDelegationActive } from "@elysiatools/shared/agentMentions";
 
 export function delegationShellRevision(
   shell: Pick<

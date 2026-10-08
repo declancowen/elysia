@@ -1,4 +1,4 @@
-import type { CommandId, MessageId, OrchestrationMessageContext } from "@t3tools/contracts";
+import type { CommandId, MessageId, OrchestrationMessageContext } from "@elysiatools/contracts";
 import type { DraftComposerAttachment } from "./composerImages";
 
 export interface AgentMentionDraft {

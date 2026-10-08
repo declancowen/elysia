@@ -1,5 +1,5 @@
 import { SettingsGroup } from "./SettingsGroup";
-import { AuthSettingsWriteScope } from "@t3tools/contracts";
+import { AuthSettingsWriteScope } from "@elysiatools/contracts";
 import { usePrimaryEnvironmentId } from "../../state/environments";
 import { useEnvironmentScope, useEnvironmentsWithScope } from "../../state/session";
 import { InfoIcon, Undo2Icon } from "~/icons";
@@ -7,7 +7,7 @@ import {
   DEFAULT_SERVER_SETTINGS,
   SINGLE_PROVIDER_UI,
   type ServerSettings,
-} from "@t3tools/contracts";
+} from "@elysiatools/contracts";
 import * as Equal from "effect/Equal";
 import { useLocation, useNavigate } from "@tanstack/react-router";
 import {
@@ -438,8 +438,8 @@ export function SettingsRow({
       }
     : source === "project"
       ? { state: "overridden", summary: "Overridden for this project" }
-      : source === "t3.json"
-        ? { state: "inherited", summary: "Inherited from the repository's t3.json" }
+      : source === "elysia.json"
+        ? { state: "inherited", summary: "Inherited from the repository's elysia.json" }
         : source === "environment" && scopedKeys.length > 0
           ? { state: "inherited", summary: `Inherited from ${inheritedFrom}` }
           : customized

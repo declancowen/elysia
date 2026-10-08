@@ -3,11 +3,11 @@ import {
   type AgentProfile,
   type ModelSelection,
   type ScopedProjectRef,
-} from "@t3tools/contracts";
-import { scopeThreadRef } from "@t3tools/client-runtime/environment";
-import { squashAtomCommandFailure } from "@t3tools/client-runtime/state/runtime";
-import { createModelSelection } from "@t3tools/shared/model";
-import { resolveProjectSettings } from "@t3tools/shared/projectSettings";
+} from "@elysiatools/contracts";
+import { scopeThreadRef } from "@elysiatools/client-runtime/environment";
+import { squashAtomCommandFailure } from "@elysiatools/client-runtime/state/runtime";
+import { createModelSelection } from "@elysiatools/shared/model";
+import { resolveProjectSettings } from "@elysiatools/shared/projectSettings";
 import { useLocation, useNavigate, useRouter } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { getAgentConversation } from "../../agentPresentation";

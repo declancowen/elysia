@@ -4,7 +4,7 @@ import {
   CONNECTIONS_ENABLED,
   UPSTREAM_ANALYTICS_ENABLED,
   isEnabledProviderDriver,
-} from "@t3tools/contracts";
+} from "@elysiatools/contracts";
 import { ElysiaSetupSection } from "../settings/ElysiaSetupSection";
 import { primaryServerProvidersAtom } from "../../state/server";
 import { useAuth } from "@clerk/react";
@@ -17,12 +17,12 @@ import type {
   ScopedProjectRef,
   ServerConfig,
   ServerProvider,
-} from "@t3tools/contracts";
-import { scopeProjectRef, scopeThreadRef } from "@t3tools/client-runtime/environment";
+} from "@elysiatools/contracts";
+import { scopeProjectRef, scopeThreadRef } from "@elysiatools/client-runtime/environment";
 import {
   isAtomCommandInterrupted,
   squashAtomCommandFailure,
-} from "@t3tools/client-runtime/state/runtime";
+} from "@elysiatools/client-runtime/state/runtime";
 import {
   AuthTerminalOperateScope,
   CommandId,
@@ -30,7 +30,7 @@ import {
   AuthOrchestrationOperateScope,
   ProviderDriverKind,
   ThreadId,
-} from "@t3tools/contracts";
+} from "@elysiatools/contracts";
 import * as Schema from "effect/Schema";
 import {
   ArrowRightIcon,
@@ -47,7 +47,7 @@ import { TYPOGRAPHY_ADVANCED_STORAGE_KEY } from "../../appearanceFonts";
 import { useLocalStorage } from "../../hooks/useLocalStorage";
 import { hasCloudPublicConfig } from "../../cloud/publicConfig";
 import { PRIVACY_POLICY_URL } from "../../legalLinks";
-import { useT3ConnectAuthPrompt } from "../clerk/useT3ConnectAuthPrompt";
+import { useElysiaConnectAuthPrompt } from "../clerk/useElysiaConnectAuthPrompt";
 import { useCompleteOnboarding } from "../../onboarding/firstRun";
 import {
   groupOnboardingProjects,
@@ -463,8 +463,7 @@ function ConnectionStep({
       <div className="mt-6 flex flex-col-reverse gap-4 sm:flex-row sm:items-center sm:justify-between sm:gap-6">
         {UPSTREAM_ANALYTICS_ENABLED ? (
           <p className="min-w-0 text-xs leading-relaxed text-muted-foreground">
-            T3 Code collects anonymous usage data to help us improve it. To read more about how your
-            data is used and how to opt out, see our{" "}
+            To read more about how your data is handled, see our{" "}
             <a
               className="underline underline-offset-2 hover:text-foreground"
               href={PRIVACY_POLICY_URL}
@@ -504,7 +503,7 @@ function ConnectAccountOption({
 }) {
   const { environments } = useEnvironments();
   const { isLoaded, isSignedIn } = useAuth({ treatPendingAsSignedOut: false });
-  const { openAuthPrompt } = useT3ConnectAuthPrompt();
+  const { openAuthPrompt } = useElysiaConnectAuthPrompt();
   const [expanded, setExpanded] = useState(true);
   const [discoveryReady, setDiscoveryReady] = useState(false);
   const onDiscoveryReady = useCallback(() => setDiscoveryReady(true), []);
@@ -560,7 +559,7 @@ function ConnectAccountOption({
             <p className="text-sm text-muted-foreground">
               Run this on each computer you want to connect.
             </p>
-            <CommandBlock command="npx t3 connect" className="mt-3" />
+            <CommandBlock command="elysia connect" className="mt-3" />
             <p className="mt-3 text-xs text-muted-foreground">
               Keep Elysia running. Select the computers you want to set up above.
             </p>
@@ -674,9 +673,9 @@ function PairingForm({
             <p className="pt-3 text-sm text-muted-foreground">
               Run this on the computer with your code.
             </p>
-            <CommandBlock command="npx t3 pair" className="mt-2" />
+            <CommandBlock command="elysia pair" className="mt-2" />
             <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
-              Start Elysia first, or run <code className="font-mono">npx t3 serve</code>. Add{" "}
+              Start Elysia first, or run <code className="font-mono">elysia serve</code>. Add{" "}
               <code className="font-mono">--tailscale</code> to use your tailnet.
             </p>
           </CollapsiblePanel>

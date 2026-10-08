@@ -34,7 +34,7 @@ describe("VcsProjectConfig", () => {
         const fileSystem = yield* FileSystem.FileSystem;
         const path = yield* Path.Path;
         const root = yield* fileSystem.makeTempDirectoryScoped({
-          prefix: "t3-vcs-config-test-",
+          prefix: "elysia-vcs-config-test-",
         });
         const configDir = path.join(root, ".t3code");
         const nested = path.join(root, "packages", "app");
@@ -64,7 +64,7 @@ describe("VcsProjectConfig", () => {
         const fileSystem = yield* FileSystem.FileSystem;
         const path = yield* Path.Path;
         const root = yield* fileSystem.makeTempDirectoryScoped({
-          prefix: "t3-vcs-config-test-",
+          prefix: "elysia-vcs-config-test-",
         });
         const configDir = path.join(root, ".t3code");
         const cwd = path.join(root, "invalid\0child");
@@ -78,7 +78,7 @@ describe("VcsProjectConfig", () => {
         const kind = yield* config.resolveKind({ cwd });
 
         assert.equal(kind, "jj");
-        const failedCandidate = path.join(cwd, ".t3code", "vcs.json");
+        const failedCandidate = path.join(cwd, ".elysia", "vcs.json");
         const [error] = messages[0] as ReadonlyArray<unknown>;
         assert.instanceOf(error, VcsProjectConfig.VcsProjectConfigError);
         assert.equal(
@@ -95,12 +95,37 @@ describe("VcsProjectConfig", () => {
     });
   });
 
+  it.layer(layerTest)("prefers Elysia overrides without hiding malformed new config", (it) => {
+    it.effect("uses the new file and never falls back after its decode fails", () =>
+      Effect.gen(function* () {
+        const fileSystem = yield* FileSystem.FileSystem;
+        const path = yield* Path.Path;
+        const root = yield* fileSystem.makeTempDirectoryScoped({
+          prefix: "elysia-vcs-config-test-",
+        });
+        for (const directory of [".elysia", ".t3code"]) {
+          yield* fileSystem.makeDirectory(path.join(root, directory));
+        }
+        yield* fileSystem.writeFileString(
+          path.join(root, ".t3code", "vcs.json"),
+          '{"vcsKind":"jj"}',
+        );
+        const newPath = path.join(root, ".elysia", "vcs.json");
+        yield* fileSystem.writeFileString(newPath, '{"vcsKind":"git"}');
+        const config = yield* VcsProjectConfig.VcsProjectConfig;
+        assert.equal(yield* config.resolveKind({ cwd: root }), "git");
+        yield* fileSystem.writeFileString(newPath, "{ malformed");
+        assert.equal(yield* config.resolveKind({ cwd: root }), "auto");
+      }),
+    );
+  });
+
   it.layer(layerTest)("falls back to auto when no config exists", (it) => {
     it.effect("returns auto", () =>
       Effect.gen(function* () {
         const fileSystem = yield* FileSystem.FileSystem;
         const root = yield* fileSystem.makeTempDirectoryScoped({
-          prefix: "t3-vcs-config-test-",
+          prefix: "elysia-vcs-config-test-",
         });
         const config = yield* VcsProjectConfig.VcsProjectConfig;
         const kind = yield* config.resolveKind({ cwd: root });
@@ -121,7 +146,7 @@ describe("VcsProjectConfig", () => {
         const fileSystem = yield* FileSystem.FileSystem;
         const path = yield* Path.Path;
         const root = yield* fileSystem.makeTempDirectoryScoped({
-          prefix: "t3-vcs-config-test-",
+          prefix: "elysia-vcs-config-test-",
         });
         const configDir = path.join(root, ".t3code");
         yield* fileSystem.makeDirectory(configDir, { recursive: true });
@@ -159,7 +184,7 @@ describe("VcsProjectConfig", () => {
         const fileSystem = yield* FileSystem.FileSystem;
         const path = yield* Path.Path;
         const root = yield* fileSystem.makeTempDirectoryScoped({
-          prefix: "t3-vcs-config-test-",
+          prefix: "elysia-vcs-config-test-",
         });
         const configPath = path.join(root, ".t3code", "vcs.json");
         yield* fileSystem.makeDirectory(configPath, { recursive: true });
@@ -188,7 +213,7 @@ describe("VcsProjectConfig", () => {
         const fileSystem = yield* FileSystem.FileSystem;
         const path = yield* Path.Path;
         const root = yield* fileSystem.makeTempDirectoryScoped({
-          prefix: "t3-vcs-config-test-",
+          prefix: "elysia-vcs-config-test-",
         });
         const configDir = path.join(root, ".t3code");
         yield* fileSystem.makeDirectory(configDir, { recursive: true });

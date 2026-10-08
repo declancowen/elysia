@@ -35,10 +35,10 @@ import {
   ThreadId,
   SERVER_BROWSER_AUTOMATION_CLIENT_ID,
   type PreviewAppearancePreference,
-} from "@t3tools/contracts";
-import { HostProcessEnvironment } from "@t3tools/shared/hostProcess";
-import { normalizePreviewUrl } from "@t3tools/shared/preview";
-import { resolvePreviewViewport } from "@t3tools/shared/previewViewport";
+} from "@elysiatools/contracts";
+import { HostProcessEnvironment } from "@elysiatools/shared/hostProcess";
+import { normalizePreviewUrl } from "@elysiatools/shared/preview";
+import { resolvePreviewViewport } from "@elysiatools/shared/previewViewport";
 import * as NodeCrypto from "node:crypto";
 import * as NodeFSP from "node:fs/promises";
 import * as NodePath from "node:path";
@@ -238,7 +238,7 @@ export class ServerBrowser extends Context.Service<
     /** Deletes a human profile's server-side storage, closing its open tabs first. */
     readonly clearProfile: (profileId: string) => Effect.Effect<void, PreviewClearProfileError>;
   }
->()("t3/preview/ServerBrowser") {}
+>()("@elysiatools/server/preview/ServerBrowser") {}
 
 interface ViewerState {
   readonly id: string;
@@ -2128,7 +2128,7 @@ const make = Effect.gen(function* () {
     (yield* PreviewBrowserHost.sandboxBlocked)
   ) {
     yield* Effect.logWarning(
-      `This host blocks the sandbox T3's browser runs in, so browser tabs and HTML previews will not start. Run \`${setupCommand}\` once to allow it.`,
+      `This host blocks the sandbox Elysia's browser runs in, so browser tabs and HTML previews will not start. Run \`${setupCommand}\` once to allow it.`,
     );
   }
   // The desktop took its page back (closed, swapped, crashed, or devtools opened).

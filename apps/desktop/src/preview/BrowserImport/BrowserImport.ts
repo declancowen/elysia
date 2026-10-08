@@ -9,8 +9,8 @@ import type {
   BrowserImportResult,
   BrowserImportSource,
   BrowserImportUnavailableReason,
-} from "@t3tools/contracts";
-import { BrowserImportFailureReason } from "@t3tools/contracts";
+} from "@elysiatools/contracts";
+import { BrowserImportFailureReason } from "@elysiatools/contracts";
 import * as Context from "effect/Context";
 import type { Session } from "electron";
 import * as Effect from "effect/Effect";
@@ -21,7 +21,7 @@ import * as Schema from "effect/Schema";
 import * as Scope from "effect/Scope";
 import { ChildProcessSpawner } from "effect/process";
 
-import { HostProcessExecutablePath, HostProcessPlatform } from "@t3tools/shared/hostProcess";
+import { HostProcessExecutablePath, HostProcessPlatform } from "@elysiatools/shared/hostProcess";
 
 import * as BrowserSession from "../BrowserSession.ts";
 import { ChromiumCookieReadError, readChromiumCookies } from "./ChromiumCookies.ts";
@@ -80,7 +80,7 @@ export class BrowserImport extends Context.Service<
       readonly namespace?: BrowserSession.BrowserSessionPartitionNamespace;
     }) => Effect.Effect<BrowserImportResult, BrowserImportFailedError>;
   }
->()("@t3tools/desktop/preview/BrowserImport/BrowserImport") {}
+>()("@elysiatools/desktop/preview/BrowserImport/BrowserImport") {}
 
 const unavailableReason = Effect.fn("BrowserImport.unavailableReason")(function* (
   definition: BrowserImportSourceDefinition,

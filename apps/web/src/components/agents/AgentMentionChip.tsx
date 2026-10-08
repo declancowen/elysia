@@ -4,11 +4,11 @@ import {
   type AgentGetDelegationResult,
   type MessageId,
   type ScopedThreadRef,
-} from "@t3tools/contracts";
-import { scopeProjectRef } from "@t3tools/client-runtime/environment";
+} from "@elysiatools/contracts";
+import { scopeProjectRef } from "@elysiatools/client-runtime/environment";
 import { useMemo } from "react";
 import { CircleCheckIcon, CircleAlertIcon, SquareIcon, ChannelIcon } from "~/icons";
-import { delegatedAgentsFromTurnItems } from "@t3tools/shared/agentMentions";
+import { delegatedAgentsFromTurnItems } from "@elysiatools/shared/agentMentions";
 import { useDelegatedAgents } from "./useDelegatedAgents";
 import { useProject, useThreadProjection, useThreadShell } from "~/state/entities";
 import { UnresolvedChip } from "../contextChipParts";

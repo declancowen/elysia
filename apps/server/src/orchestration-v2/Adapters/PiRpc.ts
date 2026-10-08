@@ -27,8 +27,8 @@ import * as Scope from "effect/Scope";
 import * as Schema from "effect/Schema";
 import * as Stream from "effect/Stream";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
-import { HostProcessPlatform } from "@t3tools/shared/hostProcess";
-import { resolveSpawnCommand } from "@t3tools/shared/shell";
+import { HostProcessPlatform } from "@elysiatools/shared/hostProcess";
+import { resolveSpawnCommand } from "@elysiatools/shared/shell";
 
 import { signalProcessGroup } from "../../process/processGroup.ts";
 

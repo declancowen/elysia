@@ -15,8 +15,8 @@ const state = vi.hoisted(() => ({
   save: vi.fn(),
   navigate: vi.fn(),
 }));
-vi.mock("@t3tools/contracts", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@t3tools/contracts")>()),
+vi.mock("@elysiatools/contracts", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@elysiatools/contracts")>()),
   get CONNECTIONS_ENABLED() {
     return state.connectionsEnabled;
   },

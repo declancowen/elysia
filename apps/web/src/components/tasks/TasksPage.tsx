@@ -1,7 +1,7 @@
 import { createPortal } from "react-dom";
-import { formatComposerContextReference } from "@t3tools/shared/composerContextReferences";
+import { formatComposerContextReference } from "@elysiatools/shared/composerContextReferences";
 import { useCopyToClipboard } from "../../hooks/useCopyToClipboard";
-import { formatCalendarDate } from "@t3tools/shared/dateFormat";
+import { formatCalendarDate } from "@elysiatools/shared/dateFormat";
 import {
   DndContext,
   DragOverlay,
@@ -35,8 +35,8 @@ import {
   type WorkTaskStatus,
   type ProjectId,
   type EnvironmentId,
-} from "@t3tools/contracts";
-import { squashAtomCommandFailure } from "@t3tools/client-runtime/state/runtime";
+} from "@elysiatools/contracts";
+import { squashAtomCommandFailure } from "@elysiatools/client-runtime/state/runtime";
 import { usePrimaryEnvironment } from "../../state/environments";
 import { useRegularProjects } from "../../hooks/useRegularProjects";
 import { useProjects } from "../../state/entities";

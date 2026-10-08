@@ -6,13 +6,17 @@ import { useAtomCommand } from "~/state/use-atom-command";
  * reads its people then: they are worth a request when somebody wants them and worth nothing on
  * every pull request they merely open.
  */
-import type { EnvironmentId, PullRequestLabelCandidate, PullRequestRef } from "@t3tools/contracts";
+import type {
+  EnvironmentId,
+  PullRequestLabelCandidate,
+  PullRequestRef,
+} from "@elysiatools/contracts";
 import { CheckIcon, TagIcon } from "~/icons";
 import { useMemo, useState } from "react";
 
 import { pullRequestEnvironment } from "~/state/pullRequests";
 import { useEnvironmentQuery } from "~/state/query";
-import { squashAtomCommandFailure } from "@t3tools/client-runtime/state/runtime";
+import { squashAtomCommandFailure } from "@elysiatools/client-runtime/state/runtime";
 
 import { toastManager } from "../ui/toast";
 import { PullRequestCandidatePicker } from "./PullRequestCandidatePicker";

@@ -3,7 +3,7 @@ import {
   type WorkspaceChatTarget,
   type WorkspaceChatLinkInput,
   type ThreadId,
-} from "@t3tools/contracts";
+} from "@elysiatools/contracts";
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -22,7 +22,7 @@ export class WorkspaceChatService extends Context.Service<
       input: WorkspaceChatLinkInput,
     ) => Effect.Effect<{ threadIds: ThreadId[] }, WorkspaceChatError>;
   }
->()("t3/workspace/WorkspaceChatService") {}
+>()("@elysiatools/server/workspace/WorkspaceChatService") {}
 const make = Effect.gen(function* () {
   const sql = yield* SqlClient.SqlClient;
   const threads = yield* Threads.ThreadManagementService;

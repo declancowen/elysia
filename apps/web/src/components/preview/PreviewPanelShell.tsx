@@ -1,4 +1,4 @@
-import { SINGLE_PROVIDER_UI } from "@t3tools/contracts";
+import { SINGLE_PROVIDER_UI } from "@elysiatools/contracts";
 import { type ReactNode, type RefObject, useLayoutEffect, useRef, useState } from "react";
 
 import {

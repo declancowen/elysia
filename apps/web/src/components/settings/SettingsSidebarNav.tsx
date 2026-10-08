@@ -6,7 +6,7 @@ import { readLocalApi } from "../../localApi";
 import { isElectron } from "~/env";
 import { ClockIcon } from "~/icons";
 import { useCodeWorkspace } from "~/hooks/useSettings";
-import { CONNECTIONS_ENABLED, SINGLE_PROVIDER_UI } from "@t3tools/contracts";
+import { CONNECTIONS_ENABLED, SINGLE_PROVIDER_UI } from "@elysiatools/contracts";
 import {
   lazy,
   Suspense,
@@ -65,13 +65,13 @@ import { type SettingsScopeSearch, validateSettingsScopeSearch } from "./setting
 
 const SnapShotIcon = ScanIcon;
 
-const T3ConnectSidebarSignIn = lazy(() =>
-  import("../clerk/T3ConnectSidebarSignIn").then((module) => ({
-    default: module.T3ConnectSidebarSignIn,
+const ElysiaConnectSidebarSignIn = lazy(() =>
+  import("../clerk/ElysiaConnectSidebarSignIn").then((module) => ({
+    default: module.ElysiaConnectSidebarSignIn,
   })),
 );
 const T3ConnectSidebarAvatar = lazy(() =>
-  import("../clerk/T3ConnectSidebarSignIn").then((module) => ({
+  import("../clerk/ElysiaConnectSidebarSignIn").then((module) => ({
     default: module.T3ConnectSidebarAvatar,
   })),
 );
@@ -436,7 +436,7 @@ export function SettingsSidebarNav({
       <SidebarFooter>
         {CONNECTIONS_ENABLED ? (
           <Suspense fallback={null}>
-            <T3ConnectSidebarSignIn />
+            <ElysiaConnectSidebarSignIn />
           </Suspense>
         ) : null}
         <div className="flex items-center gap-1">

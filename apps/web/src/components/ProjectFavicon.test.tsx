@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
-import type { EnvironmentId } from "@t3tools/contracts";
-import { PROJECT_FAVICON_FALLBACK_MARKER } from "@t3tools/shared/projectFavicon";
+import type { EnvironmentId } from "@elysiatools/contracts";
+import { PROJECT_FAVICON_FALLBACK_MARKER } from "@elysiatools/shared/projectFavicon";
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";

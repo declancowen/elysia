@@ -5,7 +5,7 @@ import {
   ProviderInstanceId,
   ThreadId,
   type AgentProfile,
-} from "@t3tools/contracts";
+} from "@elysiatools/contracts";
 import * as Cause from "effect/Cause";
 import { AsyncResult } from "effect/reactivity";
 import { act } from "react";

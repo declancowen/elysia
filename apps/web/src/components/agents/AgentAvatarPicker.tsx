@@ -1,5 +1,5 @@
 import { cn } from "../../lib/utils";
-import { agentAvatarPreset } from "@t3tools/shared/agentAvatar";
+import { agentAvatarPreset } from "@elysiatools/shared/agentAvatar";
 import {
   AGENT_AVATAR_COLORS,
   AGENT_AVATAR_PRESETS,

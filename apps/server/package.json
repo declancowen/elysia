@@ -1,13 +1,14 @@
 {
-  "name": "t3",
+  "name": "@elysiatools/server",
   "version": "0.0.13",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/pingdotgg/t3code",
+    "url": "https://github.com/declancowen/elysia",
     "directory": "apps/server"
   },
   "bin": {
+    "elysia": "./dist/bin.mjs",
     "t3": "./dist/bin.mjs"
   },
   "files": [
@@ -53,12 +54,12 @@
   },
   "devDependencies": {
     "@effect/vitest": "catalog:",
+    "@elysiatools/contracts": "workspace:*",
+    "@elysiatools/shared": "workspace:*",
+    "@elysiatools/ssh": "workspace:*",
+    "@elysiatools/tailscale": "workspace:*",
+    "@elysiatools/web": "workspace:*",
     "@modelcontextprotocol/sdk": "1.29.0",
-    "@t3tools/contracts": "workspace:*",
-    "@t3tools/shared": "workspace:*",
-    "@t3tools/ssh": "workspace:*",
-    "@t3tools/tailscale": "workspace:*",
-    "@t3tools/web": "workspace:*",
     "@types/node": "catalog:",
     "@types/proper-lockfile": "^4.1.4",
     "@types/yauzl": "^3.4.0",

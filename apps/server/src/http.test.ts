@@ -16,7 +16,7 @@ import * as Tracer from "effect/Tracer";
 import { HttpClient, HttpClientRequest, HttpRouter, HttpServerResponse } from "effect/http";
 import { openMediaFile } from "./assets/MediaFile.ts";
 
-import { ORCHESTRATION_PROTOCOL_HEADER } from "@t3tools/contracts";
+import { ORCHESTRATION_PROTOCOL_HEADER } from "@elysiatools/contracts";
 
 import * as ServerConfig from "./config.ts";
 
@@ -140,7 +140,7 @@ const makeStaticRequest = Effect.fn("HttpTest.makeStaticRequest")(function* (sta
 });
 
 it.layer(
-  ServerConfig.layerTest(process.cwd(), { prefix: "t3-static-http-test-" }).pipe(
+  ServerConfig.layerTest(process.cwd(), { prefix: "elysia-static-http-test-" }).pipe(
     Layer.provideMerge(NodeServices.layer),
   ),
 )("static HTTP responses", (it) => {
@@ -148,7 +148,7 @@ it.layer(
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;
       const path = yield* Path.Path;
-      const staticDir = yield* fs.makeTempDirectoryScoped({ prefix: "t3-static-cache-" });
+      const staticDir = yield* fs.makeTempDirectoryScoped({ prefix: "elysia-static-cache-" });
       const assetPath = path.join(staticDir, "app.js");
       yield* fs.writeFileString(assetPath, 'export const build = "first";');
       const request = yield* makeStaticRequest(staticDir);
@@ -191,7 +191,7 @@ it.layer(
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;
       const path = yield* Path.Path;
-      const staticDir = yield* fs.makeTempDirectoryScoped({ prefix: "t3-static-html-" });
+      const staticDir = yield* fs.makeTempDirectoryScoped({ prefix: "elysia-static-html-" });
       const indexPath = path.join(staticDir, "index.html");
       const modifiedAt = DateTime.toDateUtc(DateTime.makeUnsafe("1985-10-26T08:15:00.000Z"));
       yield* fs.writeFileString(indexPath, "<html>old build</html>");
@@ -230,7 +230,7 @@ it.layer(
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;
       const path = yield* Path.Path;
-      const staticDir = yield* fs.makeTempDirectoryScoped({ prefix: "t3-static-close-" });
+      const staticDir = yield* fs.makeTempDirectoryScoped({ prefix: "elysia-static-close-" });
       const filePath = path.join(staticDir, "app.txt");
       const body = "file content\n".repeat(1024);
       yield* fs.writeFileString(filePath, body);
@@ -316,7 +316,9 @@ describe("video asset byte ranges", () => {
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;
       const path = yield* Path.Path;
-      const directory = yield* fs.makeTempDirectoryScoped({ prefix: "t3-guarded-current-stat-" });
+      const directory = yield* fs.makeTempDirectoryScoped({
+        prefix: "elysia-guarded-current-stat-",
+      });
       const filePath = path.join(directory, "clip.mp4");
       for (const [contents, range, method, expected, status, contentRange] of [
         ["1234", undefined, "GET", "1234", 200, null],
@@ -359,7 +361,9 @@ describe("video asset byte ranges", () => {
       Effect.gen(function* () {
         const fs = yield* FileSystem.FileSystem;
         const path = yield* Path.Path;
-        const directory = yield* fs.makeTempDirectoryScoped({ prefix: "t3-guarded-offset-limit-" });
+        const directory = yield* fs.makeTempDirectoryScoped({
+          prefix: "elysia-guarded-offset-limit-",
+        });
         const filePath = path.join(directory, "clip.mp4");
         yield* fs.writeFileString(filePath, "0123456789");
         const canonicalPath = yield* fs.realPath(filePath);
@@ -402,7 +406,7 @@ describe("video asset byte ranges", () => {
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;
       const path = yield* Path.Path;
-      const directory = yield* fs.makeTempDirectoryScoped({ prefix: "t3-guarded-range-" });
+      const directory = yield* fs.makeTempDirectoryScoped({ prefix: "elysia-guarded-range-" });
       const filePath = path.join(directory, "clip.mp4");
       yield* fs.writeFileString(filePath, "0123456789");
       const canonicalPath = yield* fs.realPath(filePath);
@@ -442,7 +446,7 @@ describe("video asset byte ranges", () => {
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;
       const path = yield* Path.Path;
-      const directory = yield* fs.makeTempDirectoryScoped({ prefix: "t3-attachment-media-" });
+      const directory = yield* fs.makeTempDirectoryScoped({ prefix: "elysia-attachment-media-" });
       const filePath = path.join(directory, "audio.wav");
       yield* fs.writeFileString(filePath, "RIFF");
       const canonicalPath = yield* fs.realPath(filePath);
@@ -460,7 +464,7 @@ describe("video asset byte ranges", () => {
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;
       const path = yield* Path.Path;
-      const directory = yield* fs.makeTempDirectoryScoped({ prefix: "t3-guarded-cleanup-" });
+      const directory = yield* fs.makeTempDirectoryScoped({ prefix: "elysia-guarded-cleanup-" });
       const filePath = path.join(directory, "clip.mp4");
       const bytes = new Uint8Array(1024 * 1024).fill(42);
       yield* fs.writeFile(filePath, bytes);
@@ -507,7 +511,7 @@ describe("video asset byte ranges", () => {
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;
       const path = yield* Path.Path;
-      const directory = yield* fs.makeTempDirectoryScoped({ prefix: "t3-video-range-" });
+      const directory = yield* fs.makeTempDirectoryScoped({ prefix: "elysia-video-range-" });
       const file = path.join(directory, "clip.mp4");
       yield* fs.writeFileString(file, "0123456789");
       const asset = { path: file, mimeType: "video/mp4" };
@@ -562,7 +566,7 @@ describe("video asset byte ranges", () => {
       Effect.gen(function* () {
         const fs = yield* FileSystem.FileSystem;
         const path = yield* Path.Path;
-        const directory = yield* fs.makeTempDirectoryScoped({ prefix: "t3-audio-range-" });
+        const directory = yield* fs.makeTempDirectoryScoped({ prefix: "elysia-audio-range-" });
         const file = path.join(directory, "recording.wav");
         yield* fs.writeFileString(file, "0123456789");
         const asset = { path: file, mimeType: "audio/wav" };
@@ -590,7 +594,7 @@ describe("video asset byte ranges", () => {
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;
       const path = yield* Path.Path;
-      const directory = yield* fs.makeTempDirectoryScoped({ prefix: "t3-video-range-" });
+      const directory = yield* fs.makeTempDirectoryScoped({ prefix: "elysia-video-range-" });
       const file = path.join(directory, "clip.mp4");
       yield* fs.writeFileString(file, "0123456789");
       for (const header of ["bytes=10-", "bytes=-0", "bytes=999999999999999999999999-"]) {

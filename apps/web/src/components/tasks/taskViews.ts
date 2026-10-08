@@ -1,8 +1,8 @@
-import { ComposerContextId } from "@t3tools/contracts";
-import type { WorkTaskSummary, WorkTaskSaveInput, WorkTaskStatus } from "@t3tools/contracts";
-import type { OrchestrationV2ConversationMessage, WorkTaskId } from "@t3tools/contracts";
+import { ComposerContextId } from "@elysiatools/contracts";
+import type { WorkTaskSummary, WorkTaskSaveInput, WorkTaskStatus } from "@elysiatools/contracts";
+import type { OrchestrationV2ConversationMessage, WorkTaskId } from "@elysiatools/contracts";
 
-import { collectComposerContextReferences } from "@t3tools/shared/composerContextReferences";
+import { collectComposerContextReferences } from "@elysiatools/shared/composerContextReferences";
 
 export function isTaskRequest(text: string, id: WorkTaskId) {
   const firstLine = text.split("\n", 1)[0] ?? "";

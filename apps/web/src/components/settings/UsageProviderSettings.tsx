@@ -1,4 +1,4 @@
-import type { EnvironmentId, UnifiedSettings } from "@t3tools/contracts";
+import type { EnvironmentId, UnifiedSettings } from "@elysiatools/contracts";
 import { useAtomValue } from "@effect/atom-react";
 import { PlusIcon } from "~/icons";
 import { useState } from "react";

@@ -1,4 +1,4 @@
-import type { AgentProfile } from "@t3tools/contracts";
+import type { AgentProfile } from "@elysiatools/contracts";
 import { ChannelIcon } from "~/icons";
 import { cn } from "~/lib/utils";
 import { AgentAvatar } from "./AgentAvatar";

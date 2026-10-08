@@ -1,4 +1,4 @@
-import type { ServerConfig } from "@t3tools/contracts";
+import type { ServerConfig } from "@elysiatools/contracts";
 import * as Option from "effect/Option";
 
 import type { ConnectionCatalogEntry } from "./catalog.ts";
@@ -93,7 +93,7 @@ export function presentEnvironmentConnection(
 }
 
 /**
- * The address an agent outside T3 (Claude Code, Codex) uses to reach this
+ * The address an agent outside Elysia (Claude Code, Codex) uses to reach this
  * environment's MCP server. Only HTTPS and loopback addresses qualify: MCP
  * clients refuse to sign in through a plain-http token endpoint elsewhere.
  * SSH connections ride a local forward that disappears with the client, so

@@ -1,4 +1,4 @@
-import { APP_NAME } from "@t3tools/contracts";
+import { APP_NAME } from "@elysiatools/contracts";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Redacted from "effect/Redacted";

@@ -1,6 +1,6 @@
-import { threadRuntimeIsActive } from "@t3tools/client-runtime/state/models";
-import type { EnvironmentThreadShell } from "@t3tools/client-runtime/state/shell";
-import type { EnvironmentId } from "@t3tools/contracts";
+import { threadRuntimeIsActive } from "@elysiatools/client-runtime/state/models";
+import type { EnvironmentThreadShell } from "@elysiatools/client-runtime/state/shell";
+import type { EnvironmentId } from "@elysiatools/contracts";
 import { Pressable, View } from "react-native";
 
 import { AppText } from "../../components/AppText";

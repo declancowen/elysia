@@ -1,10 +1,10 @@
 import { ThreadDetailsControl } from "./ThreadDetailsControl";
-import type { EnvironmentId, ScopedThreadRef, ThreadPullRequestLink } from "@t3tools/contracts";
+import type { EnvironmentId, ScopedThreadRef, ThreadPullRequestLink } from "@elysiatools/contracts";
 import {
   resolveThreadPullRequestChains,
   threadPullRequestKeyOf,
   visibleThreadPullRequests,
-} from "@t3tools/shared/threadPullRequests";
+} from "@elysiatools/shared/threadPullRequests";
 import { Minus, Plus } from "~/icons";
 import { useState, type ComponentProps, type MouseEvent as ReactMouseEvent } from "react";
 

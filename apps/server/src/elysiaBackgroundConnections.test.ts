@@ -1,7 +1,7 @@
 import { assert, describe, it } from "@effect/vitest";
 import * as NodeServices from "@effect/platform-node/NodeServices";
-import { CONNECTIONS_ENABLED, ThreadId } from "@t3tools/contracts";
-import * as RelayClient from "@t3tools/shared/relayClient";
+import { CONNECTIONS_ENABLED, ThreadId } from "@elysiatools/contracts";
+import * as RelayClient from "@elysiatools/shared/relayClient";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Stream from "effect/Stream";

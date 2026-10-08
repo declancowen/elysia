@@ -4,14 +4,14 @@ import { UsageLimitRecoveryCard } from "./UsageLimitRecoveryCard";
 import { useNavigation } from "@react-navigation/native";
 import type { WorktreeSetupCardProps } from "./worktree-setup-card";
 import type { ComposerTextPaste } from "../../native/T3ComposerEditor.types";
-import { type EnvironmentConnectionPhase } from "@t3tools/client-runtime/connection";
-import type { EnvironmentThreadShell } from "@t3tools/client-runtime/state/shell";
+import { type EnvironmentConnectionPhase } from "@elysiatools/client-runtime/connection";
+import type { EnvironmentThreadShell } from "@elysiatools/client-runtime/state/shell";
 import type {
   CodexFeedbackSubmission,
   EnvironmentThreadStatus,
-} from "@t3tools/client-runtime/state/threads";
+} from "@elysiatools/client-runtime/state/threads";
 import { useKeyboardChatComposerInset, useKeyboardScrollToEnd } from "@legendapp/list/keyboard";
-import { resolveProviderSkillsForCwd } from "@t3tools/client-runtime/providerSkills";
+import { resolveProviderSkillsForCwd } from "@elysiatools/client-runtime/providerSkills";
 import type { LegendListRef } from "@legendapp/list/react-native";
 import { HeaderHeightContext } from "@react-navigation/elements";
 import type {
@@ -22,29 +22,29 @@ import type {
   ProviderInteractionMode,
   RuntimeMode,
   RuntimeRequestId,
-  ServerConfig as T3ServerConfig,
+  ServerConfig as ElysiaServerConfig,
   ThreadId,
   UsageLimitsReport,
-} from "@t3tools/contracts";
+} from "@elysiatools/contracts";
 import {
   appendCodexArtifactTemplateUsePrompt,
   type CodexArtifactTemplate,
-} from "@t3tools/client-runtime/codex-artifact-templates";
-import type { ThreadUserInputQuestion } from "@t3tools/client-runtime/state/thread-requests";
+} from "@elysiatools/client-runtime/codex-artifact-templates";
+import type { ThreadUserInputQuestion } from "@elysiatools/client-runtime/state/thread-requests";
 import {
   presentPendingBackgroundWork,
   presentProviderGoal,
-} from "@t3tools/client-runtime/state/thread-execution";
-import { resolveSubagentPillSegment } from "@t3tools/client-runtime/state/thread-subagents";
+} from "@elysiatools/client-runtime/state/thread-execution";
+import { resolveSubagentPillSegment } from "@elysiatools/client-runtime/state/thread-subagents";
 import {
   formatModelSelectionEffort,
   type ProviderSubagentStatus,
-} from "@t3tools/client-runtime/state/thread-execution";
-import { formatModelSlugName, resolveSelectableModel } from "@t3tools/shared/model";
-import { isProviderNativeSubagentThread } from "@t3tools/contracts";
+} from "@elysiatools/client-runtime/state/thread-execution";
+import { formatModelSlugName, resolveSelectableModel } from "@elysiatools/shared/model";
+import { isProviderNativeSubagentThread } from "@elysiatools/contracts";
 import type { QueuedRunEdit } from "../../state/queued-run-edit";
 import type { FollowUpBehavior } from "../../lib/followUpBehavior";
-import type { ActiveTurnComposerAction } from "@t3tools/client-runtime/state/composer-dispatch";
+import type { ActiveTurnComposerAction } from "@elysiatools/client-runtime/state/composer-dispatch";
 import * as Haptics from "expo-haptics";
 import {
   memo,
@@ -85,7 +85,7 @@ import Animated, {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useWorkspaceContentWidth } from "../layout/workspace-content-width";
 import { useAppearancePreferences } from "../settings/appearance/AppearancePreferencesProvider";
-import { collectProviderUsageLimits } from "@t3tools/shared/usageLimits";
+import { collectProviderUsageLimits } from "@elysiatools/shared/usageLimits";
 import type { ComposerEditorHandle } from "../../components/ComposerEditor";
 import type { StatusTone } from "../../components/StatusPill";
 import type { DraftComposerAttachment } from "../../lib/composerImages";
@@ -202,7 +202,7 @@ export interface ThreadDetailScreenProps {
   readonly selectedThreadQueueCount: number;
   readonly queuedMessages: ReadonlyArray<QueuedThreadMessage>;
   readonly dispatchingMessageId: MessageId | null;
-  readonly serverConfig: T3ServerConfig | null;
+  readonly serverConfig: ElysiaServerConfig | null;
   readonly layoutVariant?: LayoutVariant;
   readonly usesAutomaticContentInsets?: boolean;
   readonly onHeaderMaterialVisibilityChange?: (visible: boolean) => void;

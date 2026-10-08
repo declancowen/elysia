@@ -1,4 +1,4 @@
-import { type ProviderSetupError, TextGenerationError } from "@t3tools/contracts";
+import { type ProviderSetupError, TextGenerationError } from "@elysiatools/contracts";
 import * as Deferred from "effect/Deferred";
 import * as Effect from "effect/Effect";
 import * as Exit from "effect/Exit";
@@ -117,7 +117,7 @@ export const makeAntigravityTextGeneration = Effect.fn("makeAntigravityTextGener
           });
         }
 
-        const cwd = yield* fs.makeTempDirectoryScoped({ prefix: "t3-antigravity-text-" });
+        const cwd = yield* fs.makeTempDirectoryScoped({ prefix: "elysia-antigravity-text-" });
         let sessionId: string | undefined;
         yield* Effect.addFinalizer(() =>
           removeAntigravitySessionFiles({

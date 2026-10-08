@@ -32,11 +32,11 @@ vp run dev:desktop
 Build the web and server packages with:
 
 ```bash
-vp run --filter @t3tools/web build
-vp run --filter t3 build
+vp run --filter @elysiatools/web build
+vp run --filter @elysiatools/server build
 ```
 
-Internal package names remain compatible with the upstream repository. Development state is isolated from an installed app. Recent includes threads started without a project.
+Workspace packages use the `@elysiatools` scope. Development state is isolated from an installed app. Recent includes threads started without a project.
 
 ## Origins and acknowledgements
 

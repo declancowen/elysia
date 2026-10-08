@@ -1,7 +1,7 @@
-import * as OtelEnvironment from "@t3tools/shared/otelEnvironment";
-import { DEFAULT_SIGNAL_EXPORT } from "@t3tools/shared/observability";
+import * as OtelEnvironment from "@elysiatools/shared/otelEnvironment";
+import { DEFAULT_SIGNAL_EXPORT } from "@elysiatools/shared/observability";
 import * as NodeServices from "@effect/platform-node/NodeServices";
-import { type ProviderReplayTranscript } from "@t3tools/contracts";
+import { type ProviderReplayTranscript } from "@elysiatools/contracts";
 import * as CodexClient from "effect-codex-app-server/client";
 import type * as CodexError from "effect-codex-app-server/errors";
 import * as CodexReplay from "effect-codex-app-server/replay";
@@ -254,7 +254,11 @@ export const CodexOrchestratorReplayHarness: OrchestratorV2ProviderReplayHarness
           const frame = entry.frame;
           if (frame.method !== "initialize" || !Predicate.isObject(frame.params)) return entry;
           const clientInfo = frame.params.clientInfo;
-          if (!Predicate.isObject(clientInfo) || clientInfo.name !== "T3 Code") return entry;
+          if (
+            !Predicate.isObject(clientInfo) ||
+            !["Elysia", "T3 Code"].includes(String(clientInfo.name))
+          )
+            return entry;
           return {
             ...entry,
             frame: {

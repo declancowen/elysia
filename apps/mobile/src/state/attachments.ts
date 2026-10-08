@@ -1,10 +1,10 @@
-import { createAttachmentEnvironmentAtoms } from "@t3tools/client-runtime/state/attachments";
-import type { AtomCommand } from "@t3tools/client-runtime/state/runtime";
+import { createAttachmentEnvironmentAtoms } from "@elysiatools/client-runtime/state/attachments";
+import type { AtomCommand } from "@elysiatools/client-runtime/state/runtime";
 import {
   AuthOrchestrationOperateScope,
   EnvironmentAuthorizationError,
   type EnvironmentId,
-} from "@t3tools/contracts";
+} from "@elysiatools/contracts";
 import * as Cause from "effect/Cause";
 import { AsyncResult } from "effect/reactivity";
 

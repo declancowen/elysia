@@ -5,8 +5,8 @@ import * as NodePath from "node:path";
 
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { assert, it } from "@effect/vitest";
-import { ProviderInstanceId, type OpenCodeSettings } from "@t3tools/contracts";
-import { HostProcessPlatform } from "@t3tools/shared/hostProcess";
+import { ProviderInstanceId, type OpenCodeSettings } from "@elysiatools/contracts";
+import { HostProcessPlatform } from "@elysiatools/shared/hostProcess";
 import * as Effect from "effect/Effect";
 import * as Fiber from "effect/Fiber";
 import * as Layer from "effect/Layer";
@@ -48,7 +48,7 @@ const openCode2Runtime = {
 } as unknown as OpenCodeRuntime.OpenCodeRuntimeShape;
 
 const layer = Layer.mergeAll(
-  ServerConfig.layerTest(process.cwd(), { prefix: "t3-opencode-driver-" }),
+  ServerConfig.layerTest(process.cwd(), { prefix: "elysia-opencode-driver-" }),
   IdAllocator.layer,
   ServerSettings.layerTest(),
   Layer.mock(BackgroundPolicy.BackgroundPolicy)({}),
@@ -212,7 +212,7 @@ const changingRuntime = {
   connectToOpenCodeServer: () => reachedServer("connect"),
 } as unknown as OpenCodeRuntime.OpenCodeRuntimeShape;
 const layerUpdate = Layer.mergeAll(
-  ServerConfig.layerTest(process.cwd(), { prefix: "t3-opencode-driver-update-" }),
+  ServerConfig.layerTest(process.cwd(), { prefix: "elysia-opencode-driver-update-" }),
   IdAllocator.layer,
   ServerSettings.layerTest(),
   Layer.mock(BackgroundPolicy.BackgroundPolicy)({}),

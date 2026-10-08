@@ -5,7 +5,7 @@ import {
   ProviderInstanceId,
   ProviderSessionId,
   ThreadId,
-} from "@t3tools/contracts";
+} from "@elysiatools/contracts";
 import { describe, it } from "@effect/vitest";
 import { expect } from "vite-plus/test";
 import * as Schema from "effect/Schema";

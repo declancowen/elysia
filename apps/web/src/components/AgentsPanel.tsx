@@ -1,4 +1,4 @@
-import { resolveThreadLineageWindow } from "@t3tools/client-runtime/state/thread-relationships";
+import { resolveThreadLineageWindow } from "@elysiatools/client-runtime/state/thread-relationships";
 /**
  * Agents right-panel surface: the fleet view over V2 projected subagents.
  * The chat carries one expandable row per spawn batch and links here.
@@ -16,12 +16,12 @@ import type {
   AgentPanelModel,
   AgentPanelWorkflowGroup,
   RuntimeSubagent,
-} from "@t3tools/client-runtime/state/subagentRuntime";
+} from "@elysiatools/client-runtime/state/subagentRuntime";
 import {
   formatSubagentModelLabel,
   formatSubagentTokenCount,
-} from "@t3tools/client-runtime/state/subagentRuntime";
-import type { EnvironmentId, ThreadId } from "@t3tools/contracts";
+} from "@elysiatools/client-runtime/state/subagentRuntime";
+import type { EnvironmentId, ThreadId } from "@elysiatools/contracts";
 import { Bot, Braces, Check, ChevronDown, ChevronRight, X } from "~/icons";
 import { useEffect, useRef, useState } from "react";
 

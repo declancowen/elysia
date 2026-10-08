@@ -1,4 +1,7 @@
-import { OFFICE_PREVIEW_MAX_BYTES, type OfficePreviewFormat } from "@t3tools/shared/filePreview";
+import {
+  OFFICE_PREVIEW_MAX_BYTES,
+  type OfficePreviewFormat,
+} from "@elysiatools/shared/filePreview";
 
 /** Bound expanded Office archives before handing them to a renderer. */
 function validateOfficePreview(bytes: Uint8Array, format: OfficePreviewFormat) {

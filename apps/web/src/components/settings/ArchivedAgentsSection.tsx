@@ -1,5 +1,5 @@
-import type { EnvironmentId } from "@t3tools/contracts";
-import { squashAtomCommandFailure } from "@t3tools/client-runtime/state/runtime";
+import type { EnvironmentId } from "@elysiatools/contracts";
+import { squashAtomCommandFailure } from "@elysiatools/client-runtime/state/runtime";
 import { RotateCcwIcon, ChannelIcon } from "~/icons";
 import { useMemo, useRef, useState } from "react";
 import { useEnvironments } from "../../state/environments";

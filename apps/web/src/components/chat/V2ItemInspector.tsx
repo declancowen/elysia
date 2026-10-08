@@ -3,14 +3,14 @@ import type {
   OrchestrationV2ProjectedTurnItem,
   RunId,
   ThreadId,
-} from "@t3tools/contracts";
+} from "@elysiatools/contracts";
 import {
   toolCallLines,
   turnItemDetailRevision,
   turnItemNeedsDetailFetch,
   turnItemOutputImages,
   turnItemOutputText,
-} from "@t3tools/client-runtime/work-log/item-detail";
+} from "@elysiatools/client-runtime/work-log/item-detail";
 import { ExternalLinkIcon, GitBranchIcon, RotateCcwIcon } from "~/icons";
 import { memo, Suspense, use, useMemo } from "react";
 

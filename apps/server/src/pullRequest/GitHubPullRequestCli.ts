@@ -40,7 +40,7 @@ import {
   type PullRequestThreadCommentsResult,
   type PullRequestUpdateMethod,
   type PullRequestPreview,
-} from "@t3tools/contracts";
+} from "@elysiatools/contracts";
 
 import { AllowGitHubReserve } from "../sourceControl/GitHubCli.ts";
 import * as GitHubApi from "../sourceControl/GitHubApi.ts";
@@ -803,7 +803,7 @@ export class GitHubPullRequestCli extends Context.Service<
       readonly body: string;
     }) => Effect.Effect<void, GitHubPullRequestCliError>;
   }
->()("t3/pullRequest/GitHubPullRequestCli") {}
+>()("@elysiatools/server/pullRequest/GitHubPullRequestCli") {}
 
 /**
  * The GraphQL API takes owner and name as separate arguments, so `owner/repo` is split here.

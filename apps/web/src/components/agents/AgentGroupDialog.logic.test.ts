@@ -4,7 +4,7 @@ import {
   ProviderInstanceId,
   ThreadId,
   type AgentProfile,
-} from "@t3tools/contracts";
+} from "@elysiatools/contracts";
 import { describe, expect, it } from "vite-plus/test";
 
 import {

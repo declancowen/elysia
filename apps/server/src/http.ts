@@ -1,12 +1,12 @@
-import { CONNECTIONS_ENABLED, isConnectionsHttpPath } from "@t3tools/contracts";
+import { CONNECTIONS_ENABLED, isConnectionsHttpPath } from "@elysiatools/contracts";
 import * as Mime from "effect/http/Mime";
 import {
   AuthOrchestrationOperateScope,
   AuthOrchestrationReadScope,
   EnvironmentHttpApi,
-} from "@t3tools/contracts";
-import { isDevProxiedPath } from "@t3tools/shared/devProxy";
-import { decodeOtlpTraceRecords } from "@t3tools/shared/observability";
+} from "@elysiatools/contracts";
+import { isDevProxiedPath } from "@elysiatools/shared/devProxy";
+import { decodeOtlpTraceRecords } from "@elysiatools/shared/observability";
 import * as Data from "effect/Data";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";

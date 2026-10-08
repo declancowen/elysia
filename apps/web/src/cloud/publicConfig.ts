@@ -1,6 +1,6 @@
-import { CONNECTIONS_ENABLED } from "@t3tools/contracts";
-import { relayClerkTokenOptions } from "@t3tools/shared/relayAuth";
-import { normalizeSecureRelayUrl } from "@t3tools/shared/relayUrl";
+import { CONNECTIONS_ENABLED } from "@elysiatools/contracts";
+import { relayClerkTokenOptions } from "@elysiatools/shared/relayAuth";
+import { normalizeSecureRelayUrl } from "@elysiatools/shared/relayUrl";
 import * as Schema from "effect/Schema";
 
 export class CloudPublicConfigMissingError extends Schema.TaggedError<CloudPublicConfigMissingError>()(

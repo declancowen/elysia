@@ -9,11 +9,11 @@ import {
   type ProjectId,
   type ThreadId,
   type WorkspaceChatTarget,
-} from "@t3tools/contracts";
-import { scopeProjectRef, scopeThreadRef } from "@t3tools/client-runtime/environment";
-import { squashAtomCommandFailure } from "@t3tools/client-runtime/state/runtime";
-import { resolveProjectSettings } from "@t3tools/shared/projectSettings";
-import { formatComposerContextReference } from "@t3tools/shared/composerContextReferences";
+} from "@elysiatools/contracts";
+import { scopeProjectRef, scopeThreadRef } from "@elysiatools/client-runtime/environment";
+import { squashAtomCommandFailure } from "@elysiatools/client-runtime/state/runtime";
+import { resolveProjectSettings } from "@elysiatools/shared/projectSettings";
+import { formatComposerContextReference } from "@elysiatools/shared/composerContextReferences";
 import { usePanelAnimationSettings, usePanelPresence } from "../panelAnimations";
 import { cn } from "../lib/utils";
 import { getDefaultServerModel } from "../providerModels";

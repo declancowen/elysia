@@ -1,5 +1,5 @@
-import type { ProviderDriverKind, ProviderOptionDescriptor } from "@t3tools/contracts";
-import { getProviderOptionCurrentValue } from "@t3tools/shared/model";
+import type { ProviderDriverKind, ProviderOptionDescriptor } from "@elysiatools/contracts";
+import { getProviderOptionCurrentValue } from "@elysiatools/shared/model";
 import { ZapIcon } from "~/icons";
 import { UltrafastIcon } from "../Icons";
 import { cn } from "~/lib/utils";

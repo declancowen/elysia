@@ -1,4 +1,4 @@
-import { isModelSelectionProviderEnabled } from "@t3tools/shared/serverSettings";
+import { isModelSelectionProviderEnabled } from "@elysiatools/shared/serverSettings";
 import {
   DEFAULT_SERVER_SETTINGS,
   ProviderDriverKind,
@@ -9,7 +9,7 @@ import {
   CONNECTIONS_ENABLED,
   UPSTREAM_ANALYTICS_ENABLED,
   type ServerProvider,
-} from "@t3tools/contracts";
+} from "@elysiatools/contracts";
 import { expect, it } from "vite-plus/test";
 import { BUILT_IN_DRIVERS } from "./builtInDrivers.ts";
 import { deriveProviderInstanceConfigMap } from "./ProviderInstanceRegistryHydration.ts";

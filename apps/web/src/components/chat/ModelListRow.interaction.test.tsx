@@ -2,7 +2,7 @@
 import { act, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { expect, it, vi } from "vite-plus/test";
-import { ProviderDriverKind, ProviderInstanceId } from "@t3tools/contracts";
+import { ProviderDriverKind, ProviderInstanceId } from "@elysiatools/contracts";
 import { Combobox, ComboboxList, ComboboxPopup, ComboboxTrigger } from "../ui/combobox";
 import { ModelListRow } from "./ModelListRow";
 it.each([null, "Start a new chat to use this model"])(

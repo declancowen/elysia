@@ -178,7 +178,7 @@ jobs:
       - name: Install packaging dependencies
         env:
           pnpm_config_cache_dir: ${{ runner.temp }}/pnpm-metadata
-        run: vp install --filter=t3... --filter=@t3tools/scripts... ${{ inputs.build_desktop && '--filter=@t3tools/desktop...' || '' }}
+        run: vp install --filter=@elysiatools/server... --filter=@elysiatools/scripts... ${{ inputs.build_desktop && '--filter=@elysiatools/desktop...' || '' }}
 
       - name: Cache resource monitor
         id: resource_monitor_cache

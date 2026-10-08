@@ -9,8 +9,8 @@ import {
   RunAttemptId,
   RunId,
   ThreadId,
-} from "@t3tools/contracts";
-import { resolveSelfInvocation } from "@t3tools/shared/nodeRuntime";
+} from "@elysiatools/contracts";
+import { resolveSelfInvocation } from "@elysiatools/shared/nodeRuntime";
 import * as Crypto from "effect/Crypto";
 import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
@@ -129,7 +129,7 @@ describe("AntigravityAdapterV2 flavor", () => {
 const layerSession = Layer.mergeAll(
   NodeServices.layer,
   IdAllocator.layer,
-  ServerConfig.layerTest(process.cwd(), { prefix: "t3-antigravity-v2-adapter-" }).pipe(
+  ServerConfig.layerTest(process.cwd(), { prefix: "elysia-antigravity-v2-adapter-" }).pipe(
     Layer.provide(NodeServices.layer),
   ),
 );
@@ -186,10 +186,10 @@ describe("AntigravityAdapterV2 client file system", () => {
         defaultModel: Effect.succeed(undefined),
       });
       const workspace = yield* fileSystem.makeTempDirectoryScoped({
-        prefix: "t3-antigravity-workspace-",
+        prefix: "elysia-antigravity-workspace-",
       });
       const outside = yield* fileSystem.makeTempDirectoryScoped({
-        prefix: "t3-antigravity-outside-",
+        prefix: "elysia-antigravity-outside-",
       });
       const outsideFile = path.join(outside, "secret.txt");
       yield* fileSystem.writeFileString(outsideFile, "secret");
@@ -333,8 +333,8 @@ describe("AntigravityAdapterV2 workspace changes", () => {
         withProcess: (_stop, task) => task,
         defaultModel: Effect.succeed(undefined),
       });
-      const workspaceA = yield* fileSystem.makeTempDirectoryScoped({ prefix: "t3-ag-a-" });
-      const workspaceB = yield* fileSystem.makeTempDirectoryScoped({ prefix: "t3-ag-b-" });
+      const workspaceA = yield* fileSystem.makeTempDirectoryScoped({ prefix: "elysia-ag-a-" });
+      const workspaceB = yield* fileSystem.makeTempDirectoryScoped({ prefix: "elysia-ag-b-" });
       yield* fileSystem.writeFileString(path.join(workspaceA, "a.txt"), "from a");
       yield* fileSystem.writeFileString(path.join(workspaceB, "b.txt"), "from b");
       const policyFor = (cwd: string) =>
@@ -424,7 +424,7 @@ describe("AntigravityAdapterV2 workspace changes", () => {
 });
 
 describe("AntigravityAdapterV2 client file system under restrictive policies", () => {
-  // Antigravity asks before each of its own edits, so T3 serves an opted-in
+  // Antigravity asks before each of its own edits, so Elysia serves an opted-in
   // write whatever the thread's policy says, confined to the workspace.
   it.effect("serves in-workspace reads and writes and still refuses outside paths", () =>
     Effect.gen(function* () {
@@ -488,10 +488,10 @@ describe("AntigravityAdapterV2 client file system under restrictive policies", (
           defaultModel: Effect.succeed(undefined),
         });
         const workspace = yield* fileSystem.makeTempDirectoryScoped({
-          prefix: "t3-ag-restrictive-",
+          prefix: "elysia-ag-restrictive-",
         });
         const outside = yield* fileSystem.makeTempDirectoryScoped({
-          prefix: "t3-ag-restrictive-outside-",
+          prefix: "elysia-ag-restrictive-outside-",
         });
         yield* fileSystem.writeFileString(path.join(workspace, "existing.ts"), "existing");
         const threadId = ThreadId.make(`thread-antigravity-restrictive-${policy.runtimeMode}`);

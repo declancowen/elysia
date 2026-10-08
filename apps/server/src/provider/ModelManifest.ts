@@ -18,8 +18,8 @@ import {
   TrimmedNonEmptyString,
   type ProviderDriverKind,
   type ServerProviderModel,
-} from "@t3tools/contracts";
-import { codexModelFamily } from "@t3tools/shared/model";
+} from "@elysiatools/contracts";
+import { codexModelFamily } from "@elysiatools/shared/model";
 import * as Clock from "effect/Clock";
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
@@ -325,7 +325,7 @@ export class ModelManifest extends Context.Service<
      * the teardown of whichever instance happened to trigger it. */
     readonly refreshInBackground: Effect.Effect<void>;
   }
->()("t3/provider/ModelManifest") {}
+>()("@elysiatools/server/provider/ModelManifest") {}
 
 /** Constant service backing the bundled-data test layer. */
 const BundledOnlyModelManifest: ModelManifest["Service"] = {

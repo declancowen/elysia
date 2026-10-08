@@ -3,10 +3,10 @@ import {
   ProviderDriverKind,
   ProviderInstanceId,
   type ServerProvider,
-} from "@t3tools/contracts";
-import { DEFAULT_UNIFIED_SETTINGS, type UnifiedSettings } from "@t3tools/contracts/settings";
+} from "@elysiatools/contracts";
+import { DEFAULT_UNIFIED_SETTINGS, type UnifiedSettings } from "@elysiatools/contracts/settings";
 import { describe, expect, it, vi } from "vite-plus/test";
-import { createModelSelection } from "@t3tools/shared/model";
+import { createModelSelection } from "@elysiatools/shared/model";
 import { deriveEffectiveComposerModelState } from "./composerDraftStore";
 import { getComposerProviderState } from "./components/chat/composerProviderState";
 import { deriveProviderInstanceEntries, NO_PROVIDER_MODEL_SELECTION } from "./providerInstances";
@@ -925,7 +925,7 @@ describe("resolveAppModelSelectionState with the opencode plan agent", () => {
 // Exercise retained upstream provider behavior; Elysia policy has separate native-only tests.
 vi.mock("../../../packages/contracts/src/forkPolicy.ts", async (importOriginal) => ({
   ...(await importOriginal<
-    Pick<typeof import("@t3tools/contracts"), "isEnabledProviderDriver" | "SINGLE_PROVIDER_UI">
+    Pick<typeof import("@elysiatools/contracts"), "isEnabledProviderDriver" | "SINGLE_PROVIDER_UI">
   >()),
   isEnabledProviderDriver: () => true,
   SINGLE_PROVIDER_UI: false,

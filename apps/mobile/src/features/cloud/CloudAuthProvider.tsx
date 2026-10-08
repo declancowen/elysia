@@ -1,13 +1,13 @@
-import { CONNECTIONS_ENABLED } from "@t3tools/contracts";
+import { CONNECTIONS_ENABLED } from "@elysiatools/contracts";
 import { ClerkProvider, useAuth } from "@clerk/expo";
 import { tokenCache } from "@clerk/expo/token-cache";
-import { ManagedRelay, setManagedRelaySession } from "@t3tools/client-runtime/relay";
+import { ManagedRelay, setManagedRelaySession } from "@elysiatools/client-runtime/relay";
 import {
   reportAtomCommandResult,
   settleAsyncResult,
   settlePromise,
   squashAtomCommandFailure,
-} from "@t3tools/client-runtime/state/runtime";
+} from "@elysiatools/client-runtime/state/runtime";
 import * as Effect from "effect/Effect";
 import { type ReactNode, useEffect, useRef } from "react";
 

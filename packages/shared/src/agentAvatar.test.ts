@@ -1,4 +1,4 @@
-import type { AgentProfile } from "@t3tools/contracts";
+import type { AgentProfile } from "@elysiatools/contracts";
 import { expect, it } from "vite-plus/test";
 import { AGENT_AVATAR_SHAPES, resolveAgentAvatar } from "./agentAvatar.ts";
 

@@ -16,8 +16,8 @@ const retainedForkExports: Readonly<Record<string, ReadonlyArray<string>>> = {
   "apps/server/src/cloud/bootService.ts": ["BOOT_SERVICE_LOG_FILE"],
   // Stable branding uses this helper internally; retain its upstream public API.
   "apps/web/src/branding.logic.ts": ["formatAppDisplayName"],
-  // Retained Connections and T3 Connect screens consume these APIs.
-  "apps/web/src/components/clerk/T3ConnectAccountPages.tsx": ["useT3ConnectAccountPage"],
+  // Retained Connections and Elysia Connect screens consume these APIs.
+  "apps/web/src/components/clerk/ElysiaConnectAccountPages.tsx": ["useT3ConnectAccountPage"],
   "apps/web/src/components/settings/EnvironmentIconPicker.tsx": ["EnvironmentIconMenu"],
   "apps/web/src/components/settings/EnvironmentRow.tsx": ["formatDesktopSshTarget"],
   "apps/web/src/components/settings/GitHubRoutingSettings.tsx": ["GitHubRoutingSettings"],

@@ -1,4 +1,4 @@
-import { OrchestratorMcpFailure, type PageError } from "@t3tools/contracts";
+import { OrchestratorMcpFailure, type PageError } from "@elysiatools/contracts";
 import * as Effect from "effect/Effect";
 import * as Pages from "../../../pages/PageService.ts";
 import { readCaller, unavailable } from "../../threadAccess.ts";

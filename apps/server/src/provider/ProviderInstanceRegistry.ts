@@ -55,7 +55,7 @@ import {
   type ProviderInstanceConfigMap,
   type ProviderDriverKind,
   type ServerProvider,
-} from "@t3tools/contracts";
+} from "@elysiatools/contracts";
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Equal from "effect/Equal";
@@ -127,7 +127,7 @@ export class ProviderInstanceRegistry extends Context.Service<
      */
     readonly subscribeChanges: Effect.Effect<PubSub.Subscription<void>, never, Scope.Scope>;
   }
->()("t3/provider/ProviderInstanceRegistry") {}
+>()("@elysiatools/server/provider/ProviderInstanceRegistry") {}
 
 /**
  * Live registry entry: the materialized `ProviderInstance` + the fresh

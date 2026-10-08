@@ -1,4 +1,4 @@
-import { OrchestratorMcpFailure } from "@t3tools/contracts";
+import { OrchestratorMcpFailure } from "@elysiatools/contracts";
 import * as Effect from "effect/Effect";
 import * as TaskService from "../../../tasks/TaskService.ts";
 import { readCaller } from "../../threadAccess.ts";

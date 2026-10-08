@@ -1,7 +1,7 @@
-import { scopedThreadKey } from "@t3tools/client-runtime/environment";
+import { scopedThreadKey } from "@elysiatools/client-runtime/environment";
 import type { ThreadRouteTarget } from "./threadRoutes";
 import type { PullRequestRowTarget } from "./components/pullRequest/PullRequestRow";
-import type { EnvironmentId, PageId, WorkTaskId } from "@t3tools/contracts";
+import type { EnvironmentId, PageId, WorkTaskId } from "@elysiatools/contracts";
 import { scheduledTabKey, type ScheduledTabTarget } from "./scheduledTabsStore";
 import type { SettingsPath } from "./components/settings/settingsSearch";
 import type { SettingsScopeSearch } from "./components/settings/settingsScope";

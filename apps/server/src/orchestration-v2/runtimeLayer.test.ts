@@ -29,7 +29,7 @@ import {
   RunId,
   ScheduledTaskId,
   ThreadId,
-} from "@t3tools/contracts";
+} from "@elysiatools/contracts";
 import * as Effect from "effect/Effect";
 import * as DateTime from "effect/DateTime";
 import * as Deferred from "effect/Deferred";
@@ -86,7 +86,7 @@ const layerPlatformTest = Layer.merge(
 );
 
 const layerServerConfig = ServerConfig.layerTest(process.cwd(), {
-  prefix: "t3-orchestration-v2-runtime-layer-",
+  prefix: "elysia-orchestration-v2-runtime-layer-",
 });
 
 const modelSelection = {
@@ -3299,7 +3299,7 @@ it.layer(layerTest)("OrchestrationV2LayerLive lifecycle", (it) => {
           commandId: CommandId.make(`restart-${status}-continuation`),
           threadId,
           messageId: MessageId.make(`restart-${status}-continuation`),
-          text: "Note: the T3 server restarted.",
+          text: "Note: the Elysia server restarted.",
           attachments: [],
           modelSelection,
           dispatchMode: { type: "start_immediately" },

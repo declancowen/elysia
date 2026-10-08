@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vite-plus/test";
 
-import { ThreadId, TurnItemId, type OrchestrationV2TurnItem } from "@t3tools/contracts";
+import { ThreadId, TurnItemId, type OrchestrationV2TurnItem } from "@elysiatools/contracts";
 import * as DateTime from "effect/DateTime";
-import { ELYSIA_MCP_TOOL_NAMES } from "@t3tools/shared/elysiaMcpToolPresentation";
+import { ELYSIA_MCP_TOOL_NAMES } from "@elysiatools/shared/elysiaMcpToolPresentation";
 
 import {
   commandDetailRepeatsCommand,

@@ -12,7 +12,7 @@ import {
   RunId,
   ThreadId,
   type OrchestrationV2ThreadShell,
-} from "@t3tools/contracts";
+} from "@elysiatools/contracts";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Schema from "effect/Schema";
@@ -64,8 +64,8 @@ import {
   resolveElysiaMcpToolDefinition,
   resolveElysiaMcpToolPresentation,
   resolveElysiaMcpToolSummaryAction,
-} from "@t3tools/shared/elysiaMcpToolPresentation";
-import { htmlRenderFromToolItem } from "@t3tools/shared/toolOutput";
+} from "@elysiatools/shared/elysiaMcpToolPresentation";
+import { htmlRenderFromToolItem } from "@elysiatools/shared/toolOutput";
 
 const decodeMcpAttachmentInput = Schema.decodeUnknownEffect(McpAttachmentInput);
 
@@ -276,7 +276,7 @@ it.effect("returns an HTML render reference that Codex and Claude tool rows both
       McpHttpServer.layerHtmlToolkit.pipe(
         Layer.provideMerge(McpServer.McpServer.layer),
         Layer.provide(PreviewBrowser.layer),
-        Layer.provide(ServerConfig.layerTest(process.cwd(), { prefix: "t3-mcp-html-render-" })),
+        Layer.provide(ServerConfig.layerTest(process.cwd(), { prefix: "elysia-mcp-html-render-" })),
         Layer.provide(NodeServices.layer),
         // The preview browser is not installed in a fresh home, so nothing downloads.
         Layer.provide(FetchHttpClient.layer),

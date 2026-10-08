@@ -1,4 +1,4 @@
-import type { ServerProviderSkill } from "@t3tools/contracts";
+import type { ServerProviderSkill } from "@elysiatools/contracts";
 import { describe, expect, it } from "vite-plus/test";
 
 import { elysiaChatSlashCommands } from "./ElysiaSlashCommands.ts";

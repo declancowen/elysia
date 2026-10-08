@@ -1,5 +1,8 @@
-import { readFilePreviewBytes } from "@t3tools/client-runtime/file-preview";
-import { OFFICE_PREVIEW_MAX_BYTES, type OfficePreviewFormat } from "@t3tools/shared/filePreview";
+import { readFilePreviewBytes } from "@elysiatools/client-runtime/file-preview";
+import {
+  OFFICE_PREVIEW_MAX_BYTES,
+  type OfficePreviewFormat,
+} from "@elysiatools/shared/filePreview";
 import { useEffect, useState } from "react";
 import { Button } from "~/components/ui/button";
 import { FileSurfaceFailure, FileSurfaceLoading, FileSurfaceNotice } from "./fileSurfaceChrome";

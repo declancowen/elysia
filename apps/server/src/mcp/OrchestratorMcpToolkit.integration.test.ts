@@ -36,7 +36,7 @@ import {
   ThreadId,
   ThreadMetadataMcpUpdateResult,
   TurnItemId,
-} from "@t3tools/contracts";
+} from "@elysiatools/contracts";
 import * as DateTime from "effect/DateTime";
 import * as Deferred from "effect/Deferred";
 import * as Effect from "effect/Effect";
@@ -3919,7 +3919,7 @@ describe("orchestrator MCP toolkit", () => {
             delegated.resultContextTransferId,
           );
 
-          // Delegated children are subagent threads too, but T3 owns them, so
+          // Delegated children are subagent threads too, but Elysia owns them, so
           // they keep taking follow-ups (provider-native children do not).
           const delegatedChild = yield* orchestrator.getThreadProjection(delegated.childThreadId);
           expect(delegatedChild.thread.lineage.relationshipToParent).toBe("subagent");

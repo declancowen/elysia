@@ -1,8 +1,8 @@
 import type {
   EnvironmentProject,
   EnvironmentThreadShell,
-} from "@t3tools/client-runtime/state/shell";
-import type { EnvironmentId, ProjectId } from "@t3tools/contracts";
+} from "@elysiatools/client-runtime/state/shell";
+import type { EnvironmentId, ProjectId } from "@elysiatools/contracts";
 
 type ProjectIdentity = Pick<EnvironmentProject, "environmentId" | "id" | "agentProfile">;
 type ProjectItem = { readonly environmentId: EnvironmentId; readonly projectId: ProjectId };

@@ -1,4 +1,4 @@
-import type { Page } from "@t3tools/contracts";
+import type { Page } from "@elysiatools/contracts";
 
 export function canAdoptPageSnapshot(
   source: Page | undefined,

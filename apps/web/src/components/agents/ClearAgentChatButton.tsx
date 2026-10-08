@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
-import { CommandId, ThreadId, type ProjectId, type ScopedThreadRef } from "@t3tools/contracts";
+import { CommandId, ThreadId, type ProjectId, type ScopedThreadRef } from "@elysiatools/contracts";
 import { useAtomCommand } from "~/state/use-atom-command";
 import { readLocalApi } from "~/localApi";
 import { randomUUID } from "~/lib/utils";

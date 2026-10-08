@@ -1,4 +1,4 @@
-import { isEnabledProviderDriver } from "@t3tools/contracts";
+import { isEnabledProviderDriver } from "@elysiatools/contracts";
 import { ElysiaIcon } from "../Icons";
 import {
   AcpRegistrySettings,
@@ -10,7 +10,7 @@ import {
   OpenCodeSettings,
   PiSettings,
   ProviderDriverKind,
-} from "@t3tools/contracts";
+} from "@elysiatools/contracts";
 import type * as Schema from "effect/Schema";
 
 type ProviderSettingsSchema = {

@@ -8,7 +8,7 @@ import {
   Unlink2Icon,
   TriangleAlertIcon,
 } from "~/icons";
-import type { PullRequestState } from "@t3tools/contracts";
+import type { PullRequestState } from "@elysiatools/contracts";
 
 export const PullRequestGlyph = {
   pullRequest: GitPullRequestArrowIcon,

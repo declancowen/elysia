@@ -2,7 +2,13 @@
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { beforeEach, expect, it, vi } from "vite-plus/test";
-import { EnvironmentId, ProjectId, WorkTaskId, PageId, type ThreadId } from "@t3tools/contracts";
+import {
+  EnvironmentId,
+  ProjectId,
+  WorkTaskId,
+  PageId,
+  type ThreadId,
+} from "@elysiatools/contracts";
 import { useWorkspaceSideChat } from "./WorkspaceSideChat";
 import { useComposerDraftStore } from "../composerDraftStore";
 

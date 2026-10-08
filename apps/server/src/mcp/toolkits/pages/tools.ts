@@ -6,7 +6,7 @@ import {
   PageMutationResult,
   PageSaveInput,
   PageDeleteResult,
-} from "@t3tools/contracts";
+} from "@elysiatools/contracts";
 import * as Schema from "effect/Schema";
 import { Tool, Toolkit } from "effect/ai";
 import * as PageService from "../../../pages/PageService.ts";

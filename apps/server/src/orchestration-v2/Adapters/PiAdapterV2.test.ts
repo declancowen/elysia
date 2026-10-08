@@ -15,7 +15,7 @@ import {
   type OrchestrationV2AppThread,
   type OrchestrationV2ProviderThread,
   type OrchestrationV2ProviderTurn,
-} from "@t3tools/contracts";
+} from "@elysiatools/contracts";
 import * as Cause from "effect/Cause";
 import * as DateTime from "effect/DateTime";
 import * as Duration from "effect/Duration";
@@ -44,7 +44,7 @@ import { makePiAdapterV2, PI_PROVIDER } from "./PiAdapterV2.ts";
 import { makePiRpcConnection, type PiRpcRecord } from "./PiRpc.ts";
 
 const layerServerConfig = ServerConfig.layerTest(process.cwd(), {
-  prefix: "t3-pi-v2-adapter-",
+  prefix: "elysia-pi-v2-adapter-",
 }).pipe(Layer.provide(NodeServices.layer));
 
 const layerTest = Layer.mergeAll(NodeServices.layer, IdAllocator.layer, layerServerConfig);
@@ -461,7 +461,7 @@ const expectModelFailure = (errorMessage: string) =>
   }).pipe(Effect.scoped, Effect.provide(layerTest));
 
 describe("PiAdapterV2", () => {
-  it.effect("stops provider-initiated work that has no T3 turn owner", () =>
+  it.effect("stops provider-initiated work that has no Elysia turn owner", () =>
     Effect.gen(function* () {
       const fake = yield* makeFakePi;
       const { runtime, takeEvent } = yield* openRuntime(fake);

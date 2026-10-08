@@ -1,4 +1,4 @@
-import { isWindowsAbsolutePath } from "@t3tools/shared/path";
+import { isWindowsAbsolutePath } from "@elysiatools/shared/path";
 
 import { safeDecodeURIComponent } from "./markdownLinks.ts";
 

@@ -1,6 +1,6 @@
 "use client";
 
-import type { DesktopPreviewPointerEvent } from "@t3tools/contracts";
+import type { DesktopPreviewPointerEvent } from "@elysiatools/contracts";
 import { MousePointer2 } from "~/icons";
 import { useEffect, useState } from "react";
 

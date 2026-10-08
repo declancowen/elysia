@@ -7,7 +7,7 @@ import {
   ServerProviderResetCredits,
   ServerProviderUsageWindow,
   UsageProviderKind,
-} from "@t3tools/contracts";
+} from "@elysiatools/contracts";
 import { useAtomValue } from "@effect/atom-react";
 import {
   elapsedShare,
@@ -16,7 +16,7 @@ import {
   type LimitPace,
   paceOf,
   remainingPercent,
-} from "@t3tools/shared/usageLimits";
+} from "@elysiatools/shared/usageLimits";
 import { GaugeIcon, TrendingDownIcon, TrendingUpIcon } from "~/icons";
 import { Fragment, type ReactNode, useState } from "react";
 

@@ -1,3 +1,4 @@
+import { UPSTREAM_ANALYTICS_ENABLED } from "@elysiatools/contracts";
 import { ScreenScrollView as ScrollView } from "../../components/ScreenScrollView";
 import Constants from "expo-constants";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -127,7 +128,7 @@ function AppSettingsSection() {
         label="Open source licenses"
         target="SettingsOpenSourceLicenses"
       />
-      {process.env.EXPO_PUBLIC_MARKETING_SITE_URL ? (
+      {UPSTREAM_ANALYTICS_ENABLED && process.env.EXPO_PUBLIC_MARKETING_SITE_URL ? (
         <SettingsRow icon="doc.text" label="Legal" fullScreenTarget="SettingsLegal" />
       ) : null}
       {updateCheckAvailable ? (

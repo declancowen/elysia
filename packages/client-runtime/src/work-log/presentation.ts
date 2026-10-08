@@ -7,25 +7,25 @@ import {
   type ToolActivityIcon,
   type OrchestrationV2TurnItem,
   type ThreadId,
-} from "@t3tools/contracts";
+} from "@elysiatools/contracts";
 import {
   resolveElysiaMcpToolDefinition,
   type ElysiaMcpToolDefinition,
   type ElysiaMcpToolSummaryAction,
-} from "@t3tools/shared/elysiaMcpToolPresentation";
-import { classifyMarkdownImageSource } from "@t3tools/client-runtime/markdown-images";
-import { resolveMediaSource } from "@t3tools/client-runtime/media-source";
-import { parseChangeRequestUrl } from "@t3tools/shared/changeRequestUrl";
-import { isWorkspaceImagePreviewPath } from "@t3tools/shared/filePreview";
-import { formatTokens } from "@t3tools/shared/usageFormat";
-import { classifyToolActivity } from "@t3tools/shared/toolActivity";
-import { toolOutputIndicatesFailure } from "@t3tools/shared/toolOutput";
+} from "@elysiatools/shared/elysiaMcpToolPresentation";
+import { classifyMarkdownImageSource } from "@elysiatools/client-runtime/markdown-images";
+import { resolveMediaSource } from "@elysiatools/client-runtime/media-source";
+import { parseChangeRequestUrl } from "@elysiatools/shared/changeRequestUrl";
+import { isWorkspaceImagePreviewPath } from "@elysiatools/shared/filePreview";
+import { formatTokens } from "@elysiatools/shared/usageFormat";
+import { classifyToolActivity } from "@elysiatools/shared/toolActivity";
+import { toolOutputIndicatesFailure } from "@elysiatools/shared/toolOutput";
 
 import {
   summarizeElysiaToolCalls,
   elysiaToolResultIndicatesFailure,
   type ElysiaToolSummaryCall,
-} from "@t3tools/client-runtime/elysiaToolSummary";
+} from "@elysiatools/client-runtime/elysiaToolSummary";
 
 export type WorkLogToolLifecycleStatus = RuntimeItemStatus | "stopped" | "idle";
 
@@ -63,7 +63,7 @@ export function contextCompactionLabel(
 }
 
 export interface WorkLogPresentationEntry {
-  readonly questionAnswer?: import("@t3tools/contracts").UserInputAttachmentAnswerPayload;
+  readonly questionAnswer?: import("@elysiatools/contracts").UserInputAttachmentAnswerPayload;
   readonly id: string;
   readonly createdAt: string;
   readonly label: string;

@@ -2,7 +2,7 @@ import type {
   ServerProvider,
   ServerProviderSkill,
   ServerProviderSlashCommand,
-} from "@t3tools/contracts";
+} from "@elysiatools/contracts";
 
 export type ProviderSkillSourceKind = "app" | "repo" | "project" | "personal" | "system" | "other";
 

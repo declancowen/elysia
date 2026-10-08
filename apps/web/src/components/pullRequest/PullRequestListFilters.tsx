@@ -1,4 +1,4 @@
-import { SINGLE_PROVIDER_UI } from "@t3tools/contracts";
+import { SINGLE_PROVIDER_UI } from "@elysiatools/contracts";
 import { Spinner } from "~/components/ui/spinner";
 import type {
   EnvironmentId,
@@ -7,7 +7,7 @@ import type {
   PullRequestListFilters,
   PullRequestListState,
   SourceControlProviderKind,
-} from "@t3tools/contracts";
+} from "@elysiatools/contracts";
 import {
   CircleCheckIcon,
   CircleDashedIcon,

@@ -1,4 +1,4 @@
-import type { ProviderInstanceEnvironment } from "@t3tools/contracts";
+import type { ProviderInstanceEnvironment } from "@elysiatools/contracts";
 
 import { expandHomePath } from "../pathExpansion.ts";
 

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vite-plus/test";
-import type { AgentProfile, RuntimeMode } from "@t3tools/contracts";
+import type { AgentProfile, RuntimeMode } from "@elysiatools/contracts";
 
 const testState = vi.hoisted(() => {
   let completeProjectFileRead: (value: null) => void = () => undefined;
@@ -111,18 +111,18 @@ vi.mock("@effect/atom-react", () => ({
           ["environment-ssh", { settings: testState.targetSettings }],
         ]),
 }));
-vi.mock("@t3tools/client-runtime/environment", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@t3tools/client-runtime/environment")>()),
+vi.mock("@elysiatools/client-runtime/environment", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@elysiatools/client-runtime/environment")>()),
   scopedProjectKey: () => "remote-project",
   scopeProjectRef: (environmentId: string, projectId: string) => ({ environmentId, projectId }),
   scopeThreadRef: (environmentId: string, threadId: string) => ({ environmentId, threadId }),
 }));
-vi.mock("@t3tools/contracts", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@t3tools/contracts")>()),
+vi.mock("@elysiatools/contracts", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@elysiatools/contracts")>()),
   DEFAULT_RUNTIME_MODE: "default",
   DEFAULT_SERVER_SETTINGS: {},
 }));
-vi.mock("@t3tools/shared/projectSettings", () => ({
+vi.mock("@elysiatools/shared/projectSettings", () => ({
   // Environment settings pass through; the tests set project fields on the
   // project record, which the hook still honors until the server folds them.
   // With a file argument the env mode resolves like the real chain.
@@ -168,8 +168,8 @@ vi.mock("../lib/chatThreadActions", async (importOriginal) => ({
   hasExplicitComposerModelSelection: () => false,
   resolveNewThreadModelSelectionOverride: () => null,
 }));
-vi.mock("../lib/t3ProjectFileDefaults", () => ({
-  readT3ProjectFile: () => testState.projectFileRead,
+vi.mock("../lib/elysiaProjectFileDefaults", () => ({
+  readElysiaProjectFile: () => testState.projectFileRead,
 }));
 vi.mock("../lib/utils", () => ({
   newDraftId: () => "draft-delayed",

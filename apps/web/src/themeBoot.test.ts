@@ -1,7 +1,8 @@
-import { DEFAULT_THEME, ELYSIA_THEMES, INITIAL_THEME_ID } from "@t3tools/shared/themePalettes";
+import { DEFAULT_THEME, ELYSIA_THEMES, INITIAL_THEME_ID } from "@elysiatools/shared/themePalettes";
 import { describe, expect, it, vi } from "vite-plus/test";
 
 import indexHtml from "../index.html?raw";
+import migrationScript from "../public/browser-storage-migration.js?raw";
 import {
   CUSTOM_THEMES_STORAGE_KEY,
   getDefaultThemeColors,
@@ -19,7 +20,7 @@ import {
   toCanonicalThemeColor,
 } from "./themePalette";
 
-const THEME_STORAGE_KEY = "t3code:theme";
+const THEME_STORAGE_KEY = "elysia:theme";
 // A custom theme that omits chrome falls back to the runtime default, so the
 // boot copy of that default stays derived from the real palette.
 const DEFAULT_DARK_CHROME = getDefaultThemeColors("dark").chrome;
@@ -42,8 +43,10 @@ type BootResult = {
 function runBootScript(options: {
   storage?: Record<string, string>;
   storageThrows?: boolean;
+  migrateLegacyStorage?: boolean;
   prefersDark: boolean;
 }): BootResult {
+  const storage = { ...options.storage };
   const classes = new Set<string>();
   const bootVariables: Record<string, string> = {};
   const meta = {
@@ -77,9 +80,16 @@ function runBootScript(options: {
   };
   const fakeWindow = {
     localStorage: {
+      get length() {
+        return Object.keys(storage).length;
+      },
+      key: (index: number) => Object.keys(storage)[index] ?? null,
+      setItem: (key: string, value: string) => {
+        storage[key] = value;
+      },
       getItem: (key: string): string | null => {
         if (options.storageThrows) throw new Error("storage blocked");
-        return options.storage?.[key] ?? null;
+        return storage[key] ?? null;
       },
     },
     matchMedia: () => ({ matches: options.prefersDark }),
@@ -90,6 +100,9 @@ function runBootScript(options: {
       property === "color" && toCanonicalThemeColor(value) !== null,
   };
 
+  if (options.migrateLegacyStorage) {
+    new Function("window", "indexedDB", migrationScript)(fakeWindow, undefined);
+  }
   new Function("window", "document", "CSS", bootScript)(fakeWindow, fakeDocument, fakeCss);
 
   return {
@@ -150,6 +163,35 @@ const CHARCOAL_DARK_ONLY = {
 };
 
 describe("index.html boot script", () => {
+  it("migrates a legacy selected palette before the splash resolves its colors", () => {
+    const boot = runBootScript({
+      migrateLegacyStorage: true,
+      storage: { "t3code:theme": "t3-grove", "t3code:theme-appearance-mode": "dark" },
+      prefersDark: false,
+    });
+    expect(boot.themeId).toBe(GROVE_THEME.id);
+    expect(boot.isDark).toBe(true);
+    expect(boot.bootVariables["--boot-background"]).toBe(
+      getThemeColorsForMode(GROVE_THEME, "dark")!.canvas,
+    );
+  });
+
+  it("preserves an existing custom palette and automatic theme halves across the key migration", () => {
+    const boot = runBootScript({
+      migrateLegacyStorage: true,
+      storage: {
+        "t3code:theme": "default",
+        "t3code:theme-appearance-mode": "system",
+        "t3code:theme-halves:v1": JSON.stringify({ dark: "aurora" }),
+        "t3code:themes:v1": JSON.stringify([AURORA_DUAL]),
+      },
+      prefersDark: true,
+    });
+    expect(boot.themeId).toBe("aurora");
+    expect(boot.isDark).toBe(true);
+    expect(boot.bootVariables["--boot-background"]).toBe(AURORA_DUAL.variants.dark.canvas);
+  });
+
   const parityCases: ReadonlyArray<{
     name: string;
     storage: Record<string, string>;
@@ -382,7 +424,7 @@ describe("index.html boot script", () => {
     const storage = {
       [THEME_STORAGE_KEY]: "default",
       [THEME_APPEARANCE_MODE_STORAGE_KEY]: "system",
-      "t3code:theme-halves:v1": JSON.stringify({ dark: GROVE_THEME.id }),
+      "elysia:theme-halves:v1": JSON.stringify({ dark: GROVE_THEME.id }),
     };
 
     const dark = runBootScript({ storage, prefersDark: true });
@@ -413,7 +455,7 @@ describe("index.html boot script", () => {
             colors: { canvas: "#f8fbff", text: "#10243d", accent: "#5b6cff" },
           },
         ]),
-        "t3code:theme-halves:v1": JSON.stringify({ dark: GROVE_THEME.id }),
+        "elysia:theme-halves:v1": JSON.stringify({ dark: GROVE_THEME.id }),
       },
       prefersDark: true,
     });
@@ -426,7 +468,7 @@ describe("index.html boot script", () => {
       storage: {
         [THEME_STORAGE_KEY]: "gone-theme",
         [THEME_APPEARANCE_MODE_STORAGE_KEY]: "system",
-        "t3code:theme-halves:v1": JSON.stringify({ dark: GROVE_THEME.id }),
+        "elysia:theme-halves:v1": JSON.stringify({ dark: GROVE_THEME.id }),
       },
       prefersDark: true,
     });
@@ -443,7 +485,7 @@ describe("index.html boot script", () => {
       storage: {
         [THEME_STORAGE_KEY]: "default",
         [THEME_APPEARANCE_MODE_STORAGE_KEY]: "system",
-        "t3code:theme-halves:v1": JSON.stringify({ dark: "t3-grove" }),
+        "elysia:theme-halves:v1": JSON.stringify({ dark: "t3-grove" }),
       },
       prefersDark: true,
     });
@@ -459,7 +501,7 @@ describe("index.html boot script", () => {
       storage: {
         [THEME_STORAGE_KEY]: "default",
         [THEME_APPEARANCE_MODE_STORAGE_KEY]: "system",
-        "t3code:theme-halves:v1": JSON.stringify({ dark: "gone-theme" }),
+        "elysia:theme-halves:v1": JSON.stringify({ dark: "gone-theme" }),
       },
       prefersDark: true,
     });

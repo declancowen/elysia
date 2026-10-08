@@ -1,4 +1,4 @@
-import type { ElysiaMcpToolSummaryAction } from "@t3tools/shared/elysiaMcpToolPresentation";
+import type { ElysiaMcpToolSummaryAction } from "@elysiatools/shared/elysiaMcpToolPresentation";
 
 export interface ElysiaToolSummaryCall {
   readonly input: unknown;

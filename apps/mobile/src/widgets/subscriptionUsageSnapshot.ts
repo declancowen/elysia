@@ -1,10 +1,10 @@
-import { formatCalendarDateTime } from "@t3tools/shared/dateFormat";
+import { formatCalendarDateTime } from "@elysiatools/shared/dateFormat";
 import {
   collectLimitAccounts,
   collectLimitPools,
   type LimitAccount,
   type LimitPresentations,
-} from "@t3tools/shared/usageLimits";
+} from "@elysiatools/shared/usageLimits";
 
 export interface SubscriptionUsageSnapshot {
   url?: string;
@@ -95,7 +95,7 @@ function subscriptionUsageProps(
         return {
           name,
           detail: !fresh
-            ? "Open T3 to refresh"
+            ? "Open Elysia to refresh"
             : pool.accounts.length > 1
               ? `${pool.accounts.length} accounts · pooled`
               : "Subscription remaining",
@@ -157,7 +157,7 @@ export function subscriptionUsageTimeline(snapshot: SubscriptionUsageSnapshot, n
       ...snapshot,
       providers: snapshot.providers.map((provider) =>
         provider.windows.length > 0 && provider.expiresAt <= date
-          ? { ...provider, detail: "Open T3 to refresh", windows: [], totalWindows: 0 }
+          ? { ...provider, detail: "Open Elysia to refresh", windows: [], totalWindows: 0 }
           : provider,
       ),
     },

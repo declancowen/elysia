@@ -19,26 +19,21 @@
  * bundleDependencies needs an arborist tree these flattened installs are
  * not), whereas `npm publish <tarball>` uploads the bytes as given.
  */
-import { legacyCliLauncherScript } from "@t3tools/shared/legacyCliLauncher";
-import * as NodeRuntime from "@effect/platform-node/NodeRuntime";
-import * as NodeServices from "@effect/platform-node/NodeServices";
+import { legacyCliLauncherScript } from "@elysiatools/shared/legacyCliLauncher";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
-import * as Layer from "effect/Layer";
-import * as Logger from "effect/Logger";
 import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
-import { Command, Flag } from "effect/cli";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 
 import {
   CLI_ARCHIVE_PLATFORM_KEYS,
   cliArchiveFileName,
   type CliArchivePlatformKey,
-} from "@t3tools/shared/cliRelease";
-import { HostProcessPlatform } from "@t3tools/shared/hostProcess";
-import { fromJsonStringPretty } from "@t3tools/shared/schemaJson";
-import { isCommandAvailable } from "@t3tools/shared/shell";
+} from "@elysiatools/shared/cliRelease";
+import { HostProcessPlatform } from "@elysiatools/shared/hostProcess";
+import { fromJsonStringPretty } from "@elysiatools/shared/schemaJson";
+import { isCommandAvailable } from "@elysiatools/shared/shell";
 import serverPackageJson from "../apps/server/package.json" with { type: "json" };
 
 import { windowsSystemTar } from "./build-cli-archive.ts";
@@ -107,7 +102,7 @@ export function npmPlatformPackageManifest(
   return {
     name: npmPlatformPackageName(platformKey),
     version,
-    description: `T3 Code CLI executable for ${platformKey}`,
+    description: `Elysia CLI executable for ${platformKey}`,
     license: serverPackageJson.license,
     repository: serverPackageJson.repository,
     os: [os],
@@ -155,15 +150,11 @@ export function npmPlatformPackageReadme(platformKey: CliArchivePlatformKey): st
   return [
     `# ${npmPlatformPackageName(platformKey)}`,
     "",
-    `The T3 Code CLI executable for ${platformKey}. Do not install this package directly:`,
+    `The Elysia CLI executable for ${platformKey}. Do not install this package directly:`,
     `it is an optional dependency of \`${NPM_LAUNCHER_PACKAGE_NAME}\`, which picks the package for the`,
     "current platform and runs the executable inside it.",
     "",
-    "```sh",
-    `npx ${NPM_LAUNCHER_PACKAGE_NAME}@latest`,
-    "```",
-    "",
-    "Source and documentation: https://github.com/pingdotgg/t3code",
+    "Legacy package layout for compatibility tests. Elysia downloads: https://github.com/declancowen/elysia/releases",
     "",
   ].join("\n");
 }
@@ -176,7 +167,7 @@ export function npmLauncherPackageManifest(
   return {
     name: NPM_LAUNCHER_PACKAGE_NAME,
     version,
-    description: "T3 Code CLI. Installs the self-contained executable for this platform.",
+    description: "Elysia CLI. Installs the self-contained executable for this platform.",
     license: serverPackageJson.license,
     repository: serverPackageJson.repository,
     bin: { t3: "./bin/t3.js" },
@@ -207,10 +198,10 @@ try {
 } catch {
   process.stderr.write(
     [
-      "t3: no T3 Code CLI build is available for this platform (" + key + ").",
+      "t3: no Elysia CLI build is available for this platform (" + key + ").",
       "Supported platforms: " + SUPPORTED.join(", ") + ".",
-      "If yours is listed, reinstall t3 so npm fetches its optional dependency.",
-      "The desktop app and release archives are at https://github.com/pingdotgg/t3code/releases",
+      "Download the supported Elysia desktop installer instead.",
+      "The desktop app and release archives are at https://github.com/declancowen/elysia/releases",
       "",
     ].join("\\n"),
   );
@@ -457,33 +448,8 @@ export const buildNpmPlatformPackages = Effect.fn("buildNpmPlatformPackages")(fu
   return outputs;
 });
 
-const command = Command.make(
-  "build-npm-platform-packages",
-  {
-    archivesDir: Flag.String("archives-dir").pipe(
-      Flag.withDescription("Directory holding the release's t3-<version>-<platform> archives."),
-    ),
-    version: Flag.String("version").pipe(
-      Flag.withDescription(
-        "Exact release version; selects the archives and versions the packages.",
-      ),
-    ),
-    outputDir: Flag.String("output-dir").pipe(Flag.withDefault("npm-packages")),
-    allowMissing: Flag.Boolean("allow-missing").pipe(
-      Flag.withDefault(false),
-      Flag.withDescription("Build a launcher that lists only the platforms present."),
-    ),
-  },
-  buildNpmPlatformPackages,
-).pipe(
-  Command.withDescription(
-    "Build the t3 launcher and @t3code/t3-<platform> npm packages from CLI release archives.",
-  ),
-);
-
 if (import.meta.main) {
-  Command.run(command, { version: "0.0.0" }).pipe(
-    Effect.provide(Layer.mergeAll(Logger.layer([Logger.consolePretty()]), NodeServices.layer)),
-    NodeRuntime.runMain,
+  throw new Error(
+    "Elysia does not publish packages under the legacy npm identities. Download the official Elysia installer: https://github.com/declancowen/elysia/releases/latest",
   );
 }

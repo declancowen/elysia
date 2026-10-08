@@ -4,7 +4,7 @@ import {
   ThreadId,
   TurnItemId,
   type OrchestrationProjectShell,
-} from "@t3tools/contracts";
+} from "@elysiatools/contracts";
 import * as Effect from "effect/Effect";
 import * as Predicate from "effect/Predicate";
 import * as HttpApiBuilder from "effect/http-api/HttpApiBuilder";

@@ -1,12 +1,12 @@
 import { WorkspaceItemContextChip } from "./WorkspaceItemContextChip";
 import ChatMarkdown from "./ChatMarkdown";
 import { ReadOnlySourcePreview } from "./files/AttachmentFilePreview";
-import type { PreviewAnnotationPayload, ThreadContextRecord } from "@t3tools/contracts";
-import { formatAttachmentSize } from "@t3tools/client-runtime/state/attachments";
-import { videoMimeType } from "@t3tools/shared/video";
+import type { PreviewAnnotationPayload, ThreadContextRecord } from "@elysiatools/contracts";
+import { formatAttachmentSize } from "@elysiatools/client-runtime/state/attachments";
+import { videoMimeType } from "@elysiatools/shared/video";
 import { MessageCircleIcon, MousePointerClickIcon } from "~/icons";
 import { createContext, type MouseEvent, type ReactElement, type ReactNode, use } from "react";
-import { type EnvironmentId } from "@t3tools/contracts";
+import { type EnvironmentId } from "@elysiatools/contracts";
 import { AgentMentionChip } from "./agents/AgentMentionChip";
 
 import type { ComposerFileAttachment, ComposerImageAttachment } from "~/composerDraftStore";

@@ -1,6 +1,6 @@
-import { scopeProjectRef } from "@t3tools/client-runtime/environment";
-import { SINGLE_PROVIDER_UI, resolveEnvironmentMachineKind } from "@t3tools/contracts";
-import { isScratchProject } from "@t3tools/client-runtime/state/projects";
+import { scopeProjectRef } from "@elysiatools/client-runtime/environment";
+import { SINGLE_PROVIDER_UI, resolveEnvironmentMachineKind } from "@elysiatools/contracts";
+import { isScratchProject } from "@elysiatools/client-runtime/state/projects";
 import { useLocation } from "@tanstack/react-router";
 import { ChevronDownIcon, FolderIcon, LayersIcon, MessageCircleIcon } from "~/icons";
 import type { ReactNode } from "react";

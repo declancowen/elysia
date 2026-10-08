@@ -4,7 +4,7 @@ import type {
   OrchestrationV2ShellSnapshot,
   ProjectId,
   ScopedProjectRef,
-} from "@t3tools/contracts";
+} from "@elysiatools/contracts";
 import { Atom } from "effect/reactivity";
 
 import type { EnvironmentProject } from "./models.ts";

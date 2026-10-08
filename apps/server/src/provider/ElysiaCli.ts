@@ -1,15 +1,15 @@
 // @effect-diagnostics nodeBuiltinImport:off - native directory junctions keep user skills available on Windows.
 import * as NodeFSP from "node:fs/promises";
 import * as NodePath from "node:path";
-import { HostProcessArchitecture, HostProcessPlatform } from "@t3tools/shared/hostProcess";
-import { resolveSpawnCommand } from "@t3tools/shared/shell";
-import { compareSemverVersions } from "@t3tools/shared/semver";
+import { HostProcessArchitecture, HostProcessPlatform } from "@elysiatools/shared/hostProcess";
+import { resolveSpawnCommand } from "@elysiatools/shared/shell";
+import { compareSemverVersions } from "@elysiatools/shared/semver";
 import {
   type ClaudeSettings,
   ProviderDriverKind,
   type ProviderInstanceId,
   ProviderSetupError,
-} from "@t3tools/contracts";
+} from "@elysiatools/contracts";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";

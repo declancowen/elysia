@@ -1,8 +1,8 @@
 import {
   formatProviderSubagentStatus,
   type ProviderSubagentStatus,
-} from "@t3tools/client-runtime/state/thread-execution";
-import { isOrchestrationV2WorkActive } from "@t3tools/contracts";
+} from "@elysiatools/client-runtime/state/thread-execution";
+import { isOrchestrationV2WorkActive } from "@elysiatools/contracts";
 import { ArrowUpLeftIcon } from "~/icons";
 import { useLayoutEffect, useRef } from "react";
 

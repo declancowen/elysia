@@ -1,5 +1,5 @@
-import { EnvironmentId } from "@t3tools/contracts";
-import type { ServerUpdateState } from "@t3tools/client-runtime/state/server";
+import { EnvironmentId } from "@elysiatools/contracts";
+import type { ServerUpdateState } from "@elysiatools/client-runtime/state/server";
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
 // Pinned so the direction cases below read as fixed versions instead of
@@ -15,7 +15,7 @@ import {
   dismissVersionMismatch,
   isServerUpdateFailureDismissed,
   isVersionMismatchDismissed,
-  manualServerUpdateCommand,
+  manualServerUpdateUrl,
   resolveServerConfigVersionMismatch,
   resolveServerSelfUpdateCapability,
   resolveVersionMismatch,
@@ -27,20 +27,13 @@ const MISMATCH_HINT =
   "Version mismatch. Try syncing the client and server to the same Elysia version.";
 
 describe("versionSkew", () => {
-  it("updates only the proven npm prefix and safely quotes its path", () => {
-    expect(manualServerUpdateCommand("0.0.45", { kind: "npm-global", prefix: "/opt/node" })).toBe(
-      "npm install --global --prefix '/opt/node' t3@0.0.45",
+  it("directs manual upgrades to the matching Elysia release", () => {
+    expect(manualServerUpdateUrl("0.0.36")).toBe(
+      "https://github.com/declancowen/elysia/releases/tag/v0.0.36",
     );
-    expect(
-      manualServerUpdateCommand("0.0.45", { kind: "npm-global", prefix: "/opt/maria's node" }),
-    ).toBe("npm install --global --prefix '/opt/maria'\\''s node' t3@0.0.45");
-  });
-
-  it("keeps runner and unknown commands as relaunches", () => {
-    expect(manualServerUpdateCommand("0.0.45")).toBe("npx t3@0.0.45");
-    expect(manualServerUpdateCommand("0.0.45", { kind: "npx" })).toBe("npx t3@0.0.45");
-    expect(manualServerUpdateCommand("0.0.45", { kind: "pnpm-dlx" })).toBe("pnpm dlx t3@0.0.45");
-    expect(manualServerUpdateCommand("0.0.45", { kind: "bunx" })).toBe("bunx t3@0.0.45");
+    expect(manualServerUpdateUrl("0.0.36/preview")).toBe(
+      "https://github.com/declancowen/elysia/releases/tag/v0.0.36%2Fpreview",
+    );
   });
   beforeEach(() => {
     branding.APP_VERSION = "0.0.34";

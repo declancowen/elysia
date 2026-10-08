@@ -1,4 +1,4 @@
-import type { ContextMenuItem } from "@t3tools/contracts";
+import type { ContextMenuItem } from "@elysiatools/contracts";
 
 export type ExternalLinkContextMenuAction =
   | "open-in-preview"

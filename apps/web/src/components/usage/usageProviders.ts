@@ -1,6 +1,6 @@
-import type { UsageProviderKind } from "@t3tools/contracts";
+import type { UsageProviderKind } from "@elysiatools/contracts";
 
-import { ProviderDriverKind, SINGLE_PROVIDER_UI } from "@t3tools/contracts";
+import { ProviderDriverKind, SINGLE_PROVIDER_UI } from "@elysiatools/contracts";
 
 type UsageProviderPresentation = {
   readonly label: string;

@@ -1,12 +1,12 @@
-import { filePreviewDelimiter } from "@t3tools/shared/delimitedPreview";
-import type { EnvironmentId } from "@t3tools/contracts";
-import { formatAttachmentSize } from "@t3tools/client-runtime/state/attachments";
-import { readFilePreviewResponse } from "@t3tools/client-runtime/file-preview";
+import { filePreviewDelimiter } from "@elysiatools/shared/delimitedPreview";
+import type { EnvironmentId } from "@elysiatools/contracts";
+import { formatAttachmentSize } from "@elysiatools/client-runtime/state/attachments";
+import { readFilePreviewResponse } from "@elysiatools/client-runtime/file-preview";
 import {
   filePreviewKind,
   officePreviewFormat,
   FILE_TEXT_PREVIEW_MAX_BYTES,
-} from "@t3tools/shared/filePreview";
+} from "@elysiatools/shared/filePreview";
 import {
   CheckIcon,
   ChevronRightIcon,

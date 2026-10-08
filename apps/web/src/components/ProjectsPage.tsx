@@ -2,11 +2,11 @@ import {
   scopedThreadKey,
   scopeProjectRef,
   scopeThreadRef,
-} from "@t3tools/client-runtime/environment";
+} from "@elysiatools/client-runtime/environment";
 import {
   isAtomCommandInterrupted,
   squashAtomCommandFailure,
-} from "@t3tools/client-runtime/state/runtime";
+} from "@elysiatools/client-runtime/state/runtime";
 import { Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useUiStateStore } from "../uiStateStore";

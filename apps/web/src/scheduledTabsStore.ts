@@ -1,4 +1,4 @@
-import type { EnvironmentId, ScheduledTask } from "@t3tools/contracts";
+import type { EnvironmentId, ScheduledTask } from "@elysiatools/contracts";
 
 export type ScheduledTabTarget =
   | { kind: "empty" }

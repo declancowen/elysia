@@ -3,7 +3,7 @@ import {
   AuthAdministrativeScopes,
   type AuthCreatePairingCredentialInput,
   EnvironmentHttpApi,
-} from "@t3tools/contracts";
+} from "@elysiatools/contracts";
 import { expect, it } from "@effect/vitest";
 import * as Context from "effect/Context";
 import * as Crypto from "effect/Crypto";
@@ -430,7 +430,7 @@ it.live(
         const approveWith = (code: string) =>
           decide(handler, params, { _tag: "pairing-code", access: "auto", code });
 
-        // A T3 Connect code is bound to a device key: refused, and still usable by its device.
+        // A Elysia Connect code is bound to a device key: refused, and still usable by its device.
         const bound = yield* auth.createPairingLink({
           proofKeyThumbprint: "device-key-thumbprint",
         });

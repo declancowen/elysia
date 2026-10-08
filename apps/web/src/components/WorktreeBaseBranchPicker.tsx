@@ -1,4 +1,4 @@
-import type { EnvironmentId } from "@t3tools/contracts";
+import type { EnvironmentId } from "@elysiatools/contracts";
 import { ChevronDownIcon, GitBranchIcon } from "~/icons";
 import { useDeferredValue, useMemo, useState } from "react";
 

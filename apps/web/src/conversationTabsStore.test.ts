@@ -1,5 +1,5 @@
-import { scopeThreadRef } from "@t3tools/client-runtime/environment";
-import { EnvironmentId, ProjectId, ThreadId, PageId, WorkTaskId } from "@t3tools/contracts";
+import { scopeThreadRef } from "@elysiatools/client-runtime/environment";
+import { EnvironmentId, ProjectId, ThreadId, PageId, WorkTaskId } from "@elysiatools/contracts";
 import { beforeEach, expect, it } from "vite-plus/test";
 import { DraftId } from "./composerDraftStore";
 import {

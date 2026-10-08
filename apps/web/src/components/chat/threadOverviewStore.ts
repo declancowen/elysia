@@ -1,4 +1,4 @@
-import type { ProjectId, ScopedThreadRef } from "@t3tools/contracts";
+import type { ProjectId, ScopedThreadRef } from "@elysiatools/contracts";
 import { create } from "zustand";
 
 /** One-shot navigation from a sent agent mention into its source chat's overview. */

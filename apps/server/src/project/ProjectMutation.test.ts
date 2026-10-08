@@ -5,7 +5,7 @@ import {
   ThreadId,
   type AgentProfile,
   type Project,
-} from "@t3tools/contracts";
+} from "@elysiatools/contracts";
 import * as Effect from "effect/Effect";
 import * as Ref from "effect/Ref";
 

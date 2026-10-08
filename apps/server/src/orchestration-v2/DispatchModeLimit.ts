@@ -1,4 +1,4 @@
-import type { ProviderInteractionMode, RuntimeMode, ThreadId } from "@t3tools/contracts";
+import type { ProviderInteractionMode, RuntimeMode, ThreadId } from "@elysiatools/contracts";
 import * as Context from "effect/Context";
 import type * as Ref from "effect/Ref";
 
@@ -28,7 +28,7 @@ export interface DispatchModeLimitValue extends DispatchModes {
 }
 
 export const DispatchModeLimit = Context.Reference<DispatchModeLimitValue | undefined>(
-  "elysia/orchestration-v2/DispatchModeLimit",
+  "@elysiatools/server/orchestration-v2/DispatchModeLimit",
   { defaultValue: () => undefined },
 );
 

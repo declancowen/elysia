@@ -13,14 +13,14 @@ import {
   RunId,
   ThreadId,
   TurnItemId,
-} from "@t3tools/contracts";
+} from "@elysiatools/contracts";
 import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Deferred from "effect/Deferred";
 import * as Fiber from "effect/Fiber";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
-import { formatAgentMention } from "@t3tools/shared/agentMentions";
+import { formatAgentMention } from "@elysiatools/shared/agentMentions";
 import { createPendingAttachmentId, resolveAttachmentPath } from "../attachmentStore.ts";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";

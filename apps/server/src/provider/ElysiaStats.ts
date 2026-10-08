@@ -6,7 +6,7 @@ import {
   type ElysiaStatsSnapshot,
   type ProviderInstanceId,
   type ServerProvider,
-} from "@t3tools/contracts";
+} from "@elysiatools/contracts";
 import * as Effect from "effect/Effect";
 import * as Data from "effect/Data";
 import * as Schema from "effect/Schema";

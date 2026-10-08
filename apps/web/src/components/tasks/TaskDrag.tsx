@@ -1,6 +1,6 @@
 import { useDraggable, useDroppable } from "@dnd-kit/core";
 import type { ReactNode, MouseEventHandler, CSSProperties } from "react";
-import type { WorkTaskSummary } from "@t3tools/contracts";
+import type { WorkTaskSummary } from "@elysiatools/contracts";
 import type { TaskGroup } from "./taskViews";
 import { cn } from "../../lib/utils";
 export function TaskDragRow({

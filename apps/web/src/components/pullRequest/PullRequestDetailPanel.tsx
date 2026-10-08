@@ -1,10 +1,10 @@
-import { SINGLE_PROVIDER_UI } from "@t3tools/contracts";
-import { parseChangeRequestUrl } from "@t3tools/shared/changeRequestUrl";
+import { SINGLE_PROVIDER_UI } from "@elysiatools/contracts";
+import { parseChangeRequestUrl } from "@elysiatools/shared/changeRequestUrl";
 import { useAtomValue } from "@effect/atom-react";
 import { usePullRequestStack } from "~/state/usePullRequestStack";
 import { RefreshIcon } from "~/components/ui/refresh-icon";
-import { scopedThreadKey, scopeProjectRef } from "@t3tools/client-runtime/environment";
-import { squashAtomCommandFailure } from "@t3tools/client-runtime/state/runtime";
+import { scopedThreadKey, scopeProjectRef } from "@elysiatools/client-runtime/environment";
+import { squashAtomCommandFailure } from "@elysiatools/client-runtime/state/runtime";
 import {
   AuthOrchestrationOperateScope,
   AuthSourceControlWriteScope,
@@ -16,7 +16,7 @@ import {
   type PullRequestRef,
   resolveEnvironmentMachineKind,
   type ScopedThreadRef,
-} from "@t3tools/contracts";
+} from "@elysiatools/contracts";
 import {
   ArrowDownUpIcon,
   ArrowLeftIcon,

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vite-plus/test";
-import { MessageId, RunId } from "@t3tools/contracts";
+import { MessageId, RunId } from "@elysiatools/contracts";
 import { channelReplyTarget, readChannelReply, withChannelReply } from "./channelReplies.js";
 const parent = { id: MessageId.make("parent"), role: "user", runId: RunId.make("first") };
 const child = {

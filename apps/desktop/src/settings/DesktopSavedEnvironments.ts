@@ -1,5 +1,5 @@
-import { EnvironmentId, type PersistedSavedEnvironmentRecord } from "@t3tools/contracts";
-import { fromLenientJson } from "@t3tools/shared/schemaJson";
+import { EnvironmentId, type PersistedSavedEnvironmentRecord } from "@elysiatools/contracts";
+import { fromLenientJson } from "@elysiatools/shared/schemaJson";
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Base64 from "effect/encoding/Base64";
@@ -143,7 +143,7 @@ export class DesktopSavedEnvironments extends Context.Service<
       environmentId: string,
     ) => Effect.Effect<Option.Option<string>, DesktopSavedEnvironmentsGetSecretError>;
   }
->()("@t3tools/desktop/settings/DesktopSavedEnvironments") {}
+>()("@elysiatools/desktop/settings/DesktopSavedEnvironments") {}
 
 function toPersistedSavedEnvironmentRecord(
   record: PersistedSavedEnvironmentStorageRecord,

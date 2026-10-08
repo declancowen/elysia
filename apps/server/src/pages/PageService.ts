@@ -6,7 +6,7 @@ import {
   type PageLookupInput,
   type PageMutationResult,
   type PageSaveInput,
-} from "@t3tools/contracts";
+} from "@elysiatools/contracts";
 import * as Context from "effect/Context";
 import * as Crypto from "effect/Crypto";
 import * as DateTime from "effect/DateTime";
@@ -29,7 +29,7 @@ export class PageService extends Context.Service<
     readonly save: (input: PageSaveInput) => Effect.Effect<PageMutationResult, PageError>;
     readonly delete: (input: PageLookupInput) => Effect.Effect<PageLookupInput, PageError>;
   }
->()("t3/pages/PageService") {}
+>()("@elysiatools/server/pages/PageService") {}
 const fail = (code: PageError["code"], message: string) => new PageError({ code, message });
 const isPageError = Schema.is(PageError);
 const decodePage = Schema.decodeUnknownEffect(Page);

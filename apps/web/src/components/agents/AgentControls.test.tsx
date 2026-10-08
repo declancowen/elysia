@@ -6,10 +6,10 @@ import {
   ProviderInstanceId,
   ThreadId,
   type AgentProfile,
-} from "@t3tools/contracts";
+} from "@elysiatools/contracts";
 import { useConversationTabsStore } from "../../conversationTabsStore";
-import { scopeThreadRef, scopeProjectRef } from "@t3tools/client-runtime/environment";
-import type { AtomCommandResult } from "@t3tools/client-runtime/state/runtime";
+import { scopeThreadRef, scopeProjectRef } from "@elysiatools/client-runtime/environment";
+import type { AtomCommandResult } from "@elysiatools/client-runtime/state/runtime";
 import * as Cause from "effect/Cause";
 import { AsyncResult } from "effect/reactivity";
 import { act } from "react";
@@ -40,8 +40,8 @@ const state = vi.hoisted(() => ({
   setOpenMobile: vi.fn(),
   elysia: true,
 }));
-vi.mock("@t3tools/contracts", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@t3tools/contracts")>()),
+vi.mock("@elysiatools/contracts", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@elysiatools/contracts")>()),
   get SINGLE_PROVIDER_UI() {
     return state.elysia;
   },

@@ -1,6 +1,6 @@
-import { CONNECTIONS_ENABLED } from "@t3tools/contracts";
-import type { RelayManagedEndpointRuntimeConfig } from "@t3tools/contracts/relay";
-import * as RelayClient from "@t3tools/shared/relayClient";
+import { CONNECTIONS_ENABLED } from "@elysiatools/contracts";
+import type { RelayManagedEndpointRuntimeConfig } from "@elysiatools/contracts/relay";
+import * as RelayClient from "@elysiatools/shared/relayClient";
 import * as Clock from "effect/Clock";
 import * as Context from "effect/Context";
 import * as Duration from "effect/Duration";
@@ -52,7 +52,7 @@ export class CloudManagedEndpointRuntime extends Context.Service<
     readonly tunnelConnected: Stream.Stream<void>;
     readonly withLinkStateLock: <A, E, R>(effect: Effect.Effect<A, E, R>) => Effect.Effect<A, E, R>;
   }
->()("t3/cloud/ManagedEndpointRuntime/CloudManagedEndpointRuntime") {}
+>()("@elysiatools/server/cloud/ManagedEndpointRuntime/CloudManagedEndpointRuntime") {}
 
 interface ActiveConnector {
   readonly child: ChildProcessSpawner.ChildProcessHandle;

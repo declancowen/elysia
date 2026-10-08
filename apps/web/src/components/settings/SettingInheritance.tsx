@@ -6,7 +6,7 @@ import {
   resolveEnvironmentMachineKind,
   type ServerSettings,
   type WorktreeSubmodules,
-} from "@t3tools/contracts";
+} from "@elysiatools/contracts";
 import { CheckIcon, LayersIcon } from "~/icons";
 import * as Equal from "effect/Equal";
 
@@ -22,7 +22,7 @@ import type { ProjectOverrideEntry, ScopedSettingsTarget } from "./scopedSetting
 import { isProjectScopedSettingKey } from "./scopedSettings";
 
 interface InheritanceLayer {
-  readonly key: "project" | "environment" | "t3.json" | "built-in";
+  readonly key: "project" | "environment" | "elysia.json" | "built-in";
   readonly label: string;
   readonly value: string;
   readonly effective: boolean;
@@ -83,7 +83,7 @@ function formatValue(key: keyof ServerSettings, value: unknown): string {
 /**
  * The layers a setting resolves through for one target, top-down: the
  * project override when the target is a project, the environment's value,
- * the checkout's t3.json for file-backed keys, and the built-in default. The
+ * the checkout's elysia.json for file-backed keys, and the built-in default. The
  * first layer that is set wins. Same order as `resolveProjectSettings`.
  */
 export function settingInheritanceLayers(
@@ -114,11 +114,11 @@ export function settingInheritanceLayers(
   });
   if (fileBacked && target.projectId !== null) {
     layers.push({
-      key: "t3.json",
-      label: "t3.json",
-      value: source === "t3.json" ? formatValue(key, target.settings[key]) : "Inherits",
-      effective: source === "t3.json",
-      set: source === "t3.json",
+      key: "elysia.json",
+      label: "elysia.json",
+      value: source === "elysia.json" ? formatValue(key, target.settings[key]) : "Inherits",
+      effective: source === "elysia.json",
+      set: source === "elysia.json",
     });
   }
   // For a file-backed key the built-in is what the resolver produced with

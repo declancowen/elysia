@@ -1,10 +1,10 @@
 "use client";
 
-import { scopedThreadKey } from "@t3tools/client-runtime/environment";
+import { scopedThreadKey } from "@elysiatools/client-runtime/environment";
 import {
   isAtomCommandInterrupted,
   squashAtomCommandFailure,
-} from "@t3tools/client-runtime/state/runtime";
+} from "@elysiatools/client-runtime/state/runtime";
 import {
   AuthOrchestrationOperateScope,
   DEFAULT_BROWSER_PROFILE_ID,
@@ -15,8 +15,8 @@ import {
   DEFAULT_PREVIEW_ZOOM_FACTOR,
   PREVIEW_ZOOM_LEVELS,
   type PreviewAdjustInput,
-} from "@t3tools/contracts";
-import { normalizePreviewUrl } from "@t3tools/shared/preview";
+} from "@elysiatools/contracts";
+import { normalizePreviewUrl } from "@elysiatools/shared/preview";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import {
@@ -1014,7 +1014,7 @@ export function PreviewView({
           ) : (
             <div className="flex h-full items-center justify-center p-8 text-center">
               <p className="max-w-sm text-sm text-muted-foreground">
-                This tab is open in the T3 Code desktop app.
+                This tab is open in the Elysia desktop app.
               </p>
             </div>
           )

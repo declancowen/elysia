@@ -2,8 +2,8 @@
 
 import { PlusIcon, XIcon } from "~/icons";
 import { useMemo, useState } from "react";
-import type { ProviderDriverKind, ServerProviderModel } from "@t3tools/contracts";
-import type { CustomModelDefinition } from "@t3tools/shared/model";
+import type { ProviderDriverKind, ServerProviderModel } from "@elysiatools/contracts";
+import type { CustomModelDefinition } from "@elysiatools/shared/model";
 
 import { cn } from "../../lib/utils";
 import { Button } from "../ui/button";

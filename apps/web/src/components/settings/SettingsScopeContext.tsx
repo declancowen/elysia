@@ -1,6 +1,14 @@
-import { T3_PROJECT_FILE_NAME, type T3ProjectFile } from "@t3tools/contracts";
-import { parseT3ProjectFile } from "@t3tools/shared/t3ProjectFile";
+import {
+  ELYSIA_PROJECT_FILE_NAME,
+  LEGACY_PROJECT_FILE_NAME,
+  type ElysiaProjectFile,
+} from "@elysiatools/contracts";
+import {
+  isMissingProjectFileError,
+  parseElysiaProjectFile,
+} from "@elysiatools/shared/elysiaProjectFile";
 import { useAtomValue } from "@effect/atom-react";
+import * as Cause from "effect/Cause";
 import * as Option from "effect/Option";
 import { AsyncResult, Atom } from "effect/reactivity";
 import { createContext, type ReactNode, useContext, useMemo } from "react";
@@ -13,7 +21,7 @@ import { resolveSettingsScope, type SettingsScopeSearch } from "./settingsScope"
 import { selectSingleEnvironmentScope } from "./settingsScopeAxis";
 
 /**
- * Each member's decoded t3.json, so file-backed settings show the file as a
+ * Each member's decoded elysia.json, so file-backed settings show the file as a
  * layer in the inheritance chain. A member is only present once its read has
  * settled; the query atom caches per (environment, cwd).
  */
@@ -23,28 +31,32 @@ function useMemberProjectFiles(scope: ReturnType<typeof resolveSettingsScope>) {
     useMemo(
       () =>
         Atom.make((get) => {
-          const files = new Map<string, T3ProjectFile | null>();
+          const files = new Map<string, ElysiaProjectFile | null>();
           for (const member of members) {
-            const result = get(
-              getProjectFileQueryAtom(
-                member.environmentId,
-                member.workspaceRoot,
-                T3_PROJECT_FILE_NAME,
-              ),
-            );
-            if (result.waiting) continue;
-            // A pending in-app save overlays the query, like useProjectFileQuery.
-            const data =
-              get(
-                optimisticFileAtom(
-                  member.environmentId,
-                  member.workspaceRoot,
-                  T3_PROJECT_FILE_NAME,
-                ),
-              )?.data ?? Option.getOrNull(AsyncResult.value(result));
+            let data = null;
+            let waiting = false;
+            for (const fileName of [ELYSIA_PROJECT_FILE_NAME, LEGACY_PROJECT_FILE_NAME]) {
+              const result = get(
+                getProjectFileQueryAtom(member.environmentId, member.workspaceRoot, fileName),
+              );
+              data =
+                get(optimisticFileAtom(member.environmentId, member.workspaceRoot, fileName))
+                  ?.data ?? Option.getOrNull(AsyncResult.value(result));
+              if (data !== null) break;
+              if (result.waiting) {
+                waiting = true;
+                break;
+              }
+              if (
+                result._tag !== "Failure" ||
+                !isMissingProjectFileError(Cause.squash(result.cause))
+              )
+                break;
+            }
+            if (waiting) continue;
             files.set(
               member.physicalProjectKey,
-              data === null || data.truncated ? null : parseT3ProjectFile(data.contents),
+              data === null || data.truncated ? null : parseElysiaProjectFile(data.contents),
             );
           }
           return files;

@@ -2,8 +2,8 @@
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, expect, it, vi } from "vite-plus/test";
-import { EnvironmentId, ProjectId, ThreadId } from "@t3tools/contracts";
-import { scopeProjectRef } from "@t3tools/client-runtime/environment";
+import { EnvironmentId, ProjectId, ThreadId } from "@elysiatools/contracts";
+import { scopeProjectRef } from "@elysiatools/client-runtime/environment";
 
 const state = vi.hoisted(() => ({ wide: false, docked: vi.fn() }));
 vi.mock("~/hooks/useMediaQuery", () => ({ useMediaQuery: () => state.wide }));

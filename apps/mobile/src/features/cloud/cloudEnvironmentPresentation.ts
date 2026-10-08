@@ -1,9 +1,9 @@
-import type { RelayEnvironmentStatusResponse } from "@t3tools/contracts/relay";
+import type { RelayEnvironmentStatusResponse } from "@elysiatools/contracts/relay";
 import {
   orchestrationProtocolCompatibilityError,
   type EnvironmentConnectionPhase,
-} from "@t3tools/client-runtime/connection";
-import { relayOfflineReasonMessage } from "@t3tools/client-runtime/relay";
+} from "@elysiatools/client-runtime/connection";
+import { relayOfflineReasonMessage } from "@elysiatools/client-runtime/relay";
 
 export interface AvailableCloudEnvironmentPresentation {
   readonly connectionError: string | null;

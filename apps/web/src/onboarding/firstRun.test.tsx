@@ -2,7 +2,7 @@
 import { act, useEffect } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { beforeEach, afterEach, expect, it, vi } from "vite-plus/test";
-import { EnvironmentId, ProviderInstanceId } from "@t3tools/contracts";
+import { EnvironmentId, ProviderInstanceId } from "@elysiatools/contracts";
 
 const mocks = vi.hoisted(() => ({
   connectionsEnabled: false,
@@ -18,8 +18,8 @@ const mocks = vi.hoisted(() => ({
   persist: vi.fn(),
   createAgent: vi.fn(),
 }));
-vi.mock("@t3tools/contracts", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@t3tools/contracts")>()),
+vi.mock("@elysiatools/contracts", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@elysiatools/contracts")>()),
   get CONNECTIONS_ENABLED() {
     return mocks.connectionsEnabled;
   },
@@ -48,7 +48,7 @@ vi.mock("../state/server", () => ({
   primaryServerProvidersAtom: "providers",
 }));
 vi.mock("../state/use-atom-command", () => ({ useAtomCommand: () => mocks.createAgent }));
-vi.mock("@t3tools/client-runtime/state/runtime", () => ({
+vi.mock("@elysiatools/client-runtime/state/runtime", () => ({
   squashAtomCommandFailure: (result: { cause: unknown }) => result.cause,
 }));
 

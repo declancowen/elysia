@@ -8,7 +8,7 @@ import type {
   ProviderSettingsFormControl,
   ProviderSettingsFormOption,
   ProviderSettingsFormSchemaAnnotation,
-} from "@t3tools/contracts";
+} from "@elysiatools/contracts";
 import { PlusIcon, XIcon } from "~/icons";
 
 import { cn } from "../../lib/utils";

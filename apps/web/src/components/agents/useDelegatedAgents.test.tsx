@@ -1,6 +1,6 @@
 import { RegistryContext } from "@effect/atom-react";
-import { EnvironmentId, EventId, MessageId, ProjectId, ThreadId } from "@t3tools/contracts";
-import type { AgentGetDelegationResult } from "@t3tools/contracts";
+import { EnvironmentId, EventId, MessageId, ProjectId, ThreadId } from "@elysiatools/contracts";
+import type { AgentGetDelegationResult } from "@elysiatools/contracts";
 import { act } from "react";
 import { create, type ReactTestRenderer } from "react-test-renderer";
 import { afterAll, afterEach, beforeEach, expect, it, vi } from "vite-plus/test";

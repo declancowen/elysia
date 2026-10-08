@@ -1,5 +1,5 @@
-import type { OrchestrationProjectShell } from "@t3tools/contracts";
-import { isScratchProject } from "@t3tools/client-runtime/state/projects";
+import type { OrchestrationProjectShell } from "@elysiatools/contracts";
+import { isScratchProject } from "@elysiatools/client-runtime/state/projects";
 
 /** Scratch chats and persistent agents have conversations, not project Git controls. */
 export function threadHasProjectGitControls(

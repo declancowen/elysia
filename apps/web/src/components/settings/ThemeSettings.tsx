@@ -10,7 +10,7 @@ import {
   UploadIcon,
 } from "~/icons";
 import { useCallback, useEffect, useState, type ReactElement } from "react";
-import { ELYSIA_THEMES, INITIAL_THEME_ID } from "@t3tools/shared/themePalettes";
+import { ELYSIA_THEMES, INITIAL_THEME_ID } from "@elysiatools/shared/themePalettes";
 import { useEnvironmentThemeDefinitions } from "../../hooks/useEnvironmentTheme";
 import { readThemeHalvesRaw } from "../../hooks/useTheme";
 import { cn } from "../../lib/utils";

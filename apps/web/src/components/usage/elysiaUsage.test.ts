@@ -1,5 +1,5 @@
 import { expect, it } from "vite-plus/test";
-import { UsageDay, type UsageBucket } from "@t3tools/contracts";
+import { UsageDay, type UsageBucket } from "@elysiatools/contracts";
 import { elysiaUsagePeriods, elysiaUsageRange } from "./elysiaUsage";
 const bucket = (day: string, costUsd: number): UsageBucket => ({
   day: UsageDay.make(day),

@@ -1,4 +1,4 @@
-import { EDITORS, type EditorId } from "@t3tools/contracts";
+import { EDITORS, type EditorId } from "@elysiatools/contracts";
 
 import { getLocalFileManagerName } from "~/lib/utils";
 

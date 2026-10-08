@@ -7,8 +7,8 @@ import {
   type PreviewAdjustInput,
   type PreviewSessionSnapshot,
   type PreviewViewportSetting,
-} from "@t3tools/contracts";
-import { PREVIEW_VIEWPORT_PRESETS } from "@t3tools/shared/previewViewport";
+} from "@elysiatools/contracts";
+import { PREVIEW_VIEWPORT_PRESETS } from "@elysiatools/shared/previewViewport";
 import { Alert } from "react-native";
 
 import { ControlPill, ControlPillMenu } from "../../components/ControlPill";

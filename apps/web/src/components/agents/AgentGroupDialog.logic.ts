@@ -1,4 +1,4 @@
-import type { AgentProfile, EnvironmentId, ProjectId } from "@t3tools/contracts";
+import type { AgentProfile, EnvironmentId, ProjectId } from "@elysiatools/contracts";
 import type { AgentRosterEntry } from "./useAgents";
 
 export function agentGroupCandidates(

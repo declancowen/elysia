@@ -1,4 +1,4 @@
-import { APP_NAME } from "@t3tools/contracts";
+import { APP_NAME } from "@elysiatools/contracts";
 
 export const UPDATE_INSTALL_LOCATION_MESSAGE = `Quit ${APP_NAME}, move it to Applications, then reopen it there before updating.`;
 

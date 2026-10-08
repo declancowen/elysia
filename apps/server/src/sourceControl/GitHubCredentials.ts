@@ -11,7 +11,10 @@ import * as PlatformError from "effect/PlatformError";
 import * as Redacted from "effect/Redacted";
 import * as Schema from "effect/Schema";
 
-import { HostProcessEnvironment, HostProcessWorkingDirectory } from "@t3tools/shared/hostProcess";
+import {
+  HostProcessEnvironment,
+  HostProcessWorkingDirectory,
+} from "@elysiatools/shared/hostProcess";
 
 import * as ServerSettings from "../serverSettings.ts";
 import * as VcsProcess from "../vcs/VcsProcess.ts";
@@ -98,7 +101,7 @@ export class GitHubCredentials extends Context.Service<
     /** Drops the held token after GitHub refused it, so the next read asks its source again. */
     readonly invalidate: (host: string) => Effect.Effect<void>;
   }
->()("t3/sourceControl/GitHubCredentials") {}
+>()("@elysiatools/server/sourceControl/GitHubCredentials") {}
 
 function normalizeHost(host: string): string {
   return host.trim().toLowerCase();

@@ -3,13 +3,13 @@ import {
   OrchestrationV2TurnItem,
   ThreadId,
   type OrchestrationV2ProjectedTurnItem,
-} from "@t3tools/contracts";
+} from "@elysiatools/contracts";
 import {
   agentTaskHandoff,
   channelConversationItems,
   channelWorkStartedAt,
   delegatedAgentsFromTurnItems,
-} from "@t3tools/shared/agentMentions";
+} from "@elysiatools/shared/agentMentions";
 import * as Schema from "effect/Schema";
 import * as DateTime from "effect/DateTime";
 import { expect, it } from "vite-plus/test";

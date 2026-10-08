@@ -4,7 +4,7 @@ import type {
   PullRequestReaction,
   PullRequestReactionContent,
   PullRequestRef,
-} from "@t3tools/contracts";
+} from "@elysiatools/contracts";
 import { SmilePlusIcon } from "~/icons";
 import { useState } from "react";
 

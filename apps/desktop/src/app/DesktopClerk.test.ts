@@ -1,9 +1,9 @@
 // @effect-diagnostics nodeBuiltinImport:off globalFetchInEffect:off - Hosted handoff test uses a real localhost listener without an OpenAI account.
 import * as NodeHttp from "node:http";
 import * as PlatformNodePath from "@effect/platform-node/NodePath";
-import { codexAuthHandoffUrl, readCodexAuthDelivery } from "@t3tools/shared/codexAuthHandoff";
-import { EnvironmentId, ProviderInstanceId } from "@t3tools/contracts";
-import { HostProcessArguments } from "@t3tools/shared/hostProcess";
+import { codexAuthHandoffUrl, readCodexAuthDelivery } from "@elysiatools/shared/codexAuthHandoff";
+import { EnvironmentId, ProviderInstanceId } from "@elysiatools/contracts";
+import { HostProcessArguments } from "@elysiatools/shared/hostProcess";
 import { assert, describe, it } from "@effect/vitest";
 import * as Cause from "effect/Cause";
 import * as Effect from "effect/Effect";
@@ -26,7 +26,9 @@ const hostedAuthPolicy = vi.hoisted(() => ({ upstreamEnabled: false }));
 // remains active for the rest of this suite and in the shipped desktop app.
 vi.mock("../../../../packages/contracts/src/forkPolicy.ts", async (importOriginal) => {
   const policy =
-    await importOriginal<Pick<typeof import("@t3tools/contracts"), "isEnabledProviderDriver">>();
+    await importOriginal<
+      Pick<typeof import("@elysiatools/contracts"), "isEnabledProviderDriver">
+    >();
   return {
     ...policy,
     isEnabledProviderDriver: (driver: string) =>
@@ -154,7 +156,7 @@ describe("DesktopClerk", () => {
       });
       // runSync throws if the layer ever suspends, which would let Electron emit
       // ready before the bridge exists. main.ts provides the same FileSystem.
-      // oxlint-disable-next-line t3code/no-manual-effect-runtime-in-tests -- The assertion IS that the layer builds synchronously; it.effect would mask a regression to async.
+      // oxlint-disable-next-line elysia/no-manual-effect-runtime-in-tests -- The assertion IS that the layer builds synchronously; it.effect would mask a regression to async.
       Effect.runSync(
         Effect.scoped(
           Layer.build(

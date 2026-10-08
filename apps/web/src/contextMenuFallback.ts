@@ -1,9 +1,9 @@
-import type { ContextMenuItem, AgentProfile } from "@t3tools/contracts";
+import type { ContextMenuItem, AgentProfile } from "@elysiatools/contracts";
 import {
   AGENT_AVATAR_COLORS,
   AGENT_AVATAR_SHAPES,
   resolveAgentAvatar,
-} from "@t3tools/shared/agentAvatar";
+} from "@elysiatools/shared/agentAvatar";
 import SquareArrowOutUpRightIcon from "@hugeicons/core-free-icons/SquareArrowOutUpRightIcon";
 import Edit03Icon from "@hugeicons/core-free-icons/Edit03Icon";
 import FolderFileStorageIcon from "@hugeicons/core-free-icons/FolderFileStorageIcon";

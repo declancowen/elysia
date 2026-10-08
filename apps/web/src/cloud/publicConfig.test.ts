@@ -46,6 +46,6 @@ describe("hasCloudPublicConfig", () => {
 
 // The cloud parser remains covered while Connections stay disabled in the shipped fork.
 vi.mock("../../../../packages/contracts/src/forkPolicy.ts", async (importOriginal) => ({
-  ...(await importOriginal<Pick<typeof import("@t3tools/contracts"), "CONNECTIONS_ENABLED">>()),
+  ...(await importOriginal<Pick<typeof import("@elysiatools/contracts"), "CONNECTIONS_ENABLED">>()),
   CONNECTIONS_ENABLED: true,
 }));

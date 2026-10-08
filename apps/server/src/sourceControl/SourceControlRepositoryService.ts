@@ -18,7 +18,7 @@ import {
   type SourceControlRepositoryCloneUrls,
   type SourceControlRepositoryInfo,
   type SourceControlRepositoryLookupInput,
-} from "@t3tools/contracts";
+} from "@elysiatools/contracts";
 
 import * as ServerConfig from "../config.ts";
 import { expandHomePathWith } from "../pathExpansion.ts";
@@ -59,7 +59,7 @@ export class SourceControlRepositoryService extends Context.Service<
       input: SourceControlPublishRepositoryInput,
     ) => Effect.Effect<SourceControlPublishRepositoryResult, SourceControlRepositoryError>;
   }
->()("t3/sourceControl/SourceControlRepositoryService") {}
+>()("@elysiatools/server/sourceControl/SourceControlRepositoryService") {}
 
 export interface SourceControlPreparedClone {
   readonly destinationPath: string;

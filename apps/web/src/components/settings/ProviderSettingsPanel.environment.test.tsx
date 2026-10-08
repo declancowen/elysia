@@ -6,7 +6,7 @@ import {
   ProviderInstanceId,
   type ServerProvider,
   type UnifiedSettings,
-} from "@t3tools/contracts";
+} from "@elysiatools/contracts";
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
 import { visitElements } from "../../test/reactElementTree";
@@ -14,7 +14,9 @@ import { reactHookHarness as hooks } from "../../test/reactHookHarness";
 
 // Retained upstream account-routing fixtures; production still permits only Elysia.
 vi.mock("../../../../../packages/contracts/src/forkPolicy.ts", async (importOriginal) => ({
-  ...(await importOriginal<Pick<typeof import("@t3tools/contracts"), "isEnabledProviderDriver">>()),
+  ...(await importOriginal<
+    Pick<typeof import("@elysiatools/contracts"), "isEnabledProviderDriver">
+  >()),
   isEnabledProviderDriver: () => true,
 }));
 

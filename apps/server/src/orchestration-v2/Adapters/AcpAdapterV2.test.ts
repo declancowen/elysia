@@ -26,9 +26,9 @@ import {
   RunId,
   ThreadId,
   type OrchestrationV2ProviderThread,
-} from "@t3tools/contracts";
-import { HostProcessIsExecutable, HostProcessPlatform } from "@t3tools/shared/hostProcess";
-import { resolveSelfInvocation } from "@t3tools/shared/nodeRuntime";
+} from "@elysiatools/contracts";
+import { HostProcessIsExecutable, HostProcessPlatform } from "@elysiatools/shared/hostProcess";
+import { resolveSelfInvocation } from "@elysiatools/shared/nodeRuntime";
 import * as DateTime from "effect/DateTime";
 import * as Crypto from "effect/Crypto";
 import * as Deferred from "effect/Deferred";
@@ -101,7 +101,7 @@ import {
 const DEFAULT_GROK_SETTINGS = Schema.decodeSync(GrokSettings)({});
 
 const layerServerConfig = ServerConfig.layerTest(process.cwd(), {
-  prefix: "t3-acp-v2-adapter-",
+  prefix: "elysia-acp-v2-adapter-",
 }).pipe(Layer.provide(NodeServices.layer));
 
 const layerTest = Layer.mergeAll(NodeServices.layer, IdAllocator.layer, layerServerConfig);
@@ -902,7 +902,7 @@ describe("AcpAdapterV2", () => {
       assert.include(
         restoredBuild.methods,
         "session/set_config_option",
-        "Build should restore the native mode that T3 temporarily replaced for Plan",
+        "Build should restore the native mode that Elysia temporarily replaced for Plan",
       );
     }).pipe(Effect.provide(layerTest), Effect.scoped),
   );
@@ -1271,7 +1271,7 @@ describe("AcpAdapterV2", () => {
       );
       assert.deepEqual([...childMessages.values()], ["Checking the code.", "ONE"]);
       assert.equal(task?.prompt, "Run pwd, then reply ONE.");
-      // Terminal-fallback MCP calls in a child session keep their T3 identity.
+      // Terminal-fallback MCP calls in a child session keep their Elysia identity.
       assert.isTrue(
         items.some(
           (item) =>
@@ -1488,7 +1488,7 @@ describe("AcpAdapterV2", () => {
         results: [{ url: "https://t3.codes" }, { url: "https://github.com/pingdotgg/t3code" }],
       });
       assert.deepEqual(webItem("grok-web-fetch", "completed")?.results, [
-        { url: "https://t3.codes", snippet: "T3 Code page" },
+        { url: "https://t3.codes", snippet: "Elysia page" },
       ]);
       const completedCompaction = items.find(
         (item) =>
@@ -1725,7 +1725,7 @@ describe("AcpAdapterV2", () => {
       const failed = yield* Effect.scoped(
         Effect.gen(function* () {
           const commandPidPath = yield* fileSystem.makeTempFileScoped({
-            prefix: "t3-acp-forced-failure-command-",
+            prefix: "elysia-acp-forced-failure-command-",
           });
           yield* Effect.addFinalizer(() =>
             Effect.sync(() => cleanupPublishedDetachedFixture(commandPidPath)),
@@ -1851,7 +1851,7 @@ describe("AcpAdapterV2", () => {
         new URL("../../../scripts/acp-mock-agent.ts", import.meta.url),
       );
       const commandPidPath = yield* fileSystem.makeTempFileScoped({
-        prefix: "t3-acp-provider-exit-command-",
+        prefix: "elysia-acp-provider-exit-command-",
       });
       yield* Effect.addFinalizer(() =>
         Effect.sync(() => cleanupPublishedDetachedFixture(commandPidPath)),
@@ -2282,7 +2282,7 @@ describe("AcpAdapterV2", () => {
           new URL("../../../scripts/acp-mock-agent.ts", import.meta.url),
         );
         const workspace = yield* fileSystem.makeTempDirectoryScoped({
-          prefix: "t3-acp-no-client-fs-",
+          prefix: "elysia-acp-no-client-fs-",
         });
         const probePath = path.join(workspace, "planted.txt");
         const probeLogPath = path.join(workspace, "fs-probe.jsonl");
@@ -12448,7 +12448,7 @@ describe("AcpAdapterV2", () => {
         new URL("../../../scripts/acp-mock-agent.ts", import.meta.url),
       );
       const commandPidPath = yield* fileSystem.makeTempFileScoped({
-        prefix: "t3-acp-failed-teardown-command-",
+        prefix: "elysia-acp-failed-teardown-command-",
       });
       const residualCallbackDir = yield* fileSystem.makeTempDirectoryScoped();
       const residualCallbackResponseLogPath = path.join(residualCallbackDir, "responses.log");
@@ -13490,7 +13490,7 @@ describe("AcpAdapterV2", () => {
       );
       const protocolEvents = yield* Queue.bounded<EffectAcpProtocol.AcpProtocolLogEvent>(256);
       const commandPidPath = yield* fileSystem.makeTempFileScoped({
-        prefix: "t3-acp-direct-stop-command-",
+        prefix: "elysia-acp-direct-stop-command-",
       });
       yield* Effect.addFinalizer(() =>
         Effect.sync(() => cleanupPublishedDetachedFixture(commandPidPath)),
@@ -13921,7 +13921,7 @@ describe("AcpAdapterV2", () => {
       );
       const protocolEvents = yield* Queue.bounded<EffectAcpProtocol.AcpProtocolLogEvent>(256);
       const commandPidPath = yield* fileSystem.makeTempFileScoped({
-        prefix: "t3-acp-restart-active-command-",
+        prefix: "elysia-acp-restart-active-command-",
       });
       yield* Effect.addFinalizer(() =>
         Effect.sync(() => cleanupPublishedDetachedFixture(commandPidPath)),

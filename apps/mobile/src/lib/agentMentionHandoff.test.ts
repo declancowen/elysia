@@ -6,7 +6,7 @@ import {
   MessageId,
   ProjectId,
   ThreadId,
-} from "@t3tools/contracts";
+} from "@elysiatools/contracts";
 import { describe, expect, it, vi } from "vite-plus/test";
 import {
   agentMentionDraftKey,

@@ -14,7 +14,7 @@ import {
   SINGLE_PROVIDER_UI,
   pullRequestHostOf,
   resolveEnvironmentMachineKind,
-} from "@t3tools/contracts";
+} from "@elysiatools/contracts";
 import { useShortcutModifierState } from "~/shortcutModifierState";
 import type { PullRequestSpeedActionResult } from "~/components/pullRequest/PullRequestSpeedActions";
 import { usePullRequestCloseBatch } from "~/components/pullRequest/usePullRequestActions";
@@ -32,7 +32,7 @@ import type {
   PullRequestListResult,
   PullRequestListState,
   SourceControlProviderKind,
-} from "@t3tools/contracts";
+} from "@elysiatools/contracts";
 import { useAtomValue } from "@effect/atom-react";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { ArrowDownUpIcon, LayersIcon, Plug2Icon, SearchIcon } from "~/icons";
@@ -2207,7 +2207,7 @@ function PullRequestsRouteView() {
             open={rightPanelState.isOpen}
             keybindings={keybindings}
             getShortcutContext={getShortcutContext}
-            widthStorageKey="t3code:pull-request-panel-width"
+            widthStorageKey="elysia:pull-request-panel-width"
             // Default to roughly half the viewport: the PR list needs more
             // room than a chat, so the 540px chat-preview default squashes
             // it. SSR has no window, so fall back to a reasonable width.

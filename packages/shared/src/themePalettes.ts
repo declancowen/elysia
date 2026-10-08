@@ -140,7 +140,7 @@ export type ThemeDefinition = Readonly<{
  * their real backdrops (canvas, or the sidebar for its rows) because theme
  * colors are stored as opaque OKLCH tokens.
  */
-export const T3_CODE_LIGHT_THEME_COLORS: ThemeColors = {
+export const ELYSIA_LIGHT_THEME_COLORS: ThemeColors = {
   canvas: "#FFFFFF",
   chrome: "#FFFFFF",
   toolbar: "#FFFFFF",
@@ -200,7 +200,7 @@ export const T3_CODE_LIGHT_THEME_COLORS: ThemeColors = {
   terminalScrollbarHover: "#47657D",
 };
 
-export const T3_CODE_DARK_THEME_COLORS: ThemeColors = {
+export const ELYSIA_DARK_THEME_COLORS: ThemeColors = {
   canvas: "#002244",
   chrome: "#002244",
   toolbar: "#002244",
@@ -260,9 +260,9 @@ export const T3_CODE_DARK_THEME_COLORS: ThemeColors = {
   terminalScrollbarHover: "#4A7195",
 };
 
-export const T3_CHAT_THEME: ThemeDefinition = {
+export const ELYSIA_CHAT_THEME: ThemeDefinition = {
   id: "t3-chat",
-  label: "T3 Chat",
+  label: "Elysia Chat",
   appearance: "light",
   colors: {
     canvas: "oklch(0.982446 0.010114 325.653)",
@@ -899,8 +899,8 @@ export const DEFAULT_THEME: ThemeDefinition = {
   id: "default",
   label: "Sky",
   appearance: "dark",
-  colors: T3_CODE_DARK_THEME_COLORS,
-  variants: { light: T3_CODE_LIGHT_THEME_COLORS },
+  colors: ELYSIA_DARK_THEME_COLORS,
+  variants: { light: ELYSIA_LIGHT_THEME_COLORS },
 };
 
 const GITHUB_LIGHT_COLORS: ThemeColors = {

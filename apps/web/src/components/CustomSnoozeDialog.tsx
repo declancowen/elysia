@@ -1,4 +1,4 @@
-import { formatCalendarDate } from "@t3tools/shared/dateFormat";
+import { formatCalendarDate } from "@elysiatools/shared/dateFormat";
 import { useEffect, useId, useState } from "react";
 import { create } from "zustand";
 import {
@@ -6,7 +6,7 @@ import {
   localSnoozeTime,
   resolveCustomSnooze,
   type CustomSnoozeInput,
-} from "@t3tools/client-runtime/state/thread-settled";
+} from "@elysiatools/client-runtime/state/thread-settled";
 import { Button } from "./ui/button";
 import { CalendarIcon } from "~/icons";
 import { Calendar } from "./ui/calendar";

@@ -1,4 +1,4 @@
-import { isEnabledProviderDriver } from "@t3tools/contracts";
+import { isEnabledProviderDriver } from "@elysiatools/contracts";
 import {
   defaultInstanceIdForDriver,
   PROVIDER_DISPLAY_NAMES,
@@ -7,12 +7,12 @@ import {
   type ProviderDriverKind,
   type ProviderInstanceId,
   type ServerProvider,
-} from "@t3tools/contracts";
+} from "@elysiatools/contracts";
 import {
   isAtomCommandInterrupted,
   squashAtomCommandFailure,
   type AtomCommandResult,
-} from "@t3tools/client-runtime/state/runtime";
+} from "@elysiatools/client-runtime/state/runtime";
 
 export type ProviderUpdateSnapshot = ServerProvider & { readonly updateTarget?: "runtime" };
 

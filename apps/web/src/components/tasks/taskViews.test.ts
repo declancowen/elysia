@@ -6,8 +6,8 @@ import {
   ProjectId,
   WorkTaskId,
   type WorkTaskSummary,
-} from "@t3tools/contracts";
-import { formatComposerContextReference } from "@t3tools/shared/composerContextReferences";
+} from "@elysiatools/contracts";
+import { formatComposerContextReference } from "@elysiatools/shared/composerContextReferences";
 import {
   groupTasks,
   taskMetadata,

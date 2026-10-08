@@ -1,13 +1,13 @@
 import { SourceFileSurface } from "../features/files/SourceFileSurface";
-import { filePreviewKind } from "@t3tools/shared/filePreview";
+import { filePreviewKind } from "@elysiatools/shared/filePreview";
 import type {
   ComposerContextRecord,
   ElementContextSource,
   EnvironmentId,
   ScopedThreadRef,
-} from "@t3tools/contracts";
-import { formatAttachmentSize } from "@t3tools/client-runtime/state/attachments";
-import { videoMimeType } from "@t3tools/shared/video";
+} from "@elysiatools/contracts";
+import { formatAttachmentSize } from "@elysiatools/client-runtime/state/attachments";
+import { videoMimeType } from "@elysiatools/shared/video";
 import { useState } from "react";
 import {
   Alert,

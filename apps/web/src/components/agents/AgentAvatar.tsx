@@ -3,7 +3,7 @@ import {
   AGENT_AVATAR_SHAPES,
   agentAvatarEyeColor,
   resolveAgentAvatar,
-} from "@t3tools/shared/agentAvatar";
+} from "@elysiatools/shared/agentAvatar";
 import type { CSSProperties } from "react";
 import type { Project } from "../../types";
 import { cn } from "../../lib/utils";

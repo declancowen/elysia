@@ -17,7 +17,7 @@ import { vi } from "vite-plus/test";
 // Keep the dormant upstream channel lifecycle covered; ElysiaUpdates tests the real fork policy.
 vi.mock("@elysiatools/contracts", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@elysiatools/contracts")>()),
-  APP_NAME: "Elysia",
+  APP_NAME: "UpstreamFixture",
 }));
 
 import * as ElectronUpdater from "../electron/ElectronUpdater.ts";

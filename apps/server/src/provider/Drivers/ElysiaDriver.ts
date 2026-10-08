@@ -192,6 +192,8 @@ export const ElysiaDriver: ProviderDriver<ClaudeSettings, ElysiaDriverEnv> = {
         settings: effectiveConfig,
         environment: processEnv,
         modelCatalog,
+        // A native update installs user MCP/plugins that a live CLI has not loaded.
+        queryConfigurationVersion: elysia.configurationVersion,
         authorizeModel: authorize,
         attachmentsDir: (yield* ServerConfig).attachmentsDir,
         crypto: yield* Crypto.Crypto,

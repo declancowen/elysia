@@ -97,12 +97,12 @@ def record():
     (HOME / "record.json").write_text(json.dumps({"home": str(HOME), "mcp": str(MCP_FILE), "label": PLIST_LABEL, "version": CLI_VERSION, "gateway": os.environ.get("ELYSIA_GATEWAY_URL")}))
 `;
 
-function fixture() {
+function fixture(script = nativeFixture) {
   const directory = NodeFS.mkdtempSync(NodePath.join(NodeOS.tmpdir(), "elysia-cli-test-"));
   fixtures.push(directory);
   const source = NodePath.join(directory, "elysia-code.py");
   const profile = NodePath.join(directory, "profile");
-  NodeFS.writeFileSync(source, nativeFixture);
+  NodeFS.writeFileSync(source, script);
   NodeFS.writeFileSync(
     NodePath.join(directory, "setup-mac.sh"),
     'export ELYSIA_GATEWAY_URL="https://fixture.invalid"\n',
@@ -452,6 +452,63 @@ it("keeps incomplete CLI configuration and invalid certificates out of the works
   expect(result.stdout + result.stderr).not.toContain("fixture-secret");
 });
 
+it.each(["adopt", "validate"])("configures native 0.3.9 addons once during %s", (operation) => {
+  const { directory, profile, run } = fixture(
+    nativeFixture +
+      String.raw`
+CLI_VERSION = "0.3.9"
+SHUNT_BASE_URL, SHUNT_READ_MODEL, SHUNT_WRITE_MODEL = "https://fixture.invalid", "fixture-read", "fixture-write"
+def _load_credentials_from_settings():
+    data = json.loads((CLAUDE_DIR / "settings.json").read_text())
+    return data["env"]["ANTHROPIC_AUTH_TOKEN"], "config"
+def write_mcp(key):
+    MCP_FILE.write_text(json.dumps({"mcpServers": {"tavily": {"type": "http", "url": "https://fixture.invalid/mcp", "headers": {"x-portkey-api-key": key}}}}))
+def install_shunt_plugin():
+    settings = CLAUDE_DIR / "settings.json"
+    data = json.loads(settings.read_text())
+    data.setdefault("enabledPlugins", {})["elysia-shunt-plugin@elysia-code-plugins"] = True
+    settings.write_text(json.dumps(data))
+    installs = HOME / "addon-installs"
+    installs.write_text(str(int(installs.read_text()) + 1 if installs.exists() else 1))
+`,
+  );
+  expect(run("--init").status).toBe(0);
+  const managed = NodePath.join(profile, ".claude/settings.json");
+  const data = JSON.parse(NodeFS.readFileSync(managed, "utf8"));
+  data.env.SHUNT_READ_MODEL = "admin-custom-read";
+  data.env.LANGSMITH_HIDE_INPUTS = "true";
+  NodeFS.writeFileSync(managed, JSON.stringify(data));
+  const globalClaude = NodePath.join(directory, ".claude");
+  NodeFS.mkdirSync(globalClaude);
+  const certificate = NodePath.join(directory, "global-ca.pem");
+  NodeFS.copyFileSync(NodePath.join(profile, "ca.pem"), certificate);
+  const original = JSON.stringify({
+    ...data,
+    env: { ...data.env, NODE_EXTRA_CA_CERTS: certificate },
+  });
+  NodeFS.writeFileSync(NodePath.join(globalClaude, "settings.json"), original);
+  if (operation === "adopt") NodeFS.rmSync(profile, { recursive: true });
+  else NodeFS.unlinkSync(NodePath.join(profile, "configuration-version"));
+  expect(run(operation).status).toBe(0);
+  expect(JSON.parse(NodeFS.readFileSync(managed, "utf8"))).toMatchObject({
+    enabledPlugins: { "elysia-shunt-plugin@elysia-code-plugins": true },
+    env: {
+      SHUNT_BASE_URL: "https://fixture.invalid",
+      SHUNT_READ_MODEL: "admin-custom-read",
+      SHUNT_WRITE_MODEL: "fixture-write",
+      LANGSMITH_HIDE_INPUTS: "true",
+    },
+  });
+  expect(
+    JSON.parse(NodeFS.readFileSync(NodePath.join(profile, ".claude/.claude.json"), "utf8")),
+  ).toMatchObject({
+    mcpServers: { tavily: { headers: { "x-portkey-api-key": "fixture-secret" } } },
+  });
+  expect(run("validate").status).toBe(0);
+  expect(NodeFS.readFileSync(NodePath.join(profile, "addon-installs"), "utf8")).toBe("1");
+  expect(NodeFS.readFileSync(NodePath.join(globalClaude, "settings.json"), "utf8")).toBe(original);
+});
+
 it("updates its managed copy and preserves profile isolation across native re-exec", () => {
   const { source, profile, run } = fixture();
   expect(run("--init").status).toBe(0);
@@ -465,7 +522,96 @@ it("updates its managed copy and preserves profile isolation across native re-ex
     version: "0.3.9",
   });
   expect(NodeFS.readFileSync(source, "utf8")).toBe(nativeFixture);
+  expect(NodeFS.readFileSync(NodePath.join(profile, "configuration-version"), "utf8")).toBe(
+    "0.3.9",
+  );
 });
+
+it.each(["direct", "child"])(
+  "keeps session configuration unchanged after %s update setup failure",
+  (mode) => {
+    const { profile, run } = fixture();
+    expect(run("--init").status).toBe(0);
+    const script = NodePath.join(profile, "elysia-code.py");
+    NodeFS.appendFileSync(
+      script,
+      String.raw`
+original_main = main
+def main():
+    if "--update" in sys.argv:
+        script = Path(__file__)
+        script.write_text(script.read_text().replace('CLI_VERSION = "0.3.8"', 'CLI_VERSION = "0.3.9"'))
+        if os.environ.get("FIXTURE_UPDATE_FAILURE") == "child":
+            subprocess.run([sys.executable, str(script), "--finish-update", CLI_VERSION], check=False)
+            return
+        raise RuntimeError("Native plugin setup failed")
+    if "--finish-update" in sys.argv:
+        raise RuntimeError("Native plugin setup failed")
+    original_main()
+`,
+    );
+    expect(run("--update", "fixture-secret", { FIXTURE_UPDATE_FAILURE: mode }).status).toBe(1);
+    expect(NodeFS.readFileSync(script, "utf8")).toContain('CLI_VERSION = "0.3.9"');
+    expect(run("validate").status).toBe(0);
+    expect(NodeFS.readFileSync(NodePath.join(profile, "configuration-version"), "utf8")).toBe(
+      "0.3.8",
+    );
+  },
+);
+
+it.each(["--init", "--update"])(
+  "preserves native user MCP and plugins through %s",
+  async (operation) => {
+    // Model only the documented native setup contract, not private 0.3.9 helpers.
+    const addons = String.raw`
+original_main = main
+def main():
+    original_main()
+    if CLI_VERSION == "0.3.9" and any(flag in sys.argv for flag in ["--init", "--finish-update"]):
+        MCP_FILE.write_text(json.dumps({"mcpServers": {"tavily": {"type": "http", "url": "https://fixture.invalid/mcp"}}}))
+        settings = CLAUDE_DIR / "settings.json"
+        data = json.loads(settings.read_text())
+        data["enabledPlugins"] = {"elysia-shunt@fixture-marketplace": True}
+        settings.write_text(json.dumps(data))
+        plugins = CLAUDE_DIR / "plugins"
+        plugins.mkdir(exist_ok=True)
+        (plugins / "installed_plugins.json").write_text(json.dumps({"plugins": {"elysia-shunt@fixture-marketplace": [{"installPath": str(plugins / "cache/shunt")}]}}))
+`;
+    const script =
+      (operation === "--init"
+        ? nativeFixture.replace('CLI_VERSION = "0.3.8"', 'CLI_VERSION = "0.3.9"')
+        : nativeFixture) + addons;
+    const { directory, profile, run } = fixture(script);
+    const globalClaude = NodePath.join(directory, ".claude");
+    NodeFS.mkdirSync(globalClaude);
+    const globalSettings = '{"enabledPlugins":{"unrelated@global":true}}';
+    NodeFS.writeFileSync(NodePath.join(globalClaude, "settings.json"), globalSettings);
+    expect(run("--init").status).toBe(0);
+    if (operation === "--update") expect(run("--update").status).toBe(0);
+    const managedClaude = NodePath.join(profile, ".claude");
+    await syncElysiaExtensions(globalClaude, managedClaude);
+    expect(
+      JSON.parse(NodeFS.readFileSync(NodePath.join(managedClaude, ".claude.json"), "utf8")),
+    ).toEqual({ mcpServers: { tavily: { type: "http", url: "https://fixture.invalid/mcp" } } });
+    expect(
+      JSON.parse(NodeFS.readFileSync(NodePath.join(managedClaude, "settings.json"), "utf8")),
+    ).toMatchObject({ enabledPlugins: { "elysia-shunt@fixture-marketplace": true } });
+    expect(
+      JSON.parse(
+        NodeFS.readFileSync(NodePath.join(managedClaude, "plugins/installed_plugins.json"), "utf8"),
+      ),
+    ).toMatchObject({
+      plugins: {
+        "elysia-shunt@fixture-marketplace": [
+          { installPath: NodePath.join(managedClaude, "plugins/cache/shunt") },
+        ],
+      },
+    });
+    expect(NodeFS.readFileSync(NodePath.join(globalClaude, "settings.json"), "utf8")).toBe(
+      globalSettings,
+    );
+  },
+);
 
 it("quotes the resolved Windows Claude path while retaining native tracing arguments", () => {
   const { source, profile, run } = fixture();

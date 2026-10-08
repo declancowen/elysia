@@ -222,12 +222,15 @@ if operation == "latest":
 # Native update re-executes --finish-update. Preserve the managed profile and
 # service identity in that child too, using the newly downloaded native code.
 original_run = subprocess.run
+post_update_failed = False
 def run(command, *args, **kwargs):
+    global post_update_failed
+    finishing_update = isinstance(command, list) and "--finish-update" in command
     if native.IS_WINDOWS and isinstance(command, str) and kwargs.get("shell"):
         claude = shutil.which("claude.cmd") or shutil.which("claude")
         if claude and (command == claude or command.startswith(claude + " ")):
             command = subprocess.list2cmdline([claude]) + command[len(claude):]
-    if isinstance(command, list) and "--finish-update" in command:
+    if finishing_update:
         command = [sys.executable, "-c", os.environ["ELYSIA_CLI_BRIDGE"], source, str(root), "--finish-update"] + command[3:]
     if isinstance(command, list) and command[:2] == ["launchctl", "bootout"]:
         command = ["launchctl", "bootout", "gui/" + str(os.getuid()) + "/" + native.PLIST_LABEL]
@@ -240,7 +243,15 @@ def run(command, *args, **kwargs):
             capture_output=True, text=True, timeout=10)
         if owner.returncode != 0 or str(native.LAUNCHER_PY).casefold() not in owner.stdout.casefold():
             raise RuntimeError("Compression port belongs to another process")
-    return original_run(command, *args, **kwargs)
+    try:
+        result = original_run(command, *args, **kwargs)
+    except BaseException:
+        if finishing_update:
+            post_update_failed = True
+        raise
+    if finishing_update and result.returncode != 0:
+        post_update_failed = True
+    return result
 subprocess.run = run
 sys.argv = [str(script), operation] + sys.argv[4:]
 validation_error = "gateway"
@@ -328,6 +339,18 @@ def restore_compression():
     if hasattr(native, "LAUNCHER_PY") and native.LAUNCHER_PY.is_file():
         native.LAUNCHER_PY.chmod(0o600)
 
+def configure_native_addons():
+    if not hasattr(native, "install_shunt_plugin"):
+        return
+    native._init_globals()
+    settings_file = native.CLAUDE_DIR / "settings.json"
+    settings = json.loads(settings_file.read_text())
+    for name in ["SHUNT_BASE_URL", "SHUNT_READ_MODEL", "SHUNT_WRITE_MODEL"]:
+        settings["env"].setdefault(name, getattr(native, name))
+    settings_file.write_text(json.dumps(settings, indent=2) + "\n")
+    native.write_mcp(native._load_credentials_from_settings()[0])
+    native.install_shunt_plugin()
+
 def adopt_profile():
     global validation_error
     validation_error = "credentials"
@@ -365,6 +388,7 @@ def adopt_profile():
     validate_profile(check_tracing=False)
     validation_error = "prerequisites"
     native.install_langsmith_plugin()
+    configure_native_addons()
     native.deploy_claude_md()
     native.deploy_elysia_config_command()
     native.deploy_elysia_model_command()
@@ -414,10 +438,16 @@ if sensitive:
                 adopt_profile()
             elif operation == "validate":
                 validate_profile()
+                # Existing app profiles predate addon adoption; migrate once.
+                if not (root / "configuration-version").exists():
+                    configure_native_addons()
             elif operation == "restore-compression":
                 restore_compression()
             else:
                 native.main()
+                if operation == "--update" and post_update_failed:
+                    validation_error = "prerequisites"
+                    raise RuntimeError("Native post-update setup failed")
                 if operation == "--init":
                     validate_profile()
     except BaseException:
@@ -441,6 +471,14 @@ if sensitive and operation not in ["validate", "restore-compression"]:
             file.chmod(0o700 if file.stat().st_mode & 0o100 else 0o600)
 if sensitive and native.PLIST_PATH.exists():
     native.PLIST_PATH.chmod(0o600)
+if operation in ["--init", "--update", "--finish-update", "adopt"] or (operation == "validate" and not (root / "configuration-version").exists()):
+    # Publish only after setup finishes; the updater replaces its script first.
+    match = re.search(r'CLI_VERSION\s*=\s*"([^"]+)"', script.read_text())
+    if not match:
+        raise ValueError("Missing CLI version")
+    staged = root / "configuration-version.tmp"
+    staged.write_text(match[1])
+    staged.replace(root / "configuration-version")
 if sensitive:
     print("Elysia " + native.CLI_VERSION)
 `;
@@ -970,6 +1008,10 @@ export const makeElysiaCli = Effect.fn("makeElysiaCli")(function* (input: {
     refreshEnvironment,
     run,
     version,
+    configurationVersion: fs.readFileString(path.join(root, "configuration-version")).pipe(
+      Effect.map((value) => value.trim()),
+      Effect.orElseSucceed(() => null),
+    ),
     maintenance,
     bootstrap,
     reuseCredentials,

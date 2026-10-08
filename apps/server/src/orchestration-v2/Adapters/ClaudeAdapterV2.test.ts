@@ -2087,6 +2087,7 @@ describe("ClaudeAdapterV2 background wake turns", () => {
     readonly close?: (sdkMessages: Queue.Queue<SDKMessage>) => Effect.Effect<void>;
     readonly interrupt?: Effect.Effect<void>;
     readonly environment?: NodeJS.ProcessEnv;
+    readonly queryConfigurationVersion?: Effect.Effect<string | null>;
   }) =>
     Effect.gen(function* () {
       const fileSystem = yield* FileSystem.FileSystem;
@@ -2114,6 +2115,9 @@ describe("ClaudeAdapterV2 background wake turns", () => {
         instanceId: ClaudeAdapterV2.CLAUDE_DEFAULT_INSTANCE_ID,
         settings: DEFAULT_CLAUDE_SETTINGS,
         environment: options?.environment ?? {},
+        ...(options?.queryConfigurationVersion === undefined
+          ? {}
+          : { queryConfigurationVersion: options.queryConfigurationVersion }),
         attachmentsDir,
         fileSystem,
         path: yield* Path.Path,
@@ -2220,6 +2224,63 @@ describe("ClaudeAdapterV2 background wake turns", () => {
       };
     });
   const makeWakeHarness = makeWakeHarnessWithOptions();
+
+  it.effect.each([false, true])(
+    "resumes an updated CLI configuration without ending background work (%s)",
+    (backgroundWork) =>
+      Effect.gen(function* () {
+        let version = "0.3.8";
+        let closed = 0;
+        const harness = yield* makeWakeHarnessWithOptions({
+          queryConfigurationVersion: Effect.sync(() => version),
+          close: () =>
+            Effect.sync(() => {
+              closed += 1;
+            }),
+        });
+        const now = yield* DateTime.now;
+        const turn = (ordinal: number) =>
+          makeClaudeTestTurnInput({
+            threadId: harness.threadId,
+            providerThread: harness.providerThread,
+            now,
+            attemptId: RunAttemptId.make(`attempt-cli-update:${ordinal}`),
+            text: "Check the available tools.",
+            attachments: [],
+            providerTurnOrdinal: ordinal,
+          });
+        yield* harness.runtime.startTurn(turn(1));
+        const original = harness.getOpenedOptions();
+        if (backgroundWork) yield* harness.offerAndWait(wakeTaskStarted);
+        yield* harness.offerAndWait(turnOneResult);
+        yield* Queue.take(harness.terminalReceipts);
+        yield* harness.runtime.startTurn(turn(2));
+        assert.strictEqual(harness.getOpenedOptions(), original);
+        yield* harness.offerAndWait(turnOneResult);
+        yield* Queue.take(harness.terminalReceipts);
+
+        version = "0.3.9";
+        if (backgroundWork) {
+          const refused = yield* harness.runtime.startTurn(turn(3)).pipe(Effect.flip);
+          assert.instanceOf(
+            refused.cause,
+            ClaudeAdapterV2.ClaudeBackgroundWorkBlocksQueryReplacementError,
+          );
+          assert.equal(closed, 0);
+          assert.strictEqual(harness.getOpenedOptions(), original);
+          assert.isTrue(yield* harness.hasPendingBackgroundWork);
+          return;
+        }
+        yield* harness.runtime.startTurn(turn(4));
+        assert.equal(closed, 1);
+        const resumed = harness.getOpenedOptions();
+        assert.notStrictEqual(resumed, original);
+        assert.equal(resumed?.resume, WAKE_NATIVE_SESSION);
+        assert.isUndefined(resumed?.sessionId);
+        assert.deepEqual(resumed?.settingSources, ["user", "project", "local"]);
+        assert.notEqual(resumed?.strictMcpConfig, true);
+      }).pipe(Effect.scoped, Effect.provide(Layer.merge(IdAllocator.layer, NodeServices.layer))),
+  );
 
   it.effect.each([
     { isError: false, title: "Check weather" },

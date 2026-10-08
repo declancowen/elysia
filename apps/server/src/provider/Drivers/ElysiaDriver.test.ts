@@ -69,6 +69,7 @@ it.layer(testLayer)("Elysia startup", (it) => {
             refreshEnvironment: Effect.void,
             run: () => Effect.succeed(undefined),
             version: Effect.succeed("0.3.8"),
+            configurationVersion: Effect.succeed("0.3.8"),
             maintenance: Effect.succeed(
               makeProviderMaintenanceCapabilities({
                 provider: ElysiaDriver.driverKind,

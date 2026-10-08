@@ -1703,6 +1703,7 @@ const encodeElysiaQueryPolicyKey = Schema.encodeSync(
   Schema.fromJsonString(
     Schema.Struct({
       query: Schema.String,
+      configurationVersion: Schema.NullOr(Schema.String),
       persistentAgent: Schema.NullOr(
         Schema.Struct({
           name: Schema.String,
@@ -3113,6 +3114,7 @@ export interface ClaudeAdapterV2Options {
   readonly idAllocator: IdAllocator.IdAllocatorV2Shape;
   readonly queryRunner: ClaudeAgentSdkQueryRunnerShape;
   readonly modelCatalog?: Effect.Effect<ClaudeModelCatalog>;
+  readonly queryConfigurationVersion?: Effect.Effect<string | null>;
   readonly authorizeModel?: (model: string) => Effect.Effect<void, ProviderSetupError>;
   readonly onElysiaDefaultModelChange?: (model: string) => Effect.Effect<void, Error>;
   readonly scopedLimitNames?: Ref.Ref<ClaudeScopedLimitNames>;
@@ -7210,6 +7212,9 @@ export function makeClaudeAdapterV2(
           });
           const queryPolicyKey = encodeElysiaQueryPolicyKey({
             query: claudeEffectiveQueryPolicyKey(queryPolicy, mcpOverrides),
+            configurationVersion: yield* (
+              adapterOptions.queryConfigurationVersion ?? Effect.succeed(null)
+            ),
             persistentAgent: turnInput.runtimePolicy.persistentAgent ?? null,
           });
           const compiledSelection = compileClaudeModelSelection(

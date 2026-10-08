@@ -5,7 +5,6 @@ import {
   MAX_WEBHOOK_DELIVERY_AGE_MINUTES,
 } from "@elysiatools/contracts";
 import { readEnvironmentScope } from "../../state/session";
-import { formatAgentMention } from "@elysiatools/shared/agentMentions";
 import { useAtomValue } from "@effect/atom-react";
 import { scopeThreadRef } from "@elysiatools/client-runtime/environment";
 import { type ReactNode, useMemo, useRef, useState, useId } from "react";
@@ -15,9 +14,7 @@ import type {
   ProjectId,
   ScheduledTask,
   ScheduledTaskId,
-  ScheduledTaskSchedule,
   ScheduledTaskUpsertInput,
-  ThreadId,
 } from "@elysiatools/contracts";
 import {
   MIN_SCHEDULED_TASK_INTERVAL_MS,
@@ -43,6 +40,8 @@ import { EMPTY_SERVER_PROVIDERS, serverEnvironment } from "../../state/server";
 import { useAtomCommand } from "../../state/use-atom-command";
 import { WorktreeBaseBranchPicker } from "../WorktreeBaseBranchPicker";
 import { EnvironmentMachineIcon } from "../EnvironmentMachineIcon";
+import { ScheduledTaskSpace } from "./ScheduledTaskSpace";
+import { ScheduledTaskPrompt } from "./ScheduledTaskPrompt";
 import { useSettingsScope } from "./SettingsScopeContext";
 import {
   WEEKDAY_LABELS,
@@ -69,9 +68,16 @@ import {
   DialogTitle,
 } from "../ui/dialog";
 import { Input } from "../ui/input";
-import { Select, SelectItem, SelectPopup, SelectTrigger, SelectValue } from "../ui/select";
+import {
+  Select,
+  SelectGroup,
+  SelectGroupLabel,
+  SelectItem,
+  SelectPopup,
+  SelectTrigger,
+  SelectValue,
+} from "../ui/select";
 import { Switch } from "../ui/switch";
-import { Textarea } from "../ui/textarea";
 import { stackedThreadToast, toastManager } from "../ui/toast";
 
 /** JS day-of-week (0 = Sunday) rendered Monday-first, matching how people read a week. */
@@ -172,6 +178,7 @@ export function ScheduledTaskEditor({
       allProjects.filter(
         (project) =>
           project.environmentId === environmentId &&
+          !project.agentProfile?.archived &&
           (inline || matchesScheduledTaskScope(scope, environmentId, project.id)),
       ),
     [allProjects, environmentId, inline, scope],
@@ -219,6 +226,14 @@ export function ScheduledTaskEditor({
     projects[0]?.id ||
     "";
   const selectedProject = projects.find((project) => project.id === selectedProjectId);
+  const projectGroups = [
+    {
+      label: "Agents",
+      projects: projects.filter((project) => project.agentProfile && !project.agentProfile.group),
+    },
+    { label: "Channels", projects: projects.filter((project) => project.agentProfile?.group) },
+    { label: "Projects", projects: projects.filter((project) => !project.agentProfile) },
+  ];
   const agentProfile = selectedProject?.agentProfile;
   const agentThread = useThreadShell(
     agentProfile?.conversationThreadId
@@ -231,10 +246,9 @@ export function ScheduledTaskEditor({
   // is exactly how the draft stores its selection.
   const firstInstance = instanceEntries[0];
   const activeSelection =
+    (draft.modelKey ? splitModelKey(draft.modelKey) : null) ??
     agentThread?.modelSelection ??
-    (draft.modelKey
-      ? splitModelKey(draft.modelKey)
-      : scheduledTaskDefaultModel(settings, selectedProject ?? null, instanceEntries));
+    scheduledTaskDefaultModel(settings, selectedProject ?? null, instanceEntries);
   const activeInstanceId =
     activeSelection?.instanceId ?? firstInstance?.instanceId ?? ("" as ProviderInstanceId);
   const activeModel = activeSelection?.model ?? "";
@@ -314,12 +328,11 @@ export function ScheduledTaskEditor({
     // Keep the original selection object (with provider options) when the
     // picker still points at the same instance+model.
     const modelSelection =
-      agentThread?.modelSelection ??
-      (draft.baseModelSelection !== null &&
+      draft.baseModelSelection !== null &&
       draft.baseModelSelection.instanceId === selection.instanceId &&
       draft.baseModelSelection.model === selection.model
         ? draft.baseModelSelection
-        : selection);
+        : selection;
     const workspaceStrategy = scheduledTaskWorkspaceStrategy(draft, showWorkspaceControls);
     const input: ScheduledTaskUpsertInput = {
       ...(draft.editingId ? { id: draft.editingId as ScheduledTaskId, requireExisting: true } : {}),
@@ -328,7 +341,7 @@ export function ScheduledTaskEditor({
       enabled: draft.enabled,
       schedule,
       projectId: selectedProjectId as ProjectId,
-      threadId: agentThread?.id ?? (draft.threadId ? (draft.threadId as ThreadId) : null),
+      threadId: agentThread?.id ?? null,
       workspaceStrategy,
       modelSelection,
       runtimeMode: agentThread?.runtimeMode ?? draft.runtimeMode,
@@ -434,18 +447,31 @@ export function ScheduledTaskEditor({
                 ...current,
                 projectId: projectId ?? "",
                 threadId: "",
+                modelKey: "",
+                baseModelSelection: null,
               }))
             }
           >
             <SelectTrigger size="sm" id={`${formId}-scheduled-task-project`}>
-              <SelectValue placeholder="Select a project">{selectedProject?.title}</SelectValue>
+              <SelectValue placeholder="Select a project, agent or channel">
+                {selectedProject ? (
+                  <ScheduledTaskSpace project={selectedProject} projects={allProjects} />
+                ) : null}
+              </SelectValue>
             </SelectTrigger>
             <SelectPopup>
-              {projects.map((project) => (
-                <SelectItem key={project.id} value={project.id}>
-                  {project.title}
-                </SelectItem>
-              ))}
+              {projectGroups
+                .filter((group) => group.projects.length > 0)
+                .map((group) => (
+                  <SelectGroup key={group.label}>
+                    <SelectGroupLabel>{group.label}</SelectGroupLabel>
+                    {group.projects.map((project) => (
+                      <SelectItem key={project.id} value={project.id}>
+                        <ScheduledTaskSpace project={project} projects={allProjects} />
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                ))}
             </SelectPopup>
           </Select>
         </Field>
@@ -507,43 +533,16 @@ export function ScheduledTaskEditor({
       <Field
         label="Prompt"
         htmlFor={`${formId}-scheduled-task-prompt`}
-        hint={agentProfile?.group ? "Runs through the lead agent" : undefined}
+        hint={agentProfile?.group ? "Runs through a mentioned member or the lead agent" : undefined}
       >
-        <Textarea
-          id={`${formId}-scheduled-task-prompt`}
-          className="max-h-64 overflow-y-auto"
-          placeholder="What should the agent do each time this runs?"
+        <ScheduledTaskPrompt
+          environmentId={environmentId}
+          project={selectedProject ?? null}
+          projects={allProjects}
           value={draft.prompt}
-          onChange={(event) => setDraft((current) => ({ ...current, prompt: event.target.value }))}
+          disabled={saving || !canOperate}
+          onChange={(prompt) => setDraft((current) => ({ ...current, prompt }))}
         />
-        {agentProfile ? (
-          <div className="flex flex-wrap gap-1" aria-label="Mention agents">
-            {allProjects
-              .filter(
-                (project) =>
-                  project.environmentId === environmentId &&
-                  project.agentProfile &&
-                  !project.agentProfile.archived &&
-                  !project.agentProfile.group &&
-                  (!agentProfile.group || agentProfile.group.memberProjectIds.includes(project.id)),
-              )
-              .map((project) => (
-                <Button
-                  key={project.id}
-                  size="xs"
-                  variant="ghost"
-                  onClick={() =>
-                    setDraft((current) => ({
-                      ...current,
-                      prompt: `${current.prompt}${current.prompt ? " " : ""}${formatAgentMention(project.id, project.title)}`,
-                    }))
-                  }
-                >
-                  @{project.title}
-                </Button>
-              ))}
-          </div>
-        ) : null}
       </Field>
 
       {agentProfile?.group ? (
@@ -554,7 +553,7 @@ export function ScheduledTaskEditor({
         <div className="flex items-center justify-between gap-4">
           <Label>Model</Label>
           <ProviderModelPicker
-            disabled={Boolean(agentProfile) || saving || !connected}
+            disabled={saving || !connected}
             activeInstanceId={activeInstanceId}
             model={activeModel}
             lockedProvider={null}

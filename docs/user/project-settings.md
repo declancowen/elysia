@@ -52,7 +52,9 @@ to override its environment defaults. Worktree directories keep their original n
 If generation fails, or a custom name is invalid or already taken, the temporary
 branch name remains.
 
-## Scheduled tasks on mobile
+## Scheduled tasks
+
+On desktop and web, link a schedule to an agent or channel to run in its dedicated chat, or to a project to create a separate thread for each run. Selecting an agent starts with its current model; you can choose another model for the schedule. Type `@` in the prompt to tag an agent or channel. Within a channel, tags choose the responding member; without a tag, its lead responds using that member's model. Archived agents and channels cannot be selected.
 
 Open **Settings → Scheduled tasks** to create recurring tasks or manage existing
 ones across your connected environments. Use the settings filter to narrow the

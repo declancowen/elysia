@@ -173,6 +173,8 @@ jobs:
             apps/web/src/components/settings/ElysiaSetupSection.test.tsx \
             apps/web/src/components/settings/settingsWorkspace.test.ts \
             apps/web/src/components/settings/scheduledTasksSettings.logic.test.ts \
+            apps/web/src/components/settings/ScheduledTaskEditor.test.tsx \
+            apps/web/src/components/settings/ScheduledTaskPrompt.test.tsx \
             apps/web/src/components/settings/SettingsScopeSentence.test.tsx \
             apps/web/src/state/desktopUpdate.test.ts \
             apps/web/src/components/desktopUpdate.logic.test.ts \

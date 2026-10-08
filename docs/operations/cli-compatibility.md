@@ -43,6 +43,12 @@ The historical entries below come from published GitHub release commits. The CLI
 | [v0.0.2](https://github.com/declancowen/elysia/releases/tag/v0.0.2)   | 2026-10-01      | [d8f7373127](https://github.com/declancowen/elysia/commit/d8f73731272f65011200098a918c98381d78dbe8) | 0.3.8                | 0.3.276                     |
 | [v0.0.1](https://github.com/declancowen/elysia/releases/tag/v0.0.1)   | 2026-10-01      | [afd508ee60](https://github.com/declancowen/elysia/commit/afd508ee60c022a48a42194e3ef562daafad5b53) | 0.3.8                | 0.3.276                     |
 
+## App v0.0.37 native verification
+
+Release source: [v0.0.37](https://github.com/declancowen/elysia/tree/v0.0.37). The CLI integration change is [97c7967c4e](https://github.com/declancowen/elysia/commit/97c7967c4ecd72c47385fac57b79387958b75860); the locked Claude Agent SDK is 0.3.276. The native CLI tested is 0.3.9, separately from the retained 0.3.8 regression fixture.
+
+On macOS, the supplied native setup passed isolated initialization, managed update, existing-sign-in adoption and one-time existing-profile migration checks. The 189 focused integration tests passed. External services and marketplace commands used controlled substitutes as detailed below. Live company authentication, Tavily search, shunt delegation and native Windows setup: **Not verified**. Desktop packaging and macOS signing are separately gated by the release workflow.
+
 ## CLI 0.3.9 review
 
 Release notes and the native 0.3.9 ZIP supplied by the maintainer on 2026-10-08. Package SHA-256: `56027c720207be2707129a7941040da344a8d938417d7ef0f6720005db993631`. The supplied setup implementation was exercised on macOS in temporary managed profiles. Gateway/CA requests, the update download and Claude marketplace commands used controlled substitutes; no live search, routed delegation, company authentication, or Windows runtime was tested. This establishes setup integration, not live-service certification.

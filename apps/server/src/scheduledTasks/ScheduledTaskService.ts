@@ -40,7 +40,7 @@ import * as Semaphore from "effect/Semaphore";
 import * as Stream from "effect/Stream";
 import * as SqlClient from "effect/sql/SqlClient";
 
-import { formatAgentMention } from "@elysiatools/shared/agentMentions";
+import { agentGroupResponder } from "@elysiatools/shared/agentMentions";
 import * as ProjectStore from "../orchestration-v2/ProjectStore.ts";
 import * as AgentDelegation from "../orchestration-v2/AgentDelegation.ts";
 import * as ThreadLaunchService from "../orchestration-v2/ThreadLaunchService.ts";
@@ -800,30 +800,50 @@ export const layer = Layer.effect(
         const result = yield* Effect.exit(
           Effect.gen(function* () {
             const project = yield* projects.get(active.projectId);
-            const channel = Option.isSome(project) ? project.value.agentProfile?.group : undefined;
+            if (Option.isSome(project) && project.value.deletedAt !== null)
+              return yield* taskError("The scheduled project is unavailable.", {
+                taskId: active.id,
+              });
+            const profile = Option.isSome(project) ? project.value.agentProfile : undefined;
+            const channel = profile?.group;
+            if (profile && (profile.archived || !profile.conversationThreadId))
+              return yield* taskError(
+                channel
+                  ? "The scheduled channel chat is unavailable."
+                  : "The scheduled agent chat is unavailable.",
+                { taskId: active.id },
+              );
+            const targetThreadId = profile?.conversationThreadId ?? active.threadId;
             if (channel) {
+              const responderId = agentGroupResponder(channel, prompt);
+              if (responderId === null)
+                return yield* taskError(
+                  "Channel schedules can only mention this channel's members.",
+                  {
+                    taskId: active.id,
+                  },
+                );
+              const responder = yield* projects.get(responderId);
               if (
-                Option.isNone(project) ||
-                project.value.agentProfile?.archived ||
-                !active.threadId ||
-                project.value.agentProfile?.conversationThreadId !== active.threadId
+                Option.isNone(responder) ||
+                responder.value.deletedAt !== null ||
+                !responder.value.agentProfile?.conversationThreadId ||
+                responder.value.agentProfile.archived ||
+                responder.value.agentProfile.group
               )
-                return yield* taskError("The scheduled channel chat is unavailable.", {
+                return yield* taskError("The scheduled channel member is unavailable.", {
                   taskId: active.id,
                 });
-              const lead = yield* projects.get(channel.leadProjectId);
-              if (Option.isNone(lead) || lead.value.agentProfile?.archived)
-                return yield* taskError("The channel lead is unavailable.", { taskId: active.id });
               return yield* delegation.delegate({
                 commandId,
-                sourceThreadId: ThreadId.make(active.threadId),
-                agentProjectId: channel.leadProjectId,
+                sourceThreadId: ThreadId.make(targetThreadId!),
+                agentProjectId: responderId,
                 messageId,
-                text: `${prompt}\n\nScheduled channel lead: ${formatAgentMention(channel.leadProjectId, lead.value.title)}`,
+                text: prompt,
                 attachments: [],
               });
             }
-            if (active.threadId === null)
+            if (targetThreadId === null)
               return yield* threadLaunch.launch({
                 commandId,
                 projectId: active.projectId,
@@ -844,7 +864,7 @@ export const layer = Layer.effect(
             return yield* threadManagement.sendToThread({
               projectId: active.projectId,
               commandId,
-              threadId: ThreadId.make(active.threadId),
+              threadId: ThreadId.make(targetThreadId),
               messageId,
               scheduledTaskId: active.id,
               text: prompt,

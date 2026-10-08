@@ -935,10 +935,10 @@ export function TasksPage() {
       >
         <div
           className={cn(
-            "mb-3 flex items-center gap-2 pr-3 hover:bg-sidebar-row-hover",
+            "mb-3 flex items-center gap-2 rounded-md pr-3 hover:bg-sidebar-row-hover",
             parentKey
               ? "ring-1 ring-inset ring-transparent"
-              : "rounded-md bg-card/30 ring-1 ring-inset ring-border",
+              : "bg-card/30 ring-1 ring-inset ring-border",
           )}
         >
           <button

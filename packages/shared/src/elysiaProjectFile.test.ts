@@ -107,15 +107,14 @@ describe("isMissingProjectFileError", () => {
     const source = new ProjectReadFileError({
       cwd: "/repo",
       relativePath: "elysia.json",
+      failure: "operation_failed",
       cause: {
         operation: "realpath-target",
         cause: Object.assign(new Error("missing file"), { code: "ENOENT" }),
       },
     });
     const encoded = encodeReadError(source);
-    const decoded = Schema.decodeUnknownSync(ProjectReadFileError)(
-      JSON.parse(JSON.stringify(encoded)),
-    );
+    const decoded = decodeReadError(JSON.parse(JSON.stringify(encoded)));
     expect(isMissingProjectFileError(decoded)).toBe(true);
   });
   it("does not treat permission, parse or missing workspace failures as absent config", () => {

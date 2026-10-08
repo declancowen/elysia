@@ -40,6 +40,13 @@ COMPRESSION_STATE = ELYSIA_DIR / "compression.json"
 CERT_FILE = HOME / "ca.pem"
 IS_MAC, IS_WINDOWS = True, False
 CLAUDE_DIR = HOME / ".claude"
+SETTINGS_FILE = CLAUDE_DIR / "settings.json"
+def _load_credentials_from_settings():
+    try:
+        env = json.loads(SETTINGS_FILE.read_text()).get("env", {})
+        return env.get("ANTHROPIC_AUTH_TOKEN", ""), json.loads(env.get("CC_LANGSMITH_METADATA", "{}")).get("config_id", "")
+    except Exception:
+        return "", ""
 def _init_globals():
     global GATEWAY_URL
     GATEWAY_URL = os.environ["ELYSIA_GATEWAY_URL"]
@@ -648,7 +655,7 @@ it("rejects native CLI certificate verification failures during fresh sign-in", 
   expect(NodeFS.existsSync(NodePath.join(profile, "ready"))).toBe(false);
 });
 
-it.each(["adopt", "validate"])("configures native 0.3.9 addons once during %s", (operation) => {
+it("configures native 0.3.9 addons during adoption without repeating setup on reuse", () => {
   const { directory, profile, run } = fixture(
     nativeFixture +
       String.raw`
@@ -683,9 +690,8 @@ def install_shunt_plugin():
     env: { ...data.env, NODE_EXTRA_CA_CERTS: certificate },
   });
   NodeFS.writeFileSync(NodePath.join(globalClaude, "settings.json"), original);
-  if (operation === "adopt") NodeFS.rmSync(profile, { recursive: true });
-  else NodeFS.unlinkSync(NodePath.join(profile, "configuration-version"));
-  expect(run(operation).status).toBe(0);
+  NodeFS.rmSync(profile, { recursive: true });
+  expect(run("adopt").status).toBe(0);
   expect(JSON.parse(NodeFS.readFileSync(managed, "utf8"))).toMatchObject({
     enabledPlugins: { "elysia-shunt-plugin@elysia-code-plugins": true },
     env: {
@@ -704,6 +710,168 @@ def install_shunt_plugin():
   expect(NodeFS.readFileSync(NodePath.join(profile, "addon-installs"), "utf8")).toBe("1");
   expect(NodeFS.readFileSync(NodePath.join(globalClaude, "settings.json"), "utf8")).toBe(original);
 });
+
+it.each(["macOS", "Windows"])(
+  "reuses a v36 profile without running prerequisites or addon migration on %s",
+  (platform) => {
+    const { profile, run } = fixture();
+    expect(run("--init").status).toBe(0);
+    NodeFS.unlinkSync(NodePath.join(profile, "configuration-version"));
+    NodeFS.appendFileSync(
+      NodePath.join(profile, "elysia-code.py"),
+      String.raw`
+CLI_VERSION = "0.3.9"
+IS_MAC, IS_WINDOWS = os.environ["FIXTURE_PLATFORM"] == "macOS", os.environ["FIXTURE_PLATFORM"] == "Windows"
+def check_claude_installed():
+    raise RuntimeError("Prerequisites must not determine saved sign-in")
+def _init_globals():
+    raise RuntimeError("Runtime configuration must not determine saved sign-in")
+def install_shunt_plugin():
+    raise PermissionError("fixture-secret must never be exposed")
+`,
+    );
+    const settings = NodePath.join(profile, ".claude/settings.json");
+    const original = NodeFS.readFileSync(settings, "utf8");
+    const result = run("validate", "fixture-secret", { FIXTURE_PLATFORM: platform });
+    expect(result.status).toBe(0);
+    expect(result.stdout + result.stderr).not.toContain("fixture-secret");
+    expect(NodeFS.readFileSync(settings, "utf8")).toBe(original);
+    expect(NodeFS.existsSync(NodePath.join(profile, "configuration-version"))).toBe(false);
+    expect(NodeFS.existsSync(NodePath.join(profile, "ready"))).toBe(true);
+  },
+);
+
+it("preserves an imported native sign-in when optional addon setup throws", () => {
+  const { directory, profile, run } = fixture(
+    nativeFixture +
+      String.raw`
+def install_langsmith_plugin():
+    raise PermissionError("fixture-secret must never be exposed")
+def install_shunt_plugin():
+    raise SystemExit("fixture-secret must never be exposed")
+SHUNT_BASE_URL, SHUNT_READ_MODEL, SHUNT_WRITE_MODEL = "https://fixture.invalid", "fixture-read", "fixture-write"
+def write_mcp(key):
+    pass
+`,
+  );
+  expect(run("--init").status).toBe(0);
+  const nativeDir = NodePath.join(directory, ".claude");
+  NodeFS.mkdirSync(nativeDir);
+  const original = NodeFS.readFileSync(NodePath.join(profile, ".claude/settings.json"), "utf8");
+  NodeFS.writeFileSync(NodePath.join(nativeDir, "settings.json"), original);
+  NodeFS.rmSync(profile, { recursive: true });
+  const result = run("adopt");
+  expect(result.status).toBe(0);
+  expect(result.stdout + result.stderr).not.toContain("fixture-secret");
+  expect(result.stderr).toContain("ELYSIA_WARNING:addons");
+  expect(NodeFS.existsSync(NodePath.join(profile, "ready"))).toBe(true);
+  expect(NodeFS.readFileSync(NodePath.join(nativeDir, "settings.json"), "utf8")).toBe(original);
+  expect(run("validate").status).toBe(0);
+});
+
+it("keeps adopted sign-in on the direct gateway if compression setup fails after changing routing", () => {
+  const { directory, profile, run } = fixture(
+    nativeFixture +
+      String.raw`
+def install_headroom():
+    return True
+def enable_compression():
+    settings = json.loads(SETTINGS_FILE.read_text())
+    settings["env"]["ANTHROPIC_BASE_URL"] = "http://localhost:9999"
+    SETTINGS_FILE.write_text(json.dumps(settings))
+    COMPRESSION_STATE.write_text(json.dumps({"enabled": True, "port": 9999}))
+    raise PermissionError("fixture-secret must never be exposed")
+`,
+  );
+  expect(run("--init").status).toBe(0);
+  const nativeDir = NodePath.join(directory, ".claude");
+  NodeFS.mkdirSync(nativeDir);
+  const settings = JSON.parse(
+    NodeFS.readFileSync(NodePath.join(profile, ".claude/settings.json"), "utf8"),
+  );
+  settings.env.CC_LANGSMITH_METADATA = JSON.stringify({
+    config_id: "config",
+    compression: "enabled",
+  });
+  const original = JSON.stringify(settings);
+  NodeFS.writeFileSync(NodePath.join(nativeDir, "settings.json"), original);
+  NodeFS.rmSync(profile, { recursive: true });
+  const result = run("adopt");
+  expect(result.status).toBe(0);
+  expect(result.stderr).toContain("ELYSIA_WARNING:compression");
+  expect(result.stdout + result.stderr).not.toContain("fixture-secret");
+  expect(
+    JSON.parse(NodeFS.readFileSync(NodePath.join(profile, ".claude/settings.json"), "utf8")).env
+      .ANTHROPIC_BASE_URL,
+  ).toBe("https://fixture.invalid");
+  expect(
+    JSON.parse(NodeFS.readFileSync(NodePath.join(profile, ".elysia/compression.json"), "utf8"))
+      .enabled,
+  ).toBe(false);
+  expect(NodeFS.readFileSync(NodePath.join(nativeDir, "settings.json"), "utf8")).toBe(original);
+  expect(run("validate").status).toBe(0);
+});
+
+effectIt.effect("restores the terminal sign-in when an old managed profile is incomplete", () => {
+  const { directory, source, profile, run } = fixture();
+  expect(run("--init").status).toBe(0);
+  const nativeDir = NodePath.join(profile, ".claude");
+  const original = NodeFS.readFileSync(NodePath.join(nativeDir, "settings.json"), "utf8");
+  const managed = NodePath.join(directory, "providers", "elysia-reuse-test");
+  NodeFS.mkdirSync(NodePath.join(managed, ".claude"), { recursive: true });
+  NodeFS.writeFileSync(NodePath.join(managed, "ready"), "");
+  NodeFS.writeFileSync(NodePath.join(managed, ".claude/settings.json"), "{}");
+  return Effect.gen(function* () {
+    const cli = yield* makeElysiaCli({
+      instanceId: ProviderInstanceId.make("reuse-test"),
+      stateDir: directory,
+      config: decodeClaudeSettings({ enabled: true, elysiaScriptPath: source }),
+      environment: { ...process.env, CLAUDE_CONFIG_DIR: nativeDir },
+      checkUpdates: Effect.succeed(false),
+    });
+    expect(yield* cli.ready).toBe(true);
+    expect(yield* cli.connectionError).toBeNull();
+    expect(yield* cli.reuseCredentials()).toBe(true);
+    expect(cli.environment.ANTHROPIC_AUTH_TOKEN).toBe("fixture-secret");
+    expect(NodeFS.readFileSync(NodePath.join(nativeDir, "settings.json"), "utf8")).toBe(original);
+  }).pipe(Effect.scoped, Effect.provide(NodeServices.layer));
+});
+
+effectIt.effect(
+  "reports the failed CLI step and safe exception type without leaking diagnostics",
+  () => {
+    const { directory, source } = fixture(
+      nativeFixture +
+        String.raw`
+original_main = main
+def main():
+    if "--init" in sys.argv:
+        raise PermissionError("fixture-secret must not reach the user")
+    original_main()
+`,
+    );
+    return Effect.gen(function* () {
+      const cli = yield* makeElysiaCli({
+        instanceId: ProviderInstanceId.make("diagnostics-test"),
+        stateDir: directory,
+        config: decodeClaudeSettings({ enabled: false, elysiaScriptPath: source }),
+        environment: process.env,
+        checkUpdates: Effect.succeed(false),
+      });
+      const error = yield* Effect.flip(
+        cli.run("--init", {
+          workspace_id: "workspace",
+          config_id: "config",
+          user_id: "user",
+          api_key: "fixture-secret",
+        }),
+      );
+      expect(error.detail).toContain("Step: --init (PermissionError)");
+      expect(error.detail).not.toContain("fixture-secret");
+      expect(error.detail).not.toContain("VPN/Zscaler");
+    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer));
+  },
+);
 
 it("updates its managed copy and preserves profile isolation across native re-exec", () => {
   const { source, profile, run } = fixture();

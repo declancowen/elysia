@@ -279,6 +279,7 @@ def run(command, *args, **kwargs):
 subprocess.run = run
 sys.argv = [str(script), operation] + sys.argv[4:]
 validation_error = "gateway"
+warnings = set()
 original_urlopen = urllib.request.urlopen
 def urlopen(*args, **kwargs):
     global validation_error
@@ -295,23 +296,10 @@ urllib.request.urlopen = urlopen
 def validate_profile():
     global validation_error
     validation_error = "credentials"
-    settings = json.loads((native.CLAUDE_DIR / "settings.json").read_text())
-    env = settings["env"]
-    metadata = json.loads(env["CC_LANGSMITH_METADATA"])
-    for field in ("workspace_id", "config_id", "user_id"):
-        if not re.fullmatch(r"[a-zA-Z0-9-]{1,256}", metadata.get(field, "")):
-            raise ValueError("Incomplete Elysia setup")
-    key = env["ANTHROPIC_AUTH_TOKEN"]
-    headers = dict(line.partition(":")[::2] for line in env["ANTHROPIC_CUSTOM_HEADERS"].splitlines())
-    if len(key) < 5 or headers.get("x-portkey-api-key", "").strip() != key or headers.get("x-portkey-config", "").strip() != metadata["config_id"]:
-        raise ValueError("Incomplete Elysia credentials")
-    if not settings["allowed_models"] or settings["model"] not in settings["allowed_models"]:
-        raise ValueError("Invalid Elysia model")
-    validation_error = "prerequisites"
-    native.check_claude_installed()
-    native._init_globals()
-    # Native --init owns gateway authentication. Reading an existing sign-in
-    # must not rerun certificate setup or add a GUI connection probe.
+    key, config_id = native._load_credentials_from_settings()
+    if not key or not config_id:
+        raise ValueError("No native Elysia sign-in")
+    # Read the CLI's saved sign-in; prerequisite/addon setup is not authentication.
 
 def restore_compression():
     global validation_error
@@ -375,9 +363,9 @@ def adopt_profile():
     # unrelated hooks and MCP providers from the user's global profile.
     data = {field: data[field] for field in ("env", "model", "allowed_models")}
     metadata = json.loads(data["env"]["CC_LANGSMITH_METADATA"])
-    if not all(metadata.get(field) for field in ("workspace_id", "config_id", "user_id")):
-        raise ValueError("Not an Elysia profile")
     native.CLAUDE_DIR.mkdir(parents=True, exist_ok=True)
+    (native.CLAUDE_DIR / "settings.json").write_text(json.dumps(data, indent=2) + "\n")
+    validate_profile()
     native.ELYSIA_DIR.mkdir(parents=True, exist_ok=True)
     config = real_home / ".elysia/config"
     if config.is_file():
@@ -388,6 +376,7 @@ def adopt_profile():
         for name in ["SSL_CERT_FILE", "NODE_EXTRA_CA_CERTS"]:
             if data["env"].get(name) == certificate_path:
                 data["env"][name] = str(native.CERT_FILE)
+    validation_error = "configuration"
     native._init_globals()
     was_compressed = metadata.get("compression") == "enabled"
     data["env"]["ANTHROPIC_BASE_URL"] = native.GATEWAY_URL
@@ -400,18 +389,25 @@ def adopt_profile():
         native.COMPRESSION_STATE.write_text(json.dumps({"enabled": False, "port": listener.getsockname()[1]}))
     # Native plugin installation warnings must not revoke a valid company sign-in.
     validate_profile()
-    validation_error = "prerequisites"
-    native.install_langsmith_plugin()
-    configure_native_addons()
-    native.deploy_claude_md()
-    native.deploy_elysia_config_command()
-    native.deploy_elysia_model_command()
-    native.deploy_elysia_compression_command()
+    for prepare in [native.install_langsmith_plugin, configure_native_addons,
+                    native.deploy_claude_md, native.deploy_elysia_config_command,
+                    native.deploy_elysia_model_command, native.deploy_elysia_compression_command]:
+        try:
+            prepare()
+        except (Exception, SystemExit):
+            warnings.add("addons")
     if was_compressed:
-        validation_error = "compression"
-        if not native.install_headroom():
-            raise ValueError("Compression installation failed")
-        native.enable_compression()
+        settings_before = (native.CLAUDE_DIR / "settings.json").read_text()
+        compression_before = native.COMPRESSION_STATE.read_text()
+        try:
+            if native.install_headroom():
+                native.enable_compression()
+            else:
+                warnings.add("compression")
+        except (Exception, SystemExit):
+            (native.CLAUDE_DIR / "settings.json").write_text(settings_before)
+            native.COMPRESSION_STATE.write_text(compression_before)
+            warnings.add("compression")
     validate_profile()
 
 if operation == "--init":
@@ -452,9 +448,6 @@ if sensitive:
                 adopt_profile()
             elif operation == "validate":
                 validate_profile()
-                # Existing app profiles predate addon adoption; migrate once.
-                if not (root / "configuration-version").exists():
-                    configure_native_addons()
             elif operation == "restore-compression":
                 restore_compression()
             else:
@@ -464,8 +457,8 @@ if sensitive:
                     raise RuntimeError("Native post-update setup failed")
                 if operation == "--init":
                     validate_profile()
-    except BaseException:
-        failure = validation_error
+    except BaseException as error:
+        failure = validation_error + ":" + type(error).__name__
     finally:
         sys.stdout.flush()
         sys.stderr.flush()
@@ -474,6 +467,8 @@ if sensitive:
     if failure:
         print("ELYSIA_ERROR:" + failure, file=sys.stderr)
         sys.exit(1)
+    for warning in sorted(warnings):
+        print("ELYSIA_WARNING:" + warning, file=sys.stderr)
 else:
     native.main()
 if operation in ["--init", "adopt", "validate"]:
@@ -485,7 +480,7 @@ if sensitive and operation not in ["validate", "restore-compression"]:
             file.chmod(0o700 if file.stat().st_mode & 0o100 else 0o600)
 if sensitive and native.PLIST_PATH.exists():
     native.PLIST_PATH.chmod(0o600)
-if operation in ["--init", "--update", "--finish-update", "adopt"] or (operation == "validate" and not (root / "configuration-version").exists()):
+if operation in ["--init", "--update", "--finish-update", "adopt"]:
     # Publish only after setup finishes; the updater replaces its script first.
     match = re.search(r'CLI_VERSION\s*=\s*"([^"]+)"', script.read_text())
     if not match:
@@ -646,28 +641,38 @@ export const makeElysiaCli = Effect.fn("makeElysiaCli")(function* (input: {
   };
   let validated = false;
   let connectionError: string | null = null;
-  const failure = (operation: string, diagnostic = "") =>
-    new ProviderSetupError({
+  const failure = (operation: string, diagnostic = "") => {
+    const errorType =
+      /(?:ELYSIA_ERROR:[a-z-]+:|(?:^|\n))(AttributeError|FileNotFoundError|ImportError|KeyError|ModuleNotFoundError|OSError|PermissionError|RuntimeError|SyntaxError|SystemExit|TypeError|ValueError)(?::|\s|$)/.exec(
+        diagnostic,
+      )?.[1];
+    const detail = diagnostic.includes("ELYSIA_ERROR:download-cli")
+      ? "The Elysia CLI package could not be downloaded from the company release server. Check the connection and retry."
+      : diagnostic.includes("ELYSIA_ERROR:package-invalid")
+        ? "The Elysia download was not a valid installation package. Retry or contact your company administrator."
+        : diagnostic.includes("ELYSIA_ERROR:install-cli")
+          ? "The native Elysia setup script could not complete installation. Retry or run the package setup script in Terminal."
+          : operation === "install-git" && platform === "darwin"
+            ? "Git is required for native tracing. Finish Apple's Command Line Tools installation, then continue setup."
+            : diagnostic.includes("ELYSIA_ERROR:tls")
+              ? "The native Elysia CLI could not verify the connection certificate. Retry native CLI setup."
+              : diagnostic.includes("ELYSIA_ERROR:credentials")
+                ? "Elysia credentials are incomplete or were rejected. Check your workspace, config and user IDs, and API key."
+                : diagnostic.includes("ELYSIA_ERROR:compression")
+                  ? "Elysia compression is unavailable. Retry setup to install and start the local proxy."
+                  : diagnostic.includes("ELYSIA_ERROR:gateway")
+                    ? "The native Elysia CLI could not complete the gateway request. Retry or check the CLI connection."
+                    : diagnostic.includes("ELYSIA_ERROR:configuration")
+                      ? "The native Elysia CLI configuration could not be loaded."
+                      : diagnostic.includes("ELYSIA_ERROR:prerequisites")
+                        ? "The native Elysia CLI prerequisite step failed."
+                        : "The Elysia CLI command could not complete.";
+    return new ProviderSetupError({
       instanceId: input.instanceId,
       operation,
-      detail: diagnostic.includes("ELYSIA_ERROR:download-cli")
-        ? "The Elysia CLI package could not be downloaded from the company release server. Check the connection and retry."
-        : diagnostic.includes("ELYSIA_ERROR:package-invalid")
-          ? "The Elysia download was not a valid installation package. Retry or contact your company administrator."
-          : diagnostic.includes("ELYSIA_ERROR:install-cli")
-            ? "The native Elysia setup script could not complete installation. Retry or run the package setup script in Terminal."
-            : operation === "install-git" && platform === "darwin"
-              ? "Git is required for native tracing. Finish Apple's Command Line Tools installation, then continue setup."
-              : diagnostic.includes("ELYSIA_ERROR:tls")
-                ? "The native Elysia CLI could not verify the connection certificate. Retry native CLI setup."
-                : diagnostic.includes("ELYSIA_ERROR:credentials")
-                  ? "Elysia credentials are incomplete or were rejected. Check your workspace, config and user IDs, and API key."
-                  : diagnostic.includes("ELYSIA_ERROR:compression")
-                    ? "Elysia compression is unavailable. Retry setup to install and start the local proxy."
-                    : diagnostic.includes("ELYSIA_ERROR:gateway")
-                      ? "The native Elysia CLI could not complete the gateway request. Retry or check the CLI connection."
-                      : "Elysia setup failed. Check Node.js 18+, Python 3.11+, Claude Code, the CLI path, company VPN/Zscaler and credentials, then retry.",
+      detail: `${detail} Step: ${operation}${errorType ? ` (${errorType})` : ""}.`,
     });
+  };
   const command = (
     operation: string,
     values?: Readonly<Record<string, string>>,
@@ -695,6 +700,14 @@ export const makeElysiaCli = Effect.fn("makeElysiaCli")(function* (input: {
       }
       return yield* error;
     }
+    if (result.stderr.includes("ELYSIA_WARNING:addons"))
+      yield* Effect.logWarning(
+        "Native Elysia addon setup did not complete; sign-in was preserved.",
+      );
+    if (result.stderr.includes("ELYSIA_WARNING:compression"))
+      yield* Effect.logWarning(
+        "Native Elysia compression setup did not complete; sign-in was preserved.",
+      );
     if (["--init", "adopt", "validate"].includes(operation)) {
       validated = true;
       connectionError = null;
@@ -939,13 +952,16 @@ export const makeElysiaCli = Effect.fn("makeElysiaCli")(function* (input: {
     const nativeConfigured = yield* fs
       .exists(path.join(nativeClaudeDir, "settings.json"))
       .pipe(Effect.orElseSucceed(() => false));
-    if (nativeInstalled && !disconnected && (wasReady || nativeConfigured)) {
-      yield* run(wasReady ? "validate" : "adopt").pipe(
+    const readProfile = (operation: "validate" | "adopt") =>
+      run(operation).pipe(
         Effect.catch((error) => {
           if (error.detail.includes("credentials are incomplete")) return Effect.void;
           return Effect.fail(error);
         }),
       );
+    if (nativeInstalled && !disconnected) {
+      if (wasReady) yield* readProfile("validate");
+      if (!(yield* ready) && nativeConfigured) yield* readProfile("adopt");
     }
     yield* refreshEnvironment;
     return yield* ready;

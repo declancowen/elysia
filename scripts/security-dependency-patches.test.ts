@@ -41,6 +41,17 @@ for (const operation of [braces.compile, braces.expand, braces.stringify]) {
 `);
 });
 
+it("matches normal build routes without backtracking on hostile adjacent parameters", () => {
+  run(String.raw`
+const { sourceToRegex } = dependency('@vercel/routing-utils');
+const { src, segments } = sourceToRegex('/:a-:b');
+assert.deepEqual(segments, ['a', 'b']);
+const route = new RegExp(src);
+assert.equal(route.test('/first-second'), true);
+assert.equal(route.test('/a' + '-a'.repeat(8_000) + '/a'), false);
+`);
+});
+
 it("accepts valid RSA signatures and rejects nested DigestAlgorithm padding", () => {
   run(String.raw`
 const forge = dependency('node-forge');

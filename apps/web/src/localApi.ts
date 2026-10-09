@@ -1,4 +1,9 @@
-import type { ConfirmDialogOptions, ContextMenuItem, LocalApi } from "@elysiatools/contracts";
+import {
+  SINGLE_PROVIDER_UI,
+  type ConfirmDialogOptions,
+  type ContextMenuItem,
+  type LocalApi,
+} from "@elysiatools/contracts";
 
 import { requestConfirmDialog } from "./confirmDialog";
 import { dismissContextMenu, showContextMenuFallback } from "./contextMenuFallback";
@@ -46,16 +51,15 @@ function createBrowserLocalApi(): LocalApi {
         items: readonly ContextMenuItem<T>[],
         position?: { x: number; y: number },
       ): Promise<T | null> => {
-        if (window.desktopBridge) {
+        if (window.desktopBridge && !SINGLE_PROVIDER_UI) {
           return window.desktopBridge.showContextMenu(items, position) as Promise<T | null>;
         }
         return showContextMenuFallback(items, position);
       },
-      // A native desktop menu blocks keyboard input and closes on outside
-      // interaction, so nothing to do there; the DOM fallback needs an explicit
-      // dismiss when the state behind it goes away.
+      // Elysia uses themed menus on web and desktop; dismiss retained menus
+      // when the state behind them goes away.
       close: async () => {
-        if (!window.desktopBridge) {
+        if (SINGLE_PROVIDER_UI || !window.desktopBridge) {
           dismissContextMenu();
         }
       },

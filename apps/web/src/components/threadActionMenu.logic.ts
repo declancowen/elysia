@@ -163,8 +163,14 @@ export function buildThreadActionMenuItems(
                   ...state.snoozePresets.map((preset) => ({
                     id: `snooze:${preset.id}` as const,
                     label: `${preset.label} (${preset.whenLabel})`,
+                    icon: "clock",
                   })),
-                  { id: "snooze:custom" as const, label: "Custom…", separatorBefore: true },
+                  {
+                    id: "snooze:custom" as const,
+                    label: "Custom…",
+                    icon: "clock",
+                    separatorBefore: true,
+                  },
                 ],
               },
         ]
@@ -206,11 +212,13 @@ export function buildThreadActionMenuItems(
               {
                 id: "auto-settle:enabled" as const,
                 label: "Enabled",
+                icon: "timer",
                 checked: state.autoSettleEnabled,
               },
               {
                 id: "auto-settle:disabled" as const,
                 label: "Disabled",
+                icon: "timer",
                 checked: !state.autoSettleEnabled,
               },
             ],

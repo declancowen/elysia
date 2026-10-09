@@ -6,6 +6,13 @@ import {
   ListIcon,
   Table2,
   SlidersHorizontalIcon,
+  CircleIcon,
+  FolderClosedIcon,
+  FolderFileStorageIcon,
+  CalendarIcon,
+  ClockIcon,
+  CircleCheckIcon,
+  type LucideIcon,
 } from "../icons";
 import { cn } from "../lib/utils";
 import { Button } from "./ui/button";
@@ -29,6 +36,14 @@ export type CollectionProperty =
   | "createdAt"
   | "updatedAt"
   | "completedAt";
+const PROPERTY_ICONS: Record<CollectionProperty, LucideIcon> = {
+  status: CircleIcon,
+  project: FolderClosedIcon,
+  parent: FolderFileStorageIcon,
+  createdAt: CalendarIcon,
+  updatedAt: ClockIcon,
+  completedAt: CircleCheckIcon,
+};
 export type CollectionColumn = {
   id: CollectionProperty | "title" | "agent" | "agentStatus" | "actions";
   label: string;
@@ -52,18 +67,22 @@ export function CollectionPropertiesPicker({
       <MenuPopup align="start">
         <MenuGroup>
           <MenuGroupLabel>Properties</MenuGroupLabel>
-          {options.map((option) => (
-            <MenuCheckboxItem
-              key={option.id}
-              checked={value.includes(option.id)}
-              closeOnClick={false}
-              onCheckedChange={(checked) =>
-                onChange(checked ? [...value, option.id] : value.filter((id) => id !== option.id))
-              }
-            >
-              {option.label}
-            </MenuCheckboxItem>
-          ))}
+          {options.map((option) => {
+            const Icon = PROPERTY_ICONS[option.id];
+            return (
+              <MenuCheckboxItem
+                key={option.id}
+                checked={value.includes(option.id)}
+                closeOnClick={false}
+                onCheckedChange={(checked) =>
+                  onChange(checked ? [...value, option.id] : value.filter((id) => id !== option.id))
+                }
+              >
+                <Icon />
+                {option.label}
+              </MenuCheckboxItem>
+            );
+          })}
         </MenuGroup>
       </MenuPopup>
     </Menu>
@@ -164,13 +183,28 @@ export function CollectionViewPicker({
                 onChange(value);
             }}
           >
-            <MenuRadioItem value="list">List</MenuRadioItem>
-            <MenuRadioItem value="table">Table</MenuRadioItem>
-            <MenuRadioItem value="board">Board</MenuRadioItem>
-            <MenuRadioItem value="card">Cards</MenuRadioItem>
+            <MenuRadioItem value="list">
+              <ListIcon />
+              List
+            </MenuRadioItem>
+            <MenuRadioItem value="table">
+              <Table2 />
+              Table
+            </MenuRadioItem>
+            <MenuRadioItem value="board">
+              <Columns2Icon />
+              Board
+            </MenuRadioItem>
+            <MenuRadioItem value="card">
+              <BlocksIcon />
+              Cards
+            </MenuRadioItem>
             {pages ? (
               <>
-                <MenuRadioItem value="wall">Wall</MenuRadioItem>
+                <MenuRadioItem value="wall">
+                  <DashboardSquare02Icon />
+                  Wall
+                </MenuRadioItem>
               </>
             ) : null}
           </MenuRadioGroup>
@@ -307,12 +341,15 @@ export function CollectionCardSizePicker({
         }}
       >
         <MenuRadioItem value="small" closeOnClick={false}>
+          <BlocksIcon />
           Small
         </MenuRadioItem>
         <MenuRadioItem value="medium" closeOnClick={false}>
+          <BlocksIcon />
           Medium
         </MenuRadioItem>
         <MenuRadioItem value="large" closeOnClick={false}>
+          <BlocksIcon />
           Large
         </MenuRadioItem>
       </MenuRadioGroup>

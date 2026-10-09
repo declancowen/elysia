@@ -1,3 +1,4 @@
+import { showContextMenuFallback, ContextMenuButton } from "../contextMenuFallback";
 import {
   scopedThreadKey,
   scopeProjectRef,
@@ -36,10 +37,8 @@ import {
   PinOffIcon,
   PlusIcon,
   SearchIcon,
-  SettingsIcon,
 } from "../icons";
 import { cn } from "../lib/utils";
-import { readLocalApi } from "../localApi";
 import type { SidebarProjectSnapshot } from "../sidebarProjectGrouping";
 import {
   useAllEnvironmentProjectSnapshotsReady,
@@ -54,7 +53,6 @@ import { buildProjectsPageRows, projectThreadUpdatedAt } from "./ProjectsPage.lo
 import { useSettingsProjectGroups } from "./settings/useSettingsProjectGroups";
 import { Button } from "./ui/button";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "./ui/input-group";
-import { Menu, MenuItem, MenuPopup, MenuTrigger } from "./ui/menu";
 import { SidebarInset } from "./ui/sidebar";
 import { Spinner } from "./ui/spinner";
 import { stackedThreadToast, toastManager } from "./ui/toast";
@@ -125,11 +123,11 @@ export function ProjectsPage() {
     position: { x: number; y: number },
   ) => {
     try {
-      const action = await readLocalApi()?.contextMenu.show(
+      const action = await showContextMenuFallback(
         [
-          { id: "open-tab", label: "Open in new tab" },
-          { id: "new-chat", label: "New chat" },
-          { id: "settings", label: "Project settings" },
+          { id: "open-tab", label: "Open in new tab", icon: "open-new-tab" },
+          { id: "new-chat", label: "New chat", icon: "message-square-plus", separatorBefore: true },
+          { id: "settings", label: "Project settings", icon: "settings" },
         ],
         position,
       );
@@ -242,32 +240,14 @@ export function ProjectsPage() {
                         {formatRelativeTimeLabel(updatedDate)}
                       </time>
                       <div className="flex items-center justify-end gap-1">
-                        <Menu>
-                          <MenuTrigger
-                            render={
-                              <Button
-                                variant="ghost"
-                                size="icon-sm"
-                                aria-label={`Actions for ${project.displayName}`}
-                              />
-                            }
-                          >
-                            <MoreHorizontalIcon />
-                          </MenuTrigger>
-                          <MenuPopup align="end">
-                            <MenuItem onClick={() => openProject(project, true)}>
-                              Open in new tab
-                            </MenuItem>
-                            <MenuItem onClick={() => newChat(project)}>
-                              <Edit03Icon />
-                              New chat
-                            </MenuItem>
-                            <MenuItem onClick={() => openProject(project)}>
-                              <SettingsIcon />
-                              Project settings
-                            </MenuItem>
-                          </MenuPopup>
-                        </Menu>
+                        <ContextMenuButton
+                          variant="ghost"
+                          size="icon-sm"
+                          aria-label={`Actions for ${project.displayName}`}
+                          onOpen={(position) => projectContextMenu(project, position)}
+                        >
+                          <MoreHorizontalIcon />
+                        </ContextMenuButton>
                         <Button
                           variant="ghost"
                           size="icon-sm"
@@ -376,11 +356,13 @@ function ProjectThreadLink({ thread }: { thread: ThreadShell }) {
       onDoubleClick={click.onDoubleClick}
       onContextMenu={(event) => {
         event.preventDefault();
-        void readLocalApi()
-          ?.contextMenu.show([{ id: "open-tab", label: "Open in new tab" }], {
+        void showContextMenuFallback(
+          [{ id: "open-tab", label: "Open in new tab", icon: "open-new-tab" }],
+          {
             x: event.clientX,
             y: event.clientY,
-          })
+          },
+        )
           .then((action) => {
             if (action === "open-tab") open(true);
           })

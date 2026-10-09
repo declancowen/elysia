@@ -306,6 +306,7 @@ describe("buildBulkUnpinContextMenuItem", () => {
     expect(buildBulkUnpinContextMenuItem({ pinnedCount: 2 })).toEqual({
       id: "unpin",
       label: "Unpin (2)",
+      icon: "pin-off",
     });
   });
 
@@ -324,6 +325,7 @@ describe("buildBulkTitleRegenerationContextMenuItem", () => {
     ).toEqual({
       id: "regenerate-title",
       label: "Regenerate titles (3)",
+      icon: "refresh-cw",
     });
   });
 
@@ -336,6 +338,7 @@ describe("buildBulkTitleRegenerationContextMenuItem", () => {
     ).toEqual({
       id: "regenerate-title",
       label: "Regenerating… (2)",
+      icon: "refresh-cw",
       disabled: true,
     });
   });

@@ -3331,8 +3331,14 @@ export function ArchivedThreadsPanel() {
       if (!api) return;
       const clicked = await api.contextMenu.show(
         [
-          { id: "unarchive", label: "Unarchive" },
-          { id: "delete", label: "Delete", destructive: true },
+          { id: "unarchive", label: "Unarchive", icon: "archive" },
+          {
+            id: "delete",
+            label: "Delete",
+            destructive: true,
+            icon: "trash",
+            separatorBefore: true,
+          },
         ],
         position,
       );

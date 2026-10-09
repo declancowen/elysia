@@ -19,7 +19,7 @@ import {
 import { stripInlineContextReferences } from "../../lib/composerContextReferences";
 import { cn } from "../../lib/utils";
 import { Button } from "../ui/button";
-import { Menu, MenuItem, MenuPopup, MenuTrigger } from "../ui/menu";
+import { Menu, MenuItem, MenuSeparator, MenuPopup, MenuTrigger } from "../ui/menu";
 import { Spinner } from "../ui/spinner";
 import { useSidebar } from "../ui/sidebar";
 import { useSidebarRowDrag } from "../sidebar/SidebarOrderedList";
@@ -284,6 +284,7 @@ function AgentConversationRow({
               </MenuItem>
             ) : null}
             <AgentOrganizationMenuItems agent={agent} />
+            <MenuSeparator />
             <MenuItem
               onClick={() => openAgentDialog(scopeProjectRef(project.environmentId, project.id))}
             >

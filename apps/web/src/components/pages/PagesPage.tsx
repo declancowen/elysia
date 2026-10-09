@@ -20,11 +20,6 @@ import { useEnvironmentQuery } from "../../state/query";
 import { serverEnvironment } from "../../state/server";
 import { useAtomCommand } from "../../state/use-atom-command";
 import {
-  CopyIcon,
-  ChannelIcon as HashIcon,
-  Trash2Icon,
-  Edit03Icon,
-  ExternalLinkIcon,
   ArrowUpDownIcon,
   ChevronDownIcon,
   ChevronRightIcon,
@@ -37,6 +32,10 @@ import {
   SearchIcon,
   MoreHorizontalIcon,
   SlidersHorizontalIcon,
+  CalendarIcon,
+  ClockIcon,
+  EyeOffIcon,
+  ListIcon,
 } from "../../icons";
 import { useConversationTabNavigation } from "../../hooks/useConversationTabNavigation";
 import { useConversationTabsStore } from "../../conversationTabsStore";
@@ -62,9 +61,6 @@ import {
   MenuRadioItem,
   MenuCheckboxItem,
   MenuSeparator,
-  MenuSub,
-  MenuSubTrigger,
-  MenuSubPopup,
 } from "../ui/menu";
 import { SidebarInset, useSidebar } from "../ui/sidebar";
 import {
@@ -102,7 +98,7 @@ import {
   type CollectionView,
 } from "../WorkspaceCollectionView";
 import { ensureLocalApi } from "../../localApi";
-import { showContextMenuFallback } from "../../contextMenuFallback";
+import { showContextMenuFallback, ContextMenuButton } from "../../contextMenuFallback";
 import { cn } from "../../lib/utils";
 
 const PAGE_PROPERTIES = [
@@ -378,9 +374,9 @@ export function PagesPage({ folderId = null }: { folderId?: PageId | null }) {
           icon: page.kind === "folder" ? "workspace-folder" : "workspace-page",
         },
         { id: "open-new-tab", label: "Open in new tab", icon: "open-new-tab" },
-        { id: "copy-id", label: "Copy ID", icon: "hash" },
-        { id: "copy-reference", label: "Copy reference", icon: "copy" },
-        { id: "rename", label: "Rename", icon: "edit-03" },
+        { id: "copy-id", label: "Copy ID", icon: "hash", separatorBefore: true },
+        { id: "copy-reference", label: "Copy reference", icon: "link" },
+        { id: "rename", label: "Rename", icon: "edit-03", separatorBefore: true },
         { id: "move", label: "Move", icon: "workspace-folder" },
         {
           id: "project",
@@ -398,6 +394,7 @@ export function PagesPage({ folderId = null }: { folderId?: PageId | null }) {
         {
           id: "delete",
           label: `Delete (${selectedPages.length})`,
+          separatorBefore: true,
           destructive: true,
           icon: "workspace-delete",
         },
@@ -795,129 +792,17 @@ export function PagesPage({ folderId = null }: { folderId?: PageId | null }) {
                     )}
                   >
                     {view !== "list" ? selectionControl : null}
-                    <Menu>
-                      <MenuTrigger
-                        render={
-                          <Button
-                            variant="ghost-muted"
-                            size="icon-xs"
-                            aria-label={`Options for ${page.title}`}
-                          />
-                        }
-                      >
-                        <MoreHorizontalIcon />
-                      </MenuTrigger>
-                      <MenuPopup>
-                        <MenuItem
-                          onClick={() =>
-                            void runSelectionAction(page, "open").catch((cause) =>
-                              setError(String(cause)),
-                            )
-                          }
-                        >
-                          {page.kind === "folder" ? <FolderFileStorageIcon /> : <Files01Icon />}
-                          Open
-                        </MenuItem>
-                        <MenuItem
-                          onClick={() =>
-                            void runSelectionAction(page, "open-new-tab").catch((cause) =>
-                              setError(String(cause)),
-                            )
-                          }
-                        >
-                          <ExternalLinkIcon />
-                          Open in new tab
-                        </MenuItem>
-                        <MenuItem
-                          onClick={() =>
-                            void runSelectionAction(page, "copy-id").catch((cause) =>
-                              setError(String(cause)),
-                            )
-                          }
-                        >
-                          <HashIcon />
-                          Copy ID
-                        </MenuItem>
-                        <MenuItem
-                          onClick={() =>
-                            void runSelectionAction(page, "copy-reference").catch((cause) =>
-                              setError(String(cause)),
-                            )
-                          }
-                        >
-                          <CopyIcon />
-                          Copy reference
-                        </MenuItem>
-                        <MenuSeparator />
-                        <MenuItem
-                          onClick={() =>
-                            void runSelectionAction(page, "rename").catch((cause) =>
-                              setError(String(cause)),
-                            )
-                          }
-                        >
-                          <Edit03Icon />
-                          Rename
-                        </MenuItem>
-                        <MenuItem
-                          onClick={() =>
-                            void runSelectionAction(page, "move").catch((cause) =>
-                              setError(String(cause)),
-                            )
-                          }
-                        >
-                          <FolderFileStorageIcon />
-                          Move
-                        </MenuItem>
-                        <MenuSub>
-                          <MenuSubTrigger>
-                            <FolderClosedIcon />
-                            Change project
-                          </MenuSubTrigger>
-                          <MenuSubPopup>
-                            <MenuItem
-                              onClick={() =>
-                                void runSelectionAction(page, "project:none").catch((cause) =>
-                                  setError(String(cause)),
-                                )
-                              }
-                            >
-                              <FolderClosedIcon />
-                              No Project
-                            </MenuItem>
-                            {projects.map((project) => (
-                              <MenuItem
-                                key={project.id}
-                                onClick={() =>
-                                  void runSelectionAction(page, `project:${project.id}`).catch(
-                                    (cause) => setError(String(cause)),
-                                  )
-                                }
-                              >
-                                <FolderClosedIcon />
-                                {project.title}
-                              </MenuItem>
-                            ))}
-                          </MenuSubPopup>
-                        </MenuSub>
-                        <MenuSeparator />
-                        <MenuItem
-                          variant="destructive"
-                          onClick={() =>
-                            void runSelectionAction(page, "delete").catch((cause) =>
-                              setError(String(cause)),
-                            )
-                          }
-                        >
-                          <Trash2Icon />
-                          Delete (
-                          {selection.has(page.id)
-                            ? allPages.filter((row) => selection.has(row.id)).length
-                            : 1}
-                          )
-                        </MenuItem>
-                      </MenuPopup>
-                    </Menu>
+                    <ContextMenuButton
+                      variant="ghost-muted"
+                      size="icon-xs"
+                      aria-label={`Options for ${page.title}`}
+                      disabled={bulkPending}
+                      onOpen={(position) =>
+                        showSelectionMenu(page, position).catch((cause) => setError(String(cause)))
+                      }
+                    >
+                      <MoreHorizontalIcon />
+                    </ContextMenuButton>
                   </div>
                 </CollectionTableCell>
               </PagesPageItemRow>
@@ -1004,9 +889,18 @@ export function PagesPage({ folderId = null }: { folderId?: PageId | null }) {
                           setGrouping(value);
                       }}
                     >
-                      <MenuRadioItem value="project">Project</MenuRadioItem>
-                      <MenuRadioItem value="type">Type</MenuRadioItem>
-                      <MenuRadioItem value="none">No grouping</MenuRadioItem>
+                      <MenuRadioItem value="project">
+                        <FolderClosedIcon />
+                        Project
+                      </MenuRadioItem>
+                      <MenuRadioItem value="type">
+                        <Files01Icon />
+                        Type
+                      </MenuRadioItem>
+                      <MenuRadioItem value="none">
+                        <ListIcon />
+                        No grouping
+                      </MenuRadioItem>
                     </MenuRadioGroup>
                   </MenuGroup>
                   <MenuSeparator />
@@ -1020,12 +914,17 @@ export function PagesPage({ folderId = null }: { folderId?: PageId | null }) {
                       }}
                     >
                       <MenuRadioItem value="project" disabled={grouping === "project"}>
+                        <FolderClosedIcon />
                         Project
                       </MenuRadioItem>
                       <MenuRadioItem value="type" disabled={grouping === "type"}>
+                        <Files01Icon />
                         Type
                       </MenuRadioItem>
-                      <MenuRadioItem value="none">No subgrouping</MenuRadioItem>
+                      <MenuRadioItem value="none">
+                        <ListIcon />
+                        No subgrouping
+                      </MenuRadioItem>
                     </MenuRadioGroup>
                   </MenuGroup>
                   {groupByProject ? (
@@ -1037,8 +936,14 @@ export function PagesPage({ folderId = null }: { folderId?: PageId | null }) {
                           value={groupDescending ? "desc" : "asc"}
                           onValueChange={(value) => setGroupDescending(value === "desc")}
                         >
-                          <MenuRadioItem value="asc">A–Z</MenuRadioItem>
-                          <MenuRadioItem value="desc">Z–A</MenuRadioItem>
+                          <MenuRadioItem value="asc">
+                            <ArrowUpDownIcon />
+                            A–Z
+                          </MenuRadioItem>
+                          <MenuRadioItem value="desc">
+                            <ArrowUpDownIcon />
+                            Z–A
+                          </MenuRadioItem>
                         </MenuRadioGroup>
                       </MenuGroup>
                     </>
@@ -1063,9 +968,18 @@ export function PagesPage({ folderId = null }: { folderId?: PageId | null }) {
                           setSort(value);
                       }}
                     >
-                      <MenuRadioItem value="updated">Recently updated</MenuRadioItem>
-                      <MenuRadioItem value="created">Recently created</MenuRadioItem>
-                      <MenuRadioItem value="title">Title</MenuRadioItem>
+                      <MenuRadioItem value="updated">
+                        <ClockIcon />
+                        Recently updated
+                      </MenuRadioItem>
+                      <MenuRadioItem value="created">
+                        <CalendarIcon />
+                        Recently created
+                      </MenuRadioItem>
+                      <MenuRadioItem value="title">
+                        <FileTextIcon />
+                        Title
+                      </MenuRadioItem>
                     </MenuRadioGroup>
                   </MenuGroup>
                 </MenuPopup>
@@ -1085,6 +999,7 @@ export function PagesPage({ folderId = null }: { folderId?: PageId | null }) {
                       onCheckedChange={setHideEmpty}
                       disabled={grouping === "none"}
                     >
+                      <EyeOffIcon />
                       Hide empty groups
                     </MenuCheckboxItem>
                   </MenuGroup>

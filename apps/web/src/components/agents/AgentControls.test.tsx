@@ -71,6 +71,7 @@ vi.mock("../ui/toast", () => ({ toastManager: { add: state.toast } }));
 import { AgentDetailsPopover } from "./AgentDetailsPopover";
 import { AgentRoster } from "./AgentRoster";
 import { AgentConversationList } from "./AgentConversationList";
+import { AgentSidebarSections } from "./AgentSidebarOrganization";
 import { useAgentSidebarPreferences } from "./agentSidebarPreferences";
 vi.mock("./useAgentConversationPreviews", () => ({
   useAgentConversationPreviews: () => ({ previews: new Map(), loading: false, failed: false }),
@@ -440,19 +441,11 @@ it.each([true, false])(
         new MouseEvent("contextmenu", { bubbles: true, clientX: 20, clientY: 30 }),
       ),
     );
-    if (elysia) {
-      expect(state.contextMenu).not.toHaveBeenCalled();
-      expect(button("Edit agent").querySelector("path")?.getAttribute("d")).toBe(
-        Edit03Icon[0]![1].d,
-      );
-      expect(button("Edit agent").querySelector("svg")?.getAttribute("stroke-width")).toBe("2");
-      await click("Edit agent");
-    } else {
-      expect(state.contextMenu).toHaveBeenCalledWith(
-        [{ id: "edit-agent", label: "Edit agent", icon: "edit-03" }],
-        { x: 20, y: 30 },
-      );
-    }
+    expect(state.contextMenu).not.toHaveBeenCalled();
+    expect(button("Edit agent").querySelector("path")?.getAttribute("d")).toBe(Edit03Icon[0]![1].d);
+    expect(button("Pin agent")).toBeDefined();
+    expect(button("Archive agent")).toBeDefined();
+    await click("Edit agent");
     expect(useAgentDialogStore.getState().target?.projectRef).toEqual(
       scopeProjectRef(environmentId, projectId),
     );
@@ -462,13 +455,71 @@ it.each([true, false])(
     await act(async () =>
       button("Alex").dispatchEvent(new MouseEvent("contextmenu", { bubbles: true })),
     );
-    if (elysia)
-      await act(async () =>
-        document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" })),
-      );
+    await act(async () => document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" })));
     expect(useAgentDialogStore.getState().target).toBeNull();
   },
 );
+
+it("keeps roster right-click and overflow actions identical", async () => {
+  await render(false, true);
+  await act(async () =>
+    button("Alex").dispatchEvent(new MouseEvent("contextmenu", { bubbles: true })),
+  );
+  const actions = () =>
+    [...document.querySelectorAll<HTMLElement>('[role="menuitem"]')].map((item) => ({
+      label: item.textContent?.trim(),
+      icon: item.querySelector("svg")?.getAttribute("data-icon"),
+      variant: item.dataset.variant,
+    }));
+  const contextActions = actions();
+  expect(contextActions.map(({ label }) => label)).toEqual([
+    "Open in new tab",
+    "Pin agent",
+    "Edit agent",
+    "Archive agent",
+  ]);
+  await act(async () =>
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })),
+  );
+  await click("Actions for Alex");
+  expect(actions()).toEqual(contextActions);
+  await click("Edit agent");
+  expect(useAgentDialogStore.getState().target?.projectRef).toEqual(
+    scopeProjectRef(environmentId, projectId),
+  );
+});
+
+it("shares section actions and removes only the selected section and its assignments", async () => {
+  useAgentSidebarPreferences.setState({
+    sections: [
+      { id: "research", name: "Research" },
+      { id: "work", name: "Work" },
+    ],
+    assignment: { alex: "research", friday: "work" },
+  });
+  await act(async () => root.render(<AgentSidebarSections agents={[]} renderRow={() => null} />));
+  const label = [
+    ...host.querySelectorAll<HTMLElement>('section[aria-label="Research"] button'),
+  ].find((element) => element.textContent === "Research")!;
+  expect(label).toBeDefined();
+  await act(async () => label.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true })));
+  const actions = () =>
+    [...document.querySelectorAll<HTMLElement>('[role="menuitem"]')].map((item) => ({
+      label: item.textContent?.trim(),
+      icon: item.querySelector("svg")?.getAttribute("data-icon"),
+      variant: item.dataset.variant,
+    }));
+  const contextActions = actions();
+  expect(contextActions.map(({ label }) => label)).toEqual(["Rename section", "Delete section"]);
+  await act(async () =>
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })),
+  );
+  await click("Manage Research");
+  expect(actions()).toEqual(contextActions);
+  await click("Delete section");
+  expect(useAgentSidebarPreferences.getState().sections).toEqual([{ id: "work", name: "Work" }]);
+  expect(useAgentSidebarPreferences.getState().assignment).toEqual({ friday: "work" });
+});
 
 it("closes the narrow sidebar only after its linked agent conversation opens successfully", async () => {
   state.mobile = true;

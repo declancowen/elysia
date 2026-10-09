@@ -44,9 +44,9 @@ describe("external chat link context menu", () => {
 
     expect(harness.showContextMenu).toHaveBeenCalledWith(
       [
-        { id: "open-in-preview", label: "Open in integrated browser" },
-        { id: "open-external", label: "Open in system browser" },
-        { id: "copy-link", label: "Copy Link" },
+        { id: "open-in-preview", label: "Open in integrated browser", icon: "open-new-tab" },
+        { id: "open-external", label: "Open in system browser", icon: "open-new-tab" },
+        { id: "copy-link", label: "Copy Link", icon: "copy", separatorBefore: true },
       ],
       { x: 12, y: 24 },
     );
@@ -67,8 +67,8 @@ describe("external chat link context menu", () => {
 
     expect(harness.showContextMenu).toHaveBeenCalledWith(
       [
-        { id: "open-external", label: "Open in system browser" },
-        { id: "copy-link", label: "Copy Link" },
+        { id: "open-external", label: "Open in system browser", icon: "open-new-tab" },
+        { id: "copy-link", label: "Copy Link", icon: "copy", separatorBefore: true },
       ],
       { x: 4, y: 8 },
     );
@@ -100,7 +100,7 @@ describe("external chat link context menu", () => {
     });
 
     expect(harness.showContextMenu).toHaveBeenCalledWith(
-      expect.arrayContaining([{ id: action, label }]),
+      expect.arrayContaining([{ id: action, label, icon: "link" }]),
       { x: 1, y: 2 },
     );
     expect(harness.updateThreadLink).toHaveBeenCalledWith(href, linked);

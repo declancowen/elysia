@@ -2311,14 +2311,31 @@ const MarkdownFileLink = memo(function MarkdownFileLink({
       try {
         const clicked = await api.contextMenu.show(
           [
-            ...(onOpenMedia ? ([{ id: "preview-media", label: "Preview media" }] as const) : []),
-            ...(onOpen ? ([{ id: "open", label: openInEditorMenuLabel }] as const) : []),
-            ...(onOpenInBrowser
-              ? ([{ id: "open-in-browser", label: "Open in integrated browser" }] as const)
+            ...(onOpenMedia
+              ? ([{ id: "preview-media", label: "Preview media", icon: "workspace-page" }] as const)
               : []),
-            ...(onReveal && revealLabel ? ([{ id: "reveal", label: revealLabel }] as const) : []),
-            { id: "copy-relative", label: "Copy relative path" },
-            { id: "copy-full", label: "Copy full path" },
+            ...(onOpen
+              ? ([{ id: "open", label: openInEditorMenuLabel, icon: "pencil" }] as const)
+              : []),
+            ...(onOpenInBrowser
+              ? ([
+                  {
+                    id: "open-in-browser",
+                    label: "Open in integrated browser",
+                    icon: "open-new-tab",
+                  },
+                ] as const)
+              : []),
+            ...(onReveal && revealLabel
+              ? ([{ id: "reveal", label: revealLabel, icon: "folder-tree" }] as const)
+              : []),
+            {
+              id: "copy-relative",
+              label: "Copy relative path",
+              icon: "copy",
+              separatorBefore: true,
+            },
+            { id: "copy-full", label: "Copy full path", icon: "copy" },
           ] as const,
           position,
         );

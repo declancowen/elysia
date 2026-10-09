@@ -1002,9 +1002,9 @@ export function RightPanelTabs(props: RightPanelTabsProps) {
 
       const items: ContextMenuItem<TabContextMenuAction>[] = [];
       if (surface.kind === "device" && props.onRenameDevice)
-        items.push({ id: "rename", label: "Rename" });
+        items.push({ id: "rename", label: "Rename", icon: "pencil" });
       if (surface.kind === "file" && surface.attachment === undefined) {
-        items.push({ id: "copy-path", label: "Copy path" });
+        items.push({ id: "copy-path", label: "Copy path", icon: "copy" });
       }
       const menuPreviewTabId = previewTabIdOf(surface, props.previewSessions);
       // Desktop overlay state only arrives once the preview manager has created
@@ -1019,6 +1019,7 @@ export function RightPanelTabs(props: RightPanelTabsProps) {
         // point, so the item is offered whenever the tab is mutable at all.
         items.push({
           id: "toggle-mute",
+          icon: menuMuted ? "volume" : "volume-off",
           ...tabMuteMenuItem({
             overlay: menuOverlay,
             canResolveRuntimeTabId: props.previewRuntimeTabId !== undefined,
@@ -1026,20 +1027,23 @@ export function RightPanelTabs(props: RightPanelTabsProps) {
         });
       }
       items.push(
-        { id: "close", label: "Close" },
+        { id: "close", label: "Close", icon: "close", separatorBefore: items.length > 0 },
         {
           id: "close-others",
           label: "Close others",
+          icon: "close",
           disabled: props.surfaces.length <= 1,
         },
         {
           id: "close-to-right",
           label: "Close to the right",
+          icon: "close",
           disabled: surfaceIndex >= props.surfaces.length - 1,
         },
         {
           id: "close-all",
           label: "Close all",
+          icon: "close",
           disabled: props.surfaces.length === 0,
         },
       );

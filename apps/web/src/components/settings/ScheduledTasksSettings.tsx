@@ -636,7 +636,7 @@ function ScheduledTaskRow({
               </MenuItem>
             )}
             <MenuSeparator />
-            <MenuItem onClick={() => void act("delete")}>
+            <MenuItem variant="destructive" onClick={() => void act("delete")}>
               <Trash2Icon />
               Delete
             </MenuItem>
@@ -658,7 +658,7 @@ function ScheduledTaskRow({
         onContextMenu={(event) => {
           event.preventDefault();
           event.stopPropagation();
-          if (busy) return;
+          if (busy || !canOperate) return;
           setContextPoint({ x: event.clientX, y: event.clientY });
           setMenuOpen(true);
         }}

@@ -471,10 +471,13 @@ function AppRailButton({
                 ? (event) => {
                     event.preventDefault();
                     void readLocalApi()
-                      ?.contextMenu.show([{ id: "open-tab", label: "Open in new tab" }], {
-                        x: event.clientX,
-                        y: event.clientY,
-                      })
+                      ?.contextMenu.show(
+                        [{ id: "open-tab", label: "Open in new tab", icon: "open-new-tab" }],
+                        {
+                          x: event.clientX,
+                          y: event.clientY,
+                        },
+                      )
                       .then((action) => {
                         if (action === "open-tab") openInTab();
                       })

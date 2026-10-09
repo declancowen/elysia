@@ -44,7 +44,11 @@ import { useEnvironmentQuery } from "../../state/query";
 import { serverEnvironment } from "../../state/server";
 import { useAtomCommand } from "../../state/use-atom-command";
 import { ensureLocalApi } from "../../localApi";
-import { showContextMenuFallback, contextMenuAgentIcon } from "../../contextMenuFallback";
+import {
+  showContextMenuFallback,
+  contextMenuAgentIcon,
+  ContextMenuButton,
+} from "../../contextMenuFallback";
 import {
   ChevronDownIcon,
   ChevronRightIcon,
@@ -58,15 +62,12 @@ import {
   CircleXIcon,
   CircleIcon,
   MoreHorizontalIcon,
-  ArrowUpIcon,
-  ArrowDownIcon,
   ArrowUpDownIcon,
   ListFilterIcon,
   SlidersHorizontalIcon,
   Columns2Icon,
   AlignBoxMiddleLeftIcon,
   ChannelIcon,
-  SquareArrowOutUpRightIcon,
   TaskEdit02Icon,
 } from "../../icons";
 import ChatMarkdown from "../ChatMarkdown";
@@ -172,6 +173,7 @@ function TaskSelect({
             <MenuRadioGroup value={value} onValueChange={onChange}>
               {options.map((item) => (
                 <MenuRadioItem key={item.value} value={item.value}>
+                  {icon}
                   {item.label}
                 </MenuRadioItem>
               ))}
@@ -446,13 +448,15 @@ export function TasksPage() {
     const selectedTasks = taskRows.filter((row) => ids.has(row.id));
     const action = await showContextMenuFallback(
       [
+        { id: "open", label: "Open task", icon: "workspace-task" },
         { id: "open-new-tab", label: "Open in new tab", icon: "open-new-tab" },
-        { id: "copy-id", label: "Copy ID", icon: "hash" },
-        { id: "copy-reference", label: "Copy reference", icon: "copy" },
+        { id: "copy-id", label: "Copy ID", icon: "hash", separatorBefore: true },
+        { id: "copy-reference", label: "Copy reference", icon: "link" },
         {
           id: "assignee",
           label: "Change assigned",
           icon: "workspace-assigned",
+          separatorBefore: true,
           children: [
             { id: "assignee:none", label: "No agent or channel", icon: "workspace-assigned" },
             ...agents.map((agent) => ({
@@ -484,9 +488,13 @@ export function TasksPage() {
             icon: `task-${status}`,
           })),
         },
+        ...(selectedTasks.length === 1 && !task.parentTaskId
+          ? [{ id: "add-subtask", label: "Add subtask", icon: "plus", separatorBefore: true }]
+          : []),
         {
           id: "delete",
           label: `Delete (${selectedTasks.length})`,
+          separatorBefore: true,
           destructive: true,
           icon: "workspace-delete",
         },
@@ -511,8 +519,13 @@ export function TasksPage() {
       );
       return;
     }
-    if (action === "open-new-tab") {
-      openTask(task, true);
+    if (action === "open" || action === "open-new-tab") {
+      openTask(task, action === "open-new-tab");
+      return;
+    }
+    if (action === "add-subtask") {
+      setCreatingParent(task.id);
+      setCreating(true);
       return;
     }
     if (
@@ -845,58 +858,15 @@ export function TasksPage() {
                   onKeyDown={(event) => event.stopPropagation()}
                 >
                   {view !== "list" ? selectionControl : null}
-                  <Menu>
-                    <MenuTrigger
-                      render={
-                        <Button
-                          variant="ghost-muted"
-                          size="icon-xs"
-                          aria-label={`Options for ${task.title}`}
-                        />
-                      }
-                    >
-                      <MoreHorizontalIcon className="size-4" />
-                    </MenuTrigger>
-                    <MenuPopup>
-                      <MenuItem onClick={() => copyToClipboard(task.id, undefined)}>
-                        Copy ID
-                      </MenuItem>
-                      <MenuItem
-                        onClick={() =>
-                          copyToClipboard(
-                            formatComposerContextReference({
-                              kind: "task",
-                              contextId: ComposerContextId.make(task.id),
-                              label: task.title,
-                            }),
-                            undefined,
-                          )
-                        }
-                      >
-                        Copy reference
-                      </MenuItem>
-                      <MenuItem onClick={() => openTask(task)}>Open task</MenuItem>
-                      <MenuItem onClick={() => openTask(task, true)}>
-                        <SquareArrowOutUpRightIcon />
-                        Open in new tab
-                      </MenuItem>
-                      {!task.parentTaskId ? (
-                        <MenuItem
-                          onClick={() => {
-                            setCreatingParent(task.id);
-                            setCreating(true);
-                          }}
-                        >
-                          <PlusIcon />
-                          Add subtask
-                        </MenuItem>
-                      ) : null}
-                      <MenuItem onClick={() => void remove(task)}>
-                        <Trash2Icon />
-                        Delete task
-                      </MenuItem>
-                    </MenuPopup>
-                  </Menu>
+                  <ContextMenuButton
+                    variant="ghost-muted"
+                    size="icon-xs"
+                    aria-label={`Options for ${task.title}`}
+                    disabled={bulkPending}
+                    onOpen={(position) => showSelectionMenu(task, position).catch(report)}
+                  >
+                    <MoreHorizontalIcon className="size-4" />
+                  </ContextMenuButton>
                 </div>
               </CollectionTableCell>
             </TaskDragRow>
@@ -932,6 +902,16 @@ export function TasksPage() {
         ...previous.filter((entry) => !uniqueSiblings.includes(entry)),
       ]);
     };
+    const showGroupMenu = async (position: { x: number; y: number }) => {
+      const action = await showContextMenuFallback(
+        [
+          { id: "earlier", label: "Move earlier", icon: "arrow-up" },
+          { id: "later", label: "Move later", icon: "arrow-down" },
+        ],
+        position,
+      );
+      if (action) moveGroup(action === "earlier" ? -1 : 1);
+    };
     return (
       <TaskDropGroup
         key={key}
@@ -941,6 +921,11 @@ export function TasksPage() {
         style={view === "board" ? { width: CARD_WIDTHS[cardSize] } : undefined}
       >
         <div
+          onContextMenu={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            void showGroupMenu({ x: event.clientX, y: event.clientY }).catch(report);
+          }}
           className={cn(
             "mb-3 flex items-center gap-2 rounded-md pr-3 hover:bg-sidebar-row-hover",
             parentKey
@@ -970,29 +955,14 @@ export function TasksPage() {
             <span className="text-xs">{group.tasks.length}</span>
             {parentKey ? <span className="h-px flex-1 bg-border" /> : <span className="flex-1" />}
           </button>
-          <Menu>
-            <MenuTrigger
-              render={
-                <Button
-                  variant="ghost-muted"
-                  size="icon-xs"
-                  aria-label={`Options for ${group.label}`}
-                />
-              }
-            >
-              <MoreHorizontalIcon className="size-4" />
-            </MenuTrigger>
-            <MenuPopup>
-              <MenuItem onClick={() => moveGroup(-1)}>
-                <ArrowUpIcon />
-                Move earlier
-              </MenuItem>
-              <MenuItem onClick={() => moveGroup(1)}>
-                <ArrowDownIcon />
-                Move later
-              </MenuItem>
-            </MenuPopup>
-          </Menu>
+          <ContextMenuButton
+            variant="ghost-muted"
+            size="icon-xs"
+            aria-label={`Options for ${group.label}`}
+            onOpen={(position) => showGroupMenu(position).catch(report)}
+          >
+            <MoreHorizontalIcon className="size-4" />
+          </ContextMenuButton>
         </div>
         {!closed &&
           (group.children.length ? (
@@ -1231,6 +1201,7 @@ export function TasksPage() {
                           onCheckedChange={setHideEmpty}
                           closeOnClick={false}
                         >
+                          <ListFilterIcon />
                           Hide empty groups
                         </MenuCheckboxItem>
                         <MenuCheckboxItem
@@ -1238,6 +1209,7 @@ export function TasksPage() {
                           onCheckedChange={setShowSubTasks}
                           closeOnClick={false}
                         >
+                          <TaskEdit02Icon />
                           Show subtasks
                         </MenuCheckboxItem>
                       </MenuGroup>

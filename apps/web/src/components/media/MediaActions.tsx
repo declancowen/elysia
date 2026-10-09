@@ -142,19 +142,32 @@ export function MediaActions({
         typeof ClipboardItem !== "undefined";
       const items: ContextMenuItem<MediaActionId>[] = [];
       if (reference?.kind === "file") {
-        items.push({ id: "copy-full-path", label: "Copy full path" });
+        items.push({ id: "copy-full-path", label: "Copy full path", icon: "copy" });
         if (reference.relativePath)
-          items.push({ id: "copy-relative-path", label: "Copy relative path" });
+          items.push({ id: "copy-relative-path", label: "Copy relative path", icon: "copy" });
       } else if (reference?.kind === "url") {
-        items.push({ id: "copy-url", label: "Copy URL" });
+        items.push({ id: "copy-url", label: "Copy URL", icon: "copy" });
       }
       if (source.onOpenFile)
-        items.push({ id: "open-file", label: "Open in file viewer", disabled: !canReadMedia });
-      items.push({ id: "save", label: `Save ${noun}`, disabled: unavailable });
+        items.push({
+          id: "open-file",
+          label: "Open in file viewer",
+          icon: "workspace-page",
+          separatorBefore: true,
+          disabled: !canReadMedia,
+        });
+      items.push({
+        id: "save",
+        label: `Save ${noun}`,
+        icon: "download",
+        separatorBefore: true,
+        disabled: unavailable,
+      });
       if (source.kind === "image") {
         items.push({
           id: "copy-image",
           label: "Copy image",
+          icon: "copy",
           disabled: unavailable || !canCopyImage,
         });
       }

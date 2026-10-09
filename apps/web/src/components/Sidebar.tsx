@@ -4398,6 +4398,7 @@ export default function Sidebar({ preview = false }: { preview?: boolean } = {})
             {
               id: "settle",
               label: `Settle (${count})`,
+              icon: "circle-check",
               disabled: settlingThreads.length === 0 || !canOperateThreads(settlingThreads),
             },
             ...(canSnoozeSelection
@@ -4405,16 +4406,19 @@ export default function Sidebar({ preview = false }: { preview?: boolean } = {})
                   {
                     id: "snooze",
                     label: `Snooze (${count})`,
+                    icon: "clock",
                     disabled: !canOperateThreads(selectedThreads),
                     children: [
                       ...snoozePresets.map((preset) => ({
                         id: `snooze:${preset.id}`,
                         label: `${preset.label} (${preset.whenLabel})`,
+                        icon: "clock",
                         disabled: !canOperateThreads(selectedThreads),
                       })),
                       {
                         id: "snooze:custom",
                         label: "Custom…",
+                        icon: "clock",
                         separatorBefore: true,
                         disabled: !canOperateThreads(selectedThreads),
                       },
@@ -4432,10 +4436,17 @@ export default function Sidebar({ preview = false }: { preview?: boolean } = {})
                   },
                 ]
               : []),
-            { id: "mark-unread", label: `Mark unread (${count})` },
+            {
+              id: "mark-unread",
+              label: `Mark unread (${count})`,
+              icon: "mail-open",
+              separatorBefore: true,
+            },
             {
               id: "delete",
               label: `Delete (${count})`,
+              icon: "trash",
+              separatorBefore: true,
               destructive: true,
               disabled: !canOperateThreads(selectedThreads),
             },

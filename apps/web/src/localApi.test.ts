@@ -6,6 +6,14 @@ import {
 } from "@elysiatools/contracts";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
+const forkPolicy = vi.hoisted(() => ({ elysia: true }));
+vi.mock("@elysiatools/contracts", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@elysiatools/contracts")>()),
+  get SINGLE_PROVIDER_UI() {
+    return forkPolicy.elysia;
+  },
+}));
+
 const showContextMenuFallbackMock =
   vi.fn<
     <T extends string>(
@@ -50,6 +58,7 @@ function testWindow(): Window & typeof globalThis {
 }
 
 beforeEach(() => {
+  forkPolicy.elysia = true;
   vi.resetModules();
   vi.clearAllMocks();
   if (globalThis.window === undefined) {
@@ -121,34 +130,44 @@ describe("LocalApi", () => {
     );
   });
 
-  it("delegates host capabilities and persistence to the desktop bridge", async () => {
-    const showContextMenu = vi.fn().mockResolvedValue("delete");
-    const pickFolder = vi.fn().mockResolvedValue("/tmp/project");
-    const getClientSettings = vi.fn().mockResolvedValue(DEFAULT_CLIENT_SETTINGS);
-    const setClientSettings = vi.fn().mockResolvedValue(undefined);
-    testWindow().desktopBridge = {
-      showContextMenu,
-      pickFolder,
-      getClientSettings,
-      setClientSettings,
-    } as unknown as DesktopBridge;
+  it.each([true, false])(
+    "keeps host capabilities native while Elysia menus stay themed (Elysia: %s)",
+    async (elysia) => {
+      forkPolicy.elysia = elysia;
+      showContextMenuFallbackMock.mockResolvedValue("delete");
+      const showContextMenu = vi.fn().mockResolvedValue("delete");
+      const pickFolder = vi.fn().mockResolvedValue("/tmp/project");
+      const getClientSettings = vi.fn().mockResolvedValue(DEFAULT_CLIENT_SETTINGS);
+      const setClientSettings = vi.fn().mockResolvedValue(undefined);
+      testWindow().desktopBridge = {
+        showContextMenu,
+        pickFolder,
+        getClientSettings,
+        setClientSettings,
+      } as unknown as DesktopBridge;
 
-    const { createLocalApi } = await import("./localApi");
-    const api = createLocalApi();
-    const items = [{ id: "delete", label: "Delete" }] as const;
+      const { createLocalApi } = await import("./localApi");
+      const api = createLocalApi();
+      const items = [{ id: "delete", label: "Delete" }] as const;
 
-    await expect(api.contextMenu.show(items)).resolves.toBe("delete");
-    requestConfirmDialogMock.mockReturnValue(undefined);
-    await expect(api.dialogs.confirm("Install update?")).resolves.toBe(false);
-    await expect(api.dialogs.pickFolder({ initialPath: "/tmp" })).resolves.toBe("/tmp/project");
-    await expect(api.persistence.getClientSettings()).resolves.toEqual(DEFAULT_CLIENT_SETTINGS);
-    await api.persistence.setClientSettings(DEFAULT_CLIENT_SETTINGS);
+      await expect(api.contextMenu.show(items)).resolves.toBe("delete");
+      requestConfirmDialogMock.mockReturnValue(undefined);
+      await expect(api.dialogs.confirm("Install update?")).resolves.toBe(false);
+      await expect(api.dialogs.pickFolder({ initialPath: "/tmp" })).resolves.toBe("/tmp/project");
+      await expect(api.persistence.getClientSettings()).resolves.toEqual(DEFAULT_CLIENT_SETTINGS);
+      await api.persistence.setClientSettings(DEFAULT_CLIENT_SETTINGS);
 
-    expect(showContextMenu).toHaveBeenCalledWith(items, undefined);
-    expect(pickFolder).toHaveBeenCalledWith({ initialPath: "/tmp" });
-    expect(getClientSettings).toHaveBeenCalledTimes(1);
-    expect(setClientSettings).toHaveBeenCalledWith(DEFAULT_CLIENT_SETTINGS);
-  });
+      if (elysia) {
+        expect(showContextMenu).not.toHaveBeenCalled();
+        expect(showContextMenuFallbackMock).toHaveBeenCalledWith(items, undefined);
+      } else expect(showContextMenu).toHaveBeenCalledWith(items, undefined);
+      await api.contextMenu.close();
+      expect(dismissContextMenuMock).toHaveBeenCalledTimes(elysia ? 1 : 0);
+      expect(pickFolder).toHaveBeenCalledWith({ initialPath: "/tmp" });
+      expect(getClientSettings).toHaveBeenCalledTimes(1);
+      expect(setClientSettings).toHaveBeenCalledWith(DEFAULT_CLIENT_SETTINGS);
+    },
+  );
 
   it("persists client settings in browser storage", async () => {
     const { createLocalApi } = await import("./localApi");

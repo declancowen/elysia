@@ -29,8 +29,8 @@ function pullRequestLinkContextMenuItems(
     ...(openInNewTab
       ? [{ id: "open-new-tab" as const, label: "Open in new tab", icon: "open-new-tab" }]
       : []),
-    { id: "copy-link", label: "Copy link", icon: "copy" },
-    { id: "open-external", label: openLabel },
+    { id: "copy-link", label: "Copy link", icon: "copy", separatorBefore: openInNewTab },
+    { id: "open-external", label: openLabel, icon: "open-new-tab" },
   ];
 }
 

@@ -605,12 +605,14 @@ export function buildBulkTitleRegenerationContextMenuItem(input: {
     return {
       id: "regenerate-title",
       label: `Regenerating… (${input.supportedCount})`,
+      icon: "refresh-cw",
       disabled: true,
     };
   }
   return {
     id: "regenerate-title",
     label: `Regenerate titles (${input.actionableCount})`,
+    icon: "refresh-cw",
   };
 }
 
@@ -623,7 +625,7 @@ export function buildBulkUnpinContextMenuItem(input: {
   pinnedCount: number;
 }): ContextMenuItem<"unpin"> | null {
   if (input.pinnedCount === 0) return null;
-  return { id: "unpin", label: `Unpin (${input.pinnedCount})` };
+  return { id: "unpin", label: `Unpin (${input.pinnedCount})`, icon: "pin-off" };
 }
 
 export interface ThreadStatusPill {

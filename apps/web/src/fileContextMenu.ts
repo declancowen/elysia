@@ -98,9 +98,11 @@ export function buildFileContextMenuItems(input: {
     items.push({
       id: "open-with",
       label: "Open with",
+      icon: "pencil",
       children: editorIds.map((editorId) => ({
         id: `editor:${editorId}` as FileContextMenuAction,
         label: EDITOR_LABEL_BY_ID.get(editorId) ?? editorId,
+        icon: "pencil",
       })),
     });
   }

@@ -72,6 +72,7 @@ import CircleDotIconAsset from "@hugeicons/core-free-icons/CircleDotIcon";
 import CircleIconAsset from "@hugeicons/core-free-icons/CircleIcon";
 import CircleSlashIconAsset from "@hugeicons/core-free-icons/CircleSlashIcon";
 import CircleXIconAsset from "@hugeicons/core-free-icons/CircleXIcon";
+import ClipboardIconAsset from "@hugeicons/core-free-icons/ClipboardIcon";
 import ClockIconAsset from "@hugeicons/core-free-icons/Clock01Icon";
 import CloudDownloadIconAsset from "@hugeicons/core-free-icons/CloudDownloadIcon";
 import CloudIconAsset from "@hugeicons/core-free-icons/CloudIcon";
@@ -372,6 +373,7 @@ export const CircleDotIcon = /* @__PURE__ */ createIcon(CircleDotIconAsset, "cir
 export const CircleIcon = /* @__PURE__ */ createIcon(CircleIconAsset, "circle");
 export const CircleSlashIcon = /* @__PURE__ */ createIcon(CircleSlashIconAsset, "circle-slash");
 export const CircleXIcon = /* @__PURE__ */ createIcon(CircleXIconAsset, "circle-x");
+export const ClipboardIcon = /* @__PURE__ */ createIcon(ClipboardIconAsset, "clipboard");
 export const ClockIcon = /* @__PURE__ */ createIcon(ClockIconAsset, "clock");
 export const CloudDownloadIcon = /* @__PURE__ */ createIcon(
   CloudDownloadIconAsset,

@@ -1,3 +1,4 @@
+import { FolderClosedIcon } from "../../icons";
 import { randomUUID } from "../../lib/utils";
 import { useState, type ReactNode } from "react";
 import { scopedProjectKey, scopeProjectRef } from "@elysiatools/client-runtime/environment";
@@ -118,14 +119,17 @@ export function AgentOrganizationMenuItems({ agent }: { agent: AgentRosterEntry 
               }))
             }
           >
-            <MenuRadioItem value="">No section</MenuRadioItem>
+            <MenuRadioItem value="">
+              <FolderClosedIcon />
+              No section
+            </MenuRadioItem>
             {prefs.sections.map((section) => (
               <MenuRadioItem value={section.id} key={section.id}>
+                <FolderClosedIcon />
                 {section.name}
               </MenuRadioItem>
             ))}
           </MenuRadioGroup>
-          <MenuSeparator />
         </>
       ) : null}
     </>
@@ -142,6 +146,8 @@ export function AgentSidebarSections({
 }) {
   const prefs = useAgentSidebarPreferences();
   const [editing, setEditing] = useState<AgentSection | null>(null);
+  const [menuSection, setMenuSection] = useState<string | null>(null);
+  const [contextPoint, setContextPoint] = useState<{ x: number; y: number } | null>(null);
   const entries = agents.map((agent) => ({
     agent,
     key: agentSidebarKey(agent),
@@ -164,12 +170,26 @@ export function AgentSidebarSections({
     return (
       <section className="space-y-1" aria-label={section.name || "Agents"}>
         {section.name ? (
-          <div className="flex min-h-8 items-center rounded-md hover:bg-sidebar-row-hover focus-within:bg-sidebar-row-hover has-[[data-sidebar-dragging]]:bg-sidebar-row-hover">
-            <SidebarSectionDragLabel
-              label={section.name}
-              className="flex h-8 min-w-0 flex-1 cursor-pointer items-center truncate rounded-md px-2.5 text-left text-xs text-sidebar-muted-foreground"
-            />
-            <Menu>
+          <Menu
+            open={menuSection === section.id}
+            onOpenChange={(open) => {
+              setMenuSection(open ? section.id : null);
+              if (!open) setContextPoint(null);
+            }}
+          >
+            <div
+              onContextMenu={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                setContextPoint({ x: event.clientX, y: event.clientY });
+                setMenuSection(section.id);
+              }}
+              className="flex min-h-8 items-center rounded-md hover:bg-sidebar-row-hover focus-within:bg-sidebar-row-hover has-[[data-sidebar-dragging]]:bg-sidebar-row-hover"
+            >
+              <SidebarSectionDragLabel
+                label={section.name}
+                className="flex h-8 min-w-0 flex-1 cursor-pointer items-center truncate rounded-md px-2.5 text-left text-xs text-sidebar-muted-foreground"
+              />
               <MenuTrigger
                 render={
                   <Button variant="ghost" size="icon-xs" aria-label={`Manage ${section.name}`} />
@@ -177,7 +197,17 @@ export function AgentSidebarSections({
               >
                 <MoreHorizontalIcon />
               </MenuTrigger>
-              <MenuPopup align="end">
+              <MenuPopup
+                align={contextPoint ? "start" : "end"}
+                anchor={
+                  contextPoint
+                    ? {
+                        getBoundingClientRect: () =>
+                          new DOMRect(contextPoint.x, contextPoint.y, 0, 0),
+                      }
+                    : undefined
+                }
+              >
                 <MenuItem
                   onClick={() =>
                     setEditing(prefs.sections.find((item) => item.id === section.id) ?? null)
@@ -186,13 +216,14 @@ export function AgentSidebarSections({
                   <Edit03Icon />
                   Rename section
                 </MenuItem>
-                <MenuItem onClick={() => removeAgentSection(section.id)}>
+                <MenuSeparator />
+                <MenuItem variant="destructive" onClick={() => removeAgentSection(section.id)}>
                   <Trash2Icon />
                   Delete section
                 </MenuItem>
               </MenuPopup>
-            </Menu>
-          </div>
+            </div>
+          </Menu>
         ) : null}
         <div className="space-y-1">
           {rows.map((item) => (

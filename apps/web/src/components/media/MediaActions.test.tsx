@@ -161,7 +161,7 @@ it.each(["workspace-file", "media-file"] as const)(
           expect.objectContaining({ id: "open-file", disabled }),
         ]),
       );
-      expect(items).toContainEqual({ id: "copy-full-path", label: "Copy full path" });
+      expect(items).toContainEqual({ id: "copy-full-path", label: "Copy full path", icon: "copy" });
     }
     expect(state.mint).not.toHaveBeenCalled();
     expect(state.download).not.toHaveBeenCalled();

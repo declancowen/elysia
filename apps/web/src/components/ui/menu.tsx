@@ -145,7 +145,7 @@ function MenuCheckboxItem({
     >
       {variant === "switch" ? (
         <>
-          <span className="col-start-1">{children}</span>
+          <span className="col-start-1 flex min-w-0 items-center gap-2">{children}</span>
           <MenuPrimitive.CheckboxItemIndicator
             className="inset-shadow-[0_1px_--theme(--color-black/4%)] inline-flex h-[calc(var(--thumb-size)+2px)] w-[calc(var(--thumb-size)*2-2px)] shrink-0 items-center rounded-full p-px outline-none transition-[background-color,box-shadow] duration-200 [--thumb-size:--spacing(4)] focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background data-checked:bg-primary data-unchecked:bg-input data-disabled:opacity-64 sm:[--thumb-size:--spacing(3)]"
             keepMounted
@@ -155,7 +155,7 @@ function MenuCheckboxItem({
         </>
       ) : (
         <>
-          <span className="col-start-1">{children}</span>
+          <span className="col-start-1 flex min-w-0 items-center gap-2">{children}</span>
           <MenuPrimitive.CheckboxItemIndicator className="col-start-2">
             <CheckIcon strokeWidth={3} aria-hidden="true" />
           </MenuPrimitive.CheckboxItemIndicator>
@@ -186,7 +186,7 @@ function MenuRadioItem({
       data-slot="menu-radio-item"
       {...props}
     >
-      <span className="min-w-0 flex-1">{children}</span>
+      <span className="flex min-w-0 flex-1 items-center gap-2">{children}</span>
       {!hideIndicator ? (
         <span className="ms-2 flex w-4 shrink-0 justify-end">
           <MenuRadioItemIndicator />

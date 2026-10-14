@@ -612,7 +612,9 @@ describe("ClaudeAdapterV2 MCP query overrides", () => {
       ],
       mcpServers: ELYSIA_MCP_SERVERS,
     });
-    assert.isFalse(overrides.allowedTools?.includes(ClaudeAdapterV2.CLAUDE_ELYSIA_MCP_TOOL_WILDCARD));
+    assert.isFalse(
+      overrides.allowedTools?.includes(ClaudeAdapterV2.CLAUDE_ELYSIA_MCP_TOOL_WILDCARD),
+    );
   });
 
   it("pre-approves only read-only elysia tools in a read-only sandbox without an allowlist", () => {
@@ -2574,7 +2576,12 @@ describe("ClaudeAdapterV2 background wake turns", () => {
         assert.isUndefined(resumed?.sessionId);
         assert.deepEqual(resumed?.settingSources, ["user", "project", "local"]);
         assert.notEqual(resumed?.strictMcpConfig, true);
-      }).pipe(Effect.scoped, Effect.provide(Layer.mergeAll(IdAllocator.layer, McpProviderSessions.layer, NodeServices.layer))),
+      }).pipe(
+        Effect.scoped,
+        Effect.provide(
+          Layer.mergeAll(IdAllocator.layer, McpProviderSessions.layer, NodeServices.layer),
+        ),
+      ),
   );
 
   it.effect.each([

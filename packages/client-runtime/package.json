@@ -421,7 +421,6 @@
     "test": "vp test run"
   },
   "dependencies": {
-    "@pierre/diffs": "catalog:",
     "@elysiatools/contracts": "workspace:*",
     "@elysiatools/shared": "workspace:*",
     "@elysiatools/source-control-azure-devops": "workspace:*",
@@ -431,6 +430,7 @@
     "@elysiatools/source-control-gitcafe": "workspace:*",
     "@elysiatools/source-control-github": "workspace:*",
     "@elysiatools/source-control-gitlab": "workspace:*",
+    "@pierre/diffs": "catalog:",
     "effect": "catalog:",
     "three": "0.180.0"
   },

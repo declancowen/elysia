@@ -133,7 +133,10 @@ import {
 import type { ManagedServerProvider } from "@elysiatools/provider-core/server/snapshot";
 import { mergeProviderInstanceEnvironment } from "@elysiatools/provider-core/server/instanceEnvironment";
 import { ELYSIA_ORCHESTRATION_INSTRUCTIONS } from "@elysiatools/provider-core/server/orchestrationInstructions";
-import { buildPersistentAgentInstructions, buildRuntimeInstructions } from "@elysiatools/provider-core/server/runtimeInstructions";
+import {
+  buildPersistentAgentInstructions,
+  buildRuntimeInstructions,
+} from "@elysiatools/provider-core/server/runtimeInstructions";
 import {
   mcpToolPresentation,
   normalizeMcpText,
@@ -149,7 +152,10 @@ import { turnScopedSelectionTransition } from "@elysiatools/provider-core/server
 import { providerMessageTextWithAttachmentPaths } from "@elysiatools/provider-core/server/attachmentPrompt";
 import * as ProviderAdapter from "@elysiatools/provider-core/server/ProviderAdapter";
 import { elysiaModelEnvironment } from "../../provider/ElysiaModelCatalog.ts";
-import { hasElysiaNativeSession, readElysiaSubagentLaunchToolUseId } from "../../provider/ElysiaNativeSessions.ts";
+import {
+  hasElysiaNativeSession,
+  readElysiaSubagentLaunchToolUseId,
+} from "../../provider/ElysiaNativeSessions.ts";
 import { elysiaAgentProtection } from "../../provider/ElysiaAgentProtection.ts";
 import {
   ProviderAdapterDriverCreateError,
@@ -179,7 +185,8 @@ function claudeContextWindow(
   if (modelSelection.model === "claude-opus-4-6" || modelSelection.model === "claude-opus-4-7") {
     return 1_000_000;
   }
-  return resolveClaudeCatalogContextWindowTokens(BUNDLED_CLAUDE_MODEL_CATALOG, modelSelection) === 1_000_000
+  return resolveClaudeCatalogContextWindowTokens(BUNDLED_CLAUDE_MODEL_CATALOG, modelSelection) ===
+    1_000_000
     ? 1_000_000
     : 200_000;
 }

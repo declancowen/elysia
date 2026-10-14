@@ -27,7 +27,11 @@ import * as EffectAcpErrors from "effect-acp/errors";
 import type * as EffectAcpSchema from "effect-acp/compat";
 import type * as EffectAcpProtocol from "effect-acp/protocol";
 import { resolveSpawnCommand } from "@elysiatools/shared/shell";
-import { AgentScope, AgentScopeThreadId, RAISE_OOM_SCORE_LINE } from "@elysiatools/shared/AgentScope";
+import {
+  AgentScope,
+  AgentScopeThreadId,
+  RAISE_OOM_SCORE_LINE,
+} from "@elysiatools/shared/AgentScope";
 import * as HostProcess from "@elysiatools/shared/HostProcess";
 
 import { signalProcessGroup } from "@elysiatools/provider-core/server/processGroup";

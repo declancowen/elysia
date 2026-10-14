@@ -6,7 +6,10 @@ import {
   EnvironmentHttpApi,
 } from "@elysiatools/contracts";
 import { isDevProxiedPath } from "@elysiatools/shared/devProxy";
-import { injectMcpAppCookieBootstrap, injectMcpAppThemeBootstrap } from "@elysiatools/shared/mcpApp";
+import {
+  injectMcpAppCookieBootstrap,
+  injectMcpAppThemeBootstrap,
+} from "@elysiatools/shared/mcpApp";
 import { decodeOtlpTraceRecords } from "@elysiatools/shared/observability";
 import * as Data from "effect/Data";
 import * as Effect from "effect/Effect";

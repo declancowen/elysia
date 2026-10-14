@@ -40,7 +40,10 @@ import {
   dynamicToolSurface,
   dynamicToolTitle,
 } from "@elysiatools/shared/toolActivity";
-import { getModelSelectionStringOptionValue, modelSelectionsEqual } from "@elysiatools/shared/model";
+import {
+  getModelSelectionStringOptionValue,
+  modelSelectionsEqual,
+} from "@elysiatools/shared/model";
 import { resolveSpawnCommand } from "@elysiatools/shared/shell";
 import type {
   ChatAttachment,

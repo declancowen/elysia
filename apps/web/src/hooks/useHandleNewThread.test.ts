@@ -194,10 +194,18 @@ vi.mock("../logicalProject", () => ({
   selectProjectGroupingSettings: () => ({}),
 }));
 vi.mock("../state/entities", () => ({
-  readProjects: () => testState.projectRemoved ? [] : testState.projects,
-  readProject: (ref: { environmentId: string; projectId: string }) => testState.projectRemoved ? null : testState.projects.find(project => project.environmentId === ref.environmentId && project.id === ref.projectId) ?? null,
+  readProjects: () => (testState.projectRemoved ? [] : testState.projects),
+  readProject: (ref: { environmentId: string; projectId: string }) =>
+    testState.projectRemoved
+      ? null
+      : (testState.projects.find(
+          (project) => project.environmentId === ref.environmentId && project.id === ref.projectId,
+        ) ?? null),
   readThreadShells: () => [],
-  waitForProject: async (ref: { environmentId: string; projectId: string }) => testState.projects.find(project => project.environmentId === ref.environmentId && project.id === ref.projectId),
+  waitForProject: async (ref: { environmentId: string; projectId: string }) =>
+    testState.projects.find(
+      (project) => project.environmentId === ref.environmentId && project.id === ref.projectId,
+    ),
   readThreadShell: () => null,
   useProjects: () => [],
   useThreadShell: () => null,

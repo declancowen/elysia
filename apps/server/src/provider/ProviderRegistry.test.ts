@@ -3052,7 +3052,7 @@ it.layer(
             ),
             Layer.provideMerge(ProviderLatestVersions.layer),
             Layer.provideMerge(McpProviderSessions.layer),
-          Layer.provideMerge(ProviderContinuationRequests.layer),
+            Layer.provideMerge(ProviderContinuationRequests.layer),
             Layer.provideMerge(ModelManifest.layerTest),
             Layer.provideMerge(ResetCreditCoordinator.layerTest),
             Layer.provideMerge(

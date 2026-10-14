@@ -5,7 +5,9 @@ vi.mock("../../../../packages/contracts/src/forkPolicy.ts", async (importOrigina
   ...(await importOriginal<typeof import("../../../../packages/contracts/src/forkPolicy.ts")>()),
   isEnabledProviderDriver: (driver: string) => !forkPolicy.elysia || driver === "claudeAgent",
 }));
-beforeEach(() => { forkPolicy.elysia = false; });
+beforeEach(() => {
+  forkPolicy.elysia = false;
+});
 
 import {
   DEFAULT_SERVER_SETTINGS,
@@ -31,7 +33,16 @@ import {
 describe("mobile model options", () => {
   it("excludes disabled provider models in Elysia", () => {
     forkPolicy.elysia = true;
-    const config = { providers: [{ driver: "codex", instanceId: "codex", enabled: true, models: [{ slug: "gpt-5.6-sol", name: "GPT-5.6 Sol" }] }] } as unknown as ServerConfig;
+    const config = {
+      providers: [
+        {
+          driver: "codex",
+          instanceId: "codex",
+          enabled: true,
+          models: [{ slug: "gpt-5.6-sol", name: "GPT-5.6 Sol" }],
+        },
+      ],
+    } as unknown as ServerConfig;
     expect(buildModelOptions(config, null, undefined, null)).toEqual([]);
   });
   it("groups models by provider and flags legacy entries", () => {

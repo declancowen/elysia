@@ -4,7 +4,10 @@ import { useNavigate } from "@tanstack/react-router";
 import { type MouseEvent, useCallback, useMemo } from "react";
 
 import { sourceControlClients } from "@elysiatools/client-runtime/source-control-clients";
-import { parseChangeRequestUrl, type ChangeRequestLink } from "@elysiatools/shared/changeRequestUrl";
+import {
+  parseChangeRequestUrl,
+  type ChangeRequestLink,
+} from "@elysiatools/shared/changeRequestUrl";
 import { sourceControlRepositorySelector } from "@elysiatools/shared/sourceControl";
 
 import { useOpenLink } from "../browser/useOpenLink";

@@ -15,7 +15,10 @@ import * as EffectAcpErrors from "effect-acp/errors";
 
 import * as AcpSessionRuntime from "@elysiatools/provider-acp/server/AcpSessionRuntime";
 import type { ProviderReplayGate } from "@elysiatools/provider-testing/replayGate";
-import { ACP_PROTOCOL, type AcpAdapterV2RuntimeInput } from "@elysiatools/provider-acp/server/adapter";
+import {
+  ACP_PROTOCOL,
+  type AcpAdapterV2RuntimeInput,
+} from "@elysiatools/provider-acp/server/adapter";
 
 export const AcpReplayTranscript = Schema.Struct({
   provider: ProviderDriverKind,

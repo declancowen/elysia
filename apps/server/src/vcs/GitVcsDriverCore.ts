@@ -27,7 +27,10 @@ import {
   type ReviewDiffPreviewSource,
   type VcsRef,
 } from "@elysiatools/contracts";
-import { dedupeRemoteBranchesWithLocalMatches, normalizeGitRemoteUrl } from "@elysiatools/shared/git";
+import {
+  dedupeRemoteBranchesWithLocalMatches,
+  normalizeGitRemoteUrl,
+} from "@elysiatools/shared/git";
 import * as HostProcess from "@elysiatools/shared/HostProcess";
 import { compactTraceAttributes } from "@elysiatools/shared/observability";
 import { decodeJsonResult } from "@elysiatools/shared/schemaJson";

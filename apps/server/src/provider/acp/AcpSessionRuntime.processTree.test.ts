@@ -898,13 +898,13 @@ describe("terminatePosixOwnedProcessTree", () => {
           },
         });
 
-      const result = yield* Effect.exit(
-        AcpSessionRuntime.terminatePosixOwnedProcessTree({
-          controller: fixture.controller,
-          grace: 0,
-          rootPid: 100,
-        }),
-      );
+        const result = yield* Effect.exit(
+          AcpSessionRuntime.terminatePosixOwnedProcessTree({
+            controller: fixture.controller,
+            grace: 0,
+            rootPid: 100,
+          }),
+        );
 
         // PID 110 morphs to a new identity under the owned root and never exits, so
         // teardown fails closed after re-admitting and re-signalling the live child.

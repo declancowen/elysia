@@ -76,8 +76,10 @@ export function isModelSelectionProviderEnabled(
     return resolveProviderInstanceEnabled(instanceConfig);
   }
 
-  return isEnabledProviderDriver(selection.instanceId) &&
-    isUnconfiguredDefaultInstanceEnabled(selection.instanceId);
+  return (
+    isEnabledProviderDriver(selection.instanceId) &&
+    isUnconfiguredDefaultInstanceEnabled(selection.instanceId)
+  );
 }
 
 const TEXT_GENERATION_FALLBACK_DRIVERS = [
@@ -120,8 +122,8 @@ export function fallbackTextGenerationModelSelection(
         )
       : []),
   ];
-  const match = candidates.find(([instanceId, driver]) =>
-    isEnabledProviderDriver(driver) && isEnabled(instanceId, driver),
+  const match = candidates.find(
+    ([instanceId, driver]) => isEnabledProviderDriver(driver) && isEnabled(instanceId, driver),
   );
   if (match === undefined) return null;
   const [instanceId, driver] = match;

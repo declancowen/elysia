@@ -13,14 +13,14 @@ async function loadRequestHook(): Promise<RequestHook> {
   const handlers = new Map<string, RequestHook>();
   // Execute the shipped extension with MCP disabled; this path needs no Typebox.
   const source = NodeModule.stripTypeScriptTypes(
-    PI_ELYSIA_MCP_EXTENSION_SOURCE
-      .replace('import { stripFrontmatter, type ExtensionAPI, type ExtensionContext } from "@earendil-works/pi-coding-agent";', "")
+    PI_ELYSIA_MCP_EXTENSION_SOURCE.replace(
+      'import { stripFrontmatter, type ExtensionAPI, type ExtensionContext } from "@earendil-works/pi-coding-agent";',
+      "",
+    )
       .replace('import * as NodeFSP from "node:fs/promises";', "")
       .replace('import * as NodePath from "node:path";', "")
-      .replace('import { Type } from "typebox";', "").replace(
-      "export default async function",
-      "async function",
-    ),
+      .replace('import { Type } from "typebox";', "")
+      .replace("export default async function", "async function"),
   );
   await NodeVM.runInNewContext(`${source}\nelysiaMcpExtension(pi)`, {
     process: { env: {} },

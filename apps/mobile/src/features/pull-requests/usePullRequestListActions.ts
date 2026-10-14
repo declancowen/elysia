@@ -1,6 +1,9 @@
 import { RegistryContext, useAtomValue } from "@effect/atom-react";
 import { useNavigation } from "@react-navigation/native";
-import { executeAtomQuery, squashAtomCommandFailure } from "@elysiatools/client-runtime/state/runtime";
+import {
+  executeAtomQuery,
+  squashAtomCommandFailure,
+} from "@elysiatools/client-runtime/state/runtime";
 import type { EnvironmentId, PullRequestAction } from "@elysiatools/contracts";
 import * as Clipboard from "expo-clipboard";
 import { Atom } from "effect/reactivity";

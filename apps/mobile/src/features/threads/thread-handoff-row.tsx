@@ -1,6 +1,9 @@
 import { useAtomValue } from "@effect/atom-react";
 import { scopeThreadRef } from "@elysiatools/client-runtime/environment";
-import { resolveHandoffEndpoints, type HandoffEndpoints } from "@elysiatools/client-runtime/handoff";
+import {
+  resolveHandoffEndpoints,
+  type HandoffEndpoints,
+} from "@elysiatools/client-runtime/handoff";
 import { resolveProviderInstanceDisplayName } from "@elysiatools/client-runtime/state/provider-instance-display";
 import type {
   EnvironmentId,

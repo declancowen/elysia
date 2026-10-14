@@ -47,11 +47,12 @@ export function ThreadHeader(
         onPress: () => onOpenTerminal(null),
       });
     }
-    if (props.gitControls.showGitControls !== false) actions.push({
-      accessibilityLabel: "Open git controls",
-      icon: "point.topleft.down.curvedto.point.bottomright.up",
-      onPress: props.onOpenGitInspector,
-    });
+    if (props.gitControls.showGitControls !== false)
+      actions.push({
+        accessibilityLabel: "Open git controls",
+        icon: "point.topleft.down.curvedto.point.bottomright.up",
+        onPress: props.onOpenGitInspector,
+      });
     if (onMergeBack) {
       actions.push({
         accessibilityLabel: "Merge back to source",

@@ -33,11 +33,11 @@
     "test": "vp test run --config ../../vite.config.ts --dir ."
   },
   "dependencies": {
-    "@noble/hashes": "catalog:",
     "@elysiatools/contracts": "workspace:*",
     "@elysiatools/provider-acp": "workspace:*",
     "@elysiatools/provider-core": "workspace:*",
     "@elysiatools/shared": "workspace:*",
+    "@noble/hashes": "catalog:",
     "effect": "catalog:"
   },
   "devDependencies": {

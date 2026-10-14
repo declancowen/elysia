@@ -2802,9 +2802,9 @@ it.effect("replays an accepted send after the project disables the instance", ()
 
 it.effect("replays an accepted message.dispatch after the project disables the instance", () => {
   const harness = makeHarness();
-  const layerFiles = ServerConfig.layerTest(process.cwd(), { prefix: "elysia-dispatch-retry-" }).pipe(
-    Layer.provideMerge(NodeServices.layer),
-  );
+  const layerFiles = ServerConfig.layerTest(process.cwd(), {
+    prefix: "elysia-dispatch-retry-",
+  }).pipe(Layer.provideMerge(NodeServices.layer));
   return Effect.gen(function* () {
     const launches = yield* ThreadLaunch.ThreadLaunchService;
     const settings = yield* ServerSettings.ServerSettingsService;

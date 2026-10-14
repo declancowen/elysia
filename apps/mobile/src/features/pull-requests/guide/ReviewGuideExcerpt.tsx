@@ -2,7 +2,11 @@ import { useMemo, useState } from "react";
 import { Pressable, View } from "react-native";
 import type { FileDiffMetadata } from "@pierre/diffs";
 import type { PullRequestReviewGuideExcerpt } from "@elysiatools/contracts";
-import { excerptRows, fileDiffRows, rowsToPatch } from "@elysiatools/client-runtime/review-guide-tour";
+import {
+  excerptRows,
+  fileDiffRows,
+  rowsToPatch,
+} from "@elysiatools/client-runtime/review-guide-tour";
 import { AppText as Text } from "../../../components/AppText";
 import { SymbolView } from "../../../components/AppSymbol";
 import { resolveNativeReviewDiffView } from "../../diffs/nativeReviewDiffSurface";

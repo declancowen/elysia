@@ -25,10 +25,10 @@
     "test": "vp test run --config ../../vite.config.ts --dir ."
   },
   "dependencies": {
-    "@muse-code/sdk": "1.4.6",
     "@elysiatools/contracts": "workspace:*",
     "@elysiatools/provider-core": "workspace:*",
     "@elysiatools/shared": "workspace:*",
+    "@muse-code/sdk": "1.4.6",
     "effect": "catalog:"
   },
   "devDependencies": {

@@ -1,4 +1,8 @@
-import { ProjectId, type PullRequestStack, type ThreadPullRequestLink } from "@elysiatools/contracts";
+import {
+  ProjectId,
+  type PullRequestStack,
+  type ThreadPullRequestLink,
+} from "@elysiatools/contracts";
 import { describe, expect, it } from "vite-plus/test";
 import {
   pullRequestStackMerge,

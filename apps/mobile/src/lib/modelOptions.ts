@@ -336,7 +336,13 @@ export function buildModelOptions(
 
   if (
     fallbackModelSelection &&
-    isEnabledProviderDriver(config?.providers.find(provider => provider.instanceId === fallbackModelSelection.instanceId)?.driver ?? config?.settings?.providerInstances[fallbackModelSelection.instanceId]?.driver ?? fallbackModelSelection.instanceId) &&
+    isEnabledProviderDriver(
+      config?.providers.find(
+        (provider) => provider.instanceId === fallbackModelSelection.instanceId,
+      )?.driver ??
+        config?.settings?.providerInstances[fallbackModelSelection.instanceId]?.driver ??
+        fallbackModelSelection.instanceId,
+    ) &&
     (providerInstanceId === undefined ||
       fallbackModelSelection.instanceId === providerInstanceId) &&
     (!config?.settings?.providerModelPreferences?.[

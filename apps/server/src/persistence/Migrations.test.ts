@@ -38,7 +38,10 @@ describe("runMigrations", () => {
       const oldHistory = yield* history;
 
       yield* runMigrations();
-      assert.deepStrictEqual(yield* sql`SELECT id, title, content, project_id, revision FROM pages`, before);
+      assert.deepStrictEqual(
+        yield* sql`SELECT id, title, content, project_id, revision FROM pages`,
+        before,
+      );
       const updated = yield* history;
       assert.deepStrictEqual(updated.slice(0, oldHistory.length), oldHistory);
       assert.deepStrictEqual(updated.slice(-4), [

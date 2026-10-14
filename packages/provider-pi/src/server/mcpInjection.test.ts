@@ -66,7 +66,10 @@ describe("pi Elysia MCP injection", () => {
     assert.equal(launch.env[ELYSIA_MCP_URL_ENV], "http://127.0.0.1:43123/mcp");
     assert.equal(launch.env[ELYSIA_MCP_BEARER_ENV], "secret-pi-token");
     assert.equal(launch.env[ELYSIA_PI_RUNTIME_MODE_ENV], "approval-required");
-    assert.equal(launch.env[ELYSIA_PI_MCP_EXTENSION_PATH_ENV], "/tmp/cache/pi-elysia-mcp-extension.ts");
+    assert.equal(
+      launch.env[ELYSIA_PI_MCP_EXTENSION_PATH_ENV],
+      "/tmp/cache/pi-elysia-mcp-extension.ts",
+    );
 
     const permissionOnly = buildPiRpcLaunch({
       launchArgs: [],

@@ -36,7 +36,10 @@ import {
   isProjectFaviconPath,
   PROJECT_FAVICON_FALLBACK_MARKER,
 } from "@elysiatools/shared/projectFavicon";
-import { MAX_TOOL_OUTPUT_IMAGE_BASE64_LENGTH, toolOutputImages } from "@elysiatools/shared/toolOutput";
+import {
+  MAX_TOOL_OUTPUT_IMAGE_BASE64_LENGTH,
+  toolOutputImages,
+} from "@elysiatools/shared/toolOutput";
 import * as Clock from "effect/Clock";
 import * as Crypto from "effect/Crypto";
 import * as Effect from "effect/Effect";

@@ -248,9 +248,7 @@ describe("ProviderInstanceRegistry — multi-instance codex slice", () => {
     Layer.provideMerge(ResetCreditCoordinator.layerTest),
   );
   const layerBase = ProviderHostLive.layer.pipe(Layer.provideMerge(layerBaseDeps));
-  const layerTest = layerUpstreamTestAdapterInfrastructure.pipe(
-    Layer.provideMerge(layerBase),
-  );
+  const layerTest = layerUpstreamTestAdapterInfrastructure.pipe(Layer.provideMerge(layerBase));
 
   it.live("boots two independent codex instances from a ProviderInstanceConfigMap", () =>
     Effect.gen(function* () {
@@ -462,7 +460,9 @@ describe("ProviderInstanceRegistry — multi-instance codex slice", () => {
             enabled: true,
             // Packaged desktop builds start the server in $HOME, where some
             // `claude` wrappers refuse to run.
-            environment: [{ name: "ELYSIA_CLAUDE_REQUIRED_CWD", value: stateDir, sensitive: false }],
+            environment: [
+              { name: "ELYSIA_CLAUDE_REQUIRED_CWD", value: stateDir, sensitive: false },
+            ],
             config: makeClaudeConfig({
               enabled: true,
               binaryPath: fixtures.claudeBinaryPath,
@@ -669,9 +669,7 @@ describe("ProviderInstanceRegistry — all drivers slice", () => {
     Layer.provideMerge(ResetCreditCoordinator.layerTest),
   );
   const layerBase = ProviderHostLive.layer.pipe(Layer.provideMerge(layerBaseDeps));
-  const layerTest = layerUpstreamTestAdapterInfrastructure.pipe(
-    Layer.provideMerge(layerBase),
-  );
+  const layerTest = layerUpstreamTestAdapterInfrastructure.pipe(Layer.provideMerge(layerBase));
 
   it.live("boots one instance of every shipped driver from a single config map", () =>
     Effect.gen(function* () {

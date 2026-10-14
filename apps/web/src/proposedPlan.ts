@@ -1,4 +1,7 @@
-import { stripDisplayedPlanMarkdown, proposedPlanTitle } from "@elysiatools/shared/proposedPlanText";
+import {
+  stripDisplayedPlanMarkdown,
+  proposedPlanTitle,
+} from "@elysiatools/shared/proposedPlanText";
 
 export function buildCollapsedProposedPlanPreviewMarkdown(
   planMarkdown: string,

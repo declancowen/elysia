@@ -506,7 +506,6 @@ describe("DesktopUpdates", () => {
 
   it.effect("logs bounded updater failure context without exposing the cause", () => {
     const cause = Object.assign(
-
       new Error("request failed for https://user:secret@example.com/update?token=secret"),
       { code: "ERR_UPDATER_LATEST_VERSION_NOT_FOUND" },
     );
@@ -541,7 +540,10 @@ describe("DesktopUpdates", () => {
         );
         assert.notProperty(loggedAnnotation, "error");
         assert.notInclude(Object.values(loggedAnnotation).map(String).join(" "), "secret");
-        assert.include(state.message ?? "", "Electron updater failed to check for updates on channel default.");
+        assert.include(
+          state.message ?? "",
+          "Electron updater failed to check for updates on channel default.",
+        );
         assert.include(state.message ?? "", "ERR_UPDATER_LATEST_VERSION_NOT_FOUND");
         assert.notInclude(state.message ?? "", "secret");
       }),
@@ -586,7 +588,10 @@ describe("DesktopUpdates", () => {
         );
         assert.notInclude(JSON.stringify(loggedAnnotations), "secret");
         const state = yield* updates.getState;
-        assert.include(state.message ?? "", "Desktop updater background operation reported an error.");
+        assert.include(
+          state.message ?? "",
+          "Desktop updater background operation reported an error.",
+        );
         assert.include(state.message ?? "", "ERR_UPDATER_CHANNEL_FILE_NOT_FOUND");
       }),
     ).pipe(

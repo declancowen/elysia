@@ -7,7 +7,10 @@ import {
   ThreadId,
   TurnItemId,
 } from "@elysiatools/contracts";
-import { searchableMessageSegments, searchablePlanSegments } from "@elysiatools/shared/threadFindText";
+import {
+  searchableMessageSegments,
+  searchablePlanSegments,
+} from "@elysiatools/shared/threadFindText";
 import { countThreadSearchOccurrences } from "@elysiatools/shared/threadSearch";
 import * as Cache from "effect/Cache";
 import * as Data from "effect/Data";

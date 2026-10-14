@@ -1,4 +1,7 @@
-import type { PullRequestReviewGuideExcerpt, PullRequestReviewGuideStop } from "@elysiatools/contracts";
+import type {
+  PullRequestReviewGuideExcerpt,
+  PullRequestReviewGuideStop,
+} from "@elysiatools/contracts";
 import type { ReviewGuideGenerationResult } from "@elysiatools/provider-core/server/textGeneration";
 
 /** Longest excerpt kept. The reader wants the lines that carry the idea, not the whole hunk. */

@@ -4,9 +4,12 @@ import * as NodeDns from "node:dns";
 import * as NodeOS from "node:os";
 import * as NodeSea from "node:sea";
 
-export const Platform = Context.Reference<NodeJS.Platform>("@elysiatools/shared/HostProcess/Platform", {
-  defaultValue: () => process.platform,
-});
+export const Platform = Context.Reference<NodeJS.Platform>(
+  "@elysiatools/shared/HostProcess/Platform",
+  {
+    defaultValue: () => process.platform,
+  },
+);
 
 export const Architecture = Context.Reference<NodeJS.Architecture>(
   "@elysiatools/shared/HostProcess/Architecture",
@@ -69,9 +72,12 @@ export const InvokedAs = Context.Reference<string>("@elysiatools/shared/HostProc
  * one branches on this: an executable hosts such things as hidden
  * subcommands of itself.
  */
-export const IsExecutable = Context.Reference<boolean>("@elysiatools/shared/HostProcess/IsExecutable", {
-  defaultValue: () => NodeSea.isSea(),
-});
+export const IsExecutable = Context.Reference<boolean>(
+  "@elysiatools/shared/HostProcess/IsExecutable",
+  {
+    defaultValue: () => NodeSea.isSea(),
+  },
+);
 
 /**
  * Every IP address this machine answers to: the interface addresses, plus
@@ -103,8 +109,11 @@ export const Addresses = Context.Reference<Effect.Effect<ReadonlySet<string>>>(
 );
 
 /** Undefined on platforms without POSIX uids (Windows). */
-export const UserId = Context.Reference<number | undefined>("@elysiatools/shared/HostProcess/UserId", {
-  defaultValue: () => process.getuid?.(),
-});
+export const UserId = Context.Reference<number | undefined>(
+  "@elysiatools/shared/HostProcess/UserId",
+  {
+    defaultValue: () => process.getuid?.(),
+  },
+);
 
 export const isWindows = Effect.map(Platform, (platform) => platform === "win32");

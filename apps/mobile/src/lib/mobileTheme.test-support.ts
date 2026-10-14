@@ -22,7 +22,8 @@ export function readGeneratedMobileThemeVariables(themeName: string): MobileThem
     stylesheet,
   )?.[1];
   if (variant === undefined) throw new Error(`Missing generated ${themeName} theme.`);
-  const canonical: Record<string, string> = themeName === "light" || themeName === "dark" ? generatedVariables[themeName] : {};
+  const canonical: Record<string, string> =
+    themeName === "light" || themeName === "dark" ? generatedVariables[themeName] : {};
 
   return Object.fromEntries(
     Array.from(variant.matchAll(/(--color-[a-z0-9-]+):\s*([^;]+);/gu), ([, name, value]) => {

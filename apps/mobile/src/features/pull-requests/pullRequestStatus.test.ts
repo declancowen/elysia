@@ -1,4 +1,8 @@
-import type { PullRequestActivity, PullRequestCheck, PullRequestComment } from "@elysiatools/contracts";
+import type {
+  PullRequestActivity,
+  PullRequestCheck,
+  PullRequestComment,
+} from "@elysiatools/contracts";
 import { describe, expect, it } from "vite-plus/test";
 import { pullRequestChecksSummary, pullRequestReviewSummary } from "./pullRequestStatus";
 

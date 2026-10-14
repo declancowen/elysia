@@ -36,7 +36,11 @@
       ],
       // Keep the transitive Effect runtime pinned for standalone npm installs.
       // The Vite+ web build prerequisite.
-      "ignoreDependencies": ["@effect/platform-node-shared", "@elysiatools/web", "@napi-rs/keyring"],
+      "ignoreDependencies": [
+        "@effect/platform-node-shared",
+        "@elysiatools/web",
+        "@napi-rs/keyring",
+      ],
       // Elysia's runtime policy disables upstream triage; retain its implementation for merges.
       "ignoreIssues": { "src/cli/triage.ts": ["files"] },
     },
@@ -76,6 +80,8 @@
         "src/components/clerk/RemoveElysiaConnectEnvironmentDialog.tsx": ["files"],
         "src/components/settings/AddUsageLimitSourceDialog.tsx": ["files"],
         "src/components/settings/ConnectionsSettings.tsx": ["files"],
+        "src/components/settings/EnvironmentRoutesList.tsx": ["files"],
+        "src/components/settings/SessionPermissions.tsx": ["files"],
         "src/components/settings/LocalEnvironmentSetting.tsx": ["files"],
         "src/components/settings/UsageProviderSettings.tsx": ["files"],
         "src/state/auth.ts": ["files"],

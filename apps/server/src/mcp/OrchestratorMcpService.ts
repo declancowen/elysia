@@ -1132,7 +1132,9 @@ const make = Effect.gen(function* () {
   const loadReadableThread = (scope: McpInvocationScope, threadId: ThreadId) =>
     Effect.gen(function* () {
       const { parent } = yield* loadCaller(scope);
-      const shell = yield* threadManagement.getThreadShell(threadId).pipe(Effect.mapError(threadManagementFailure));
+      const shell = yield* threadManagement
+        .getThreadShell(threadId)
+        .pipe(Effect.mapError(threadManagementFailure));
       if (shell === null || shell.deletedAt !== null) {
         return yield* failure("thread_not_found", `Thread ${threadId} is no longer available.`);
       }

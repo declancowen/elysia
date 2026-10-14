@@ -9,7 +9,11 @@
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 
-import { type ChatAttachment, type ModelSelection, TextGenerationError } from "@elysiatools/contracts";
+import {
+  type ChatAttachment,
+  type ModelSelection,
+  TextGenerationError,
+} from "@elysiatools/contracts";
 import { formatGeneratedBranchName, sanitizeFeatureBranchName } from "@elysiatools/shared/git";
 import { extractJsonObject } from "@elysiatools/shared/schemaJson";
 

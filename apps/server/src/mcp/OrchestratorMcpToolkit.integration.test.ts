@@ -2297,7 +2297,10 @@ describe("orchestrator MCP toolkit", () => {
               threadId: emptyThread.threadId,
               snoozedUntil: "2099-01-01T00:00:00.000Z",
             });
-            const snoozedListCall = yield* invoke("elysia_thread_list", { snoozed: true, limit: 100 });
+            const snoozedListCall = yield* invoke("elysia_thread_list", {
+              snoozed: true,
+              limit: 100,
+            });
             const snoozedList = yield* decodeThreadListResult(
               snoozedListCall.structuredContent,
             ).pipe(Effect.orDie);

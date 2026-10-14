@@ -7,7 +7,10 @@ import {
   type ThreadId,
   WS_METHODS,
 } from "@elysiatools/contracts";
-import { normalizeProjectPathForComparison, resolveWorkspaceFilePath } from "@elysiatools/shared/path";
+import {
+  normalizeProjectPathForComparison,
+  resolveWorkspaceFilePath,
+} from "@elysiatools/shared/path";
 import * as Clock from "effect/Clock";
 import * as Effect from "effect/Effect";
 import * as Exit from "effect/Exit";

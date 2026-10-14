@@ -5,7 +5,6 @@ and model usage diagnostics remain available in the app.
 
 ## Export diagnostics to your own receiver
 
-
 To send traces, metrics, or logs to an OpenTelemetry receiver, open
 **Settings > General > Diagnostics**, select an environment, and enter each signal's OTLP HTTP
 endpoint under **OpenTelemetry export** (for example `http://localhost:4318/v1/traces`). Save, then

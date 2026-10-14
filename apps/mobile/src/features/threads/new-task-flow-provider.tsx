@@ -25,7 +25,10 @@ import {
   ThreadId,
 } from "@elysiatools/contracts";
 import { sanitizeNewRefName } from "@elysiatools/shared/git";
-import { resolveNewThreadEnvMode, resolveProjectSettings } from "@elysiatools/shared/projectSettings";
+import {
+  resolveNewThreadEnvMode,
+  resolveProjectSettings,
+} from "@elysiatools/shared/projectSettings";
 import {
   isMissingProjectFileError,
   parseElysiaProjectFile,

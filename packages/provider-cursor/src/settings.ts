@@ -4,7 +4,11 @@
  *
  * @module provider-cursor/settings
  */
-import { CustomModelSetting, makeProviderSettingsSchema, TrimmedString } from "@elysiatools/contracts";
+import {
+  CustomModelSetting,
+  makeProviderSettingsSchema,
+  TrimmedString,
+} from "@elysiatools/contracts";
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 

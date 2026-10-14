@@ -14,7 +14,9 @@ vi.mock("../../contracts/src/forkPolicy.ts", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../contracts/src/forkPolicy.ts")>()),
   isEnabledProviderDriver: (driver: string) => !forkPolicy.elysia || driver === "claudeAgent",
 }));
-beforeEach(() => { forkPolicy.elysia = false; });
+beforeEach(() => {
+  forkPolicy.elysia = false;
+});
 import { resolveServerBackgroundActivitySettings } from "./backgroundActivitySettings.ts";
 import { createModelSelection } from "./model.ts";
 import { resolveProjectScripts, projectScriptsInheritDefaults } from "./projectScripts.ts";
@@ -37,11 +39,13 @@ describe("fallbackTextGenerationModelSelection", () => {
   it("keeps disabled drivers out of production fallback choices", () => {
     forkPolicy.elysia = true;
     const instanceId = ProviderInstanceId.make("codex_work");
-    expect(fallbackTextGenerationModelSelection(
-      { [instanceId]: { driver: ProviderDriverKind.make("codex"), config: {} } },
-      (id) => id === instanceId,
-      { includeConfiguredInstances: true },
-    )).toBeNull();
+    expect(
+      fallbackTextGenerationModelSelection(
+        { [instanceId]: { driver: ProviderDriverKind.make("codex"), config: {} } },
+        (id) => id === instanceId,
+        { includeConfiguredInstances: true },
+      ),
+    ).toBeNull();
     expect(fallbackTextGenerationModelSelection({}, () => true)?.instanceId).toBe("claudeAgent");
   });
   it("ignores a configured non-default instance at machine scope, matching no fallback", () => {

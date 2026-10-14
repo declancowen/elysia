@@ -33,12 +33,18 @@ vi.mock("../../state/entities", () => ({
 }));
 vi.mock("../../state/environments", () => ({
   usePrimaryEnvironmentId: () => EnvironmentId.make("local"),
+  usePrimaryEnvironment: () => ({ environmentId: EnvironmentId.make("local") }),
   useEnvironments: () => ({
     environments: ["local", "other"].map((environmentId) => ({
       environmentId,
       connection: { phase: state.connected ? "connected" : "disconnected" },
     })),
   }),
+}));
+vi.mock("../../state/session", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../../state/session")>()),
+  useEnvironmentScope: () => true,
+  useEnvironmentsWithScope: () => new Set([EnvironmentId.make("local")]),
 }));
 vi.mock("../../state/projects", () => ({
   projectEnvironment: { update: Symbol("updateProject") },

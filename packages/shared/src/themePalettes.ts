@@ -147,10 +147,10 @@ export type ThemeDefinition = Readonly<{
  * inline code. The current match uses a stronger gold with dark text.
  */
 export const ELYSIA_LIGHT_THEME_COLORS: ThemeColors = {
-  searchMatchBackground: "#ffde8b",
-  searchMatchForeground: "#21180a",
-  searchMatchActiveBackground: "#eea52b",
-  searchMatchActiveForeground: "#21180a",
+  searchMatchBackground: "oklch(0.910441 0.108498 88.529)",
+  searchMatchForeground: "oklch(0.216164 0.028283 77.423)",
+  searchMatchActiveBackground: "oklch(0.774202 0.151946 74.331)",
+  searchMatchActiveForeground: "oklch(0.216164 0.028283 77.423)",
   canvas: "#FFFFFF",
   chrome: "#FFFFFF",
   toolbar: "#FFFFFF",
@@ -211,10 +211,10 @@ export const ELYSIA_LIGHT_THEME_COLORS: ThemeColors = {
 };
 
 export const ELYSIA_DARK_THEME_COLORS: ThemeColors = {
-  searchMatchBackground: "#8c6c1f",
-  searchMatchForeground: "#f5f5f5",
-  searchMatchActiveBackground: "#eea52b",
-  searchMatchActiveForeground: "#21180a",
+  searchMatchBackground: "oklch(0.549168 0.09987 84.95)",
+  searchMatchForeground: "oklch(0.970151 0 0)",
+  searchMatchActiveBackground: "oklch(0.774202 0.151946 74.331)",
+  searchMatchActiveForeground: "oklch(0.216164 0.028283 77.423)",
   canvas: "#002244",
   chrome: "#002244",
   toolbar: "#002244",
@@ -958,10 +958,10 @@ export const DEFAULT_THEME: ThemeDefinition = {
 };
 
 const GITHUB_LIGHT_COLORS: ThemeColors = {
-  searchMatchBackground: "#ffde8b",
-  searchMatchForeground: "#21180a",
-  searchMatchActiveBackground: "#eea52b",
-  searchMatchActiveForeground: "#21180a",
+  searchMatchBackground: "oklch(0.910441 0.108498 88.529)",
+  searchMatchForeground: "oklch(0.216164 0.028283 77.423)",
+  searchMatchActiveBackground: "oklch(0.774202 0.151946 74.331)",
+  searchMatchActiveForeground: "oklch(0.216164 0.028283 77.423)",
   canvas: "oklch(1 0 0)",
   chrome: "oklch(1 0 0)",
   toolbar: "oklch(1 0 0)",
@@ -1054,10 +1054,10 @@ export const ELYSIA_THEMES: ReadonlyArray<ThemeDefinition> = [
   {
     appearance: "dark",
     colors: {
-      searchMatchBackground: "#8c6c1f",
-      searchMatchForeground: "#f5f5f5",
-      searchMatchActiveBackground: "#eea52b",
-      searchMatchActiveForeground: "#21180a",
+      searchMatchBackground: "oklch(0.549168 0.09987 84.95)",
+      searchMatchForeground: "oklch(0.970151 0 0)",
+      searchMatchActiveBackground: "oklch(0.774202 0.151946 74.331)",
+      searchMatchActiveForeground: "oklch(0.216164 0.028283 77.423)",
       canvas: "oklch(0.176285 0.014021 258.357)",
       chrome: "oklch(0.176285 0.014021 258.357)",
       toolbar: "oklch(0.176285 0.014021 258.357)",
@@ -1123,10 +1123,10 @@ export const ELYSIA_THEMES: ReadonlyArray<ThemeDefinition> = [
   {
     appearance: "dark",
     colors: {
-      searchMatchBackground: "#8c6c1f",
-      searchMatchForeground: "#f5f5f5",
-      searchMatchActiveBackground: "#eea52b",
-      searchMatchActiveForeground: "#21180a",
+      searchMatchBackground: "oklch(0.549168 0.09987 84.95)",
+      searchMatchForeground: "oklch(0.970151 0 0)",
+      searchMatchActiveBackground: "oklch(0.774202 0.151946 74.331)",
+      searchMatchActiveForeground: "oklch(0.216164 0.028283 77.423)",
       canvas: "oklch(0.159066 0 0)",
       chrome: "oklch(0.159066 0 0)",
       toolbar: "oklch(0.159066 0 0)",
@@ -1192,10 +1192,10 @@ export const ELYSIA_THEMES: ReadonlyArray<ThemeDefinition> = [
   {
     appearance: "light",
     colors: {
-      searchMatchBackground: "#ffde8b",
-      searchMatchForeground: "#21180a",
-      searchMatchActiveBackground: "#eea52b",
-      searchMatchActiveForeground: "#21180a",
+      searchMatchBackground: "oklch(0.910441 0.108498 88.529)",
+      searchMatchForeground: "oklch(0.216164 0.028283 77.423)",
+      searchMatchActiveBackground: "oklch(0.774202 0.151946 74.331)",
+      searchMatchActiveForeground: "oklch(0.216164 0.028283 77.423)",
       canvas: "oklch(0.975582 0.002643 106.448)",
       chrome: "oklch(0.975582 0.002643 106.448)",
       toolbar: "oklch(0.975582 0.002643 106.448)",
@@ -1256,10 +1256,10 @@ export const ELYSIA_THEMES: ReadonlyArray<ThemeDefinition> = [
     },
     variants: {
       dark: {
-        searchMatchBackground: "#8c6c1f",
-        searchMatchForeground: "#f5f5f5",
-        searchMatchActiveBackground: "#eea52b",
-        searchMatchActiveForeground: "#21180a",
+        searchMatchBackground: "oklch(0.549168 0.09987 84.95)",
+        searchMatchForeground: "oklch(0.970151 0 0)",
+        searchMatchActiveBackground: "oklch(0.774202 0.151946 74.331)",
+        searchMatchActiveForeground: "oklch(0.216164 0.028283 77.423)",
         canvas: "oklch(0.243535 0 0)",
         chrome: "oklch(0.243535 0 0)",
         toolbar: "oklch(0.243535 0 0)",
@@ -1325,10 +1325,10 @@ export const ELYSIA_THEMES: ReadonlyArray<ThemeDefinition> = [
   {
     appearance: "light",
     colors: {
-      searchMatchBackground: "#ffde8b",
-      searchMatchForeground: "#21180a",
-      searchMatchActiveBackground: "#eea52b",
-      searchMatchActiveForeground: "#21180a",
+      searchMatchBackground: "oklch(0.910441 0.108498 88.529)",
+      searchMatchForeground: "oklch(0.216164 0.028283 77.423)",
+      searchMatchActiveBackground: "oklch(0.774202 0.151946 74.331)",
+      searchMatchActiveForeground: "oklch(0.216164 0.028283 77.423)",
       canvas: "oklch(1 0 0)",
       chrome: "oklch(1 0 0)",
       toolbar: "oklch(1 0 0)",
@@ -1389,10 +1389,10 @@ export const ELYSIA_THEMES: ReadonlyArray<ThemeDefinition> = [
     },
     variants: {
       dark: {
-        searchMatchBackground: "#8c6c1f",
-        searchMatchForeground: "#f5f5f5",
-        searchMatchActiveBackground: "#eea52b",
-        searchMatchActiveForeground: "#21180a",
+        searchMatchBackground: "oklch(0.549168 0.09987 84.95)",
+        searchMatchForeground: "oklch(0.970151 0 0)",
+        searchMatchActiveBackground: "oklch(0.774202 0.151946 74.331)",
+        searchMatchActiveForeground: "oklch(0.216164 0.028283 77.423)",
         canvas: "oklch(0.213423 0 0)",
         chrome: "oklch(0.213423 0 0)",
         toolbar: "oklch(0.213423 0 0)",

@@ -1772,7 +1772,7 @@ const ConversationTimeline = memo(function ConversationTimeline({
                     }
                     maintainScrollAtEndThreshold={1}
                     onScroll={handleScroll}
-                    onItemSizeChanged={reportContentOverflow}
+                    onItemSizeChanged={handleItemSizeChanged}
                     className={cn(
                       "messages-timeline-scroll h-full min-h-0 overflow-x-hidden overscroll-y-contain [overflow-anchor:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
                       viewportProps.className,

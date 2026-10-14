@@ -1,6 +1,6 @@
 import { PlusIcon } from "~/icons";
 import { ElysiaSetupSection } from "./ElysiaSetupSection";
-import { isEnabledProviderDriver } from "@elysiatools/contracts";
+import { isEnabledProviderDriver, SINGLE_PROVIDER_UI } from "@elysiatools/contracts";
 import { SettingsGroup } from "./SettingsGroup";
 import { RefreshIcon } from "~/components/ui/refresh-icon";
 import {
@@ -1197,7 +1197,7 @@ export function EnvironmentProviderSettings({
         {...searchableSetting("providers")}
         variant="plain"
         titleAction={
-          !readOnly ? (
+          !SINGLE_PROVIDER_UI && !readOnly ? (
             <Tooltip>
               <TooltipTrigger
                 render={
@@ -1355,7 +1355,7 @@ export function EnvironmentProviderSettings({
         />
       </SettingsSection>
 
-      {isAddInstanceDialogOpen && !readOnly ? (
+      {isAddInstanceDialogOpen && !SINGLE_PROVIDER_UI && !readOnly ? (
         <AddProviderInstanceDialog
           open
           environmentId={environmentId}

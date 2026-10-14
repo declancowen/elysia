@@ -243,9 +243,19 @@ it("fits the popover avatar to changing name and role height without unbounded g
   vi.stubGlobal(
     "ResizeObserver",
     class {
-      constructor(private readonly resized: () => void) {}
+      constructor(private readonly resized: ResizeObserverCallback) {}
       observe(element: Element) {
-        if (element.textContent === name + role) resizeLabel = this.resized;
+        if (element.textContent === name + role)
+          resizeLabel = () =>
+            this.resized(
+              [
+                {
+                  target: element,
+                  contentRect: element.getBoundingClientRect(),
+                } as ResizeObserverEntry,
+              ],
+              this as unknown as ResizeObserver,
+            );
       }
       unobserve() {}
       disconnect() {}

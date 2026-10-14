@@ -1,4 +1,5 @@
 import { useLayoutEffect, useRef } from "react";
+import { observeResize } from "~/lib/observeResize";
 
 /** Match the rendered title and metadata heights without reserving unused property rows. */
 export function useTaskCardLayout(enabled: boolean) {
@@ -23,10 +24,9 @@ export function useTaskCardLayout(enabled: boolean) {
       }
     };
     measure();
-    const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(measure);
-    for (const element of [...titles, ...metadata]) observer?.observe(element);
+    const stopObserving = observeResize([...titles, ...metadata], measure);
     return () => {
-      observer?.disconnect();
+      stopObserving();
       collection.style.removeProperty("--task-card-title-height");
       collection.style.removeProperty("--task-card-metadata-height");
     };

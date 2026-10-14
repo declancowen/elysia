@@ -340,7 +340,7 @@ function PageDetail({
               <div className="text-3xl font-medium">
                 <input
                   type="text"
-                  className="w-full min-w-0 rounded-sm bg-transparent text-3xl font-medium text-foreground outline-none placeholder:text-muted-foreground focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring"
+                  className="w-full min-w-0 rounded-sm bg-transparent text-3xl font-medium text-foreground outline-none placeholder:text-muted-foreground focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring"
                   aria-label="Page title"
                   placeholder="Page title"
                   maxLength={200}

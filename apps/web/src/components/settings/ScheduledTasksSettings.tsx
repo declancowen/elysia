@@ -672,7 +672,7 @@ function ScheduledTaskRow({
           aria-label={`Edit ${task.title}`}
           aria-current={selected ? "true" : undefined}
           {...conversationClick}
-          className="flex min-w-0 flex-1 cursor-pointer flex-col gap-1 py-2 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="flex min-w-0 flex-1 cursor-pointer flex-col gap-1 py-2 text-left outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
         >
           <span className="truncate text-sm font-medium">{task.title}</span>
           <span className="truncate text-xs text-muted-foreground">

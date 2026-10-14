@@ -32,7 +32,7 @@ export function AgentAvatarPicker({
             aria-label={`Color ${color}`}
             aria-pressed={avatar.color === color}
             className={cn(
-              "flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-full border border-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+              "flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-full border border-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
               avatar.color === color && "border-foreground/65",
             )}
             onClick={() => onChange({ ...avatar, color })}
@@ -54,7 +54,7 @@ export function AgentAvatarPicker({
             aria-label={preset.label}
             aria-pressed={agentAvatarPreset(avatar.preset) === preset.value}
             className={cn(
-              "flex shrink-0 cursor-pointer items-center justify-center rounded-md border border-transparent p-1.5 hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+              "flex shrink-0 cursor-pointer items-center justify-center rounded-md border border-transparent p-1.5 hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
               agentAvatarPreset(avatar.preset) === preset.value && "border-border bg-accent",
             )}
             onClick={() => onChange({ ...avatar, preset: preset.value })}

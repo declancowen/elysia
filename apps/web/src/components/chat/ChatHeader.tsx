@@ -415,7 +415,7 @@ export const ChatHeader = memo(function ChatHeader({
                   openAgentDialog(scopeProjectRef(activeProject.environmentId, activeProject.id))
               : onNewThreadInProject
           }
-          className="-mx-2.5 mb-1 flex min-w-0 w-[calc(100%+1.25rem)] cursor-pointer items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-left text-sidebar-section hover:bg-accent/50 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
+          className="-mx-2.5 mb-1 flex min-w-0 w-[calc(100%+1.25rem)] cursor-pointer items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-left text-sidebar-section hover:bg-accent/50 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
         >
           {activeProject.agentProfile ? (
             activeProject.agentProfile.group ? (
@@ -507,7 +507,7 @@ export const ChatHeader = memo(function ChatHeader({
                   onClick={() =>
                     openAgentDialog(scopeProjectRef(activeProject.environmentId, activeProject.id))
                   }
-                  className="inline-flex min-w-0 max-w-full cursor-pointer items-center gap-2 rounded-sm text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
+                  className="inline-flex min-w-0 max-w-full cursor-pointer items-center gap-2 rounded-sm text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
                 >
                   {activeProject.agentProfile.group ? (
                     <ChannelIcon aria-hidden className="size-4" />
@@ -552,7 +552,7 @@ export const ChatHeader = memo(function ChatHeader({
                           onClick={openMenuFromTitle}
                           onDoubleClick={canOperateThread ? handleTitleDoubleClick : undefined}
                           onBlur={cancelPendingTitleMenu}
-                          className="group/thread-title inline-flex min-w-0 max-w-full cursor-pointer items-center gap-1 rounded-sm text-left focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
+                          className="group/thread-title inline-flex min-w-0 max-w-full cursor-pointer items-center gap-1 rounded-sm text-left focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
                         />
                       }
                     >

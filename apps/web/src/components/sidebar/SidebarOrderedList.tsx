@@ -93,7 +93,7 @@ export function SidebarSectionDragLabel({
       data-sidebar-dragging={drag?.isDragging ? "" : undefined}
       className={cn(
         className,
-        "hover:bg-sidebar-row-hover focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring",
+        "hover:bg-sidebar-row-hover focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
         drag && "touch-none",
         drag?.isDragging && "bg-sidebar-row-hover",
       )}
@@ -125,7 +125,7 @@ export function SidebarOrderedRow({
         ref={setNodeRef}
         style={{ transform: CSS.Translate.toString(transform), transition }}
         className={cn(
-          "relative rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-ring",
+          "relative rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
           isDragging && "z-30",
           className,
         )}

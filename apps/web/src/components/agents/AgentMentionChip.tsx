@@ -57,7 +57,7 @@ export function AgentMentionChip({
         aria-label={`View ${project.title} responses`}
         onClick={onOpen}
         data-markdown-copy={copyMarkdown}
-        className="inline-flex max-w-full cursor-pointer items-center gap-1 align-middle rounded-sm font-semibold text-inherit focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring [&>svg]:size-[1em]"
+        className="inline-flex max-w-full cursor-pointer items-center gap-1 align-middle rounded-sm font-semibold text-inherit focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring [&>svg]:size-[1em]"
       >
         {icon}
         <span>{project.title}</span>

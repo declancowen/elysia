@@ -1,4 +1,5 @@
 import { scopeProjectRef } from "@elysiatools/client-runtime/environment";
+import { observeResize } from "~/lib/observeResize";
 import type { ScopedProjectRef } from "@elysiatools/contracts";
 import { useClientSettings } from "../../hooks/useSettings";
 import {
@@ -149,9 +150,7 @@ function AgentDetails({ agent, onClose }: { agent: AgentRosterEntry; onClose: ()
       if (height > 0) setAvatarSize(Math.min(height, 64));
     };
     measure();
-    const observer = new ResizeObserver(measure);
-    observer.observe(label);
-    return () => observer.disconnect();
+    return observeResize(label, measure);
   }, []);
   return (
     <>

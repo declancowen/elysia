@@ -67,7 +67,7 @@ export function AgentRoster({ inset = true }: { inset?: boolean }) {
       {expanded && active.length === 0 ? (
         <button
           type="button"
-          className="w-full cursor-pointer rounded-lg px-2.5 py-2 text-left text-xs text-sidebar-muted-foreground hover:bg-sidebar-row-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="w-full cursor-pointer rounded-lg px-2.5 py-2 text-left text-xs text-sidebar-muted-foreground hover:bg-sidebar-row-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
           onClick={createAgent}
         >
           No agents yet
@@ -137,7 +137,7 @@ export function AgentRow(agent: AgentRosterEntry) {
           disabled={!thread || profile.archived}
           aria-current={selected ? "page" : undefined}
           className={cn(
-            "flex min-h-8 min-w-0 flex-1 items-center gap-2 rounded-md pl-2.5 pr-14 py-1.5 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60",
+            "flex min-h-8 min-w-0 flex-1 items-center gap-2 rounded-md pl-2.5 pr-14 py-1.5 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring disabled:opacity-60",
           )}
           {...conversationClick}
         >
@@ -172,7 +172,7 @@ export function AgentRow(agent: AgentRosterEntry) {
                   disabled={pending || busy}
                   aria-label={`Archive ${project.title}`}
                   className={cn(
-                    "inline-flex size-6 cursor-pointer items-center justify-center rounded-md text-foreground focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-default disabled:opacity-60",
+                    "inline-flex size-6 cursor-pointer items-center justify-center rounded-md text-foreground focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring disabled:cursor-default disabled:opacity-60",
                     !selected &&
                       "opacity-0 max-sm:opacity-100 group-hover/agent-row:opacity-100 group-focus-within/agent-row:opacity-100",
                   )}
@@ -192,7 +192,7 @@ export function AgentRow(agent: AgentRosterEntry) {
             render={
               <button
                 type="button"
-                className="inline-flex size-6 cursor-pointer items-center justify-center rounded-md text-foreground focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-ring disabled:opacity-60"
+                className="inline-flex size-6 cursor-pointer items-center justify-center rounded-md text-foreground focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring disabled:opacity-60"
                 disabled={pending}
                 aria-label={`Actions for ${project.title}`}
               />

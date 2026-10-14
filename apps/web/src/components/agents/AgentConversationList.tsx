@@ -193,7 +193,7 @@ function AgentConversationRow({
           {...conversationClick}
           disabled={!thread}
           className={cn(
-            "flex min-w-0 flex-1 cursor-pointer items-center outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-default",
+            "flex min-w-0 flex-1 cursor-pointer items-center outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring disabled:cursor-default",
             pinned ? "touch-none flex-col gap-1 text-center" : "gap-2 text-left",
           )}
         >

@@ -386,10 +386,20 @@ it.each([false, true])(
     vi.stubGlobal(
       "ResizeObserver",
       class {
-        constructor(private callback: () => void) {}
+        constructor(private callback: ResizeObserverCallback) {}
         observe(element: Element) {
           const callbacks = observers.get(element) ?? new Set();
-          callbacks.add(this.callback);
+          callbacks.add(() =>
+            this.callback(
+              [
+                {
+                  target: element,
+                  contentRect: element.getBoundingClientRect(),
+                } as ResizeObserverEntry,
+              ],
+              this as unknown as ResizeObserver,
+            ),
+          );
           observers.set(element, callbacks);
         }
         unobserve() {}

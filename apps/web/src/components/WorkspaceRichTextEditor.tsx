@@ -80,7 +80,7 @@ export function WorkspaceRichTextEditor({
         "aria-label": `${label} content`,
         "aria-multiline": "true",
         class:
-          "min-h-72 rounded-sm outline-none focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring",
+          "min-h-72 rounded-sm outline-none focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-ring",
       },
       handleKeyDown: (_view, event) => {
         const menu = slashRef.current;

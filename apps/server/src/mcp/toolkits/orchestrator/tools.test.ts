@@ -33,7 +33,7 @@ describe("orchestrator MCP tool guidance", () => {
     assert.include(DelegateTaskTool.description ?? "", "childThreadId is backing storage");
     assert.include(
       OrchestratorToolkit.tools.elysia_thread_send.description ?? "",
-      "a requested follow-up creates a fresh task",
+      "call delegate_task with the full review context and a new clientRequestId",
     );
     assert.include(
       OrchestratorToolkit.tools.task_cancel.description ?? "",

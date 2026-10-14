@@ -1,4 +1,5 @@
 import { useLayoutEffect, useRef, useState, type RefObject } from "react";
+import { observeResize } from "~/lib/observeResize";
 
 export function resolveChatHeaderMainColumnWidth(
   header: Pick<DOMRect, "left" | "width">,
@@ -21,14 +22,15 @@ export function useChatHeaderColumn(
       setMainColumnHidden(false);
       return;
     }
+    const subscriptions = new Map<Element, () => void>();
     const measure = () => {
       // The topbar portal can mount before the conversation attaches its ref.
       // Read it again on the observer's initial delivery, after the commit.
       const column = threadBoundaryRef?.current;
       if (!column) return;
-      observer.observe(column);
+      observe(column);
       const workspace = column.closest("[data-chat-workspace-panels]");
-      if (workspace) observer.observe(workspace);
+      if (workspace) observe(workspace);
       const hidden = column.getAttribute("data-chat-column-maximized-away") === "true";
       setMainColumnHidden(hidden);
       setMainColumnWidth(
@@ -40,12 +42,16 @@ export function useChatHeaderColumn(
             ),
       );
     };
-    const observer = new ResizeObserver(measure);
-    observer.observe(header);
+    const observe = (element: Element) => {
+      if (!subscriptions.has(element)) {
+        subscriptions.set(element, observeResize(element, measure));
+      }
+    };
+    observe(header);
     measure();
     window.addEventListener("resize", measure);
     return () => {
-      observer.disconnect();
+      for (const stopObserving of subscriptions.values()) stopObserving();
       window.removeEventListener("resize", measure);
     };
   }, [inlinePanel, threadBoundaryRef]);

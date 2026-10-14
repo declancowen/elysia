@@ -71,7 +71,7 @@ export function ChannelFolderPicker({
                   <button
                     key={entry.fullPath}
                     type="button"
-                    className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-left text-sm hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-left text-sm hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
                     onClick={() => setPath(`${entry.fullPath}/`)}
                   >
                     <FolderIcon className="size-4 shrink-0" />

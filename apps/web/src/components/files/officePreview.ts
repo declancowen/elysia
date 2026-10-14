@@ -1,3 +1,4 @@
+import { observeResize } from "~/lib/observeResize";
 import {
   OFFICE_PREVIEW_MAX_BYTES,
   type OfficePreviewFormat,
@@ -120,10 +121,9 @@ export async function loadOfficePreview(bytes: Uint8Array, format: OfficePreview
         );
       };
       fit();
-      const observer = new ResizeObserver(fit);
-      observer.observe(body.ownerDocument.documentElement);
+      const stopObserving = observeResize(body.ownerDocument.documentElement, fit);
       return () => {
-        observer.disconnect();
+        stopObserving();
         body.replaceChildren();
       };
     },

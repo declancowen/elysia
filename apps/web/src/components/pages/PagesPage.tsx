@@ -683,7 +683,7 @@ export function PagesPage({ folderId = null }: { folderId?: PageId | null }) {
                     <WorkspaceItemLink
                       onOpen={(newTab) => openPage(page, newTab)}
                       className={cn(
-                        "flex min-w-0 flex-1 gap-3 rounded-md text-left outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                        "flex min-w-0 flex-1 gap-3 rounded-md text-left outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
                         view === "list" || view === "table"
                           ? "items-center py-3"
                           : "h-full flex-col items-stretch justify-start pr-16",

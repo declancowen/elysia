@@ -1,4 +1,5 @@
 import { resolveThreadLineageWindow } from "@elysiatools/client-runtime/state/thread-relationships";
+import { observeResize } from "~/lib/observeResize";
 import { Popover as PopoverPrimitive } from "@base-ui/react/popover";
 import { Link } from "@tanstack/react-router";
 import {
@@ -82,7 +83,7 @@ const NO_ITEMS: ReadonlyArray<never> = [];
 const NO_DELEGATIONS: ReadonlyArray<DelegatedAgent> = [];
 
 const rowClassName =
-  "-mx-2.5 flex w-[calc(100%+1.25rem)] cursor-pointer items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-left transition-colors hover:bg-accent/50 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-default";
+  "-mx-2.5 flex w-[calc(100%+1.25rem)] cursor-pointer items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-left transition-colors hover:bg-accent/50 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring disabled:cursor-default";
 
 function OverviewPopover({
   label,
@@ -217,14 +218,15 @@ function OverviewPopover({
       });
     };
     measure();
-    const observer = new ResizeObserver(measure);
     const boundaryElement = column ?? header;
-    if (boundaryElement) observer.observe(boundaryElement);
-    if (workspace && workspace !== boundaryElement) observer.observe(workspace);
-    if (composerElement) observer.observe(composerElement);
+    const targets: Element[] = [];
+    if (boundaryElement) targets.push(boundaryElement);
+    if (workspace && workspace !== boundaryElement) targets.push(workspace);
+    if (composerElement) targets.push(composerElement);
+    const stopObserving = observeResize(targets, measure);
     window.addEventListener("resize", measure);
     return () => {
-      observer.disconnect();
+      stopObserving();
       window.removeEventListener("resize", measure);
     };
   }, [open, hidden, composerElement, threadBoundaryRef]);
@@ -370,7 +372,7 @@ function OverviewPopover({
                   )}
                   aria-label={`Open ${selectedAgent.name} chat`}
                   onClick={() => setOpen(false)}
-                  className="flex min-w-0 flex-1 items-center gap-2 rounded-sm focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
+                  className="flex min-w-0 flex-1 items-center gap-2 rounded-sm focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
                 >
                   {selectedAgent.project?.agentProfile?.group ? (
                     <ChannelIcon aria-hidden className="size-6 shrink-0" />
@@ -496,7 +498,7 @@ function OverviewPopover({
                               render={
                                 <button
                                   type="button"
-                                  className="flex shrink-0 cursor-pointer items-center gap-2 rounded-lg p-1 hover:bg-accent/50 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
+                                  className="flex shrink-0 cursor-pointer items-center gap-2 rounded-lg p-1 hover:bg-accent/50 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
                                   aria-label={`View ${agent.name} responses`}
                                   onClick={() => {
                                     setExpanded(false);
@@ -593,7 +595,7 @@ function OverviewPopover({
                         type="button"
                         aria-expanded={sourcesExpanded}
                         aria-label={sourcesExpanded ? "Collapse sources" : "Expand sources"}
-                        className="flex cursor-pointer items-center gap-1.5 rounded-sm text-xs text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
+                        className="flex cursor-pointer items-center gap-1.5 rounded-sm text-xs text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
                         onClick={() => setSourcesExpanded((expanded) => !expanded)}
                       >
                         Sources

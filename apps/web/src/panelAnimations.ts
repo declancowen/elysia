@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useState } from "react";
+import { observeResize } from "~/lib/observeResize";
 import { type PanelAnimationDurationMs } from "@elysiatools/contracts/settings";
 
 import { useMediaQuery } from "./hooks/useMediaQuery";
@@ -87,7 +88,7 @@ export function observeResponsiveBreakpointFade(options: {
   let expanded = container.getBoundingClientRect().width >= breakpointPx;
   let animation: Animation | null = null;
 
-  const observer = new ResizeObserver(([entry]) => {
+  const stopObserving = observeResize(container, ([entry]) => {
     if (!entry) return;
     const nextExpanded = entry.contentRect.width >= breakpointPx;
     if (nextExpanded === expanded) return;
@@ -99,9 +100,8 @@ export function observeResponsiveBreakpointFade(options: {
     });
   });
 
-  observer.observe(container);
   return () => {
-    observer.disconnect();
+    stopObserving();
     animation?.cancel();
   };
 }

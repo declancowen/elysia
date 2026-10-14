@@ -222,7 +222,7 @@ export function ProjectsPage() {
                             [project.projectKey]: !isExpanded,
                           }))
                         }
-                        className="flex min-w-0 cursor-pointer items-center gap-3 text-left text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                        className="flex min-w-0 cursor-pointer items-center gap-3 text-left text-sm outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
                       >
                         {isExpanded ? (
                           <FolderOpenIcon className="size-4 shrink-0" />
@@ -370,7 +370,7 @@ function ProjectThreadLink({ thread }: { thread: ThreadShell }) {
             reportProjectActionFailure("Could not open the tab menu", error),
           );
       }}
-      className="flex min-w-0 cursor-pointer touch-none items-center gap-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      className="flex min-w-0 cursor-pointer touch-none items-center gap-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
     >
       <MessageCircle className="size-4 shrink-0 text-muted-foreground" />
       <span className="truncate">{thread.title}</span>

@@ -12,10 +12,23 @@ it("matches the tallest rendered title and footer, then shrinks after wrapping o
   vi.stubGlobal(
     "ResizeObserver",
     class {
-      constructor(callback: () => void) {
-        resize = callback;
+      private targets = new Set<Element>();
+      constructor(callback: ResizeObserverCallback) {
+        resize = () =>
+          callback(
+            [...this.targets].map(
+              (target) =>
+                ({ target, contentRect: target.getBoundingClientRect() }) as ResizeObserverEntry,
+            ),
+            this as unknown as ResizeObserver,
+          );
       }
-      observe() {}
+      observe(target: Element) {
+        this.targets.add(target);
+      }
+      unobserve(target: Element) {
+        this.targets.delete(target);
+      }
       disconnect = disconnect;
     },
   );

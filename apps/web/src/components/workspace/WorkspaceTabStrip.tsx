@@ -148,7 +148,7 @@ export function WorkspaceTab({
               tabIndex={tabIndex}
               type="button"
               data-workspace-tab-id={id}
-              className="flex min-w-0 cursor-pointer items-center gap-2 rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="flex min-w-0 cursor-pointer items-center gap-2 rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
               onClick={onSelect}
               onKeyDown={(event) => {
                 const direction =

@@ -10,11 +10,27 @@ it("aligns a newly opened conversation when its column attaches after the topbar
   vi.stubGlobal(
     "ResizeObserver",
     class {
-      constructor(callback: () => void) {
-        deliveries.push(callback);
+      private targets = new Set<Element>();
+      constructor(callback: ResizeObserverCallback) {
+        deliveries.push(() =>
+          callback(
+            [...this.targets].map(
+              (target) =>
+                ({ target, contentRect: target.getBoundingClientRect() }) as ResizeObserverEntry,
+            ),
+            this as unknown as ResizeObserver,
+          ),
+        );
       }
-      observe() {}
-      disconnect() {}
+      observe(target: Element) {
+        this.targets.add(target);
+      }
+      unobserve(target: Element) {
+        this.targets.delete(target);
+      }
+      disconnect() {
+        this.targets.clear();
+      }
     },
   );
   let columnRight = 884;

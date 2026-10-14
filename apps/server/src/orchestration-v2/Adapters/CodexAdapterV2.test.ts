@@ -485,7 +485,7 @@ describe("CodexAdapterV2 runtime policy", () => {
         kind: "untrusted",
         value: "Filtered to overdue",
       });
-      assert.isDefined(withT3.additionalContext?.["elysia_code_runtime"]);
+      assert.isDefined(withT3.additionalContext?.["elysia_runtime"]);
     }),
   );
 

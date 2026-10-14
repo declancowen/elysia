@@ -142,9 +142,12 @@ describe("resolveProjectSettings", () => {
       // Even stale imported settings claiming the provider is enabled cannot bypass fork policy.
       const settings = {
         ...DEFAULT_SERVER_SETTINGS,
-        providers: {
-          ...DEFAULT_SERVER_SETTINGS.providers,
-          codex: { ...DEFAULT_SERVER_SETTINGS.providers.codex, enabled: true },
+        providerInstances: {
+          ...DEFAULT_SERVER_SETTINGS.providerInstances,
+          [ProviderInstanceId.make("codex")]: {
+            driver: ProviderDriverKind.make("codex"),
+            enabled: true,
+          },
         },
         projectSettingsFolded: source === "stored",
         projectSettingsOverrides:
@@ -192,12 +195,14 @@ describe("resolveProjectSettings", () => {
   });
 
   it("falls back to a configured instance when every built-in one is off for the project", () => {
-    const codex = ProviderInstanceId.make("codex");
-    const codexWork = ProviderInstanceId.make("codex_work");
+    const codex = ProviderInstanceId.make("claudeAgent");
+    const codexWork = ProviderInstanceId.make("elysia_work");
     const settings = {
       ...DEFAULT_SERVER_SETTINGS,
       textGenerationModelSelection: createModelSelection(codex, "gpt-5"),
-      providerInstances: { [codexWork]: { driver: ProviderDriverKind.make("codex"), config: {} } },
+      providerInstances: {
+        [codexWork]: { driver: ProviderDriverKind.make("claudeAgent"), config: {} },
+      },
       projectSettingsOverrides: {
         [projectId]: {
           providerInstances: {

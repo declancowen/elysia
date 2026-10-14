@@ -25,7 +25,7 @@ const layerTest = TestProviderHost.layer({ runBackgroundWork: false }).pipe(
   Layer.provideMerge(
     Layer.succeed(
       ProviderEventLoggers.ProviderEventLoggers,
-      ProviderEventLoggers.noOpProviderEventLoggers,
+      ProviderEventLoggers.NoOpProviderEventLoggers,
     ),
   ),
   Layer.provideMerge(

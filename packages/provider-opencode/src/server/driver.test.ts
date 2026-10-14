@@ -55,7 +55,7 @@ const layer = Layer.mergeAll(
   TestProviderHost.layer(),
   Layer.succeed(
     ProviderEventLoggers.ProviderEventLoggers,
-    ProviderEventLoggers.noOpProviderEventLoggers,
+    ProviderEventLoggers.NoOpProviderEventLoggers,
   ),
   Layer.succeed(OpenCodeRuntime.OpenCodeRuntime, openCode2Runtime),
 ).pipe(Layer.provideMerge(NodeServices.layer));
@@ -219,7 +219,7 @@ const layerUpdate = Layer.mergeAll(
   TestProviderHost.layer(),
   Layer.succeed(
     ProviderEventLoggers.ProviderEventLoggers,
-    ProviderEventLoggers.noOpProviderEventLoggers,
+    ProviderEventLoggers.NoOpProviderEventLoggers,
   ),
   Layer.succeed(OpenCodeRuntime.OpenCodeRuntime, changingRuntime),
 ).pipe(Layer.provideMerge(NodeServices.layer));

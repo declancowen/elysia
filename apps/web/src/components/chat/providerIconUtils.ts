@@ -1,20 +1,10 @@
 import { ProviderDriverKind } from "@elysiatools/contracts";
-import {
-  AntigravityIcon,
-  ElysiaIcon,
-  CursorIcon,
-  GrokIcon,
-  Icon,
-  OpenAI,
-  OpenCodeIcon,
-} from "../Icons";
+import { AntigravityIcon, ElysiaIcon, CursorIcon, Icon, OpenAI } from "../Icons";
 
 export const PROVIDER_ICON_BY_PROVIDER: Partial<Record<ProviderDriverKind, Icon>> = {
   [ProviderDriverKind.make("codex")]: OpenAI,
   [ProviderDriverKind.make("claudeAgent")]: ElysiaIcon,
-  [ProviderDriverKind.make("opencode")]: OpenCodeIcon,
   [ProviderDriverKind.make("cursor")]: CursorIcon,
-  [ProviderDriverKind.make("grok")]: GrokIcon,
   [ProviderDriverKind.make("antigravity")]: AntigravityIcon,
 };
 
@@ -50,6 +40,27 @@ export function getDisplayModelName(
 ): string {
   const name = options?.preferShortName && model.shortName ? model.shortName : model.name;
   return stripLeadingQualifier(name, model.subProvider);
+}
+
+/**
+ * The second line of a model row, naming where the model comes from. A
+ * sub-provider whose name reads as its provider plus a qualifier ("OpenCode
+ * Zen" under "OpenCode") stands alone: joining the two shows "OpenCode ·
+ * OpenCode Zen", and OpenCode's own picker shows the sub-provider by itself.
+ */
+export function getProviderRowLabel(
+  providerDisplayName: string,
+  subProvider: string | undefined,
+): string {
+  const provider = providerDisplayName.trim();
+  const sub = subProvider?.trim();
+  if (!sub) {
+    return providerDisplayName;
+  }
+  if (provider && new RegExp(`^${escapeRegExp(provider)}\\s+\\S`, "i").test(sub)) {
+    return sub;
+  }
+  return `${providerDisplayName} · ${sub}`;
 }
 
 export function getTriggerDisplayModelName(model: ModelEsque): string {

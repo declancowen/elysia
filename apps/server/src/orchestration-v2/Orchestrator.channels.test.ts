@@ -18,11 +18,11 @@ import * as Orchestrator from "./Orchestrator.ts";
 import * as ProjectionStore from "./ProjectionStore.ts";
 import * as ProjectStore from "./ProjectStore.ts";
 import * as ProviderAdapterRegistry from "./ProviderAdapterRegistry.ts";
-import type { ProviderAdapterV2Shape } from "./ProviderAdapter.ts";
+import type { ProviderAdapterV2 } from "@elysiatools/provider-core/server/ProviderAdapter";
 import { layerWithRegistry } from "./testkit/ProviderReplayHarness.ts";
 const instanceId = ProviderInstanceId.make("claudeAgent");
 const modelSelection = { instanceId, model: "deepseek-v4.1-flash" };
-const adapter: ProviderAdapterV2Shape = {
+const adapter: ProviderAdapterV2["Service"] = {
   instanceId,
   driver: ProviderDriverKind.make("claudeAgent"),
   getCapabilities: () => Effect.succeed(CodexProviderCapabilitiesV2),

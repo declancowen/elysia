@@ -1,3 +1,4 @@
+import { buildCodexInitializeParams } from "../../provider/CodexProvider.ts";
 import * as OtelEnvironment from "@elysiatools/shared/otelEnvironment";
 import { DEFAULT_SIGNAL_EXPORT } from "@elysiatools/shared/observability";
 import * as NodeServices from "@effect/platform-node/NodeServices";
@@ -14,13 +15,12 @@ import * as Predicate from "effect/Predicate";
 import * as Schema from "effect/Schema";
 
 import * as ServerConfig from "../../config.ts";
-import { buildCodexInitializeParams } from "../../provider/CodexProvider.ts";
-import * as IdAllocator from "../IdAllocator.ts";
-import { ProviderAdapterOpenSessionError } from "../ProviderAdapter.ts";
-import { ProviderAdapterDriverCreateError } from "../ProviderAdapterDriver.ts";
+import * as IdAllocator from "@elysiatools/provider-core/server/IdAllocator";
+import * as ProviderAdapter from "@elysiatools/provider-core/server/ProviderAdapter";
+import { ProviderAdapterDriverCreateError } from "@elysiatools/provider-core/server/adapterDriver";
 import * as ProviderAdapterRegistry from "../ProviderAdapterRegistry.ts";
 import type { OrchestratorV2ProviderReplayHarness } from "../testkit/ProviderReplayHarness.ts";
-import type { ProviderReplayGate } from "../testkit/ProviderReplayGate.testkit.ts";
+import type { ProviderReplayGate } from "@elysiatools/provider-testing/replayGate";
 import * as CodexAdapterV2 from "./CodexAdapterV2.ts";
 
 export class CodexReplayTranscriptDecodeError extends Schema.TaggedError<CodexReplayTranscriptDecodeError>()(
@@ -196,7 +196,7 @@ export function layer(input: {
         const context = yield* Layer.build(layerReplay).pipe(
           Effect.mapError(
             (cause) =>
-              new ProviderAdapterOpenSessionError({
+              new ProviderAdapter.ProviderAdapterOpenSessionError({
                 driver: CodexAdapterV2.CODEX_DRIVER_KIND,
                 providerSessionId: openInput.providerSessionId,
                 cause,

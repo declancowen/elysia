@@ -7,8 +7,8 @@ import type {
 } from "@elysiatools/contracts";
 import { modelSelectionsEqual } from "@elysiatools/shared/model";
 
-import type { ProviderContinuationIdentity } from "../provider/ProviderDriver.ts";
-import type { ProviderSelectionTransitionPlan } from "./ProviderSelectionTransition.ts";
+import type { ProviderContinuationIdentity } from "@elysiatools/provider-core/server/driver";
+import type { ProviderSelectionTransitionPlan } from "@elysiatools/provider-core/server/selectionTransition";
 
 export type ProviderSessionTransition =
   | { readonly type: "reuse" }

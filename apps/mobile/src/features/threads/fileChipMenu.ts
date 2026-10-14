@@ -1,7 +1,7 @@
-import { fileBasename } from "@elysiatools/client-runtime/markdown-links";
+import { fileBasename } from "@elysiatools/shared/path";
 import type { ThreadId } from "@elysiatools/contracts";
-import { resolveMarkdownLinkPresentation } from "@elysiatools/mobile-markdown-text/links";
-import type { MarkdownFileContextMenu } from "@elysiatools/mobile-markdown-text/types";
+import { resolveMarkdownLinkPresentation } from "../../lib/markdownLinks";
+import type { MarkdownFileContextMenu } from "../../native/SelectableMarkdownText.types";
 import { hostPreviewMimeTypeFromExtension } from "@elysiatools/shared/filePreview";
 
 import {

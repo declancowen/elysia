@@ -4,11 +4,7 @@ import "../testUtils/upstreamReleaseFixture.ts";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import * as ModelManifest from "./ModelManifest.ts";
 import { expect, it } from "@effect/vitest";
-import {
-  HostProcessArchitecture,
-  HostProcessEnvironment,
-  HostProcessPlatform,
-} from "@elysiatools/shared/hostProcess";
+import * as HostProcess from "@elysiatools/shared/HostProcess";
 import * as Crypto from "effect/Crypto";
 import * as Deferred from "effect/Deferred";
 import * as Effect from "effect/Effect";
@@ -69,9 +65,9 @@ const makeHarness = Effect.fn("test.makeCodexInstallation")(function* (
       forceRefresh: Effect.succeed(ModelManifest.BUNDLED_MODEL_MANIFEST),
       refreshInBackground: Effect.void,
     }),
-    Effect.provideService(HostProcessPlatform, "darwin"),
-    Effect.provideService(HostProcessArchitecture, "arm64"),
-    Effect.provideService(HostProcessEnvironment, { PATH: input.local ? localDirectory : "" }),
+    Effect.provideService(HostProcess.Platform, "darwin"),
+    Effect.provideService(HostProcess.Architecture, "arm64"),
+    Effect.provideService(HostProcess.Environment, { PATH: input.local ? localDirectory : "" }),
     Effect.provideService(
       HttpClient.HttpClient,
       HttpClient.make((request) =>

@@ -1,11 +1,11 @@
 import type { ProviderInteractionMode } from "@elysiatools/contracts";
 import type { V2TurnStartParams__AdditionalContextEntry } from "effect-codex-app-server/schema";
-import { buildRuntimeInstructions } from "./RuntimeInstructions.ts";
+import { buildRuntimeInstructions } from "@elysiatools/provider-core/server/runtimeInstructions";
 
 import {
   ELYSIA_BROWSER_TOOL_INSTRUCTIONS,
   ELYSIA_ORCHESTRATION_INSTRUCTIONS,
-} from "./ElysiaOrchestrationInstructions.ts";
+} from "@elysiatools/provider-core/server/orchestrationInstructions";
 
 const ELYSIA_DEVICE_TOOL_INSTRUCTIONS = `## Elysia devices
 

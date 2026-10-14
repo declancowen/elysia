@@ -55,13 +55,6 @@ function staleSettings(withInstance = true): UnifiedSettings {
           },
         }
       : {},
-    providers: {
-      ...DEFAULT_UNIFIED_SETTINGS.providers,
-      claudeAgent: {
-        ...DEFAULT_UNIFIED_SETTINGS.providers.claudeAgent,
-        customModels: ["removed/legacy-model"],
-      },
-    },
     favorites: [
       { provider: elysiaId, model: "removed/instance-model" },
       { provider: elysiaId, model: "removed/legacy-model" },

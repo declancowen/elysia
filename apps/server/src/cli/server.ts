@@ -1,4 +1,4 @@
-import { HostProcessPlatform } from "@elysiatools/shared/hostProcess";
+import * as HostProcess from "@elysiatools/shared/HostProcess";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
@@ -32,7 +32,7 @@ export const runDefaultServerCommand = (flags: CliServerFlags) =>
     if (Option.isSome(flags.cwd)) {
       const cwd = flags.cwd.value.trim();
       const fs = yield* FileSystem.FileSystem;
-      const platform = yield* HostProcessPlatform;
+      const platform = yield* HostProcess.Platform;
       const explicitPath =
         cwd === "." ||
         cwd === ".." ||
@@ -45,7 +45,7 @@ export const runDefaultServerCommand = (flags: CliServerFlags) =>
       ) {
         return yield* new CliError.UserError({
           cause: cwd,
-          userMessage: `Unknown command ${yield* encodeCommand(cwd)}. Use "t3 --help" for commands or an explicit path such as "t3 ./my-project" for a new directory.`,
+          userMessage: `Unknown command ${yield* encodeCommand(cwd)}. Use "elysia --help" for commands or an explicit path such as "elysia ./my-project" for a new directory.`,
         });
       }
     }

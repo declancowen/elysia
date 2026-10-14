@@ -36,8 +36,9 @@ computer.
 | Cursor      | Install [Cursor CLI](https://cursor.com/cli), then run `agent login`.                                                                                     |
 | Grok Build  | Install [Grok Build CLI](https://x.ai/cli), then run `grok login`.                                                                                        |
 | OpenCode    | Install [OpenCode](https://opencode.ai), then run `opencode auth login`.                                                                                  |
-| Antigravity | Install and sign in with Google from Elysia's provider settings.                                                                                          |
-| Pi          | Install [Pi](https://pi.dev), then run `pi` once to finish its login or API-key setup.                                                                    |
+| Antigravity | Install and sign in with Google from Elysia's provider settings.                                                                                         |
+| Pi          | Install [Pi](./providers-pi.md#set-up-pi) with Node.js 22.19 or newer, then run `pi` and `/login`.                                                        |
+| Muse Code   | Install [Muse Code](https://dev.meta.ai/docs/muse-code) on the server, run `muse login`, then enable it in Settings → Providers.                          |
 
 Provider CLIs must be on the server's `PATH`. If Elysia cannot find one, set its
 **Binary path** in provider settings, especially when using a version manager.
@@ -66,4 +67,13 @@ their original values.
 
 For provider-specific setup and accounts, see [Codex](./providers-codex.md),
 [Claude](./providers-claude.md), [OpenCode](./providers-opencode.md),
-[Antigravity](./providers-antigravity.md), and [Pi](./providers-pi.md).
+[Antigravity](./providers-antigravity.md), [Pi](./providers-pi.md), and
+[Muse Code](./providers-muse.md).
+
+## Next steps
+
+- [Working with threads](./thread-sidebar.md): start tasks and organize parallel work.
+- [Permission modes](./permission-modes.md): choose when agents ask before acting.
+- [Remote access](./remote-access.md): connect from another device.
+- [Running in the background](./background-service.md): keep a Linux or macOS host available.
+- [Updating Elysia](./updating.md): update the app and connected servers.

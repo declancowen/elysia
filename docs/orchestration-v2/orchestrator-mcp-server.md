@@ -145,8 +145,13 @@ provider-specific extensions; those remain in flavors such as Grok.
 
 ### Pi V2
 
-Pi core has no MCP client. When a provider session credential exists, the
-adapter writes a Elysia-owned extension into the server cache and spawns
+Elysia keeps a provider-session HTTP bridge even when Pi supports native MCP.
+`mcp.json` entries override native registrations, and native MCP's default
+60-second request timeout can interrupt long-running Elysia tools. The bridge owns
+the injected endpoint and credential and forwards Pi's cancellation signal.
+
+When a provider session credential exists, the adapter writes a Elysia-owned
+extension into the server cache and spawns
 `pi --mode rpc --extension <cache>/pi-elysia-mcp-extension.ts` with:
 
 ```text
@@ -157,6 +162,7 @@ ELYSIA_MCP_BEARER_TOKEN=<provider-session-token>
 The extension connects to that HTTP endpoint, lists tools, and registers each
 one with `pi.registerTool` under a `mcp__elysia__` namespace
 (`mcp__elysia__delegate_task`, `mcp__elysia__elysia_thread_launch`, and the rest).
+On Pi 0.99+, core orchestration tools stay directly available and optional tools are discovered through builtin tool search. Older Pi versions load all schemas directly.
 The bridge calls the original MCP tool name over HTTP. Follow-up requests send
 `mcp-protocol-version: 2025-06-18`; Effect's MCP transport returns 400
 without it. The first turn of a session also receives the shared Elysia
@@ -227,6 +233,13 @@ when it can run child tasks, and otherwise selects an available instance of
 that driver; an explicit `providerInstanceId` is honored exactly and fails
 when unavailable. Selecting a different provider without a model uses that
 provider's first advertised model.
+
+A provider runs a runtime mode it does not offer as `approval-required`, so a
+child would ask for approval on every command. `orchestrator_capabilities`
+lists `runtimeModes` only for a provider that offers some of the modes, and
+omits it for a provider that offers all of them. When the target lists
+`runtimeModes`, an explicit `runtimeMode` outside that list is refused, and an
+inherited mode steps down to the broadest mode the target offers.
 
 Each delegated review round uses a new `delegate_task` call with the original brief,
 prior findings, responses, and unresolved objections. Track each round by its own `taskId` and use
@@ -351,6 +364,16 @@ provenance. MCP-created threads and user-role messages use `createdBy: "agent"`
 and `creationSource: "mcp"`; provider output uses `creationSource: "provider"`.
 Actor and ingress are separate so agent-authored user-role messages remain
 distinguishable from human-authored messages.
+
+Agents mention another thread as `[title](t3-thread://v1/<threadId>)`. The
+link carries only the id, which resolves in the environment of the message that
+holds it. Clients show the thread's current title rather than the label, so a
+rename never leaves a stale link.
+
+List and read results report `snoozed` and `snoozedUntil`, and
+`elysia_thread_list` filters on `snoozed`. The server's `isSnoozed` follows the
+client's `effectiveSnoozed`, so agents and the sidebar agree: a snoozed thread
+wakes early when it has a pending request, fails, or completes after the snooze.
 
 ### `elysia_thread_update`
 

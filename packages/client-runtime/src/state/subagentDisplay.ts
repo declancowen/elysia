@@ -5,7 +5,7 @@ import type {
   ServerProvider,
 } from "@elysiatools/contracts";
 import { formatModelSlugName, resolveSelectableModel } from "@elysiatools/shared/model";
-import { fileBasename } from "../markdownLinks.ts";
+import { fileBasename } from "@elysiatools/shared/path";
 import { isTerminalSubagentStatus } from "./subagentRuntime.ts";
 
 /** Summarizes one adjacent group, without changing its member identities or order. */

@@ -1,10 +1,9 @@
 import {
   fileBasename,
-  formatFilePathPosition,
-  splitFilePathPosition,
   stripSlashPrefixedWindowsDrive,
-} from "@elysiatools/client-runtime/markdown-links";
-import { isWindowsAbsolutePath } from "@elysiatools/shared/path";
+  isWindowsAbsolutePath,
+} from "@elysiatools/shared/path";
+import { formatFilePathPosition, splitFilePathPosition } from "@elysiatools/shared/fileLinks";
 
 function normalizePathSeparators(path: string): string {
   return path.replaceAll("\\", "/");

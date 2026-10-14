@@ -4,11 +4,11 @@ import { OrchestrationV2Command, ProviderInstanceId } from "@elysiatools/contrac
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 
-import * as IdAllocator from "../IdAllocator.ts";
+import * as IdAllocator from "@elysiatools/provider-core/server/IdAllocator";
 import { provideDeterministicTestRuntime } from "./DeterministicRuntime.ts";
 import { ORCHESTRATOR_REPLAY_FIXTURES } from "./fixtures/index.ts";
 import { materializeFixtureInput } from "./fixtures/shared.ts";
-import { readProviderReplayTranscript } from "./ReplayTranscriptNdjson.ts";
+import { readProviderReplayTranscript } from "@elysiatools/provider-testing/replayTranscript";
 
 const decodeCommand = Schema.decodeUnknownEffect(OrchestrationV2Command);
 const readTranscript = Effect.fn("readOrchestratorReplayContractTranscript")(function* (file: URL) {

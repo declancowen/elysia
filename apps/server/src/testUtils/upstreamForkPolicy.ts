@@ -31,16 +31,17 @@ vi.mock("../../../../packages/contracts/src/forkPolicy.ts", async (importOrigina
   isEnabledProviderDriver: () => true,
 }));
 
-vi.mock("../provider/builtInDrivers.ts", async () => {
+vi.mock("../provider/builtInDrivers.ts", async (importOriginal) => {
   const [codex, claude, cursor, grok, openCode, antigravity] = await Promise.all([
     import("../provider/Drivers/CodexDriver.ts"),
     import("../provider/Drivers/ClaudeDriver.ts"),
-    import("../provider/Drivers/CursorDriver.ts"),
-    import("../provider/Drivers/GrokDriver.ts"),
-    import("../provider/Drivers/OpenCodeDriver.ts"),
+    import("@elysiatools/provider-cursor/server"),
+    import("@elysiatools/provider-grok/server"),
+    import("@elysiatools/provider-opencode/server"),
     import("../provider/Drivers/AntigravityDriver.ts"),
   ]);
   return {
+    ...(await importOriginal<typeof import("../provider/builtInDrivers.ts")>()),
     BUILT_IN_DRIVERS: [
       codex.CodexDriver,
       claude.ClaudeDriver,

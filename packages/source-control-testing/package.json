@@ -1,0 +1,23 @@
+{
+  "name": "@elysiatools/source-control-testing",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./TestSourceControlHost": {
+      "types": "./src/TestSourceControlHost.ts",
+      "import": "./src/TestSourceControlHost.ts"
+    }
+  },
+  "scripts": {
+    "typecheck": "tsc-rs --noEmit"
+  },
+  "dependencies": {
+    "@elysiatools/contracts": "workspace:*",
+    "@elysiatools/shared": "workspace:*",
+    "@elysiatools/source-control-core": "workspace:*",
+    "effect": "catalog:"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:"
+  }
+}

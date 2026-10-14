@@ -4,6 +4,7 @@ import type { AgentProfile, RuntimeMode } from "@elysiatools/contracts";
 const testState = vi.hoisted(() => {
   let completeProjectFileRead: (value: null) => void = () => undefined;
   let projectFileRead = Promise.resolve<null>(null);
+  let projectRemoved = false;
   let targetSettings = {
     defaultThreadEnvMode: "local" as "local" | "worktree",
     newWorktreesStartFromOrigin: false,
@@ -63,6 +64,12 @@ const testState = vi.hoisted(() => {
     get projectFileRead() {
       return projectFileRead;
     },
+    get projectRemoved() {
+      return projectRemoved;
+    },
+    removeProject() {
+      projectRemoved = true;
+    },
     get targetSettings() {
       return targetSettings;
     },
@@ -76,6 +83,7 @@ const testState = vi.hoisted(() => {
       storedDraft = nextStoredDraft;
       projects = [{ ...ordinaryProject }];
       ensureScratch.mockClear();
+      projectRemoved = false;
       targetSettings = {
         defaultThreadEnvMode: workspaceDefaults.envMode,
         newWorktreesStartFromOrigin: workspaceDefaults.startFromOrigin,
@@ -143,6 +151,10 @@ vi.mock("@elysiatools/shared/projectSettings", () => ({
     sources: { defaultModelSelection: "environment", defaultThreadEnvMode: "environment" },
     overrides: {},
   }),
+  // The new-project rule has its own tests in projectSettings.test.ts.
+  resolveNewThreadEnvMode: (input: {
+    projectSettings: { settings: { defaultThreadEnvMode: "local" | "worktree" } };
+  }) => input.projectSettings.settings.defaultThreadEnvMode,
 }));
 vi.mock("@tanstack/react-router", () => ({
   useParams: () => null,
@@ -182,14 +194,13 @@ vi.mock("../logicalProject", () => ({
   selectProjectGroupingSettings: () => ({}),
 }));
 vi.mock("../state/entities", () => ({
-  readProjects: () => testState.projects,
-  waitForProject: async (ref: { environmentId: string; projectId: string }) =>
-    testState.projects.find(
-      (project) => project.environmentId === ref.environmentId && project.id === ref.projectId,
-    ),
+  readProjects: () => testState.projectRemoved ? [] : testState.projects,
+  readProject: (ref: { environmentId: string; projectId: string }) => testState.projectRemoved ? null : testState.projects.find(project => project.environmentId === ref.environmentId && project.id === ref.projectId) ?? null,
+  readThreadShells: () => [],
+  waitForProject: async (ref: { environmentId: string; projectId: string }) => testState.projects.find(project => project.environmentId === ref.environmentId && project.id === ref.projectId),
   readThreadShell: () => null,
   useProjects: () => [],
-  useThread: () => null,
+  useThreadShell: () => null,
 }));
 vi.mock("../state/projects", () => ({ projectEnvironment: { ensureScratch: "ensure-scratch" } }));
 vi.mock("../state/environments", () => ({ useEnvironments: () => ({ environments: [] }) }));
@@ -300,6 +311,21 @@ describe.each([
     await pendingOpen;
 
     expect(testState.router.state.location.href).toBe("/usage");
+    expect(testState.router.navigate).not.toHaveBeenCalled();
+    expect(testState.draftStore.setLogicalProjectDraftThreadId).not.toHaveBeenCalled();
+  });
+
+  it("abandons a delayed draft open when the project is removed meanwhile", async () => {
+    testState.reset(draft);
+    const pendingOpen = useNewThreadHandler()(
+      { environmentId: "environment-ssh", projectId: "project-remote" } as never,
+      { replace: true },
+    );
+
+    testState.removeProject();
+    testState.completeProjectFileRead(null);
+
+    await expect(pendingOpen).resolves.toBeNull();
     expect(testState.router.navigate).not.toHaveBeenCalled();
     expect(testState.draftStore.setLogicalProjectDraftThreadId).not.toHaveBeenCalled();
   });

@@ -20,6 +20,7 @@ it("allows either native package to be checked and blocks duplicate checks while
     liveProvider: undefined,
     mode: "editor" as const,
     onUpdate: () => undefined,
+    onToggleFavorite: () => undefined,
     hiddenModels: [],
     favoriteModels: [],
     modelOrder: [],

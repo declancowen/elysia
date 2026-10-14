@@ -1,6 +1,6 @@
 import { isWindowsAbsolutePath } from "@elysiatools/shared/path";
 
-import { safeDecodeURIComponent } from "./markdownLinks.ts";
+import { safeDecodeURIComponent } from "@elysiatools/shared/markdownLinks";
 
 /** The authored media location, never the temporary URL used to load its bytes. */
 export type MediaReference =

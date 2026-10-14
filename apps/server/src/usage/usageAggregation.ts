@@ -20,7 +20,7 @@ import type {
   UsageTokenTotals,
 } from "@elysiatools/contracts";
 
-import { EMPTY_TOTALS, type UsageRecord } from "./usageTranscripts.ts";
+import { EMPTY_TOTALS, type UsageRecord } from "@elysiatools/provider-core/server/usage";
 import { cacheSavingsUsd, priceUsage, type RateTable } from "./usagePricing.ts";
 
 /**

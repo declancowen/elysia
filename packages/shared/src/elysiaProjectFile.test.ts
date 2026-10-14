@@ -56,6 +56,7 @@ describe("buildElysiaProjectFileJsonSchema", () => {
       "icon",
       "name",
       "previewUrl",
+      "runOnSettle",
       "runOnWorktreeCreate",
     ]);
   });

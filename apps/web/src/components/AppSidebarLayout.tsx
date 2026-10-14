@@ -103,7 +103,7 @@ function readInitialThreadSidebarWidth(storageKey = THREAD_SIDEBAR_WIDTH_STORAGE
 function SidebarControl({ disabled = false }: { disabled?: boolean }) {
   const usagePageOpen = useLocation({ select: (location) => location.pathname === "/usage" });
   const keybindings = useAtomValue(primaryServerKeybindingsAtom);
-  const { toggleSidebar } = useSidebar();
+  const { toggleSidebar, isMobile, mobileSheetMounted } = useSidebar();
   const isSidebarVisible = useSidebarVisibility();
   const environmentIdentificationMode = useEnvironmentIdentificationMode();
   const stageBackdropVariant = useSidebarStageBackdropVariant(
@@ -145,7 +145,13 @@ function SidebarControl({ disabled = false }: { disabled?: boolean }) {
 
     // Capture before focused editors consume commands such as Mod+B for rich-text formatting.
     window.addEventListener("keydown", onKeyDown, true);
-    return () => window.removeEventListener("keydown", onKeyDown, true);
+    const unsubscribe = window.desktopBridge?.onMenuAction((action) => {
+      if (!disabled && action === "sidebar.toggle") toggleSidebar();
+    });
+    return () => {
+      window.removeEventListener("keydown", onKeyDown, true);
+      unsubscribe?.();
+    };
   }, [disabled, keybindings, toggleSidebar, usagePageOpen]);
 
   return (
@@ -334,15 +340,18 @@ export function AppSidebarLayout({ children }: { children: ReactNode }) {
       ? getWindowFullscreenState()
       : false;
   });
+  const windowControlsInsetStyle = (
+    isMacosDesktop && !isWindowFullscreen
+      ? { "--workspace-controls-left": MACOS_TRAFFIC_LIGHTS_LEFT_INSET }
+      : {}
+  ) as CSSProperties;
   const sidebarProviderStyle = {
     "--sidebar-width": `${clampThreadSidebarWidth(sidebarWidth, sidebarMinimumWidth, sidebarMaximumWidth)}px`,
     "--workspace-sidebar-width": "var(--sidebar-width)",
     "--workspace-mobile-header-inset": "calc(var(--workspace-controls-left) + 2.5rem)",
     "--app-navigation-rail-width": `${APP_NAVIGATION_RAIL_WIDTH}px`,
     "--panel-animation-duration": `${panelAnimationDurationMs}ms`,
-    ...(isMacosDesktop && !isWindowFullscreen
-      ? { "--workspace-controls-left": MACOS_TRAFFIC_LIGHTS_LEFT_INSET }
-      : {}),
+    ...windowControlsInsetStyle,
   } as CSSProperties;
 
   useEffect(() => {

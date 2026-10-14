@@ -9,7 +9,10 @@ import { it as effectIt } from "@effect/vitest";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { ClaudeSettings, ProviderInstanceId } from "@elysiatools/contracts";
 import { SpawnExecutableResolution } from "@elysiatools/shared/shell";
-import { HostProcessArchitecture, HostProcessPlatform } from "@elysiatools/shared/hostProcess";
+import {
+  Architecture as HostProcessArchitecture,
+  Platform as HostProcessPlatform,
+} from "@elysiatools/shared/HostProcess";
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import * as Sink from "effect/Sink";

@@ -1,5 +1,3 @@
-import { Alert, AlertDescription } from "../ui/alert";
-import { ProviderInstanceIcon } from "../chat/ProviderInstanceIcon";
 import {
   CONNECTIONS_ENABLED,
   UPSTREAM_ANALYTICS_ENABLED,
@@ -56,6 +54,7 @@ import {
   resolveOnboardingLandingProject,
   resolveOnboardingProjectId,
   type OnboardingProjectGroup,
+  splitOnboardingProjectPath,
 } from "../../onboarding/projectImport.logic";
 import {
   getOnboardingProviderState,
@@ -67,7 +66,10 @@ import { newProjectId, randomUUID } from "../../lib/utils";
 import { agentSessionImport } from "../../state/agentSessions";
 import { readProjects, useProjects } from "../../state/entities";
 import { useEnvironments, usePrimaryEnvironment } from "../../state/environments";
-import { isOnboardingRelayEnvironment } from "../../onboarding/targetEnvironment.logic";
+import {
+  isOnboardingRelayEnvironment,
+  resolveOnboardingSetup,
+} from "../../onboarding/targetEnvironment.logic";
 import { useProjectScans } from "../../onboarding/useProjectScans";
 import { projectEnvironment } from "../../state/projects";
 import { serverEnvironment } from "../../state/server";
@@ -80,7 +82,7 @@ import { terminalEnvironment } from "../../state/terminal";
 import { useAtomCommand } from "../../state/use-atom-command";
 import { connectPairing } from "../../connection/onboarding";
 import { getProviderSummary } from "../settings/providerStatus";
-import { getDriverOption } from "../settings/providerDriverMeta";
+import { providerClients } from "../settings/providerDriverMeta";
 import { ChatGptWelcomeCoordinator } from "../settings/ChatGptWelcomeCoordinator";
 import { AddManagedCodexAccountDialog, CodexSetupSection } from "../settings/CodexSetupSection";
 import { readCodexSetupMode } from "../settings/CodexSetupSection.logic";
@@ -88,6 +90,9 @@ import { buildProviderInstanceUpdatePatch } from "../settings/SettingsPanels.log
 import { TerminalViewport } from "../ThreadTerminalDrawer";
 import { CloudEnvironmentConnectRows } from "../cloud/CloudEnvironmentConnectList";
 import { ElysiaWordmark } from "../Icons";
+import { presentSavedCloudEnvironmentConnection } from "../cloud/cloudEnvironmentConnectionPresentation";
+import { ProviderInstanceIcon } from "../chat/ProviderInstanceIcon";
+import { Alert, AlertDescription } from "../ui/alert";
 import { Button } from "../ui/button";
 import { CommandBlock } from "../CommandBlock";
 import { Checkbox } from "../ui/checkbox";
@@ -160,11 +165,14 @@ export function WelcomeWizard({
     for (const environment of newComputers) {
       autoSelectedComputers.current.add(environment.environmentId);
     }
+    // A computer the user switched off stays unselected until they pick it.
+    const enabledComputers = newComputers.filter((environment) => environment.entry.enabled);
+    if (enabledComputers.length === 0) return;
     setSelection(
       (current) =>
         new Set([
           ...(current ?? []),
-          ...newComputers.map((environment) => environment.environmentId),
+          ...enabledComputers.map((environment) => environment.environmentId),
         ]),
     );
   }, [environments]);
@@ -293,11 +301,7 @@ export function WelcomeWizard({
                 })
               }
               onContinue={() =>
-                startSetup(
-                  environments
-                    .filter((environment) => selectedIds.has(environment.environmentId))
-                    .map((environment) => environment.environmentId),
-                )
+                startSetup(resolveOnboardingSetup(environments, selectedIds).environmentIds)
               }
               onPaired={(environmentId) => {
                 setSelection(new Set([...selectedIds, environmentId]));
@@ -354,14 +358,10 @@ function ConnectionStep({
   );
   const [pairingOpen, setPairingOpen] = useState(expandPairingInitially);
   const [isPairing, setIsPairing] = useState(false);
-  const ready =
-    selectedIds.size > 0 &&
-    [...selectedIds].every((id) =>
-      environments.some(
-        (environment) =>
-          environment.environmentId === id && environment.connection.phase === "connected",
-      ),
-    );
+  const { ready, skippedIds } = resolveOnboardingSetup(environments, selectedIds);
+  const skippedLabels = environments
+    .filter((environment) => skippedIds.includes(environment.environmentId))
+    .map((environment) => environment.label);
   const continueRef = useRef<HTMLButtonElement>(null);
   useEffect(() => {
     if (
@@ -404,7 +404,7 @@ function ConnectionStep({
                     {environment.label}
                   </span>
                   <span className="shrink-0 text-xs text-muted-foreground">
-                    {environment.connection.phase === "connected" ? "Connected" : "Connecting…"}
+                    {presentSavedCloudEnvironmentConnection(environment.connection).buttonLabel}
                   </span>
                 </span>
                 {environment.displayUrl ? (
@@ -460,6 +460,12 @@ function ConnectionStep({
           </Collapsible>
         </div>
       </div>
+      {skippedLabels.length > 0 ? (
+        <p className="mt-4 text-xs text-muted-foreground">
+          Not connected, so setup skips {skippedLabels.join(", ")}. You can set{" "}
+          {skippedLabels.length === 1 ? "it" : "them"} up later from Settings.
+        </p>
+      ) : null}
       <div className="mt-6 flex flex-col-reverse gap-4 sm:flex-row sm:items-center sm:justify-between sm:gap-6">
         {UPSTREAM_ANALYTICS_ENABLED ? (
           <p className="min-w-0 text-xs leading-relaxed text-muted-foreground">
@@ -971,8 +977,7 @@ function OnboardingCodexSetup({
   const settings = serverConfig.settings;
   const instance = settings.providerInstances[instanceId] ?? {
     driver: ProviderDriverKind.make("codex"),
-    enabled: settings.providers.codex.enabled,
-    config: createdAccount ? { enabled: true, setupMode: "managed" } : settings.providers.codex,
+    config: createdAccount ? { enabled: true, setupMode: "managed" } : {},
   };
   const mode = readCodexSetupMode(instance.config);
   const existingChosen =
@@ -988,8 +993,6 @@ function OnboardingCodexSetup({
         patch: buildProviderInstanceUpdatePatch({
           settings,
           instanceId,
-          driver: ProviderDriverKind.make("codex"),
-          isDefault: instanceId === defaultInstanceIdForDriver(ProviderDriverKind.make("codex")),
           instance: {
             ...instance,
             enabled: true,
@@ -1042,7 +1045,7 @@ function AgentCard({
   readonly terminalAvailable: boolean;
   readonly onOpenTerminal: () => void;
 }) {
-  const meta = getDriverOption(ProviderDriverKind.make(driver));
+  const meta = providerClients.get(ProviderDriverKind.make(driver));
   const displayName =
     provider?.displayName || (driver === "claudeAgent" ? "Elysia" : (meta?.label ?? driver));
   const summary = getProviderSummary(provider);
@@ -1529,8 +1532,8 @@ function ImportStep({
 
   return (
     <StepShell
-      title="Choose your projects"
-      description="Import projects and conversations from your selected computers."
+      title="Import your projects"
+      description="Import projects and conversations from Claude Code and Codex on your selected computers."
     >
       {candidates.length > 0 ? (
         <div className="mt-5 flex items-center justify-between gap-3 text-xs text-muted-foreground">
@@ -1696,7 +1699,7 @@ function ImportCandidateList({
               <ImportCandidateRow
                 key={candidate.key}
                 candidate={candidate}
-                label={candidate.path}
+                path={candidate.path}
                 nested
                 checked={selectedKeys.has(candidate.key)}
                 onCheckedChange={(checked) => setKeys([candidate.key], checked)}
@@ -1727,7 +1730,7 @@ function ImportRepositoryGroup({
       <ImportCandidateRow
         candidate={only}
         label={group.label}
-        {...(group.repository === null ? {} : { secondary: only.path })}
+        path={only.path}
         checked={selectedKeys.has(only.key)}
         onCheckedChange={(checked) => onToggle([only.key], checked)}
       />
@@ -1756,7 +1759,7 @@ function ImportRepositoryGroup({
           <ImportCandidateRow
             key={candidate.key}
             candidate={candidate}
-            label={candidate.path}
+            path={candidate.path}
             nested
             checked={selectedKeys.has(candidate.key)}
             onCheckedChange={(checked) => onToggle([candidate.key], checked)}
@@ -1767,17 +1770,39 @@ function ImportRepositoryGroup({
   );
 }
 
+/**
+ * Clones of one repository and plain folders differ only by folder name, so
+ * the name stays visible and the shared parent path truncates first.
+ */
+function ProjectPathText({
+  path,
+  className,
+}: {
+  readonly path: string;
+  readonly className?: string;
+}) {
+  const { name, parent } = splitOnboardingProjectPath(path);
+  return (
+    <span className={cn("flex min-w-0 items-baseline font-mono", className)}>
+      {parent.length > 0 ? <span className="truncate">{parent}</span> : null}
+      <span className="max-w-full shrink-0 truncate">{name}</span>
+    </span>
+  );
+}
+
 function ImportCandidateRow({
   candidate,
   label,
-  secondary,
+  path,
   nested = false,
   checked,
   onCheckedChange,
 }: {
   readonly candidate: ImportCandidate;
-  readonly label: string;
-  readonly secondary?: string;
+  /** Text primary label. Nested rows omit it and are labelled by their path. */
+  readonly label?: string;
+  /** Shown with the folder name kept visible while the parent path truncates. */
+  readonly path?: string;
   readonly nested?: boolean;
   readonly checked: boolean;
   readonly onCheckedChange: (checked: boolean) => void;
@@ -1794,11 +1819,14 @@ function ImportCandidateRow({
         <TooltipTrigger
           render={<span className="flex min-w-0 flex-1 items-baseline gap-2 truncate" />}
         >
-          <span className={cn("truncate", nested ? "font-mono text-xs" : "text-sm font-medium")}>
-            {label}
-          </span>
-          {secondary !== undefined ? (
-            <span className="truncate font-mono text-2xs text-muted-foreground">{secondary}</span>
+          {label !== undefined ? (
+            <span className="truncate text-sm font-medium">{label}</span>
+          ) : null}
+          {path !== undefined ? (
+            <ProjectPathText
+              path={path}
+              className={label === undefined ? "text-xs" : "text-2xs text-muted-foreground"}
+            />
           ) : null}
         </TooltipTrigger>
         <TooltipPopup variant="code">{candidate.path}</TooltipPopup>

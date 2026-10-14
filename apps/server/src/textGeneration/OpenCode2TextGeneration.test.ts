@@ -4,15 +4,13 @@ import { ProviderInstanceId } from "@elysiatools/contracts";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 
-import * as ServerConfig from "../config.ts";
+import * as TestProviderHost from "@elysiatools/provider-testing/TestProviderHost";
 import * as OpenCode2AdapterV2Testkit from "../orchestration-v2/Adapters/OpenCode2AdapterV2.testkit.ts";
-import * as OpenCode2Server from "../provider/opencode2/OpenCode2Server.ts";
-import * as OpenCode2TextGeneration from "./OpenCode2TextGeneration.ts";
+import * as OpenCode2Server from "@elysiatools/provider-opencode/server/v2/OpenCode2Server";
+import * as OpenCode2TextGeneration from "@elysiatools/provider-opencode/server/v2/textGeneration";
 import { OPENCODE2_TITLE_GENERATION } from "./OpenCode2TextGeneration.fixture.ts";
 
-const layer = ServerConfig.ServerConfig.layerTest(process.cwd(), {
-  prefix: "elysia-opencode2-text-generation-test-",
-}).pipe(Layer.provideMerge(NodeServices.layer));
+const layer = TestProviderHost.layer().pipe(Layer.provideMerge(NodeServices.layer));
 
 it.layer(layer)("OpenCode2TextGeneration", (it) => {
   it.effect("generates a title in a temporary session on the free tier and removes it", () =>

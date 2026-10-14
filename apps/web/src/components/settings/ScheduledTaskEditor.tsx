@@ -192,9 +192,13 @@ export function ScheduledTaskEditor({
   const instanceEntries = useMemo(
     () =>
       sortProviderInstanceEntries(
-        applyProviderInstanceSettings(deriveProviderInstanceEntries(providers), settings),
+        applyProviderInstanceSettings(
+          deriveProviderInstanceEntries(providers),
+          settings,
+          task?.projectId ?? null,
+        ),
       ),
-    [providers, settings],
+    [providers, settings, task?.projectId],
   );
   const [draft, setDraft] = useState<DraftState>(() =>
     task
@@ -553,6 +557,7 @@ export function ScheduledTaskEditor({
         <div className="flex items-center justify-between gap-4">
           <Label>Model</Label>
           <ProviderModelPicker
+            environmentId={environmentId}
             disabled={saving || !connected}
             activeInstanceId={activeInstanceId}
             model={activeModel}

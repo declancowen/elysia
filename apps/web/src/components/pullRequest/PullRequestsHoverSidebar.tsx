@@ -16,6 +16,7 @@ import {
   pullRequestHostLabel,
 } from "./PullRequestListFilters";
 import {
+  pullRequestHostActions,
   parsePullRequestQuery,
   collectPullRequestListFacets,
   sortPullRequestGroups,
@@ -89,6 +90,7 @@ export function PullRequestsHoverSidebar() {
   );
   const facets = collectPullRequestListFacets(query.data?.entries ?? [], preferences.state);
   const hosts = query.data?.providers ?? [];
+  const hostActionsOf = pullRequestHostActions(hosts);
   const hostOptions = [
     { value: "", label: "All", Icon: Plug2Icon },
     ...hosts.map((entry) => ({
@@ -204,6 +206,7 @@ export function PullRequestsHoverSidebar() {
                   key={pullRequestEntryKey(entry)}
                   entry={entry}
                   selected={false}
+                  hostActions={hostActionsOf(entry)}
                   showProjectTitle
                   showProvider={false}
                   onSelect={select}

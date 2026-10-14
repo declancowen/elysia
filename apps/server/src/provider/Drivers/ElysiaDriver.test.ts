@@ -14,19 +14,30 @@ import * as BackgroundPolicy from "../../background/BackgroundPolicy.ts";
 import { ServerConfig } from "../../config.ts";
 import { ServerSettingsService } from "../../serverSettings.ts";
 import * as ElysiaCli from "../ElysiaCli.ts";
-import { noOpProviderEventLoggers, ProviderEventLoggers } from "../ProviderEventLoggers.ts";
-import { makeProviderMaintenanceCapabilities } from "../providerMaintenance.ts";
+import {
+  NoOpProviderEventLoggers as noOpProviderEventLoggers,
+  ProviderEventLoggers,
+} from "@elysiatools/provider-core/server/ProviderEventLoggers";
+import * as ProviderHostLive from "../ProviderHostLive.ts";
+import * as ServerSecretStore from "../../auth/ServerSecretStore.ts";
+import { makeProviderMaintenanceCapabilities } from "@elysiatools/provider-core/server/maintenanceResolver";
 import { ElysiaDriver } from "./ElysiaDriver.ts";
 import { ClaudeAgentSdkQueryRunner } from "../../orchestration-v2/Adapters/ClaudeAdapterV2.ts";
-import * as IdAllocator from "../../orchestration-v2/IdAllocator.ts";
-import * as ProviderContinuationRequests from "../../orchestration-v2/ProviderContinuationRequests.ts";
+import * as IdAllocator from "@elysiatools/provider-core/server/IdAllocator";
+import * as ProviderContinuationRequests from "@elysiatools/provider-core/server/ProviderContinuationRequests";
+import * as McpProviderSessions from "@elysiatools/provider-core/server/McpProviderSessions";
+import * as ProviderLatestVersions from "@elysiatools/provider-core/server/ProviderLatestVersions";
 
 vi.mock("../ElysiaCli.ts", { spy: true });
 
-const testLayer = ServerConfig.layerTest(process.cwd(), { prefix: "elysia-startup-test-" }).pipe(
+const baseTestLayer = ServerConfig.layerTest(process.cwd(), {
+  prefix: "elysia-startup-test-",
+}).pipe(
   Layer.provideMerge(NodeServices.layer),
   Layer.provideMerge(IdAllocator.layer),
   Layer.provideMerge(ProviderContinuationRequests.layer),
+  Layer.provideMerge(McpProviderSessions.layer),
+  Layer.provideMerge(ProviderLatestVersions.layer),
   Layer.provideMerge(Layer.mock(ClaudeAgentSdkQueryRunner)({})),
   Layer.provideMerge(ServerSettingsService.layerTest({ enableProviderUpdateChecks: false })),
   Layer.provideMerge(
@@ -41,6 +52,11 @@ const testLayer = ServerConfig.layerTest(process.cwd(), { prefix: "elysia-startu
       HttpClient.make(() => Effect.die("Unexpected HTTP request")),
     ),
   ),
+);
+
+const testLayer = ProviderHostLive.layer.pipe(
+  Layer.provideMerge(ServerSecretStore.layer),
+  Layer.provideMerge(baseTestLayer),
 );
 
 it.layer(testLayer)("Elysia startup", (it) => {

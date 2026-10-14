@@ -10,15 +10,19 @@ import {
 export function readDefaultMobileThemeVariables(
   appearance: MobileThemeAppearance,
 ): MobileThemeVariables {
+  return readGeneratedMobileThemeVariables(appearance);
+}
+
+export function readGeneratedMobileThemeVariables(themeName: string): MobileThemeVariables {
   const stylesheet = NodeFS.readFileSync(
     new URL("../../generated-uniwind-themes.css", import.meta.url),
     "utf8",
   );
-  const variant = new RegExp(`@variant ${appearance} \\{([\\s\\S]*?)\\n    \\}`, "u").exec(
+  const variant = new RegExp(`@variant ${themeName} \\{([\\s\\S]*?)\\n    \\}`, "u").exec(
     stylesheet,
   )?.[1];
-  if (variant === undefined) throw new Error(`Missing generated default ${appearance} theme.`);
-  const canonical: Record<string, string> = generatedVariables[appearance];
+  if (variant === undefined) throw new Error(`Missing generated ${themeName} theme.`);
+  const canonical: Record<string, string> = themeName === "light" || themeName === "dark" ? generatedVariables[themeName] : {};
 
   return Object.fromEntries(
     Array.from(variant.matchAll(/(--color-[a-z0-9-]+):\s*([^;]+);/gu), ([, name, value]) => {

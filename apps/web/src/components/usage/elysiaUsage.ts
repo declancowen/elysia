@@ -1,8 +1,34 @@
 import { makeWindow } from "@elysiatools/shared/usageFormat";
-import type { UsageBucket } from "@elysiatools/contracts";
+import type { ServerProviderModel, UsageBucket } from "@elysiatools/contracts";
 import type { DailyTotals } from "@elysiatools/shared/usageMerge";
+import { formatModelSlugName } from "@elysiatools/shared/model";
 
 export type ElysiaUsageResolution = "day" | "week" | "month" | "year";
+
+export function elysiaUsageModelName(
+  model: string,
+  catalog: readonly Pick<ServerProviderModel, "slug" | "name" | "aliases">[] = [],
+): string {
+  const slug = model.replace(/^(?:(?:us|eu|apac|global)\.)?anthropic\./i, "");
+  // Native Claude usage can include a deployment date and Bedrock revision.
+  const name = /^claude-(?:opus|sonnet|haiku|fable)-\d/i.test(slug)
+    ? slug.replace(/(?:-\d{8})?(?:-v\d+(?::\d+)?)?$/, "")
+    : slug;
+  const known =
+    catalog.find(
+      (entry) =>
+        entry.slug.toLowerCase() === model.toLowerCase() ||
+        entry.aliases?.some((alias) => alias.toLowerCase() === model.toLowerCase()),
+    ) ?? catalog.find((entry) => entry.slug.toLowerCase() === name.toLowerCase());
+  if (known) return known.name;
+  if (/^deepseek-v\d/i.test(name)) {
+    return name
+      .split("-")
+      .map((part, index) => (index === 0 ? "DeepSeek" : part[0]!.toUpperCase() + part.slice(1)))
+      .join(" ");
+  }
+  return formatModelSlugName(name);
+}
 
 /** Calendar buckets follow the server's reporting day, without shifting time zones twice. */
 export function elysiaUsagePeriods(

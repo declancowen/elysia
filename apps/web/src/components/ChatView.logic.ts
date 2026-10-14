@@ -38,7 +38,7 @@ import {
   appendCodexArtifactTemplateUsePrompt,
   codexArtifactTemplateUsePrompt,
   type CodexArtifactTemplate,
-} from "@elysiatools/client-runtime/codex-artifact-templates";
+} from "@elysiatools/shared/codexArtifactTemplates";
 import { presentThreadShell } from "@elysiatools/client-runtime/state/shell";
 import {
   type ChatMessage,

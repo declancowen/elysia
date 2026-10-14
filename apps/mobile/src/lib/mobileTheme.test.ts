@@ -8,7 +8,10 @@ import {
   MOBILE_THEME_IDS,
   getThemeColorsForAppearance,
 } from "@elysiatools/shared/themePalettes";
-import { readDefaultMobileThemeVariables } from "./mobileTheme.test-support";
+import {
+  readDefaultMobileThemeVariables,
+  readGeneratedMobileThemeVariables,
+} from "./mobileTheme.test-support";
 import { getMobileThemeRuntimeVariables } from "./mobileThemeVariables";
 
 import {
@@ -77,16 +80,16 @@ describe("mobile themes", () => {
     }
   });
 
-  it("keeps dark-only GitHub palettes out of saved light appearance selections", () => {
-    expect(getMobileThemeModes("midnight")).toEqual(["dark"]);
-    expect(getMobileThemeModes("graphite")).toEqual(["dark"]);
+  it("preserves saved light selections for palettes with a shipped light variant", () => {
+    expect(getMobileThemeModes("midnight")).toEqual(["light", "dark"]);
+    expect(getMobileThemeModes("graphite")).toEqual(["light", "dark"]);
     expect(getMobileThemeModes("paper")).toEqual(["light", "dark"]);
     expect(resolveMobileThemeIds({ lightThemeId: "midnight", darkThemeId: "graphite" })).toEqual({
-      light: DEFAULT_MOBILE_THEME_ID,
+      light: "midnight",
       dark: "graphite",
     });
     expect(resolveMobileThemeIds({ themeId: "midnight" })).toEqual({
-      light: DEFAULT_MOBILE_THEME_ID,
+      light: "midnight",
       dark: "midnight",
     });
   });
@@ -111,12 +114,7 @@ describe("mobile themes", () => {
       );
       expect(variables["--color-card"]).toBe(themeColorToNativeColor(colors.surface));
       expect(variables["--color-composer-surface"]).toBe(
-        themeColorWithAlpha(
-          themeId === DEFAULT_MOBILE_THEME_ID
-            ? variables["--color-grouped-card"]
-            : themeColorToNativeColor(colors.surface),
-          appearance === "dark" ? 0.9 : 0.94,
-        ),
+        themeColorWithAlpha(variables["--color-grouped-card"], appearance === "dark" ? 0.9 : 0.94),
       );
       expect(variables["--color-thread-selected"]).toBe(
         themeColorToNativeColor(colors.sidebarRowActive),
@@ -176,6 +174,21 @@ describe("mobile themes", () => {
     }
   });
 
+  it.each(MOBILE_THEME_IDS)("keeps %s sidebar text readable on Android", (themeId) => {
+    for (const appearance of ["light", "dark"] as const) {
+      const variables = getMobileThemeRuntimeVariables(themeId, appearance, "android");
+      for (const foreground of [
+        "--color-drawer-foreground",
+        "--color-drawer-foreground-muted",
+      ] as const) {
+        expect(
+          contrastRatio(variables[foreground], variables["--color-drawer"]),
+          `${appearance}: ${foreground}`,
+        ).toBeGreaterThanOrEqual(4.5);
+      }
+    }
+  });
+
   it("applies palette overrides on top of the selected built-in theme", () => {
     const variables = getMobileThemeVariables("ocean", "dark", {
       "--color-primary": "#123456",
@@ -184,6 +197,51 @@ describe("mobile themes", () => {
     expect(variables["--color-primary"]).toBe("#123456");
     expect(variables["--color-screen"]).toMatch(/^#/);
   });
+
+  it.each(MOBILE_THEME_IDS)(
+    "matches generated %s palettes and keeps group labels readable",
+    (themeId) => {
+      for (const appearance of ["light", "dark"] as const) {
+        const generated = readGeneratedMobileThemeVariables(
+          themeId === DEFAULT_MOBILE_THEME_ID ? appearance : `${themeId}-${appearance}`,
+        );
+        expect(generated).toEqual(getMobileThemeVariables(themeId, appearance));
+        for (const platform of ["ios", "android"]) {
+          const variables = getMobileThemeRuntimeVariables(themeId, appearance, platform);
+          const sheet = variables["--color-sheet-solid"];
+          const group = variables["--color-grouped-card"];
+          if (themeId === DEFAULT_MOBILE_THEME_ID) {
+            expect(contrastRatio(group, sheet)).toBeGreaterThanOrEqual(1.025);
+          }
+          for (const role of [
+            "--color-foreground",
+            "--color-foreground-secondary",
+            "--color-foreground-muted",
+            "--color-placeholder",
+            "--color-primary-text",
+          ] as const) {
+            expect(
+              contrastRatio(variables[role], group),
+              `${platform} ${appearance}: ${role} on grouped surface`,
+            ).toBeGreaterThanOrEqual(4.5);
+          }
+          if (platform === "android") {
+            const header = flattenThemeColor(variables["--color-header"], sheet);
+            for (const role of ["--color-header-foreground", "--color-foreground-muted"] as const) {
+              expect(
+                contrastRatio(variables[role], header),
+                `${appearance}: ${role} on Android header`,
+              ).toBeGreaterThanOrEqual(4.5);
+            }
+          }
+          expect(
+            contrastRatio(variables["--color-foreground-muted"], variables["--color-secondary"]),
+            `${platform} ${appearance}: muted label on secondary surface`,
+          ).toBeGreaterThanOrEqual(4.5);
+        }
+      }
+    },
+  );
 
   it.each(["light", "dark"] as const)(
     "separates default settings groups from their %s background",
@@ -215,6 +273,47 @@ describe("mobile themes", () => {
             : (["--color-drawer-foreground", "--color-drawer-foreground-muted"] as const);
         for (const role of foregroundRoles) {
           expect(contrastRatio(runtime[role], chrome)).toBeGreaterThanOrEqual(4.5);
+        }
+      }
+    },
+  );
+
+  it("keeps Elysia Chat light grouped cards distinct from the sheet", () => {
+    const variables = getMobileThemeVariables(DEFAULT_MOBILE_THEME_ID, "light");
+    const group = variables["--color-grouped-card"];
+    expect(contrastRatio(group, variables["--color-sheet-solid"])).toBeGreaterThanOrEqual(1.1);
+    for (const role of ["--color-foreground", "--color-foreground-muted"] as const) {
+      expect(contrastRatio(variables[role], group)).toBeGreaterThanOrEqual(4.5);
+    }
+  });
+
+  it.each(MOBILE_THEME_IDS)("keeps %s prominent actions readable and themed", (themeId) => {
+    for (const appearance of ["light", "dark"] as const) {
+      const variables = getMobileThemeVariables(themeId, appearance);
+      const fill = variables["--color-prominent-action"];
+      expect(
+        contrastRatio(variables["--color-prominent-action-foreground"], fill),
+      ).toBeGreaterThanOrEqual(4.5);
+      expect(fill).toBe(
+        variables[themeId === DEFAULT_MOBILE_THEME_ID ? "--color-foreground" : "--color-primary"],
+      );
+    }
+  });
+
+  it.each(["grove", "ocean", "ember", "iris"] as const)(
+    "keeps %s labels readable on preserved card and floating surfaces",
+    (themeId) => {
+      for (const appearance of ["light", "dark"] as const) {
+        const variables = getMobileThemeVariables(themeId, appearance);
+        for (const role of [
+          "--color-grouped-card",
+          "--color-composer-surface",
+          "--color-glass-fallback",
+        ] as const) {
+          const surface = flattenThemeColor(variables[role], variables["--color-sheet-solid"]);
+          expect(contrastRatio(variables["--color-placeholder"], surface)).toBeGreaterThanOrEqual(
+            4.5,
+          );
         }
       }
     },

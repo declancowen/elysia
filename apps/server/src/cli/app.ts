@@ -10,11 +10,7 @@ import {
   type DesktopAppActivationRequest,
 } from "@elysiatools/contracts";
 import { resolveDesktopAppControlAddress } from "@elysiatools/shared/desktopAppControl";
-import {
-  HostProcessPlatform,
-  HostProcessUserId,
-  HostProcessWorkingDirectory,
-} from "@elysiatools/shared/hostProcess";
+import * as HostProcess from "@elysiatools/shared/HostProcess";
 import * as Config from "effect/Config";
 import * as Console from "effect/Console";
 import * as Crypto from "effect/Crypto";
@@ -36,7 +32,7 @@ export class DesktopAppSshUnsupportedError extends Schema.TaggedError<DesktopApp
   {},
 ) {
   override get message(): string {
-    return "`t3 app` only controls a desktop app on the same machine. It cannot run over SSH.";
+    return "`elysia app` only controls a desktop app on the same machine. It cannot run over SSH.";
   }
 }
 
@@ -45,7 +41,7 @@ export class DesktopAppPlatformUnsupportedError extends Schema.TaggedError<Deskt
   { platform: Schema.String },
 ) {
   override get message(): string {
-    return `\`t3 app\` is not supported on ${this.platform}.`;
+    return `\`elysia app\` is not supported on ${this.platform}.`;
   }
 }
 
@@ -59,7 +55,7 @@ export class DesktopAppUnreachableError extends Schema.TaggedError<DesktopAppUnr
   },
 ) {
   override get message(): string {
-    return "Could not reach the Elysia desktop app. Start or update the desktop app on this machine, then run `t3 app` again. A running Elysia server is not enough.";
+    return "Could not reach the Elysia desktop app. Start or update the desktop app on this machine, then run `elysia app` again. A running Elysia server is not enough.";
   }
 }
 
@@ -188,7 +184,7 @@ const runAppCommand = Effect.fn("cli.app")(function* (flags: {
   readonly workspaceRoot: Option.Option<string>;
 }) {
   const environment = yield* appEnvironment;
-  const hostPlatform = yield* HostProcessPlatform;
+  const hostPlatform = yield* HostProcess.Platform;
   if (Option.isSome(environment.sshConnection) || Option.isSome(environment.sshTty)) {
     return yield* new DesktopAppSshUnsupportedError({});
   }
@@ -201,9 +197,9 @@ const runAppCommand = Effect.fn("cli.app")(function* (flags: {
   const baseDir = yield* resolveBaseDir(configuredBaseDir);
   const allowDevFallback = Option.isNone(flags.baseDir) && !environment.t3Home?.trim();
   const rawWorkspaceRoot =
-    Option.getOrUndefined(flags.workspaceRoot) ?? (yield* HostProcessWorkingDirectory);
+    Option.getOrUndefined(flags.workspaceRoot) ?? (yield* HostProcess.WorkingDirectory);
   const workspaceRoot = path.resolve(yield* expandHomePath(rawWorkspaceRoot));
-  const userId = yield* HostProcessUserId;
+  const userId = yield* HostProcess.UserId;
   const resolveAddress = (stateSubdirectory: "userdata" | "dev") =>
     resolveDesktopAppControlAddress({
       stateDir: path.join(baseDir, stateSubdirectory),
@@ -213,7 +209,7 @@ const runAppCommand = Effect.fn("cli.app")(function* (flags: {
       joinPath: path.join,
     }).address;
   const crypto = yield* Crypto.Crypto;
-  const requestId = yield* crypto.randomUUIDv4.pipe(Effect.orDie);
+  const requestId = yield* crypto.randomUUIDv4().pipe(Effect.orDie);
   const request: DesktopAppActivationRequest = {
     version: DESKTOP_APP_ACTIVATION_PROTOCOL_VERSION,
     requestId,

@@ -106,7 +106,7 @@ const createPersistentAgentImpl = Effect.fn("createPersistentAgent")(function* (
       message: "Choose an available Elysia model for this agent.",
     });
   }
-  const uuid = yield* crypto.randomUUIDv4.pipe(
+  const uuid = yield* crypto.randomUUIDv4().pipe(
     Effect.mapError(
       (cause) =>
         new OrchestrationDispatchCommandError({

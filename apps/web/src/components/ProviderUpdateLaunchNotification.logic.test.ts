@@ -1,12 +1,18 @@
-import { describe, expect, it } from "vite-plus/test";
+import { describe, expect, it, vi } from "vite-plus/test";
 import {
-  type EnvironmentId,
+  EnvironmentId,
   ProviderDriverKind,
   ProviderInstanceId,
   type ServerProvider,
 } from "@elysiatools/contracts";
 import * as Cause from "effect/Cause";
 import { AsyncResult } from "effect/reactivity";
+
+const forkPolicy = vi.hoisted(() => ({ elysia: false }));
+vi.mock("@elysiatools/contracts", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@elysiatools/contracts")>()),
+  isEnabledProviderDriver: (kind: string) => !forkPolicy.elysia || kind === "claudeAgent",
+}));
 
 import {
   buildLocalEnvironmentUpdateGroups,
@@ -92,6 +98,19 @@ function updateCandidate(input: Parameters<typeof provider>[0]): ProviderUpdateC
 }
 
 describe("provider update launch notification logic", () => {
+  it("only offers the Elysia driver under the production fork policy", () => {
+    forkPolicy.elysia = true;
+    try {
+      const elysia = provider({ driver: driver("claudeAgent") });
+      const codex = provider({ driver: driver("codex") });
+      expect(isProviderUpdateCandidate(elysia)).toBe(true);
+      expect(isProviderUpdateCandidate(codex)).toBe(false);
+      expect(collectProviderUpdateCandidates([elysia, codex])).toEqual([elysia]);
+    } finally {
+      forkPolicy.elysia = false;
+    }
+  });
+
   it("detects enabled providers with a latest-version advisory", () => {
     expect(isProviderUpdateCandidate(provider({ driver: driver("codex") }))).toBe(true);
     expect(isProviderUpdateCandidate(provider({ driver: driver("codex"), enabled: false }))).toBe(
@@ -286,8 +305,8 @@ describe("provider update launch notification logic", () => {
     expect(view).toMatchObject({
       phase: "initial",
       type: "warning",
-      title: "Update Available: Codex v1.1.0",
-      description: "Install the update now or review provider settings.",
+      title: "Codex update",
+      description: "v1.1.0 is available.",
     });
   });
 
@@ -300,7 +319,23 @@ describe("provider update launch notification logic", () => {
       oneClickProviders: [],
     });
 
-    expect(view.description).toBe("Codex and Cursor can be updated from provider settings.");
+    expect(view.description).toBe("2 updates are available. Update in provider settings.");
+  });
+
+  it("keeps the runtime name and version on separate short lines", () => {
+    const candidate = {
+      ...updateCandidate({ driver: driver("claudeAgent"), latestVersion: "2.1.299" }),
+      updateTarget: "runtime" as const,
+    };
+    expect(
+      getProviderUpdateInitialToastView({
+        updateProviders: [candidate],
+        oneClickProviders: [candidate],
+      }),
+    ).toMatchObject({
+      title: "Claude Code runtime update",
+      description: "v2.1.299 is available.",
+    });
   });
 
   it("uses server update state for running progress", () => {
@@ -518,7 +553,7 @@ describe("provider update launch notification logic", () => {
     expect(view).toMatchObject({
       key: "failed:claudeAgent:2026-04-23T10:00:00.000Z:Update command exited with code 1.",
       tone: "error",
-      title: "Claude v1.1.0 update failed",
+      title: "Elysia v1.1.0 update failed",
       description: "Update command exited with code 1.",
       dismissible: true,
     });
@@ -641,7 +676,7 @@ describe("provider update launch notification logic", () => {
     expect(failureView).toMatchObject({
       key: "failed:claudeAgent:2026-04-23T10:00:00.000Z:Update command exited with code 1.",
       tone: "error",
-      title: "Claude v1.1.0 update failed",
+      title: "Elysia v1.1.0 update failed",
     });
   });
 
@@ -1076,6 +1111,7 @@ describe("getProviderUpdateRunToastView", () => {
     providerDriver: string,
     result: Parameters<typeof getProviderUpdateRunToastView>[0][number]["result"],
   ) => ({
+    environmentId: EnvironmentId.make(machineLabel),
     machineLabel,
     driver: driver(providerDriver),
     instanceId: instanceId(providerDriver),
@@ -1115,7 +1151,7 @@ describe("getProviderUpdateRunToastView", () => {
     expect(view).toEqual({
       type: "error",
       title: "2 of 3 provider updates failed",
-      description: "Mac Studio · Claude: npm exited with code 1.\nLaptop · Codex: WebSocket closed",
+      description: "Mac Studio · Elysia: npm exited with code 1.\nLaptop · Codex: WebSocket closed",
     });
   });
 

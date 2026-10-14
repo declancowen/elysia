@@ -18,42 +18,49 @@ import { ChildProcessSpawner } from "effect/process";
 import { makeClaudeTextGeneration } from "../../textGeneration/ClaudeTextGeneration.ts";
 import * as BackgroundPolicy from "../../background/BackgroundPolicy.ts";
 import { ServerConfig } from "../../config.ts";
-import { expandHomePath } from "../../pathExpansion.ts";
+import { expandHomePath } from "@elysiatools/provider-core/server/pathExpansion";
 import { ServerSettingsService } from "../../serverSettings.ts";
 import { ProviderDriverError } from "../Errors.ts";
 import {
   makeClaudeAdapterV2,
   ClaudeAgentSdkQueryRunner,
 } from "../../orchestration-v2/Adapters/ClaudeAdapterV2.ts";
-import { IdAllocatorV2 } from "../../orchestration-v2/IdAllocator.ts";
-import { ProviderContinuationRequests } from "../../orchestration-v2/ProviderContinuationRequests.ts";
+import { IdAllocatorV2 } from "@elysiatools/provider-core/server/IdAllocator";
+import { ProviderContinuationRequests } from "@elysiatools/provider-core/server/ProviderContinuationRequests";
 import { makeClaudeScopedLimitNames } from "../claudeUsageLimits.ts";
 import {
   checkClaudeProviderStatus,
   makePendingClaudeProvider,
   probeClaudeCapabilities,
 } from "../ClaudeProvider.ts";
-import { ProviderEventLoggers } from "../ProviderEventLoggers.ts";
-import { makeManagedServerProvider } from "../makeManagedServerProvider.ts";
-import { type ProviderDriver, type ProviderInstance } from "../ProviderDriver.ts";
-import { withInstanceIdentity } from "./instanceIdentity.ts";
-import { mergeProviderInstanceEnvironment } from "../ProviderInstanceEnvironment.ts";
+import { ProviderEventLoggers } from "@elysiatools/provider-core/server/ProviderEventLoggers";
+import { ProviderHost } from "@elysiatools/provider-core/server/ProviderHost";
+import { HomeDirectory } from "@elysiatools/shared/HostProcess";
+import { ProviderLatestVersions } from "@elysiatools/provider-core/server/ProviderLatestVersions";
+import { McpProviderSessions } from "@elysiatools/provider-core/server/McpProviderSessions";
+import { makeManagedServerProvider } from "@elysiatools/provider-core/server/managedProvider";
+import {
+  type ProviderDriver,
+  type ProviderInstance,
+} from "@elysiatools/provider-core/server/driver";
+import { withInstanceIdentity } from "@elysiatools/provider-core/server/instanceIdentity";
+import { mergeProviderInstanceEnvironment } from "@elysiatools/provider-core/server/instanceEnvironment";
 import {
   enrichProviderSnapshotWithVersionAdvisory,
   makeCachedProviderMaintenanceResolution,
   makeProviderMaintenanceCapabilities,
   resolveProviderMaintenanceCapabilitiesEffect,
-} from "../providerMaintenance.ts";
+} from "@elysiatools/provider-core/server/maintenanceResolver";
 import { CLAUDE_RUNTIME_UPDATE } from "./ClaudeDriver.ts";
 import {
   haveProviderSnapshotSettingsChanged,
   makeProviderSnapshotSettingsSource,
   type ProviderSnapshotSettings,
-} from "../providerUpdateSettings.ts";
+} from "@elysiatools/provider-core/server/snapshotSettings";
 import { makeClaudeContinuationGroupKey } from "./ClaudeHome.ts";
 import { makeElysiaCli } from "../ElysiaCli.ts";
 import { ELYSIA_MODELS, elysiaModelCatalog } from "../ElysiaModelCatalog.ts";
-import * as ProviderAuthFlow from "../ProviderAuthFlow.ts";
+import * as ProviderAuthFlow from "@elysiatools/provider-core/server/providerAuthFlow";
 import { elysiaChatSlashCommands } from "./ElysiaSlashCommands.ts";
 import { discoverClaudeSkills } from "./ClaudeSkills.ts";
 
@@ -81,6 +88,9 @@ export type ElysiaDriverEnv =
   | HttpClient.HttpClient
   | Path.Path
   | ProviderEventLoggers
+  | ProviderHost
+  | ProviderLatestVersions
+  | McpProviderSessions
   | ServerConfig
   | ServerSettingsService;
 
@@ -96,6 +106,7 @@ export const ElysiaDriver: ProviderDriver<ClaudeSettings, ElysiaDriverEnv> = {
       const path = yield* Path.Path;
       const { cwd, stateDir } = yield* ServerConfig;
       const httpClient = yield* HttpClient.HttpClient;
+      const latestVersions = yield* ProviderLatestVersions;
       const serverSettings = yield* ServerSettingsService;
       const initialSettings = yield* serverSettings.getSettings.pipe(Effect.orDie);
       const appDefaultModel =
@@ -110,7 +121,7 @@ export const ElysiaDriver: ProviderDriver<ClaudeSettings, ElysiaDriverEnv> = {
           enabled,
           ...(appDefaultModel ? { elysiaDefaultModel: appDefaultModel } : {}),
         },
-        environment: mergeProviderInstanceEnvironment(environment),
+        environment: yield* mergeProviderInstanceEnvironment(environment),
         checkUpdates: serverSettings.getSettings.pipe(
           Effect.map((settings) => enabled && settings.enableProviderUpdateChecks),
           Effect.orElseSucceed(() => false),
@@ -155,7 +166,7 @@ export const ElysiaDriver: ProviderDriver<ClaudeSettings, ElysiaDriverEnv> = {
       const effectiveConfig = {
         ...config,
         enabled,
-        binaryPath: expandHomePath(config.binaryPath),
+        binaryPath: expandHomePath(config.binaryPath, yield* HomeDirectory),
         homePath: path.join(elysia.root, ".claude"),
         customModels: [],
       } satisfies ClaudeSettings;
@@ -187,7 +198,7 @@ export const ElysiaDriver: ProviderDriver<ClaudeSettings, ElysiaDriverEnv> = {
             detail: "Select a model from the Elysia gateway catalog.",
           });
       });
-      const orchestrationAdapter = makeClaudeAdapterV2({
+      const orchestrationAdapter = yield* makeClaudeAdapterV2({
         instanceId,
         settings: effectiveConfig,
         environment: processEnv,
@@ -375,7 +386,7 @@ export const ElysiaDriver: ProviderDriver<ClaudeSettings, ElysiaDriverEnv> = {
         Effect.provideService(FileSystem.FileSystem, fs),
         Effect.provideService(Path.Path, path),
       );
-      const source = makeProviderSnapshotSettingsSource(effectiveConfig, serverSettings);
+      const source = yield* makeProviderSnapshotSettingsSource(effectiveConfig);
       const snapshot = yield* makeManagedServerProvider<ProviderSnapshotSettings<ClaudeSettings>>({
         resolveMaintenance,
         getSettings: source.getSettings,
@@ -422,6 +433,7 @@ export const ElysiaDriver: ProviderDriver<ClaudeSettings, ElysiaDriverEnv> = {
             return { ...native, runtimeVersionAdvisory: runtime.versionAdvisory };
           }).pipe(
             Effect.provideService(HttpClient.HttpClient, httpClient),
+            Effect.provideService(ProviderLatestVersions, latestVersions),
             Effect.flatMap(publishSnapshot),
           ),
       }).pipe(

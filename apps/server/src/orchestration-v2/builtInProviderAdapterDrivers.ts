@@ -3,7 +3,7 @@ import type { ProviderDriverKind } from "@elysiatools/contracts";
 import {
   AcpRegistryAdapterV2Driver,
   type AcpRegistryAdapterV2DriverEnv,
-} from "./Adapters/AcpRegistryAdapterV2.ts";
+} from "@elysiatools/provider-acp-registry/server";
 import {
   ClaudeAdapterV2Driver,
   type ClaudeAdapterV2DriverEnv,
@@ -12,14 +12,14 @@ import { CodexAdapterV2Driver, type CodexAdapterV2DriverEnv } from "./Adapters/C
 import {
   CursorAdapterV2Driver,
   type CursorAdapterV2DriverEnv,
-} from "./Adapters/CursorAdapterV2.ts";
-import { GrokAdapterV2Driver, type GrokAdapterV2DriverEnv } from "./Adapters/GrokAdapterV2.ts";
+} from "@elysiatools/provider-cursor/server";
+import { GrokAdapterV2Driver, type GrokAdapterV2DriverEnv } from "@elysiatools/provider-grok/server";
 import {
   OpenCodeAdapterV2Driver,
   type OpenCodeAdapterV2DriverEnv,
-} from "./Adapters/OpenCodeAdapterV2.ts";
-import { PiAdapterV2Driver, type PiAdapterV2DriverEnv } from "./Adapters/PiAdapterV2.ts";
-import type { AnyProviderAdapterDriver } from "./ProviderAdapterDriver.ts";
+} from "@elysiatools/provider-opencode/server";
+import { PiAdapterV2Driver, type PiAdapterV2DriverEnv } from "@elysiatools/provider-pi/server";
+import type { AnyProviderAdapterDriver } from "@elysiatools/provider-core/server/adapterDriver";
 
 export type BuiltInProviderAdapterDriversV2Env =
   | AcpRegistryAdapterV2DriverEnv

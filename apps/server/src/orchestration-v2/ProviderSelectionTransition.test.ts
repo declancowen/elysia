@@ -6,8 +6,8 @@ import {
   ProviderInstanceId,
 } from "@elysiatools/contracts";
 
-import { AcpProviderCapabilitiesV2 } from "./Adapters/AcpAdapterV2.ts";
-import { acpSelectionTransition } from "./ProviderSelectionTransition.ts";
+import { AcpProviderCapabilitiesV2 } from "@elysiatools/provider-acp/server/adapter";
+import { acpSelectionTransition } from "@elysiatools/provider-core/server/selectionTransition";
 
 const selection = (model: string, effort = "medium"): ModelSelection => ({
   instanceId: ProviderInstanceId.make("acp_test"),

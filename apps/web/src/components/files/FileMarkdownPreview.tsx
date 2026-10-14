@@ -1,7 +1,7 @@
 import type { ScopedThreadRef } from "@elysiatools/contracts";
 
 import ChatMarkdown from "~/components/ChatMarkdown";
-import { resolvePathLinkTarget } from "~/terminal-links";
+import { resolvePathLinkTarget } from "@elysiatools/shared/fileLinks";
 
 export function FileMarkdownPreview(props: {
   readonly cwd: string;

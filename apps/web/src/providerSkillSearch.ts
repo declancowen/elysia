@@ -1,7 +1,7 @@
+import { formatProviderSkillDisplayName } from "@elysiatools/shared/inlineSkills";
 import type { ServerProviderSkill } from "@elysiatools/contracts";
 import {
   dedupeProviderSkillsByName,
-  formatProviderSkillDisplayName,
   isProviderSkillUserInvocable,
 } from "@elysiatools/client-runtime/providerSkills";
 import {

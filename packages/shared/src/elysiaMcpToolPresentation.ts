@@ -31,6 +31,7 @@ export type ElysiaMcpToolSummaryAction =
   | "thread-send"
   | "thread-wait"
   | "thread-interrupt"
+  | "workflow-stop"
   | "thread-configuration"
   | "thread-configure"
   | "thread-fork"
@@ -68,6 +69,8 @@ export type ElysiaMcpToolSummaryAction =
   | "list-prs"
   | "watch-pr"
   | "unwatch-pr"
+  | "write-pr-guides"
+  | "read-pr-guide"
   | "browser"
   | "device"
   | "html-preview"
@@ -128,6 +131,16 @@ const ELYSIA_MCP_TOOLS: Readonly<Record<string, ElysiaMcpToolDefinition>> = {
     "unwatch-pr",
     "pull-request",
   ),
+  write_pull_request_guides: tool(
+    ["Write", "Writing", "Started", "review guides"],
+    "write-pr-guides",
+    "pull-request",
+  ),
+  read_pull_request_guide: tool(
+    ["Read", "Reading", "Read", "a review guide"],
+    "read-pr-guide",
+    "pull-request",
+  ),
   orchestrator_capabilities: tool(
     ["Get", "Getting", "Got", "orchestration capabilities"],
     "capabilities",
@@ -158,6 +171,10 @@ const ELYSIA_MCP_TOOLS: Readonly<Record<string, ElysiaMcpToolDefinition>> = {
   elysia_thread_read: tool(["Read", "Reading", "Read", "an Elysia chat"], "thread-read"),
   elysia_thread_send: tool(["Send", "Sending", "Sent", "to an Elysia chat"], "thread-send"),
   elysia_thread_wait: tool(["Wait", "Waiting", "Waited", "for an Elysia chat"], "thread-wait"),
+  elysia_workflow_stop: tool(
+    ["Stop", "Stopping", "Requested a stop for", "a workflow"],
+    "workflow-stop",
+  ),
   elysia_thread_interrupt: tool(
     ["Interrupt", "Interrupting", "Requested an interrupt of", "an Elysia chat"],
     "thread-interrupt",

@@ -1,5 +1,5 @@
 import { filePreviewDelimiter } from "@elysiatools/shared/delimitedPreview";
-import type { EnvironmentId } from "@elysiatools/contracts";
+import type { EnvironmentId, ScopedThreadRef } from "@elysiatools/contracts";
 import { formatAttachmentSize } from "@elysiatools/client-runtime/state/attachments";
 import { readFilePreviewResponse } from "@elysiatools/client-runtime/file-preview";
 import {
@@ -23,7 +23,7 @@ import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 
 import { useAssetUrlRefresh } from "~/assets/assetUrls";
 import ChatMarkdown from "~/components/ChatMarkdown";
-import { MorphIcon } from "~/components/MorphIcon";
+import "~/components/MorphIcon";
 import { ScrollArea } from "~/components/ui/scroll-area";
 import { toastManager } from "~/components/ui/toast";
 import { useCopyToClipboard } from "~/hooks/useCopyToClipboard";
@@ -77,6 +77,8 @@ export function AttachmentFilePreview(props: {
   asset?: { environmentId: EnvironmentId; attachmentId: string };
   /** An agent's HTML render, shown in the app theme. */
   htmlRender?: boolean;
+  /** The thread an HTML render's links open beside. */
+  threadRef?: ScopedThreadRef;
   /** First crumb: where the file comes from. */
   origin?: string;
   onRemove?: () => void;
@@ -277,6 +279,7 @@ export function AttachmentFilePreview(props: {
       title={props.name}
       pdf={kind === "pdf"}
       htmlRender={props.htmlRender === true}
+      threadRef={props.threadRef}
     />
   ) : kind === "audio" ? (
     <AudioPreview src={url} name={props.name} onError={() => setError("Unable to load audio.")} />

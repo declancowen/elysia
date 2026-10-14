@@ -4,10 +4,26 @@ import {
   hasSpecificPierreIconForFileName,
   resolvePierreIconForEntry,
   syntheticFileNameForLanguageId,
-  T3_PIERRE_ICONS,
+  ELYSIA_PIERRE_ICONS,
 } from "./pierre-icons";
 
 describe("Pierre file icons", () => {
+  it("uses detected types for extensionless files while keeping known filename icons", () => {
+    assert.equal(
+      resolvePierreIconForEntry("custom-script", "file", "text/x-python")?.token,
+      "python",
+    );
+    assert.equal(resolvePierreIconForEntry("image", "file", "image/png")?.token, "image");
+    assert.equal(
+      resolvePierreIconForEntry("Dockerfile", "file", "text/x-shellscript")?.token,
+      "docker",
+    );
+    assert.isNull(resolvePierreIconForEntry("folder.png", "directory", "image/png"));
+    assert.equal(
+      resolvePierreIconForEntry("unknown", "file", "application/octet-stream")?.name,
+      "elysia-file-icon-file",
+    );
+  });
   it("uses Pierre exact filename and complete-set extension mappings", () => {
     assert.equal(resolvePierreIconForEntry("Dockerfile", "file")?.token, "docker");
     assert.equal(resolvePierreIconForEntry("src/Button.tsx", "file")?.token, "react");
@@ -27,26 +43,35 @@ describe("Pierre file icons", () => {
     );
   });
 
-  it("extends Pierre with T3-specific exact filename icons", () => {
-    assert.equal(resolvePierreIconForEntry("AGENTS.md", "file")?.name, "t3-file-icon-agents");
-    assert.equal(resolvePierreIconForEntry("pnpm-lock.yaml", "file")?.name, "t3-file-icon-pnpm");
+  it("extends Pierre with Elysia-specific exact filename icons", () => {
+    assert.equal(resolvePierreIconForEntry("AGENTS.md", "file")?.name, "elysia-file-icon-agents");
+    assert.equal(
+      resolvePierreIconForEntry("pnpm-lock.yaml", "file")?.name,
+      "elysia-file-icon-pnpm",
+    );
     assert.equal(
       resolvePierreIconForEntry("pnpm-workspace.yaml", "file")?.name,
-      "t3-file-icon-pnpm",
+      "elysia-file-icon-pnpm",
     );
   });
 
   it("ships every custom icon referenced by the extended resolver", () => {
     const customIconNames = new Set(
-      Object.values(T3_PIERRE_ICONS.byFileName).filter((name) => name.startsWith("t3-")),
+      [
+        ...Object.values(ELYSIA_PIERRE_ICONS.byFileName),
+        ...Object.values(ELYSIA_PIERRE_ICONS.byFileExtension),
+      ].filter((name) => name.startsWith("t3-")),
     );
     for (const iconName of customIconNames) {
-      assert.include(T3_PIERRE_ICONS.spriteSheet, `id="${iconName}"`);
+      assert.include(ELYSIA_PIERRE_ICONS.spriteSheet, `id="${iconName}"`);
     }
   });
 
-  it("uses the Pierre default icon for unknown file types", () => {
-    assert.equal(resolvePierreIconForEntry("artifact.unknown-ext", "file")?.token, "default");
+  it("uses the house file icon for unknown file types", () => {
+    assert.equal(
+      resolvePierreIconForEntry("artifact.unknown-ext", "file")?.name,
+      "elysia-file-icon-file",
+    );
     assert.isFalse(hasSpecificPierreIconForFileName("artifact.unknown-ext"));
   });
 
@@ -63,5 +88,24 @@ describe("Pierre file icons", () => {
 
   it("gives a dockerfile fence the Docker icon", () => {
     assert.isTrue(hasSpecificPierreIconForFileName(syntheticFileNameForLanguageId("dockerfile")));
+  });
+
+  it.each([
+    "csharp",
+    "dart",
+    "diff",
+    "elixir",
+    "haskell",
+    "java",
+    "kotlin",
+    "lua",
+    "php",
+    "powershell",
+    "r",
+    "scala",
+    "toml",
+    "xml",
+  ])("gives a %s fence a language icon", (language) => {
+    assert.isTrue(hasSpecificPierreIconForFileName(syntheticFileNameForLanguageId(language)));
   });
 });

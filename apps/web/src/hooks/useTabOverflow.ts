@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { observeResize } from "~/lib/observeResize";
 
 function tabScrollViewport(root: HTMLDivElement | null) {
   return root?.querySelector<HTMLDivElement>('[data-slot="scroll-area-viewport"]') ?? null;
@@ -48,9 +49,11 @@ export function useTabOverflow(activeId: string | null) {
   useEffect(() => {
     const viewport = tabScrollViewport(tabListRef.current);
     if (!viewport) return;
-    const observer = new ResizeObserver(updateTabScrollState);
-    observer.observe(viewport);
-    if (viewport.firstElementChild) observer.observe(viewport.firstElementChild);
+    const content = viewport.firstElementChild;
+    const stopObserving = observeResize(
+      content ? [viewport, content] : viewport,
+      updateTabScrollState,
+    );
     viewport.addEventListener("scroll", updateTabScrollState, { passive: true });
     const handleWheel = (event: WheelEvent) => {
       if (event.ctrlKey) return;
@@ -64,7 +67,7 @@ export function useTabOverflow(activeId: string | null) {
     viewport.addEventListener("wheel", handleWheel, { passive: false });
     updateTabScrollState();
     return () => {
-      observer.disconnect();
+      stopObserving();
       viewport.removeEventListener("scroll", updateTabScrollState);
       viewport.removeEventListener("wheel", handleWheel);
     };

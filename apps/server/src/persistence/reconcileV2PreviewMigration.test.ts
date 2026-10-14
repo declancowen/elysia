@@ -59,6 +59,10 @@ describe("V2 preview upgrade", () => {
         [63, "ScheduledTaskWebhooks"],
         [64, "WebhookRelayDeliveries"],
         [65, "PageFolders"],
+        [66, "McpAppModelContext"],
+        [67, "ThreadSnapshotWindowIndexes"],
+        [68, "PullRequestReviewGuides"],
+        [69, "ThreadFailureLookupIndex"],
       ]);
       assert.deepStrictEqual(
         yield* sql`SELECT agent_profile_json FROM projection_projects WHERE project_id = 'agent'`,
@@ -86,6 +90,10 @@ describe("V2 preview upgrade", () => {
         [63, "ScheduledTaskWebhooks"],
         [64, "WebhookRelayDeliveries"],
         [65, "PageFolders"],
+        [66, "McpAppModelContext"],
+        [67, "ThreadSnapshotWindowIndexes"],
+        [68, "PullRequestReviewGuides"],
+        [69, "ThreadFailureLookupIndex"],
       ]);
       assert.deepStrictEqual(yield* runMigrations(), []);
       assert.deepStrictEqual(yield* sql`SELECT * FROM orchestration_v2_legacy_imports`, imports);
@@ -174,6 +182,10 @@ describe("V2 preview upgrade", () => {
         [63, "ScheduledTaskWebhooks"],
         [64, "WebhookRelayDeliveries"],
         [65, "PageFolders"],
+        [66, "McpAppModelContext"],
+        [67, "ThreadSnapshotWindowIndexes"],
+        [68, "PullRequestReviewGuides"],
+        [69, "ThreadFailureLookupIndex"],
       ]);
     }).pipe(Effect.provide(NodeSqliteClient.layer({ filename: ":memory:" }))),
   );

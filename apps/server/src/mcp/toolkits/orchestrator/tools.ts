@@ -1,5 +1,6 @@
 import {
   OrchestratorMcpCapabilitiesResult,
+  OrchestrationV2StopWorkflowInput,
   OrchestratorMcpCreateThreadsInput,
   OrchestratorMcpCreateThreadsResult,
   OrchestratorMcpDelegateTaskInput,
@@ -31,6 +32,7 @@ import {
   ThreadMetadataMcpUpdateResult,
 } from "@elysiatools/contracts";
 import { Tool, Toolkit } from "effect/ai";
+import * as Schema from "effect/Schema";
 
 import * as ThreadManagementService from "../../../orchestration-v2/ThreadManagementService.ts";
 import * as McpInvocationContext from "../../McpInvocationContext.ts";
@@ -98,6 +100,18 @@ const TaskCancelTool = Tool.make("task_cancel", {
   dependencies,
 })
   .annotate(Tool.Title, "Cancel delegated task")
+  .annotate(Tool.Destructive, true);
+
+const WorkflowStopTool = Tool.make("elysia_workflow_stop", {
+  description:
+    "Stop one running Claude workflow in a Elysia thread. Use the workflow coordinator's subagentId returned by elysia_thread_read with view='activity'. Stops the whole workflow, including its phases and agents. Does not stop the parent thread or other workflows. Individual workflow phases and agents cannot be stopped separately.",
+  parameters: OrchestrationV2StopWorkflowInput,
+  success: Schema.Struct({}),
+  failure: OrchestratorMcpFailure,
+  failureMode: "return",
+  dependencies,
+})
+  .annotate(Tool.Title, "Stop a workflow")
   .annotate(Tool.Destructive, true);
 
 export const ScheduleTaskTool = Tool.make("schedule_task", {
@@ -200,6 +214,7 @@ const ThreadReadTool = Tool.make("elysia_thread_read", {
   dependencies,
 })
   .annotate(Tool.Title, "Read an Elysia thread")
+  .annotate(Tool.Strict, true)
   .annotate(Tool.Readonly, false)
   .annotate(Tool.Destructive, false)
   .annotate(Tool.Idempotent, true);
@@ -261,6 +276,7 @@ export const OrchestratorToolkit = Toolkit.make(
   DelegateTaskTool,
   TaskStatusTool,
   TaskCancelTool,
+  WorkflowStopTool,
   ScheduleTaskTool,
   ListScheduledTasksTool,
   UpdateScheduledTaskTool,

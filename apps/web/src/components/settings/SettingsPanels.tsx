@@ -65,6 +65,8 @@ import * as Duration from "effect/Duration";
 import * as Equal from "effect/Equal";
 import * as Schema from "effect/Schema";
 import { APP_VERSION, HOSTED_APP_CHANNEL } from "../../branding";
+import "../NightlyMobileBeta";
+import { CliCommandSettingsRow } from "./CliCommandSettingsRow";
 import { isAgentProject } from "../../agentPresentation";
 import {
   canCheckForUpdate,
@@ -386,6 +388,7 @@ function AboutVersionSection() {
   return (
     <>
       <SettingsRow
+        id={searchableSetting("app-version").id}
         title={<AboutVersionTitle />}
         description={description}
         control={
@@ -406,6 +409,7 @@ function AboutVersionSection() {
           </Tooltip>
         }
       />
+      {isElectron ? <CliCommandSettingsRow /> : null}
     </>
   );
 }
@@ -2037,7 +2041,7 @@ function GeneralSettingsContent({ scopeActions }: { scopeActions: ReactNode }) {
   const settings = useScopedSettings();
   const updateSettings = useUpdateScopedSettings();
   const navigate = useNavigate();
-  const { scope, environment, connectedEnvironments } = useSettingsScope();
+  const { scope, environment, connectedEnvironments, target } = useSettingsScope();
   // The representative environment supplies the provider list for pickers;
   // a fanned-out model choice is validated against every target before it
   // is written. Per-machine tuning (background activity overrides) still
@@ -2070,7 +2074,11 @@ function GeneralSettingsContent({ scopeActions }: { scopeActions: ReactNode }) {
   const textGenModel = textGenerationModelSelection.model;
   const textGenModelOptions = textGenerationModelSelection.options;
   const textGenerationModelInstanceEntries = sortProviderInstanceEntries(
-    applyProviderInstanceSettings(deriveProviderInstanceEntries(textGenerationProviders), settings),
+    applyProviderInstanceSettings(
+      deriveProviderInstanceEntries(textGenerationProviders),
+      settings,
+      target?.projectId ?? null,
+    ),
   );
   const hasTextGenerationProvider = textGenerationModelInstanceEntries.some(
     (entry) => entry.enabled && entry.isAvailable,
@@ -3084,6 +3092,7 @@ function GeneralSettingsContent({ scopeActions }: { scopeActions: ReactNode }) {
             ) : (
               <div className="flex flex-wrap items-center justify-end gap-1.5">
                 <ProviderModelPicker
+                  environmentId={environmentId}
                   activeInstanceId={textGenInstanceId}
                   model={textGenModel}
                   lockedProvider={null}
@@ -3171,6 +3180,7 @@ function GeneralSettingsContent({ scopeActions }: { scopeActions: ReactNode }) {
         ) : (
           <>
             <SettingsRow
+              id={searchableSetting("app-version").id}
               title={<AboutVersionTitle />}
               description="Current version of the application."
             />

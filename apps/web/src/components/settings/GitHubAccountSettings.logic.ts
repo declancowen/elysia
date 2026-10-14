@@ -1,4 +1,5 @@
-import type { GitHubSettings, SourceControlProviderAuth } from "@elysiatools/contracts";
+import type { SourceControlProviderAuth } from "@elysiatools/contracts";
+import type { GitHubSettings } from "@elysiatools/client-runtime/source-control-clients";
 
 export type GitHubDiscoveredAccount = NonNullable<SourceControlProviderAuth["accounts"]>[number];
 

@@ -36,7 +36,7 @@
       ],
       // Keep the transitive Effect runtime pinned for standalone npm installs.
       // The Vite+ web build prerequisite.
-      "ignoreDependencies": ["@effect/platform-node-shared", "@elysiatools/web"],
+      "ignoreDependencies": ["@effect/platform-node-shared", "@elysiatools/web", "@napi-rs/keyring"],
       // Elysia's runtime policy disables upstream triage; retain its implementation for merges.
       "ignoreIssues": { "src/cli/triage.ts": ["files"] },
     },
@@ -106,7 +106,7 @@
         "src/state/usage.ts": ["files"],
       },
     },
-    "apps/mobile/modules/t3-markdown-text": {
+    "apps/mobile/modules/t3-source-text": {
       // React Native codegen discovers component specifications by filename.
       "entry": ["src/*NativeComponent.ts!"],
     },

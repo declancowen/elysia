@@ -2,7 +2,7 @@ import { TurnTokenUsage, UsageReadError, type ProviderInstanceId } from "@elysia
 import * as Effect from "effect/Effect";
 import * as Schema from "effect/Schema";
 import * as SqlClient from "effect/sql/SqlClient";
-import type { UsageRecord } from "./usageTranscripts.ts";
+import type { UsageRecord } from "@elysiatools/provider-core/server/usage";
 
 const Row = Schema.Struct({
   id: Schema.String,

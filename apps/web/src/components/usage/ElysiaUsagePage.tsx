@@ -14,7 +14,12 @@ import { Select, SelectTrigger, SelectPopup, SelectItem, SelectGroup } from "../
 import { Input } from "../ui/input";
 import { Button } from "../ui/button";
 import { UsageProviderChart } from "./UsageProviderChart";
-import { elysiaUsagePeriods, elysiaUsageRange, type ElysiaUsageResolution } from "./elysiaUsage";
+import {
+  elysiaUsageModelName,
+  elysiaUsagePeriods,
+  elysiaUsageRange,
+  type ElysiaUsageResolution,
+} from "./elysiaUsage";
 import { SidebarInset } from "../ui/sidebar";
 import { WorkspaceSurfaceHeader } from "../WorkspaceSurfaceHeader";
 import { WorkspacePageContainer } from "../WorkspacePageContainer";
@@ -258,7 +263,7 @@ export function ElysiaUsagePage() {
                           aria-valuemax={accountTotals.limitUsd}
                           aria-valuenow={Math.min(accountTotals.limitUsd, accountTotals.usedUsd)}
                           aria-valuetext={`${savingsFormat.format(accountTotals.usedUsd)} of ${savingsFormat.format(accountTotals.limitUsd)}`}
-                          className="relative h-6 cursor-default rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                          className="relative h-6 cursor-default rounded-full outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring focus-visible:ring-offset-0 focus-visible:ring-offset-background"
                         >
                           <UsageBarTrack
                             color={PROVIDER_PRESENTATION.claude.color}
@@ -450,7 +455,16 @@ export function ElysiaUsagePage() {
                       <div key={model} className="flex items-center justify-between gap-4">
                         <dt className="flex min-w-0 items-center gap-2 text-sm">
                           <ElysiaIcon aria-hidden className="size-4 shrink-0" />
-                          <span className="truncate">{model}</span>
+                          <Tooltip>
+                            <TooltipTrigger
+                              render={
+                                <span className="truncate">
+                                  {elysiaUsageModelName(model, provider?.models)}
+                                </span>
+                              }
+                            />
+                            <TooltipPopup>{model}</TooltipPopup>
+                          </Tooltip>
                         </dt>
                         <dd className="shrink-0 text-sm tabular-nums">
                           {value.records === value.unpriced

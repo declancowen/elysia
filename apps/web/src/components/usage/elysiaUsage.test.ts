@@ -1,6 +1,32 @@
 import { expect, it } from "vite-plus/test";
 import { UsageDay, type UsageBucket } from "@elysiatools/contracts";
-import { elysiaUsagePeriods, elysiaUsageRange } from "./elysiaUsage";
+import { elysiaUsageModelName, elysiaUsagePeriods, elysiaUsageRange } from "./elysiaUsage";
+
+it.each([
+  ["us.anthropic.claude-sonnet-5", "Claude Sonnet 5"],
+  ["us.anthropic.claude-haiku-4-5-20251001-v1:0", "Claude Haiku 4.5"],
+  ["global.anthropic.claude-opus-4-6-v1:0", "Claude Opus 4.6"],
+  ["claude-sonnet-4-20250514", "Claude Sonnet 4"],
+  ["DeepSeek-V4.1-Flash", "DeepSeek V4.1 Flash"],
+  ["custom/model-v2", "custom/model-v2"],
+  ["my-model-20251001-v1:0", "my-model-20251001-v1:0"],
+])("uses readable usage labels for %s without changing unknown IDs", (model, expected) => {
+  expect(elysiaUsageModelName(model)).toBe(expected);
+});
+
+it("prefers configured names and aliases for usage model labels", () => {
+  const catalog = [{ slug: "claude-haiku-4-5", name: "Fast model", aliases: ["gateway-fast"] }];
+  expect(elysiaUsageModelName("us.anthropic.claude-haiku-4-5-20251001-v1:0", catalog)).toBe(
+    "Fast model",
+  );
+  expect(elysiaUsageModelName("gateway-fast", catalog)).toBe("Fast model");
+  expect(
+    elysiaUsageModelName("us.anthropic.claude-haiku-4-5-20251001-v1:0", [
+      ...catalog,
+      { slug: "us.anthropic.claude-haiku-4-5-20251001-v1:0", name: "Company profile" },
+    ]),
+  ).toBe("Company profile");
+});
 const bucket = (day: string, costUsd: number): UsageBucket => ({
   day: UsageDay.make(day),
   provider: "claude",

@@ -6,11 +6,9 @@ import {
   markdownImageSourceFragment,
   type MarkdownImageSource,
 } from "./markdownImages.ts";
-import {
-  fileBasename,
-  splitFilePathPosition,
-  splitMarkdownLinkSearchAndHash,
-} from "./markdownLinks.ts";
+import { fileBasename } from "@elysiatools/shared/path";
+import { splitFilePathPosition } from "@elysiatools/shared/fileLinks";
+import { splitMarkdownLinkSearchAndHash } from "@elysiatools/shared/markdownLinks";
 import {
   mediaFileReference,
   mediaReferenceFileName,

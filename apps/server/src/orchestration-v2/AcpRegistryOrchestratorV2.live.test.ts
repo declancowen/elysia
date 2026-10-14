@@ -29,9 +29,11 @@ import * as CodexInstallation from "../provider/CodexInstallation.ts";
 import * as ServerEnvironment from "../environment/ServerEnvironment.ts";
 import * as ModelManifest from "../provider/ModelManifest.ts";
 import * as ProviderInstanceRegistryHydration from "../provider/ProviderInstanceRegistryHydration.ts";
-import * as ProviderEventLoggers from "../provider/ProviderEventLoggers.ts";
-import * as OpenCodeRuntime from "../provider/opencodeRuntime.ts";
-import * as OpenCodeServerLedger from "../provider/OpenCodeServerLedger.ts";
+import * as ProviderLatestVersions from "@elysiatools/provider-core/server/ProviderLatestVersions";
+import * as McpProviderSessions from "@elysiatools/provider-core/server/McpProviderSessions";
+import * as ProviderEventLoggers from "@elysiatools/provider-core/server/ProviderEventLoggers";
+import * as OpenCodeRuntime from "@elysiatools/provider-opencode/server/OpenCodeRuntime";
+import * as OpenCodeServerLedger from "@elysiatools/provider-opencode/server/OpenCodeServerLedger";
 import * as ServerSettings from "../serverSettings.ts";
 import * as VcsDriverRegistry from "../vcs/VcsDriverRegistry.ts";
 import * as VcsProcess from "../vcs/VcsProcess.ts";
@@ -110,8 +112,9 @@ const layerProviderInstanceRegistry = ProviderInstanceRegistryHydration.layer.pi
       ),
       Layer.succeed(
         ProviderEventLoggers.ProviderEventLoggers,
-        ProviderEventLoggers.noOpProviderEventLoggers,
+        ProviderEventLoggers.NoOpProviderEventLoggers,
       ),
+      ProviderLatestVersions.layer,
       ModelManifest.layerTest,
       AntigravityInstallation.AntigravityInstallation.layer.pipe(
         Layer.provide(layerServerConfig.pipe(Layer.provide(layerPlatformTest))),
@@ -142,6 +145,7 @@ const layerLive = RuntimeLayer.layer.pipe(
   Layer.provide(layerBackgroundPolicy),
   Layer.provide(ProviderTurnStartServiceTestkit.layer),
   Layer.provide(layerPlatformTest),
+  Layer.provide(McpProviderSessions.layer),
 );
 
 const waitForIdle = Effect.fn("AcpRegistryOrchestratorV2Live.waitForIdle")(function* (

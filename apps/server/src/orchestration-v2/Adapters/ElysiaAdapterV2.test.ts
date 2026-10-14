@@ -15,10 +15,11 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Layer from "effect/Layer";
-import * as IdAllocator from "../IdAllocator.ts";
+import * as IdAllocator from "@elysiatools/provider-core/server/IdAllocator";
 import * as CommandPolicy from "../CommandPolicy.ts";
 import { elysiaModelCatalog } from "../../provider/ElysiaModelCatalog.ts";
-import * as McpProviderSession from "../../mcp/McpProviderSession.ts";
+import * as McpProviderSessions from "@elysiatools/provider-core/server/McpProviderSessions";
+import type { McpProviderSessionConfig } from "@elysiatools/provider-core/server/mcpSession";
 import {
   claudeMcpQueryOverrides,
   makeClaudeQueryOptions,
@@ -46,7 +47,7 @@ describe("Elysia V2 runtime boundary", () => {
             runtimeMode: "full-access",
             interactionMode: "default",
           } as const;
-          const adapter = makeClaudeAdapterV2({
+          const adapter = yield* makeClaudeAdapterV2({
             crypto: yield* Crypto.Crypto,
             instanceId,
             settings: decodeClaudeSettings({ homePath: profile }),
@@ -104,6 +105,7 @@ describe("Elysia V2 runtime boundary", () => {
             Layer.mergeAll(
               NodeServices.layer,
               IdAllocator.layer,
+              McpProviderSessions.layer,
               Layer.mock(ClaudeAgentSdkQueryRunner)({
                 allocateSessionId: Effect.succeed("native-resume-fixture"),
                 open: () => Effect.die("Resume validation must precede any query or user prompt."),
@@ -188,7 +190,7 @@ describe("Elysia V2 runtime boundary", () => {
 
   it("uses the Elysia MCP name with matching read-only tool permissions", () => {
     const threadId = ThreadId.make("elysia-v2-mcp");
-    McpProviderSession.setMcpProviderSession({
+    const mcpSession: McpProviderSessionConfig = {
       threadId,
       environmentId: EnvironmentId.make("00000000-0000-4000-8000-000000000001"),
       providerSessionId: "elysia-test-session",
@@ -196,10 +198,10 @@ describe("Elysia V2 runtime boundary", () => {
       browserToolsAvailable: false,
       endpoint: "http://127.0.0.1/mcp",
       authorizationHeader: "Bearer fixture",
-    });
-    try {
+    };
+    {
       const options = claudeMcpQueryOverrides({
-        threadId,
+        mcpSession,
         readOnlySandbox: true,
         serverName: "elysia",
       });
@@ -209,21 +211,19 @@ describe("Elysia V2 runtime boundary", () => {
       expect(options.allowedTools).toContain("mcp__elysia__list_scheduled_tasks");
       for (const serverName of ["elysia", "elysia"]) {
         const fullAccess = claudeMcpQueryOverrides({
-          threadId,
+          mcpSession,
           readOnlySandbox: false,
           serverName,
         });
         expect(fullAccess.mcpServers).toHaveProperty(serverName);
         expect(fullAccess.allowedTools).toContain(`mcp__${serverName}__*`);
       }
-    } finally {
-      McpProviderSession.clearMcpProviderSession(threadId);
     }
   });
   it.effect("forks through V2 portable context instead of the ambient Claude profile", () =>
     Effect.gen(function* () {
       const instanceId = ProviderInstanceId.make("claudeAgent");
-      const adapter = makeClaudeAdapterV2({
+      const adapter = yield* makeClaudeAdapterV2({
         crypto: yield* Crypto.Crypto,
         instanceId,
         settings: decodeClaudeSettings({}),
@@ -254,6 +254,7 @@ describe("Elysia V2 runtime boundary", () => {
         Layer.mergeAll(
           NodeServices.layer,
           IdAllocator.layer,
+          McpProviderSessions.layer,
           CommandPolicy.layer,
           Layer.mock(ClaudeAgentSdkQueryRunner)({}),
         ),

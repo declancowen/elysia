@@ -1,7 +1,5 @@
 import type { ProjectEntry } from "@elysiatools/contracts";
-import { isWindowsAbsolutePath } from "@elysiatools/shared/path";
-
-import { isAbsolutePath } from "~/terminal-links";
+import { isWindowsAbsolutePath, isAbsolutePath } from "@elysiatools/shared/path";
 
 export interface FileBreadcrumb {
   label: string;

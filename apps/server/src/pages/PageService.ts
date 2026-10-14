@@ -152,7 +152,7 @@ const make = Effect.gen(function* () {
               const page = yield* decodePage({
                 id:
                   previous?.id ??
-                  PageId.make(`page-${yield* crypto.randomUUIDv4.pipe(Effect.orDie)}`),
+                  PageId.make(`page-${yield* crypto.randomUUIDv4().pipe(Effect.orDie)}`),
                 title: input.title ?? previous?.title,
                 kind,
                 parentFolderId,

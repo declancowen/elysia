@@ -1,0 +1,51 @@
+{
+  "name": "@elysiatools/provider-acp-registry",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./client": {
+      "types": "./src/client.ts",
+      "import": "./src/client.ts"
+    },
+    "./settings": {
+      "types": "./src/settings.ts",
+      "import": "./src/settings.ts"
+    },
+    "./server": {
+      "types": "./src/server.ts",
+      "import": "./src/server.ts"
+    },
+    "./testing": {
+      "types": "./src/testing.ts",
+      "import": "./src/testing.ts"
+    },
+    "./server/AcpRegistrySupport": {
+      "types": "./src/server/AcpRegistrySupport.ts",
+      "import": "./src/server/AcpRegistrySupport.ts"
+    },
+    "./server/AcpRegistryRuntimeCoordinator": {
+      "types": "./src/server/AcpRegistryRuntimeCoordinator.ts",
+      "import": "./src/server/AcpRegistryRuntimeCoordinator.ts"
+    }
+  },
+  "scripts": {
+    "typecheck": "tsc-rs --noEmit",
+    "test": "vp test run --config ../../vite.config.ts --dir ."
+  },
+  "dependencies": {
+    "@noble/hashes": "catalog:",
+    "@elysiatools/contracts": "workspace:*",
+    "@elysiatools/provider-acp": "workspace:*",
+    "@elysiatools/provider-core": "workspace:*",
+    "@elysiatools/shared": "workspace:*",
+    "effect": "catalog:"
+  },
+  "devDependencies": {
+    "@effect/platform-node": "catalog:",
+    "@effect/vitest": "catalog:",
+    "@elysiatools/provider-testing": "workspace:*",
+    "@types/node": "catalog:",
+    "effect-acp": "workspace:*",
+    "vite-plus": "catalog:"
+  }
+}

@@ -16,7 +16,7 @@ import * as TestClock from "effect/testing/TestClock";
 import { FetchHttpClient, HttpClient, HttpClientResponse } from "effect/http";
 import { readElysiaStats, readElysiaAccountUsage } from "./ElysiaStats.ts";
 import { ProviderInstanceRegistry } from "./ProviderInstanceRegistry.ts";
-import type { ProviderInstance } from "./ProviderDriver.ts";
+import type { ProviderInstance } from "@elysiatools/provider-core/server/driver";
 
 const provider = (overrides: Partial<ServerProvider> = {}): ServerProvider => ({
   instanceId: ProviderInstanceId.make("claudeAgent"),

@@ -324,7 +324,7 @@ const make = Effect.gen(function* () {
                 (previous?.status !== "in_progress" ||
                   previous.assigneeProjectId !== task.assigneeProjectId)
               ) {
-                const commandId = `work-task:${task.id}:${yield* crypto.randomUUIDv4}`;
+                const commandId = `work-task:${task.id}:${yield* crypto.randomUUIDv4()}`;
                 yield* sql`INSERT INTO work_task_starts VALUES (${number}, ${commandId}, ${task.assigneeProjectId}) ON CONFLICT(task_number) DO UPDATE SET command_id = excluded.command_id, assignee_project_id = excluded.assignee_project_id`;
               }
               return task;

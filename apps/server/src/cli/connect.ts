@@ -6,7 +6,7 @@ import {
   type RelayClientInstallProgressStage,
 } from "@elysiatools/contracts";
 import { RelayOkResponse } from "@elysiatools/contracts/relay";
-import { HostProcessPlatform } from "@elysiatools/shared/hostProcess";
+import * as HostProcess from "@elysiatools/shared/HostProcess";
 import * as RelayClient from "@elysiatools/shared/relayClient";
 import { withRelayClientTracing } from "@elysiatools/shared/relayTracing";
 import * as Cause from "effect/Cause";
@@ -689,7 +689,7 @@ export const connectCommand = Command.make("connect", {
         // show how to run the server manually.
         const background = yield* recoverServiceOnboardingOffer(offerServiceDuringOnboarding);
         if (background) {
-          const platform = yield* HostProcessPlatform;
+          const platform = yield* HostProcess.Platform;
           yield* Console.log(
             platform === "darwin"
               ? "\n✓ Background service ready\n\nElysia is set to run while you are logged in to this Mac. The server establishes the Connections link on startup."

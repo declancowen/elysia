@@ -1,8 +1,5 @@
-import {
-  ProjectId,
-  type ThreadPullRequestLink,
-  type VcsStatusResult,
-} from "@elysiatools/contracts";
+import { SourceControlProviderKind } from "@elysiatools/contracts";
+import { ProjectId, type ThreadPullRequestLink, type VcsStatusResult } from "@elysiatools/contracts";
 import { describe, expect, it } from "vite-plus/test";
 
 import {
@@ -32,7 +29,7 @@ describe("presentThreadPr", () => {
   it("uses merge-request terminology for GitLab", () => {
     expect(
       presentThreadPr(pullRequest, {
-        kind: "gitlab",
+        kind: SourceControlProviderKind.make("gitlab"),
         name: "GitLab",
         baseUrl: "https://gitlab.com",
       }),

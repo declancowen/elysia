@@ -1,12 +1,11 @@
-import { isWindowsAbsolutePath } from "@elysiatools/shared/path";
+import { isWindowsAbsolutePath, stripSlashPrefixedWindowsDrive } from "@elysiatools/shared/path";
 
 import {
   normalizeMarkdownLinkDestination,
-  parseFileUrlHref,
   safeDecodeURIComponent,
   splitMarkdownLinkSearchAndHash,
-  stripSlashPrefixedWindowsDrive,
-} from "./markdownLinks.ts";
+} from "@elysiatools/shared/markdownLinks";
+import { parseFileUrlHref } from "@elysiatools/shared/fileLinks";
 
 const DIRECT_IMAGE_SOURCE_PATTERN = /^(?:https?:|data:|blob:|\/\/)/i;
 const URI_SCHEME_PATTERN = /^[A-Za-z][A-Za-z0-9+.-]*:/;

@@ -520,6 +520,7 @@ function AgentEditor({ project }: { project: Project | null }) {
               <span className="shrink-0 text-sm font-medium text-foreground">Default model</span>
               {model ? (
                 <ProviderModelPicker
+                  environmentId={environmentId}
                   activeInstanceId={model.instanceId}
                   model={model.model}
                   lockedProvider={entries[0]?.driverKind ?? null}

@@ -24,7 +24,7 @@ describe("mobile theme runtime variables", () => {
   });
 
   it.each(MOBILE_THEME_IDS)(
-    "keeps %s colors on Android with an opaque Material frame",
+    "preserves the %s palette sidebar beneath an opaque Android frame",
     (themeId) => {
       for (const appearance of ["light", "dark"] as const) {
         const base = getMobileThemeVariables(
@@ -43,6 +43,7 @@ describe("mobile theme runtime variables", () => {
             1,
           ),
           "--color-header-foreground": base["--color-drawer-foreground"],
+          "--color-drawer": base["--color-drawer"],
         });
         expect(android["--color-header"]).toMatch(/^rgba\(\d+, \d+, \d+, 1\)$/);
       }

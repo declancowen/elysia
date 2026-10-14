@@ -1,8 +1,8 @@
 import * as Layer from "effect/Layer";
 
 import * as ClaudeAdapterV2 from "../orchestration-v2/Adapters/ClaudeAdapterV2.ts";
-import * as IdAllocator from "../orchestration-v2/IdAllocator.ts";
-import * as ProviderContinuationRequests from "../orchestration-v2/ProviderContinuationRequests.ts";
+import * as IdAllocator from "@elysiatools/provider-core/server/IdAllocator";
+import * as ProviderContinuationRequests from "@elysiatools/provider-core/server/ProviderContinuationRequests";
 
 export type ProviderOrchestrationAdapterInfrastructure =
   | ClaudeAdapterV2.ClaudeAgentSdkQueryRunner

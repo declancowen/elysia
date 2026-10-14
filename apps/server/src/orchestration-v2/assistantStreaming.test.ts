@@ -8,9 +8,9 @@ import {
 } from "@elysiatools/contracts";
 import * as DateTime from "effect/DateTime";
 import { makeAssistantStreamingFilter, splitBufferedAssistantText } from "./assistantStreaming.ts";
-import type { ProviderAdapterV2Event } from "./ProviderAdapter.ts";
+import type * as ProviderAdapter from "@elysiatools/provider-core/server/ProviderAdapter";
 
-const message = (text: string, streaming = true): ProviderAdapterV2Event => ({
+const message = (text: string, streaming = true): ProviderAdapter.ProviderAdapterV2Event => ({
   type: "message.updated",
   driver: ProviderDriverKind.make("codex"),
   message: {
@@ -33,7 +33,7 @@ const turnItem = (
   text: string,
   streaming = true,
   type: "assistant_message" | "reasoning" = "assistant_message",
-): ProviderAdapterV2Event => ({
+): ProviderAdapter.ProviderAdapterV2Event => ({
   type: "turn_item.updated",
   driver: ProviderDriverKind.make("codex"),
   turnItem: {
@@ -114,7 +114,7 @@ describe("V2 assistant streaming", () => {
     "suppresses running assistant nodes in %s mode while delivering tool and completed nodes",
     (mode) => {
       const filter = makeAssistantStreamingFilter(mode);
-      const running: Extract<ProviderAdapterV2Event, { type: "node.updated" }> = {
+      const running: Extract<ProviderAdapter.ProviderAdapterV2Event, { type: "node.updated" }> = {
         type: "node.updated",
         driver: ProviderDriverKind.make("codex"),
         node: {

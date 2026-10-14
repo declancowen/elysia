@@ -1,7 +1,11 @@
 // @effect-diagnostics nodeBuiltinImport:off - native directory junctions keep user skills available on Windows.
 import * as NodeFSP from "node:fs/promises";
 import * as NodePath from "node:path";
-import { HostProcessArchitecture, HostProcessPlatform } from "@elysiatools/shared/hostProcess";
+import {
+  Architecture as HostProcessArchitecture,
+  HomeDirectory,
+  Platform as HostProcessPlatform,
+} from "@elysiatools/shared/HostProcess";
 import { resolveSpawnCommand } from "@elysiatools/shared/shell";
 import { compareSemverVersions } from "@elysiatools/shared/semver";
 import {
@@ -17,9 +21,9 @@ import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 import * as Stream from "effect/Stream";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
-import { expandHomePath } from "../pathExpansion.ts";
-import { spawnAndCollect } from "./providerSnapshot.ts";
-import { makeProviderMaintenanceCapabilities } from "./providerMaintenance.ts";
+import { expandHomePath } from "@elysiatools/provider-core/server/pathExpansion";
+import { spawnAndCollect } from "@elysiatools/provider-core/server/snapshotProbe";
+import { makeProviderMaintenanceCapabilities } from "@elysiatools/provider-core/server/maintenanceResolver";
 import { resolveClaudeHomePath } from "./Drivers/ClaudeHome.ts";
 
 const decodeAccountUsage = Schema.decodeUnknownOption(ElysiaAccountUsageSnapshot);
@@ -568,12 +572,16 @@ export const makeElysiaCli = Effect.fn("makeElysiaCli")(function* (input: {
 }) {
   const platform = yield* HostProcessPlatform;
   const architecture = yield* HostProcessArchitecture;
+  const homeDirectory = yield* HomeDirectory;
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
   const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
   const root = path.join(input.stateDir, "providers", `elysia-${input.instanceId}`);
   const script = path.join(root, "elysia-code.py");
-  const source = expandHomePath(input.config.elysiaScriptPath || "~/.local/bin/elysia-code.py");
+  const source = expandHomePath(
+    input.config.elysiaScriptPath || "~/.local/bin/elysia-code.py",
+    homeDirectory,
+  );
   const python = input.config.elysiaPythonPath || (platform === "win32" ? "python" : "python3");
   const nativeClaudeDir = yield* resolveClaudeHomePath(input.config, input.environment);
   const environment: NodeJS.ProcessEnv = {
@@ -585,8 +593,8 @@ export const makeElysiaCli = Effect.fn("makeElysiaCli")(function* (input: {
         ? [
             path.join(root, "runtime", "node", "bin"),
             path.join(root, "runtime", "python", "bin"),
-            expandHomePath("~/.local/bin"),
-            expandHomePath("~/.local/python/bin"),
+            expandHomePath("~/.local/bin", homeDirectory),
+            expandHomePath("~/.local/python/bin", homeDirectory),
             "/Library/Frameworks/Python.framework/Versions/Current/bin",
             "/opt/homebrew/opt/node@24/bin",
             "/usr/local/opt/node@24/bin",
@@ -598,8 +606,8 @@ export const makeElysiaCli = Effect.fn("makeElysiaCli")(function* (input: {
         : []),
       ...(platform === "win32"
         ? [
-            expandHomePath("~/.local/bin"),
-            expandHomePath("~/.local/python"),
+            expandHomePath("~/.local/bin", homeDirectory),
+            expandHomePath("~/.local/python", homeDirectory),
             path.join(
               input.environment.ProgramFiles || process.env.ProgramFiles || "C:\\Program Files",
               "nodejs",

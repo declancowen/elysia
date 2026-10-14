@@ -18,7 +18,6 @@ import {
 } from "../../remoteOpen";
 import { useEnvironment } from "../../state/environments";
 import { ChevronDownIcon, FolderClosedIcon, SquareArrowOutUpRightIcon } from "~/icons";
-import { Button } from "../ui/button";
 import { Group, GroupSeparator } from "../ui/group";
 import {
   Menu,
@@ -64,6 +63,7 @@ import { useAtomCommand } from "~/state/use-atom-command";
 import {
   THREAD_DETAILS_PANEL_CHEVRON_CLASS,
   THREAD_DETAILS_PANEL_ICON_CLASS,
+  THREAD_DETAILS_PANEL_LABEL_CLASS,
   THREAD_DETAILS_PANEL_SPLIT_GROUP_CLASS,
   THREAD_DETAILS_PANEL_SPLIT_SEPARATOR_CLASS,
 } from "./threadDetailsPanelStyles";
@@ -339,7 +339,13 @@ export const OpenInPicker = memo(function OpenInPicker({
               density={presentation === "menu" ? "touch" : "default"}
               disabled={!openInCwd || !canOpenEditor}
               key={value}
-              onClick={() => openInEditor(value)}
+              onClick={() => {
+                if (presentation === "menu") {
+                  void openInEditor(value);
+                } else {
+                  setPreferredEditor(value);
+                }
+              }}
             >
               <Icon aria-hidden="true" className={getOpenInIconClass(kind)} />
               <MenuItemLabel>{label}</MenuItemLabel>
@@ -421,7 +427,7 @@ export const OpenInPicker = memo(function OpenInPicker({
             compact
               ? "sr-only"
               : "sr-only @3xl/header-actions:not-sr-only @3xl/header-actions:ml-0.5",
-            isPanel && "not-sr-only ml-0 min-w-0 truncate",
+            isPanel && cn("not-sr-only ml-0 min-w-0 truncate", THREAD_DETAILS_PANEL_LABEL_CLASS),
           )}
         >
           {primaryLabel}

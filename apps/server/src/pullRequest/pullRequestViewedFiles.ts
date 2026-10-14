@@ -16,7 +16,10 @@ import {
 } from "@elysiatools/contracts";
 
 import type * as PullRequestFilesViewed from "../persistence/PullRequestFilesViewed.ts";
-import type { ProviderFileRevisions, PullRequestProviderError } from "./PullRequestProvider.ts";
+import type {
+  ProviderFileRevisions,
+  PullRequestProviderError,
+} from "@elysiatools/source-control-core/server/PullRequestProvider";
 import type { PullRequestError, SupportedProject } from "./PullRequestService.ts";
 
 /**

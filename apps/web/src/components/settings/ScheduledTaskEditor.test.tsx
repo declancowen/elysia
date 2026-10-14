@@ -67,6 +67,8 @@ vi.mock("../../state/environments", () => ({
 }));
 vi.mock("../../state/assets", () => ({ projectFaviconUrlAtom: () => "favicon" }));
 vi.mock("../../hooks/useSettings", () => ({
+  useEnvironmentModelPreferences: () => ({ favorites: [] }),
+  useToggleEnvironmentModelFavorite: () => vi.fn(),
   useCodeWorkspace: () => false,
   useEnvironmentSettings: () => DEFAULT_SERVER_SETTINGS,
   useClientSettings: (select: (settings: typeof DEFAULT_CLIENT_SETTINGS) => unknown) =>

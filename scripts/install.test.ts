@@ -1,5 +1,5 @@
 // @effect-diagnostics nodeBuiltinImport:off - Exercises disabled installers as real commands.
-import { HostProcessExecutablePath, HostProcessPlatform } from "@elysiatools/shared/hostProcess";
+import { ExecutablePath as HostProcessExecutablePath, Platform as HostProcessPlatform } from "@elysiatools/shared/HostProcess";
 import * as NodeChildProcess from "node:child_process";
 import * as NodePath from "node:path";
 import { describe, expect, it } from "vite-plus/test";

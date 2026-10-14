@@ -71,6 +71,7 @@ import {
 } from "../agents/agentSidebarStore";
 import { useSidebarHoverPreview, type SidebarHoverSection } from "./SidebarHoverPreview";
 import { PullRequestGlyph } from "~/components/pullRequest/pullRequestIcons";
+import { observeResize } from "~/lib/observeResize";
 
 export const SidebarChromeHeader = memo(function SidebarChromeHeader({
   isElectron,
@@ -175,11 +176,9 @@ export function SidebarBrandWidthProbe({
 }) {
   const observeWidth = useCallback(
     (probe: HTMLDivElement) => {
-      const observer = new ResizeObserver(([entry]) => {
+      return observeResize(probe, ([entry]) => {
         if (entry) onWidthChange(entry.borderBoxSize[0]?.inlineSize ?? probe.offsetWidth);
       });
-      observer.observe(probe);
-      return () => observer.disconnect();
     },
     [onWidthChange],
   );
@@ -202,7 +201,7 @@ function SidebarBrand({ onBackdrop }: { onBackdrop: boolean }) {
     <Link
       aria-label="Go to threads"
       className={cn(
-        "relative z-10 h-7 w-fit shrink-0 items-center rounded-md outline-hidden ring-ring focus-visible:ring-2",
+        "relative z-10 h-7 w-fit shrink-0 items-center rounded-md outline-hidden ring-ring focus-visible:ring-2 focus-visible:ring-inset",
         SINGLE_PROVIDER_UI ? "flex" : "hidden md:@[10rem]/sidebar-brand:flex",
         onBackdrop ? "text-white" : "text-foreground",
       )}

@@ -326,6 +326,28 @@ it("does not invent an account budget when the CLI cannot return account totals"
   expect(text).not.toContain("$200");
   expect(displayedValues()).toContain("$12.00");
 });
+it("shows readable native model names while retaining their separate costs", async () => {
+  const summary = await state.usage();
+  state.usage.mockResolvedValue({
+    ...summary,
+    buckets: [
+      { ...summary.buckets[0]!, model: "us.anthropic.claude-sonnet-5" },
+      {
+        ...summary.buckets[0]!,
+        model: "us.anthropic.claude-haiku-4-5-20251001-v1:0",
+        costUsd: 3,
+      },
+    ],
+  });
+  await mount();
+  const text = JSON.stringify(renderer!.toJSON());
+  expect(text).toContain("Claude Sonnet 5");
+  expect(text).toContain("Claude Haiku 4.5");
+  expect(text).toContain("$12.00");
+  expect(text).toContain("$3.00");
+  expect(text).toContain("$15.00");
+});
+
 it("shows accurate zero account spend", async () => {
   state.account.mockResolvedValue({
     status: "available",

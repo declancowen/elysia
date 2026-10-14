@@ -2,11 +2,14 @@ import { SINGLE_PROVIDER_UI } from "@elysiatools/contracts";
 import {
   ANTIGRAVITY_DEFAULT_MODEL,
   type ProviderInstanceId,
+  type EnvironmentId,
   type ProviderDriverKind,
   type ResolvedKeybindingsConfig,
 } from "@elysiatools/contracts";
 import { resolveSelectableModel } from "@elysiatools/shared/model";
 import { useAtomValue } from "@effect/atom-react";
+import { formatProviderUpdateRequiredNotice } from "@elysiatools/client-runtime/providerUpdateRequiredModels";
+import { useNavigate } from "@tanstack/react-router";
 import { LegendList, type LegendListRef } from "@legendapp/list/react";
 import { memo, useMemo, useState, useCallback, useEffect, useLayoutEffect, useRef } from "react";
 import { ChevronRightIcon } from "~/icons";
@@ -36,7 +39,10 @@ import {
   resolveShortcutCommand,
   shortcutLabelForCommand,
 } from "../../keybindings";
-import { useClientSettings, useUpdateClientSettings } from "~/hooks/useSettings";
+import {
+  useEnvironmentModelPreferences,
+  useToggleEnvironmentModelFavorite,
+} from "~/hooks/useSettings";
 import { cn } from "~/lib/utils";
 import { getVirtualizedScrollFadeClassName } from "../ui/scroll-area";
 import { TooltipProvider } from "../ui/tooltip";
@@ -152,6 +158,7 @@ function ModelListSeparator() {
 }
 
 export const ModelPickerContent = memo(function ModelPickerContent(props: {
+  environmentId: EnvironmentId | null;
   /** The instance currently selected in the composer (combobox "value"). */
   activeInstanceId: ProviderInstanceId;
   model: string;
@@ -201,7 +208,7 @@ export const ModelPickerContent = memo(function ModelPickerContent(props: {
   const modelListRef = useRef<LegendListRef | null>(null);
   const pickerContentRef = useRef<HTMLDivElement>(null);
   const highlightedModelKeyRef = useRef<string | null>(null);
-  const favorites = useClientSettings((s) => s.favorites ?? []);
+  const { favorites } = useEnvironmentModelPreferences(props.environmentId);
   const activeEntry = props.instanceEntries.find(
     (entry) => entry.instanceId === props.activeInstanceId,
   );
@@ -276,7 +283,8 @@ export const ModelPickerContent = memo(function ModelPickerContent(props: {
   );
   const serverKeybindings = useAtomValue(primaryServerKeybindingsAtom);
   const keybindings = providedKeybindings ?? serverKeybindings;
-  const updateSettings = useUpdateClientSettings();
+  const navigate = useNavigate();
+  const toggleFavorite = useToggleEnvironmentModelFavorite(props.environmentId);
 
   const focusSearchInput = useCallback(() => {
     searchInputRef.current?.focus({ preventScroll: true });
@@ -593,6 +601,21 @@ export const ModelPickerContent = memo(function ModelPickerContent(props: {
         )
       : [];
 
+  // Models the manifest announces that this provider's installed CLI is too
+  // old to run. Without this, a new model just seems missing until the user
+  // happens to update the CLI.
+  // A search spans every instance, so it can explain gated matches from any of them.
+  const updateRequiredNotices = (
+    isSearching
+      ? instanceEntries.filter(matchesLockedProvider)
+      : selectedEntry
+        ? [selectedEntry]
+        : []
+  ).flatMap((entry) => {
+    const notice = formatProviderUpdateRequiredNotice(entry.snapshot, searchQuery);
+    return notice ? [{ instanceId: entry.instanceId, notice }] : [];
+  });
+
   const toggleLegacySection = useCallback((instanceId: ProviderInstanceId) => {
     setExpandedLegacyInstances((expanded) => {
       const next = new Set(expanded);
@@ -637,20 +660,6 @@ export const ModelPickerContent = memo(function ModelPickerContent(props: {
       onInstanceModelChange,
       onToggleModel,
     ],
-  );
-
-  const toggleFavorite = useCallback(
-    (instanceId: ProviderInstanceId, model: string) => {
-      const newFavorites = [...favorites];
-      const index = newFavorites.findIndex((f) => f.provider === instanceId && f.model === model);
-      if (index >= 0) {
-        newFavorites.splice(index, 1);
-      } else {
-        newFavorites.push({ provider: instanceId, model });
-      }
-      updateSettings({ favorites: newFavorites });
-    },
-    [favorites, updateSettings],
   );
 
   const modelJumpCommandByKey = useMemo(() => {
@@ -1097,6 +1106,22 @@ export const ModelPickerContent = memo(function ModelPickerContent(props: {
             ) : (
               <ComboboxEmpty className="empty:h-0">No models found</ComboboxEmpty>
             )}
+            {updateRequiredNotices.map(({ instanceId, notice }) => (
+              <p
+                key={instanceId}
+                className="shrink-0 border-t border-border/70 px-3 py-2 text-xs leading-snug text-muted-foreground"
+              >
+                {notice}{" "}
+                <InlineButton
+                  onClick={() => {
+                    props.onRequestClose?.();
+                    void navigate({ to: "/settings/providers" });
+                  }}
+                >
+                  Provider settings
+                </InlineButton>
+              </p>
+            ))}
           </div>
         </Combobox>
       </div>

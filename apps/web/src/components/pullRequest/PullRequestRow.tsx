@@ -2,6 +2,8 @@ import { useConversationTabsStore } from "../../conversationTabsStore";
 import { useConversationRowClick } from "../../hooks/useConversationRowClick";
 import { SINGLE_PROVIDER_UI } from "@elysiatools/contracts";
 import { SearchIcon } from "~/icons";
+import type { PullRequestAction } from "@elysiatools/contracts";
+import { sourceControlClients } from "@elysiatools/client-runtime/source-control-clients";
 import { PullRequestStackPopover } from "./PullRequestStackPopover";
 import {
   PullRequestSpeedActions,
@@ -93,6 +95,7 @@ function PullRequestRowImpl({
   statsRef,
   onSelect,
   speedMode,
+  hostActions,
   onActed,
   closing = false,
   sweeping = false,
@@ -115,6 +118,8 @@ function PullRequestRowImpl({
   statsRef?: RefCallback<HTMLDivElement>;
   onSelect: (entry: PullRequestRowTarget, newTab?: boolean) => void;
   speedMode: boolean;
+  /** What this row's host can do, which is what speed mode offers. */
+  hostActions: ReadonlySet<PullRequestAction>;
   onActed: (result: PullRequestSpeedActionResult) => void;
   closing?: boolean;
   sweeping?: boolean;
@@ -155,7 +160,7 @@ function PullRequestRowImpl({
           void showPullRequestLinkContextMenu({
             url: entry.url,
             ...(openInNewTab ? { onOpenInNewTab: openInNewTab } : {}),
-            openLabel: openOnHostLabel(entry.provider),
+            openLabel: openOnHostLabel(sourceControlClients.get(entry.provider)),
             position: { x: event.clientX, y: event.clientY },
           });
         }}
@@ -163,7 +168,7 @@ function PullRequestRowImpl({
           PULL_REQUEST_ROW_CLASS,
           PAGE_ROW_CLASS,
           SINGLE_PROVIDER_UI && "px-2.5",
-          "min-w-0 flex-1 cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
+          "min-w-0 flex-1 cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-ring",
         )}
       >
         <PullRequestRowGlyph
@@ -186,7 +191,7 @@ function PullRequestRowImpl({
                 void showPullRequestLinkContextMenu({
                   url: entry.url,
                   ...(openInNewTab ? { onOpenInNewTab: openInNewTab } : {}),
-                  openLabel: openOnHostLabel(entry.provider),
+                  openLabel: openOnHostLabel(sourceControlClients.get(entry.provider)),
                   position: { x: event.clientX, y: event.clientY },
                 });
               }}
@@ -283,9 +288,10 @@ function PullRequestRowImpl({
           updatedAt={entry.updatedAt}
         />
       </button>
-      {entry.state !== "merged" && entry.provider === "github" ? (
+      {hostActions.size > 0 ? (
         <PullRequestSpeedActions
           entry={entry}
+          hostActions={hostActions}
           visible={speedMode}
           onActed={onActed}
           closing={closing}

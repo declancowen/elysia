@@ -86,6 +86,7 @@ import {
   pullRequestOverrideAfterAction,
   reusePullRequestEntries,
   settlePullRequestOverrides,
+  pullRequestHostActions,
 } from "../components/pullRequest/pullRequestList.logic";
 import {
   pullRequestListPreferences,
@@ -127,7 +128,10 @@ import { isCommandPaletteOpen } from "../commandPaletteBus";
 import { isElectron } from "../env";
 import { resolveShortcutCommand, shortcutLabelForCommand } from "../keybindings";
 import { isTerminalFocused } from "../lib/terminalFocus";
-import { PanelLayoutControls } from "../components/chat/PanelLayoutControls";
+import {
+  PanelLayoutControls,
+  RightPanelMaximizeControl,
+} from "../components/chat/PanelLayoutControls";
 import { Button } from "../components/ui/button";
 import { SidebarInset, useSidebar } from "../components/ui/sidebar";
 import { useLiveRefresh } from "../hooks/useLiveRefresh";
@@ -274,7 +278,9 @@ export const Route = createFileRoute("/_chat/pull-requests")({
     ...(typeof raw.selectedEnvironmentId === "string" && raw.selectedEnvironmentId
       ? { selectedEnvironmentId: raw.selectedEnvironmentId as EnvironmentId }
       : {}),
-    ...(typeof raw.q === "string" && raw.q ? { q: raw.q.slice(0, 200) } : {}),
+    // Always an own key: the router lays this result over the parent route's unvalidated
+    // search, so leaving out a `q` the URL parser made a number would let the number through.
+    q: typeof raw.q === "string" && raw.q ? raw.q.slice(0, 200) : undefined,
     ...(raw.draft === "only" || raw.draft === "hide" ? { draft: raw.draft } : {}),
     ...(raw.review === "approved" ||
     raw.review === "changes-requested" ||
@@ -1544,6 +1550,22 @@ function PullRequestsRouteView() {
   ]);
   /** What is actually on screen once the reader's pending answers are on the rows. */
   const shownCount = displayGroups.reduce((count, group) => count + group.entries.length, 0);
+  // The provider list is the workspace's hosts, not the filtered ones, so switching to a host
+  // cannot make the switcher that got you there disappear.
+  const [hosts, setHosts] = useState<PullRequestListResult["providers"]>([]);
+  useEffect(() => {
+    // Only from an answer to these filters. Rows carried over from the previous ones bring the
+    // host summaries of the question they answered, and coming back from one host to all of them
+    // would take the switcher's other hosts out of it on the strength of the narrowed answer.
+    if (answered === null) return;
+    // An unfiltered response is the full set of hosts. A filtered one only seeds the switcher
+    // when there is nothing to seed it with, which is a link that arrived already scoped.
+    setHosts((previous) =>
+      search.host === undefined || previous.length === 0 ? answered.providers : previous,
+    );
+  }, [answered, search.host]);
+  const showProvider = hosts.length > 1;
+  const hostActionsOf = useMemo(() => pullRequestHostActions(hosts), [hosts]);
   const [closeSweepKeys, setCloseSweepKeys] = useState<ReadonlySet<string>>(() => new Set());
   const closeSensorRef = useRef<SidebarPointerSensor | null>(null);
   const closeSweepRows = useMemo(
@@ -1557,8 +1579,14 @@ function PullRequestsRouteView() {
       ),
     [displayGroups],
   );
-  const closeSweepRef = useRef({ displayGroups, closeSweepRows, closingKeys, closeBatch });
-  closeSweepRef.current = { displayGroups, closeSweepRows, closingKeys, closeBatch };
+  const closeSweepRef = useRef({
+    displayGroups,
+    closeSweepRows,
+    closingKeys,
+    closeBatch,
+    hostActionsOf,
+  });
+  closeSweepRef.current = { displayGroups, closeSweepRows, closingKeys, closeBatch, hostActionsOf };
   useEffect(() => () => closeSensorRef.current?.cancel(), [filterKey, search.q, sort]);
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -1584,7 +1612,7 @@ function PullRequestsRouteView() {
       return (
         row?.groupKey === group.key &&
         row.entry.state === "open" &&
-        row.entry.provider === "github" &&
+        closeSweepRef.current.hostActionsOf(row.entry).has("close") &&
         !closeSweepRef.current.closingKeys.has(key) &&
         !scrollRef.current?.querySelector(
           `[data-pull-request-key="${CSS.escape(key)}"] [data-pull-request-action-pending="true"]`,
@@ -1668,6 +1696,17 @@ function PullRequestsRouteView() {
     [search.number, search.repository, selectedProject, selectedHost],
   );
   const rightPanelAvailable = selectedPullRequestSurface !== null;
+  // Maximized like the thread view's panel, with the list collapsing out of the way. Opening a
+  // guide maximizes the panel for its wider layout; only the reader's own toggle restores it, so
+  // switching tabs never resizes the page under them.
+  const [maximized, setMaximized] = useState(false);
+  const rightPanelMaximized = rightPanelState.isOpen && maximized;
+  // A closed panel reopens at its own size, as the thread view's does.
+  if (!rightPanelState.isOpen && maximized) setMaximized(false);
+  const toggleRightPanelMaximized = () => {
+    if (rightPanelState.isOpen) setMaximized((value) => !value);
+  };
+  const onGuideShown = useCallback(() => setMaximized(true), []);
   useEffect(() => {
     if (!pullRequestsSupported || rightPanelRef === null || linkedSelection === null) return;
     useRightPanelStore.getState().openPullRequest(rightPanelRef, linkedSelection);
@@ -1731,21 +1770,6 @@ function PullRequestsRouteView() {
     selectSurfaceInUrl(selectedPullRequestSurface);
   };
 
-  // The provider list is the workspace's hosts, not the filtered ones, so switching to a host
-  // cannot make the switcher that got you there disappear.
-  const [hosts, setHosts] = useState<PullRequestListResult["providers"]>([]);
-  useEffect(() => {
-    // Only from an answer to these filters. Rows carried over from the previous ones bring the
-    // host summaries of the question they answered, and coming back from one host to all of them
-    // would take the switcher's other hosts out of it on the strength of the narrowed answer.
-    if (answered === null) return;
-    // An unfiltered response is the full set of hosts. A filtered one only seeds the switcher
-    // when there is nothing to seed it with, which is a link that arrived already scoped.
-    setHosts((previous) =>
-      search.host === undefined || previous.length === 0 ? answered.providers : previous,
-    );
-  }, [answered, search.host]);
-  const showProvider = hosts.length > 1;
   // The workspace's own projects already name their hosts, so the row's shape is known before
   // the list is. Only its shape: which hosts can actually be read still comes from the server.
   const expectedHosts = useMemo(() => {
@@ -1825,6 +1849,12 @@ function PullRequestsRouteView() {
       className="absolute top-[var(--workspace-controls-top)] right-[var(--workspace-controls-right)] z-50 mr-px flex h-[var(--workspace-topbar-height)] items-center gap-1 [-webkit-app-region:no-drag]"
       data-workspace-titlebar-controls
     >
+      {rightPanelState.isOpen ? (
+        <RightPanelMaximizeControl
+          maximized={rightPanelMaximized}
+          onToggle={toggleRightPanelMaximized}
+        />
+      ) : null}
       {panelToggleControls}
     </div>
   );
@@ -1905,6 +1935,7 @@ function PullRequestsRouteView() {
                     }
                     onSelect={selectEntry}
                     speedMode={speedMode}
+                    hostActions={hostActionsOf(entry)}
                     onActed={onSpeedAction}
                     closing={closingKeys.has(entryKey)}
                     sweeping={closeSweepKeys.has(entryKey)}
@@ -2083,6 +2114,7 @@ function PullRequestsRouteView() {
         )
       ) : null,
     rightPanelOpen: rightPanelState.isOpen,
+    maximizedAway: rightPanelMaximized,
     listBody,
     scrollRef,
   };
@@ -2161,6 +2193,12 @@ function PullRequestsRouteView() {
     event.stopPropagation();
     if (!event.repeat) toggleRightPanel();
   });
+  const toggleRightPanelMaximizedFromShortcut = useEffectEvent((event: KeyboardEvent) => {
+    if (!rightPanelState.isOpen) return;
+    event.preventDefault();
+    event.stopPropagation();
+    if (!event.repeat) toggleRightPanelMaximized();
+  });
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.defaultPrevented || isCommandPaletteOpen()) return;
@@ -2169,6 +2207,7 @@ function PullRequestsRouteView() {
       });
       if (command === "rightPanel.close") closeActiveSurfaceFromShortcut(event);
       if (command === "rightPanel.toggle") toggleRightPanelFromShortcut(event);
+      if (command === "rightPanel.toggleMaximized") toggleRightPanelMaximizedFromShortcut(event);
       if (command === "thread.copyReference") copyPullRequestFromShortcut(event);
     };
     // Let panel shortcuts consume Escape before page navigation at window.
@@ -2205,6 +2244,7 @@ function PullRequestsRouteView() {
             mode={SINGLE_PROVIDER_UI ? "sidebar" : "inline"}
             {...(SINGLE_PROVIDER_UI ? { maximized: true, hideTabBar: true } : {})}
             open={rightPanelState.isOpen}
+            maximized={rightPanelMaximized}
             keybindings={keybindings}
             getShortcutContext={getShortcutContext}
             widthStorageKey="elysia:pull-request-panel-width"
@@ -2232,6 +2272,10 @@ function PullRequestsRouteView() {
               if (surface.kind === "pull-request") closeSurfacesToRight(surface);
             }}
             onCloseAllSurfaces={closeAllSurfaces}
+            onMoveSurface={(surfaceId, toIndex) => {
+              if (rightPanelRef !== null)
+                useRightPanelStore.getState().moveSurface(rightPanelRef, surfaceId, toIndex);
+            }}
             onCopyFilePath={() => undefined}
             onAddBrowser={() => undefined}
             onAddBrowserInProfile={() => undefined}
@@ -2258,6 +2302,7 @@ function PullRequestsRouteView() {
               shortcutsEnabled={activePullRequestSurface?.id === renderedPullRequestSurface.id}
               key={renderedPullRequestSurface.id}
               environmentId={panelEnvironmentId}
+              onGuideShown={onGuideShown}
               onSelectPullRequest={(reference) => {
                 if (rightPanelRef === null) return;
                 useRightPanelStore.getState().openPullRequest(rightPanelRef, {
@@ -2427,6 +2472,7 @@ function PullRequestsColumn({
   rightPanelControl,
   titlebarControls,
   rightPanelOpen,
+  maximizedAway,
   listBody,
   scrollRef,
 }: {
@@ -2446,6 +2492,8 @@ function PullRequestsColumn({
   rightPanelControl: ReactNode;
   titlebarControls: ReactNode;
   rightPanelOpen: boolean;
+  /** The panel beside the list is maximized, so the list gives up its width. */
+  maximizedAway: boolean;
   listBody: ReactNode;
   scrollRef: RefObject<HTMLDivElement | null>;
 }) {
@@ -2539,7 +2587,8 @@ function PullRequestsColumn({
     // content surface that lets it show reads as a different background than every thread.
     <div
       className={cn(
-        "@container/pr-list flex min-h-0 min-w-0 flex-1 flex-col bg-background",
+        "@container/pr-list flex min-h-0 min-w-0 flex-col bg-background",
+        maximizedAway ? "w-0 flex-none" : "flex-1",
         SINGLE_PROVIDER_UI && "overflow-hidden md:rounded-xl",
       )}
     >

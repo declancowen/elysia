@@ -137,7 +137,7 @@ jobs:
             apps/server/src/provider/ElysiaNativeSessions.test.ts \
             apps/server/src/elysiaConnections.test.ts \
             apps/server/src/provider/ProviderCredentialStore.test.ts \
-            apps/server/src/provider/ProviderAuthFlow.test.ts \
+            packages/provider-core/src/server/providerAuthFlow.test.ts \
             apps/server/src/provider/ElysiaStats.test.ts \
             apps/server/src/auth/RpcAuthorization.test.ts \
             apps/server/src/mcp/toolkits/repository/handlers.test.ts \
@@ -236,7 +236,7 @@ jobs:
             apps/server/src/orchestration-v2/legacy/LegacyV1ThreadImporter.test.ts \
             apps/server/src/persistence/reconcileV2PreviewMigration.test.ts \
             apps/server/src/provider/ElysiaAgentProtection.test.ts \
-            apps/server/src/provider/RuntimeInstructions.test.ts \
+            packages/provider-core/src/server/runtimeInstructions.test.ts \
             apps/server/src/orchestration-v2/Adapters/ElysiaAdapterV2.test.ts \
             apps/server/src/orchestration-v2/CheckpointCaptureService.test.ts \
             apps/server/src/orchestration-v2/CheckpointRollbackService.test.ts \

@@ -57,7 +57,7 @@ describe("generate mobile Uniwind themes", () => {
     expect(variables.light).toEqual(readDefaultMobileThemeVariables("light"));
     expect(variables.dark).toEqual(readDefaultMobileThemeVariables("dark"));
     expect(variables.light["--color-screen"]).toBe("#FFFFFF");
-    expect(variables.light["--color-drawer"]).toBe("#F4F8FC");
+    expect(variables.light["--color-drawer"]).toBe("#FAFBFC");
     expect(variables.dark["--color-screen"]).toBe("#002244");
     expect(variables.dark["--color-drawer"]).toBe("#062D52");
     expect(Object.keys(variables.light)).toEqual(Object.keys(variables.dark));
@@ -87,7 +87,7 @@ describe("generate mobile Uniwind themes", () => {
         ),
         name,
       ).toEqual({
-        "--color-clerk-page": isDark ? "#002244" : "#f4faff",
+        "--color-clerk-page": isDark ? "#002244" : "#ffffff",
         "--color-clerk-foreground": isDark ? "#ffffff" : "#002244",
         "--color-clerk-foreground-muted": isDark ? "#9ac9e3" : "#47657d",
         "--color-clerk-border": isDark ? "#315578" : "#bfd5e5",

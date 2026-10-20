@@ -1,12 +1,14 @@
 import {
   AuthOrchestrationOperateScope,
   DEFAULT_SERVER_SETTINGS,
+  EnvironmentId,
   MessageId,
   ProjectId,
   ProviderDriverKind,
   ProviderInstanceId,
   RunId,
   RuntimeRequestId,
+  ThreadId,
   TurnItemId,
   type ModelSelection,
   type OrchestrationV2ThreadProjection,
@@ -18,6 +20,14 @@ import {
 } from "../../../../packages/client-runtime/src/state/orchestrationV2TestFixtures";
 import type { DraftComposerImageAttachment } from "../lib/composerImages";
 import type { PendingThreadRequests } from "@elysiatools/client-runtime/state/thread-requests";
+import {
+  scopeProject,
+  type EnvironmentProject,
+  type EnvironmentThreadShell,
+} from "@elysiatools/client-runtime/state/shell";
+import { formatAgentMention } from "@elysiatools/shared/agentMentions";
+import * as Cause from "effect/Cause";
+import { makeThreadShellFixture } from "../test-fixtures";
 import { AsyncResult, type Atom } from "effect/reactivity";
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
@@ -28,6 +38,13 @@ vi.mock("@elysiatools/contracts", async (original) => ({
 }));
 
 const state = vi.hoisted(() => ({
+  projects: [] as ReadonlyArray<EnvironmentProject>,
+  threadShells: [] as ReadonlyArray<EnvironmentThreadShell>,
+  prepare: vi.fn<typeof import("../lib/attachmentUpload").prepareTurnAttachments>(),
+  delegate: vi.fn(),
+  connectionError: vi.fn(),
+  liveRetentions: 0,
+  releasedRetentions: 0,
   grantedEnvironments: new Set<string>(),
   connectionState: "connected",
   draft: {
@@ -74,7 +91,10 @@ vi.mock("react", () => ({
   ],
 }));
 vi.mock("expo-crypto", () => ({ randomUUID: () => "uuid" }));
-vi.mock("../lib/attachmentUpload", () => ({ prepareTurnAttachments: vi.fn() }));
+vi.mock("../lib/attachmentUpload", () => ({
+  prepareTurnAttachments: state.prepare,
+  validateDraftFileAttachments: () => null,
+}));
 vi.mock("../lib/uuid", () => ({ uuidv4: () => "uuid" }));
 vi.mock("./queued-run-edit", () => ({
   useQueuedRunEdit: () => null,
@@ -90,11 +110,11 @@ vi.mock("@effect/atom-react", async () => {
   return { useAtomValue: <A>(atom: Atom.Atom<A>) => appAtomRegistry.get(atom) };
 });
 vi.mock("./entities", () => ({
-  useProjects: () => [],
-  useThreadShells: () => [],
+  useProjects: () => state.projects,
+  useThreadShells: () => state.threadShells,
   useServerConfigs: () => new Map(),
 }));
-vi.mock("./projects", () => ({ projectEnvironment: { delegateAgent: vi.fn() } }));
+vi.mock("./projects", () => ({ projectEnvironment: { delegateAgent: state.delegate } }));
 vi.mock("./session", () => ({
   readEnvironmentScope: (environmentId: string, scope: string) =>
     scope === AuthOrchestrationOperateScope && state.grantedEnvironments.has(environmentId),
@@ -148,6 +168,16 @@ vi.mock("./use-composer-drafts", async () => {
     composerContextImportsAtom: Atom.make({}),
     getComposerDraftSnapshot: () => state.draft,
     clearComposerDraftContent: state.clearDraft,
+    retainComposerDraftAttachments: () => {
+      state.liveRetentions += 1;
+      return {
+        update: vi.fn(),
+        release: () => {
+          state.liveRetentions -= 1;
+          state.releasedRetentions += 1;
+        },
+      };
+    },
     clearComposerDraft: state.clearDraft,
     setComposerDraftText: (_key: string, text: string) => {
       state.draft.text = text;
@@ -178,7 +208,9 @@ vi.mock("../lib/commandMetadata", () => ({
   }),
 }));
 vi.mock("../lib/copyTextWithHaptic", () => ({ copyTextWithHaptic: vi.fn() }));
-vi.mock("./use-remote-environment-registry", () => ({ setPendingConnectionError: vi.fn() }));
+vi.mock("./use-remote-environment-registry", () => ({
+  setPendingConnectionError: state.connectionError,
+}));
 
 import { useThreadComposerState } from "../features/threads/use-thread-composer-state";
 import { useSelectedThreadRequests } from "./use-selected-thread-requests";
@@ -204,6 +236,17 @@ beforeEach(() => {
     userInputs: [],
   };
   vi.clearAllMocks();
+  state.projects = [];
+  state.threadShells = [];
+  state.liveRetentions = 0;
+  state.releasedRetentions = 0;
+  state.prepare.mockReset().mockResolvedValue({
+    status: "ready",
+    attachments: [],
+    draftAttachments: [],
+    pendingAttachmentIds: [],
+  });
+  state.delegate.mockReset().mockResolvedValue(AsyncResult.success(undefined));
   state.approve.mockResolvedValue(AsyncResult.success(undefined));
   state.answer.mockResolvedValue(AsyncResult.success(undefined));
   state.feedback.mockResolvedValue(AsyncResult.success({ feedbackId: "feedback" }));
@@ -407,4 +450,94 @@ describe("mobile handoff preview and submission", () => {
     );
     expect(state.clearDraft).toHaveBeenCalledTimes(1);
   });
+});
+
+describe("mobile agent handoff attachment ownership", () => {
+  function agentComposer() {
+    const environmentId = EnvironmentId.make(state.thread.environmentId);
+    const agent = scopeProject(environmentId, {
+      id: ProjectId.make("friday"),
+      title: "Friday",
+      workspaceRoot: "/agents/friday",
+      repositoryIdentity: null,
+      defaultModelSelection: null,
+      scripts: [],
+      createdAt: "2026-10-01T00:00:00.000Z",
+      updatedAt: "2026-10-01T00:00:00.000Z",
+      agentProfile: {
+        instructions: "Help",
+        avatar: { preset: "brain", color: "#28B4FF" },
+        notificationsEnabled: true,
+        archived: false,
+        conversationThreadId: ThreadId.make("friday-chat"),
+      },
+    });
+    state.projects = [agent];
+    state.threadShells = [
+      makeThreadShellFixture({
+        environmentId,
+        id: ThreadId.make(state.thread.id),
+        projectId: ProjectId.make(state.thread.projectId),
+      }),
+      makeThreadShellFixture({
+        environmentId,
+        id: agent.agentProfile!.conversationThreadId!,
+        projectId: agent.id,
+      }),
+    ];
+    state.grantedEnvironments.add(environmentId);
+    state.draft.text = `${formatAgentMention(agent.id, agent.title)} investigate`;
+    return useThreadComposerState();
+  }
+
+  it("releases retained attachments before clearing an accepted handoff draft", async () => {
+    const composer = agentComposer();
+    state.clearDraft.mockImplementationOnce(() => expect(state.liveRetentions).toBe(0));
+    state.delegate.mockImplementation(async () => {
+      expect(state.liveRetentions).toBe(1);
+      expect(state.clearDraft).not.toHaveBeenCalled();
+      return AsyncResult.success(undefined);
+    });
+
+    expect(await composer.onSendMessage()).toBe("message");
+
+    expect(state.delegate).toHaveBeenCalledOnce();
+    expect(state.liveRetentions).toBe(0);
+    expect(state.releasedRetentions).toBe(1);
+    expect(state.clearDraft).toHaveBeenCalledOnce();
+    expect(state.connectionError).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["upload cancellation", "Attachment upload cancelled. Your draft has been kept."],
+    ["upload rejection", "Upload failed"],
+    ["delegation failure", "Agent unavailable"],
+    ["delegation rejection", "Connection lost"],
+  ] as const)(
+    "keeps the draft and releases its retention after %s, allowing retry",
+    async (failure, error) => {
+      const composer = agentComposer();
+      const draft = state.draft.text;
+      if (failure === "upload cancellation")
+        state.prepare.mockResolvedValueOnce({ status: "abandoned" });
+      if (failure === "upload rejection") state.prepare.mockRejectedValueOnce(new Error(error));
+      if (failure === "delegation failure")
+        state.delegate.mockResolvedValueOnce(AsyncResult.failure(Cause.fail(new Error(error))));
+      if (failure === "delegation rejection")
+        state.delegate.mockRejectedValueOnce(new Error(error));
+
+      expect(await composer.onSendMessage()).toBeNull();
+
+      expect(state.liveRetentions).toBe(0);
+      expect(state.releasedRetentions).toBe(1);
+      expect(state.draft.text).toBe(draft);
+      expect(state.clearDraft).not.toHaveBeenCalled();
+      expect(state.connectionError).toHaveBeenCalledWith(error);
+
+      expect(await composer.onSendMessage()).toBe("message");
+      expect(state.liveRetentions).toBe(0);
+      expect(state.releasedRetentions).toBe(2);
+      expect(state.clearDraft).toHaveBeenCalledOnce();
+    },
+  );
 });

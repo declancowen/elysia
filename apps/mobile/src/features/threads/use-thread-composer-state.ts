@@ -728,7 +728,7 @@ export function useThreadComposerState() {
           clearAcceptedDraft: () => clearComposerDraftContent(threadKey),
           deliver: async (ids) => {
             const retained = retainComposerDraftAttachments(attachments);
-            try {
+            const delivered = await settlePromise(async () => {
               const prepared = await prepareTurnAttachments({
                 environmentId: selectedThreadShell.environmentId,
                 attachments,
@@ -765,9 +765,8 @@ export function useThreadComposerState() {
                 });
                 if (result._tag === "Failure") throw squashAtomCommandFailure(result);
               }
-            } finally {
-              retained.release();
-            }
+            }).finally(() => retained.release());
+            if (delivered._tag === "Failure") throw squashAtomCommandFailure(delivered);
           },
         });
       } catch (error) {

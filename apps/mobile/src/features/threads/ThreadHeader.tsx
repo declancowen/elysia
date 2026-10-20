@@ -74,6 +74,7 @@ export function ThreadHeader(
     props.hasThreadCwd,
     props.hasWorkspaceRoot,
     props.gitControls.canOpenTerminal,
+    props.gitControls.showGitControls,
   ]);
 
   return (

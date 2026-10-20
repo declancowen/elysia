@@ -1,5 +1,5 @@
 import type { VcsStatusResult } from "@elysiatools/contracts";
-import { act } from "react";
+import { act, type ComponentProps } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 
@@ -37,19 +37,30 @@ vi.mock("../../components/ui/AppBar", async () => {
   const { NativeStackScreenOptions } = await import("../../native/StackHeader");
   return {
     AppBar: (props: import("../../components/ui/AppBar.types").AppBarProps) => (
-      <NativeStackScreenOptions options={props.options} optionsVersion={props.optionsVersion} />
+      <>
+        <NativeStackScreenOptions options={props.options} optionsVersion={props.optionsVersion} />
+        {props.actions?.map((action) => (
+          <button key={action.accessibilityLabel} onClick={action.onPress}>
+            {action.accessibilityLabel}
+          </button>
+        ))}
+      </>
     ),
   };
 });
 vi.mock("react-native", () => ({ Alert: { alert: () => {} }, Linking: {}, Platform: {} }));
-vi.mock("../layout/AdaptiveWorkspaceLayout", () => ({
-  useAdaptiveWorkspaceLayout: () => ({
-    layout: { usesSplitView: false },
-    panes: { primarySidebarVisible: false, auxiliaryPaneVisible: false },
-    togglePrimarySidebar: () => {},
-    toggleAuxiliaryPane: () => {},
-  }),
-}));
+vi.mock("../layout/AdaptiveWorkspaceLayout", () => {
+  const togglePrimarySidebar = () => {};
+  const toggleAuxiliaryPane = () => {};
+  return {
+    useAdaptiveWorkspaceLayout: () => ({
+      layout: { usesSplitView: false },
+      panes: { primarySidebarVisible: false, auxiliaryPaneVisible: false },
+      togglePrimarySidebar,
+      toggleAuxiliaryPane,
+    }),
+  };
+});
 vi.mock("../layout/native-mail-search-toolbar", () => ({
   NATIVE_MAIL_SEARCH_TOOLBAR_SUPPORTED: true,
   createNativeMailSearchToolbarItem: () => ({}),
@@ -137,22 +148,77 @@ function renderedGitStatusDescription(): unknown {
 }
 
 let root: Root | null = null;
+let container: HTMLDivElement | null = null;
 
 function render(element: React.ReactElement) {
   (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
-  root ??= createRoot(document.createElement("div"));
+  if (!root) {
+    container = document.createElement("div");
+    document.body.append(container);
+    root = createRoot(container);
+  }
   act(() => root!.render(element));
 }
 
 afterEach(() => {
   act(() => root?.unmount());
   root = null;
+  container?.remove();
+  container = null;
   harness.setOptionsCalls = 0;
   harness.renderedRightItems = [];
   harness.navigatedRoutes = [];
 });
 
 describe("ThreadHeader", () => {
+  it("updates Android Git visibility without replacing the action handlers", () => {
+    const onOpenGitInspector = vi.fn();
+    const props: ComponentProps<typeof ThreadHeader> = {
+      title: "Thread",
+      subtitle: "",
+      headerColor: "#000",
+      usesNativeHeaderGlass: true,
+      gitControls: {
+        environmentId: "environment-1",
+        threadId: "thread-1",
+        currentBranch: "master",
+        gitStatus: null,
+        gitOperationLabel: null,
+        onPull: async () => {},
+        onRunAction: async () => null,
+        canOpenTerminal: true,
+        canOperateTerminal: true,
+        canOpenFiles: true,
+        projectScripts,
+        terminalSessions: [],
+        onOpenTerminal: () => {},
+        onOpenNewTerminal: () => {},
+        onRunProjectScript: async () => {},
+      },
+      hasThreadCwd: true,
+      hasWorkspaceRoot: true,
+      fileInspectorSupported: false,
+      inspectorMode: null,
+      onToggleInspector: () => {},
+      onOpenGitInspector,
+      onOpenFilesInspector: () => {},
+    };
+    const header = (showGitControls: boolean) => (
+      <ThreadHeader {...props} gitControls={{ ...props.gitControls, showGitControls }} />
+    );
+    const action = (label: string) =>
+      [...document.querySelectorAll("button")].find((button) => button.textContent === label);
+    render(header(true));
+    expect(action("Open git controls")).toBeDefined();
+    render(header(false));
+    expect(action("Open git controls")).toBeUndefined();
+    expect(action("Open files")).toBeDefined();
+    expect(action("Open terminal")).toBeDefined();
+    render(header(true));
+    act(() => action("Open git controls")!.click());
+    expect(onOpenGitInspector).toHaveBeenCalledOnce();
+  });
+
   it("re-applies native header items when Git status changes", () => {
     render(<Header gitStatus={status([])} />);
     expect(renderedGitStatusDescription()).toBe("Clean");

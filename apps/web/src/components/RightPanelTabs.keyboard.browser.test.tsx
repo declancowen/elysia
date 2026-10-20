@@ -140,14 +140,14 @@ describe("right panel new-tab shortcut", () => {
     },
   );
 
-  it("opens Files while a closed popup remains mounted", async () => {
+  it("opens Repo while a closed popup remains mounted", async () => {
     await renderPanel();
     const popup = document.createElement("div");
     popup.dataset.slot = "menu-popup";
     popup.dataset.closed = "";
     container.append(popup);
 
-    expect((await press("f")).defaultPrevented).toBe(true);
+    expect((await press("r")).defaultPrevented).toBe(true);
     expect(addFiles).toHaveBeenCalledOnce();
   });
 
@@ -241,7 +241,7 @@ describe("right panel new-tab shortcut", () => {
     container.append(popover);
 
     expect((await press("t", { metaKey: true })).defaultPrevented).toBe(false);
-    expect((await press("f")).defaultPrevented).toBe(false);
+    expect((await press("r")).defaultPrevented).toBe(false);
     expect(document.querySelector('[role="menu"]')).toBeNull();
     expect(addFiles).not.toHaveBeenCalled();
 
@@ -249,16 +249,16 @@ describe("right panel new-tab shortcut", () => {
     popover.dataset.closed = "";
     popover.dataset.endingStyle = "";
     expect((await press("t", { metaKey: true })).defaultPrevented).toBe(false);
-    expect((await press("f")).defaultPrevented).toBe(false);
+    expect((await press("r")).defaultPrevented).toBe(false);
     expect(document.querySelector('[role="menu"]')).toBeNull();
     expect(addFiles).not.toHaveBeenCalled();
 
     delete popover.dataset.endingStyle;
     popover.hidden = true;
-    expect((await press("f")).defaultPrevented).toBe(true);
+    expect((await press("r")).defaultPrevented).toBe(true);
     expect(addFiles).toHaveBeenCalledOnce();
     expect((await press("t", { metaKey: true })).defaultPrevented).toBe(true);
-    expect(document.querySelector('[role="menu"]')?.textContent).toContain("Files");
+    expect(document.querySelector('[role="menu"]')?.textContent).toContain("Repo");
     expect(document.activeElement?.closest('[role="menu"]')).not.toBeNull();
   });
 

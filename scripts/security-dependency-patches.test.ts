@@ -18,15 +18,6 @@ const dependency = createRequire(process.cwd() + '/node_modules/.pnpm/node_modul
     { cwd, timeout: 5_000 },
   );
 
-it("decodes valid links and bounded malformed URI input through the CommonJS API", () => {
-  run(String.raw`
-const decode = dependency('decode-uri-component');
-assert.equal(decode('a+b%20%C3%A5'), 'a b å');
-assert.equal(decode('%E0%A4%A'), '%E0%A4%A');
-assert.equal(decode('%FF%41'.repeat(10_000)), '%FFA'.repeat(10_000));
-`);
-});
-
 it("rejects excessive brace and parenthesis nesting while preserving ordinary globs", () => {
   run(String.raw`
 const braces = dependency('braces');

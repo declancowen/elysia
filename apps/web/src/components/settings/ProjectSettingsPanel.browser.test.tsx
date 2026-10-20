@@ -31,6 +31,12 @@ import { page, userEvent } from "vite-plus/test/browser";
 
 import type { Project } from "../../types";
 
+// Retained upstream multi-environment scope fixtures; shipped Elysia remains local-only.
+vi.mock("@elysiatools/contracts", async (original) => ({
+  ...(await original<typeof import("@elysiatools/contracts")>()),
+  SINGLE_PROVIDER_UI: false,
+}));
+
 type SessionResult = AsyncResult.AsyncResult<AuthSessionState, Error>;
 const state = vi.hoisted(() => ({
   sessions: new Map<EnvironmentId, Atom.Writable<SessionResult>>(),

@@ -28,7 +28,7 @@ import * as IdAllocator from "@elysiatools/provider-core/server/IdAllocator";
 import * as McpProviderSessions from "@elysiatools/provider-core/server/McpProviderSessions";
 import * as ProviderEventLoggers from "@elysiatools/provider-core/server/ProviderEventLoggers";
 import * as TestProviderHost from "@elysiatools/provider-testing/TestProviderHost";
-import { MuseDriver } from "./driver.ts";
+import { MuseDriver } from "../server.ts";
 
 const maintenanceCapabilities = {
   ...makeManualOnlyProviderMaintenanceCapabilities({

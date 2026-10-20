@@ -16,13 +16,16 @@ vi.mock("~/state/entities", () => ({
 vi.mock("../agents/AgentAvatar", () => ({ AgentAvatar: () => null }));
 vi.mock("../ui/button", () => ({ Button: "button" }));
 vi.mock("../ui/scroll-area", () => ({ ScrollArea: "section" }));
-vi.mock("@effect/atom-react", () => ({ useAtomValue: () => null }));
-vi.mock("~/hooks/useTheme", () => ({ useTheme: () => ({ resolvedTheme: "dark" }) }));
+vi.mock("~/hooks/useTheme", () => ({
+  useTheme: () => ({ resolvedTheme: "dark" }),
+  useRenderedAppearance: () => "dark",
+}));
 vi.mock("~/state/use-atom-query-runner", () => ({ useAtomQueryRunner: () => vi.fn() }));
 vi.mock("~/state/use-atom-command", () => ({ useAtomCommand: () => vi.fn() }));
 vi.mock("~/state/session", async (importOriginal) => ({
   ...(await importOriginal<typeof import("~/state/session")>()),
-  usePreparedConnection: () => ({ _tag: "Loading" }),
+  usePreparedConnection: () => ({ _tag: "None" }),
+  useEnvironmentScope: () => false,
 }));
 vi.mock("~/remoteOpen", () => ({
   useRemoteOpenResolution: () => ({ state: { mode: "local-exec" }, isResolved: true }),

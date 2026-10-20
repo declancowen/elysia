@@ -74,8 +74,8 @@ vi.mock(import("../../state/usage"), async (original) => {
 
 import { appAtomRegistry } from "~/rpc/atomRegistry";
 import { UsagePage } from "./UsagePage";
+import { saveUsagePagePreferences } from "./usagePagePreferences";
 
-const PREFERENCES_KEY = "t3code:usage-page-preferences:v1";
 let root: Root;
 let container: HTMLDivElement;
 // Limits refreshes are throttled per environment for the whole session, so each test
@@ -144,7 +144,7 @@ beforeEach(async () => {
   vi.spyOn(Date, "now").mockReturnValue(Date.parse("2026-09-11T12:00:00Z"));
   environmentNumber += 1;
   environmentId = EnvironmentId.make(`test-${environmentNumber}`);
-  localStorage.setItem(PREFERENCES_KEY, JSON.stringify({ metric: "limits", windowDays: 30 }));
+  saveUsagePagePreferences({ metric: "limits", windowDays: 30 });
   state.refreshProviders.mockReset().mockResolvedValue(undefined);
   await setPresentations([[environmentId, presentation()]]);
   container = document.createElement("div");
@@ -190,7 +190,7 @@ it("uses the current time when returning to limits from tokens", async () => {
 });
 
 it("refreshes once on opening Limits and suppresses rapid returns and remounts", async () => {
-  localStorage.setItem(PREFERENCES_KEY, JSON.stringify({ metric: "tokens", windowDays: 30 }));
+  saveUsagePagePreferences({ metric: "tokens", windowDays: 30 });
   await render({ strict: true });
   expect(state.refreshProviders).not.toHaveBeenCalled();
 

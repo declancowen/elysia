@@ -280,3 +280,40 @@ it("shows an existing registry configuration as already added", async () => {
     .element(page.getByRole("button", { name: "Already added Gemini CLI" }))
     .toBeDisabled();
 });
+
+it("ignores an older prepare completion after a newer attempt starts", async () => {
+  const first = deferred<{
+    _tag: "Success";
+    value: { agentId: string; version: string; distribution: "npx"; prepared: true };
+  }>();
+  const second = deferred<{
+    _tag: "Success";
+    value: { agentId: string; version: string; distribution: "npx"; prepared: true };
+  }>();
+  state.prepare
+    .mockImplementationOnce(() => first.promise)
+    .mockImplementationOnce(() => second.promise);
+  state.result = { agents: [gemini] };
+  const onPrepared = vi.fn();
+  await render({ onPrepared });
+  const add = document.querySelector<HTMLButtonElement>('button[aria-label="Add Gemini CLI"]')!;
+  await act(async () => {
+    add.click();
+    add.click();
+  });
+  expect(state.prepare).toHaveBeenCalledTimes(2);
+  await act(async () =>
+    first.resolve({
+      _tag: "Success",
+      value: { agentId: "gemini", version: "1.0.0", distribution: "npx", prepared: true },
+    }),
+  );
+  expect(onPrepared).not.toHaveBeenCalled();
+  await act(async () =>
+    second.resolve({
+      _tag: "Success",
+      value: { agentId: "gemini", version: "2.0.0", distribution: "npx", prepared: true },
+    }),
+  );
+  expect(onPrepared).toHaveBeenCalledExactlyOnceWith({ ...gemini, version: "2.0.0" });
+});

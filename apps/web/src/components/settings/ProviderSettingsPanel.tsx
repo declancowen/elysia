@@ -641,11 +641,12 @@ export function EnvironmentProviderSettings({
 
   const visibleProviderSettings = PROVIDER_SETTINGS.filter(
     (providerSettings) =>
-      providerSettings.provider !== "cursor" ||
-      serverProviders.some(
-        (provider) =>
-          provider.instanceId === defaultInstanceIdForDriver(ProviderDriverKind.make("cursor")),
-      ),
+      isEnabledProviderDriver(providerSettings.provider) &&
+      (providerSettings.provider !== "cursor" ||
+        serverProviders.some(
+          (provider) =>
+            provider.instanceId === defaultInstanceIdForDriver(ProviderDriverKind.make("cursor")),
+        )),
   );
   const resolvedBackgroundActivity = resolveServerBackgroundActivitySettings(settings);
   const providerHealthPreset = getBackgroundActivityPresetSettings(
@@ -1087,6 +1088,12 @@ export function EnvironmentProviderSettings({
               description={`This session can view ${environmentLabel}'s providers but can't change their settings.`}
             />
           </SettingsGroup>
+        ) : null}
+        {targetInstanceMissing ? (
+          <SettingsRow
+            title="Provider instance unavailable"
+            description="This provider instance is no longer available on this device."
+          />
         ) : null}
         <div className="space-y-6">
           {rows.map((row) =>

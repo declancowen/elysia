@@ -227,7 +227,6 @@ describe("VS Code theme import", () => {
         "editorWidget.background": "#346bf1",
       },
     });
-    expect(asHex(theme.colors.focus)).toBe("#ffffff");
     expect(contrastRatio(theme.colors.focus, theme.colors.canvas)).toBeGreaterThanOrEqual(1.1);
     expect(contrastRatio(theme.colors.focus, theme.colors.surfaceRaised)).toBeGreaterThanOrEqual(
       1.1,

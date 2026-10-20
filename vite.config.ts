@@ -35,7 +35,6 @@ const DOM_TEST_ENVIRONMENT_ALLOWLIST = [
   "apps/web/src/components/settings/ElysiaSetupSection.test.tsx",
   "apps/web/src/components/settings/ProviderInstanceCard.updates.test.tsx",
   "apps/web/src/components/settings/ScheduledTaskEditor.test.tsx",
-  "apps/web/src/components/settings/ScheduledTaskPrompt.test.tsx",
   "apps/web/src/components/settings/SettingsScopeSentence.test.tsx",
   "apps/web/src/components/settings/SettingsSidebarNav.test.tsx",
   "apps/web/src/components/sidebar/SidebarChrome.test.tsx",

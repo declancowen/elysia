@@ -21,6 +21,19 @@ type CreateProjectInput = {
   environmentId: EnvironmentId;
   input: { projectId: ProjectId; workspaceRoot: string };
 };
+// Retained upstream fixtures opt in here; shipped Elysia policy stays unchanged.
+vi.mock("@elysiatools/contracts", async (original) => ({
+  ...(await original<typeof import("@elysiatools/contracts")>()),
+  CONNECTIONS_ENABLED: true,
+  isEnabledProviderDriver: () => true,
+}));
+
+// Retained upstream provider fixtures; this does not change the shipped provider policy.
+vi.mock("../../../../../packages/contracts/src/forkPolicy.ts", async (original) => ({
+  ...(await original<typeof import("@elysiatools/contracts")>()),
+  isEnabledProviderDriver: () => true,
+}));
+
 const state = vi.hoisted(() => ({
   selectedEnvironment: "primary",
   sessions: new Map<string, unknown>(),
@@ -234,6 +247,7 @@ async function mountImport(remote = false) {
 }
 
 beforeEach(() => {
+  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   for (const id of [primaryId, remoteId]) {
     state.sessions.set(
       id,
@@ -264,6 +278,7 @@ afterEach(async () => {
   for (const root of roots.splice(0)) await act(async () => root.unmount());
   document.body.replaceChildren();
   state.sessions.clear();
+  vi.unstubAllGlobals();
 });
 
 it("keeps scanning, choosing and skipping available to a paired read-only environment", async () => {

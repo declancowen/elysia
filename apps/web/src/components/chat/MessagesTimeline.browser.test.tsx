@@ -400,11 +400,11 @@ describe("MessagesTimeline work rows", () => {
     expect(text()).not.toContain("C:/Users/mike/dev-stuff/t3code/apps/web/src/session-logic.ts");
   });
 
-  it("renders T3 MCP dynamic tools with their pretty name", async () => {
+  it("renders Elysia MCP dynamic tools with their pretty name", async () => {
     const item = {
-      id: "tool-t3-thread-read",
+      id: "tool-elysia-thread-read",
       type: "dynamic_tool",
-      toolName: "mcp__t3-code__t3_thread_read",
+      toolName: "mcp__elysia__elysia_thread_read",
       input: { threadId: "thread-child" },
       output: { messages: [] },
     };
@@ -423,8 +423,8 @@ describe("MessagesTimeline work rows", () => {
       }),
     ]);
     await click(button(/^Received 1 update/));
-    await vi.waitFor(() => expect(text()).toContain("Read a T3 thread"));
-    expect(text()).not.toContain("mcp__t3-code__t3_thread_read");
+    await vi.waitFor(() => expect(text()).toContain("Read an Elysia chat"));
+    expect(text()).not.toContain("mcp__elysia__elysia_thread_read");
   });
 
   it("keeps a provider retry collapsed in the work log", async () => {
@@ -1196,7 +1196,7 @@ describe("MessagesTimeline history and thread links", () => {
       skills: [],
     });
     const providers = [
-      provider("codex_personal", "codex", "gpt-5.6-sol", "GPT 5.6 Sol"),
+      provider("codex_personal", "claudeAgent", "gpt-5.6-sol", "GPT 5.6 Sol"),
       provider("claudeAgent", "claudeAgent", "claude-fable-5", "Claude Fable 5"),
     ] as never;
     const handoff = (fields: Record<string, unknown>) =>
@@ -1508,15 +1508,17 @@ describe("MessagesTimeline scroll position", () => {
 
   it("restores a manual reading position after reopening and switching threads", async () => {
     const props = baseProps();
-    function Chat() {
+    function Chat({ routeThreadKey = props.routeThreadKey }: { routeThreadKey?: string }) {
       const [liveFollowEnabled, setLiveFollowEnabled] = useState(true);
       // The chat view stops following the live edge when the reader scrolls.
       return (
         <div className="contents" onWheelCapture={() => setLiveFollowEnabled(false)}>
           <MessagesTimeline
             {...props}
+            routeThreadKey={routeThreadKey}
             timelineEntries={tallEntries}
             liveFollowEnabled={liveFollowEnabled}
+            onManualNavigation={() => setLiveFollowEnabled(false)}
           />
         </div>
       );
@@ -1534,9 +1536,7 @@ describe("MessagesTimeline scroll position", () => {
       scrollOffset: offset,
     });
 
-    const timeline = (routeThreadKey: string) => (
-      <MessagesTimeline {...props} routeThreadKey={routeThreadKey} timelineEntries={tallEntries} />
-    );
+    const timeline = (routeThreadKey: string) => <Chat routeThreadKey={routeThreadKey} />;
     await renderElement(timeline(props.routeThreadKey));
     const reopenedViewport = await waitForList(props);
     await vi.waitFor(() =>

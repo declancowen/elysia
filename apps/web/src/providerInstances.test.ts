@@ -19,6 +19,12 @@ import {
   shouldShowInstanceBadge,
 } from "./providerInstances";
 
+// Retained upstream multi-provider fixtures; production still permits only Elysia.
+vi.mock("../../../packages/contracts/src/forkPolicy.ts", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@elysiatools/contracts")>()),
+  isEnabledProviderDriver: () => true,
+}));
+
 function provider(input: {
   provider: ProviderDriverKind;
   instanceId: string;

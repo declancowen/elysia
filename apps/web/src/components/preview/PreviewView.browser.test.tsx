@@ -211,7 +211,7 @@ async function submitAddress(text: string) {
 }
 
 function hasCursor() {
-  return document.querySelector("svg.lucide-mouse-pointer2") !== null;
+  return document.querySelector("[data-agent-browser-cursor]") !== null;
 }
 
 describe("PreviewView", () => {

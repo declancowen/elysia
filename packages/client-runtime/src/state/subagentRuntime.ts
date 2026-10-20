@@ -334,10 +334,6 @@ const EMPTY_PANEL_MODEL: AgentPanelModel = {
   liveCount: 0,
 };
 
-export function emptyAgentPanelModel(): AgentPanelModel {
-  return EMPTY_PANEL_MODEL;
-}
-
 /**
  * Present the V2-derived roster using Elysia's existing fleet layout.
  */

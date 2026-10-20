@@ -96,5 +96,5 @@ describe("ProjectIconPickerDialog", () => {
 });
 
 function searchBox() {
-  return document.querySelector<HTMLInputElement>('input[aria-label="Search Lucide icons"]')!;
+  return document.querySelector<HTMLInputElement>('input[aria-label="Search Hugeicons"]')!;
 }

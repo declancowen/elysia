@@ -35,6 +35,10 @@ describe("app startup failures", () => {
       getElementById: () => bootShell,
       createElement: (tagName: string) => new BootElement(tagName),
     });
+    vi.stubGlobal("window", {
+      elysiaBrowserStorageMigration: Promise.resolve(),
+      location: { reload: vi.fn() },
+    });
     vi.spyOn(console, "error").mockImplementation(() => {});
   });
 
@@ -59,7 +63,10 @@ describe("app startup failures", () => {
       throw new Error("@vitejs/plugin-react can't detect preamble. Something is wrong.");
     });
     const reload = vi.fn();
-    vi.stubGlobal("window", { location: { reload } });
+    vi.stubGlobal("window", {
+      elysiaBrowserStorageMigration: Promise.resolve(),
+      location: { reload },
+    });
 
     await import("./bootstrap");
     await vi.dynamicImportSettled();

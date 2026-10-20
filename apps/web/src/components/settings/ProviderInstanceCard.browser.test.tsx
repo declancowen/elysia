@@ -10,6 +10,12 @@ import { userEvent } from "vite-plus/test/browser";
 
 import { ProviderInstanceCard } from "./ProviderInstanceCard";
 
+// Retained upstream provider fixtures; this does not change the shipped provider policy.
+vi.mock("../../../../../packages/contracts/src/forkPolicy.ts", async (original) => ({
+  ...(await original<typeof import("@elysiatools/contracts")>()),
+  isEnabledProviderDriver: () => true,
+}));
+
 let root: Root;
 let container: HTMLDivElement;
 
@@ -53,7 +59,7 @@ async function renderCard(
     root.render(
       <ProviderInstanceCard
         instanceId={liveProvider.instanceId}
-        instance={{ driver }}
+        instance={{ driver, enabled: true }}
         driverOption={undefined}
         liveProvider={liveProvider}
         mode={mode}

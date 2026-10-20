@@ -7,6 +7,12 @@ type Session = {
   waiting: boolean;
   value: { authenticated: boolean; permissions: string[] };
 };
+// Retained upstream fixtures opt in here; shipped Elysia policy stays unchanged.
+vi.mock("@elysiatools/contracts", async (original) => ({
+  ...(await original<typeof import("@elysiatools/contracts")>()),
+  CONNECTIONS_ENABLED: true,
+}));
+
 const state = vi.hoisted(() => ({
   id: 0,
   session: null as unknown as Session,
@@ -39,7 +45,7 @@ import { PermissionUpdateNotice } from "./PermissionUpdateNotice";
 
 let root: Root;
 let container: HTMLDivElement;
-const storageKey = () => `t3code:permission-update:v1:env-${state.id}`;
+const storageKey = () => `elysia:permission-update:v1:env-${state.id}`;
 
 beforeEach(() => {
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);

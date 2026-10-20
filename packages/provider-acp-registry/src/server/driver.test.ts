@@ -1,6 +1,13 @@
 import { AcpRegistryOperationError, ProviderInstanceId } from "@elysiatools/contracts";
 import { AcpRegistrySettings } from "../settings.ts";
 import { describe, expect, it } from "@effect/vitest";
+import * as NodeServices from "@effect/platform-node/NodeServices";
+import * as Layer from "effect/Layer";
+import * as TestProviderHost from "@elysiatools/provider-testing/TestProviderHost";
+import * as IdAllocator from "@elysiatools/provider-core/server/IdAllocator";
+import * as McpProviderSessions from "@elysiatools/provider-core/server/McpProviderSessions";
+import * as ProviderEventLoggers from "@elysiatools/provider-core/server/ProviderEventLoggers";
+import { AcpRegistryDriver } from "../server.ts";
 import * as Effect from "effect/Effect";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
@@ -454,3 +461,53 @@ describe("acpRegistrySnapshotReadiness", () => {
     }),
   );
 });
+
+it.effect(
+  "preserves a disabled unprepared instance across refresh without launching or preparing it",
+  () =>
+    Effect.gen(function* () {
+      const instance = yield* AcpRegistryDriver.create({
+        instanceId: identity.instanceId,
+        displayName: identity.displayName,
+        enabled: false,
+        environment: [],
+        config: { ...AcpRegistryDriver.defaultConfig(), agentId: "disabled-fixture" },
+      });
+      const initial = yield* instance.snapshot.getSnapshot;
+      expect(initial.enabled).toBe(false);
+      expect(initial.status).toBe("disabled");
+      yield* instance.snapshot.refresh;
+      const refreshed = yield* instance.snapshot.getSnapshot;
+      expect(refreshed.enabled).toBe(false);
+      expect(refreshed.status).toBe("disabled");
+      expect(refreshed.installed).toBe(false);
+      expect(refreshed.auth.status).toBe("unknown");
+    }).pipe(
+      Effect.provideService(AcpRegistrySupport.AcpRegistryCatalog, {
+        search: () => Effect.die("Disabled instances do not search the registry"),
+        prepare: () => Effect.die("Disabled instances do not install native runtimes"),
+        inspect: () =>
+          Effect.succeed({
+            status: "unprepared",
+            agentId: "disabled-fixture",
+            version: "1.0.0",
+            distribution: "binary",
+          }),
+        resolve: () => Effect.die("Disabled instances do not start native runtimes"),
+        uninstallManagedBinary: () =>
+          Effect.die("Disabled instances do not remove native runtimes"),
+      }),
+      Effect.provideService(
+        ProviderEventLoggers.ProviderEventLoggers,
+        ProviderEventLoggers.NoOpProviderEventLoggers,
+      ),
+      Effect.provide(
+        Layer.mergeAll(
+          IdAllocator.layer,
+          McpProviderSessions.layer,
+          TestProviderHost.layer({ runBackgroundWork: false }),
+        ).pipe(Layer.provideMerge(NodeServices.layer)),
+      ),
+      Effect.scoped,
+    ),
+);

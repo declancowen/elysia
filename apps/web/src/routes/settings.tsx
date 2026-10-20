@@ -115,12 +115,16 @@ function SettingsContentLayout() {
   const location = useLocation();
   const navigateToMainApp = useNavigateToMainApp();
   useEscapeToGoBack(navigateToMainApp);
-  const { search } = useSettingsScope();
+  const { search, environment } = useSettingsScope();
+  const contentScopeKey =
+    location.pathname === "/settings/diagnostics" || location.pathname === "/settings/providers"
+      ? environment?.environmentId
+      : JSON.stringify(search);
 
   if (SINGLE_PROVIDER_UI && location.pathname === "/settings/scheduled-tasks") {
     return (
       <SidebarInset className="min-h-0 overflow-hidden">
-        <div key={JSON.stringify(search)} className="flex min-h-0 flex-1 flex-col">
+        <div key={contentScopeKey} className="flex min-h-0 flex-1 flex-col">
           <Outlet />
         </div>
       </SidebarInset>
@@ -136,7 +140,7 @@ function SettingsContentLayout() {
           </WorkspacePageHeader>
         )}
 
-        <div key={JSON.stringify(search)} className="min-h-0 flex flex-1 flex-col">
+        <div key={contentScopeKey} className="min-h-0 flex flex-1 flex-col">
           <SettingsScopeBoundary pathname={location.pathname}>
             <Outlet />
           </SettingsScopeBoundary>

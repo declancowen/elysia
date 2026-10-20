@@ -284,7 +284,7 @@ describe("diff tree file activation", () => {
         .map((row) => row.querySelector('[data-item-section="icon"] use')?.getAttribute("href"));
     await mount({ files });
     const icons = rootFileIcons();
-    expect(icons).toEqual(["#t3-file-icon-agents", "#file-tree-builtin-typescript"]);
+    expect(icons).toEqual(["#elysia-file-icon-agents", "#file-tree-builtin-typescript"]);
     await mount({
       files: [
         ...files,

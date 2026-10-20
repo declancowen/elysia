@@ -19,7 +19,6 @@ import * as Schema from "effect/Schema";
 import { DEFAULT_UNIFIED_SETTINGS } from "@elysiatools/contracts/settings";
 import {
   defaultInstanceIdForDriver,
-  DEFAULT_MODEL,
   DEFAULT_MODEL_BY_PROVIDER,
   EnvironmentId,
   MessageId,
@@ -2206,7 +2205,10 @@ describe("composerDraftStore modelSelection", () => {
       { id: "fastMode", value: true },
     ]);
     // A remembered primary pick is the visible fallback while the secondary is unavailable.
-    const primary = modelSelection(CODEX_DRIVER, DEFAULT_MODEL);
+    const primary = modelSelection(
+      CLAUDE_AGENT_DRIVER,
+      DEFAULT_MODEL_BY_PROVIDER[CLAUDE_AGENT_DRIVER]!,
+    );
     store.setModelSelection(threadRef, primary);
     store.setModelSelection(threadRef, pick, { explicit: true });
     const before = draftFor(threadId, TEST_ENVIRONMENT_ID);
@@ -2215,8 +2217,8 @@ describe("composerDraftStore modelSelection", () => {
     const fallback = deriveEffectiveComposerModelState({
       draft: before,
       providers: [],
-      selectedProvider: CODEX_DRIVER,
-      selectedInstanceId: CODEX_INSTANCE,
+      selectedProvider: CLAUDE_AGENT_DRIVER,
+      selectedInstanceId: CLAUDE_AGENT_INSTANCE,
       threadModelSelection: h.model(),
       projectModelSelection: null,
       settings: DEFAULT_UNIFIED_SETTINGS,

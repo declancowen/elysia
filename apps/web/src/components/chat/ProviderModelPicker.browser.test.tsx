@@ -21,6 +21,13 @@ import type { ModelEsque } from "./providerIconUtils";
 vi.mock("@elysiatools/contracts", async (original) => ({
   ...(await original<typeof import("@elysiatools/contracts")>()),
   SINGLE_PROVIDER_UI: false,
+  isEnabledProviderDriver: () => true,
+}));
+
+// Retained upstream provider fixtures; this does not change the shipped provider policy.
+vi.mock("../../../../../packages/contracts/src/forkPolicy.ts", async (original) => ({
+  ...(await original<typeof import("@elysiatools/contracts")>()),
+  isEnabledProviderDriver: () => true,
 }));
 
 const favoritesAtom = Atom.make<ReadonlyArray<{ provider: ProviderInstanceId; model: string }>>(

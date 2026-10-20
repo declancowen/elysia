@@ -10,6 +10,12 @@ const state = vi.hoisted(() => ({
   worktreePath: "/tmp/worktree" as string | null,
   showContextMenu: vi.fn(),
   writeTextToClipboard: vi.fn(),
+  openLink: vi.fn(),
+}));
+
+vi.mock(import("../browser/useOpenLink"), async (original) => ({
+  ...(await original()),
+  useOpenLink: () => state.openLink,
 }));
 
 vi.mock(import("../localApi"), async (original) => ({
@@ -46,6 +52,7 @@ beforeEach(() => {
   state.worktreePath = "/tmp/worktree";
   state.showContextMenu.mockReset().mockResolvedValue("copy-path");
   state.writeTextToClipboard.mockReset().mockResolvedValue(true);
+  state.openLink.mockReset().mockResolvedValue(undefined);
   container = document.createElement("div");
   document.body.append(container);
   root = createRoot(container);
@@ -159,7 +166,7 @@ it.each([
   { layout: "narrow Git", width: 360, showGitControls: true },
   { layout: "sole primary non-Git", width: 360, showGitControls: false },
 ])(
-  "copies the pending update from the $layout composer chip",
+  "opens the pending Elysia release from the $layout composer chip",
   async ({ width, showGitControls }) => {
     await page.viewport(1000, 700);
     container.style.width = `${width}px`;
@@ -191,17 +198,17 @@ it.each([
     expect(
       container.querySelector('[data-slot="composer-shell"]')!.getBoundingClientRect().width,
     ).toBe(width);
-    const chip = page.getByRole("button", { name: /Build box|Copy update command/ });
+    const chip = page.getByRole("button", { name: "Download Elysia update Build box" });
     await expect.element(chip).toBeVisible();
     await userEvent.hover(chip);
     await expect.element(page.getByRole("tooltip")).toMatchTextContent("0.0.30");
     await expect.element(page.getByRole("tooltip")).toMatchTextContent("0.0.31");
     await userEvent.click(chip);
     await vi.waitFor(() =>
-      expect(state.writeTextToClipboard).toHaveBeenCalledWith(
-        "npm install --global --prefix '/opt/node' t3@0.0.31",
-        "update command",
+      expect(state.openLink).toHaveBeenCalledWith(
+        "https://github.com/declancowen/elysia/releases/tag/v0.0.31",
       ),
     );
+    expect(state.writeTextToClipboard).not.toHaveBeenCalled();
   },
 );

@@ -1054,20 +1054,20 @@ it("shows readable models and only differing workspace details in agent tooltips
     providers: [
       {
         instanceId: "codex",
-        driver: "codex",
+        driver: "claudeAgent",
         enabled: true,
         displayName: "Work account",
         models: [
           {
             slug: "gpt-5.4",
             name: "My GPT",
-            capabilities: { optionDescriptors: [serviceTier] },
+            capabilities: { optionDescriptors: [fastMode] },
           },
         ],
       },
       {
         instanceId: "codex_personal",
-        driver: "codex",
+        driver: "claudeAgent",
         enabled: true,
         displayName: "Personal account",
         models: [],
@@ -1076,7 +1076,7 @@ it("shows readable models and only differing workspace details in agent tooltips
   });
   child.modelSelection.options = [
     { id: "reasoningEffort", value: "high" },
-    { id: "serviceTier", value: "priority" },
+    { id: "fastMode", value: true },
   ];
   await rerender();
   expect(text(true)).toContain("My GPT · Work account · high");
@@ -1107,7 +1107,7 @@ it("shows readable models and only differing workspace details in agent tooltips
             model: "gpt-5.4",
             options: [
               { id: "reasoningEffort", value: "low" },
-              { id: "serviceTier", value: "ultrafast" },
+              { id: "fastMode", value: true },
             ],
           },
         },
@@ -1117,7 +1117,7 @@ it("shows readable models and only differing workspace details in agent tooltips
     if (status === "completed") {
       await click(sectionToggle(false));
     }
-    expect(text()).toContain("My GPT · Work account · Ultrafast mode onlow");
+    expect(text()).toContain("My GPT · Work account · Fast mode onlow");
     expect(text()).not.toContain(" · high");
   }
   await click(sectionToggle(true));

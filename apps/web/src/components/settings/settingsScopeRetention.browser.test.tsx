@@ -45,6 +45,10 @@ vi.mock(import("./SettingsScopeContext"), async (original) => {
     }) as never,
   };
 });
+vi.mock(import("../../hooks/useSettings"), async (original) => ({
+  ...(await original()),
+  useCodeWorkspace: () => true,
+}));
 vi.mock(import("../../state/environments"), async (original) => ({
   ...(await original()),
   useEnvironments: (() => ({ environments: [] })) as never,

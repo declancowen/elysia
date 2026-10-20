@@ -240,6 +240,21 @@ describe("Git actions while thread details load", () => {
     expect(commits()).toBe(0);
   });
 
+  it("enables feature-branch commits and synchronizes the thread after its task grant is gained", async () => {
+    await render();
+    await openCommitDialog();
+    await expect.element(button("Commit on new branch")).toBeDisabled();
+
+    state.scopes.add(AuthOrchestrationOperateScope);
+    await render();
+    await expect.element(button("Commit on new branch")).toBeEnabled();
+    await userEvent.click(button("Commit on new branch"));
+
+    await vi.waitFor(() => expect(state.shell?.branch).toBe("feature"));
+    expect(commits()).toBe(1);
+    expect(state.metadataRequests).toEqual([{ environmentId: "environment", branch: "feature" }]);
+  });
+
   it("checks the task grant again when the feature-branch commit runs", async () => {
     state.scopes.add(AuthOrchestrationOperateScope);
     await render();

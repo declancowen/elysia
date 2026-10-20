@@ -1,5 +1,5 @@
-// @vitest-environment jsdom
 import { act, useState } from "react";
+import { userEvent } from "vite-plus/test/browser";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, expect, it, vi } from "vite-plus/test";
 import { EnvironmentId, ProjectId, ThreadId } from "@elysiatools/contracts";
@@ -7,10 +7,15 @@ import type { EnvironmentProject } from "@elysiatools/client-runtime/state/shell
 import { mentionedAgentProjectIds } from "@elysiatools/shared/agentMentions";
 
 const state = vi.hoisted(() => ({ projects: [] as EnvironmentProject[], changed: vi.fn() }));
-vi.mock("../../hooks/useTheme", () => ({ useTheme: () => ({ resolvedTheme: "dark" }) }));
-vi.mock("../../state/entities", () => ({
+vi.mock(import("../../hooks/useTheme"), async (original) => ({
+  ...(await original()),
+  useTheme: (() => ({ resolvedTheme: "dark" })) as never,
+  useRenderedAppearance: () => "dark",
+}));
+vi.mock(import("../../state/entities"), async (original) => ({
+  ...(await original()),
   useProject: (ref: { projectId: string } | null) =>
-    state.projects.find((project) => project.id === ref?.projectId),
+    state.projects.find((project) => project.id === ref?.projectId) ?? null,
 }));
 import { ScheduledTaskPrompt } from "./ScheduledTaskPrompt";
 
@@ -63,41 +68,12 @@ function Form({ project = agent }: { project?: EnvironmentProject }) {
 }
 const editor = () => host.querySelector<HTMLElement>('[role="textbox"]')!;
 async function typeAtEnd(text: string) {
-  await act(async () => {
-    const input = editor();
-    input.focus();
-    const paragraph = input.querySelector("p")!;
-    paragraph.textContent = text;
-    const range = document.createRange();
-    range.selectNodeContents(paragraph);
-    range.collapse(false);
-    document.getSelection()!.removeAllRanges();
-    document.getSelection()!.addRange(range);
-    input.dispatchEvent(
-      new InputEvent("input", { bubbles: true, inputType: "insertText", data: text }),
-    );
-  });
+  await act(async () => editor().focus());
+  await act(async () => userEvent.keyboard(text));
 }
+
 beforeEach(() => {
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
-  vi.stubGlobal(
-    "ResizeObserver",
-    class {
-      observe() {}
-      unobserve() {}
-      disconnect() {}
-    },
-  );
-  Object.defineProperty(Range.prototype, "getClientRects", { configurable: true, value: () => [] });
-  Object.defineProperty(Range.prototype, "getBoundingClientRect", {
-    configurable: true,
-    value: () => new DOMRect(0, 0, 0, 0),
-  });
-  Object.defineProperty(Element.prototype, "getAnimations", {
-    configurable: true,
-    value: () => [],
-  });
-  Element.prototype.scrollIntoView = vi.fn();
   state.changed.mockClear();
   state.projects = [
     agent,
@@ -123,16 +99,15 @@ afterEach(async () => {
   await act(async () => root.unmount());
   host.remove();
   vi.unstubAllGlobals();
-  Reflect.deleteProperty(Range.prototype, "getClientRects");
-  Reflect.deleteProperty(Range.prototype, "getBoundingClientRect");
-  Reflect.deleteProperty(Element.prototype, "scrollIntoView");
-  Reflect.deleteProperty(Element.prototype, "getAnimations");
 });
 
 it("inserts an agent suggestion as a readable avatar tag with its durable identity", async () => {
   await act(async () => root.render(<Form />));
   expect(host.querySelector("button")).toBeNull();
   await typeAtEnd("@Friday");
+  await vi.waitFor(() =>
+    expect(host.querySelector('[data-composer-item-id="friday"]')).not.toBeNull(),
+  );
   const option = host.querySelector<HTMLElement>('[data-composer-item-id="friday"]')!;
   expect(option.querySelector("svg")).not.toBeNull();
   await act(async () => option.click());

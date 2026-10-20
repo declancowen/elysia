@@ -183,7 +183,6 @@ jobs:
             src/components/chat/modelPickerSearch.test.ts \
             src/components/settings/ProviderSettingsForm.test.ts \
             src/components/settings/ProviderSettingsPanel.logic.test.ts \
-            src/components/settings/ProviderSettingsPanel.environment.test.tsx \
             src/components/settings/settingsWorkspace.test.ts \
             src/components/settings/scheduledTasksSettings.logic.test.ts \
             src/state/desktopUpdate.test.ts \
@@ -210,7 +209,6 @@ jobs:
             src/components/sidebar/SidebarChrome.test.tsx \
             src/components/settings/ElysiaSetupSection.test.tsx \
             src/components/settings/ScheduledTaskEditor.test.tsx \
-            src/components/settings/ScheduledTaskPrompt.test.tsx \
             src/components/settings/SettingsScopeSentence.test.tsx \
             src/components/chat/ModelListRow.interaction.test.tsx \
             src/components/WorkspaceSideChat.test.tsx \
@@ -239,6 +237,9 @@ jobs:
         run: |
           vp test run --project browser \
             src/components/WorkspaceEditorCommands.browser.test.ts \
+            src/components/settings/ScheduledTaskPrompt.browser.test.tsx \
+            src/components/settings/ProviderSettingsPanel.environment.browser.test.tsx \
+            src/components/settings/ProviderSettingsPanel.policy.browser.test.tsx \
             src/components/ThreadNotificationCoordinator.browser.test.tsx \
             src/components/ThreadNotificationCoordinator.badge.browser.test.tsx
 

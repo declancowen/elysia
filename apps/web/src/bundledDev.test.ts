@@ -98,6 +98,7 @@ export const startup = Promise.resolve().then(() => globalThis.onStarted(Shared(
       `import assert from "node:assert/strict";
 const started = Promise.withResolvers();
 globalThis.window = globalThis;
+globalThis.elysiaBrowserStorageMigration = Promise.resolve();
 globalThis.document = {
   createElement: () => ({ relList: { supports: () => true } }),
   getElementById: () => null,
@@ -253,7 +254,8 @@ it("warms the wanted lazy chunk chain and nothing else", async () => {
 
     // The route is only discoverable after main compiles, so this also covers the pass walk.
     const warmed = await warmLazyEntries(server, ["src/main.ts", "src/route.ts"]);
-    expect(warmed.map((id) => NodePath.relative(root, id.split("?")[0] ?? id))).toEqual([
+    const canonicalRoot = server.config.root;
+    expect(warmed.map((id) => NodePath.relative(canonicalRoot, id.split("?")[0] ?? id))).toEqual([
       "src/main.ts",
       "src/route.ts",
     ]);

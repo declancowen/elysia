@@ -213,6 +213,20 @@ describe("ServerUpdateAction", () => {
     expect(testState.updateServer).not.toHaveBeenCalled();
   });
 
+  it("rechecks maintenance access for a queued click before React disables the button", async () => {
+    await renderAction();
+    const retainedButton = button("Update")!;
+    expect(retainedButton.disabled).toBe(false);
+
+    await act(async () => {
+      setSession(AsyncResult.success({ ...currentSession, scopes: [] }));
+      retainedButton.click();
+    });
+
+    expect(testState.updateServer).not.toHaveBeenCalled();
+    expect(retainedButton.disabled).toBe(true);
+  });
+
   it.each([
     { kind: "npm-global", prefix: "/opt/node" },
     { kind: "npx" },

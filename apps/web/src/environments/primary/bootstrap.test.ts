@@ -15,6 +15,13 @@ import {
 } from ".";
 import { installEnvironmentHttpTest } from "../../../test/environmentHttpTest";
 
+// The remote-only cases exercise the retained connection implementation.
+// localEnvironment.test.ts separately proves Elysia keeps its local server enabled.
+vi.mock("@elysiatools/contracts", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@elysiatools/contracts")>()),
+  CONNECTIONS_ENABLED: true,
+}));
+
 const BASE_ENVIRONMENT = {
   environmentId: EnvironmentId.make("environment-local"),
   label: "Local environment",

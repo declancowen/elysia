@@ -8,6 +8,12 @@ import "../../index.css";
 import type { ScopedSettingsPatch } from "./scopedSettings";
 
 type WritingStyle = typeof DEFAULT_UNIFIED_SETTINGS.sourceControlWritingStyle;
+// Retained upstream fixtures opt in here; shipped Elysia policy stays unchanged.
+vi.mock("@elysiatools/contracts", async (original) => ({
+  ...(await original<typeof import("@elysiatools/contracts")>()),
+  SINGLE_PROVIDER_UI: false,
+}));
+
 const state = vi.hoisted(() => ({
   styles: [] as WritingStyle[],
   updateSettings: vi.fn<(patch: ScopedSettingsPatch) => void>(),

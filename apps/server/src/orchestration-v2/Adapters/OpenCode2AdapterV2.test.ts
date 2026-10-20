@@ -3339,10 +3339,10 @@ it.layer(McpProviderSessions.layer)("OpenCode2 adapter", (it) => {
     }).pipe(Effect.scoped),
   );
 
-  it.effect("keeps thread-scoped T3 waits as dynamic tools through their lifecycle", () =>
+  it.effect("keeps thread-scoped Elysia waits as dynamic tools through their lifecycle", () =>
     Effect.gen(function* () {
       const tool = { sessionID: SESSION, assistantMessageID: "msg_assistant", id: "call-wait" };
-      const name = "t3-code-web_delegate_task";
+      const name = "elysia-web_delegate_task";
       const input = { task: "Review", mode: "wait" };
       const { runtime, thread } = yield* resumed([
         out("session.prompt", { sessionID: SESSION, text: "<any>" }),
@@ -3424,7 +3424,7 @@ it.layer(McpProviderSessions.layer)("OpenCode2 adapter", (it) => {
       }).pipe(Effect.scoped),
   );
 
-  it.effect("re-registers T3 MCP each turn and drops its instructions when adding fails", () =>
+  it.effect("re-registers Elysia MCP each turn and drops its instructions when adding fails", () =>
     Effect.gen(function* () {
       const mcpSessions = yield* McpProviderSessions.McpProviderSessions;
       yield* mcpSessions.set({
@@ -3437,7 +3437,7 @@ it.layer(McpProviderSessions.layer)("OpenCode2 adapter", (it) => {
         browserToolsAvailable: false,
       });
       yield* Effect.addFinalizer(() => mcpSessions.clear(threadId));
-      const server = "t3-code-thread_opencode2-adapter";
+      const server = "elysia-thread_opencode2-adapter";
       const add = out("mcp.add", {
         server,
         "location[directory]": WORK,
@@ -3462,7 +3462,7 @@ it.layer(McpProviderSessions.layer)("OpenCode2 adapter", (it) => {
         reply("mcp.add", { status: 500, body: { message: "MCP unavailable" } }),
         out("session.instructions.entry.put", {
           sessionID: SESSION,
-          key: "t3-code",
+          key: "elysia",
           value: buildRuntimeInstructions({ harness: "OpenCode", model: bigPickle.model }),
         }),
         reply("session.instructions.entry.put", null),
@@ -3552,8 +3552,8 @@ it.layer(McpProviderSessions.layer)("OpenCode2 adapter", (it) => {
       for (const name of names) assert.match(name, /^elysia-[A-Za-z0-9_-]{1,57}$/);
       assert.equal(new Set(names).size, ids.length);
       assert.deepEqual(yield* Effect.forEach(ids, elysiaMcpServerName), names);
-      assert.equal(names[0], "t3-code-63abb5df2b188bdd");
-      assert.equal(yield* elysiaMcpServerName(threadId), "t3-code-thread_opencode2-adapter");
+      assert.equal(names[0], "elysia-63abb5df2b188bdd");
+      assert.equal(yield* elysiaMcpServerName(threadId), "elysia-thread_opencode2-adapter");
     }).pipe(Effect.provide(NodeCrypto.layer)),
   );
 
@@ -4406,7 +4406,7 @@ it.layer(McpProviderSessions.layer)("OpenCode2 adapter", (it) => {
         replyData("session.form.list", []),
         ...promptInto(SESSION, "msg_recorded_turn_a"),
         ...steerInto(SESSION, "msg_recorded_steer_a"),
-        out("session.instructions.entry.put", { sessionID: OTHER, key: "t3-code", value: "<any>" }),
+        out("session.instructions.entry.put", { sessionID: OTHER, key: "elysia", value: "<any>" }),
         reply("session.instructions.entry.put", null),
         ...promptInto(OTHER, "msg_recorded_turn_b"),
         ...steerInto(OTHER, "msg_recorded_steer_b"),
@@ -4478,7 +4478,7 @@ it.layer(McpProviderSessions.layer)("OpenCode2 adapter", (it) => {
         out("session.form.list", { sessionID: OTHER }),
         replyData("session.form.list", []),
         ...promptInto(SESSION, "msg_recorded_turn_a"),
-        out("session.instructions.entry.put", { sessionID: OTHER, key: "t3-code", value: "<any>" }),
+        out("session.instructions.entry.put", { sessionID: OTHER, key: "elysia", value: "<any>" }),
         reply("session.instructions.entry.put", null),
         ...promptInto(OTHER, "msg_recorded_turn_b"),
         event("session.execution.succeeded", { sessionID: SESSION }),

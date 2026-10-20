@@ -1258,7 +1258,7 @@ describe("AcpAdapterV2", () => {
             mockAgentPath,
             protocolEvents,
             // The model switch lands, then the agent rejects the mode step.
-            environment: { ELYSIA_ACP_FAIL_SET_MODE_CONFIG_OPTION: "1" },
+            environment: { T3_ACP_FAIL_SET_MODE_CONFIG_OPTION: "1" },
           }),
         },
         selfInvocation: yield* resolveSelfInvocation(),
@@ -1367,8 +1367,8 @@ describe("AcpAdapterV2", () => {
                         title: "Wait for the child",
                         status: "in_progress",
                         rawInput: {
-                          server: "t3-code",
-                          tool: "t3_thread_wait",
+                          server: "elysia",
+                          tool: "elysia_thread_wait",
                           arguments: { threadId: "child" },
                         },
                         _meta: { is_mcp_tool_call: true },

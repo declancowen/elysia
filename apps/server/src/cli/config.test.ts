@@ -1017,7 +1017,7 @@ it.layer(NodeServices.layer)("cli config resolution", (it) => {
             ConfigProvider.layer(
               ConfigProvider.fromEnv({
                 env: {
-                  T3CODE_OTLP_HEADERS: "authorization=Basic%20abc%3D%3D,x-tenant=t3",
+                  T3CODE_OTLP_HEADERS: "authorization=Basic%20abc%3D%3D,x-tenant=elysia",
                 },
               }),
             ),
@@ -1060,7 +1060,7 @@ it.layer(NodeServices.layer)("cli config resolution", (it) => {
             ConfigProvider.layer(
               ConfigProvider.fromEnv({
                 env: {
-                  T3CODE_OTLP_HEADERS: "authorization=Bearer abc==, x-tenant=t3",
+                  T3CODE_OTLP_HEADERS: "authorization=Bearer abc==, x-tenant=elysia",
                   T3CODE_OTLP_TRACES_URL: "http://collector.internal:4318",
                 },
               }),

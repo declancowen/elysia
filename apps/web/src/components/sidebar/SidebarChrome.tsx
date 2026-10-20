@@ -16,7 +16,7 @@ import {
   SearchIcon,
   SquarePenIcon,
   Home,
-  BotIcon,
+  BubblesIcon,
   ClockIcon,
   TaskEdit02Icon,
   Files01Icon,
@@ -33,7 +33,7 @@ import {
   useClientSettings,
   useCodeWorkspace,
   updateClientSettings,
-  useEnvironmentIdentificationMode,
+  getEnvironmentIdentificationMode,
 } from "../../hooks/useSettings";
 import { cn } from "../../lib/utils";
 import { useEnvironments, usePrimaryEnvironmentId } from "../../state/environments";
@@ -83,7 +83,7 @@ export const SidebarChromeHeader = memo(function SidebarChromeHeader({
   title?: string;
 }) {
   const stageLabel = useEnvironmentStageLabel();
-  const environmentIdentificationMode = useEnvironmentIdentificationMode();
+  const environmentIdentificationMode = getEnvironmentIdentificationMode();
   const backdropVariant = resolveSidebarStageBackdropVariant(
     stageLabel,
     !SINGLE_PROVIDER_UI && environmentIdentificationMode === "artwork",
@@ -545,7 +545,7 @@ export const AppNavigationRail = memo(function AppNavigationRail() {
           hoverSection="agents"
           tabTarget={{ kind: "surface", path: "/agents", title: "Agents" }}
           onIntent={() => void router.preloadRoute({ to: "/agents", search: {} })}
-          icon={<BotIcon className="size-5" />}
+          icon={<BubblesIcon className="size-5" />}
           active={agentsActive}
           onClick={() => {
             setAgentSidebarActive(true);

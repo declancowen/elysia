@@ -1,5 +1,5 @@
 import { HugeiconsIcon } from "@hugeicons/react";
-import { lazy, Suspense, type ComponentType, type ComponentProps } from "react";
+import { use, Suspense, type ComponentType, type ComponentProps } from "react";
 import { hugeiconAssets, hugeiconNames } from "./hugeiconNames";
 
 export const iconNames = hugeiconNames;
@@ -10,34 +10,33 @@ type DynamicIconProps = Omit<ComponentProps<typeof HugeiconsIcon>, "icon"> & {
   fallback?: ComponentType;
 };
 
-const components = new Map<string, ReturnType<typeof createIcon>>();
+const icons = new Map<string, Promise<ComponentProps<typeof HugeiconsIcon>["icon"]>>();
 
-function createIcon(name: string) {
-  return lazy(async () => {
-    const { loadIcon } = await import("@hugeicons/core-free-icons/loader");
-    const asset = hugeiconAssets[name];
-    const icon = await loadIcon(asset ?? "Folder01Icon");
-    return {
-      default: ({ name: _name, fallback: Fallback, ...props }: DynamicIconProps) =>
-        !asset && Fallback ? (
-          <Fallback />
-        ) : (
-          <HugeiconsIcon {...props} strokeWidth={2} icon={icon} />
-        ),
-    };
-  });
+function loadIconAsset(name: string) {
+  let pending = icons.get(name);
+  if (!pending) {
+    pending = import("@hugeicons/core-free-icons/loader").then(({ loadIcon }) =>
+      loadIcon(hugeiconAssets[name] ?? "Folder01Icon"),
+    );
+    icons.set(name, pending);
+  }
+  return pending;
+}
+
+function LoadedIcon({ name, fallback: Fallback, ...props }: DynamicIconProps) {
+  const icon = use(loadIconAsset(name));
+  return !hugeiconAssets[name] && Fallback ? (
+    <Fallback />
+  ) : (
+    <HugeiconsIcon {...props} strokeWidth={2} icon={icon} />
+  );
 }
 
 export function DynamicIcon(props: DynamicIconProps) {
-  let Icon = components.get(props.name);
-  if (!Icon) {
-    Icon = createIcon(props.name);
-    components.set(props.name, Icon);
-  }
   const Fallback = props.fallback;
   return (
     <Suspense fallback={Fallback ? <Fallback /> : null}>
-      <Icon {...props} />
+      <LoadedIcon {...props} />
     </Suspense>
   );
 }

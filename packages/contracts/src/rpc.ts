@@ -567,7 +567,6 @@ export const WS_METHODS = {
   tasksSave: "tasks.save",
   tasksDelete: "tasks.delete",
 
-  // Scheduled tasks
   scheduledTasksList: "scheduledTasks.list",
   scheduledTasksSubscribe: "scheduledTasks.subscribe",
   scheduledTasksUpsert: "scheduledTasks.upsert",

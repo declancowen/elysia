@@ -1,5 +1,5 @@
 import type { ProviderDriverKind, ServerProvider } from "@elysiatools/contracts";
-import { BotIcon, type LucideIcon } from "~/icons";
+import { BubblesIcon, type LucideIcon } from "~/icons";
 import { cn } from "../../lib/utils";
 import { ProviderInstanceIcon } from "./ProviderInstanceIcon";
 
@@ -46,7 +46,7 @@ export function ThreadRelationshipIcon({
   driver,
   provider,
   status,
-  fallbackIcon: FallbackIcon = BotIcon,
+  fallbackIcon: FallbackIcon = BubblesIcon,
 }: {
   driver?: ProviderDriverKind | undefined;
   provider?: ServerProvider | undefined;

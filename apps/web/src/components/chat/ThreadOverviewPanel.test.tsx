@@ -32,7 +32,11 @@ vi.mock("../agents/useAgents", () => ({ useAgents: () => state.roster }));
 vi.mock("../ChatMarkdown", () => ({ default: ({ text }: { text: string }) => <p>{text}</p> }));
 
 import { ThreadOverviewPanel, type ThreadOverviewPanelProps } from "./ThreadOverviewPanel";
-import { openThreadOverviewAgent, useThreadOverviewStore } from "./threadOverviewStore";
+import {
+  openThreadOverviewAgent,
+  toggleThreadOverview,
+  useThreadOverviewStore,
+} from "./threadOverviewStore";
 import { EnvironmentId } from "@elysiatools/contracts";
 import type { ChatAttachment } from "~/types";
 
@@ -102,7 +106,7 @@ beforeEach(async () => {
   state.code = true;
   state.delegated = [];
   state.roster = [];
-  useThreadOverviewStore.setState({ target: null });
+  useThreadOverviewStore.setState({ target: null, toggle: null });
   vi.clearAllMocks();
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   vi.stubGlobal(
@@ -376,6 +380,29 @@ it("opens the clicked agent's responses only in the originating chat", async () 
   expect(document.body.textContent).toContain("No task summary was recorded");
   expect(document.querySelector('[aria-label="View Friday responses"]')).toBeNull();
   expect(document.body.textContent).not.toContain("recent.pdf");
+  expect(useThreadOverviewStore.getState().target).toBeNull();
+});
+
+it("consumes repeated shortcuts even when they reuse the same thread reference", async () => {
+  const source = { environmentId: EnvironmentId.make("local"), threadId: ThreadId.make("source") };
+  await render({ sourceThreadRef: source });
+  for (const expectedOpen of [true, false, true]) {
+    await act(async () => toggleThreadOverview(source));
+    expect(document.querySelector('[role="dialog"]') !== null).toBe(expectedOpen);
+    expect(useThreadOverviewStore.getState().toggle).toBeNull();
+  }
+});
+
+it("retains an unmatched target until its source thread mounts", async () => {
+  const agent = workingAgent("Friday");
+  state.delegated = [{ ...agent, working: false, data: { ...agent.data!, status: "completed" } }];
+  const source = { environmentId: EnvironmentId.make("local"), threadId: ThreadId.make("source") };
+  openThreadOverviewAgent(source, agent.job.agentProjectId);
+  await render({ sourceThreadRef: { ...source, threadId: ThreadId.make("other") } });
+  expect(document.querySelector('[role="dialog"]')).toBeNull();
+  expect(useThreadOverviewStore.getState().target?.source).toEqual(source);
+  await render({ sourceThreadRef: source, delegatedAgents: state.delegated.map(({ job }) => job) });
+  expect(document.body.textContent).toContain("No task summary was recorded");
   expect(useThreadOverviewStore.getState().target).toBeNull();
 });
 

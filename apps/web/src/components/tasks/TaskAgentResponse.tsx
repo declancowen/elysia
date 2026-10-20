@@ -1,4 +1,3 @@
-import { useMemo } from "react";
 import { delegatedAgentsFromTurnItems } from "@elysiatools/shared/agentMentions";
 import { useDelegatedAgents } from "../agents/useDelegatedAgents";
 import { WorkspaceItemContextChip } from "../WorkspaceItemContextChip";
@@ -27,7 +26,7 @@ export function TaskAgentResponse({
   taskId: WorkTaskId;
   taskTitle: string;
 }) {
-  const ref = useMemo(() => scopeThreadRef(environmentId, threadId), [environmentId, threadId]);
+  const ref = scopeThreadRef(environmentId, threadId);
   const source = useThreadProjection(ref);
   const shell = useThreadShell(ref);
   const project = useProject(shell ? scopeProjectRef(environmentId, shell.projectId) : null);
@@ -36,12 +35,8 @@ export function TaskAgentResponse({
   const request = source?.projection.messages.findLast(
     (message) => message.role === "user" && isTaskRequest(message.text, taskId),
   );
-  const jobs = useMemo(
-    () =>
-      delegatedAgentsFromTurnItems(source?.projection.turnItems ?? []).filter(
-        (job) => job.sourceMessageId === request?.id,
-      ),
-    [source?.projection.turnItems, request?.id],
+  const jobs = delegatedAgentsFromTurnItems(source?.projection.turnItems ?? []).filter(
+    (job) => job.sourceMessageId === request?.id,
   );
   const delegated = useDelegatedAgents(ref, jobs);
   const responses = jobs.length

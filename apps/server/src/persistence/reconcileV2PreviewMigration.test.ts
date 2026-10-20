@@ -63,6 +63,10 @@ describe("V2 preview upgrade", () => {
         [67, "ThreadSnapshotWindowIndexes"],
         [68, "PullRequestReviewGuides"],
         [69, "ThreadFailureLookupIndex"],
+        [70, "DropUnusedV1Projections"],
+        [71, "CanonicalizeThreadPullRequestLinks"],
+        [72, "CodexUsageNativeTurnIndex"],
+        [73, "RepairClientSettlementTimestamps"],
       ]);
       assert.deepStrictEqual(
         yield* sql`SELECT agent_profile_json FROM projection_projects WHERE project_id = 'agent'`,

@@ -2,7 +2,7 @@
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { expect, it, vi } from "vite-plus/test";
-import { AppTopbar } from "./AppTopbar";
+import { AppTopbar, useAppTopbarHost } from "./AppTopbar";
 import { SidebarProvider, SidebarTrigger, useSidebar } from "./ui/sidebar";
 
 vi.mock("@tanstack/react-router", () => ({
@@ -22,6 +22,43 @@ function SidebarState() {
   const { state } = useSidebar();
   return <output aria-label="Sidebar state">{state}</output>;
 }
+
+function TopbarHostState() {
+  const host = useAppTopbarHost();
+  return <output aria-label="Topbar host">{host?.id ?? "unmounted"}</output>;
+}
+
+it("publishes the committed topbar host and clears it when the topbar unmounts", async () => {
+  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+  vi.stubGlobal("matchMedia", () => ({
+    matches: false,
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+  }));
+  const container = document.createElement("div");
+  document.body.append(container);
+  const root = createRoot(container);
+  const render = (mounted: boolean) => (
+    <SidebarProvider>
+      {mounted ? <AppTopbar sidebarControl={null} /> : null}
+      <TopbarHostState />
+    </SidebarProvider>
+  );
+  try {
+    await act(async () => root.render(render(true)));
+    const host = container.querySelector("[data-app-topbar]");
+    expect(host).not.toBeNull();
+    expect(container.querySelector("output")!.textContent).toBe("elysia-app-topbar-content");
+    await act(async () => root.render(render(false)));
+    expect(container.querySelector("output")!.textContent).toBe("unmounted");
+    await act(async () => root.render(render(true)));
+    expect(container.querySelector("output")!.textContent).toBe("elysia-app-topbar-content");
+  } finally {
+    await act(async () => root.unmount());
+    container.remove();
+    vi.unstubAllGlobals();
+  }
+});
 
 it("moves through real browser history while preserving the sidebar toggle", async () => {
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);

@@ -78,7 +78,7 @@ export function deriveBlockedOnThreadWait(input: {
     if (item.type !== "dynamic_tool") return false;
     const tool = resolveElysiaMcpToolId(item.toolName);
     if (
-      tool !== "t3_thread_wait" &&
+      tool !== "elysia_thread_wait" &&
       !(
         tool === "delegate_task" &&
         Predicate.isObject(item.input) &&

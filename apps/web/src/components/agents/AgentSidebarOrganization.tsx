@@ -37,7 +37,7 @@ import {
 } from "./agentSidebarPreferences";
 import type { AgentRosterEntry } from "./useAgents";
 
-export const agentSidebarKey = (agent: AgentRosterEntry) =>
+const agentSidebarKey = (agent: AgentRosterEntry) =>
   scopedProjectKey(scopeProjectRef(agent.project.environmentId, agent.project.id));
 export function AgentSectionDialog({
   section,

@@ -286,7 +286,7 @@ describe("providerMaintenanceRunner", () => {
               }),
             );
           },
-          refreshInstance: () =>
+          refreshAfterUpdate: () =>
             Ref.updateAndGet(providersRef, (snapshots) =>
               snapshots.map((snapshot) => ({
                 ...snapshot,

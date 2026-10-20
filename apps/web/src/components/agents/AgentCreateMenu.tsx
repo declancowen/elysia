@@ -1,4 +1,4 @@
-import { BotIcon, ChannelIcon, FolderPlusIcon, PlusIcon } from "../../icons";
+import { BubblesIcon, ChannelIcon, FolderPlusIcon, PlusIcon } from "../../icons";
 import { Button } from "../ui/button";
 import { Menu, MenuItem, MenuPopup, MenuTrigger } from "../ui/menu";
 import { useSidebar } from "../ui/sidebar";
@@ -39,7 +39,7 @@ export function AgentCreateMenu({
               if (isMobile) setOpenMobile(false);
             }}
           >
-            <BotIcon />
+            <BubblesIcon />
             New agent
           </MenuItem>
           <MenuItem

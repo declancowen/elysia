@@ -1,5 +1,5 @@
 import { useLocation, useParams, useCanGoBack } from "@tanstack/react-router";
-import { useEffect, useLayoutEffect, useState, type ReactNode } from "react";
+import { useEffect, useSyncExternalStore, type ReactNode } from "react";
 import { ArrowLeftIcon, ArrowRightIcon } from "~/icons";
 import { isElectron } from "~/env";
 import { cn } from "~/lib/utils";
@@ -14,14 +14,23 @@ import { surfaceTabForLocation } from "../surfaceTabs";
 import { ConversationTabs } from "./chat/ConversationTabs";
 
 const TOPBAR_CONTENT_ID = "elysia-app-topbar-content";
+let topbarHost: HTMLElement | null = null;
+const topbarHostListeners = new Set<() => void>();
+const getTopbarHost = () => topbarHost;
+const getServerTopbarHost = () => null;
+function subscribeTopbarHost(listener: () => void) {
+  topbarHostListeners.add(listener);
+  return () => topbarHostListeners.delete(listener);
+}
+function publishTopbarHost(element: HTMLDivElement | null) {
+  if (topbarHost === element) return;
+  topbarHost = element;
+  for (const listener of topbarHostListeners) listener();
+}
 
 /** Header owners share the host rendered by the application shell. */
 export function useAppTopbarHost() {
-  const [host, setHost] = useState<HTMLElement | null>(null);
-  useLayoutEffect(() => {
-    setHost(document.getElementById(TOPBAR_CONTENT_ID));
-  }, []);
-  return host;
+  return useSyncExternalStore(subscribeTopbarHost, getTopbarHost, getServerTopbarHost);
 }
 
 export function AppTopbar({ sidebarControl }: { sidebarControl: ReactNode }) {
@@ -107,6 +116,7 @@ export function AppTopbar({ sidebarControl }: { sidebarControl: ReactNode }) {
       </div>
       <div aria-hidden="true" className="workspace-topbar-divider mx-1 shrink-0" />
       <div
+        ref={publishTopbarHost}
         id={TOPBAR_CONTENT_ID}
         data-app-topbar-content=""
         className="relative flex h-full min-w-0 flex-1 items-center bg-sidebar"

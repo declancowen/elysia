@@ -23,6 +23,7 @@ import * as Effect from "effect/Effect";
 import * as Deferred from "effect/Deferred";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
+import * as Option from "effect/Option";
 import * as Stream from "effect/Stream";
 import * as Layer from "effect/Layer";
 import * as PlatformError from "effect/PlatformError";
@@ -524,7 +525,7 @@ describe("Grok launch permission mode", () => {
           RuntimePolicy.layerFromProjectStore.pipe(
             Layer.provide(
               Layer.mock(ProjectStore.ProjectStoreV2)({
-                get: () => Effect.die("the thread has a worktree"),
+                get: () => Effect.succeed(Option.none()),
               }),
             ),
             Layer.provide(

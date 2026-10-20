@@ -42,7 +42,7 @@ vi.mock("~/hooks/useSettings", () => ({
     select(useSyncExternalStore(subscribe, () => state.settings)),
   useUpdateClientSettings: () => state.updateSettings,
   updateClientSettings: (patch: Partial<typeof state.settings>) => state.updateSettings(patch),
-  useEnvironmentIdentificationMode: () => "pill",
+  getEnvironmentIdentificationMode: () => "pill",
 }));
 
 vi.mock("@tanstack/react-router", () => ({

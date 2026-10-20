@@ -19,7 +19,7 @@ import {
 import { getTraitsSpeedDisplay, TraitsSpeedIcon } from "./TraitsSpeed";
 import type { ReactNode } from "react";
 import {
-  BotIcon,
+  BubblesIcon,
   CheckIcon,
   CircleDashedIcon,
   CircleXIcon,
@@ -137,7 +137,7 @@ export function SubagentTooltipContent(props: {
             iconClassName="size-3 shrink-0 grayscale opacity-60"
           />
         ) : (
-          <BotIcon className="size-3 shrink-0" />
+          <BubblesIcon className="size-3 shrink-0" />
         )}
         <span className="inline-flex min-w-0 items-center gap-1 text-foreground/75">
           <span className="min-w-0 truncate">

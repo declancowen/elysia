@@ -9,7 +9,7 @@ import {
 } from "@elysiatools/shared/projectIcon";
 import {
   BookOpenIcon,
-  BotIcon,
+  BubblesIcon,
   ChefHatIcon,
   Code2Icon,
   DatabaseIcon,
@@ -46,7 +46,7 @@ const AUTOMATIC_PROJECT_ICONS: Record<
   globe: GlobeIcon,
   image: ImageIcon,
   music: MusicIcon,
-  bot: BotIcon,
+  bot: BubblesIcon,
   smartphone: SmartphoneIcon,
   server: ServerIcon,
   "code-2": Code2Icon,

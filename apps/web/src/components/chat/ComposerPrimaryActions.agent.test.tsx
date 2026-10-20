@@ -3,7 +3,7 @@ import { act } from "react";
 import { createRoot } from "react-dom/client";
 import { expect, it, vi } from "vite-plus/test";
 
-vi.mock("~/hooks/useSettings", () => ({ useEnvironmentIdentificationMode: () => "none" }));
+vi.mock("~/hooks/useSettings", () => ({ getEnvironmentIdentificationMode: () => "none" }));
 vi.mock("../SidebarStageBackdrop", () => ({ useSidebarStageBackdropVariant: () => null }));
 
 import { ComposerPrimaryActions } from "./ComposerPrimaryActions";

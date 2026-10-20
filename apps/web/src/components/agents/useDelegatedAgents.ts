@@ -4,10 +4,32 @@ import type { ScopedThreadRef } from "@elysiatools/contracts";
 import { isAgentDelegationActive, type DelegatedAgent } from "@elysiatools/shared/agentMentions";
 import * as Option from "effect/Option";
 import { AsyncResult, Atom } from "effect/reactivity";
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useRef } from "react";
 import { appAtomRegistry } from "../../rpc/atomRegistry";
 import { useProjects, useThreadShellsForProjectRefs } from "../../state/entities";
 import { projectEnvironment } from "../../state/projects";
+
+// Stable targets keep equivalent route/job objects on one subscription.
+const delegationValuesAtom = Atom.family((key: string | null) => {
+  const target =
+    key === null
+      ? null
+      : (JSON.parse(key) as readonly [
+          ScopedThreadRef["environmentId"],
+          ScopedThreadRef["threadId"],
+          ReadonlyArray<DelegatedAgent["activityId"]>,
+        ]);
+  const queries =
+    target === null
+      ? []
+      : target[2].map((activityId) =>
+          projectEnvironment.getAgentDelegation({
+            environmentId: target[0],
+            input: { sourceThreadId: target[1], activityId },
+          }),
+        );
+  return Atom.make((get) => queries.map((query) => get(query)));
+});
 
 /** Follow only source-linked jobs. Shell events drive reads; opening this never invokes a model. */
 export function useDelegatedAgents(
@@ -15,41 +37,37 @@ export function useDelegatedAgents(
   jobs: ReadonlyArray<DelegatedAgent>,
 ) {
   const projects = useProjects();
-  const refs = useMemo(
-    () =>
-      source
-        ? jobs.flatMap((job) => {
-            const project = projects.find(
-              (candidate) =>
-                candidate.environmentId === source.environmentId &&
-                candidate.id === job.agentProjectId,
-            );
-            return [
-              job.agentProjectId,
-              ...(project?.agentProfile?.group?.memberProjectIds ?? []),
-            ].map((projectId) => scopeProjectRef(source.environmentId, projectId));
-          })
-        : [],
-    [source, jobs, projects],
-  );
+  const refs = source
+    ? jobs.flatMap((job) => {
+        const project = projects.find(
+          (candidate) =>
+            candidate.environmentId === source.environmentId && candidate.id === job.agentProjectId,
+        );
+        return [job.agentProjectId, ...(project?.agentProfile?.group?.memberProjectIds ?? [])].map(
+          (projectId) => scopeProjectRef(source.environmentId, projectId),
+        );
+      })
+    : [];
   const shells = useThreadShellsForProjectRefs(refs);
-  const queries = useMemo(
-    () =>
-      source
-        ? jobs.map((job) =>
-            projectEnvironment.getAgentDelegation({
-              environmentId: source.environmentId,
-              input: { sourceThreadId: source.threadId, activityId: job.activityId },
-            }),
-          )
-        : [],
-    [source, jobs],
+  const queries = source
+    ? jobs.map((job) =>
+        projectEnvironment.getAgentDelegation({
+          environmentId: source.environmentId,
+          input: { sourceThreadId: source.threadId, activityId: job.activityId },
+        }),
+      )
+    : [];
+  const results = useAtomValue(
+    delegationValuesAtom(
+      source === null
+        ? null
+        : JSON.stringify([
+            source.environmentId,
+            source.threadId,
+            jobs.map((job) => job.activityId),
+          ]),
+    ),
   );
-  const resultsAtom = useMemo(
-    () => Atom.make((get) => queries.map((query) => get(query))),
-    [queries],
-  );
-  const results = useAtomValue(resultsAtom);
   const revisions = useRef(new Map<string, { value: string | undefined; dirty: boolean }>());
   useEffect(() => {
     jobs.forEach((job, index) => {
@@ -103,27 +121,22 @@ export function useDelegatedAgents(
       }
     });
   }, [jobs, projects, queries, results, shells, source]);
-  return useMemo(
-    () =>
-      jobs.map((job, index) => {
-        const result = results[index];
-        const data = result ? Option.getOrNull(AsyncResult.value(result)) : null;
-        const project = projects.find(
-          (candidate) =>
-            candidate.environmentId === source?.environmentId &&
-            candidate.id === job.agentProjectId,
-        );
-        const failed = result?._tag === "Failure";
-        return {
-          job,
-          data,
-          project,
-          name: project?.title ?? job.agentName,
-          working: !failed && (!data || isAgentDelegationActive(data.status)),
-        };
-      }),
-    [jobs, projects, results, source],
-  );
+  return jobs.map((job, index) => {
+    const result = results[index];
+    const data = result ? Option.getOrNull(AsyncResult.value(result)) : null;
+    const project = projects.find(
+      (candidate) =>
+        candidate.environmentId === source?.environmentId && candidate.id === job.agentProjectId,
+    );
+    const failed = result?._tag === "Failure";
+    return {
+      job,
+      data,
+      project,
+      name: project?.title ?? job.agentName,
+      working: !failed && (!data || isAgentDelegationActive(data.status)),
+    };
+  });
 }
 
 export type DelegatedAgentView = ReturnType<typeof useDelegatedAgents>[number];

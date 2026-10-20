@@ -48,7 +48,10 @@ describe("usePanelPresence", () => {
     scopeKey?: string;
     animated?: boolean;
   }) {
-    presence = usePanelPresence(open, open ? "chat-one" : null, animated, scopeKey, 180);
+    const panel = usePanelPresence(open, open ? "chat-one" : null, animated, scopeKey, 180);
+    useLayoutEffect(() => {
+      presence = panel;
+    }, [panel]);
     return null;
   }
 

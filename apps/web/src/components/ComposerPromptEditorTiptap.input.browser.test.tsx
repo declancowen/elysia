@@ -10,7 +10,7 @@ import {
 import { userEvent } from "vite-plus/test/browser";
 import type { ServerProviderSkill } from "@elysiatools/contracts";
 import type { Editor } from "@tiptap/core";
-import { act, createElement, createRef, useEffect, useState } from "react";
+import { act, createElement, createRef, Suspense, use, useEffect, useState } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
@@ -298,6 +298,49 @@ it("keeps the caret inside unknown dollar text across rich and plain remounts", 
     editor.commands.insertContent("Y");
   });
   expect(serializeEditorDoc(editor.state.doc).value).toBe("echo $HOXYME now");
+});
+
+function SuspendComposer({ pending }: { pending: Promise<void> | null }) {
+  if (pending) use(pending);
+  return null;
+}
+
+it("retains the controlled draft and exact caret when Suspense hides the existing editor", async () => {
+  const value = "Review the change before shipping";
+  const cursor = "Review the ".length;
+  const onChange = vi.fn<ComposerPromptEditorProps["onChange"]>();
+  const render = (pending: Promise<void> | null) => (
+    <Suspense fallback={<p data-testid="composer-suspended">Waiting</p>}>
+      <Composer value={value} richTextEnabled skills={[]} onChange={onChange} />
+      <SuspendComposer pending={pending} />
+    </Suspense>
+  );
+  await act(async () => root.render(render(null)));
+  const element = container.querySelector<HTMLElement & { editor: Editor }>(".tiptap")!;
+  const editor = element.editor;
+  await act(async () => editor.commands.setTextSelection(cursor + 1));
+  expect(onChange.mock.lastCall?.[1]).toBe(cursor);
+  const selection = editor.state.selection;
+  let resume!: () => void;
+  const pending = new Promise<void>((resolve) => {
+    resume = resolve;
+  });
+  await act(async () => root.render(render(pending)));
+  expect(container.querySelector('[data-testid="composer-suspended"]')).not.toBeNull();
+  expect(editor.isDestroyed).toBe(false);
+  await act(async () => {
+    resume();
+    await pending;
+  });
+  expect(container.querySelector('[data-testid="composer-suspended"]')).toBeNull();
+  const resumed = container.querySelector<HTMLElement & { editor: Editor }>(".tiptap")!;
+  expect(resumed.editor).toBe(editor);
+  expect(serializeEditorDoc(editor.state.doc).value).toBe(value);
+  expect(editor.state.selection.eq(selection)).toBe(true);
+  await act(async () => editor.commands.insertContent("X"));
+  expect(serializeEditorDoc(editor.state.doc).value).toBe(
+    `${value.slice(0, cursor)}X${value.slice(cursor)}`,
+  );
 });
 
 it("reconciles provider skills and metadata without losing formatting, caret, or undo", async () => {

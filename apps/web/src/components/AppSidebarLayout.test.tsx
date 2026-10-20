@@ -28,7 +28,7 @@ vi.mock("./chat/ConversationTabs", () => ({
 }));
 vi.mock("../hooks/useSettings", () => ({
   useLegacySidebarEnabled: () => state.legacy,
-  useEnvironmentIdentificationMode: () => "pill",
+  getEnvironmentIdentificationMode: () => "pill",
 }));
 vi.mock("../hooks/useThreadVisitedMigration", () => ({ useThreadVisitedMigration: () => {} }));
 vi.mock("../hooks/useLocalStorage", () => ({

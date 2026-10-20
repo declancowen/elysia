@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { lazy, Suspense, useLayoutEffect, useRef, useState } from "react";
 import { useAtomValue } from "@effect/atom-react";
 import {
   ComposerContextId,
@@ -62,10 +62,7 @@ export function useWorkspaceSideChat({
   const targetKey = target ? `${environmentId}:${target.kind}:${target.id}` : "";
   const [openTargetKey, setOpenTargetKey] = useState<string | null>(null);
   const open = openTargetKey === targetKey;
-  const setOpen = useCallback(
-    (value: boolean) => setOpenTargetKey(value ? targetKey : null),
-    [targetKey],
-  );
+  const setOpen = (value: boolean) => setOpenTargetKey(value ? targetKey : null);
   const [expanded, setExpanded] = useState(false);
   const [selected, setSelected] = useState<ThreadId | null>(null);
   const [busy, setBusy] = useState(false);
@@ -75,13 +72,15 @@ export function useWorkspaceSideChat({
   useLayoutEffect(() => {
     currentTargetKey.current = targetKey;
   }, [targetKey]);
-  useEffect(() => {
-    setOpen(false);
+  const [scopeKey, setScopeKey] = useState(targetKey);
+  if (scopeKey !== targetKey) {
+    setScopeKey(targetKey);
+    setOpenTargetKey(null);
     setExpanded(false);
     setSelected(null);
     setError(null);
     setDraft(null);
-  }, [setOpen]);
+  }
   const chats = shells.filter(
     (thread) =>
       thread.environmentId === environmentId &&

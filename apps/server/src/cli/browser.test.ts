@@ -63,7 +63,7 @@ const fakeSpawner = (host: { readonly font?: string; readonly missingLibrary?: b
   return { spawner, commands };
 };
 
-/** A Linux host with apt and T3's browser installed under `/t3`. */
+/** A Linux host with apt and Elysia's browser installed under `/t3`. */
 const runSetup = (host: {
   readonly root: boolean;
   readonly font?: string;
@@ -120,7 +120,7 @@ it.effect("setup without root does not report a host without fonts as ready", ()
   Effect.gen(function* () {
     const { commands, output } = yield* runSetup({ root: false });
     expect(output).toContain(
-      "T3's browser needs fontconfig and system fonts; setup installs them.",
+      "Elysia's browser needs fontconfig and system fonts; setup installs them.",
     );
     expect(output).toContain("This needs root. Run:");
     expect(output).not.toContain("ready");
@@ -143,6 +143,6 @@ it.effect("setup as root installs missing libraries and fonts after one package 
       "fonts-liberation",
     ]);
     expect(output).toContain("Installed the browser's fonts.");
-    expect(output).toContain("This host is ready for T3's browser.");
+    expect(output).toContain("This host is ready for Elysia's browser.");
   }),
 );

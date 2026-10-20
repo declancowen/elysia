@@ -19,7 +19,7 @@ import {
   WrapTextIcon,
   XIcon,
 } from "~/icons";
-import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { settlePromise } from "@elysiatools/client-runtime/state/runtime";
 import * as AsyncResult from "effect/reactivity/AsyncResult";
 import * as Cause from "effect/Cause";
@@ -268,7 +268,7 @@ export function AttachmentFilePreview(props: {
       />
     </div>
   ) : kind === "image" ? (
-    <div className="flex min-h-0 flex-1 items-center justify-center overflow-auto p-4">
+    <div className="scrollbar-gutter-both flex min-h-0 flex-1 items-center justify-center overflow-auto p-4">
       <img
         src={url}
         alt={props.name}

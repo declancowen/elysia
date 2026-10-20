@@ -6,7 +6,6 @@ import {
   type ScopedThreadRef,
 } from "@elysiatools/contracts";
 import { scopeProjectRef } from "@elysiatools/client-runtime/environment";
-import { useMemo } from "react";
 import { CircleCheckIcon, CircleAlertIcon, SquareIcon, ChannelIcon } from "~/icons";
 import { delegatedAgentsFromTurnItems } from "@elysiatools/shared/agentMentions";
 import { useDelegatedAgents } from "./useDelegatedAgents";
@@ -89,12 +88,8 @@ export function SentAgentMentionChip(
       ? scopeProjectRef(sourceThreadRef.environmentId, sourceThread.projectId)
       : null,
   );
-  const jobs = useMemo(
-    () =>
-      delegatedAgentsFromTurnItems(source?.projection.turnItems ?? []).filter(
-        (job) => job.sourceMessageId === sourceMessageId && job.agentProjectId === chip.contextId,
-      ),
-    [source?.projection.turnItems, sourceMessageId, chip.contextId],
+  const jobs = delegatedAgentsFromTurnItems(source?.projection.turnItems ?? []).filter(
+    (job) => job.sourceMessageId === sourceMessageId && job.agentProjectId === chip.contextId,
   );
   const agents = useDelegatedAgents(sourceThreadRef, jobs);
   const agent = agents[agents.length - 1];
@@ -122,14 +117,10 @@ export function AgentMessageStatus({
   agentProjectId?: ProjectId;
 }) {
   const source = useThreadProjection(sourceThreadRef);
-  const jobs = useMemo(
-    () =>
-      delegatedAgentsFromTurnItems(source?.projection.turnItems ?? []).filter(
-        (job) =>
-          job.sourceMessageId === sourceMessageId &&
-          (agentProjectId === undefined || job.agentProjectId === agentProjectId),
-      ),
-    [source?.projection.turnItems, sourceMessageId, agentProjectId],
+  const jobs = delegatedAgentsFromTurnItems(source?.projection.turnItems ?? []).filter(
+    (job) =>
+      job.sourceMessageId === sourceMessageId &&
+      (agentProjectId === undefined || job.agentProjectId === agentProjectId),
   );
   const agents = useDelegatedAgents(sourceThreadRef, jobs);
   if (!agents.length) return null;

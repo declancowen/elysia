@@ -7,41 +7,48 @@ import type {
 } from "@elysiatools/contracts";
 import * as Option from "effect/Option";
 import { AsyncResult, Atom } from "effect/reactivity";
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useRef } from "react";
 import { appAtomRegistry } from "../../rpc/atomRegistry";
 import { projectEnvironment } from "../../state/projects";
 import type { AgentRosterEntry } from "./useAgents";
 
+function previewBatches(agents: readonly AgentRosterEntry[]) {
+  const groups = new Map<EnvironmentId, ProjectId[]>();
+  for (const { project } of agents) {
+    if (project.agentProfile?.archived) continue;
+    const ids = groups.get(project.environmentId) ?? [];
+    ids.push(project.id);
+    groups.set(project.environmentId, ids);
+  }
+  return [...groups].flatMap(([environmentId, ids]) => {
+    const sorted = [...new Set(ids)].sort();
+    return Array.from({ length: Math.ceil(sorted.length / 100) }, (_, index) => {
+      const projectIds = sorted.slice(index * 100, (index + 1) * 100);
+      return { environmentId, projectIds, key: `${environmentId}:${projectIds.join(",")}` };
+    });
+  });
+}
+
+// Query targets, rather than render allocations, own the composite subscription.
+const previewValuesAtom = Atom.family((key: string) => {
+  const targets = JSON.parse(key) as ReadonlyArray<readonly [EnvironmentId, ProjectId[]]>;
+  const queries = targets.map(([environmentId, projectIds]) =>
+    projectEnvironment.agentConversationPreviews({ environmentId, input: { projectIds } }),
+  );
+  return Atom.make((get) => queries.map((query) => get(query)));
+});
+
 /** Bounded snippets, batched by environment; transcript bodies stay out of shell hydration. */
 export function useAgentConversationPreviews(agents: readonly AgentRosterEntry[]) {
-  const batches = useMemo(() => {
-    const groups = new Map<EnvironmentId, ProjectId[]>();
-    for (const { project } of agents) {
-      if (project.agentProfile?.archived) continue;
-      const ids = groups.get(project.environmentId) ?? [];
-      ids.push(project.id);
-      groups.set(project.environmentId, ids);
-    }
-    return [...groups].flatMap(([environmentId, ids]) => {
-      const sorted = [...new Set(ids)].sort();
-      return Array.from({ length: Math.ceil(sorted.length / 100) }, (_, index) => {
-        const projectIds = sorted.slice(index * 100, (index + 1) * 100);
-        return { environmentId, projectIds, key: `${environmentId}:${projectIds.join(",")}` };
-      });
-    });
-  }, [agents]);
-  const queries = useMemo(
-    () =>
-      batches.map(({ environmentId, projectIds }) =>
-        projectEnvironment.agentConversationPreviews({ environmentId, input: { projectIds } }),
-      ),
-    [batches],
+  const batches = previewBatches(agents);
+  const queries = batches.map(({ environmentId, projectIds }) =>
+    projectEnvironment.agentConversationPreviews({ environmentId, input: { projectIds } }),
   );
-  const valuesAtom = useMemo(
-    () => Atom.make((get) => queries.map((query) => get(query))),
-    [queries],
+  const values = useAtomValue(
+    previewValuesAtom(
+      JSON.stringify(batches.map(({ environmentId, projectIds }) => [environmentId, projectIds])),
+    ),
   );
-  const values = useAtomValue(valuesAtom);
   const revisions = useRef(new Map<string, { value: string; dirty: boolean }>());
   useEffect(() => {
     const liveKeys = new Set(batches.map((batch) => batch.key));

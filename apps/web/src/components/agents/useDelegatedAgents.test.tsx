@@ -68,6 +68,17 @@ const response: AgentGetDelegationResult = {
 function Watcher() {
   return <p>{useDelegatedAgents(source, jobs)[0]?.data?.status ?? "loading"}</p>;
 }
+function FreshTargetsWatcher({ generation }: { generation: number }) {
+  const agents = useDelegatedAgents(
+    { ...source },
+    jobs.map((job) => ({ ...job })),
+  );
+  return (
+    <p>
+      {generation}:{agents[0]?.data?.status ?? "loading"}
+    </p>
+  );
+}
 let renderer: ReactTestRenderer | null = null;
 beforeEach(() => {
   state.load.mockReset();
@@ -101,6 +112,26 @@ it("refreshes a retained working job when reopening after it finished", async ()
   await mount();
   expect(state.load).toHaveBeenCalledTimes(initialReads + 1);
   expect(renderer!.root.findByType("p").children).toEqual(["completed"]);
+});
+
+it("retains one subscription when equivalent source and jobs are rebuilt", async () => {
+  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+  state.load.mockResolvedValue({ ...response, status: "completed" });
+  const render = (generation: number) => (
+    <RegistryContext.Provider value={appAtomRegistry}>
+      <FreshTargetsWatcher generation={generation} />
+    </RegistryContext.Provider>
+  );
+  await act(async () => {
+    renderer = create(render(0));
+  });
+  const initialReads = state.load.mock.calls.length;
+  expect(renderer!.root.findByType("p").children.join("")).toBe("0:completed");
+  for (const generation of [1, 2, 3]) {
+    await act(async () => renderer!.update(render(generation)));
+    expect(renderer!.root.findByType("p").children.join("")).toBe(`${generation}:completed`);
+  }
+  expect(state.load).toHaveBeenCalledTimes(initialReads);
 });
 
 it("follows group member lifecycle changes without waiting for a group response", async () => {

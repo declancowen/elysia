@@ -1,7 +1,7 @@
 import type { EnvironmentId } from "@elysiatools/contracts";
 import { squashAtomCommandFailure } from "@elysiatools/client-runtime/state/runtime";
 import { RotateCcwIcon, ChannelIcon } from "~/icons";
-import { useMemo, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { useEnvironments } from "../../state/environments";
 import { useProjects } from "../../state/entities";
 import { projectEnvironment } from "../../state/projects";
@@ -20,17 +20,15 @@ export function ArchivedAgentsSection({
 }) {
   const projects = useProjects();
   const { environments } = useEnvironments();
-  const agents = useMemo(() => {
-    const scope = new Set(environmentIds);
-    return projects
-      .filter(
-        (project) =>
-          scope.has(project.environmentId) &&
-          project.agentProfile?.archived &&
-          !!project.agentProfile.group === channels,
-      )
-      .toSorted((a, b) => a.title.localeCompare(b.title));
-  }, [environmentIds, projects, channels]);
+  const scope = new Set(environmentIds);
+  const agents = projects
+    .filter(
+      (project) =>
+        scope.has(project.environmentId) &&
+        project.agentProfile?.archived &&
+        !!project.agentProfile.group === channels,
+    )
+    .toSorted((a, b) => a.title.localeCompare(b.title));
   return (
     <SettingsSection title={channels ? "Archived channels" : "Archived agents"}>
       {agents.length === 0 ? (

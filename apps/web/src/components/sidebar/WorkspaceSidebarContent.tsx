@@ -1,4 +1,4 @@
-import { createContext, useContext, useMemo, useState, type ReactNode } from "react";
+import { createContext, useContext, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 
 const WorkspaceSidebarContentContext = createContext<{
@@ -11,10 +11,7 @@ const WorkspaceSidebarContentContext = createContext<{
 export function WorkspaceSidebarContentProvider({ children }: { children: ReactNode }) {
   const [host, setHost] = useState<HTMLDivElement | null>(null);
   const [floatingHost, setFloatingHost] = useState<HTMLDivElement | null>(null);
-  const value = useMemo(
-    () => ({ host, setHost, floatingHost, setFloatingHost }),
-    [host, floatingHost],
-  );
+  const value = { host, setHost, floatingHost, setFloatingHost };
   return <WorkspaceSidebarContentContext value={value}>{children}</WorkspaceSidebarContentContext>;
 }
 

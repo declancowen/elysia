@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useState } from "react";
+import { useLayoutEffect, useState } from "react";
 
 /** Details temporarily replace the overview without losing its open view. */
 export function useChatHeaderPanels(
@@ -8,20 +8,21 @@ export function useChatHeaderPanels(
 ) {
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [overviewDocked, setOverviewDocked] = useState(false);
-  const detailsChanged = useCallback((open: boolean) => {
-    setDetailsOpen(open);
-  }, []);
-  const overviewChanged = useCallback((open: boolean) => {
+  const [scope, setScope] = useState({ projectKey, wide });
+  if (scope.projectKey !== projectKey || scope.wide !== wide) {
+    setScope({ projectKey, wide });
+    setDetailsOpen(false);
+  }
+  const overviewChanged = (open: boolean) => {
     if (open) setDetailsOpen(false);
-  }, []);
+  };
   useLayoutEffect(() => {
     onDockedChange?.(overviewDocked || (detailsOpen && wide));
   }, [onDockedChange, overviewDocked, detailsOpen, wide]);
   useLayoutEffect(() => () => onDockedChange?.(false), [onDockedChange]);
-  useEffect(() => setDetailsOpen(false), [projectKey, wide]);
   return {
     detailsOpen,
-    detailsChanged,
+    detailsChanged: setDetailsOpen,
     overviewChanged,
     setOverviewDocked,
     overviewHidden: detailsOpen,

@@ -19,7 +19,13 @@
     "scripts": {
       // Knip loads its preprocessor through a CLI option; native verification and
       // worktree setup (from t3.json) run directly.
-      "entry": ["knip-schemas.ts", "mobile-native-client.ts", "setup-worktree.ts"],
+      "entry": [
+        "knip-schemas.ts",
+        "mobile-native-client.ts",
+        "setup-worktree.ts",
+        // Old automation invokes this filename; it rejects unsupported publication.
+        "build-npm-platform-packages.ts",
+      ],
       // The `t3` npm package's files: copied into the package, never imported.
       "ignore": ["npm-launcher/**"],
     },
@@ -40,7 +46,11 @@
         "graphql.config.ts",
       ],
       // The generated operations export every selection's class.
-      "ignoreIssues": { "**/*.graphql.ts": ["exports", "types", "namespaceMembers"] },
+      "ignoreIssues": {
+        "**/*.graphql.ts": ["exports", "types", "namespaceMembers"],
+        // Elysia's runtime policy disables upstream triage; retain its implementation for merges.
+        "src/cli/triage.ts": ["files"],
+      },
       // Keep the transitive Effect runtime pinned for standalone npm installs.
       // The Vite+ web build prerequisite.
       "ignoreDependencies": [
@@ -48,8 +58,6 @@
         "@elysiatools/web",
         "@napi-rs/keyring",
       ],
-      // Elysia's runtime policy disables upstream triage; retain its implementation for merges.
-      "ignoreIssues": { "src/cli/triage.ts": ["files"] },
     },
     "apps/desktop": {
       // Electron loads these bundles by filename rather than importing them.
@@ -73,23 +81,25 @@
       "ignoreDependencies": ["playwright-core", "electron-builder"],
     },
     "apps/web": {
-      // Worktree setup (scripts/setup-worktree.ts) runs this directly.
-      "entry": ["scripts/warm-dep-cache.ts"],
+      "entry": [
+        // Worktree setup (scripts/setup-worktree.ts) runs this directly.
+        "scripts/warm-dep-cache.ts",
+        // Retain disabled upstream UI roots and audit their dependency graphs.
+        "src/components/clerk/RemoveElysiaConnectEnvironmentDialog.tsx",
+        "src/components/settings/AddUsageLimitSourceDialog.tsx",
+        "src/components/settings/ConnectionsSettings.tsx",
+        "src/components/settings/EnvironmentRoutesList.tsx",
+        "src/components/settings/SessionPermissions.tsx",
+        "src/components/settings/LocalEnvironmentSetting.tsx",
+        "src/components/settings/UsageProviderSettings.tsx",
+        "src/state/auth.ts",
+        "src/components/NightlyMobileBeta.tsx",
+      ],
       // UI component modules are copied and adapted as cohesive sets. Keep their
       // named subcomponents even before they have callers; the file audit still
       // reports an entire component module when nothing imports it.
       "ignoreIssues": {
         "src/components/ui/*.tsx": ["exports", "nsExports", "duplicates"],
-        // Elysia disables upstream connections and usage UI. Keep the dormant source for merges;
-        // suppress only unused-file reports so dependency analysis remains active.
-        "src/components/clerk/RemoveElysiaConnectEnvironmentDialog.tsx": ["files"],
-        "src/components/settings/AddUsageLimitSourceDialog.tsx": ["files"],
-        "src/components/settings/ConnectionsSettings.tsx": ["files"],
-        "src/components/settings/EnvironmentRoutesList.tsx": ["files"],
-        "src/components/settings/SessionPermissions.tsx": ["files"],
-        "src/components/settings/LocalEnvironmentSetting.tsx": ["files"],
-        "src/components/settings/UsageProviderSettings.tsx": ["files"],
-        "src/state/auth.ts": ["files"],
       },
     },
     "apps/mobile": {

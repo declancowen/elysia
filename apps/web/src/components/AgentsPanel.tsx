@@ -22,7 +22,7 @@ import {
   formatSubagentTokenCount,
 } from "@elysiatools/client-runtime/state/subagentRuntime";
 import type { EnvironmentId, ThreadId } from "@elysiatools/contracts";
-import { Bot, Braces, Check, ChevronDown, ChevronRight, X } from "~/icons";
+import { BubblesIcon, Braces, Check, ChevronDown, ChevronRight, X } from "~/icons";
 import { useEffect, useRef, useState } from "react";
 
 import { cn } from "~/lib/utils";
@@ -539,7 +539,7 @@ export function AgentsPanel({
   if (!model.hasAgents) {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-2 p-6 text-center">
-        <Bot aria-hidden className="size-6 text-empty-muted" />
+        <BubblesIcon aria-hidden className="size-6 text-empty-muted" />
         <p className="text-sm font-medium">No agents yet</p>
         <p className="max-w-56 text-xs text-empty-muted">
           When this thread spawns subagents or runs a workflow, they show up here with live status,

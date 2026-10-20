@@ -45,7 +45,7 @@ export class ServerAlreadyRunningError extends Schema.TaggedError<ServerAlreadyR
   override readonly [Runtime.errorExitCode] = SERVER_EXIT_CODE_STATE_DIR_OWNED;
 
   override get message(): string {
-    return `A T3 Code server already owns ${this.stateDir}. Stop that server, or use a separate T3 home and pair with it, then retry. No server was stopped.`;
+    return `A Elysia server already owns ${this.stateDir}. Stop that server, or use a separate Elysia home and pair with it, then retry. No server was stopped.`;
   }
 }
 
@@ -56,7 +56,7 @@ export class OlderBootServiceError extends Schema.TaggedError<OlderBootServiceEr
   override readonly [Runtime.errorExitCode] = SERVER_EXIT_CODE_STATE_DIR_OWNED;
 
   override get message(): string {
-    return `A T3 Code background service set up for ${this.baseDir} may still run a release without the ownership lock. On that machine, try \`t3 update\` and let it restart (or run \`t3 service restart\` if the update is already installed). If the older launcher cannot update, run \`t3 service uninstall\`, then reinstall with \`t3 service install\` from a current CLI. You can also leave the service uninstalled. Pass \`--base-dir ${this.baseDir}\` to each command, and use \`npx t3@latest\` if \`t3\` is not installed or is outdated. Then retry. No server was stopped.`;
+    return `A Elysia background service set up for ${this.baseDir} may still run a release without the ownership lock. On that machine, try \`elysia update\` and let it restart (or run \`elysia service restart\` if the update is already installed). If the older launcher cannot update, run \`elysia service uninstall\`, then reinstall with \`elysia service install\` from a current CLI. You can also leave the service uninstalled. Pass \`--base-dir ${this.baseDir}\` to each command, and use a current Elysia server CLI if \`elysia\` is not installed or is outdated. Then retry. No server was stopped.`;
   }
 }
 

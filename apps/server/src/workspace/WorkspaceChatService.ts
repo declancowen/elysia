@@ -35,30 +35,28 @@ const make = Effect.gen(function* () {
           : new WorkspaceChatError({ message: "Could not access linked chats.", cause }),
       ),
     );
-  const exists = (target: WorkspaceChatTarget) =>
-    Effect.gen(function* () {
-      const rows =
-        target.kind === "page"
-          ? yield* sql`SELECT id FROM pages WHERE id=${target.id}`
-          : yield* sql`SELECT number FROM work_tasks WHERE number=${Number(target.id.slice(5))}`;
-      if (!rows.length)
-        return yield* new WorkspaceChatError({ message: "The task or page no longer exists." });
-    });
-  const regular = (id: ThreadId) =>
-    Effect.gen(function* () {
-      const thread = yield* threads.getThreadShell(id);
-      if (
-        !thread ||
-        thread.deletedAt !== null ||
-        thread.archivedAt !== null ||
-        thread.lineage.relationshipToParent === "subagent"
-      )
-        return false;
-      const project = yield* projects.get(thread.projectId);
-      return (
-        Option.isSome(project) && project.value.deletedAt === null && !project.value.agentProfile
-      );
-    });
+  const exists = Effect.fn("WorkspaceChatService.exists")(function* (target: WorkspaceChatTarget) {
+    const rows =
+      target.kind === "page"
+        ? yield* sql`SELECT id FROM pages WHERE id=${target.id}`
+        : yield* sql`SELECT number FROM work_tasks WHERE number=${Number(target.id.slice(5))}`;
+    if (!rows.length)
+      return yield* new WorkspaceChatError({ message: "The task or page no longer exists." });
+  });
+  const regular = Effect.fn("WorkspaceChatService.regular")(function* (id: ThreadId) {
+    const thread = yield* threads.getThreadShell(id);
+    if (
+      !thread ||
+      thread.deletedAt !== null ||
+      thread.archivedAt !== null ||
+      thread.lineage.relationshipToParent === "subagent"
+    )
+      return false;
+    const project = yield* projects.get(thread.projectId);
+    return (
+      Option.isSome(project) && project.value.deletedAt === null && !project.value.agentProfile
+    );
+  });
   const list = (target: WorkspaceChatTarget) =>
     wrap(
       Effect.gen(function* () {

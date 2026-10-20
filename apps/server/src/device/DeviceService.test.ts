@@ -1,3 +1,4 @@
+import "../testUtils/upstreamForkPolicy.ts";
 import { describe, expect, it } from "@effect/vitest";
 import {
   DEFAULT_SERVER_SETTINGS,

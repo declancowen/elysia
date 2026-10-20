@@ -198,7 +198,7 @@ function WorkspaceImagePreview(props: {
   }
 
   return assetUrl._tag === "Success" && imageUrl !== null ? (
-    <div className="flex min-h-0 flex-1 items-center justify-center overflow-auto p-4">
+    <div className="scrollbar-gutter-both flex min-h-0 flex-1 items-center justify-center overflow-auto p-4">
       <MediaActions source={actionsSource}>
         <img
           className="max-h-full max-w-full object-contain"
@@ -998,7 +998,6 @@ export default function FilePreviewPanel({
   composerDraftTarget,
   keybindings,
   availableEditors,
-  openInShortcutEnabled,
   revealLine,
   revealRequestId,
   onOpenFile,

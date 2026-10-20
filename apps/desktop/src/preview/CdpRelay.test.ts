@@ -80,7 +80,7 @@ describe("CDP relay", () => {
       JSON.stringify({
         id: 1,
         method: "Runtime.runIfWaitingForDebugger",
-        sessionId: "t3-preview-page",
+        sessionId: "elysia-preview-page",
       }),
     );
     relay.receive(

@@ -1064,7 +1064,7 @@ import { Select, SelectItem, SelectPopup, SelectValue } from "../ui/select";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
 import { toastManager } from "../ui/toast";
 import {
-  BotIcon,
+  BubblesIcon,
   CircleAlertIcon,
   PaperclipIcon,
   PencilRulerIcon,
@@ -1288,7 +1288,7 @@ const ComposerFooterModeControls = memo(function ComposerFooterModeControls(prop
             />
           ) : (
             <ComposerControlIcon
-              icon={BotIcon}
+              icon={BubblesIcon}
               size={size}
               opticalSize={size === "xs" ? "default" : "large"}
             />

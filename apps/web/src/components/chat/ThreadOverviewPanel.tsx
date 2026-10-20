@@ -21,7 +21,7 @@ import { useMediaQuery } from "~/hooks/useMediaQuery";
 import { useCodeWorkspace } from "~/hooks/useSettings";
 import { usePanelAnimationSettings } from "~/panelAnimations";
 import {
-  BotIcon,
+  BubblesIcon,
   ArrowLeftIcon,
   ExpandIcon,
   CollapseIcon,
@@ -94,7 +94,7 @@ function OverviewPopover({
   threadBoundaryRef,
   onDockedChange,
   changes,
-  showGit = changes !== null,
+  showGit: showGitOverride,
   showAgents = true,
   agents,
   sources,
@@ -110,6 +110,7 @@ function OverviewPopover({
   wide,
 }: ThreadOverviewPanelProps & { wide: boolean }) {
   const codeWorkspace = useCodeWorkspace();
+  const showGit = showGitOverride ?? changes !== null;
   const { active: panelAnimationsActive, durationMs } = usePanelAnimationSettings();
   const roster = useAgents();
   const currentChannel = roster.find(
@@ -153,7 +154,32 @@ function OverviewPopover({
   const [view, setView] = useState<
     { kind: "agent" | "subagent"; id: string } | { kind: "subagents" } | null
   >(null);
+  const [handledTarget, setHandledTarget] = useState<typeof target>(null);
+  const [handledToggle, setHandledToggle] = useState<typeof toggle>(null);
   const [expanded, setExpanded] = useState(false);
+  const targetMatches =
+    target !== null &&
+    target.source.environmentId === sourceThreadRef?.environmentId &&
+    target.source.threadId === sourceThreadRef?.threadId;
+  const toggleMatches =
+    toggle !== null &&
+    toggle.environmentId === sourceThreadRef?.environmentId &&
+    toggle.threadId === sourceThreadRef?.threadId;
+  if (target !== handledTarget && (target === null || targetMatches)) {
+    setHandledTarget(target);
+    if (target && !memberIds) {
+      setExpanded(false);
+      setView({ kind: "agent", id: target.projectId });
+      setOpen(true);
+    }
+  }
+  if (toggle !== handledToggle && (toggle === null || toggleMatches)) {
+    setHandledToggle(toggle);
+    if (toggle) {
+      setView(null);
+      setOpen((current) => !current);
+    }
+  }
   const [visibleSubagentCount, setVisibleSubagentCount] = useState(6);
   const { visibleRows: visibleSubagents, hiddenCount: hiddenSubagentCount } =
     resolveThreadLineageWindow(subagents, visibleSubagentCount);
@@ -177,17 +203,21 @@ function OverviewPopover({
       return;
     }
     if (!body || !selectedAgent.jobs.at(-1)?.data?.messages.length) return;
-    const messages = body.querySelectorAll<HTMLElement>("[data-agent-panel-message]");
-    const message = messages.item(messages.length - 1);
-    if (!message) return;
-    const rect = message.getBoundingClientRect();
-    const top = body.scrollTop + rect.top - body.getBoundingClientRect().top;
-    // Land at the start of the whole reply with its avatar, including progress messages.
-    body.style.paddingBottom = `${Math.max(20, body.clientHeight - rect.height)}px`;
-    if (landedView.current === view) return;
-    body.scrollTop = top;
-    landedView.current = view;
-  }, [open, view, selectedAgent, expanded, availableSize]);
+    const landReply = () => {
+      const messages = body.querySelectorAll<HTMLElement>("[data-agent-panel-message]");
+      const message = messages.item(messages.length - 1);
+      if (!message) return;
+      const rect = message.getBoundingClientRect();
+      const top = body.scrollTop + rect.top - body.getBoundingClientRect().top;
+      // Land at the start of the whole reply with its avatar, including progress messages.
+      body.style.paddingBottom = `${Math.max(20, body.clientHeight - rect.height)}px`;
+      if (landedView.current === view) return;
+      body.scrollTop = top;
+      landedView.current = view;
+    };
+    landReply();
+    return observeResize(body, landReply);
+  }, [open, view, selectedAgent, bodyRef, landedView]);
   useLayoutEffect(() => {
     if (!open || hidden) return;
     const column =
@@ -232,7 +262,8 @@ function OverviewPopover({
   }, [open, hidden, composerElement, threadBoundaryRef]);
   useEffect(() => {
     if (!sourceHistoryReady || memberIds) return;
-    initialJobs.current ??= new Set(delegated.map(({ job }) => job.activityId));
+    if (initialJobs.current === null)
+      initialJobs.current = new Set(delegated.map(({ job }) => job.activityId));
     for (const { job, working } of delegated) {
       if (openedJobs.current.has(job.activityId)) continue;
       if (working || !initialJobs.current.has(job.activityId)) {
@@ -243,32 +274,17 @@ function OverviewPopover({
     }
   }, [delegated, sourceHistoryReady, memberIds]);
   useEffect(() => {
-    if (
-      !target ||
-      target.source.environmentId !== sourceThreadRef?.environmentId ||
-      target.source.threadId !== sourceThreadRef.threadId
-    )
-      return;
-    if (memberIds) {
-      useThreadOverviewStore.setState({ target: null });
-      return;
-    }
-    setExpanded(false);
-    setView({ kind: "agent", id: target.projectId });
-    setOpen(true);
-    useThreadOverviewStore.setState({ target: null });
-  }, [target, sourceThreadRef, memberIds]);
+    if (targetMatches)
+      useThreadOverviewStore.setState((state) =>
+        state.target === target ? { target: null } : state,
+      );
+  }, [target, targetMatches]);
   useEffect(() => {
-    if (
-      !toggle ||
-      toggle.environmentId !== sourceThreadRef?.environmentId ||
-      toggle.threadId !== sourceThreadRef?.threadId
-    )
-      return;
-    setView(null);
-    setOpen((current) => !current);
-    useThreadOverviewStore.setState({ toggle: null });
-  }, [toggle, sourceThreadRef]);
+    if (toggleMatches)
+      useThreadOverviewStore.setState((state) =>
+        state.toggle === toggle ? { toggle: null } : state,
+      );
+  }, [toggle, toggleMatches]);
   const visibleSources = sourcesExpanded ? sources.slice(0, 3) : [];
   const openView = (action: () => void) => {
     action();
@@ -389,7 +405,7 @@ function OverviewPopover({
                 </Link>
               ) : (
                 <>
-                  {selectedSubagent ? <BotIcon aria-hidden className="size-5" /> : null}
+                  {selectedSubagent ? <BubblesIcon aria-hidden className="size-5" /> : null}
                   <PopoverTitle className="min-w-0 flex-1">
                     <span
                       className={cn(
@@ -516,7 +532,7 @@ function OverviewPopover({
                                   className="size-5"
                                 />
                               ) : (
-                                <BotIcon className="size-5" />
+                                <BubblesIcon className="size-5" />
                               )}
                               <span className="max-w-40 truncate text-sm">{agent.name}</span>
                             </TooltipTrigger>
@@ -537,7 +553,7 @@ function OverviewPopover({
                         className={rowClassName}
                         onClick={() => setView({ kind: "subagents" })}
                       >
-                        <BotIcon aria-hidden className="size-4 shrink-0 text-primary" />
+                        <BubblesIcon aria-hidden className="size-4 shrink-0 text-primary" />
                         <span className="flex-1 text-sm">{agents.working} working</span>
                         <span className="text-sm text-muted-foreground">{agents.done} done</span>
                       </button>
@@ -785,7 +801,7 @@ function OverviewPopover({
                     className="flex items-start gap-2 rounded-2xl bg-background/30 p-3"
                     aria-label="Result"
                   >
-                    <BotIcon aria-hidden className="mt-1 size-5 shrink-0" />
+                    <BubblesIcon aria-hidden className="mt-1 size-5 shrink-0" />
                     <div className="min-w-0 flex-1">
                       <ChatMarkdown
                         cwd={undefined}
@@ -809,7 +825,7 @@ function OverviewPopover({
                         className={rowClassName}
                         onClick={() => setView({ kind: "subagent", id: agent.id })}
                       >
-                        <BotIcon aria-hidden className="size-4 shrink-0" />
+                        <BubblesIcon aria-hidden className="size-4 shrink-0" />
                         <span className="min-w-0 flex-1 truncate text-sm">{agent.title}</span>
                         <span className="text-xs text-muted-foreground">{agent.status}</span>
                       </button>

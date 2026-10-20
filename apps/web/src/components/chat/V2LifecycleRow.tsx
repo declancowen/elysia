@@ -31,7 +31,7 @@ import {
 } from "@elysiatools/contracts";
 import type { TimestampFormat } from "@elysiatools/contracts/settings";
 import {
-  BotIcon,
+  BubblesIcon,
   ChevronRightIcon,
   ArrowRightLeftIcon,
   ArrowRightIcon,
@@ -285,7 +285,7 @@ function SubagentAvatar({
           iconClassName="size-3.5"
         />
       ) : (
-        <BotIcon className="size-3.5 text-muted-foreground" />
+        <BubblesIcon className="size-3.5 text-muted-foreground" />
       )}
       {status ? (
         <span

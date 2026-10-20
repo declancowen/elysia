@@ -6,7 +6,7 @@ import { expect, it, vi } from "vite-plus/test";
 import { page, userEvent } from "vite-plus/test/browser";
 
 vi.mock("~/hooks/useSettings", () => ({
-  useEnvironmentIdentificationMode: () => "none",
+  getEnvironmentIdentificationMode: () => "none",
 }));
 vi.mock("../SidebarStageBackdrop", () => ({
   StageBackdropButtonArt: () => null,

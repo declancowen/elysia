@@ -136,7 +136,7 @@ import { ElysiaWordmark } from "../ElysiaWordmark";
 import { ThreadContextChip } from "../ThreadContextChip";
 import {
   ArrowRightIcon,
-  BotIcon,
+  BubblesIcon,
   BrainIcon,
   CheckIcon,
   ChevronDownIcon,
@@ -1427,7 +1427,7 @@ const ConversationTimeline = memo(function ConversationTimeline({
           <TimelineSystemDivider
             label="Subagent of"
             detail={parentThreadLink.title}
-            icon={BotIcon}
+            icon={BubblesIcon}
             actionLabel="Open parent thread"
             onAction={() => onOpenThread(parentThreadLink.threadId)}
           />
@@ -5687,7 +5687,7 @@ function WorkEntryIcon({ name, className }: { name: WorkEntryIconName; className
     case "pull-request":
       return <PullRequestGlyph.pullRequest className={className} aria-hidden />;
     case "bot":
-      return <BotIcon className={className} aria-hidden />;
+      return <BubblesIcon className={className} aria-hidden />;
     case "brain":
       return <BrainIcon className={className} aria-hidden />;
     case "browser":

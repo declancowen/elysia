@@ -1,6 +1,7 @@
 import { formatCalendarDateTime } from "@elysiatools/shared/dateFormat";
 import { useBlocker, useNavigate } from "@tanstack/react-router";
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useStableCallback } from "../../hooks/useStableCallback";
 import { PageId, ProjectId, type EnvironmentId, type Page } from "@elysiatools/contracts";
 import {
   isAtomCommandInterrupted,
@@ -116,7 +117,7 @@ function PageDetail({
   useEffect(() => {
     if (summary && (!source || source.revision < summary.revision)) refresh();
   }, [summary, source, refresh]);
-  const save = useCallback((): Promise<boolean> => {
+  const save = useStableCallback((): Promise<boolean> => {
     if (inFlight.current) return inFlight.current;
     const {
       draft: submitted,
@@ -164,7 +165,7 @@ function PageDetail({
       setPending(false);
     });
     return inFlight.current;
-  }, [savePage, environmentId]);
+  });
   useBlocker({
     withResolver: false,
     shouldBlockFn: async () => {

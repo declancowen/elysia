@@ -31,13 +31,6 @@ import {
 } from "@elysiatools/client-runtime/state/shared-settings";
 import { ensureLocalApi } from "~/localApi";
 import {
-  getThemeDefinition,
-  getThemePreviewSidebarArtwork,
-  resolveThemeHalf,
-  subscribeToThemePreview,
-  themeAllowsSidebarArtwork,
-} from "~/themePalette";
-import {
   modelPreferencesMigrationPatch,
   resolveModelPreferences,
 } from "@elysiatools/shared/serverSettings";
@@ -51,7 +44,6 @@ import { environmentCatalog } from "~/connection/catalog";
 import { primaryServerSettingsAtom, serverEnvironment } from "~/state/server";
 import { useEnvironments, usePrimaryEnvironment } from "~/state/environments";
 import { useAtomCommand } from "~/state/use-atom-command";
-import { useTheme } from "./useTheme";
 import {
   environmentSession,
   environmentSessionStatesAtom,
@@ -394,7 +386,7 @@ export function useCodeWorkspace(): boolean {
   return useClientSettings((settings) => settings.workspaceMode === "code");
 }
 
-export function useEnvironmentIdentificationMode(): EnvironmentIdentificationMode {
+export function getEnvironmentIdentificationMode(): EnvironmentIdentificationMode {
   return "pill";
 }
 

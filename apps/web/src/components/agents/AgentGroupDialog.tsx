@@ -1,9 +1,9 @@
 import { ChannelFolderPicker } from "./ChannelFolderPicker";
 import { scopeThreadRef } from "@elysiatools/client-runtime/environment";
-import { squashAtomCommandFailure } from "@elysiatools/client-runtime/state/runtime";
+import { settlePromise, squashAtomCommandFailure } from "@elysiatools/client-runtime/state/runtime";
 import type { ProjectId } from "@elysiatools/contracts";
 import { useNavigate, useRouter } from "@tanstack/react-router";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { usePrimaryEnvironmentId } from "../../state/environments";
 import { projectEnvironment } from "../../state/projects";
@@ -50,10 +50,7 @@ export function AgentGroupDialog({
   );
   const primaryEnvironmentId = usePrimaryEnvironmentId();
   const environmentId = existing?.project.environmentId ?? primaryEnvironmentId;
-  const candidates = useMemo(
-    () => agentGroupCandidates(agents, environmentId),
-    [agents, environmentId],
-  );
+  const candidates = agentGroupCandidates(agents, environmentId);
   const projects = useRegularProjects(false).filter(
     (project) => project.environmentId === environmentId,
   );
@@ -122,7 +119,7 @@ export function AgentGroupDialog({
     setError(null);
     const href = router.latestLocation.href;
     const ownsResult = () => mounted.current && router.latestLocation.href === href;
-    try {
+    await settlePromise(async () => {
       const baseProfile = makeAgentGroupProfile(
         selection.lead,
         selectedIds,
@@ -173,13 +170,17 @@ export function AgentGroupDialog({
           });
         }
       }
-    } catch (cause) {
-      if (ownsResult())
-        setError(cause instanceof Error ? cause.message : "Could not save channel. Try again.");
-    } finally {
-      pendingRef.current = false;
-      if (mounted.current) setPending(false);
-    }
+    })
+      .then((result) => {
+        if (result._tag === "Failure" && ownsResult()) {
+          const cause = squashAtomCommandFailure(result);
+          setError(cause instanceof Error ? cause.message : "Could not save channel. Try again.");
+        }
+      })
+      .finally(() => {
+        pendingRef.current = false;
+        if (mounted.current) setPending(false);
+      });
   }
 
   const Header = page ? "div" : DialogHeader;

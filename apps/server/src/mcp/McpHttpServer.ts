@@ -776,23 +776,23 @@ const registerHtmlPreview = Effect.fn("McpHttpServer.registerHtmlPreview")(funct
 const HANDOFF_TOOLS: ReadonlySet<string> = new Set([
   "delegate_task",
   "create_threads",
-  "t3_thread_launch",
-  "t3_thread_send",
-  "t3_thread_send_attachments",
-  "t3_thread_fork",
-  "t3_thread_merge_back",
-  "t3_queue_edit",
-  "t3_queue_promote_to_steer",
-  "t3_pending_request_respond",
+  "elysia_thread_launch",
+  "elysia_thread_send",
+  "elysia_thread_send_attachments",
+  "elysia_thread_fork",
+  "elysia_thread_merge_back",
+  "elysia_queue_edit",
+  "elysia_queue_promote_to_steer",
+  "elysia_pending_request_respond",
   "schedule_task",
   "run_scheduled_task_now",
 ]);
 
 /** Handoff tools whose result is only `{ sequence }`; their input names the receiving thread. */
 const INPUT_TARGET_TOOLS: ReadonlySet<string> = new Set([
-  "t3_queue_edit",
-  "t3_queue_promote_to_steer",
-  "t3_pending_request_respond",
+  "elysia_queue_edit",
+  "elysia_queue_promote_to_steer",
+  "elysia_pending_request_respond",
 ]);
 
 const resultThreadKeys = ["childThreadId", "targetThreadId", "boundThreadId", "threadId"] as const;

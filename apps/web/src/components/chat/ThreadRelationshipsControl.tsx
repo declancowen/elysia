@@ -43,7 +43,7 @@ import * as DateTime from "effect/DateTime";
 import { useNavigate } from "@tanstack/react-router";
 import {
   ArrowRightIcon,
-  BotIcon,
+  BubblesIcon,
   CornerLeftUpIcon,
   GitForkIcon,
   LoaderCircleIcon,
@@ -442,7 +442,7 @@ export function ThreadRelationshipsPanel(props: {
               const RelationshipIcon = isParent
                 ? CornerLeftUpIcon
                 : isSubagent
-                  ? BotIcon
+                  ? BubblesIcon
                   : GitForkIcon;
               const relationship = relationshipLabel(edge, props.threadId);
               const projectedAgent =

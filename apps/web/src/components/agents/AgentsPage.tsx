@@ -8,7 +8,7 @@ import { useAgentConversationPreviews } from "./useAgentConversationPreviews";
 import type { AgentRosterEntry } from "./useAgents";
 import { isElectron } from "../../env";
 import { useEscapeToGoBack } from "../../hooks/useNavigateBack";
-import { BotIcon, ChannelIcon } from "../../icons";
+import { BubblesIcon, ChannelIcon } from "../../icons";
 import { Button } from "../ui/button";
 import { Empty, EmptyHeader, EmptyTitle, EmptyDescription, EmptyMedia } from "../ui/empty";
 import { SidebarInset } from "../ui/sidebar";
@@ -66,7 +66,7 @@ export function AgentsPage({ editingGroupRef }: { editingGroupRef?: ScopedProjec
       {ready && !hasAgents && !editingGroupRef ? (
         <Empty>
           <EmptyMedia variant="illustration">
-            <BotIcon aria-hidden />
+            <BubblesIcon aria-hidden />
           </EmptyMedia>
           <EmptyHeader>
             <EmptyTitle>No agents or channels</EmptyTitle>
@@ -74,7 +74,7 @@ export function AgentsPage({ editingGroupRef }: { editingGroupRef?: ScopedProjec
           </EmptyHeader>
           <div className="flex flex-wrap justify-center gap-2">
             <Button size="sm" onClick={() => openAgentDialog()}>
-              <BotIcon />
+              <BubblesIcon />
               Create agent
             </Button>
             <Button size="sm" variant="outline" onClick={() => openChannelDialog()}>

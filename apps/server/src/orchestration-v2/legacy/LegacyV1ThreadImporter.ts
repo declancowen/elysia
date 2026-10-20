@@ -885,8 +885,11 @@ const make = Effect.gen(function* () {
 
   // Imported transcript messages have no run association. Retain exact legacy
   // task identity here rather than guessing from neighboring message timestamps.
-  const getTaskResult = (threadId: ThreadId, targetMessageId: MessageId) =>
-    Effect.gen(function* () {
+  const getTaskResult = Effect.fn("LegacyV1ThreadImporter.getTaskResult")(function* (
+    threadId: ThreadId,
+    targetMessageId: MessageId,
+  ) {
+    return yield* Effect.gen(function* () {
       const turns = yield* sql<{ turn_id: string | null; state: string }>`
       SELECT turn_id, state FROM projection_turns WHERE thread_id = ${threadId}
         AND pending_message_id = ${targetMessageId} LIMIT 1
@@ -944,6 +947,7 @@ const make = Effect.gen(function* () {
           new LegacyV1ThreadImportError({ operation: "read task result", threadId, cause }),
       ),
     );
+  });
 
   return LegacyV1ThreadImporter.of({
     getTaskResult,

@@ -1567,6 +1567,7 @@ const makeOrchestrator = Effect.fn("orchestrationV2.Orchestrator.layer")(functio
         : undefined;
       const resetNativeModel =
         previousNativeSelection !== undefined &&
+        previousNativeSelection.instanceId === queuedRun.modelSelection.instanceId &&
         previousNativeSelection.model !== queuedRun.modelSelection.model &&
         (yield* planProviderSwitch({
           projection: {
@@ -5575,6 +5576,7 @@ const makeOrchestrator = Effect.fn("orchestrationV2.Orchestrator.layer")(functio
       const previousNativeSelection = nativeModelSelection(projection, queueProviderThread);
       const resetNativeModel =
         previousNativeSelection !== undefined &&
+        previousNativeSelection.instanceId === modelSelection.instanceId &&
         previousNativeSelection.model !== modelSelection.model &&
         (yield* planProviderSwitch({
           projection: {
@@ -5898,6 +5900,7 @@ const makeOrchestrator = Effect.fn("orchestrationV2.Orchestrator.layer")(functio
       : undefined;
     const resetNativeModel =
       previousNativeSelection !== undefined &&
+      previousNativeSelection.instanceId === modelSelection.instanceId &&
       previousNativeSelection.model !== modelSelection.model &&
       (yield* planProviderSwitch({
         projection: {

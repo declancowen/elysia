@@ -4,6 +4,7 @@ import type * as NodeChildProcess from "node:child_process";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { assert, it } from "@effect/vitest";
 import { SERVER_EXIT_CODE_STATE_DIR_OWNED } from "@elysiatools/contracts";
+import * as HostProcess from "@elysiatools/shared/HostProcess";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
@@ -19,6 +20,7 @@ import {
   readServiceState,
   writeServiceState,
 } from "./serviceLauncher.ts";
+import { pinnedRuntimePaths } from "./cloud/pinnedRuntime.ts";
 import {
   compareExactServiceVersions,
   decodeServiceState,
@@ -117,7 +119,12 @@ const writeFakeRuntime = (
   childSource: string,
 ) =>
   Effect.gen(function* () {
-    const entryPath = path.join(versionDir, "elysia");
+    const { entryPath } = pinnedRuntimePaths(
+      path,
+      path.resolve(versionDir, "../../.."),
+      path.basename(versionDir),
+      yield* HostProcess.Platform,
+    );
     yield* fs.makeDirectory(versionDir, { recursive: true });
     yield* fs.writeFileString(entryPath, `#!${process.execPath}\n${childSource}`);
     yield* fs.chmod(entryPath, 0o755);
@@ -233,7 +240,7 @@ it.layer(NodeServices.layer)("service state persistence", (it) => {
     }),
   );
 
-  it.effect("stays idle instead of exiting when another server owns the T3 home", () =>
+  it.effect("stays idle instead of exiting when another server owns the Elysia home", () =>
     Effect.gen(function* () {
       const fs = yield* FileSystem.FileSystem;
       const path = yield* Path.Path;
@@ -255,7 +262,7 @@ it.layer(NodeServices.layer)("service state persistence", (it) => {
       yield* Effect.acquireRelease(
         Effect.sync(() =>
           vi.spyOn(process.stderr, "write").mockImplementation((chunk) => {
-            if (String(chunk).includes("owns this T3 home")) refused.resolve();
+            if (String(chunk).includes("owns this Elysia home")) refused.resolve();
             return true;
           }),
         ),
@@ -803,7 +810,7 @@ setInterval(() => {}, 1_000);
       );
       assert.include(
         blocker ?? "",
-        // oxlint-disable-next-line t3code/no-global-process-runtime -- mirrors the standalone launcher's own platform check.
+        // oxlint-disable-next-line elysia/no-global-process-runtime -- mirrors the standalone launcher's own platform check.
         process.platform === "darwin" ? "1.0 GB needed, 0.0 GB free" : "GB needed, 0.0 GB free",
       );
       assert.deepEqual(yield* fs.readDirectory(path.join(root, "runtime", "db-backup")), []);

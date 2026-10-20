@@ -27,16 +27,6 @@ export const THREAD_DETAILS_PANEL_SELECT_LABEL_CLASS = `flex h-full min-w-0 flex
 
 export const THREAD_DETAILS_PANEL_SELECT_ICON_CLASS = `rounded-e-lg ${THREAD_DETAILS_PANEL_HALF_HOVER_SURFACE_CLASS}`;
 
-// No transition on the group: the halves are Buttons whose background snaps (their base only
-// transitions shadow), so an eased group tint would land frames later and the hover would
-// visibly commit in two steps.
-export const THREAD_DETAILS_PANEL_LINK_SPLIT_GROUP_CLASS = `group/thread-details-link flex -mx-2.5 w-[calc(100%+1.25rem)] items-center rounded-lg ${THREAD_DETAILS_PANEL_SPLIT_GROUP_SURFACE_CLASS}`;
-
-export const THREAD_DETAILS_PANEL_LINK_SPLIT_PRIMARY_CLASS = `${THREAD_DETAILS_PANEL_CONTROL_CLASS} flex-1 justify-start rounded-e-none ${THREAD_DETAILS_PANEL_SPLIT_BUTTON_SURFACE_CLASS}`;
-
-/** The trailing half of a link split row when it carries a word ("Merge") rather than an icon. */
-export const THREAD_DETAILS_PANEL_LINK_SPLIT_ACTION_CLASS = `${THREAD_DETAILS_PANEL_CONTROL_CLASS} shrink-0 justify-center rounded-s-none text-primary ${THREAD_DETAILS_PANEL_SPLIT_BUTTON_SURFACE_CLASS}`;
-
 export const THREAD_DETAILS_PANEL_LOCKED_ROW_CLASS = `h-9 -mx-2.5 w-[calc(100%+1.25rem)] min-w-0 justify-start rounded-lg border border-transparent ${THREAD_DETAILS_PANEL_ROW_CONTENT_CLASS} text-[13px] font-medium text-foreground/80 sm:h-9 sm:text-[13px]`;
 
 export const THREAD_DETAILS_PANEL_ICON_CLASS = "size-4 shrink-0 text-muted-foreground";

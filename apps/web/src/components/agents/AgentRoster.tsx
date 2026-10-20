@@ -77,7 +77,7 @@ export function AgentRoster({ inset = true }: { inset?: boolean }) {
   );
 }
 
-export function AgentRow(agent: AgentRosterEntry) {
+function AgentRow(agent: AgentRosterEntry) {
   const { project, thread, busy } = agent;
   const [menuOpen, setMenuOpen] = useState(false);
   const [contextPoint, setContextPoint] = useState<{ x: number; y: number } | null>(null);

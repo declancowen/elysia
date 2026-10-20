@@ -1,4 +1,5 @@
-import { Fragment, useCallback, type ReactNode } from "react";
+import { Fragment, type ReactNode } from "react";
+import { useStableCallback } from "../../hooks/useStableCallback";
 import { useTabOverflow } from "../../hooks/useTabOverflow";
 import { ChevronLeft, ChevronRight, X } from "../../icons";
 import { cn } from "../../lib/utils";
@@ -22,22 +23,19 @@ export function WorkspaceTabStrip<T extends { id: string }>({
   renderTab: (tab: T, controls: WorkspaceTabControls) => ReactNode;
 }) {
   const { tabListRef, tabScrollState, scrollTabs } = useTabOverflow(activeId);
-  const moveTab = useCallback(
-    (index: number, direction: -1 | 1 | "first" | "last") => {
-      const nextIndex =
-        direction === "first"
-          ? 0
-          : direction === "last"
-            ? tabs.length - 1
-            : (index + direction + tabs.length) % tabs.length;
-      const next = tabs[nextIndex]!;
-      onSelect(next);
-      tabListRef.current
-        ?.querySelector<HTMLButtonElement>(`[data-workspace-tab-id="${next.id}"]`)
-        ?.focus();
-    },
-    [tabs, onSelect, tabListRef],
-  );
+  const moveTab = useStableCallback((index: number, direction: -1 | 1 | "first" | "last") => {
+    const nextIndex =
+      direction === "first"
+        ? 0
+        : direction === "last"
+          ? tabs.length - 1
+          : (index + direction + tabs.length) % tabs.length;
+    const next = tabs[nextIndex]!;
+    onSelect(next);
+    tabListRef.current
+      ?.querySelector<HTMLButtonElement>(`[data-workspace-tab-id="${next.id}"]`)
+      ?.focus();
+  });
   return (
     <div
       data-workspace-tab-strip

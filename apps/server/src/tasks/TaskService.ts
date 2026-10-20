@@ -68,14 +68,13 @@ const make = Effect.gen(function* () {
         isTaskError(cause) ? cause : fail("Could not update tasks.", cause),
       ),
     );
-  const read = (number: number) =>
-    Effect.gen(function* () {
-      const rows = yield* sql<{
-        data_json: string;
-      }>`SELECT data_json FROM work_tasks WHERE number = ${number}`;
-      if (!rows[0]) return yield* fail("Task not found.");
-      return yield* decode(rows[0].data_json);
-    });
+  const read = Effect.fn("TaskService.read")(function* (number: number) {
+    const rows = yield* sql<{
+      data_json: string;
+    }>`SELECT data_json FROM work_tasks WHERE number = ${number}`;
+    if (!rows[0]) return yield* fail("Task not found.");
+    return yield* decode(rows[0].data_json);
+  });
   const write = (task: WorkTask) =>
     sql`UPDATE work_tasks SET data_json = ${JSON.stringify(task)} WHERE number = ${numberOf(task.id)}`;
   const list = () =>
@@ -96,36 +95,34 @@ const make = Effect.gen(function* () {
         };
       }),
     );
-  const validateLinks = (task: WorkTask, previous: WorkTask | null) =>
-    Effect.gen(function* () {
-      if (task.parentTaskId && task.parentTaskId !== previous?.parentTaskId) {
-        if (task.parentTaskId === task.id) return yield* fail("A task cannot be its own ancestor.");
-        const parent = yield* read(numberOf(task.parentTaskId));
-        const children =
-          yield* sql`SELECT number FROM work_tasks WHERE json_extract(data_json, '$.parentTaskId') = ${task.id} LIMIT 1`;
-        if (parent.parentTaskId || children.length)
-          return yield* fail("Subtasks can only have one level.");
-      }
-      if (task.projectId && task.projectId !== previous?.projectId) {
-        const project = yield* projects.get(task.projectId);
-        if (
-          Option.isNone(project) ||
-          project.value.deletedAt !== null ||
-          project.value.agentProfile
-        )
-          return yield* fail("Choose an existing workspace project.");
-      }
-      if (task.assigneeProjectId && task.assigneeProjectId !== previous?.assigneeProjectId) {
-        const agent = yield* projects.get(task.assigneeProjectId);
-        if (
-          Option.isNone(agent) ||
-          agent.value.deletedAt !== null ||
-          !agent.value.agentProfile ||
-          agent.value.agentProfile.archived
-        )
-          return yield* fail("Choose an active agent or channel.");
-      }
-    });
+  const validateLinks = Effect.fn("TaskService.validateLinks")(function* (
+    task: WorkTask,
+    previous: WorkTask | null,
+  ) {
+    if (task.parentTaskId && task.parentTaskId !== previous?.parentTaskId) {
+      if (task.parentTaskId === task.id) return yield* fail("A task cannot be its own ancestor.");
+      const parent = yield* read(numberOf(task.parentTaskId));
+      const children =
+        yield* sql`SELECT number FROM work_tasks WHERE json_extract(data_json, '$.parentTaskId') = ${task.id} LIMIT 1`;
+      if (parent.parentTaskId || children.length)
+        return yield* fail("Subtasks can only have one level.");
+    }
+    if (task.projectId && task.projectId !== previous?.projectId) {
+      const project = yield* projects.get(task.projectId);
+      if (Option.isNone(project) || project.value.deletedAt !== null || project.value.agentProfile)
+        return yield* fail("Choose an existing workspace project.");
+    }
+    if (task.assigneeProjectId && task.assigneeProjectId !== previous?.assigneeProjectId) {
+      const agent = yield* projects.get(task.assigneeProjectId);
+      if (
+        Option.isNone(agent) ||
+        agent.value.deletedAt !== null ||
+        !agent.value.agentProfile ||
+        agent.value.agentProfile.archived
+      )
+        return yield* fail("Choose an active agent or channel.");
+    }
+  });
   // Durable starts reuse orchestration command IDs, so a restart cannot start the same transition twice.
   const drainStarts = () =>
     wrap(

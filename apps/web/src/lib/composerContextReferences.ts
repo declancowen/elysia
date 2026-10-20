@@ -5,11 +5,6 @@ import {
   replaceComposerContextReferences,
 } from "@elysiatools/shared/composerContextReferences";
 
-export {
-  toComposerContextId,
-  toKindScopedComposerContextId,
-} from "@elysiatools/shared/composerContextReferences";
-
 export interface ComposerContextReference {
   kind: ComposerContextKind;
   contextId: string;

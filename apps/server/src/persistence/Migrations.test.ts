@@ -45,10 +45,10 @@ describe("runMigrations", () => {
       const updated = yield* history;
       assert.deepStrictEqual(updated.slice(0, oldHistory.length), oldHistory);
       assert.deepStrictEqual(updated.slice(-4), [
-        [66, "McpAppModelContext"],
-        [67, "ThreadSnapshotWindowIndexes"],
-        [68, "PullRequestReviewGuides"],
-        [69, "ThreadFailureLookupIndex"],
+        [70, "DropUnusedV1Projections"],
+        [71, "CanonicalizeThreadPullRequestLinks"],
+        [72, "CodexUsageNativeTurnIndex"],
+        [73, "RepairClientSettlementTimestamps"],
       ]);
       assert.deepStrictEqual(yield* runMigrations(), []);
 

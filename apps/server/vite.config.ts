@@ -1,7 +1,8 @@
-import { UPSTREAM_ANALYTICS_ENABLED } from "@elysiatools/contracts";
 import "vite-plus/test/config";
 import { defineConfig, mergeConfig } from "vite-plus";
 
+// Task discovery loads every workspace config even with a filtered install.
+import { UPSTREAM_ANALYTICS_ENABLED } from "../../packages/contracts/src/forkPolicy.ts";
 import baseConfig from "../../vite.config.ts";
 import { loadRepoEnv } from "../../scripts/lib/public-config.ts";
 import packageJson from "./package.json" with { type: "json" };

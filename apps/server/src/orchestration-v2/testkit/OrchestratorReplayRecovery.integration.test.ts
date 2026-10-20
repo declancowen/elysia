@@ -66,9 +66,6 @@ import {
 const FIRST_FINAL = "provider thread resume fixture first turn complete";
 const SECOND_FINAL = "provider thread resume fixture second turn complete";
 
-const decodeCodexTranscript = Schema.decodeUnknownEffect(
-  CodexReplay.CodexAppServerReplayTranscript,
-);
 const readRawTranscript = Effect.fn("readRecoveryTranscript")(function* (file: URL) {
   return yield* readProviderReplayTranscript(file);
 });
@@ -76,7 +73,9 @@ const readCodexTranscript = Effect.fn("readCodexRecoveryTranscript")(function* (
   const transcript = yield* readRawTranscript(
     new URL("./fixtures/provider_thread_resume/codex_transcript.ndjson", import.meta.url),
   );
-  return yield* decodeCodexTranscript(materializeReplayTranscriptWorkspace(transcript, workspace));
+  return yield* CodexOrchestratorReplayHarness.decodeTranscript(
+    materializeReplayTranscriptWorkspace(transcript, workspace),
+  );
 });
 const decodePromptPair = Schema.decodeUnknownEffect(Schema.Tuple([Schema.String, Schema.String]));
 const readClaudeSubagentResumeTranscript = Effect.fn("readClaudeSubagentResumeTranscript")(
@@ -95,7 +94,7 @@ const readClaudeSubagentResumeTranscript = Effect.fn("readClaudeSubagentResumeTr
  * The same session with the math.ts subagent's first run removed: the root
  * turn settles while the subagent still works, and the server restarts
  * before it reports, so recovery cancels it. The resumed turn then carries
- * the restart note, as T3 sends it.
+ * the restart note, as Elysia sends it.
  */
 const readClaudeCancelledSubagentResumeTranscript = Effect.fn(
   "readClaudeCancelledSubagentResumeTranscript",
@@ -142,7 +141,7 @@ const readClaudeCancelledSubagentResumeTranscript = Effect.fn(
             message: {
               ...frame.message.message,
               content: [
-                "Note: the T3 server restarted, and this background work was cancelled before it finished. It will not report back on its own, so resume or restart what you still need and wait for its result:",
+                "Note: the Elysia server restarted, and this background work was cancelled before it finished. It will not report back on its own, so resume or restart what you still need and wait for its result:",
                 "- subagent: Audit src/math.ts (id a44c0ed810da9e4f3)",
                 "",
                 "User message:",

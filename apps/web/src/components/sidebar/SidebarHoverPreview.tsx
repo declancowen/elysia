@@ -2,16 +2,15 @@ import {
   createContext,
   lazy,
   Suspense,
-  useCallback,
   useContext,
   useEffect,
-  useMemo,
   useRef,
   useState,
   type ReactNode,
   type Context,
 } from "react";
 import { useLocation } from "@tanstack/react-router";
+import { useStableCallback } from "~/hooks/useStableCallback";
 import { useResizableWidth } from "~/hooks/useResizableWidth";
 import { useMediaQuery } from "~/hooks/useMediaQuery";
 import { usePanelAnimationSettings, usePanelPresence } from "~/panelAnimations";
@@ -74,41 +73,35 @@ export function SidebarHoverPreviewProvider({
   if (preview.scopeKey !== locationKey || (preview.section !== null && section === null)) {
     setPreview({ scopeKey: locationKey, section: null });
   }
-  const setSection = useCallback(
-    (next: SidebarHoverSection | null) => {
-      setPreview({ scopeKey: locationKey, section: next });
-    },
-    [locationKey],
-  );
+  const setSection = (next: SidebarHoverSection | null) => {
+    setPreview({ scopeKey: locationKey, section: next });
+  };
   const enterTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const leaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const panelRef = useRef<HTMLElement | null>(null);
-  const clearTimers = useCallback(() => {
+  const clearTimers = useStableCallback(() => {
     if (enterTimer.current !== null) clearTimeout(enterTimer.current);
     if (leaveTimer.current !== null) clearTimeout(leaveTimer.current);
     enterTimer.current = null;
     leaveTimer.current = null;
-  }, []);
-  const close = useCallback(() => {
+  });
+  const close = useStableCallback(() => {
     clearTimers();
     setSection(null);
-  }, [clearTimers, setSection]);
-  const enter = useCallback(
-    (next: SidebarHoverSection) => {
-      clearTimers();
-      if (!finePointer || sidebarOpen) {
-        setSection(null);
-        return;
-      }
-      void loadSidebarHoverContents().catch(() => undefined);
-      enterTimer.current = setTimeout(() => {
-        enterTimer.current = null;
-        setSection(next);
-      }, 180);
-    },
-    [clearTimers, finePointer, setSection, sidebarOpen],
-  );
-  const leave = useCallback(() => {
+  });
+  const enter = useStableCallback((next: SidebarHoverSection) => {
+    clearTimers();
+    if (!finePointer || sidebarOpen) {
+      setSection(null);
+      return;
+    }
+    void loadSidebarHoverContents().catch(() => undefined);
+    enterTimer.current = setTimeout(() => {
+      enterTimer.current = null;
+      setSection(next);
+    }, 180);
+  });
+  const leave = useStableCallback(() => {
     clearTimers();
     if (
       panelRef.current?.contains(document.activeElement) ||
@@ -120,7 +113,7 @@ export function SidebarHoverPreviewProvider({
       if (document.activeElement?.closest(floatingPopupSelector)) return;
       setSection(null);
     }, 150);
-  }, [clearTimers, setSection]);
+  });
   useEffect(() => {
     if (preview.scopeKey !== locationKey || !finePointer || sidebarOpen) clearTimers();
     return clearTimers;
@@ -148,7 +141,7 @@ export function SidebarHoverPreviewProvider({
       document.removeEventListener("pointerdown", onPointerDown);
     };
   }, [section, close]);
-  const value = useMemo(() => ({ section, enter, leave, close }), [section, enter, leave, close]);
+  const value = { section, enter, leave, close };
   const { active: animationsActive, durationMs } = usePanelAnimationSettings();
   const presence = usePanelPresence(
     section !== null,

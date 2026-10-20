@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { observeResize } from "~/lib/observeResize";
+import { useStableCallback } from "./useStableCallback";
 
 function tabScrollViewport(root: HTMLDivElement | null) {
   return root?.querySelector<HTMLDivElement>('[data-slot="scroll-area-viewport"]') ?? null;
@@ -13,7 +14,7 @@ export function useTabOverflow(activeId: string | null) {
     canScrollLeft: false,
     canScrollRight: false,
   });
-  const updateTabScrollState = useCallback(() => {
+  const updateTabScrollState = useStableCallback(() => {
     const viewport = tabScrollViewport(tabListRef.current);
     if (!viewport) return;
     const hasOverflow = viewport.scrollWidth - viewport.clientWidth > 1;
@@ -27,15 +28,15 @@ export function useTabOverflow(activeId: string | null) {
         ? current
         : { hasOverflow, canScrollLeft, canScrollRight },
     );
-  }, []);
-  const scrollTabs = useCallback((direction: -1 | 1) => {
+  });
+  const scrollTabs = useStableCallback((direction: -1 | 1) => {
     const viewport = tabScrollViewport(tabListRef.current);
     if (!viewport) return;
     viewport.scrollBy({
       left: direction * Math.max(120, viewport.clientWidth * 0.75),
       behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth",
     });
-  }, []);
+  });
   useEffect(() => {
     if (!activeId || !tabScrollState.hasOverflow) return;
     const viewport = tabScrollViewport(tabListRef.current);

@@ -1,5 +1,6 @@
 import * as NodeCrypto from "@effect/platform-node/NodeCrypto";
 import { expect, it } from "@effect/vitest";
+import { vi } from "vite-plus/test";
 import {
   ServerConfigStreamEvent,
   type ServerSettings as ServerSettingsValue,
@@ -18,6 +19,12 @@ import { HttpClient, HttpClientResponse } from "effect/http";
 import * as BackgroundPolicy from "../background/BackgroundPolicy.ts";
 import * as ServerSettings from "../serverSettings.ts";
 import * as UsageLimitSources from "./UsageLimitSources.ts";
+
+// Exercise the retained implementation without enabling external hubs in Elysia.
+vi.mock("../../../../packages/contracts/src/forkPolicy.ts", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@elysiatools/contracts")>()),
+  EXTERNAL_USAGE_SOURCES_ENABLED: true,
+}));
 
 const encodeConfigEvent = Schema.encodeSync(ServerConfigStreamEvent);
 

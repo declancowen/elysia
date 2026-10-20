@@ -9,7 +9,7 @@ import { squashAtomCommandFailure } from "@elysiatools/client-runtime/state/runt
 import { createModelSelection } from "@elysiatools/shared/model";
 import { resolveProjectSettings } from "@elysiatools/shared/projectSettings";
 import { useLocation, useNavigate, useRouter } from "@tanstack/react-router";
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { getAgentConversation } from "../../agentPresentation";
 import { isElectron } from "../../env";
 import { mergeEnvironmentSettings, useClientSettings } from "../../hooks/useSettings";
@@ -115,10 +115,7 @@ function AgentPageFrame({
   channel?: boolean;
   children: ReactNode;
 }) {
-  const creationTarget = useMemo(
-    () => ({ kind: "agent-create" as const, ...(channel ? { channel: true } : {}) }),
-    [channel],
-  );
+  const creationTarget = { kind: "agent-create" as const, ...(channel ? { channel: true } : {}) };
   return (
     <SidebarInset className="h-dvh min-h-0 overflow-hidden overscroll-y-none">
       {title ? (
@@ -194,9 +191,9 @@ function AgentEditor({ project }: { project: Project | null }) {
   const environment = environments.find((entry) => entry.environmentId === environmentId);
   const server = environment?.serverConfig;
   const clientSettings = useClientSettings();
-  const settings = useMemo(
-    () => mergeEnvironmentSettings(server?.settings ?? DEFAULT_SERVER_SETTINGS, clientSettings),
-    [server?.settings, clientSettings],
+  const settings = mergeEnvironmentSettings(
+    server?.settings ?? DEFAULT_SERVER_SETTINGS,
+    clientSettings,
   );
   const providersByEnvironment = useEnvironmentProviders();
   const providers = environmentId ? (providersByEnvironment.get(environmentId) ?? []) : [];
@@ -266,16 +263,14 @@ function AgentEditor({ project }: { project: Project | null }) {
     };
   }, []);
   const returnHref = useAgentDialogStore((state) => state.returnHref);
-  const entries = useMemo(
-    () =>
-      deriveProviderInstanceEntries(providers).filter(
-        (entry) => entry.driverKind === "claudeAgent" && entry.enabled && entry.isAvailable,
-      ),
-    [providers],
+  const entries = deriveProviderInstanceEntries(providers).filter(
+    (entry) => entry.driverKind === "claudeAgent" && entry.enabled && entry.isAvailable,
   );
-  const options = useMemo(
-    () => getCustomModelOptionsByInstance(settings, providers, model?.instanceId, model?.model),
-    [settings, providers, model?.instanceId, model?.model],
+  const options = getCustomModelOptionsByInstance(
+    settings,
+    providers,
+    model?.instanceId,
+    model?.model,
   );
   const modelAvailable =
     model !== null &&

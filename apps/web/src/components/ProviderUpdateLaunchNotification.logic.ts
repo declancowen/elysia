@@ -43,7 +43,7 @@ export function projectProviderUpdateTargets(
         ...snapshot,
         runtimeVersion: undefined,
         updateTarget: "runtime" as const,
-        displayName: "Claude Code runtime",
+        displayName: "Claude CLI",
         version: provider.runtimeVersion,
         ...(compatibilityAdvisory ? { compatibilityAdvisory } : {}),
         ...(runtimeVersionAdvisory ? { versionAdvisory: runtimeVersionAdvisory } : {}),
@@ -57,10 +57,14 @@ function updateKey(provider: ProviderUpdateSnapshot): string {
   return `${provider.driver}${provider.updateTarget ? `:${provider.updateTarget}` : ""}`;
 }
 
-function updateName(provider: Pick<ProviderUpdateSnapshot, "driver" | "updateTarget">): string {
+export function providerUpdateTargetName(
+  provider: Pick<ProviderUpdateSnapshot, "driver" | "updateTarget">,
+): string {
   return provider.updateTarget === "runtime"
-    ? "Claude Code runtime"
-    : (PROVIDER_DISPLAY_NAMES[provider.driver] ?? provider.driver);
+    ? "Claude CLI"
+    : provider.driver === "claudeAgent"
+      ? "Elysia CLI"
+      : (PROVIDER_DISPLAY_NAMES[provider.driver] ?? provider.driver);
 }
 
 export type ProviderUpdateCandidate = ProviderUpdateSnapshot & {
@@ -177,7 +181,7 @@ function dedupeProvidersByInstanceId<T extends ProviderUpdateSnapshot>(
 function getProviderUpdatedTitle(
   provider: Pick<ProviderUpdateSnapshot, "driver" | "version" | "updateTarget">,
 ): string {
-  const providerName = updateName(provider);
+  const providerName = providerUpdateTargetName(provider);
   return provider.version
     ? `${providerName} updated: ${formatVersion(provider.version)}`
     : `${providerName} updated`;
@@ -192,7 +196,7 @@ function getProviderUpdatedDescription(providerCount: number): string {
 function getProviderFailedUpdateTitle(
   provider: Pick<ProviderUpdateSnapshot, "driver" | "versionAdvisory" | "updateTarget">,
 ): string {
-  const providerName = updateName(provider);
+  const providerName = providerUpdateTargetName(provider);
   const attemptedVersion = provider.versionAdvisory?.latestVersion;
   return attemptedVersion
     ? `${providerName} ${formatVersion(attemptedVersion)} update failed`
@@ -298,7 +302,7 @@ export function providerUpdateNotificationKey(
 function formatProviderList(
   providers: ReadonlyArray<Pick<ProviderUpdateSnapshot, "driver" | "updateTarget">>,
 ) {
-  const names = providers.map((provider) => updateName(provider));
+  const names = providers.map(providerUpdateTargetName);
   if (names.length <= 2) {
     return names.join(" and ");
   }
@@ -438,6 +442,7 @@ export interface ProviderUpdateRun {
   readonly machineLabel: string;
   readonly driver: ProviderDriverKind;
   readonly instanceId: ProviderInstanceId;
+  readonly updateTarget?: "runtime";
   readonly result: AtomCommandResult<
     { readonly providers: ReadonlyArray<ServerProvider> },
     unknown
@@ -450,7 +455,7 @@ export function getProviderUpdateRunOutcome(
   | { readonly status: "interrupted" | "updated" }
   | { readonly status: "failed"; readonly line: string } {
   if (isAtomCommandInterrupted(run.result)) return { status: "interrupted" };
-  const label = `${run.machineLabel} · ${PROVIDER_DISPLAY_NAMES[run.driver] ?? run.driver}`;
+  const label = `${run.machineLabel} · ${providerUpdateTargetName(run)}`;
   if (run.result._tag === "Failure") {
     const error = squashAtomCommandFailure(run.result);
     return {
@@ -458,9 +463,11 @@ export function getProviderUpdateRunOutcome(
       line: `${label}: ${error instanceof Error ? error.message : "Provider update failed."}`,
     };
   }
-  const updateState = run.result.value.providers.find(
+  const provider = run.result.value.providers.find(
     (provider) => provider.instanceId === run.instanceId,
-  )?.updateState;
+  );
+  const updateState =
+    run.updateTarget === "runtime" ? provider?.runtimeUpdateState : provider?.updateState;
   return updateState?.status === "succeeded"
     ? { status: "updated" }
     : {
@@ -597,7 +604,7 @@ export function getProviderUpdateSidebarPillView(
   );
   if (activeProviders.length > 0) {
     const activeProvider = activeProviders[0]!;
-    const activeProviderName = updateName(activeProvider);
+    const activeProviderName = providerUpdateTargetName(activeProvider);
     return {
       key: `loading:${activeProviders
         .map((provider) => `${updateKey(provider)}:${provider.updateState?.status ?? "idle"}`)
@@ -650,7 +657,7 @@ export function getProviderUpdateSidebarPillView(
   );
   if (unchangedProviders.length > 0) {
     const unchangedProvider = unchangedProviders[0]!;
-    const unchangedProviderName = updateName(unchangedProvider);
+    const unchangedProviderName = providerUpdateTargetName(unchangedProvider);
     terminalCandidates.push({
       key: `unchanged:${unchangedProviders
         .map(
@@ -722,7 +729,7 @@ function getProviderUpdateInitialToastTitle(
 ): string {
   if (providers.length === 1) {
     const provider = providers[0]!;
-    const providerName = updateName(provider);
+    const providerName = providerUpdateTargetName(provider);
     return `${providerName} update`;
   }
   return "Updates available";
@@ -879,7 +886,7 @@ export interface ProviderUpdateRowStatus {
 }
 
 function environmentProviderNames(group: LocalEnvironmentUpdateGroup): string {
-  return group.candidates.map((candidate) => updateName(candidate)).join(", ");
+  return group.candidates.map(providerUpdateTargetName).join(", ");
 }
 
 export function resolveEnvironmentUpdateRowStatus(input: {

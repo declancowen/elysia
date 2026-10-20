@@ -119,7 +119,7 @@ it("reports a non-handoff tool from the credential's provider alone", () => {
 it("omits custom, user-configured, and unknown models and instance names", () => {
   expect(
     agentToolProperties({
-      tool: "t3_thread_send",
+      tool: "elysia_thread_send",
       providers,
       caller: thread("claudeAgent", "my-private-finetune"),
       targets: [thread("opencode", "ollama/acme-internal"), thread("removed-instance", "gpt-5.5")],
@@ -160,12 +160,12 @@ it("reads handoff settings from enums and flags, never from prompts or ids", () 
   });
   expect(
     handoffSettings(
-      "t3_thread_launch",
+      "elysia_thread_launch",
       { message: "secret", workspaceStrategy: { type: "worktree", branch: "private" } },
       {},
     ),
   ).toEqual({ targetChosen: false, workspace: "worktree" });
-  expect(handoffSettings("t3_thread_launch", { scratch: true }, {})).toMatchObject({
+  expect(handoffSettings("elysia_thread_launch", { scratch: true }, {})).toMatchObject({
     workspace: "scratch",
   });
   expect(
@@ -175,9 +175,12 @@ it("reads handoff settings from enums and flags, never from prompts or ids", () 
       {},
     ),
   ).toEqual({ batchSize: 2, targetChosen: true });
-  expect(handoffSettings("t3_thread_send", { message: "secret" }, { delivery: "steered" })).toEqual(
-    { delivery: "steered" },
-  );
+  expect(
+    handoffSettings("elysia_thread_send", { message: "secret" }, { delivery: "steered" }),
+  ).toEqual({ delivery: "steered" });
+  expect(handoffSettings("elysia_thread_send_attachments", { message: "secret" }, {})).toEqual({
+    delivery: "auto",
+  });
 });
 
 it("drops input strings outside the schema's literals, since rejected calls are recorded too", () => {
@@ -186,13 +189,13 @@ it("drops input strings outside the schema's literals, since rejected calls are 
     mode: "async",
   });
   expect(
-    handoffSettings("t3_thread_launch", { workspaceStrategy: { type: "/home/me/secret" } }, {}),
+    handoffSettings("elysia_thread_launch", { workspaceStrategy: { type: "/home/me/secret" } }, {}),
   ).toEqual({ targetChosen: false, workspace: "root" });
 });
 
 it("reports crossProvider only when both providers resolve", () => {
   const [event] = agentToolProperties({
-    tool: "t3_thread_send",
+    tool: "elysia_thread_send",
     providers,
     caller: thread("work-codex", "gpt-5.5"),
     targets: [thread("removed-instance", "gpt-5.5")],

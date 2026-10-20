@@ -28,7 +28,7 @@ import { restrictToFirstScrollableAncestor, restrictToHorizontalAxis } from "@dn
 import { horizontalListSortingStrategy, SortableContext, useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import {
-  Bot,
+  BubblesIcon,
   Smartphone,
   ChevronDown,
   ChevronLeft,
@@ -419,7 +419,7 @@ function RightPanelEmptyState(props: {
     },
     {
       label: "Agents",
-      icon: Bot,
+      icon: BubblesIcon,
       shortcut: "A",
       available: props.agentsAvailable,
       disabledReason: SURFACE_UNAVAILABLE_HINTS.agents,
@@ -723,7 +723,7 @@ function SurfaceIcon({
     case "pull-requests":
       return <PullRequestGlyph.link className="size-3 shrink-0" />;
     case "agents":
-      return <Bot className="size-3 shrink-0" />;
+      return <BubblesIcon className="size-3 shrink-0" />;
     case "device":
       return surface.target?.platform === "ios" ? (
         <AppleIcon className="size-3 shrink-0" />
@@ -1167,7 +1167,7 @@ export function RightPanelTabs(props: RightPanelTabsProps) {
     },
     {
       label: "Agents",
-      icon: Bot,
+      icon: BubblesIcon,
       shortcut: "A",
       available: props.agentsAvailable,
       disabledReason: SURFACE_DISABLED_REASONS.agents,

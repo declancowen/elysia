@@ -431,7 +431,7 @@ it.effect("records the calling agent and the agent a tool acted on", () => {
     // Queue tools return only a sequence, so the receiving thread comes from the input.
     yield* server
       .callTool({
-        name: "t3_queue_edit",
+        name: "elysia_queue_edit",
         arguments: { threadId: "mcp-core-other", queuedRunId: "mcp-core-queued", text: "secret" },
       })
       .pipe(
@@ -440,7 +440,7 @@ it.effect("records the calling agent and the agent a tool acted on", () => {
       );
     // The fork recorded a single event, so the next one is the queue edit.
     expect((yield* Deferred.await(recorded[1]!)).properties).toMatchObject({
-      tool: "t3_queue_edit",
+      tool: "elysia_queue_edit",
       outcome: "ok",
       callerProvider: "codex",
       targetProvider: "claudeAgent",
@@ -816,7 +816,7 @@ function scheduledTask(id: string, runtimeMode: "auto" | "full-access"): never {
   } as never;
 }
 
-it.effect.each(["elysia_thread_interrupt", "t3_workflow_stop"])(
+it.effect.each(["elysia_thread_interrupt", "elysia_workflow_stop"])(
   "a caller cannot use %s on a thread that runs above its own modes",
   (toolName) =>
     Effect.gen(function* () {
@@ -826,7 +826,7 @@ it.effect.each(["elysia_thread_interrupt", "t3_workflow_stop"])(
           name: toolName,
           arguments: {
             threadId: "full-access-thread",
-            ...(toolName === "t3_workflow_stop" ? { subagentId: "workflow-coordinator" } : {}),
+            ...(toolName === "elysia_workflow_stop" ? { subagentId: "workflow-coordinator" } : {}),
           },
         })
         .pipe(
@@ -925,7 +925,7 @@ it.effect("discovers workflow stop targets and requires orchestration capability
     const call = (invocation: McpInvocationContext.McpInvocationScope) =>
       server
         .callTool({
-          name: "t3_workflow_stop",
+          name: "elysia_workflow_stop",
           arguments: { threadId, subagentId: result.items[0]?.subagentId },
         })
         .pipe(
@@ -946,6 +946,8 @@ it.effect("discovers workflow stop targets and requires orchestration capability
         Layer.provide(
           Layer.mock(ThreadManagement.ThreadManagementService)({
             getThreadShell: (id) => Effect.succeed(McpToolAccessTestkit.liveThreadShell(id)),
+            getThreadRecords: () =>
+              Effect.succeed(McpToolAccessTestkit.idleThreadProjection(shell)),
             getProjectThreadRecords: () =>
               Effect.succeed(McpToolAccessTestkit.idleThreadProjection(shell)),
             getTimelinePage: () => Effect.succeed({ items: [row], totalItems: 1, hasMore: false }),
@@ -981,7 +983,7 @@ it.effect("only the caller that prepared a pending upload can discard it", () =>
           Effect.provideService(McpSchema.McpServerClient, client),
         );
     const prepared = yield* call(
-      "t3_attachment_prepare_upload",
+      "elysia_attachment_prepare_upload",
       { upload: { name: "shot.png", mimeType: "image/png", sizeBytes: 4 } },
       scope,
     );
@@ -992,18 +994,18 @@ it.effect("only the caller that prepared a pending upload can discard it", () =>
       thread: { ...scope.thread!, threadId: ThreadId.make("other-thread") },
     };
 
-    const refused = yield* call("t3_attachment_discard", { attachmentId }, otherThread);
+    const refused = yield* call("elysia_attachment_discard", { attachmentId }, otherThread);
     expect(declaredFailure(refused)).toMatchObject({ code: "invalid_request" });
 
     yield* TestClock.adjust(24 * 60 * 60 * 1000 + 5 * 60_000);
     yield* call(
-      "t3_attachment_prepare_upload",
+      "elysia_attachment_prepare_upload",
       { upload: { name: "later.png", mimeType: "image/png", sizeBytes: 4 } },
       scope,
     );
 
     const discarded = yield* call(
-      "t3_attachment_discard",
+      "elysia_attachment_discard",
       { attachmentId },
       { ...scope, requestNamespace: "mcp-core-session-2" },
     );

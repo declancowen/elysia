@@ -134,7 +134,6 @@ import KeyboardAsset from "@hugeicons/core-free-icons/KeyboardIcon";
 import KeyboardIconAsset from "@hugeicons/core-free-icons/KeyboardIcon";
 import LaptopIconAsset from "@hugeicons/core-free-icons/LaptopIcon";
 import LayersIconAsset from "@hugeicons/core-free-icons/Layers01Icon";
-import LeftToRightListTriangleIconAsset from "@hugeicons/core-free-icons/LeftToRightListTriangleIcon";
 import LayoutTwoColumnIconAsset from "@hugeicons/core-free-icons/Layout2ColumnIcon";
 import LightbulbIconAsset from "@hugeicons/core-free-icons/LightbulbIcon";
 import Link02IconAsset from "@hugeicons/core-free-icons/Link02Icon";
@@ -154,7 +153,6 @@ import MemoryStickIconAsset from "@hugeicons/core-free-icons/MemoryStickIcon";
 import MessageCircleAsset from "@hugeicons/core-free-icons/BubbleChatIcon";
 import MessageCircleIconAsset from "@hugeicons/core-free-icons/MessageCircleIcon";
 import MessageCircleQuestionMarkIconAsset from "@hugeicons/core-free-icons/MessageCircleQuestionMarkIcon";
-import MessageSquareDashedIconAsset from "@hugeicons/core-free-icons/MessageSquareDashedIcon";
 import MessageSquareIconAsset from "@hugeicons/core-free-icons/MessageSquareIcon";
 import MessageSquareOffIconAsset from "@hugeicons/core-free-icons/MessageSquareOffIcon";
 import MessageSquareWarningIconAsset from "@hugeicons/core-free-icons/MessageSquareWarningIcon";
@@ -189,7 +187,6 @@ import PictureInPictureIconAsset from "@hugeicons/core-free-icons/PictureInPictu
 import PilcrowIconAsset from "@hugeicons/core-free-icons/PilcrowIcon";
 import PinIconAsset from "@hugeicons/core-free-icons/PinIcon";
 import PinOffIconAsset from "@hugeicons/core-free-icons/PinOffIcon";
-import PipetteIconAsset from "@hugeicons/core-free-icons/PipetteIcon";
 import PlayIconAsset from "@hugeicons/core-free-icons/PlayIcon";
 import Plug02IconAsset from "@hugeicons/core-free-icons/Plug02Icon";
 import PlusAsset from "@hugeicons/core-free-icons/Add01Icon";
@@ -317,8 +314,6 @@ export const BlocksIcon = /* @__PURE__ */ createIcon(BlocksIconAsset, "blocks");
 export const BookOpenIcon = /* @__PURE__ */ createIcon(BookOpenIconAsset, "book-open");
 export const BookmarkIcon = /* @__PURE__ */ createIcon(BookmarkIconAsset, "bookmark");
 export const BubblesIcon = /* @__PURE__ */ createIcon(BubblesIconAsset, "bubbles");
-export const Bot = BubblesIcon;
-export const BotIcon = BubblesIcon;
 export const Box = /* @__PURE__ */ createIcon(BoxAsset, "box");
 export const Braces = /* @__PURE__ */ createIcon(BracesAsset, "braces");
 export const BrainIcon = /* @__PURE__ */ createIcon(BrainIconAsset, "brain");
@@ -469,10 +464,6 @@ export const LinkIcon = /* @__PURE__ */ createIcon(LinkIconAsset, "link");
 export const ListChecksIcon = /* @__PURE__ */ createIcon(ListChecksIconAsset, "list-checks");
 export const ListFilterIcon = /* @__PURE__ */ createIcon(ListFilterIconAsset, "list-filter");
 export const ListIcon = /* @__PURE__ */ createIcon(ListIconAsset, "list");
-export const LeftToRightListTriangleIcon = /* @__PURE__ */ createIcon(
-  LeftToRightListTriangleIconAsset,
-  "left-to-right-list-triangle",
-);
 export const ListTodoIcon = /* @__PURE__ */ createIcon(ListTodoIconAsset, "list-todo");
 export const LoaderCircleIcon = /* @__PURE__ */ createIcon(LoaderCircleIconAsset, "loader-circle");
 export const LockIcon = /* @__PURE__ */ createIcon(LockIconAsset, "lock");
@@ -490,10 +481,6 @@ export const MessageCircleIcon = /* @__PURE__ */ createIcon(
 export const MessageCircleQuestionIcon = /* @__PURE__ */ createIcon(
   MessageCircleQuestionMarkIconAsset,
   "message-circle-question",
-);
-export const MessageSquareDashedIcon = /* @__PURE__ */ createIcon(
-  MessageSquareDashedIconAsset,
-  "message-square-dashed",
 );
 export const MessageSquareIcon = /* @__PURE__ */ createIcon(
   MessageSquareIconAsset,
@@ -560,7 +547,6 @@ export const PictureInPicture2 = /* @__PURE__ */ createIcon(
 export const PilcrowIcon = /* @__PURE__ */ createIcon(PilcrowIconAsset, "pilcrow");
 export const PinIcon = /* @__PURE__ */ createIcon(PinIconAsset, "pin");
 export const PinOffIcon = /* @__PURE__ */ createIcon(PinOffIconAsset, "pin-off");
-export const PipetteIcon = /* @__PURE__ */ createIcon(PipetteIconAsset, "pipette");
 export const PlayIcon = /* @__PURE__ */ createIcon(PlayIconAsset, "play");
 export const Plug2Icon = /* @__PURE__ */ createIcon(Plug02IconAsset, "plug-2");
 export const Plus = /* @__PURE__ */ createIcon(PlusAsset, "plus");

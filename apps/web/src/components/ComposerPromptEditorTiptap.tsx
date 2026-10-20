@@ -1055,6 +1055,8 @@ function ComposerPromptEditorTiptapInner(
   };
 
   const handleEditorChange = (updated: TiptapEditor) => {
+    // Mounting a new view emits its default caret before the controlled selection lands.
+    if (!hasAppliedControlledSelectionRef.current) return;
     const map = serializeEditorDoc(updated.state.doc);
     const contextIds = literalText ? [] : map.contextIds;
     const { from, to } = updated.state.selection;
@@ -1506,6 +1508,7 @@ function ComposerPromptEditorTiptapInner(
   useLayoutEffect(() => {
     if (!editor?.isInitialized) return;
     editor.view.setProps({ attributes: editorAttributes });
+    // oxlint-disable-next-line react/exhaustive-effect-dependencies -- Tiptap create remounts the view without replacing the editor object.
   }, [editor, editorAttributes, mountVersion]);
 
   const readSnapshot = () => {
@@ -1643,6 +1646,7 @@ function ComposerPromptEditorTiptapInner(
     expandEditorCursor,
     initialExpandedCursor,
     literalText,
+    // oxlint-disable-next-line react/exhaustive-effect-dependencies -- Tiptap create remounts the view without changing the editor or controlled draft.
     mountVersion,
     richText,
     skillLabelFor,

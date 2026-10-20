@@ -14,10 +14,6 @@ type ForkPolicy = Pick<
 
 const upstreamForkPolicy = vi.hoisted(() => ({ singleProviderUi: false }));
 
-export function setUpstreamSingleProviderUi(enabled: boolean): void {
-  upstreamForkPolicy.singleProviderUi = enabled;
-}
-
 // Import only in dormant upstream suites. Elysia policy tests exercise the real
 // production module; these fixtures still cover the retained multi-provider code.
 vi.mock("../../../../packages/contracts/src/forkPolicy.ts", async (importOriginal) => ({

@@ -35,6 +35,7 @@ import {
   isTerminalProviderUpdatePhase,
   localEnvironmentUpdateNotificationKey,
   providerUpdateNotificationKey,
+  providerUpdateTargetName,
   resolveEnvironmentUpdateRowStatus,
   shouldShowPrimaryProviderUpdateToast,
   type LocalEnvironmentProvidersInput,
@@ -98,6 +99,12 @@ function updateCandidate(input: Parameters<typeof provider>[0]): ProviderUpdateC
 }
 
 describe("provider update launch notification logic", () => {
+  it("distinguishes native Elysia and Claude runtime update targets", () => {
+    expect(providerUpdateTargetName({ driver: driver("claudeAgent") })).toBe("Elysia CLI");
+    expect(
+      providerUpdateTargetName({ driver: driver("claudeAgent"), updateTarget: "runtime" }),
+    ).toBe("Claude CLI");
+  });
   it("only offers the Elysia driver under the production fork policy", () => {
     forkPolicy.elysia = true;
     try {
@@ -333,7 +340,7 @@ describe("provider update launch notification logic", () => {
         oneClickProviders: [candidate],
       }),
     ).toMatchObject({
-      title: "Claude Code runtime update",
+      title: "Claude CLI update",
       description: "v2.1.299 is available.",
     });
   });
@@ -582,8 +589,8 @@ describe("provider update launch notification logic", () => {
     expect(view).toMatchObject({
       key: "loading:claudeAgent:running",
       tone: "loading",
-      title: "Updating Elysia",
-      description: "Elysia update in progress.",
+      title: "Updating Elysia CLI",
+      description: "Elysia CLI update in progress.",
     });
   });
 
@@ -621,7 +628,7 @@ describe("provider update launch notification logic", () => {
     expect(view).toMatchObject({
       key: "succeeded:claudeAgent:2026-04-23T10:01:00.000Z:Provider updated.",
       tone: "success",
-      title: "Elysia updated: v1.1.0",
+      title: "Elysia CLI updated: v1.1.0",
     });
   });
 
@@ -645,7 +652,7 @@ describe("provider update launch notification logic", () => {
     expect(view).toMatchObject({
       key: "failed:claudeAgent:2026-04-23T10:00:00.000Z:Update command exited with code 1.",
       tone: "error",
-      title: "Elysia v1.1.0 update failed",
+      title: "Elysia CLI v1.1.0 update failed",
       description: "Update command exited with code 1.",
       dismissible: true,
     });
@@ -768,7 +775,7 @@ describe("provider update launch notification logic", () => {
     expect(failureView).toMatchObject({
       key: "failed:claudeAgent:2026-04-23T10:00:00.000Z:Update command exited with code 1.",
       tone: "error",
-      title: "Elysia v1.1.0 update failed",
+      title: "Elysia CLI v1.1.0 update failed",
     });
   });
 
@@ -1233,7 +1240,8 @@ describe("getProviderUpdateRunToastView", () => {
     expect(view).toEqual({
       type: "error",
       title: "2 of 3 provider updates failed",
-      description: "Mac Studio · Elysia: npm exited with code 1.\nLaptop · Codex: WebSocket closed",
+      description:
+        "Mac Studio · Elysia CLI: npm exited with code 1.\nLaptop · Codex: WebSocket closed",
     });
   });
 

@@ -49,13 +49,12 @@ const make = Effect.gen(function* () {
           : new PageError({ code: "storage_error", message: "Could not access pages.", cause }),
       ),
     );
-  const read = (id: PageId) =>
-    Effect.gen(function* () {
-      const rows =
-        yield* sql`SELECT id, title, content, kind, parent_folder_id AS "parentFolderId", project_id AS "projectId", created_at AS "createdAt", updated_at AS "updatedAt", revision FROM pages WHERE id = ${id}`;
-      if (!rows[0]) return yield* fail("not_found", "Page not found.");
-      return yield* decodePage(rows[0]);
-    });
+  const read = Effect.fn("PageService.read")(function* (id: PageId) {
+    const rows =
+      yield* sql`SELECT id, title, content, kind, parent_folder_id AS "parentFolderId", project_id AS "projectId", created_at AS "createdAt", updated_at AS "updatedAt", revision FROM pages WHERE id = ${id}`;
+    if (!rows[0]) return yield* fail("not_found", "Page not found.");
+    return yield* decodePage(rows[0]);
+  });
   const list = () =>
     wrap(
       Effect.gen(function* () {

@@ -7,9 +7,10 @@ import {
   selectProjectGroupingSettings,
 } from "../../logicalProject";
 import { useNavigate } from "@tanstack/react-router";
-import { ArchiveIcon, ArchiveX, BotIcon, ClockIcon, Edit03Icon, ChannelIcon } from "~/icons";
+import { ArchiveIcon, ArchiveX, BubblesIcon, ClockIcon, Edit03Icon, ChannelIcon } from "~/icons";
 import { useLayoutEffect, useRef, useState, type RefObject } from "react";
 import { usePanelAnimationSettings } from "../../panelAnimations";
+import { useStableCallback } from "../../hooks/useStableCallback";
 import { Button } from "../ui/button";
 import { Popover, PopoverPopup, PopoverTitle, PopoverTrigger } from "../ui/popover";
 import { AgentAvatar } from "./AgentAvatar";
@@ -40,12 +41,27 @@ export function AgentDetailsPopover({
       project.environmentId === projectRef?.environmentId && project.id === projectRef.projectId,
   );
   const [localOpen, setLocalOpen] = useState(defaultOpen);
+  const [collisionBoundary, setCollisionBoundary] = useState<HTMLElement | null>(null);
   const open = controlledOpen ?? localOpen;
   const setOpen = (value: boolean) => {
     setLocalOpen(value);
     onOpenChange?.(value);
   };
   const anchorRef = useRef<HTMLSpanElement>(null);
+  const attachAnchor = useStableCallback((element: HTMLSpanElement | null) => {
+    anchorRef.current = element;
+    if (!element) {
+      setCollisionBoundary(null);
+      return;
+    }
+    const boundary =
+      threadBoundaryRef?.current ??
+      element?.closest<HTMLElement>("[data-chat-column-maximized-away]") ??
+      null;
+    setCollisionBoundary(
+      boundary?.closest<HTMLElement>("[data-chat-workspace-panels]") ?? boundary,
+    );
+  });
   const navigate = useNavigate();
   const close = () => setOpen(false);
   if (!current) return null;
@@ -81,12 +97,12 @@ export function AgentDetailsPopover({
         {current.project.agentProfile?.group ? (
           <ChannelIcon className="size-4" />
         ) : (
-          <BotIcon className="size-4" />
+          <BubblesIcon className="size-4" />
         )}
       </PopoverTrigger>
       {threadBoundaryRef ? (
         <span
-          ref={anchorRef}
+          ref={attachAnchor}
           aria-hidden
           className="pointer-events-none absolute top-full right-3 size-0"
         />
@@ -97,11 +113,9 @@ export function AgentDetailsPopover({
         style={{ transitionDuration: animated ? `${durationMs}ms` : "0ms" }}
         align="end"
         {...(threadBoundaryRef ? { anchor: anchorRef, sideOffset: 12 } : {})}
-        {...(threadBoundaryRef?.current
+        {...(collisionBoundary
           ? {
-              collisionBoundary:
-                threadBoundaryRef.current.closest<HTMLElement>("[data-chat-workspace-panels]") ??
-                threadBoundaryRef.current,
+              collisionBoundary,
               collisionPadding: 12,
               collisionAvoidance: { side: "shift", align: "shift", fallbackAxisSide: "none" },
               sticky: true,

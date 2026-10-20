@@ -12,7 +12,7 @@ import {
   Clock3Icon,
   FolderIcon,
   SettingsIcon,
-  BotIcon,
+  BubblesIcon,
   ChartNoAxesColumnIncreasingIcon,
 } from "../../icons";
 import { clearAgentCreationDraft, useAgentDialogStore } from "../agents/agentDialogStore";
@@ -98,7 +98,7 @@ export function ConversationTabs() {
               ) : tab.target.path === "/projects" || tab.target.search?.project ? (
                 <FolderIcon className="size-4" />
               ) : tab.target.path === "/agents" ? (
-                <BotIcon className="size-4" />
+                <BubblesIcon className="size-4" />
               ) : (
                 <SettingsIcon className="size-4" />
               )

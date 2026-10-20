@@ -1,13 +1,3 @@
-import { ProviderDriverKind } from "@elysiatools/contracts";
-import { AntigravityIcon, ElysiaIcon, CursorIcon, Icon, OpenAI } from "../Icons";
-
-export const PROVIDER_ICON_BY_PROVIDER: Partial<Record<ProviderDriverKind, Icon>> = {
-  [ProviderDriverKind.make("codex")]: OpenAI,
-  [ProviderDriverKind.make("claudeAgent")]: ElysiaIcon,
-  [ProviderDriverKind.make("cursor")]: CursorIcon,
-  [ProviderDriverKind.make("antigravity")]: AntigravityIcon,
-};
-
 export type ModelEsque = {
   slug: string;
   name: string;

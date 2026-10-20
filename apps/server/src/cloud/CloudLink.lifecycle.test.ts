@@ -1389,7 +1389,7 @@ describe("releaseManagedTunnelOnShutdown", () => {
       const error = yield* Fiber.join(registration);
       expect(attempts).toBe(2);
       expect(error).toBe(permanent);
-      expect(error.message).toContain("t3 connect login");
+      expect(error.message).toContain("elysia connect login");
       expect(error.message).not.toContain("private");
       expect(requests).toEqual([]);
       expect(applyConfigCalls).toEqual([]);

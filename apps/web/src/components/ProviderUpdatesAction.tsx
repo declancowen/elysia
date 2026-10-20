@@ -1,4 +1,3 @@
-import { PROVIDER_DISPLAY_NAMES } from "@elysiatools/contracts";
 import { settlePromise } from "@elysiatools/client-runtime/state/runtime";
 import { useRef, useState } from "react";
 
@@ -9,6 +8,7 @@ import {
   canOneClickUpdateProviderCandidate,
   collectProviderUpdateCandidates,
   getProviderUpdateRunToastView,
+  providerUpdateTargetName,
   type ProviderUpdateRun,
 } from "./ProviderUpdateLaunchNotification.logic";
 import { Button } from "./ui/button";
@@ -42,9 +42,14 @@ export function useProviderUpdates() {
           machineLabel: label,
           driver: candidate.driver,
           instanceId: candidate.instanceId,
+          ...(candidate.updateTarget ? { updateTarget: candidate.updateTarget } : {}),
           result: await updateProvider({
             environmentId,
-            input: { provider: candidate.driver, instanceId: candidate.instanceId },
+            input: {
+              provider: candidate.driver,
+              instanceId: candidate.instanceId,
+              ...(candidate.updateTarget ? { updateTarget: candidate.updateTarget } : {}),
+            },
           }),
         })),
       ),
@@ -99,10 +104,7 @@ export function ProviderUpdatesAction() {
       <TooltipPopup side="top">
         {machines.map((machine) => (
           <div key={machine.environmentId}>
-            {machine.label}:{" "}
-            {machine.candidates
-              .map((candidate) => PROVIDER_DISPLAY_NAMES[candidate.driver] ?? candidate.driver)
-              .join(", ")}
+            {machine.label}: {machine.candidates.map(providerUpdateTargetName).join(", ")}
           </div>
         ))}
       </TooltipPopup>

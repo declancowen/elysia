@@ -362,7 +362,7 @@ describe("resolveWorkEntryToolPresentation", () => {
     ["elysia_thread_fork", "Forking this thread", "Requested a fork of this thread"],
     ["elysia_thread_send_attachments", "Sending attachments", "Sent attachments"],
     ["run_scheduled_task_now", "Running a scheduled task", "Requested a run of a scheduled task"],
-    ["t3_workflow_stop", "Stopping a workflow", "Requested a stop for a workflow"],
+    ["elysia_workflow_stop", "Stopping a workflow", "Requested a stop for a workflow"],
   ])("labels %s through its lifecycle", (tool, running, completed) => {
     expect(resolveWorkEntryToolPresentation({ label: `Elysia.${tool}` })?.displayName).toBe(
       running,
@@ -376,7 +376,7 @@ describe("resolveWorkEntryToolPresentation", () => {
   });
 
   it("distinguishes an interrupted unwatch from a completed unwatch", () => {
-    const entry = { label: "T3-code.unwatch_pull_request" };
+    const entry = { label: "Elysia.unwatch_pull_request" };
     expect(
       (["inProgress", "stopped", "completed"] as const).map(
         (toolLifecycleStatus) =>
@@ -394,7 +394,7 @@ describe("resolveWorkEntryToolPresentation", () => {
       id: "guides",
       createdAt: "2026-10-07T00:00:00.000Z",
       tone: "tool",
-      label: "T3-code.write_pull_request_guides",
+      label: "Elysia.write_pull_request_guides",
       toolLifecycleStatus: "completed",
     } satisfies WorkLogPresentationEntry;
     expect({
@@ -409,7 +409,7 @@ describe("resolveWorkEntryToolPresentation", () => {
   });
 
   it("describes delegated-task cancellation as an ongoing action then a request", () => {
-    const entry = { label: "T3-code.task_cancel" };
+    const entry = { label: "Elysia.task_cancel" };
     expect(
       (["inProgress", "completed"] as const).map(
         (toolLifecycleStatus) =>
@@ -427,8 +427,8 @@ describe("resolveWorkEntryToolPresentation", () => {
       itemType: "dynamic_tool",
       toolLifecycleStatus: "completed",
       toolData: {
-        server: "t3-code",
-        tool: "t3_workflow_stop",
+        server: "elysia",
+        tool: "elysia_workflow_stop",
         arguments: { threadId: "parent", subagentId: "workflow-1" },
         result: {},
       },
@@ -448,7 +448,7 @@ describe("resolveWorkEntryToolPresentation", () => {
           ...entry,
           toolData: {
             ...entry.toolData,
-            tool: "t3_thread_interrupt",
+            tool: "elysia_thread_interrupt",
             arguments: { threadId: "parent" },
           },
         },
@@ -489,7 +489,7 @@ describe("resolveWorkEntryToolPresentation", () => {
     });
   });
 
-  it("does not summarize a foreign structured identity as T3 work", () => {
+  it("does not summarize a foreign structured identity as Elysia work", () => {
     const entry: WorkLogPresentationEntry = {
       id: "foreign",
       createdAt: "2026-09-19T00:00:00.000Z",

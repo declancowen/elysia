@@ -23,7 +23,7 @@ import {
   FolderIcon,
 } from "~/icons";
 import type { ReactNode } from "react";
-import { memo, useCallback } from "react";
+import { memo } from "react";
 import { useAtomValue } from "@effect/atom-react";
 import { primaryServerKeybindingsAtom } from "../../state/server";
 import { shortcutLabelForCommand } from "../../keybindings";
@@ -32,7 +32,7 @@ import { Link, useLocation, useNavigate, useRouter } from "@tanstack/react-route
 import {
   useClientSettings,
   useCodeWorkspace,
-  useUpdateClientSettings,
+  updateClientSettings,
   useEnvironmentIdentificationMode,
 } from "../../hooks/useSettings";
 import { cn } from "../../lib/utils";
@@ -146,7 +146,6 @@ export const SidebarChromeHeader = memo(function SidebarChromeHeader({
 
 function SidebarThreadViewSwitcher() {
   const projectSidebar = useClientSettings((settings) => settings.legacySidebarEnabled);
-  const updateClientSettings = useUpdateClientSettings();
   const label = projectSidebar ? "Switch to Thread view" : "Switch to Project view";
   return (
     <Tooltip>
@@ -174,14 +173,11 @@ export function SidebarBrandWidthProbe({
 }: {
   onWidthChange: (width: number) => void;
 }) {
-  const observeWidth = useCallback(
-    (probe: HTMLDivElement) => {
-      return observeResize(probe, ([entry]) => {
-        if (entry) onWidthChange(entry.borderBoxSize[0]?.inlineSize ?? probe.offsetWidth);
-      });
-    },
-    [onWidthChange],
-  );
+  const observeWidth = (probe: HTMLDivElement) => {
+    return observeResize(probe, ([entry]) => {
+      if (entry) onWidthChange(entry.borderBoxSize[0]?.inlineSize ?? probe.offsetWidth);
+    });
+  };
 
   return (
     <div
@@ -310,7 +306,6 @@ export const SidebarUtilityMenu = memo(function SidebarUtilityMenu() {
   const codeWorkspace = useCodeWorkspace();
   const navigate = useNavigate();
   const projectSidebar = useClientSettings((settings) => settings.legacySidebarEnabled);
-  const updateClientSettings = useUpdateClientSettings();
   const navigateToMainApp = useNavigateToMainApp();
   const navigateToTabSection = useConversationSectionNavigation();
   const { isMobile, setOpenMobile } = useSidebar();
@@ -327,36 +322,36 @@ export const SidebarUtilityMenu = memo(function SidebarUtilityMenu() {
   const pullRequestsSupported = environments.some(
     (environment) => environment.serverConfig?.environment.capabilities.pullRequests === true,
   );
-  const closeMobileSidebar = useCallback(() => {
+  const closeMobileSidebar = () => {
     if (isMobile) {
       setOpenMobile(false);
     }
-  }, [isMobile, setOpenMobile]);
-  const handlePullRequestsClick = useCallback(() => {
+  };
+  const handlePullRequestsClick = () => {
     closeMobileSidebar();
     if (SINGLE_PROVIDER_UI && navigateToTabSection("pull-requests")) return;
     void navigate({
       to: "/pull-requests",
       search: readPullRequestListPreferences(),
     });
-  }, [closeMobileSidebar, navigate, navigateToTabSection]);
-  const handleSettingsClick = useCallback(() => {
+  };
+  const handleSettingsClick = () => {
     closeMobileSidebar();
     void navigate({ to: "/settings" });
-  }, [closeMobileSidebar, navigate]);
+  };
 
-  const handleUsageClick = useCallback(() => {
+  const handleUsageClick = () => {
     if (isMobile) {
       setOpenMobile(false);
     }
     void navigate({ to: "/usage" });
-  }, [isMobile, navigate, setOpenMobile]);
+  };
 
-  const handleBackClick = useCallback(() => {
+  const handleBackClick = () => {
     closeMobileSidebar();
     if (SINGLE_PROVIDER_UI && navigateToTabSection("workspace")) return;
     void navigateToMainApp();
-  }, [closeMobileSidebar, navigateToMainApp, navigateToTabSection]);
+  };
 
   return (
     <SidebarMenu
@@ -518,7 +513,6 @@ export const AppNavigationRail = memo(function AppNavigationRail() {
   });
   const agentSidebarSelected = useAgentSidebarStore((state) => state.active);
   const agentsActive = agentSidebarActiveForPath(pathname, agentSidebarSelected, editingAgent);
-  const updateClientSettings = useUpdateClientSettings();
   const { environments } = useEnvironments();
   const pullRequestsSupported = environments.some(
     (environment) => environment.serverConfig?.environment.capabilities.pullRequests === true,

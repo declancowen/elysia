@@ -1,5 +1,5 @@
-import * as DateTime from "effect/DateTime";
 // @vitest-environment jsdom
+import * as DateTime from "effect/DateTime";
 import { act } from "react";
 import { createRoot } from "react-dom/client";
 import {

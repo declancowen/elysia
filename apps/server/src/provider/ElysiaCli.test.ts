@@ -175,8 +175,14 @@ for (const [platform, scenario] of [
       let prepared = false;
       const spawner = ChildProcessSpawner.make((command) => {
         if (command._tag !== "StandardCommand") throw new Error("Unexpected pipeline");
-        const binary = command.command.replaceAll('^"', "");
-        const args = command.args.map((arg) => arg.replaceAll('^"', ""));
+        // Windows shells receive one escaped command line, with no separate args.
+        const invocation = command.options.shell
+          ? [...command.command.matchAll(/\^"(.*?)\^"(?:\s|$)/g)].map((match) =>
+              match[1]!.replace(/\^(.)/g, "$1"),
+            )
+          : [command.command, ...command.args];
+        const binary = invocation[0]!;
+        const args = invocation.slice(1);
         if (platform === "win32" && binary === "npm.cmd") expect(command.options.shell).toBe(true);
         calls.push([binary, ...args]);
         if (platform === "darwin")
@@ -261,7 +267,7 @@ for (const [platform, scenario] of [
           expect(calls.some(([binary]) => binary === "tar")).toBe(false);
           expect(prepared).toBe(false);
         } else {
-          expect(result._tag, "native fixture installation").toBe("Success");
+          expect(result, "native fixture installation").toMatchObject({ _tag: "Success" });
           expect(prepared).toBe(true);
           expect(progress.at(-1)).toContain("Enter your company credentials");
           if (scenario === "existing") {
@@ -562,7 +568,7 @@ it("adopts a native Windows sign-in using system trust without adding a missing 
 });
 
 it("reads only native account totals and never substitutes local estimates or profile identifiers", () => {
-  const output = `Elysia Config\nWorkspace : private-workspace\nConfig ID : private-config\nUsage\n--------------\nStatus : Active\nUsed : $171.1899 / $350.00\nResets : Monthly\nExpires : 2026-12-31\nCompression\nStatus : disabled`;
+  const output = `Elysia Config\nVersion : 0.3.10\nModel : claude-haiku-5-5\nContext : 1000000 tokens\nAuto compact : 850000 tokens\nInput / 1M : $2.00 / $5.00 USD\nOutput / 1M : $8.00 / $20.00 USD\nPrice tiers : short: up to 100K tokens / long: above 100K tokens\nWorkspace : private-workspace\nConfig ID : private-config\nUsage\n--------------\nStatus : Active\nUsed : $171.1899 / $350.00\nResets : Monthly\nExpires : 2026-12-31\nCompression\nStatus : disabled`;
   expect(parseElysiaAccountUsage(output)).toEqual({
     status: "available",
     usedUsd: 171.1899,
@@ -1401,3 +1407,161 @@ it("runs native user skills without exposing profile credentials or replacing El
     hookSpecificOutput: { permissionDecision: "deny" },
   });
 });
+
+it("reads native model limits without setup, authentication or network calls", () => {
+  const { run, profile } = fixture(
+    nativeFixture +
+      String.raw`
+ALLOWED_MODELS = ["gpt-6.1-sol", "claude-haiku-5-5"]
+def model_context_env(model):
+    maximum, compact = {"gpt-6.1-sol": (272000, 230000), "claude-haiku-5-5": (1000000, 850000)}[model]
+    return {"CLAUDE_CODE_MAX_CONTEXT_TOKENS": str(maximum), "CLAUDE_CODE_AUTO_COMPACT_WINDOW": str(compact)}
+def unexpected(*args, **kwargs):
+    raise AssertionError("Metadata must not run setup, authenticate, or contact the gateway")
+main = _init_globals = setup_ssl = validate_gateway_credentials = unexpected
+`,
+  );
+  const result = run("model-metadata", "", { ELYSIA_ALLOWED_MODELS: "retired-fixture-model" });
+  expect(result.status, result.stderr).toBe(0);
+  expect(JSON.parse(result.stdout)).toEqual({
+    "gpt-6.1-sol": { contextWindowTokens: 272000, autoCompactWindowTokens: 230000 },
+    "claude-haiku-5-5": { contextWindowTokens: 1000000, autoCompactWindowTokens: 850000 },
+  });
+  expect(NodeFS.existsSync(NodePath.join(profile, ".claude/settings.json"))).toBe(false);
+  expect(NodeFS.existsSync(NodePath.join(profile, "ready"))).toBe(false);
+  expect(run("model-metadata").stdout).toBe(result.stdout);
+});
+
+it("keeps native model metadata unavailable on older CLI versions", () => {
+  const { run } = fixture();
+  expect(run("model-metadata").status).toBe(0);
+  expect(JSON.parse(run("model-metadata").stdout)).toEqual({});
+});
+
+const nativePricingFixture =
+  nativeFixture +
+  String.raw`
+ALLOWED_MODELS = ["fixture-flat", "fixture-tiered", "fixture-zero", "fixture-no-boundary", "fixture-malformed", "fixture-mismatch"]
+MODEL_COSTS = {
+    "fixture-flat": ("$1.50", "$6.00"),
+    "fixture-tiered": ("$1.25 / $2.50", "$4.50 / $9.00"),
+    "fixture-zero": ("$0.00", "$0.00"),
+    "fixture-no-boundary": ("$1 / $2", "$3 / $4"),
+    "fixture-malformed": ("$NaN", "$6.00"),
+    "fixture-mismatch": ("$1 / $2", "$3"),
+}
+def model_context_env(model):
+    return {"CLAUDE_CODE_MAX_CONTEXT_TOKENS": "200000", "CLAUDE_CODE_AUTO_COMPACT_WINDOW": "150000"}
+def unexpected(*args, **kwargs):
+    raise AssertionError("Metadata must not run setup, authenticate, or contact the gateway")
+def show_config():
+    unexpected()
+    model = "unused"
+    if model == "fixture-tiered":
+        print("Price tiers  : short: up to 128K tokens / long: above 128K tokens")
+main = _init_globals = setup_ssl = validate_gateway_credentials = fetch_usage = unexpected
+`;
+
+it("reads native prices and their native tier boundary without invoking account configuration", () => {
+  const { run, profile } = fixture(nativePricingFixture);
+  const result = run("model-metadata");
+  expect(result.status, result.stderr).toBe(0);
+  const models = JSON.parse(result.stdout);
+  expect(models["fixture-flat"].pricing).toEqual({
+    inputCostPerMillionTokens: 1.5,
+    outputCostPerMillionTokens: 6,
+  });
+  expect(models["fixture-tiered"].pricing).toEqual({
+    inputCostPerMillionTokens: 1.25,
+    outputCostPerMillionTokens: 4.5,
+    longContext: {
+      aboveInputTokens: 128000,
+      inputCostPerMillionTokens: 2.5,
+      outputCostPerMillionTokens: 9,
+    },
+  });
+  expect(models["fixture-zero"].pricing).toEqual({
+    inputCostPerMillionTokens: 0,
+    outputCostPerMillionTokens: 0,
+  });
+  for (const model of ["fixture-no-boundary", "fixture-malformed", "fixture-mismatch"])
+    expect(models[model]).toEqual({
+      contextWindowTokens: 200000,
+      autoCompactWindowTokens: 150000,
+    });
+  expect(NodeFS.existsSync(NodePath.join(profile, ".claude/settings.json"))).toBe(false);
+  expect(NodeFS.existsSync(NodePath.join(profile, "ready"))).toBe(false);
+});
+
+effectIt.effect(
+  "exposes native prices through the provider-owned reader without authentication",
+  () => {
+    const { directory, source } = fixture(nativePricingFixture);
+    return Effect.gen(function* () {
+      const cli = yield* makeElysiaCli({
+        instanceId: ProviderInstanceId.make("native-price-test"),
+        stateDir: directory,
+        config: decodeClaudeSettings({ enabled: true, elysiaScriptPath: source }),
+        environment: { ...process.env, CLAUDE_CONFIG_DIR: NodePath.join(directory, "native") },
+        checkUpdates: Effect.succeed(false),
+      });
+      const prices = yield* cli.modelPricing;
+      expect(Object.keys(prices).sort()).toEqual([
+        "fixture-flat",
+        "fixture-tiered",
+        "fixture-zero",
+      ]);
+      expect(prices["fixture-tiered"]?.longContext?.aboveInputTokens).toBe(128000);
+      expect(yield* cli.modelPricing).toEqual(prices);
+      const profile = NodePath.join(directory, "providers", "elysia-native-price-test");
+      expect(NodeFS.existsSync(NodePath.join(profile, ".claude/settings.json"))).toBe(false);
+      expect(NodeFS.existsSync(NodePath.join(profile, "ready"))).toBe(false);
+    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer));
+  },
+);
+
+effectIt.effect(
+  "preserves sign-in despite a retired app model and unavailable native model metadata",
+  () => {
+    const { directory, source, profile, run } = fixture(
+      nativeFixture +
+        String.raw`
+original_main = main
+def main():
+    if "--model" in sys.argv:
+        raise AssertionError("A retired default must not rewrite the native model")
+    original_main()
+ALLOWED_MODELS = ["deepseek-v4.1-flash"]
+def model_context_env(model):
+    raise RuntimeError("Metadata unavailable; not an authentication failure")
+`,
+    );
+    expect(run("--init").status).toBe(0);
+    const nativeDir = NodePath.join(profile, ".claude");
+    const original = NodeFS.readFileSync(NodePath.join(nativeDir, "settings.json"), "utf8");
+    return Effect.gen(function* () {
+      const cli = yield* makeElysiaCli({
+        instanceId: ProviderInstanceId.make("retired-model-test"),
+        stateDir: directory,
+        config: decodeClaudeSettings({
+          enabled: true,
+          elysiaScriptPath: source,
+          elysiaDefaultModel: "claude-sonnet-5",
+        }),
+        environment: { ...process.env, CLAUDE_CONFIG_DIR: nativeDir },
+        checkUpdates: Effect.succeed(false),
+      });
+      expect(yield* cli.modelMetadata).toEqual({});
+      expect(yield* cli.ready).toBe(true);
+      expect(yield* cli.connectionError).toBeNull();
+      expect(yield* cli.readSettings).toMatchObject({
+        _tag: "Some",
+        value: {
+          model: "deepseek-v4.1-flash",
+          allowed_models: ["deepseek-v4.1-flash"],
+        },
+      });
+      expect(NodeFS.readFileSync(NodePath.join(nativeDir, "settings.json"), "utf8")).toBe(original);
+    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer));
+  },
+);

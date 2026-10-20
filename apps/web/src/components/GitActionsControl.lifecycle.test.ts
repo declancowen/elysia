@@ -1,4 +1,3 @@
-// @vitest-environment jsdom
 import { AuthSourceControlWriteScope, EnvironmentId, ThreadId } from "@elysiatools/contracts";
 import { AsyncResult } from "effect/reactivity";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
@@ -19,6 +18,7 @@ vi.mock("@effect/atom-react", () => ({
 vi.mock("~/state/entities", () => ({
   useThreadProjection: () => null,
   useThreadShell: (ref: { threadId: string }) => ({ branch: "main", id: ref.threadId }),
+  useQuietThreadShell: (ref: { threadId: string }) => ({ branch: "main", id: ref.threadId }),
 }));
 vi.mock("~/state/session", () => ({
   useEnvironmentScope: (environmentId: unknown, scope: string) =>
@@ -187,6 +187,18 @@ async function clickQuickAction(renderer: ReturnType<typeof create>) {
 }
 
 beforeEach(() => {
+  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+  vi.stubGlobal("window", {
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+    setTimeout,
+    clearTimeout,
+  });
+  vi.stubGlobal("document", {
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+    visibilityState: "visible",
+  });
   state.scopes = new Set([AuthSourceControlWriteScope]);
   state.primaryScopes = new Set([AuthSourceControlWriteScope]);
   state.actions = [];
@@ -197,6 +209,7 @@ afterEach(async () => {
   await act(async () => {
     for (const renderer of renderers.splice(0)) renderer.unmount();
   });
+  vi.unstubAllGlobals();
 });
 
 describe("Git action targets across thread navigation", () => {

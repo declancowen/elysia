@@ -95,3 +95,9 @@ it.effect("does not let OTLP serialization failures alter application effects", 
     ),
   );
 });
+
+// Exercise dormant exporter behavior independently of the shipped fork policy.
+vi.mock("../../../../../packages/contracts/src/forkPolicy.ts", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@elysiatools/contracts")>()),
+  UPSTREAM_ANALYTICS_ENABLED: true,
+}));

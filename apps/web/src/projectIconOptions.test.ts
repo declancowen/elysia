@@ -6,7 +6,7 @@ import {
 } from "./projectIconOptions";
 
 describe("projectIconOptions", () => {
-  it("searches across the full Lucide set", () => {
+  it("searches the project icon set", () => {
     expect(filterProjectIconNames("alarm clock")).toContain("alarm-clock");
     expect(filterProjectIconNames("alarm  \tclock")).toContain("alarm-clock");
   });

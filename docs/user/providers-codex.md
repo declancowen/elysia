@@ -1,5 +1,7 @@
 # Codex
 
+This provider is retained for upstream compatibility and is unavailable in the Elysia UI. For supported setup, see [Claude Code through Elysia](./providers-claude.md). The reference below applies only to the dormant provider implementation.
+
 Use your ChatGPT plan or an existing Codex CLI login to code in Elysia.
 
 ## Connect with ChatGPT

@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { scopeThreadRef } from "@elysiatools/client-runtime/environment";
 import { EnvironmentId, ProjectId, ThreadId, PageId, WorkTaskId } from "@elysiatools/contracts";
-import { act } from "react";
+import { act, useLayoutEffect } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, expect, it, vi } from "vite-plus/test";
 import { DraftId } from "../composerDraftStore";
@@ -26,8 +26,12 @@ let host: HTMLDivElement;
 let navigateSection: ReturnType<typeof useConversationSectionNavigation>;
 let navigateTab: ReturnType<typeof useConversationTabNavigation>;
 function Harness() {
-  navigateTab = useConversationTabNavigation();
-  navigateSection = useConversationSectionNavigation();
+  const tab = useConversationTabNavigation();
+  const section = useConversationSectionNavigation();
+  useLayoutEffect(() => {
+    navigateTab = tab;
+    navigateSection = section;
+  }, [tab, section]);
   return null;
 }
 beforeEach(async () => {

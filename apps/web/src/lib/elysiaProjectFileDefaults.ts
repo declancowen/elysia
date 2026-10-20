@@ -17,16 +17,6 @@ import {
 } from "~/components/files/projectFilesQueryState";
 import { appAtomRegistry } from "~/rpc/atomRegistry";
 
-/**
- * Read and decode the project's checked-in `elysia.json`.
- *
- * Imperative counterpart to `useElysiaProjectFileState` for the new-thread path,
- * which resolves defaults at call time rather than render time. The file
- * query atom caches per (environment, cwd), so repeat calls don't re-fetch.
- * Optimistic in-app writes overlay the query result, matching what
- * `useProjectFileQuery` renders. Missing, truncated, or invalid files
- * resolve to null.
- */
 export async function readElysiaProjectFile(
   environmentId: EnvironmentId,
   workspaceRoot: string,
@@ -43,7 +33,9 @@ export async function readElysiaProjectFile(
       fileName,
       result._tag === "Success" ? result.value : null,
     );
-    if (data !== null) return data.truncated ? null : parseElysiaProjectFile(data.contents);
+    if (data !== null && data.exists !== false)
+      return data.truncated ? null : parseElysiaProjectFile(data.contents);
+    if (data?.exists === false) continue;
     if (result._tag !== "Failure" || !isMissingProjectFileError(Cause.squash(result.cause)))
       return null;
   }

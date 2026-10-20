@@ -18,7 +18,11 @@ import {
   deriveProviderInstanceEntries,
   resolveDefaultProviderModelSelection,
 } from "../../providerInstances";
-import { useEnvironments, usePrimaryEnvironmentId } from "../../state/environments";
+import {
+  useEnvironments,
+  useEnvironmentProviders,
+  usePrimaryEnvironmentId,
+} from "../../state/environments";
 import {
   useAllEnvironmentShellsBootstrapped,
   useProject,
@@ -194,7 +198,8 @@ function AgentEditor({ project }: { project: Project | null }) {
     () => mergeEnvironmentSettings(server?.settings ?? DEFAULT_SERVER_SETTINGS, clientSettings),
     [server?.settings, clientSettings],
   );
-  const providers = server?.providers ?? [];
+  const providersByEnvironment = useEnvironmentProviders();
+  const providers = environmentId ? (providersByEnvironment.get(environmentId) ?? []) : [];
   const [name, setName] = useState(project?.title ?? draft?.name ?? "");
   const [title, setTitle] = useState(project?.agentProfile?.title ?? draft?.title ?? "");
   const [instructions, setInstructions] = useState(

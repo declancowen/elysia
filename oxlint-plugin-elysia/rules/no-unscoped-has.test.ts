@@ -123,11 +123,11 @@ describe("elysia/no-unscoped-has", () => {
   );
 });
 
-const indicators = createOxlintRuleHarness("t3code/no-outset-state-indicators", {
+const indicators = createOxlintRuleHarness("elysia/no-outset-state-indicators", {
   filename: "fixture.tsx",
 });
 
-describe("t3code/no-outset-state-indicators", () => {
+describe("elysia/no-outset-state-indicators", () => {
   describe.each(
     Object.entries({
       "inset state rings": `const el = <button className="focus-visible:ring-2 focus-visible:ring-inset ring-1 ring-border" />;`,

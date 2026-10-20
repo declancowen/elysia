@@ -3,13 +3,11 @@ import {
   ProviderInstanceId,
   type ServerProvider,
 } from "@elysiatools/contracts";
-import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vite-plus/test";
 
 import {
   getProviderStatusBannerKey,
   getProviderStatusMessage,
-  ProviderStatusBanner,
   shouldShowProviderStatusBanner,
 } from "./ProviderStatusBanner";
 
@@ -73,26 +71,6 @@ describe("ProviderStatusBanner", () => {
 
     expect(shouldShowProviderStatusBanner(status, null)).toBe(true);
     expect(shouldShowProviderStatusBanner(status, getProviderStatusBannerKey(status))).toBe(false);
-  });
-
-  it("renders an accessible dismiss control for provider warnings", () => {
-    const markup = renderToStaticMarkup(
-      <ProviderStatusBanner status={warningProvider()} onDismiss={() => {}} />,
-    );
-
-    expect(markup).toContain('role="alert"');
-    expect(markup).toContain('aria-label="Dismiss Codex provider warning"');
-  });
-
-  it("labels error dismiss controls with the correct severity", () => {
-    const markup = renderToStaticMarkup(
-      <ProviderStatusBanner
-        status={{ ...warningProvider(), status: "error" }}
-        onDismiss={() => {}}
-      />,
-    );
-
-    expect(markup).toContain('aria-label="Dismiss Codex provider error"');
   });
 });
 

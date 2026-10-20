@@ -40,6 +40,8 @@ Update the side the notice names, then reconnect.
 
 ## Update a connected server
 
+Remote server management is disabled in this Elysia release. This section is retained maintainer reference; update the installed desktop app through its Elysia release notification.
+
 The offered action depends on how the server runs:
 
 | Action                     | What to do                                                                                                                                                                                      |
@@ -47,23 +49,19 @@ The offered action depends on how the server runs:
 | **Update server**          | Keep the client open while it installs and reconnects. Supported background services update remotely. For a desktop-hosted server, this also closes and relaunches the desktop app on the host. |
 | **Update the desktop app** | Update the desktop app on the machine running the server, then reopen it if needed.                                                                                                             |
 | **Copy update command**    | Run the command on the named host to update the detected global npm install, then restart the server with your usual options.                                                                   |
-| **Copy relaunch command**  | Stop the command-line server on its host and relaunch with the copied command, keeping your usual subcommand and options. This does not update an installed `t3` command.                       |
+| **Copy relaunch command**  | Stop the command-line server on its host and relaunch with the copied command, keeping your usual subcommand and options. This does not update an installed `elysia` command.                   |
 
 On the host, run:
 
 ```sh
-t3 update <client-version>
+elysia update <client-version>
 ```
 
 Replace `<client-version>` with the version shown in the notice. The command
 asks before restarting the background service; if you decline, run
-`t3 service restart` when you are ready. For a server you started by hand,
+`elysia service restart` when you are ready. For a server you started by hand,
 stop it and start it again afterwards with your usual options such as `--host`
 or `--tailscale-serve`.
-
-If you run the server with `npx` rather than an installed `t3`, there is
-nothing to update on the host: stop the server and relaunch it as
-`npx t3@<client-version>` with the same subcommand and options.
 
 ## If an update fails
 
@@ -76,17 +74,4 @@ update can roll back to the previous version. If the update still fails:
 
 ## Mobile updates
 
-To update an environment from your phone, open **Settings → Environments** and
-select it. **Check for updates** finds the latest release on that environment's
-current release channel. Keep the app open while the environment updates and
-reconnects. Hosts that cannot update remotely show instructions for updating on
-the machine instead.
-
-The Elysia provider update action is available in **Settings → Providers**.
-Restart continuation preferences are in **Settings → Maintenance**.
-
-Install App Store or Google Play releases as usual. The mobile app can also
-download updates in the background and apply them when you next leave the app.
-It saves drafts and queued messages before restarting. If you keep the app open
-for a long time, it may ask to install immediately; choosing **Later** leaves the
-update queued for the next suitable moment.
+This release does not publish App Store or Google Play builds. The native clients remain in the repository for development and server-contract compatibility; use the mobile development runbook for private builds.

@@ -1,5 +1,5 @@
-import { makeThreadFixture } from "../../test-fixtures";
 // @vitest-environment jsdom
+import { makeThreadFixture } from "../../test-fixtures";
 import {
   DEFAULT_SERVER_SETTINGS,
   EnvironmentId,
@@ -69,7 +69,7 @@ vi.mock("./AgentGroupDialog", () => ({
 }));
 vi.mock("../../state/environments", () => ({
   usePrimaryEnvironmentId: () => environmentId,
-  useEnvironments: () => {
+  useEnvironmentProviders: () => {
     useSyncExternalStore(
       (listener) => {
         state.catalogListeners.add(listener);
@@ -77,12 +77,15 @@ vi.mock("../../state/environments", () => ({
       },
       () => state.catalogAvailable,
     );
+    return new Map([[environmentId, []]]);
+  },
+  useEnvironments: () => {
     return {
       environments: [
         {
           environmentId,
           connection: { phase: state.connected ? "connected" : "disconnected" },
-          serverConfig: { settings: DEFAULT_SERVER_SETTINGS, providers: [] },
+          serverConfig: { settings: DEFAULT_SERVER_SETTINGS },
         },
       ],
     };

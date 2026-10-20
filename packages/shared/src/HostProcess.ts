@@ -22,6 +22,19 @@ export const Hostname = Context.Reference<string>("@elysiatools/shared/HostProce
   defaultValue: () => NodeOS.hostname(),
 });
 
+export const Username = Context.Reference<string | null>(
+  "@elysiatools/shared/HostProcess/Username",
+  {
+    defaultValue: () => {
+      try {
+        return NodeOS.userInfo().username.trim() || null;
+      } catch {
+        return null;
+      }
+    },
+  },
+);
+
 export const HomeDirectory = Context.Reference<string>(
   "@elysiatools/shared/HostProcess/HomeDirectory",
   {
@@ -66,12 +79,6 @@ export const InvokedAs = Context.Reference<string>("@elysiatools/shared/HostProc
   defaultValue: () => process.argv0,
 });
 
-/**
- * Whether this process is a Node single-executable rather than a script run
- * by a Node on the machine. Code that needs a sibling file or a Node to run
- * one branches on this: an executable hosts such things as hidden
- * subcommands of itself.
- */
 export const IsExecutable = Context.Reference<boolean>(
   "@elysiatools/shared/HostProcess/IsExecutable",
   {
@@ -84,10 +91,8 @@ export const IsExecutable = Context.Reference<boolean>(
  * whatever the resolver returns for the machine's own hostname. The latter
  * matters because a hostname can map to an address no interface carries —
  * Debian-style hosts put `127.0.1.1` in `/etc/hosts` — and a program that
- * records "its" address by resolving its hostname (Firefox's profile lock
- * does) will write that one. "Is this address ours" has to accept both.
- *
- * Best effort: a failed lookup just leaves the interface set.
+ * records "its" address by resolving its hostname (Firefox's profile lock does)
+ * will write that one.
  */
 export const Addresses = Context.Reference<Effect.Effect<ReadonlySet<string>>>(
   "@elysiatools/shared/HostProcess/Addresses",

@@ -1,5 +1,7 @@
 # Provider constraints
 
+Elysia exposes only the native Elysia CLI/Claude Code driver. The CLI owns authentication, TLS trust, saved credentials, model context and managed plugins. Read or reuse its existing sign-in; do not add separate gateway probes or authentication requirements. The other provider implementations described below remain dormant behind the fork policy.
+
 Orchestration records intent and state without knowing which provider runs a thread. Provider
 protocols, account ownership, permissions, and capabilities belong at the
 [adapter boundary](../../packages/provider-core/src/server/ProviderAdapter.ts). Normalize there
@@ -21,7 +23,7 @@ directory must not share one Elysia MCP entry.
   after an idle period. See the [1.x adapter](../../packages/provider-opencode/src/server/adapter.ts).
 - **2.x** serves every directory from one
   [server per instance](../../packages/provider-opencode/src/server/v2/OpenCode2Server.ts). Each thread
-  registers its own `t3-code-<thread>` MCP entry, and session permission rules deny every other
+  registers its own `elysia-<thread>` MCP entry, and session permission rules deny every other
   thread's entry. See the [2.x adapter](../../packages/provider-opencode/src/server/v2/adapter.ts).
 
 External OpenCode servers remain externally owned and can require an external restart to pick up
@@ -89,7 +91,8 @@ symlinks there. Volta is proven by its `volta-shim` link plus the package's imag
 nothing is proven, the provider's own updater (`claude update`, `codex update`, `opencode upgrade`,
 `pi update --self`, `grok update`) runs instead, because each one detects its installer itself;
 the runner's version check catches an updater that exits 0 without updating. Mise installs stay
-manual-only because their version is pinned in mise's config. npm updates pin `--prefix` because the
+manual-only because their version is pinned in mise's config. A Grok cask whose Homebrew prefix
+cannot be verified also stays manual-only: `grok update` would install a second copy. npm updates pin `--prefix` because the
 `npm` on `PATH` can belong to a different Node than the one that owns the provider. Homebrew
 compares against `brew info` since casks trail npm by hours; native installs share npm's version
 train, so the registry stays authoritative for them.

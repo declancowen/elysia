@@ -7,10 +7,6 @@ export interface ProviderSelectionTransitionInput {
   readonly sessionCapabilities: OrchestrationV2ProviderCapabilities;
 }
 
-/**
- * Provider-owned classification of how a complete selection can be applied.
- * The orchestrator remains responsible for attempts and resource lifecycle.
- */
 export type ProviderSelectionTransitionPlan =
   | { readonly type: "apply_on_next_turn" }
   | { readonly type: "restart_session" }
@@ -21,7 +17,6 @@ export function turnScopedSelectionTransition(): ProviderSelectionTransitionPlan
   return { type: "apply_on_next_turn" };
 }
 
-/** ACP models require a negotiated model/config mutation capability. */
 export function acpSelectionTransition(
   input: ProviderSelectionTransitionInput,
 ): ProviderSelectionTransitionPlan {

@@ -58,7 +58,6 @@ const handlers = {
       }),
   ),
   schedule_task: McpToolAccess.startsThreads(
-    // A scheduled task runs with the caller's own modes.
     () => ({}),
     (input) =>
       Effect.gen(function* () {

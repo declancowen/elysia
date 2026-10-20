@@ -52,8 +52,6 @@ export class ProviderSwitchServiceV2 extends Context.Service<
   ProviderSwitchServiceV2Shape
 >()("@elysiatools/server/orchestration-v2/ProviderSwitchService/ProviderSwitchServiceV2") {}
 
-// Stopped and errored records stay in session history but can no longer be
-// restarted or released; only live sessions participate in a transition.
 const isLiveProviderSession = (
   session: OrchestrationV2ThreadProjection["providerSessions"][number],
 ) => session.status !== "stopped" && session.status !== "error";
@@ -67,8 +65,8 @@ export const layer: Layer.Layer<
   Effect.gen(function* () {
     const adapters = yield* ProviderAdapterRegistry.ProviderAdapterRegistryV2;
     return ProviderSwitchServiceV2.of({
-      plan: ({ projection, targetModelSelection, persistentAgent }) =>
-        Effect.gen(function* () {
+      plan: Effect.fn("ProviderSwitchService.plan")(
+        function* ({ projection, targetModelSelection, persistentAgent }) {
           const current = projection.thread.modelSelection;
           const instanceChanged = current.instanceId !== targetModelSelection.instanceId;
           const modelChanged = current.model !== targetModelSelection.model;
@@ -97,12 +95,8 @@ export const layer: Layer.Layer<
                 DateTime.toEpochMillis(right.updatedAt) - DateTime.toEpochMillis(left.updatedAt),
             );
           const currentSession = currentSessions.find(isLiveProviderSession);
-          // Negotiated capabilities describe the provider, not the dead
-          // process; the newest record still reports what the instance
-          // supports after its session stops.
           const negotiatedCapabilities =
             currentSession?.capabilities ?? currentSessions[0]?.capabilities;
-          // Detaching a process removes its session binding, not its native history.
           const currentProviderThread = projection.providerThreads.find(
             (thread) =>
               thread.id === projection.thread.activeProviderThreadId &&
@@ -208,16 +202,19 @@ export const layer: Layer.Layer<
             releaseProviderSessionIds,
             transition,
           };
-        }).pipe(
-          Effect.mapError(
-            (cause) =>
-              new ProviderSwitchPlanError({
-                threadId: projection.thread.id,
-                targetProviderInstanceId: targetModelSelection.instanceId,
-                cause,
-              }),
+        },
+        (effect, { projection, targetModelSelection }) =>
+          effect.pipe(
+            Effect.mapError(
+              (cause) =>
+                new ProviderSwitchPlanError({
+                  threadId: projection.thread.id,
+                  targetProviderInstanceId: targetModelSelection.instanceId,
+                  cause,
+                }),
+            ),
           ),
-        ),
+      ),
     });
   }),
 );

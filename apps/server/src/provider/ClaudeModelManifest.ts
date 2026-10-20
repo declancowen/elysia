@@ -15,6 +15,7 @@ export const ClaudeCodeProfileSchema = Schema.Struct({
   ),
   contextWindowTokens: Schema.optional(Schema.Record(TrimmedNonEmptyString, Schema.Number)),
   fixedContextWindowTokens: Schema.optional(Schema.Number),
+  autoCompactWindowTokens: Schema.optional(Schema.Number),
 });
 
 export const ClaudeProfileAdapterSchema = Schema.Struct({

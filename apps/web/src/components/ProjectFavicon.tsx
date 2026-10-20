@@ -24,7 +24,7 @@ import {
 } from "~/icons";
 import type { IconName } from "../projectIcons";
 import type { ComponentType } from "react";
-import { lazy, Suspense, useState } from "react";
+import { createElement, lazy, Suspense, useState } from "react";
 import { useAtomValue } from "@effect/atom-react";
 import { projectFaviconUrlAtom } from "../state/assets";
 import { projectIconColorClassName } from "../projectIconColors";
@@ -57,10 +57,8 @@ function DynamicProjectIconFallback() {
   return <FolderCodeIcon className="size-full text-inherit" />;
 }
 
-// The slice of a project that decides its icon. Every surface must pass the
-// project record itself (or a snapshot spread from it) so the saved title, favicon
-// and icon override always travel together. Passing a display label as the title
-// changes the automatic icon, which is how the command palette drifted once.
+// Every surface must pass the project record itself (or a snapshot spread from it)
+// so the saved title, favicon and icon override always travel together.
 export type ProjectFaviconProject = Pick<
   EnvironmentProject,
   "environmentId" | "workspaceRoot" | "title" | "faviconPath" | "projectIcon"
@@ -107,9 +105,8 @@ export function ProjectFavicon(input: {
       <span aria-hidden="true" className={iconClassName}>
         <Suspense fallback={<DynamicProjectIconFallback />}>
           <DynamicIcon
-            name={project.projectIcon.name as IconName}
+            name={project.projectIcon.name}
             className={cn("size-full", colorClassName)}
-            fallback={DynamicProjectIconFallback}
           />
         </Suspense>
       </span>

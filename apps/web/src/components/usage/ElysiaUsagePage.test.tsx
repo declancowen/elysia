@@ -246,7 +246,7 @@ it("does not present an unpriced model as zero-dollar usage", async () => {
   await mount();
   expect(displayedValues()).toContain("Unavailable");
   expect(displayedValues()).toContain("Unpriced");
-  expect(statusText().some((text) => text.includes("no known price"))).toBe(true);
+  expect(statusText().some((text) => text.includes("lack model rates or request"))).toBe(true);
 });
 
 it("keeps a single API target above both metrics without subscription or share labels", async () => {

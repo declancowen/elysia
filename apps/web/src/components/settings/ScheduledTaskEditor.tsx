@@ -7,7 +7,7 @@ import {
 import { readEnvironmentScope } from "../../state/session";
 import { useAtomValue } from "@effect/atom-react";
 import { scopeThreadRef } from "@elysiatools/client-runtime/environment";
-import { type ReactNode, useMemo, useRef, useState, useId } from "react";
+import { type ReactNode, useRef, useState, useId } from "react";
 import type {
   EnvironmentId,
   ModelSelection,
@@ -172,16 +172,13 @@ export function ScheduledTaskEditor({
   const tasksQuery = useEnvironmentQuery(
     connected ? serverEnvironment.scheduledTasksLive({ environmentId, input: {} }) : null,
   );
+  const runAtZone = tasksQuery.data?.timeZone === "Etc/UTC" ? "UTC" : tasksQuery.data?.timeZone;
   const allProjects = useProjects();
-  const projects = useMemo(
-    () =>
-      allProjects.filter(
-        (project) =>
-          project.environmentId === environmentId &&
-          !project.agentProfile?.archived &&
-          (inline || matchesScheduledTaskScope(scope, environmentId, project.id)),
-      ),
-    [allProjects, environmentId, inline, scope],
+  const projects = allProjects.filter(
+    (project) =>
+      project.environmentId === environmentId &&
+      !project.agentProfile?.archived &&
+      (inline || matchesScheduledTaskScope(scope, environmentId, project.id)),
   );
   const settings = useEnvironmentSettings(environmentId);
   const providers =
@@ -189,17 +186,6 @@ export function ScheduledTaskEditor({
   const upsertTask = useAtomCommand(serverEnvironment.upsertScheduledTask, {
     label: "scheduled task upsert",
   });
-  const instanceEntries = useMemo(
-    () =>
-      sortProviderInstanceEntries(
-        applyProviderInstanceSettings(
-          deriveProviderInstanceEntries(providers),
-          settings,
-          task?.projectId ?? null,
-        ),
-      ),
-    [providers, settings, task?.projectId],
-  );
   const [draft, setDraft] = useState<DraftState>(() =>
     task
       ? taskToDraft(task)
@@ -230,6 +216,13 @@ export function ScheduledTaskEditor({
     projects[0]?.id ||
     "";
   const selectedProject = projects.find((project) => project.id === selectedProjectId);
+  const instanceEntries = sortProviderInstanceEntries(
+    applyProviderInstanceSettings(
+      deriveProviderInstanceEntries(providers),
+      settings,
+      selectedProject?.id ?? null,
+    ),
+  );
   const projectGroups = [
     {
       label: "Agents",
@@ -249,16 +242,23 @@ export function ScheduledTaskEditor({
   // The real model picker is keyed by a `${instanceId}:${model}` string, which
   // is exactly how the draft stores its selection.
   const firstInstance = instanceEntries[0];
+  const preferredSelection =
+    (draft.modelKey ? splitModelKey(draft.modelKey) : null) ?? agentThread?.modelSelection;
   const activeSelection =
-    (draft.modelKey ? splitModelKey(draft.modelKey) : null) ??
-    agentThread?.modelSelection ??
-    scheduledTaskDefaultModel(settings, selectedProject ?? null, instanceEntries);
+    preferredSelection &&
+    instanceEntries.some(
+      (entry) => entry.instanceId === preferredSelection.instanceId && entry.enabled,
+    )
+      ? preferredSelection
+      : scheduledTaskDefaultModel(settings, selectedProject ?? null, instanceEntries);
   const activeInstanceId =
     activeSelection?.instanceId ?? firstInstance?.instanceId ?? ("" as ProviderInstanceId);
   const activeModel = activeSelection?.model ?? "";
-  const modelOptionsByInstance = useMemo(
-    () => getCustomModelOptionsByInstance(settings, providers, activeInstanceId, activeModel),
-    [settings, providers, activeInstanceId, activeModel],
+  const modelOptionsByInstance = getCustomModelOptionsByInstance(
+    settings,
+    providers,
+    activeInstanceId,
+    activeModel,
   );
 
   const reportFailure = (title: string, error: unknown) => {
@@ -735,6 +735,9 @@ export function ScheduledTaskEditor({
                     setDraft((current) => ({ ...current, timeOfDay: event.target.value }))
                   }
                 />
+                {runAtZone === undefined ? null : (
+                  <span className="text-xs text-muted-foreground">{runAtZone}</span>
+                )}
                 <span className="text-xs text-muted-foreground">on</span>
               </div>
               <ToggleGroup
@@ -818,7 +821,7 @@ export function ScheduledTaskEditor({
   const description = "Run a prompt automatically — on a schedule or when a webhook arrives.";
   if (inline)
     return (
-      <section aria-label={title} className="min-h-0 flex-1 overflow-y-auto">
+      <section aria-label={title} className="min-h-0 flex-1 overflow-y-auto scrollbar-gutter-both">
         <div className="mx-auto flex w-full max-w-2xl flex-col gap-6 px-5 pt-6 pb-12 sm:px-6">
           <header className="space-y-1">
             <h2 className="text-xl font-medium">{title}</h2>

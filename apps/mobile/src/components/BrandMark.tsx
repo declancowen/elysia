@@ -2,7 +2,7 @@ import Constants from "expo-constants";
 import { Image } from "expo-image";
 import { View } from "react-native";
 
-import { AppText as Text } from "./AppText";
+import { AppText as Text } from "./ui/AppText";
 
 const appVariant = Constants.expoConfig?.extra?.appVariant;
 const BRAND_MARK_SOURCE = require("../../assets/elysia.png");

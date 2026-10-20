@@ -3,7 +3,7 @@ import type { EnvironmentThreadShell } from "@elysiatools/client-runtime/state/s
 import type { EnvironmentId } from "@elysiatools/contracts";
 import { Pressable, View } from "react-native";
 
-import { AppText } from "../../components/AppText";
+import { AppText } from "../../components/ui/AppText";
 import { cn } from "../../lib/cn";
 import { scopedProjectKey, scopedThreadKey } from "../../lib/scopedEntities";
 import type { AgentRosterEntry } from "./agentPresentation";

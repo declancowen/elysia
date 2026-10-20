@@ -87,10 +87,13 @@ describe("ElysiaProjectFileFromJson", () => {
 });
 
 describe("parseElysiaProjectFile", () => {
-  it("returns the decoded file for valid contents", () => {
-    expect(parseElysiaProjectFile('{ "defaultThreadEnvMode": "worktree" }')).toEqual({
-      defaultThreadEnvMode: "worktree",
-    });
+  it("reads project defaults from JSONC with a URL in a block comment", () => {
+    expect(
+      parseElysiaProjectFile(`{
+        /* See https://t3.codes/schema/elysia.json */
+        "defaultThreadEnvMode": "worktree"
+      }`),
+    ).toEqual({ defaultThreadEnvMode: "worktree" });
   });
 
   it("returns null for malformed or invalid contents", () => {

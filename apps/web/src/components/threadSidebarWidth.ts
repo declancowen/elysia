@@ -7,7 +7,6 @@ export const APP_NAVIGATION_RAIL_WIDTH = SINGLE_PROVIDER_UI ? 56 : 0;
 export const THREAD_SIDEBAR_MIN_WIDTH = SINGLE_PROVIDER_UI ? 256 : 6 * 32 + 5 * 4 + 2 * 8;
 export const THREAD_MAIN_CONTENT_MIN_WIDTH = 40 * 16;
 
-// The brand's measured width can raise the minimum so the product title never clips.
 export function resolveThreadSidebarMinimumWidth(brandWidth: number): number {
   return Math.max(THREAD_SIDEBAR_MIN_WIDTH, Math.ceil(brandWidth));
 }

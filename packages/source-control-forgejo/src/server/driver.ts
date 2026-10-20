@@ -1,10 +1,4 @@
 import { SourceControlProviderKind } from "@elysiatools/contracts";
-/**
- * The Forgejo / Gitea driver: repository operations, discovery, and pull requests through
- * `fj` or `tea`.
- *
- * @module source-control-forgejo/server/driver
- */
 import { defineSourceControlDriver } from "@elysiatools/source-control-core/server/driver";
 import * as Effect from "effect/Effect";
 

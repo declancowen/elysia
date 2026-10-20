@@ -407,6 +407,7 @@ export function ElysiaUsagePage() {
                     referenceTime={summary?.readAt}
                     resolution="day"
                     timeZone={timeZone}
+                    hour12={false}
                   />
                 ) : (
                   <p className="text-sm text-muted-foreground">
@@ -428,14 +429,15 @@ export function ElysiaUsagePage() {
                   Elysia
                 </div>
                 <p className="text-sm text-muted-foreground">
-                  Costs use native reported values or model pricing, including input and output
-                  tokens. They are usage estimates, not a gateway bill. History covers retained CLI
+                  Estimates use Elysia CLI model rates; reported costs and custom prices take
+                  precedence. Cache discounts are not included in model-rate estimates. Monthly
+                  account spend above comes directly from Elysia. History covers retained CLI
                   records.
                 </p>
                 {unpricedRecords > 0 ? (
                   <p role="status" className="text-sm text-muted-foreground">
-                    {numberFormat.format(unpricedRecords)} responses have no known price and are
-                    excluded from cost.
+                    {numberFormat.format(unpricedRecords)} responses lack model rates or request
+                    details and are excluded from cost.
                   </p>
                 ) : null}
                 {usage.error ? (

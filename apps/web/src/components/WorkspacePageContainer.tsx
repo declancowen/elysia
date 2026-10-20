@@ -11,7 +11,6 @@ const WIDTH_CLASS: Record<WorkspacePageWidth, string> = {
   surface: "max-w-none",
 };
 
-/** Shared content frame for workspace pages. */
 export function WorkspacePageContainer({
   width = "readable",
   className,

@@ -7,10 +7,42 @@ const { resolveElysiaReleaseVersion, resolveElysiaRelease } = require("./check-e
 test("release workflow test filters resolve to existing test owners", () => {
   const root = resolve(__dirname, "../..");
   const workflow = readFileSync(resolve(root, ".github/workflows/release-elysia.yml"), "utf8");
-  const paths = [...workflow.matchAll(/(?:apps|packages|scripts)\/[\w./-]+\.test\.[cm]?[jt]sx?/g)];
-  assert.ok(paths.length > 0);
-  for (const [path] of paths)
-    assert.ok(existsSync(resolve(root, path)), `Missing release test: ${path}`);
+  let checked = 0;
+  for (const step of workflow.split(/(?=^      - (?:name|uses):)/m)) {
+    const cwd = /^        working-directory: (.+)$/m.exec(step)?.[1] ?? ".";
+    const paths = [
+      ...step.matchAll(/(?:apps|packages|scripts|src)\/[\w./-]+\.test\.[cm]?[jt]sx?/g),
+    ];
+    for (const [path] of paths) {
+      assert.ok(existsSync(resolve(root, cwd, path)), `Missing release test: ${cwd}/${path}`);
+      checked += 1;
+    }
+  }
+  assert.ok(checked > 0);
+});
+
+test("web release guards use the app compiler and the matching test project", () => {
+  const root = resolve(__dirname, "../..");
+  const workflow = readFileSync(resolve(root, ".github/workflows/release-elysia.yml"), "utf8");
+  let checked = 0;
+  for (const step of workflow.split(/(?=^      - (?:name|uses):)/m)) {
+    const cwd = /^        working-directory: (.+)$/m.exec(step)?.[1] ?? ".";
+    const paths = [
+      ...step.matchAll(/(?:^|\s)((?:apps\/web\/src|src)\/[\w./-]+\.test\.[cm]?[jt]sx?)/g),
+    ];
+    if (paths.length === 0) continue;
+    assert.equal(cwd, "apps/web", "Web tests must load apps/web/vite.config.ts");
+    assert.ok(
+      !step.includes("--config vite.config.ts"),
+      "Root config skips the web React compiler",
+    );
+    for (const [, path] of paths) {
+      const project = path.includes(".browser.test.") ? "browser" : "unit";
+      assert.match(step, new RegExp(`--project ${project}\\b`));
+      checked += 1;
+    }
+  }
+  assert.ok(checked > 0);
 });
 
 test("accepts the first Elysia stable release without inheriting upstream versions", () => {

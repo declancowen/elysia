@@ -1,10 +1,4 @@
 import { SourceControlProviderKind } from "@elysiatools/contracts";
-/**
- * The Bitbucket Cloud driver: repository operations, discovery, and pull requests through the
- * Bitbucket REST API.
- *
- * @module source-control-bitbucket/server/driver
- */
 import { defineSourceControlDriver } from "@elysiatools/source-control-core/server/driver";
 import * as Effect from "effect/Effect";
 

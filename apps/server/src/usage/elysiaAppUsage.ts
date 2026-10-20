@@ -47,6 +47,7 @@ export const readElysiaAppUsage = Effect.fn("UsageService.readElysiaAppUsage")(f
     timestampMs: Date.parse(row.completedAt),
     model: row.model,
     sessionId: row.sessionId,
+    inputContextTokens: null,
     totals: {
       uncachedInputTokens: Math.max(
         0,

@@ -32,12 +32,14 @@ import * as DesktopWslEnvironment from "../../wsl/DesktopWslEnvironment.ts";
 import type { DesktopSettings } from "../../settings/DesktopAppSettings.ts";
 import {
   getLocalEnvironmentBootstraps,
+  getRelayTelemetryEnabled,
   getWindowFullscreenState,
   pasteAsText,
   pickFolder,
   pickProjectFavicon,
   probeRemoteEditors,
   setTheme,
+  revealWindow,
 } from "./window.ts";
 
 const readyWslConfig: DesktopBackendManager.DesktopBackendStartConfig = {
@@ -204,6 +206,27 @@ describe("getLocalEnvironmentBootstraps", () => {
   });
 });
 
+describe("getRelayTelemetryEnabled", () => {
+  it.effect("keeps relay telemetry disabled despite desktop host opt-in", () =>
+    Effect.gen(function* () {
+      assert.isFalse(
+        yield* getRelayTelemetryEnabled.handler().pipe(
+          Effect.provideService(HostProcess.Environment, {
+            T3CODE_TELEMETRY_ENABLED: "false",
+          }),
+        ),
+      );
+      assert.isFalse(
+        yield* getRelayTelemetryEnabled
+          .handler()
+          .pipe(
+            Effect.provideService(HostProcess.Environment, { T3CODE_TELEMETRY_ENABLED: "true" }),
+          ),
+      );
+    }),
+  );
+});
+
 describe("getWindowFullscreenState", () => {
   it.effect("reads the current native window state", () => {
     const window = { isFullScreen: () => true } as Electron.BrowserWindow;
@@ -361,6 +384,26 @@ describe("pasteAsText", () => {
       );
     },
   );
+});
+
+describe("revealWindow", () => {
+  it.effect("reveals the main window only when it asks", () => {
+    const window = { webContents: { id: 42 } } as unknown as Electron.BrowserWindow;
+    const reveal = vi.fn(() => Effect.void);
+    return Effect.gen(function* () {
+      yield* revealWindow.handler(undefined, { sender: { id: 99 } });
+      assert.equal(reveal.mock.calls.length, 0);
+      yield* revealWindow.handler(undefined, { sender: { id: 42 } });
+      assert.deepEqual(reveal.mock.calls, [[window]]);
+    }).pipe(
+      Effect.provide(
+        Layer.mock(ElectronWindow.ElectronWindow)({
+          main: Effect.succeedSome(window),
+          reveal,
+        }),
+      ),
+    );
+  });
 });
 
 describe("pickProjectFavicon", () => {

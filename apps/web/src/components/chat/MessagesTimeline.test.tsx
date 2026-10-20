@@ -132,12 +132,14 @@ vi.mock("@legendapp/list/react", async () => {
     onScroll?: () => void;
     ref?: Ref<LegendListRef>;
   }) => {
-    legendListTestState.data = props.data;
-    legendListTestState.onScroll = props.onScroll;
-    if (props.anchoredEndSpace) {
-      props.anchoredEndSpace.onSizeChanged?.(240);
-      props.anchoredEndSpace.onReady?.({ anchorIndex: props.anchoredEndSpace.anchorIndex });
-    }
+    useLayoutEffect(() => {
+      legendListTestState.data = props.data;
+      legendListTestState.onScroll = props.onScroll;
+      if (props.anchoredEndSpace) {
+        props.anchoredEndSpace.onSizeChanged?.(240);
+        props.anchoredEndSpace.onReady?.({ anchorIndex: props.anchoredEndSpace.anchorIndex });
+      }
+    }, [props]);
     return (
       <div
         data-testid={legendListTestId}
@@ -201,6 +203,19 @@ vi.mock("@legendapp/list/react", async () => {
   return { LegendList };
 });
 
+async function renderCommittedMarkup(element: ReactElement) {
+  const markup = renderToStaticMarkup(element);
+  let renderer: ReactTestRenderer | undefined;
+  try {
+    await act(() => {
+      renderer = create(element);
+    });
+    return markup;
+  } finally {
+    await act(() => renderer?.unmount());
+  }
+}
+
 function MockFileDiff(props: {
   fileDiff: { name?: string | null; prevName?: string | null };
   renderCustomHeader?: (fileDiff: {
@@ -229,8 +244,8 @@ function matchMedia() {
 }
 
 let MessagesTimeline: typeof import("./MessagesTimeline").MessagesTimeline;
-let resolvePreviewAnnotationImage: typeof import("./MessagesTimeline").resolvePreviewAnnotationImage;
 
+// oxlint-disable-next-line typescript/no-extraneous-class -- Minimal constructor for the synthetic timeline host.
 const ElementStub = class ElementStub {};
 function stubDomGlobals() {
   const classList = {
@@ -250,6 +265,7 @@ function stubDomGlobals() {
   });
   vi.stubGlobal("window", {
     Element: ElementStub,
+    HTMLElement: globalThis.HTMLElement,
     localStorage: globalThis.localStorage,
     matchMedia,
     addEventListener: () => {},
@@ -273,7 +289,7 @@ beforeEach(stubDomGlobals);
 // Cold transformation of the full chat dependency graph needs extra time on slower CI workers.
 beforeAll(async () => {
   Object.defineProperty(window, "matchMedia", { value: matchMedia, configurable: true });
-  ({ MessagesTimeline, resolvePreviewAnnotationImage } = await import("./MessagesTimeline"));
+  ({ MessagesTimeline } = await import("./MessagesTimeline"));
 }, 120_000);
 
 const ACTIVE_THREAD_ENVIRONMENT_ID = EnvironmentId.make("environment-local");
@@ -425,6 +441,7 @@ function buildProps() {
     onAnchorReady: () => {},
     onAnchorSizeChanged: () => {},
     contentInsetEndAdjustment: 0,
+    emptyPlaceholderInset: 0,
     liveFollowEnabled: true,
     onIsAtEndChange: () => {},
     onManualNavigation: () => {},
@@ -524,6 +541,29 @@ function buildAssistantTimelineEntry(text: string) {
     },
   };
 }
+
+it("keeps the conversation render stable when code workspace tools are hidden", async () => {
+  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+  vi.stubGlobal("requestAnimationFrame", () => 0);
+  vi.stubGlobal("cancelAnimationFrame", () => {});
+  const settings = await import("../../hooks/useSettings");
+  const workspace = vi.spyOn(settings, "useCodeWorkspace").mockReturnValue(false);
+  let renderer: ReactTestRenderer | undefined;
+  try {
+    await act(() => {
+      renderer = create(
+        <MessagesTimeline
+          {...buildProps()}
+          timelineEntries={[buildUserTimelineEntry("Conversation remains available")]}
+        />,
+      );
+    });
+    expect(JSON.stringify(renderer!.toJSON())).toContain("Conversation remains available");
+  } finally {
+    await act(() => renderer?.unmount());
+    workspace.mockRestore();
+  }
+});
 
 function buildSnapShotTimelineEntry(previewUrl?: string) {
   const entry = buildUserTimelineEntry("First prompt.");
@@ -860,13 +900,16 @@ describe("MessagesTimeline", () => {
     let navigateManually = () => {};
     function ChatProbe() {
       const [liveFollowEnabled, setLiveFollowEnabled] = useState(true);
-      navigateManually = () => setLiveFollowEnabled(false);
+      const onManualNavigation = () => setLiveFollowEnabled(false);
+      useLayoutEffect(() => {
+        navigateManually = onManualNavigation;
+      }, [onManualNavigation]);
       return (
         <MessagesTimeline
           {...props}
           timelineEntries={[buildUserTimelineEntry("First prompt")]}
           liveFollowEnabled={liveFollowEnabled}
-          onManualNavigation={navigateManually}
+          onManualNavigation={onManualNavigation}
         />
       );
     }
@@ -1301,7 +1344,7 @@ describe("MessagesTimeline", () => {
     expect(resolveTimelineMinimapInteractiveWidth(40, true)).toBe("22rem");
   });
 
-  it("anchors a sent attachment message using its measured height", () => {
+  it("anchors a sent attachment message using its measured height", async () => {
     const onAnchorReady = vi.fn();
     const onAnchorSizeChanged = vi.fn();
     // Since #7897 only the first user row after the live edge may anchor, so
@@ -1325,7 +1368,7 @@ describe("MessagesTimeline", () => {
         ],
       },
     };
-    const markup = renderToStaticMarkup(
+    const markup = await renderCommittedMarkup(
       <MessagesTimeline
         {...buildProps()}
         anchorMessageId={secondEntry.message.id}
@@ -1352,10 +1395,10 @@ describe("MessagesTimeline", () => {
     expect(onAnchorSizeChanged).toHaveBeenCalledWith(secondEntry.message.id, 240);
   });
 
-  it("renders SnapShot window details after the preview resolves", () => {
+  it("renders SnapShot window details after the preview resolves", async () => {
     const onAnchorReady = vi.fn();
     const firstEntry = buildSnapShotTimelineEntry("data:image/png;base64,iVBORw0KGgo=");
-    const markup = renderToStaticMarkup(
+    const markup = await renderCommittedMarkup(
       <MessagesTimeline
         {...buildProps()}
         anchorMessageId={firstEntry.message.id}
@@ -2091,7 +2134,7 @@ describe("MessagesTimeline", () => {
 
     expect(markup).toContain("Context handoff");
     expect(markup).toContain("gpt-5.6-sol");
-    expect(markup).toContain("Claude Fable 5");
+    expect(markup).toContain("claude-fable-5");
     expect(markup).not.toContain("Full conversation context");
     expect(markup).not.toContain("·");
 
@@ -2127,7 +2170,7 @@ describe("MessagesTimeline", () => {
     );
 
     expect(legacyMarkup).toContain("gpt-5.6-sol");
-    expect(legacyMarkup).toContain("Claude Fable 5");
+    expect(legacyMarkup).toContain("claude-fable-5");
     expect(legacyMarkup).not.toContain("Full conversation context");
 
     // Without run data either (e.g. cross-thread items) it falls back to

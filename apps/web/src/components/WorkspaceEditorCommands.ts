@@ -14,7 +14,16 @@ export const PAGE_BLOCK_COMMANDS = [
   { id: "divider", label: "Divider", keywords: "horizontal rule separator" },
   { id: "table", label: "Table", keywords: "rows columns grid" },
 ] as const;
-export type PageBlockCommand = (typeof PAGE_BLOCK_COMMANDS)[number];
+const PAGE_TABLE_COMMANDS = [
+  { id: "tableAddRow", label: "Add row", keywords: "table row below" },
+  { id: "tableAddColumn", label: "Add column", keywords: "table column after" },
+  { id: "tableDeleteRow", label: "Delete row", keywords: "table remove row" },
+  { id: "tableDeleteColumn", label: "Delete column", keywords: "table remove column" },
+  { id: "tableDelete", label: "Delete table", keywords: "table remove grid" },
+] as const;
+export type PageBlockCommand =
+  | (typeof PAGE_BLOCK_COMMANDS)[number]
+  | (typeof PAGE_TABLE_COMMANDS)[number];
 
 /** Like Linear, slash insert applies only at the beginning of a text block. */
 export function pageSlashMatch(state: EditorState) {
@@ -24,11 +33,21 @@ export function pageSlashMatch(state: EditorState) {
   const match = /^\/([\w -]*)$/.exec(before);
   if (!match) return null;
   const query = (match[1] ?? "").trim().toLowerCase();
+  let insideTable = false;
+  for (let depth = $from.depth; depth > 0; depth--) {
+    if ($from.node(depth).type.name === "table") {
+      insideTable = true;
+      break;
+    }
+  }
+  const commands: readonly PageBlockCommand[] = insideTable
+    ? [...PAGE_BLOCK_COMMANDS.filter((command) => command.id !== "table"), ...PAGE_TABLE_COMMANDS]
+    : PAGE_BLOCK_COMMANDS;
   return {
     from: from - before.length,
     to: from,
     query,
-    commands: PAGE_BLOCK_COMMANDS.filter((command) =>
+    commands: commands.filter((command) =>
       `${command.label} ${command.keywords}`.toLowerCase().includes(query),
     ),
   };
@@ -66,5 +85,15 @@ export function runPageBlockCommand(
       return chain.setHorizontalRule().run();
     case "table":
       return chain.insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run();
+    case "tableAddRow":
+      return chain.addRowAfter().run();
+    case "tableAddColumn":
+      return chain.addColumnAfter().run();
+    case "tableDeleteRow":
+      return chain.deleteRow().run();
+    case "tableDeleteColumn":
+      return chain.deleteColumn().run();
+    case "tableDelete":
+      return chain.deleteTable().run();
   }
 }

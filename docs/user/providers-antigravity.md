@@ -1,5 +1,7 @@
 # Antigravity
 
+This provider is retained for upstream compatibility and is unavailable in the Elysia UI. For supported setup, see [Claude Code through Elysia](./providers-claude.md). The reference below applies only to the dormant provider implementation.
+
 Elysia runs Google's official Antigravity ACP agent on your selected environment.
 It has its own sign-in, separate from the Antigravity IDE or CLI. Google controls
 which models and account access are available through this agent.
@@ -43,8 +45,8 @@ Choose **Sign-in method** in the Antigravity provider settings:
 | Gemini API key             | API key; choose Connect without a browser                                                    |
 | Agent Platform / Vertex AI | API key, or GCP project and location with Application Default Credentials on the environment |
 
-The Antigravity API key field is stored in plain text in settings on the
-environment. The agent uses the method and credentials selected for this instance;
+The environment stores the Antigravity API key outside its settings file, and
+clients only see whether one is saved. The agent uses the method and credentials selected for this instance;
 ambient `GEMINI_API_KEY` and Google credential variables do not override them.
 Changing the method stops the instance's sessions. Sign out before replacing an
 account.
@@ -127,7 +129,7 @@ is refused while the runtime is in use.
 
 Open **Usage > Limits** to see the remaining Gemini and shared Claude/GPT allowances
 for Google sign-ins. Each group has separate five-hour and weekly limits and reset
-times. Limits refresh with provider status and include usage outside T3 Code.
+times. Limits refresh with provider status and include usage outside Elysia.
 
 A server restart keeps your Google sign-in. The provider shows the saved account
 until a session, a refresh, or a sign-out reports something new.

@@ -1,4 +1,9 @@
-import type { EnvironmentId, ElysiaProjectFileScript, ThreadId } from "@elysiatools/contracts";
+import type {
+  EnvironmentId,
+  ElysiaProjectFileScript,
+  ProjectId,
+  ThreadId,
+} from "@elysiatools/contracts";
 import { renderToStaticMarkup } from "react-dom/server";
 import { PopoverCreateHandle } from "../ui/popover";
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
@@ -58,6 +63,10 @@ describe("ThreadDetailsPanel", () => {
       onPresentationChange: vi.fn(),
       environmentId,
       threadId: "thread:thread-details" as ThreadId,
+      projectId: "project:thread-details" as ProjectId,
+      worktreePath: null,
+      isServerThread: true,
+      openInShortcutEnabled: false,
       activeProjectName: undefined,
       activeProjectScripts: [],
       preferredScriptId: null,

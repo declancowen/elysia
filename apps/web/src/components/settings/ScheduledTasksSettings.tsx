@@ -5,6 +5,9 @@ import { useConversationTabsStore, type ConversationTab } from "../../conversati
 import { ConversationTabs } from "../chat/ConversationTabs";
 import { useConversationTabNavigation } from "../../hooks/useConversationTabNavigation";
 import { useConversationRowClick } from "../../hooks/useConversationRowClick";
+import { connectionStatusTitle } from "@elysiatools/client-runtime/connection";
+import * as Option from "effect/Option";
+import { AsyncResult } from "effect/reactivity";
 import {
   Clock3Icon,
   InboxIcon,
@@ -15,7 +18,7 @@ import {
   Trash2Icon,
   SquareArrowOutUpRightIcon,
 } from "~/icons";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type {
   EnvironmentId,
   ScheduledTask,
@@ -29,8 +32,10 @@ import {
 } from "@elysiatools/client-runtime/state/runtime";
 import { formatRelativeTime } from "../../timestampFormat";
 import { type EnvironmentPresentation } from "../../state/environments";
-import { useEnvironmentQuery } from "../../state/query";
+import { formatEnvironmentQueryError, useEnvironmentQuery } from "../../state/query";
 import { serverEnvironment } from "../../state/server";
+import { useNowMinute } from "../../hooks/useNowMinute";
+import { environmentAtomList, environmentIdsKey } from "../../state/environmentAtomList";
 import { useAtomCommand } from "../../state/use-atom-command";
 import { EnvironmentMachineIcon } from "../EnvironmentMachineIcon";
 import { AuthOrchestrationOperateScope } from "@elysiatools/contracts";
@@ -44,22 +49,26 @@ import { SidebarContent, SidebarGroup, useSidebar } from "../ui/sidebar";
 import { WorkspacePageHeader } from "../WorkspacePageHeader";
 import { cn } from "../../lib/utils";
 import { useMediaQuery } from "../../hooks/useMediaQuery";
+import { ConnectionStatusDot, connectionPhaseDotClassName } from "../ConnectionStatusDot";
+import { EnvironmentRow, environmentTransportLabel } from "./EnvironmentRow";
+import { SettingsGroup } from "./SettingsGroup";
+import { settingsScopeEnvironmentLabel, settingsScopeEnvironmentLabels } from "./settingsScopeAxis";
 import { Menu, MenuTrigger, MenuPopup, MenuItem, MenuSeparator } from "../ui/menu";
 import { Empty, EmptyHeader, EmptyTitle, EmptyDescription, EmptyMedia } from "../ui/empty";
 import { Badge } from "../ui/badge";
 import { Button } from "../ui/button";
 import { Switch } from "../ui/switch";
 import { stackedThreadToast, toastManager } from "../ui/toast";
-import {
-  SettingsPageContainer,
-  SettingsRow,
-  SettingsSection,
-  useRelativeTimeTick,
-} from "./settingsLayout";
+import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
+import { SettingsPageContainer, SettingsRow, SettingsSection } from "./settingsLayout";
 
 import { ScheduledTaskEditor } from "./ScheduledTaskEditor";
 
-export function scheduleLabel(schedule: ScheduledTaskSchedule): string {
+function scheduleTimeZoneLabel(timeZone: string | undefined) {
+  return timeZone === "Etc/UTC" ? "UTC" : timeZone;
+}
+
+export function scheduleLabel(schedule: ScheduledTaskSchedule, timeZone?: string): string {
   if (schedule.type === "webhook") return "On webhook";
   if (schedule.type === "interval") {
     const minutes = schedule.everyMs / 60_000;
@@ -74,19 +83,20 @@ export function scheduleLabel(schedule: ScheduledTaskSchedule): string {
       : weekdays.length === 5 && weekdays.every((day) => day >= 1 && day <= 5)
         ? "Weekdays"
         : weekdays.map((day) => WEEKDAY_LABELS[day]).join(", ");
-  return `${days} at ${schedule.timeOfDay}`;
+  const zone = scheduleTimeZoneLabel(timeZone);
+  return `${days} at ${schedule.timeOfDay}${zone === undefined ? "" : ` ${zone}`}`;
 }
 
 /**
- * Human label for a run timestamp. `formatRelativeTime` only handles the
- * past, and `nextRunAt` is a future instant — render "in 5m" style labels
- * for upcoming runs instead of a misleading "just now".
+ * `formatRelativeTime` only handles the past, and `nextRunAt` is a future
+ * instant — render "in 5m" style labels for upcoming runs instead of a
+ * misleading "just now".
  */
-export function relativeLabel(value: string | null): string {
+function relativeLabel(value: string | null, nowMs: number): string {
   if (!value) return "Not scheduled";
-  const diffMs = new Date(value).getTime() - Date.now();
+  const diffMs = new Date(value).getTime() - nowMs;
   if (diffMs <= 0) {
-    const relative = formatRelativeTime(value);
+    const relative = formatRelativeTime(value, nowMs);
     if (!relative) return "Not scheduled";
     return relative.suffix ? `${relative.value} ${relative.suffix}` : relative.value;
   }
@@ -96,6 +106,13 @@ export function relativeLabel(value: string | null): string {
   const hours = Math.round(minutes / 60);
   if (hours < 24) return `in ${hours}h`;
   return `in ${Math.round(hours / 24)}d`;
+}
+
+// The clock is the label's own minute tick: the React Compiler caches a
+// `Date.now()` read in render on the timestamp alone.
+export function ScheduledRelativeLabel(props: { value: string | null }) {
+  const nowMinute = useNowMinute();
+  return relativeLabel(props.value, Date.parse(`${nowMinute}:00.000Z`));
 }
 
 function statusVariant(status: ScheduledTask["lastRunStatus"]) {
@@ -124,9 +141,9 @@ function LegacyScheduledTasksSettings(target: ScheduledTasksTarget) {
     environmentId: EnvironmentId;
     task: ScheduledTask | null;
   } | null>(null);
-  const openForEdit = useCallback((environmentId: EnvironmentId, task: ScheduledTask) => {
+  const openForEdit = (environmentId: EnvironmentId, task: ScheduledTask) => {
     setEditor({ environmentId, task });
-  }, []);
+  };
   const defaultEnvironment = environment ?? connectedEnvironments[0];
   const canCreate = useAtomValue(
     serverEnvironment.upsertScheduledTask.permissionAtom(defaultEnvironment?.environmentId ?? null),
@@ -165,6 +182,13 @@ function LegacyScheduledTasksSettings(target: ScheduledTasksTarget) {
               <EmptyDescription>Connect an environment to manage scheduled tasks.</EmptyDescription>
             </EmptyHeader>
           </Empty>
+        ) : environments.length > 1 ? (
+          <ScheduledTaskEnvironmentList
+            key={`${target.environmentId ?? defaultEnvironment?.environmentId}:${target.taskId ?? ""}`}
+            environmentId={target.environmentId ?? defaultEnvironment?.environmentId}
+            taskId={target.taskId}
+            onEdit={openForEdit}
+          />
         ) : (
           <div className="space-y-8">
             {environments.map((entry) => (
@@ -211,11 +235,11 @@ function ScheduledTasksWorkspace(target: ScheduledTasksTarget) {
     } => tab.target.kind === "scheduled",
   );
   const { activeId, close } = state;
-  const open = useCallback((selection: ScheduledTabTarget, newTab = false) => {
+  const open = (selection: ScheduledTabTarget, newTab = false) => {
     const store = useConversationTabsStore.getState();
     const active = store.tabs.find((tab) => tab.id === store.activeId);
     store.open({ kind: "scheduled", selection }, newTab || active?.target.kind !== "scheduled");
-  }, []);
+  };
   const retarget = (previous: ScheduledTabTarget, selection: ScheduledTabTarget) =>
     state.retarget({ kind: "scheduled", selection: previous }, { kind: "scheduled", selection });
   const activeTab = tabs.find((tab) => tab.id === activeId);
@@ -248,13 +272,10 @@ function ScheduledTasksWorkspace(target: ScheduledTasksTarget) {
       matchesScheduledTaskScope(scope, linkedEnvironment.environmentId, task.projectId),
   );
   const openedLink = useRef<string | null>(null);
-  const openForEdit = useCallback(
-    (environmentId: EnvironmentId, task: ScheduledTask, newTab = false) => {
-      open({ kind: "task", environmentId, task }, newTab);
-      if (isMobile) setOpenMobile(false);
-    },
-    [isMobile, setOpenMobile, open],
-  );
+  const openForEdit = (environmentId: EnvironmentId, task: ScheduledTask, newTab = false) => {
+    open({ kind: "task", environmentId, task }, newTab);
+    if (isMobile) setOpenMobile(false);
+  };
   const createTask = () => {
     if (!defaultEnvironment) return;
     open({ kind: "task", environmentId: defaultEnvironment.environmentId, task: null });
@@ -355,16 +376,20 @@ function ScheduledTasksWorkspace(target: ScheduledTasksTarget) {
               inline
             />
           ) : (
-            <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 p-6 text-center">
-              <Clock3Icon className="size-8 text-muted-foreground" />
-              <h2 className="text-base font-medium">
-                {target.taskId && linkedTasks.data && !linkedTask
-                  ? "Task unavailable"
-                  : "Choose a scheduled task"}
-              </h2>
-              <p className="text-sm text-muted-foreground">
-                Select a task from the sidebar to edit it, or create a new task.
-              </p>
+            <Empty>
+              <EmptyMedia variant="illustration">
+                <Clock3Icon aria-hidden />
+              </EmptyMedia>
+              <EmptyHeader>
+                <EmptyTitle>
+                  {target.taskId && linkedTasks.data && !linkedTask
+                    ? "Task unavailable"
+                    : "Choose a scheduled task"}
+                </EmptyTitle>
+                <EmptyDescription>
+                  Select a task from the sidebar to edit it, or create a new task.
+                </EmptyDescription>
+              </EmptyHeader>
               <Button
                 variant="outline"
                 size="sm"
@@ -372,11 +397,153 @@ function ScheduledTasksWorkspace(target: ScheduledTasksTarget) {
               >
                 Show tasks
               </Button>
-            </div>
+            </Empty>
           )}
         </div>
       ))}
     </>
+  );
+}
+
+const scheduledTasksListAtom = environmentAtomList("web-scheduled-tasks-list", (environmentId) =>
+  serverEnvironment.scheduledTasksLive({ environmentId, input: {} }),
+);
+
+function ScheduledTaskEnvironmentList({
+  environmentId,
+  taskId,
+  onEdit,
+}: {
+  readonly environmentId: EnvironmentId | undefined;
+  readonly taskId: ScheduledTaskId | undefined;
+  readonly onEdit: (environmentId: EnvironmentId, task: ScheduledTask) => void;
+}) {
+  const { scope, environments } = useSettingsScope();
+  const connectedIds = environments.flatMap((environment) =>
+    environment.connection.phase === "connected" && environment.serverConfig !== null
+      ? [environment.environmentId]
+      : [],
+  );
+  const queries = useAtomValue(scheduledTasksListAtom(environmentIdsKey(connectedIds)));
+  const states = environments.map((environment) => {
+    const index = connectedIds.indexOf(environment.environmentId);
+    const query = index < 0 ? null : queries[index]!;
+    const data = query === null ? null : Option.getOrNull(AsyncResult.value(query));
+    return {
+      environment,
+      connected: index >= 0,
+      timeZone: data?.timeZone,
+      tasks: data?.tasks.filter((task) =>
+        matchesScheduledTaskScope(scope, environment.environmentId, task.projectId),
+      ),
+      error: query?._tag === "Failure" ? formatEnvironmentQueryError(query.cause) : null,
+    };
+  });
+  const linkedState = states.find((state) => state.environment.environmentId === environmentId);
+  const linkedTask = linkedState?.tasks?.find((task) => task.id === taskId);
+  const openedLink = useRef(false);
+  useEffect(() => {
+    if (!openedLink.current && environmentId && linkedTask) {
+      openedLink.current = true;
+      onEdit(environmentId, linkedTask);
+    }
+  }, [environmentId, linkedTask, onEdit]);
+
+  const loaded = states.filter((state) => state.connected && state.error === null && state.tasks);
+  const populated = loaded.filter((state) => state.tasks && state.tasks.length > 0);
+  const summaries: Record<string, string[]> = {
+    "Not connected:": [],
+    "Loading scheduled tasks on": [],
+    "Could not load scheduled tasks:": [],
+    "No tasks on": [],
+  };
+  for (const { environment, connected, tasks, error } of states) {
+    const label = settingsScopeEnvironmentLabel(environment, environments);
+    if (!connected) {
+      summaries["Not connected:"]!.push(
+        `${label} (${connectionStatusTitle(environment.connection)})`,
+      );
+    } else if (error !== null) {
+      summaries["Could not load scheduled tasks:"]!.push(`${label}: ${error}`);
+    } else if (!tasks) {
+      summaries["Loading scheduled tasks on"]!.push(label);
+    } else if (tasks.length === 0 && populated.length > 0) {
+      summaries["No tasks on"]!.push(label);
+    }
+  }
+
+  return (
+    <SettingsGroup>
+      {populated.map(({ environment, tasks, timeZone }) => {
+        const { primary, secondary } = settingsScopeEnvironmentLabels(environment, environments);
+        const transport = environmentTransportLabel(environment);
+        return (
+          <div key={environment.environmentId} className="divide-y divide-border/50">
+            <EnvironmentRow
+              kind={resolveEnvironmentMachineKind(environment.serverConfig)}
+              label={primary}
+              subtitle={
+                <>
+                  {secondary && secondary !== transport ? (
+                    <span className="block truncate">{secondary}</span>
+                  ) : null}
+                  <span className="block truncate">{transport}</span>
+                </>
+              }
+            >
+              <ConnectionStatusDot
+                dotClassName={connectionPhaseDotClassName(environment.connection.phase)}
+                tooltipText={connectionStatusTitle(environment.connection)}
+              />
+              <span className="text-xs text-muted-foreground">
+                {connectionStatusTitle(environment.connection)}
+              </span>
+            </EnvironmentRow>
+            {tasks?.map((task) => (
+              <ScheduledTaskRow
+                key={task.id}
+                environmentId={environment.environmentId}
+                task={task}
+                timeZone={timeZone}
+                onEdit={() => onEdit(environment.environmentId, task)}
+              />
+            ))}
+          </div>
+        );
+      })}
+      {taskId && linkedState?.tasks && linkedState.error === null && !linkedTask ? (
+        <SettingsRow
+          title="Task unavailable"
+          description="This task no longer exists or is outside the selected project scope."
+          role="status"
+        />
+      ) : null}
+      {populated.length === 0 && loaded.length > 0 ? (
+        <SettingsRow
+          title="No scheduled tasks"
+          description="No tasks match this environment and project selection."
+        />
+      ) : null}
+      {Object.entries(summaries).map(([label, entries]) => {
+        if (entries.length === 0) return null;
+        const summary = `${label} ${entries.join(", ")}`;
+        return (
+          <Tooltip key={label}>
+            <TooltipTrigger
+              render={
+                <p
+                  className="truncate px-3 py-2.5 text-xs text-muted-foreground sm:px-4"
+                  role="status"
+                />
+              }
+            >
+              {summary}
+            </TooltipTrigger>
+            <TooltipPopup>{summary}</TooltipPopup>
+          </Tooltip>
+        );
+      })}
+    </SettingsGroup>
   );
 }
 
@@ -425,7 +592,6 @@ export function ScheduledTaskEnvironmentSection({
       onEdit(environment.environmentId, linkedTask);
     }
   }, [compact, environment.environmentId, linkedTask, onEdit]);
-  useRelativeTimeTick(60_000);
   const rows = (
     <>
       {!connected ? (
@@ -485,6 +651,7 @@ export function ScheduledTaskEnvironmentSection({
                 key={task.id}
                 environmentId={environment.environmentId}
                 task={task}
+                timeZone={tasksQuery.data?.timeZone}
                 onEdit={() => onEdit(environment.environmentId, task)}
                 onEditInNewTab={
                   onEditInNewTab ? () => onEditInNewTab(environment.environmentId, task) : undefined
@@ -521,6 +688,7 @@ export function ScheduledTaskEnvironmentSection({
 function ScheduledTaskRow({
   environmentId,
   task,
+  timeZone,
   onEdit,
   onEditInNewTab,
   compact = false,
@@ -530,6 +698,7 @@ function ScheduledTaskRow({
   readonly compact?: boolean;
   readonly selected?: boolean;
   readonly task: ScheduledTask;
+  readonly timeZone: string | undefined;
   readonly onEdit: () => void;
   readonly onEditInNewTab?: (() => void) | undefined;
 }) {
@@ -699,14 +868,18 @@ function ScheduledTaskRow({
       status={
         <div className="flex flex-wrap items-center gap-2">
           <span>
-            {scheduleLabel(task.schedule)} ·{" "}
-            {!task.enabled
-              ? "Paused"
-              : isWebhook
-                ? "Listening"
-                : task.nextRunAt
-                  ? `Next run ${relativeLabel(task.nextRunAt)}`
-                  : "Not scheduled"}
+            {scheduleLabel(task.schedule, timeZone)} ·{" "}
+            {!task.enabled ? (
+              "Paused"
+            ) : isWebhook ? (
+              "Listening"
+            ) : task.nextRunAt ? (
+              <>
+                Next run <ScheduledRelativeLabel value={task.nextRunAt} />
+              </>
+            ) : (
+              "Not scheduled"
+            )}
           </span>
           {task.lastRunStatus !== "never" ? (
             <Badge variant={statusVariant(task.lastRunStatus)}>{task.lastRunStatus}</Badge>

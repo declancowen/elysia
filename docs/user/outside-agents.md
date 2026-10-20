@@ -1,6 +1,8 @@
 # Outside agents
 
-Agents that T3 Code did not start can work with an environment through its MCP
+External-agent MCP sign-in and remote connections are disabled in this Elysia release. The retained reference below does not apply to Elysia CLI authentication or the MCP tools injected into an Elysia-managed agent session.
+
+Agents that Elysia did not start can work with an environment through its MCP
 server. They can read projects and threads, start and message threads, and
 check which providers and models are available. This covers Claude Code or
 Codex in your own terminal, ChatGPT, and bots that support MCP. Each agent signs
@@ -20,10 +22,10 @@ The copied URL uses the route this device is connected over, so an agent on the
 same device can reach it.
 
 - **An agent on your own computers** can use any address that computer reaches
-  the environment at: a LAN or Tailscale address, T3 Connect, or `localhost` on
+  the environment at: a LAN or Tailscale address, Elysia Connect, or `localhost` on
   the host. See [remote access](./remote-access.md).
 - **A hosted agent**, such as ChatGPT or a bot running in the cloud, must reach
-  the environment from the internet. Use the T3 Connect address. A Tailscale
+  the environment from the internet. Use the Elysia Connect address. A Tailscale
   address only works from your own tailnet.
 
 ## Approve a sign-in
@@ -37,9 +39,9 @@ The page names the agent and where its access goes:
   Anyone who runs that service gets the access.
 
 Only approve a sign-in you just started. To approve, enter a pairing code from
-**Settings → Connections** or from `t3 auth pairing create` on the host. A
-browser already signed in to the environment as an administrator can approve
-without a code.
+**Settings → Connections** or from `elysia auth pairing create` on the host. A
+browser already signed in to the environment with permission to manage access
+can approve without a code.
 
 Then choose what the agent may do:
 
@@ -52,31 +54,31 @@ Then choose what the agent may do:
 ## Claude Code
 
 ```sh
-claude mcp add --transport http t3 https://<environment-address>/mcp
-claude mcp login t3
+claude mcp add --transport http elysia https://<environment-address>/mcp
+claude mcp login elysia
 ```
 
 `claude mcp login` opens the sign-in page in your browser. On a machine
 without a browser, add `--no-browser`, open the printed URL elsewhere, and
-paste the final URL back when asked. `claude mcp list` shows `t3` as connected
+paste the final URL back when asked. `claude mcp list` shows `elysia` as connected
 once you approve.
 
 ## Codex
 
 ```sh
-codex mcp add t3 --url https://<environment-address>/mcp
-codex mcp login t3
+codex mcp add elysia --url https://<environment-address>/mcp
+codex mcp login elysia
 ```
 
 `codex mcp login --no-browser` prints the sign-in URL instead of opening it.
-`codex mcp list` shows `t3` with OAuth once you approve.
+`codex mcp list` shows `elysia` with OAuth once you approve.
 
 ## ChatGPT
 
 Add the environment as a custom MCP app in ChatGPT's apps settings:
 
 1. Create a new app or plugin with a custom MCP server.
-2. Set the server URL to `https://<environment-address>/mcp`, using the T3
+2. Set the server URL to `https://<environment-address>/mcp`, using the Elysia
    Connect address.
 3. Choose **OAuth** for authentication. ChatGPT discovers the rest; you do not
    need a client ID or secret.

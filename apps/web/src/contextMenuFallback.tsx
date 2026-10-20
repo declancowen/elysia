@@ -185,6 +185,9 @@ function ContextMenuItems<T extends string>({
 let activeContextMenu: { dismiss: () => void; previousFocus: HTMLElement | null } | null = null;
 
 const contextMenuListeners = new Set<() => void>();
+function getActiveContextMenu() {
+  return activeContextMenu;
+}
 function subscribeContextMenu(listener: () => void) {
   contextMenuListeners.add(listener);
   return () => {
@@ -288,7 +291,7 @@ export function ContextMenuButton({
   const [invokedMenu, setInvokedMenu] = useState<typeof activeContextMenu>(null);
   const open = useSyncExternalStore(
     subscribeContextMenu,
-    () => invokedMenu !== null && activeContextMenu === invokedMenu,
+    () => invokedMenu !== null && getActiveContextMenu() === invokedMenu,
     () => false,
   );
   return (
@@ -305,11 +308,14 @@ export function ContextMenuButton({
       onClick={(event) => {
         event.stopPropagation();
         const rect = event.currentTarget.getBoundingClientRect();
-        const previousMenu = activeContextMenu;
+        const previousMenu = getActiveContextMenu();
         const action = onOpen({ x: rect.left, y: rect.bottom + 4 });
-        const menu = activeContextMenu !== previousMenu ? activeContextMenu : null;
-        setInvokedMenu(menu);
-        void action.finally(() => setInvokedMenu((current) => (current === menu ? null : current)));
+        const nextMenu = getActiveContextMenu();
+        const invoked = nextMenu !== previousMenu ? nextMenu : null;
+        setInvokedMenu(invoked);
+        void action.finally(() =>
+          setInvokedMenu((current) => (current === invoked ? null : current)),
+        );
       }}
     />
   );

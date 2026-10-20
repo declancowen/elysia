@@ -33,6 +33,7 @@ it.effect("recovers saved app usage without CLI files and isolates instances and
     assert.equal(records.length, 1);
     assert.equal(records[0]?.totals.uncachedInputTokens, 60);
     assert.equal(records[0]?.totals.outputTokens, 20);
+    assert.isNull(records[0]?.inputContextTokens);
     const aggregate = new UsageAggregator({
       timeZone: "UTC",
       sinceDay: "2026-10-05",

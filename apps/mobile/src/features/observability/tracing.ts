@@ -1,3 +1,4 @@
+import { UPSTREAM_ANALYTICS_ENABLED } from "@elysiatools/contracts";
 import Constants from "expo-constants";
 import * as RelayTracing from "@elysiatools/shared/relayTracing";
 
@@ -15,6 +16,7 @@ export interface TracingResource {
 }
 
 export function resolveTracingConfig(): TracingConfig | null {
+  if (!UPSTREAM_ANALYTICS_ENABLED) return null;
   const config = resolveCloudPublicConfig();
   if (!hasTracingPublicConfig(config)) {
     return null;
@@ -24,7 +26,7 @@ export function resolveTracingConfig(): TracingConfig | null {
 }
 
 export function layerFromConfig(config: TracingConfig | null, resource: TracingResource) {
-  return RelayTracing.layer(config, {
+  return RelayTracing.layer(UPSTREAM_ANALYTICS_ENABLED ? config : null, {
     serviceName: "elysia-mobile",
     serviceVersion: resource.serviceVersion,
     runtime: "react-native",

@@ -7,12 +7,6 @@ interface Props {
   className?: string;
 }
 
-/**
- * Hit target for resizing a right-anchored panel via its left edge.
- *
- * Elysia uses the gap between rounded panels as the target, with only a resize
- * cursor. The upstream layout keeps its border indicator and overlapping target.
- */
 export function RightPanelResizeHandle({ handlers, className }: Props) {
   return (
     <div

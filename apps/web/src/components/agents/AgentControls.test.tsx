@@ -1,5 +1,5 @@
-import { makeThreadFixture } from "../../test-fixtures";
 // @vitest-environment jsdom
+import { makeThreadFixture } from "../../test-fixtures";
 import {
   EnvironmentId,
   ProjectId,

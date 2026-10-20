@@ -32,13 +32,15 @@ vi.mock("../../../../packages/contracts/src/forkPolicy.ts", async (importOrigina
 }));
 
 vi.mock("../provider/builtInDrivers.ts", async (importOriginal) => {
-  const [codex, claude, cursor, grok, openCode, antigravity] = await Promise.all([
+  const [codex, claude, cursor, grok, openCode, antigravity, muse, pi] = await Promise.all([
     import("../provider/Drivers/CodexDriver.ts"),
     import("../provider/Drivers/ClaudeDriver.ts"),
     import("@elysiatools/provider-cursor/server"),
     import("@elysiatools/provider-grok/server"),
     import("@elysiatools/provider-opencode/server"),
     import("../provider/Drivers/AntigravityDriver.ts"),
+    import("@elysiatools/provider-muse/server"),
+    import("@elysiatools/provider-pi/server"),
   ]);
   return {
     ...(await importOriginal<typeof import("../provider/builtInDrivers.ts")>()),
@@ -49,6 +51,8 @@ vi.mock("../provider/builtInDrivers.ts", async (importOriginal) => {
       grok.GrokDriver,
       openCode.OpenCodeDriver,
       antigravity.AntigravityDriver,
+      muse.MuseDriver,
+      pi.PiDriver,
     ],
   };
 });

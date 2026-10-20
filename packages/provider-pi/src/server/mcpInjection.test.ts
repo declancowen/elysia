@@ -124,6 +124,7 @@ describe("pi Elysia MCP injection", () => {
       environment: {},
       mcpSession,
       extensionPath: "/tmp/cache/pi-elysia-mcp-extension.ts",
+      sessionPath: "/fake/persisted.jsonl",
       ephemeral: true,
       disableExtensions: true,
       disableTools: true,

@@ -188,6 +188,70 @@ describe("Elysia V2 runtime boundary", () => {
     },
   );
 
+  it.each([
+    ["gpt-6.1-sol", "272000", "230000"],
+    ["claude-haiku-5-5", "1000000", "850000"],
+  ])(
+    "passes native CLI context limits for %s to both process and managed settings",
+    (model, maximum, compact) => {
+      const catalog = elysiaModelCatalog(["gpt-6.1-sol", "claude-haiku-5-5"], "claude-haiku-5-5", {
+        "gpt-6.1-sol": { contextWindowTokens: 272000, autoCompactWindowTokens: 230000 },
+        "claude-haiku-5-5": { contextWindowTokens: 1000000, autoCompactWindowTokens: 850000 },
+      });
+      const options = makeClaudeQueryOptions({
+        modelSelection: { instanceId: ProviderInstanceId.make("elysia"), model },
+        nativeThreadId: "native-context-test",
+        resume: false,
+        cwd: "/tmp/elysia-workspace",
+        modelCatalog: catalog,
+        environment: {
+          ELYSIA_PROFILE_ROOT: "/tmp/elysia-context-profile",
+          ANTHROPIC_MODEL: "claude-haiku-5-5",
+          ANTHROPIC_AUTH_TOKEN: "fixture-token",
+          ANTHROPIC_CUSTOM_HEADERS: "x-portkey-beta:use-responses-api-2026-07-30",
+          NODE_EXTRA_CA_CERTS: "/tmp/company-ca.pem",
+          CLAUDE_CODE_MAX_CONTEXT_TOKENS: "1000000",
+          CLAUDE_CODE_AUTO_COMPACT_WINDOW: "850000",
+          CLAUDE_CODE_DISABLE_UNKNOWN_MODEL_WINDOW_ENFORCEMENT: "1",
+        },
+      });
+      expect(options.env).toMatchObject({
+        CLAUDE_CODE_MAX_CONTEXT_TOKENS: maximum,
+        CLAUDE_CODE_AUTO_COMPACT_WINDOW: compact,
+        CLAUDE_CODE_DISABLE_UNKNOWN_MODEL_WINDOW_ENFORCEMENT: "1",
+        ANTHROPIC_MODEL: "claude-haiku-5-5",
+        ANTHROPIC_AUTH_TOKEN: "fixture-token",
+        ANTHROPIC_CUSTOM_HEADERS: "x-portkey-beta:use-responses-api-2026-07-30",
+        NODE_EXTRA_CA_CERTS: "/tmp/company-ca.pem",
+      });
+      expect(options.managedSettings?.env).toMatchObject({
+        CLAUDE_CODE_MAX_CONTEXT_TOKENS: maximum,
+        CLAUDE_CODE_AUTO_COMPACT_WINDOW: compact,
+        CLAUDE_CODE_DISABLE_UNKNOWN_MODEL_WINDOW_ENFORCEMENT: "1",
+      });
+      expect(options.model).toBe(model);
+    },
+  );
+
+  it("does not invent context limits or an enforcement preference for legacy CLI profiles", () => {
+    const options = makeClaudeQueryOptions({
+      modelSelection: { instanceId: ProviderInstanceId.make("elysia"), model: "gpt-5-4" },
+      nativeThreadId: "legacy-context-test",
+      resume: false,
+      cwd: "/tmp/elysia-workspace",
+      modelCatalog,
+      environment: { ELYSIA_PROFILE_ROOT: "/tmp/elysia-legacy-profile" },
+    });
+    for (const name of [
+      "CLAUDE_CODE_MAX_CONTEXT_TOKENS",
+      "CLAUDE_CODE_AUTO_COMPACT_WINDOW",
+      "CLAUDE_CODE_DISABLE_UNKNOWN_MODEL_WINDOW_ENFORCEMENT",
+    ]) {
+      expect(options.env?.[name]).toBeUndefined();
+      expect(options.managedSettings?.env?.[name]).toBeUndefined();
+    }
+  });
+
   it("uses the Elysia MCP name with matching read-only tool permissions", () => {
     const threadId = ThreadId.make("elysia-v2-mcp");
     const mcpSession: McpProviderSessionConfig = {

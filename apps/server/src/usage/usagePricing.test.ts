@@ -4,6 +4,7 @@ import { cursorRateModel } from "@elysiatools/provider-cursor/server/accountUsag
 import type { UsageSpeed } from "@elysiatools/provider-core/server/usage";
 import {
   cacheSavingsUsd,
+  createElysiaRateTable,
   createOverrideRateTable,
   lookupRate,
   parseRateTable,
@@ -33,6 +34,90 @@ describe("usage pricing", () => {
     totals,
     reportedCostUsd,
     speed,
+  });
+
+  const native = createElysiaRateTable({
+    "claude-haiku-5-5": {
+      inputCostPerMillionTokens: 2,
+      outputCostPerMillionTokens: 8,
+      longContext: {
+        aboveInputTokens: 100_000,
+        inputCostPerMillionTokens: 5,
+        outputCostPerMillionTokens: 20,
+      },
+    },
+    "deepseek-v4.1-flash": {
+      inputCostPerMillionTokens: 3,
+      outputCostPerMillionTokens: 7,
+    },
+  });
+
+  it("uses the native tier for each request's complete input context, with no invented cache discount", () => {
+    const short = {
+      ...record("claude-haiku-5-5"),
+      totals: {
+        uncachedInputTokens: 60_000,
+        cachedInputTokens: 30_000,
+        cacheCreationTokens: 10_000,
+        outputTokens: 20_000,
+        reasoningTokens: 10_000,
+      },
+    };
+    const long = { ...short, totals: { ...short.totals, uncachedInputTokens: 60_001 } };
+    expect(priceUsage(native, short)).toMatchObject({
+      costUsd: expect.closeTo(0.36, 8),
+      costSource: "modelPriced",
+      categoryCostUsd: {
+        input: expect.closeTo(0.12, 8),
+        cacheRead: expect.closeTo(0.06, 8),
+        cacheWrite: expect.closeTo(0.02, 8),
+        output: expect.closeTo(0.16, 8),
+      },
+    });
+    expect(priceUsage(native, long).costUsd).toBeCloseTo(0.900005, 8);
+    expect(cacheSavingsUsd(native, short)).toBe(0);
+    expect(cacheSavingsUsd(native, long)).toBe(0);
+    // Output and its reasoning subset do not select the input-context tier.
+    expect(
+      priceUsage(native, { ...short, totals: { ...short.totals, outputTokens: 200_000 } }).costUsd,
+    ).toBeCloseTo(1.8, 8);
+  });
+
+  it("keeps aggregate-only tiered usage unpriced, while preserving overrides and reported totals", () => {
+    const aggregate = { ...record("claude-haiku-5-5"), inputContextTokens: null };
+    expect(priceUsage(native, aggregate).costSource).toBe("unpriced");
+    expect(priceUsage(native, { ...aggregate, reportedCostUsd: 0.75 })).toEqual({
+      costUsd: 0.75,
+      costSource: "providerReported",
+      categoryCostUsd: null,
+      speedPremiumUsd: 0,
+    });
+    const override = createOverrideRateTable({
+      "claude-haiku-5-5": { inputCostPerMillionTokens: 1, outputCostPerMillionTokens: 2 },
+    });
+    expect(priceUsage(native, { ...aggregate, reportedCostUsd: 99 }, override)).toMatchObject({
+      costUsd: 5,
+      costSource: "modelPriced",
+    });
+    expect(priceUsage(native, { ...aggregate, model: "deepseek-v4.1-flash" })).toMatchObject({
+      costUsd: expect.closeTo(16),
+      costSource: "modelPriced",
+    });
+  });
+
+  it("uses exact native model identities and only normalizes case and whitespace", () => {
+    expect(priceUsage(native, record(" DeepSeek-V4.1-Flash ")).costSource).toBe("modelPriced");
+    for (const model of [
+      "us.anthropic.claude-haiku-5-5",
+      "claude-haiku-4-5",
+      "claude-haiku-5-5-20251001-v1:0",
+      "claude-haiku-5-5[1m]",
+    ])
+      expect(priceUsage(native, record(model)).costSource).toBe("unpriced");
+    expect(priceUsage(native, record("claude-haiku-5-5", 0.75))).toMatchObject({
+      costUsd: 0.75,
+      costSource: "providerReported",
+    });
   });
 
   it("uses custom token rates ahead of public and provider-reported costs", () => {
@@ -131,7 +216,6 @@ describe("usage pricing", () => {
     expect(cacheSavingsUsd(table, record("claude-opus-5-5", null, "fast"))).toBeCloseTo(
       2 * cacheSavingsUsd(table, record("claude-opus-5-5")),
     );
-    // No published fast tier, and custom prices, both stay at the standard rate.
     expect(cost("claude-fable-5-1", "fast")).toBe(cost("claude-fable-5-1", "standard"));
     expect(cost("claude-opus-5-5", "fast", overrides)).toBe(
       cost("claude-opus-5-5", "standard", overrides),
@@ -159,14 +243,12 @@ describe("usage pricing", () => {
       categoryCostUsd: split(8, 0.8, 10, 40),
       speedPremiumUsd: expect.closeTo(29.4),
     });
-    // A reported cost keeps its total and splits in proportion to list rates.
     expect(priceUsage(table, record("claude-opus-5-5", 29.4, "fast"))).toEqual({
       costUsd: 29.4,
       costSource: "providerReported",
       categoryCostUsd: split(4, 0.4, 5, 20),
       speedPremiumUsd: expect.closeTo(14.7),
     });
-    // Without rates there is nothing to split it by.
     expect(priceUsage(table, record("unknown-model", 29.4, "fast"))).toMatchObject({
       costUsd: 29.4,
       categoryCostUsd: null,
@@ -183,7 +265,6 @@ describe("usage pricing", () => {
         cache_read_input_token_cost_priority: 2e-6,
         input_cost_per_token_ultrafast: 6e-5,
         output_cost_per_token_ultrafast: 3e-4,
-        // No ultrafast cache rate: keeps the standard 10:1 input-to-cache ratio.
       },
       "gpt-6-sol": rate(2e-6, 2e-7),
     });
@@ -196,7 +277,6 @@ describe("usage pricing", () => {
     expect(cacheSavingsUsd(table, record("gpt-6-astra", null, "ultrafast"))).toBeCloseTo(
       6 * cacheSavingsUsd(table, record("gpt-6-astra")),
     );
-    // A tier the model does not publish bills at the standard rate.
     expect(cost("gpt-6-sol", "ultrafast")).toBe(cost("gpt-6-sol", "standard"));
   });
 
@@ -219,7 +299,10 @@ describe("usage pricing", () => {
   });
 
   it("prices a bracketed context-tier variant at the base model's rate", () => {
-    const table = parseRateTable({ "claude-fable-5-1": rate(1e-5, 2.5e-7) });
+    const table = parseRateTable({
+      "claude-fable-5-1": rate(1e-5, 2.5e-7),
+      "claude-fable-5-1[1m]": rate(9e-5),
+    });
 
     expect(lookupRate(table, "claude-fable-5-1[1m]")).toEqual(
       lookupRate(table, "claude-fable-5-1"),

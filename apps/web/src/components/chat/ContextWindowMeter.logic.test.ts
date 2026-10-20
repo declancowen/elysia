@@ -139,7 +139,7 @@ describe("formatContextWindowCompactionMessage", () => {
 
   it("shows the configured auto-compaction threshold", () => {
     expect(formatContextWindowCompactionMessage("Claude Sonnet 5", 300_000)).toBe(
-      "Compacts automatically at 300,000 tokens.",
+      "Compacts automatically at about 300,000 tokens.",
     );
   });
 });
@@ -158,11 +158,11 @@ describe("shouldOfferResumeCompaction", () => {
     ).toBe(false);
   });
 
-  it("matches Claude's old-session age and context thresholds", () => {
+  it("offers compaction for old sessions from 200k tokens", () => {
     expect(
       shouldOfferResumeCompaction({
         provider: "claudeAgent",
-        usedTokens: 100_000,
+        usedTokens: 200_000,
         updatedAt: "2026-08-24T10:50:00.000Z",
         now,
       }),
@@ -173,7 +173,7 @@ describe("shouldOfferResumeCompaction", () => {
     expect(
       shouldOfferResumeCompaction({
         provider: "claudeAgent",
-        usedTokens: 99_999,
+        usedTokens: 199_999,
         updatedAt: "2026-08-24T10:00:00.000Z",
         now,
       }),

@@ -16,15 +16,7 @@ import { useWorkspaceCollectionGrouping } from "../workspaceCollectionGrouping";
 import { TaskAgentResponse } from "./TaskAgentResponse";
 import { TaskDragRow, TaskDropGroup } from "./TaskDrag";
 import { useTaskCardLayout } from "./useTaskCardLayout";
-import {
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  useCallback,
-  type ReactNode,
-  type RefObject,
-} from "react";
+import { useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 import { useBlocker, useNavigate, useSearch } from "@tanstack/react-router";
 import {
   ComposerContextId,
@@ -37,7 +29,8 @@ import {
   type EnvironmentId,
 } from "@elysiatools/contracts";
 import { squashAtomCommandFailure } from "@elysiatools/client-runtime/state/runtime";
-import { usePrimaryEnvironment } from "../../state/environments";
+import { usePrimaryEnvironment, usePrimaryEnvironmentId } from "../../state/environments";
+import { useStableCallback } from "../../hooks/useStableCallback";
 import { useRegularProjects } from "../../hooks/useRegularProjects";
 import { useProjects } from "../../state/entities";
 import { useEnvironmentQuery } from "../../state/query";
@@ -78,7 +71,6 @@ import {
   MenuPopup,
   MenuGroup,
   MenuGroupLabel,
-  MenuItem,
   MenuRadioGroup,
   MenuRadioItem,
   MenuCheckboxItem,
@@ -92,7 +84,7 @@ import { WorkspaceItemTabs } from "../WorkspaceItemTabs";
 import { WorkspaceItemLink } from "../WorkspaceItemLink";
 import { WorkspaceSurfaceHeader } from "../WorkspaceSurfaceHeader";
 import { WorkspaceDetailsPanel } from "../WorkspaceDetailsPanel";
-import { Empty, EmptyHeader, EmptyTitle, EmptyDescription } from "../ui/empty";
+import { Empty, EmptyHeader, EmptyTitle, EmptyDescription, EmptyMedia } from "../ui/empty";
 import { WorkspacePageContainer } from "../WorkspacePageContainer";
 import { applyWorkspaceBulkAction } from "../WorkspaceBulkActions";
 import { SidebarInset } from "../ui/sidebar";
@@ -228,6 +220,7 @@ function report(error: unknown) {
 }
 
 export function TasksPage() {
+  const environmentId = usePrimaryEnvironmentId();
   const environment = usePrimaryEnvironment();
   const allProjects = useProjects();
   const regularProjects = useRegularProjects(false);
@@ -241,9 +234,9 @@ export function TasksPage() {
       !project.agentProfile.archived,
   );
   const tasksQuery = useEnvironmentQuery(
-    environment?.connection.phase === "connected"
+    environmentId
       ? serverEnvironment.tasksLive({
-          environmentId: environment.environmentId,
+          environmentId,
           input: {},
         })
       : null,
@@ -257,12 +250,6 @@ export function TasksPage() {
   const panelAnchor = useRef<HTMLButtonElement | null>(null);
   const [creating, setCreating] = useState(false);
   const [creatingParent, setCreatingParent] = useState<WorkTaskId | null>(null);
-  useEffect(() => {
-    if (!requestedCreate) return;
-    setCreatingParent(null);
-    setCreating(true);
-    void navigate({ to: "/tasks", search: {}, replace: true });
-  }, [requestedCreate, navigate]);
   const [showSubTasks, setShowSubTasks] = useState(true);
   const [view, setView] = useState<TaskView>("list");
   const cardLayoutRef = useTaskCardLayout(view === "card");
@@ -325,16 +312,12 @@ export function TasksPage() {
     )
       refreshSelected();
   }, [summary, selected, refreshSelected]);
-  const taskRows = useMemo(
-    () =>
-      visibleTasks(tasksQuery.data?.tasks ?? [], {
-        search,
-        status: statusFilter,
-        project: projectFilter,
-        sort,
-      }),
-    [tasksQuery.data, search, statusFilter, projectFilter, sort],
-  );
+  const taskRows = visibleTasks(tasksQuery.data?.tasks ?? [], {
+    search,
+    status: statusFilter,
+    project: projectFilter,
+    sort,
+  });
   const taskIds = new Set(taskRows.map((task) => task.id));
   const rootRows = taskRows.filter((task) => !task.parentTaskId || !taskIds.has(task.parentTaskId));
   const children = new Map<WorkTaskId, WorkTaskSummary[]>();
@@ -391,19 +374,16 @@ export function TasksPage() {
       ),
     })),
   ];
-  const save = useCallback(
-    async (input: WorkTaskSaveInput) => {
-      if (!environment) throw new Error("Connect to your environment to save tasks.");
-      const result = await saveCommand({
-        environmentId: environment.environmentId,
-        input,
-      });
-      if (result._tag === "Failure") throw squashAtomCommandFailure(result);
-      if (input.id === selectedId) refreshSelected();
-      return result.value.task;
-    },
-    [environment, saveCommand, selectedId, refreshSelected],
-  );
+  const save = async (input: WorkTaskSaveInput) => {
+    if (!environment) throw new Error("Connect to your environment to save tasks.");
+    const result = await saveCommand({
+      environmentId: environment.environmentId,
+      input,
+    });
+    if (result._tag === "Failure") throw squashAtomCommandFailure(result);
+    if (input.id === selectedId) refreshSelected();
+    return result.value.task;
+  };
   const update = (input: WorkTaskSaveInput) => {
     void save(input).catch(report);
   };
@@ -1061,7 +1041,7 @@ export function TasksPage() {
           {selectedId ? (
             selected ? (
               <TaskEditor
-                key={selected.id}
+                key={`${environment!.environmentId}:${selected.id}`}
                 task={selected}
                 environmentId={environment!.environmentId}
                 initialRevision={summary?.revision ?? selected.revision}
@@ -1087,7 +1067,7 @@ export function TasksPage() {
               />
             ) : (
               <p className="text-sm text-muted-foreground">
-                {selectedQuery.isPending || tasksQuery.isPending
+                {selectedQuery.isPending || !tasksQuery.data
                   ? "Loading task…"
                   : "This task is unavailable."}
               </p>
@@ -1275,9 +1255,11 @@ export function TasksPage() {
                   document.body,
                 )}
               </DndContext>
-              {tasksQuery.data && !tasksQuery.isPending && !taskRows.length ? (
+              {tasksQuery.data && !taskRows.length ? (
                 <Empty>
-                  <TaskEdit02Icon aria-hidden className="size-16 text-muted-foreground" />
+                  <EmptyMedia variant="illustration">
+                    <TaskEdit02Icon aria-hidden />
+                  </EmptyMedia>
                   <EmptyHeader>
                     <EmptyTitle>
                       {tasksQuery.data.tasks.length ? "No matching tasks" : "No tasks"}
@@ -1293,11 +1275,15 @@ export function TasksPage() {
             </>
           )}
           <TaskCreateDialog
-            key={`create:${creatingParent ?? "root"}`}
-            parentTaskId={creatingParent}
+            key={`create:${requestedCreate ? "root" : (creatingParent ?? "root")}`}
+            parentTaskId={requestedCreate ? null : creatingParent}
             parentOptions={parentOptions}
-            open={creating}
-            onOpenChange={setCreating}
+            open={creating || requestedCreate === true}
+            onOpenChange={(open) => {
+              setCreating(open);
+              if (!open && requestedCreate)
+                void navigate({ to: "/tasks", search: {}, replace: true });
+            }}
             projectOptions={projectOptions}
             agentOptions={agentOptions}
             onSave={async (input) => {
@@ -1478,53 +1464,46 @@ function TaskEditor({
     setDescription((value) => (value === old.description ? task.description : value));
     saved.current = task;
   }, [task, initialRevision]);
-  const flush = useCallback(
-    async function flush(): Promise<boolean> {
-      if (submitting.current) {
-        if (!(await submitting.current)) return false;
-        return flush();
-      }
-      const current = draft.current;
-      const baseline = saved.current;
-      if (current.title === baseline.title && current.description === baseline.description)
+  const flush = useStableCallback(async function flush(): Promise<boolean> {
+    if (submitting.current) {
+      if (!(await submitting.current)) return false;
+      return flush();
+    }
+    const current = draft.current;
+    const baseline = saved.current;
+    if (current.title === baseline.title && current.description === baseline.description)
+      return true;
+    if (!current.title.trim()) {
+      setError("A task title is required.");
+      return false;
+    }
+    submitting.current = onSave({
+      id: task.id,
+      expectedRevision: baseline.revision,
+      ...(current.title !== baseline.title ? { title: current.title } : {}),
+      ...(current.description !== baseline.description ? { description: current.description } : {}),
+    })
+      .then((updated) => {
+        saved.current = updated;
+        setError(null);
         return true;
-      if (!current.title.trim()) {
-        setError("A task title is required.");
-        return false;
-      }
-      submitting.current = onSave({
-        id: task.id,
-        expectedRevision: baseline.revision,
-        ...(current.title !== baseline.title ? { title: current.title } : {}),
-        ...(current.description !== baseline.description
-          ? { description: current.description }
-          : {}),
       })
-        .then((updated) => {
-          saved.current = updated;
-          setError(null);
-          return true;
-        })
-        .catch((error: unknown) => {
-          setError(
-            error instanceof Error
-              ? error.message
-              : "Could not save task. Your draft is preserved.",
-          );
-          return false;
-        });
-      const result = await submitting.current;
-      submitting.current = null;
-      if (
-        result &&
-        (draft.current.title !== saved.current.title ||
-          draft.current.description !== saved.current.description)
-      )
-        return flush();
-      return result;
-    },
-    [onSave, task.id],
-  );
+      .catch((error: unknown) => {
+        setError(
+          error instanceof Error ? error.message : "Could not save task. Your draft is preserved.",
+        );
+        return false;
+      });
+    const result = await submitting.current;
+    submitting.current = null;
+    if (
+      result &&
+      (draft.current.title !== saved.current.title ||
+        draft.current.description !== saved.current.description)
+    )
+      return flush();
+    return result;
+  });
   useEffect(() => {
     if (error || (title === saved.current.title && description === saved.current.description))
       return;

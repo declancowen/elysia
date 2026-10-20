@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { useConversationTabsStore, type WorkspaceItemTabTarget } from "../conversationTabsStore";
 import { useMediaQuery } from "../hooks/useMediaQuery";
 import { ConversationTabs } from "./chat/ConversationTabs";
+import { WorkspacePageHeader } from "./WorkspacePageHeader";
 
 /** Register direct links and keep tab titles current after editing. */
 export function WorkspaceItemTabs({ target }: { target: WorkspaceItemTabTarget | null }) {
@@ -30,5 +31,9 @@ export function WorkspaceItemTabs({ target }: { target: WorkspaceItemTabTarget |
       state.tabs.find((tab) => tab.id === state.activeId)?.target.kind !== target.kind,
     );
   }, [target]);
-  return desktop ? null : <ConversationTabs />;
+  return desktop ? null : (
+    <WorkspacePageHeader>
+      <ConversationTabs />
+    </WorkspacePageHeader>
+  );
 }

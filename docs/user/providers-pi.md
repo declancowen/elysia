@@ -1,5 +1,7 @@
 # Pi
 
+This provider is retained for upstream compatibility and is unavailable in the Elysia UI. For supported setup, see [Claude Code through Elysia](./providers-claude.md). The reference below applies only to the dormant provider implementation.
+
 Elysia can use your existing Pi coding agent installation while keeping Pi's models, auth,
 extensions, skills, context files, and native session history.
 

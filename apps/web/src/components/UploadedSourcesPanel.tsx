@@ -1,5 +1,4 @@
 import { formatAttachmentSize } from "@elysiatools/client-runtime/state/attachments";
-import { useMemo } from "react";
 
 import { ChevronRightIcon, FileIcon, Files, FolderIcon, ImageIcon, PlusIcon } from "~/icons";
 import {
@@ -28,7 +27,7 @@ export function UploadedSourcesPanel(props: {
   onOpenAttachment: (attachment: ChatImageAttachment | ChatFileAttachment) => void;
   onUpload?: () => void;
 }) {
-  const sources = useMemo(() => uploadedSources(props.messages), [props.messages]);
+  const sources = uploadedSources(props.messages);
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -44,9 +43,9 @@ export function UploadedSourcesPanel(props: {
       </div>
       {sources.length === 0 ? (
         <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-2 px-6 text-center">
-          <Files aria-hidden className="size-6 text-muted-foreground/60" />
+          <Files aria-hidden className="size-6 text-empty-muted" />
           <p className="text-sm font-medium">No sources yet</p>
-          <p className="max-w-64 text-xs leading-relaxed text-muted-foreground">
+          <p className="max-w-64 text-xs leading-relaxed text-empty-muted">
             Files and images you upload to this thread will appear here.
           </p>
           {props.onUpload ? (

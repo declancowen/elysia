@@ -35,9 +35,19 @@ function recordEffect(action: string) {
 }
 
 vi.mock("../components/CustomSnoozeDialog", () => ({ requestCustomSnooze: vi.fn() }));
-vi.mock("react", () => ({
+vi.mock("react", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("react")>()),
   useCallback: (callback: unknown) => callback,
   useMemo: (factory: () => unknown) => factory(),
+}));
+vi.mock("../contextMenuFallback", () => ({ showContextMenuFallback: state.show }));
+vi.mock("./useConversationTabNavigation", () => ({
+  useConversationTabNavigation: () => async () => recordEffect("open-new-tab"),
+}));
+vi.mock("../conversationTabsStore", () => ({
+  currentConversationTabsStore: () => ({
+    getState: () => ({ isOpen: () => false, open: () => {} }),
+  }),
 }));
 vi.mock("@tanstack/react-router", () => ({
   useRouter: () => ({ navigate: async () => recordEffect("project-settings") }),
@@ -114,6 +124,7 @@ vi.mock("./useHandleNewThread", () => ({
   useNewThreadHandler: () => async () => recordEffect("draft"),
 }));
 vi.mock("./useSettings", () => ({
+  useCodeWorkspace: () => true,
   useClientSettings: (select: (settings: unknown) => unknown) =>
     select({
       confirmThreadDelete: true,
@@ -132,6 +143,7 @@ vi.mock("./useThreadActions", () => ({
         "unsnoozeThread",
         "pinThread",
         "confirmAndUnpinThread",
+        "setThreadAutoSettle",
         "archiveThread",
         "deleteThread",
       ].map((action) => [

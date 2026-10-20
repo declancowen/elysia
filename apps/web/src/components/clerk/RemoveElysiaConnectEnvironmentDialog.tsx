@@ -10,7 +10,7 @@ import {
   AlertDialogTitle,
 } from "../ui/alert-dialog";
 import { Button, InlineButton } from "../ui/button";
-import { useT3ConnectAccountPage } from "./ElysiaConnectAccountPages";
+import { useElysiaConnectAccountPage } from "./ElysiaConnectAccountPages";
 
 /**
  * Confirms removing a Connections environment from this device. Removal here
@@ -22,13 +22,11 @@ export function RemoveElysiaConnectEnvironmentDialog({
   onCancel,
   onConfirm,
 }: {
-  /** The environment awaiting confirmation; null keeps the dialog closed. */
   readonly environmentLabel: string | null;
   readonly onCancel: () => void;
   readonly onConfirm: () => void;
 }) {
-  const accountPage = useT3ConnectAccountPage();
-  // Keep the label through the close animation.
+  const accountPage = useElysiaConnectAccountPage();
   const [shownLabel, setShownLabel] = useState(environmentLabel);
   if (environmentLabel !== null && environmentLabel !== shownLabel) setShownLabel(environmentLabel);
   const openAccountPage = accountPage.open;

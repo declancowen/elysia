@@ -39,7 +39,6 @@ function runGit(
   });
 }
 
-/** Workspace-relative path to file contents, committed with the initial README. */
 export type ReplayWorkspaceFiles = Readonly<Record<string, string>>;
 
 const makeCheckpointWorkspaceEffect = Effect.fn("makeCheckpointWorkspace")(function* (
@@ -53,7 +52,7 @@ const makeCheckpointWorkspaceEffect = Effect.fn("makeCheckpointWorkspace")(funct
   });
   yield* runGit(cwd, ["init"]);
   yield* runGit(cwd, ["config", "user.name", "Elysia Test"]);
-  yield* runGit(cwd, ["config", "user.email", "t3code-test@example.com"]);
+  yield* runGit(cwd, ["config", "user.email", "elysia-test@example.com"]);
   yield* fs.writeFileString(path.join(cwd, "README.md"), `# ${fixtureName}\n`);
   for (const [relativePath, contents] of Object.entries(files)) {
     const filePath = path.join(cwd, relativePath);

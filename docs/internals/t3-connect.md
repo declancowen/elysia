@@ -1,5 +1,7 @@
 # Elysia Connect
 
+Elysia disables this connection implementation through the fork policy. Company model authentication is owned separately by the native Elysia CLI; this reference concerns dormant remote-client identity.
+
 Elysia Connect uses Clerk for cloud identity. The relay manages environment links,
 credentials for reaching environments, and managed tunnel allocations. After
 bootstrap, clients send application traffic through the environment's tunnel

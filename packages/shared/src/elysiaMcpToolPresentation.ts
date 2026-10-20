@@ -94,7 +94,6 @@ function tool(
 
 const ELYSIA_MCP_SERVER_ALIASES = new Set(["elysia"]);
 
-// Cards, activity rows, summaries, and provider identity recovery share this inventory.
 const ELYSIA_MCP_TOOLS: Readonly<Record<string, ElysiaMcpToolDefinition>> = {
   elysia_task_list: tool(["List", "Listing", "Listed", "tasks"], "work-task-list"),
   elysia_task_read: tool(["Read", "Reading", "Read", "a task"], "work-task-read"),
@@ -127,12 +126,12 @@ const ELYSIA_MCP_TOOLS: Readonly<Record<string, ElysiaMcpToolDefinition>> = {
     "pull-request",
   ),
   unwatch_pull_request: tool(
-    ["Stop watching", "Stopping watching", "Stopped watching", "a pull request"],
+    ["Stop watching", "Unwatching", "Stopped watching", "a pull request"],
     "unwatch-pr",
     "pull-request",
   ),
   write_pull_request_guides: tool(
-    ["Write", "Writing", "Started", "review guides"],
+    ["Write", "Writing", "Started writing", "review guides"],
     "write-pr-guides",
     "pull-request",
   ),
@@ -148,7 +147,7 @@ const ELYSIA_MCP_TOOLS: Readonly<Record<string, ElysiaMcpToolDefinition>> = {
   delegate_task: tool(["Delegate", "Delegating", "Delegated", "a child task"], "delegate"),
   task_status: tool(["Get", "Getting", "Got", "delegated task status"], "task-status"),
   task_cancel: tool(
-    ["Cancel", "Canceling", "Requested cancellation of", "delegated task"],
+    ["Cancel", "Canceling", "Requested cancellation of", "a delegated task"],
     "task-cancel",
   ),
   schedule_task: tool(
@@ -387,10 +386,6 @@ const ELYSIA_MCP_TOOLS: Readonly<Record<string, ElysiaMcpToolDefinition>> = {
   html_render: tool(["Render", "Rendering", "Rendered", "an HTML page"], "html-render"),
 };
 
-/**
- * The Elysia orchestration tool inventory, used to gate loose name matching on
- * both the server (ACP MCP identity recovery) and the client (logo branding).
- */
 export const ELYSIA_MCP_TOOL_NAMES: ReadonlySet<string> = new Set(Object.keys(ELYSIA_MCP_TOOLS));
 
 function normalizeElysiaMcpToolLabel(value: string): string {
@@ -436,7 +431,6 @@ function resolveElysiaMcpToolName(value: string): string | null {
   return longest;
 }
 
-/** The bare Elysia tool name (`html_render`) for any provider's spelling of it. */
 export function resolveElysiaMcpToolId(toolName: string | null | undefined): string | null {
   const name = toolName == null ? null : resolveElysiaMcpToolName(toolName);
   return name !== null && Object.hasOwn(ELYSIA_MCP_TOOLS, name) ? name : null;

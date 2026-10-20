@@ -9,7 +9,7 @@ import {
   squashAtomCommandFailure,
 } from "@elysiatools/client-runtime/state/runtime";
 import { Link } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { useUiStateStore } from "../uiStateStore";
 import {
   SidebarOrderedList,
@@ -52,6 +52,7 @@ import type { ThreadShell } from "../types";
 import { buildProjectsPageRows, projectThreadUpdatedAt } from "./ProjectsPage.logic";
 import { useSettingsProjectGroups } from "./settings/useSettingsProjectGroups";
 import { Button } from "./ui/button";
+import { Empty, EmptyMedia, EmptyHeader, EmptyTitle, EmptyDescription } from "./ui/empty";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "./ui/input-group";
 import { SidebarInset } from "./ui/sidebar";
 import { Spinner } from "./ui/spinner";
@@ -83,10 +84,12 @@ export function ProjectsPage() {
   const [search, setSearch] = useState("");
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [pendingPin, setPendingPin] = useState<string | null>(null);
-  const rows = useMemo(
-    () =>
-      buildProjectsPageRows(groups, threads, search, scratchWorkspaceRootFor, manualThreadOrder),
-    [groups, threads, search, scratchWorkspaceRootFor, manualThreadOrder],
+  const rows = buildProjectsPageRows(
+    groups,
+    threads,
+    search,
+    scratchWorkspaceRootFor,
+    manualThreadOrder,
   );
 
   const newChat = (project: SidebarProjectSnapshot) => {
@@ -190,9 +193,19 @@ export function ProjectsPage() {
                 Loading projects…
               </div>
             ) : rows.length === 0 ? (
-              <p className="px-3 py-5 text-sm text-muted-foreground">
-                {search.trim() ? "No matching projects." : "No projects yet."}
-              </p>
+              <Empty>
+                <EmptyMedia variant="illustration">
+                  <FolderClosedIcon aria-hidden />
+                </EmptyMedia>
+                <EmptyHeader>
+                  <EmptyTitle>{search.trim() ? "No matching projects" : "No projects"}</EmptyTitle>
+                  <EmptyDescription>
+                    {search.trim()
+                      ? "Try a different search to find your projects."
+                      : "Add a project to organize your conversations."}
+                  </EmptyDescription>
+                </EmptyHeader>
+              </Empty>
             ) : (
               rows.map(({ project, threads: projectThreads, updatedAt }, index) => {
                 const isExpanded = expanded[project.projectKey] ?? index === 0;

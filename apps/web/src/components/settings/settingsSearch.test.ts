@@ -255,7 +255,6 @@ describe("searchSettings", () => {
     expect(remoteOnly).not.toContain("t3-connect");
     expect(remoteOnly).not.toContain("publish-agent-activity");
     expect(remoteOnly).not.toContain("wsl-backend");
-    // Dormant cloud publishing cannot become available through environment capabilities.
     const browser = filterAvailableSettingsSearchItems(availability).map((item) => item.id);
     expect(browser).not.toContain("publish-agent-activity");
   });

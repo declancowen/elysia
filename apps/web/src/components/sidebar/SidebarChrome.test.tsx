@@ -41,6 +41,7 @@ vi.mock("~/hooks/useSettings", () => ({
   useClientSettings: (select: (settings: typeof state.settings) => unknown) =>
     select(useSyncExternalStore(subscribe, () => state.settings)),
   useUpdateClientSettings: () => state.updateSettings,
+  updateClientSettings: (patch: Partial<typeof state.settings>) => state.updateSettings(patch),
   useEnvironmentIdentificationMode: () => "pill",
 }));
 

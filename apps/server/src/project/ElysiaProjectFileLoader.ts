@@ -1,13 +1,3 @@
-/**
- * ElysiaProjectFileLoader - Effect service that loads the checked-in `elysia.json`
- * project file from a workspace root.
- *
- * Loading is best-effort: a missing file resolves to `Option.none`, and
- * unreadable or invalid files are logged and treated as absent so callers
- * can fall back to their defaults.
- *
- * @module ElysiaProjectFileLoader
- */
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
@@ -39,15 +29,12 @@ export class ElysiaProjectFileLoadError extends Schema.TaggedError<ElysiaProject
   }
 }
 
-/** Service tag for elysia.json project file loading. */
 export class ElysiaProjectFileLoader extends Context.Service<
   ElysiaProjectFileLoader,
   {
     /**
-     * Load and decode `elysia.json` at the workspace root.
-     *
-     * Never fails: missing, unreadable, or invalid files resolve to
-     * `Option.none` (invalid files are logged as warnings).
+     * Never fails: missing, unreadable, or invalid files resolve to `Option.none` (invalid files
+     * are logged as warnings).
      */
     readonly load: (workspaceRoot: string) => Effect.Effect<Option.Option<ElysiaProjectFile>>;
   }

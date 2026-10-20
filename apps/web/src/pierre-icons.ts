@@ -95,7 +95,6 @@ export const ELYSIA_PIERRE_ICONS = {
     ...Object.fromEntries(
       VIDEO_FILE_EXTENSIONS.map((extension) => [extension, "elysia-file-icon-video"]),
     ),
-    // Languages the complete set has no icon for.
     cs: "elysia-file-icon-csharp",
     csx: "elysia-file-icon-csharp",
     dart: "elysia-file-icon-dart",
@@ -150,7 +149,6 @@ export function basenameOfPath(pathValue: string): string {
   return slashIndex === -1 ? pathValue : pathValue.slice(slashIndex + 1);
 }
 
-/** Languages whose files are recognised by name rather than by extension. */
 const LANGUAGE_FILE_NAMES: Record<string, string> = {
   dockerfile: "Dockerfile",
 };

@@ -2,10 +2,6 @@ import type { EnvironmentConnectionPhase } from "@elysiatools/client-runtime/con
 import type { EnvironmentShellStatus } from "@elysiatools/client-runtime/state/shell";
 import type { EnvironmentThreadStatus } from "@elysiatools/client-runtime/state/threads";
 
-/**
- * Reports whether the route-local projections can still yield the requested
- * thread. Explicit terminal outcomes win over unrelated synchronization.
- */
 export function threadRouteIsHydrating(input: {
   readonly isLoadingConnections: boolean;
   readonly connectionState: EnvironmentConnectionPhase;

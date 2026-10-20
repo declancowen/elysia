@@ -8,7 +8,6 @@ import {
 import { sourceControlRepositorySelector } from "@elysiatools/shared/sourceControl";
 import { normalizeThreadPullRequestKey } from "@elysiatools/shared/threadPullRequests";
 
-/** Convert checkout-scoped references to the host-level identity used by linked threads. */
 export function pullRequestSyncKey(
   reference: PullRequestRef,
   identity?: RepositoryIdentity | null,

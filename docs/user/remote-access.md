@@ -1,6 +1,6 @@
 # Remote access
 
-Remote connections are unavailable in Elysia. The remaining guide describes upstream Elysia.
+Remote connections, Elysia Connect and pairing are disabled in this Elysia release. The sections below are retained implementation reference; use the installed desktop app for supported access.
 
 Connect a phone, browser, or another desktop app to Elysia running on a different
 machine. That machine must stay running and reachable while you work.
@@ -14,12 +14,12 @@ Connections**, sign in, and enable **Elysia Connect** for that environment.
 For a command-line host, run:
 
 ```bash
-t3 connect
+elysia connect
 ```
 
 Follow the sign-in instructions. Setup offers a
 [background service](./background-service.md); if you decline it, start the
-server with `t3 serve`. Saving your sign-in alone does not make the machine
+server with `elysia serve`. Saving your sign-in alone does not make the machine
 reachable.
 
 On your other device, sign in to the same Elysia Connect account and choose the
@@ -44,13 +44,13 @@ For a command-line host, replace `<private-ip>` with the host's LAN or tailnet
 address:
 
 ```bash
-t3 serve --host <private-ip>
+elysia serve --host <private-ip>
 ```
 
 If a server is already running, generate a fresh link without restarting it:
 
 ```bash
-t3 pair
+elysia pair
 ```
 
 Scan the QR code on your phone or paste the pairing URL into **Add environment**
@@ -129,13 +129,13 @@ HTTPS** in **Settings → Connections**. Turn it off there to remove that route.
 To start a command-line server with Tailscale HTTPS:
 
 ```bash
-t3 serve --tailscale-serve
+elysia serve --tailscale-serve
 ```
 
 For an already-running server:
 
 ```bash
-t3 pair --tailscale
+elysia pair --tailscale
 ```
 
 The pairing link uses an address such as `https://machine.tailnet.ts.net/`.
@@ -147,7 +147,7 @@ tailscale serve --https=443 off
 ```
 
 If that port is already in use, choose another with
-`--tailscale-serve-port`. See `t3 pair --help` for other pairing options.
+`--tailscale-serve-port`. See `elysia pair --help` for other pairing options.
 
 ### Hosted web app
 
@@ -168,7 +168,7 @@ credentials, and agent work stay on the remote machine.
 
 The remote host must be Linux or an Apple Silicon Mac with `curl` or `wget`,
 `tar`, `sha256sum` or `shasum`, and [provider setup](./install.md#providers).
-The first launch downloads Elysia's server to `~/.t3/runtime` on the host, so
+The first launch downloads Elysia's server to `~/.elysia/runtime` on the host, so
 it takes longer than later ones.
 Provider CLIs must be on the `PATH` of a non-interactive login shell there;
 check with:
@@ -180,6 +180,12 @@ ssh user@example.com 'sh -lc "command -v claude codex"'
 If SSH reconnecting fails after an app update, retry the launch once. Removing
 the connection stops a server that Elysia launched; a server that was already
 running is left alone.
+
+Each desktop app keeps one session on the host for its SSH connection and reuses
+it when it reconnects. Revoke sessions you no longer use in **Settings →
+Connections** on the host, or on a headless host with `elysia auth session list` and
+`elysia auth session revoke <id>`. A desktop that can still sign in over SSH pairs
+again on its next connect.
 
 For Antigravity's Google callback on a remote host, see
 [remote sign-in](./providers-antigravity.md#sign-in-from-a-remote-device).
@@ -220,15 +226,16 @@ the server says so at startup, and browser tabs and HTML previews show the
 command to run on the host:
 
 ```sh
-sudo t3 browser setup
+sudo elysia browser setup
 ```
 
 The server shows the exact line for how you started it, such as
-`sudo npx t3 browser setup`, and keeps your `PATH` when Node is installed only
-for your user. Where `t3` is not on your `PATH`, such as with only the
-desktop app installed, it names the full path of the app's own `t3` instead. It allows Chrome's sandbox with an AppArmor profile and installs
-any missing libraries with apt. It is safe to run again. Without `sudo`, it
-only reports what it would change.
+`sudo elysia browser setup`, and keeps your `PATH` when Node is installed only
+for your user. Where `elysia` is not on your `PATH`, such as with only the
+desktop app installed, it names the full path of the app's own `elysia` instead. It allows Chrome's sandbox with an AppArmor profile and installs
+any missing libraries and system fonts with apt; pages that load without text
+can mean the host has no fonts. It is safe to run again. Without `sudo`, it only
+reports what it would change.
 
 The browser always runs in Chrome's sandbox. Where you cannot change the host,
 set `ELYSIA_SERVER_BROWSER_SANDBOX=0` for the environment to run without it.
@@ -244,7 +251,7 @@ threads on an environment through its MCP server. See
 On the host, **Settings → Connections** lets authorized administrators create
 pairing links and revoke client sessions. Revoking an unused link prevents new
 pairings; revoke a device's session to remove its existing access. Command-line
-management is available through `t3 auth --help`.
+management is available through `elysia auth --help`.
 
 A session with an open connection stays listed after its access credential
 expires.
@@ -252,14 +259,16 @@ expires.
 To choose a token's permissions, pass `--scope` once for each scope you want:
 
 ```sh
-npx t3 pair --scope orchestration:read --scope relay:read
+elysia pair --scope orchestration:read --scope relay:read
 ```
 
 The selected scopes replace the default permissions. The same option works with
-`npx t3 auth pairing create` and `npx t3 auth session issue`; each command's
-`--help` lists the available scopes. Without `--scope`, pairing tokens retain
-standard client permissions and issued bearer sessions retain administrative
-permissions.
+`elysia auth pairing create` and `elysia auth session issue`; each command's
+`--help` lists the available scopes. Without `--scope`, pairing tokens and issued
+bearer sessions get every permission, including managing access and Elysia Connect.
+A terminal or a full-access agent on the host can reach those as well, so a
+client that should not manage access also needs to go without `terminal:operate`
+and `orchestration:operate`.
 
 To change an existing client's permissions, create a fresh pairing link with the
 scopes it needs. In a browser opened directly on the environment, open that link
@@ -278,12 +287,13 @@ worktrees. It does not restrict what a task does. Starting a task in a new
 worktree still creates that branch and worktree with `orchestration:operate`,
 and the agent it runs can use Git however the environment allows.
 
-Settings changes, provider management, and environment maintenance can be granted
-separately from access administration. New standard pairings include these
-permissions. Existing clients can stay connected after an update, but newly separated
-features may require pairing again with the permissions they need. Older clients
-may show controls that the server denies. Create a fresh pairing link to change
-a client's permissions.
+Settings changes, provider management, environment maintenance, access
+management, and Elysia Connect management can each be granted separately. New
+pairings without `--scope` include all of them. Existing clients keep the
+permissions they paired with and can stay connected after an update, but newly
+separated features may require pairing again with the permissions they need.
+Older clients may show controls that the server denies. Create a fresh pairing
+link to change a client's permissions.
 
 `filesystem:read` allows browsing host files, opening workspace files, and viewing
 local changes. Add `filesystem:write` to allow editing files or saving plans to
@@ -292,8 +302,14 @@ the workspace. These scopes control direct file access from the client.
 To remove an environment from Elysia Connect, open your account menu's **Elysia Connect**
 page, or **Settings → Elysia Connect** on mobile, and choose **Deregister**. This
 revokes its cloud access and frees its host space even when the environment is
-offline or has been wiped. Removing an environment from a device's connection
-settings only forgets it on that device; it stays registered to your account.
+offline or has been wiped. When Elysia Connect rejects a host's link, the host
+shows that it was removed from Elysia Connect. To link it again, turn on
+**Elysia Connect** in **Settings → Connections** on a desktop host, or run
+`elysia connect link` on a command-line host and then restart Elysia there. A
+command-line host that released its tunnel when it last stopped may link itself
+again on its next start; run `elysia connect unlink` on that host to keep it off.
+Removing an environment from a device's connection settings only forgets it on
+that device; it stays registered to your account.
 
 When idle tunnel cleanup is enabled, Elysia Connect removes a linked environment's
 tunnel after it stays offline for several minutes. The environment stays linked
@@ -306,8 +322,8 @@ Elysia once it has been offline for seven days. That environment shows a message
 asking you to update. Start Elysia on that computer and update it to the latest
 version; it reconnects at the same address without pairing again.
 
-On a command-line host, `t3 connect unlink` disables exposure while retaining
-your login; `t3 connect logout` also clears that login. Background-service
+On a command-line host, `elysia connect unlink` disables exposure while retaining
+your login; `elysia connect logout` also clears that login. Background-service
 [removal](./background-service.md#manage-the-service) is separate.
 
 Treat pairing URLs and authorization codes as passwords. Do not include them in
@@ -315,22 +331,22 @@ screenshots, logs, or bug reports.
 
 ## Elysia Connect troubleshooting
 
-Run `t3 connect status` on the host to inspect saved authorization and link
+Run `elysia connect status` on the host to inspect saved authorization and link
 configuration. It is not a live reachability check. If the environment appears
-offline, run `t3 service status` and read the displayed log. If it disappears
+offline, run `elysia service status` and read the displayed log. If it disappears
 when SSH closes, see [background-service troubleshooting](./background-service.md#troubleshooting).
 
-| Error                                                     | Recovery                                                                                                                                    |
-| --------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| `environment_link_limit_exceeded` or managed tunnel limit | Deregister an unused environment, then restart Elysia on the host.                                                                          |
-| `auth_invalid` or `invalid_bearer`                        | Run `t3 connect login`. If credentials were revoked, run `t3 connect logout`, then `t3 connect` again. Restart the server after signing in. |
-| Expired or invalid link proof                             | Check the host's date and time, update Elysia, then restart it.                                                                             |
-| HTTP 403 without a recognized error                       | Check relay access, proxies, and firewall rules. Keep any Cloudflare Ray ID for a bug report.                                               |
-| HTTP 408, 429, or 5xx                                     | Check network and relay availability. Startup retries temporary failures for up to ten minutes.                                             |
+| Error                                                     | Recovery                                                                                                                                                |
+| --------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `environment_link_limit_exceeded` or managed tunnel limit | Deregister an unused environment, then restart Elysia on the host.                                                                                      |
+| `auth_invalid` or `invalid_bearer`                        | Run `elysia connect login`. If credentials were revoked, run `elysia connect logout`, then `elysia connect` again. Restart the server after signing in. |
+| Expired or invalid link proof                             | Check the host's date and time, update Elysia, then restart it.                                                                                         |
+| HTTP 403 without a recognized error                       | Check relay access, proxies, and firewall rules. Keep any Cloudflare Ray ID for a bug report.                                                           |
+| HTTP 408, 429, or 5xx                                     | Check network and relay availability. Startup retries temporary failures for up to ten minutes.                                                         |
 
 After fixing a permanent rejection, restart the host's server. On Linux, use
 `systemctl --user restart t3code.service` for the background service. For a
-foreground server, stop it and run `t3 serve` again with your usual options.
+foreground server, stop it and run `elysia serve` again with your usual options.
 Include the diagnostic message and trace ID when reporting a persistent failure.
 
 For a connection that still fails after linking, check the date and time on both

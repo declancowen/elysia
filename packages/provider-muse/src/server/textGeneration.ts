@@ -112,7 +112,7 @@ async function generateMuseText(
       await host.connection.command("userInput/cancel", {
         sessionId,
         userInputId: request.userInputId,
-        reason: "T3 Code text generation cannot request user input.",
+        reason: "Elysia text generation cannot request user input.",
       });
     }
   };
@@ -156,7 +156,7 @@ async function generateMuseText(
   });
   host.connection.onProtocolError(rejectCompletion);
   host.connection.onServerRequest(async () => {
-    const error = new Error("T3 Code text generation cannot approve interactive requests.");
+    const error = new Error("Elysia text generation cannot approve interactive requests.");
     rejectCompletion(error);
     throw error;
   });
@@ -199,7 +199,6 @@ export const makeMuseTextGeneration = Effect.fn("makeMuseTextGeneration")(functi
   options: {
     readonly environment?: NodeJS.ProcessEnv;
     readonly modelCatalog?: Effect.Effect<ReadonlyArray<ServerProviderModel>>;
-    /** Test hook. */
     readonly createHost?: typeof createMuseSdkHost;
   } = {},
 ) {
@@ -217,7 +216,6 @@ export const makeMuseTextGeneration = Effect.fn("makeMuseTextGeneration")(functi
     }
     const selectedModel = input.modelSelection.model.trim();
     const models = yield* modelCatalog;
-    // "default" is the catalog's default model, as in chat. Without one, Muse picks.
     const catalogModel =
       selectedModel && selectedModel !== MUSE_DEFAULT_MODEL
         ? models.find((model) => model.slug === selectedModel)
@@ -236,7 +234,7 @@ export const makeMuseTextGeneration = Effect.fn("makeMuseTextGeneration")(functi
     );
     const response = yield* Effect.gen(function* () {
       // Metadata requests already include their context and do not need checkout configuration.
-      const cwd = yield* fileSystem.makeTempDirectoryScoped({ prefix: "t3code-muse-text-" });
+      const cwd = yield* fileSystem.makeTempDirectoryScoped({ prefix: "elysia-muse-text-" });
       const host = yield* Effect.acquireRelease(
         createMuseSdkHostEffect(
           {
@@ -269,7 +267,7 @@ export const makeMuseTextGeneration = Effect.fn("makeMuseTextGeneration")(functi
           new TextGenerationError({
             operation,
             detail:
-              "Muse Code text generation failed. Check Muse login and availability on this T3 server host.",
+              "Muse Code text generation failed. Check Muse login and availability on this Elysia server host.",
             cause,
           }),
       ),
@@ -342,7 +340,6 @@ export const makeMuseTextGeneration = Effect.fn("makeMuseTextGeneration")(functi
     });
     return { title: sanitizeThreadTitle(generated.title) };
   });
-  // Muse runs in an empty read-only directory and cannot be pointed at a checkout to read.
   const generateReviewGuide: ProviderTextGeneration["generateReviewGuide"] = () =>
     Effect.fail(investigationUnsupported("generateReviewGuide", "Muse Code"));
   return {

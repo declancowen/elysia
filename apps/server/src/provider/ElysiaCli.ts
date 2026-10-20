@@ -15,6 +15,7 @@ import {
   type ProviderInstanceId,
   ProviderSetupError,
 } from "@elysiatools/contracts";
+import * as Cache from "effect/Cache";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
@@ -24,9 +25,12 @@ import { ChildProcess, ChildProcessSpawner } from "effect/process";
 import { expandHomePath } from "@elysiatools/provider-core/server/pathExpansion";
 import { spawnAndCollect } from "@elysiatools/provider-core/server/snapshotProbe";
 import { makeProviderMaintenanceCapabilities } from "@elysiatools/provider-core/server/maintenanceResolver";
+import type { ElysiaModelPricing } from "@elysiatools/provider-core/server/usage";
 import { resolveClaudeHomePath } from "./Drivers/ClaudeHome.ts";
+import { ElysiaModelMetadata } from "./ElysiaModelCatalog.ts";
 
 const decodeAccountUsage = Schema.decodeUnknownOption(ElysiaAccountUsageSnapshot);
+const decodeModelMetadata = Schema.decodeEffect(Schema.fromJsonString(ElysiaModelMetadata));
 
 export function parseElysiaAccountUsage(output: string): ElysiaAccountUsageSnapshot {
   // Read only the native --config Usage section; never return profile IDs or credentials.
@@ -52,7 +56,7 @@ export function parseElysiaAccountUsage(output: string): ElysiaAccountUsageSnaps
 // ponytail: 0.3.8 has global paths rather than a profile flag. Import the actual
 // package in an isolated home; replace this bridge when the CLI adds --home.
 export const ELYSIA_CLI_BRIDGE = String.raw`
-import hashlib, http.client, importlib.util, io, json, os, re, shlex, shutil, socket, ssl, subprocess, sys, tempfile, urllib.error, urllib.request, zipfile
+import ast, hashlib, http.client, importlib.util, io, json, math, os, re, shlex, shutil, socket, ssl, subprocess, sys, tempfile, urllib.error, urllib.request, zipfile
 from pathlib import Path
 
 source, root = sys.argv[1:3]
@@ -173,6 +177,79 @@ if operation == "bootstrap":
 spec = importlib.util.spec_from_file_location("elysia_native", script)
 native = importlib.util.module_from_spec(spec)
 exec(compile(script.read_bytes(), str(script), "exec"), native.__dict__)
+if operation == "model-metadata":
+    # Native routing and prices only: no main(), show_config(), auth or network.
+    # The CLI owns its tier boundary in show_config's model-specific label.
+    # Read that literal without running show_config, which fetches account usage.
+    boundaries = {}
+    try:
+        definitions = [node for node in ast.parse(script.read_text(encoding="utf-8")).body
+            if isinstance(node, ast.FunctionDef) and node.name == "show_config"]
+        if definitions:
+            for branch in ast.walk(definitions[-1]):
+                if not (isinstance(branch, ast.If) and isinstance(branch.test, ast.Compare)
+                    and isinstance(branch.test.left, ast.Name) and branch.test.left.id == "model"
+                    and len(branch.test.ops) == 1 and isinstance(branch.test.ops[0], ast.Eq)
+                    and len(branch.test.comparators) == 1
+                    and isinstance(branch.test.comparators[0], ast.Constant)
+                    and isinstance(branch.test.comparators[0].value, str)):
+                    continue
+                for statement in branch.body:
+                    if not (isinstance(statement, ast.Expr) and isinstance(statement.value, ast.Call)
+                        and isinstance(statement.value.func, ast.Name) and statement.value.func.id == "print"
+                        and statement.value.args and isinstance(statement.value.args[0], ast.Constant)
+                        and isinstance(statement.value.args[0].value, str)):
+                        continue
+                    match = re.fullmatch(r"Price tiers\s*:\s*short:\s*up to\s*([0-9]+)([KM]?) tokens\s*/\s*long:\s*above\s*([0-9]+)([KM]?) tokens", statement.value.args[0].value, re.I)
+                    if match:
+                        scale = {"": 1, "K": 1000, "M": 1000000}
+                        short = int(match[1]) * scale[match[2].upper()]
+                        long = int(match[3]) * scale[match[4].upper()]
+                        if short == long and 0 < short <= 9007199254740991:
+                            boundaries[branch.test.comparators[0].value] = short
+    except (OSError, SyntaxError, ValueError):
+        pass
+    def model_pricing(model):
+        table = getattr(native, "MODEL_COSTS", {})
+        costs = table.get(model) if isinstance(table, dict) else None
+        if not isinstance(costs, (tuple, list)) or len(costs) != 2:
+            return None
+        def amounts(value):
+            if not isinstance(value, str):
+                return []
+            parts = [part.strip() for part in value.split("/")]
+            if not all(re.fullmatch(r"\$[0-9]+(?:\.[0-9]+)?", part) for part in parts):
+                return []
+            values = [float(part[1:]) for part in parts]
+            return values if all(math.isfinite(value) and 0 <= value <= 9007199254740991 for value in values) else []
+        inputs, outputs = amounts(costs[0]), amounts(costs[1])
+        if len(inputs) != len(outputs) or len(inputs) not in (1, 2):
+            return None
+        price = {"inputCostPerMillionTokens": inputs[0], "outputCostPerMillionTokens": outputs[0]}
+        if len(inputs) == 2:
+            boundary = boundaries.get(model)
+            if boundary is None:
+                return None
+            price["longContext"] = {"aboveInputTokens": boundary,
+                "inputCostPerMillionTokens": inputs[1], "outputCostPerMillionTokens": outputs[1]}
+        return price
+    models = {}
+    context_env = getattr(native, "model_context_env", None)
+    if callable(context_env):
+        for model in native.ALLOWED_MODELS:
+            try:
+                values = context_env(model)
+                models[model] = {
+                    "contextWindowTokens": int(values["CLAUDE_CODE_MAX_CONTEXT_TOKENS"]),
+                    "autoCompactWindowTokens": int(values["CLAUDE_CODE_AUTO_COMPACT_WINDOW"]),
+                }
+                pricing = model_pricing(model)
+                if pricing is not None:
+                    models[model]["pricing"] = pricing
+            except (KeyError, TypeError, ValueError):
+                pass
+    print(json.dumps(models))
+    sys.exit(0)
 native.MCP_FILE = root / ".claude/.claude.json"
 service_id = hashlib.sha256(str(root).encode()).hexdigest()[:16]
 native.PLIST_LABEL = "com.informa.elysia-compression." + service_id
@@ -986,10 +1063,11 @@ export const makeElysiaCli = Effect.fn("makeElysiaCli")(function* (input: {
   if (input.config.elysiaDefaultModel && (yield* ready)) {
     const settings = yield* readSettings;
     if (settings._tag === "Some" && settings.value.model !== input.config.elysiaDefaultModel) {
-      if (!settings.value.allowed_models.includes(input.config.elysiaDefaultModel))
-        return yield* failure("model");
-      yield* run("--model", undefined, [input.config.elysiaDefaultModel]);
-      yield* refreshEnvironment;
+      // A native update can retire the saved app default; keep its new selection.
+      if (settings.value.allowed_models.includes(input.config.elysiaDefaultModel)) {
+        yield* run("--model", undefined, [input.config.elysiaDefaultModel]);
+        yield* refreshEnvironment;
+      }
     }
   }
   const requireReady = Effect.gen(function* () {
@@ -1021,6 +1099,34 @@ export const makeElysiaCli = Effect.fn("makeElysiaCli")(function* (input: {
     Effect.map((source) => /CLI_VERSION\s*=\s*"([^"]+)"/.exec(source)?.[1] ?? null),
     Effect.orElseSucceed(() => null),
   );
+  const modelMetadataCache = yield* Cache.make({
+    capacity: 1,
+    timeToLive: "5 minutes",
+    lookup: (_version: string | null) =>
+      spawnAndCollect(python, command("model-metadata")).pipe(
+        Effect.provideService(ChildProcessSpawner.ChildProcessSpawner, spawner),
+        Effect.timeout("5 seconds"),
+        Effect.flatMap((result) =>
+          result.code === 0
+            ? decodeModelMetadata(result.stdout)
+            : Effect.succeed<ElysiaModelMetadata>({}),
+        ),
+        Effect.orElseSucceed((): ElysiaModelMetadata => ({})),
+        Effect.withTracerEnabled(false),
+      ),
+  });
+  const modelMetadata = version.pipe(
+    Effect.flatMap((value) => Cache.get(modelMetadataCache, value)),
+  );
+  const modelPricing = modelMetadata.pipe(
+    Effect.map((models): ElysiaModelPricing =>
+      Object.fromEntries(
+        Object.entries(models).flatMap(([model, metadata]) =>
+          metadata.pricing === undefined ? [] : [[model, metadata.pricing] as const],
+        ),
+      ),
+    ),
+  );
   const maintenance = Effect.gen(function* () {
     const installed = yield* fs.exists(script).pipe(Effect.orElseSucceed(() => false));
     const latest =
@@ -1050,6 +1156,8 @@ export const makeElysiaCli = Effect.fn("makeElysiaCli")(function* (input: {
     root,
     environment,
     readSettings,
+    modelMetadata,
+    modelPricing,
     compression,
     ready,
     connectionError: Effect.sync(() => connectionError),

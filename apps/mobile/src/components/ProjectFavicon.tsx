@@ -1,5 +1,5 @@
-import { SymbolView, type AppSymbolName } from "./AppSymbol";
-import { AppText } from "./AppText";
+import { SymbolView, type AppSymbolName } from "./ui/AppSymbol";
+import { AppText } from "./ui/AppText";
 import { Image } from "expo-image";
 import { memo, useLayoutEffect, useMemo, useState } from "react";
 import { View } from "react-native";
@@ -47,7 +47,6 @@ const AUTOMATIC_PROJECT_SYMBOLS: Record<AutomaticProjectIconName, AppSymbolName>
   folder: "folder",
 };
 
-/* ─── Component ──────────────────────────────────────────────────────── */
 export const ProjectFavicon = memo(function ProjectFavicon(props: {
   readonly environmentId: EnvironmentId;
   readonly open?: boolean;
@@ -213,7 +212,6 @@ function ProjectFaviconImage(props: {
         />
       ) : null}
 
-      {/* Favicon image (hidden until loaded) */}
       {requestIsActive ? (
         <Image
           key={faviconRequest.faviconUrl}

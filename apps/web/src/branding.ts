@@ -6,3 +6,4 @@ export const APP_BASE_NAME = "Elysia";
 export const APP_STAGE_LABEL = import.meta.env.DEV ? "Dev" : "";
 export const APP_DISPLAY_NAME = "Elysia";
 export const APP_VERSION = import.meta.env.APP_VERSION || "0.0.0";
+export const DESKTOP_DOWNLOAD_URL = "https://github.com/declancowen/elysia/releases/latest";

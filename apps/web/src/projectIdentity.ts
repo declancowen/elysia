@@ -1,7 +1,6 @@
 import { PROJECT_ICON_COLORS } from "./projectIconColors";
 import type { ProjectIconColor } from "@elysiatools/contracts";
 
-/** Visual identity tokens for a generated project badge. */
 export interface ProjectIdentity {
   readonly monogram: string;
   readonly color: ProjectIconColor;
@@ -34,7 +33,6 @@ function projectColor(projectName: string): ProjectIconColor {
   return PROJECT_ICON_COLORS[index]?.value ?? "blue";
 }
 
-/** Suggests the stable monogram and color for the project's explicit badge picker. */
 export function deriveProjectIdentity(projectName: string): ProjectIdentity {
   return {
     monogram: projectMonogram(projectName),

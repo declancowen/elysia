@@ -10,7 +10,7 @@ import { isElectron } from "../../env";
 import { useEscapeToGoBack } from "../../hooks/useNavigateBack";
 import { BotIcon, ChannelIcon } from "../../icons";
 import { Button } from "../ui/button";
-import { Empty, EmptyHeader, EmptyTitle, EmptyDescription } from "../ui/empty";
+import { Empty, EmptyHeader, EmptyTitle, EmptyDescription, EmptyMedia } from "../ui/empty";
 import { SidebarInset } from "../ui/sidebar";
 import { WorkspacePageContainer } from "../WorkspacePageContainer";
 import { WorkspacePageHeader } from "../WorkspacePageHeader";
@@ -65,7 +65,9 @@ export function AgentsPage({ editingGroupRef }: { editingGroupRef?: ScopedProjec
       <WorkspacePageHeader electron={isElectron} />
       {ready && !hasAgents && !editingGroupRef ? (
         <Empty>
-          <BotIcon aria-hidden className="size-16 text-muted-foreground/60" />
+          <EmptyMedia variant="illustration">
+            <BotIcon aria-hidden />
+          </EmptyMedia>
           <EmptyHeader>
             <EmptyTitle>No agents or channels</EmptyTitle>
             <EmptyDescription>Create an agent or channel to start a conversation.</EmptyDescription>

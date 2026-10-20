@@ -1,5 +1,7 @@
 # Elysia Connect setup
 
+Elysia disables connection management, cloud sign-in and remote pairing through the fork policy. The configuration below is retained for maintainers of that dormant implementation; it must not be used to configure company CLI authentication.
+
 Deployment and client configuration for Elysia Connect. The [architecture note](../internals/t3-connect.md)
 explains the trust boundaries; the [relay README](../../infra/relay/README.md#deployment) owns relay
 provisioning instructions.

@@ -9,7 +9,10 @@ const testState = vi.hoisted(() => ({
   faviconUrl: `https://environment.test/api/assets/token/project-favicon-missing`,
   lastTarget: null as unknown,
 }));
-vi.mock("@effect/atom-react", () => ({ useAtomValue: () => testState.faviconUrl }));
+
+vi.mock("@effect/atom-react", () => ({
+  useAtomValue: () => testState.faviconUrl,
+}));
 vi.mock("../state/assets", () => ({
   projectFaviconUrlAtom: (input: unknown) => {
     testState.lastTarget = input;

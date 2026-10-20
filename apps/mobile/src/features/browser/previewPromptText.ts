@@ -2,7 +2,6 @@ import type { PreviewStreamControl } from "@elysiatools/client-runtime/preview/s
 
 type Dialog = PreviewStreamControl["dialog"];
 
-/** Updates the native response draft when a browser control message arrives. */
 export function previewPromptText(previous: Dialog, next: Dialog, draft: string) {
   if (
     next?.type !== previous?.type ||

@@ -1,6 +1,6 @@
 import { View } from "react-native";
-import { AppText as Text } from "../../components/AppText";
-import { ScreenScrollView } from "../../components/ScreenScrollView";
+import { AppText as Text } from "../../components/ui/AppText";
+import { ScreenScrollView } from "../../components/ui/ScreenScrollView";
 import { SettingsScreen } from "../settings/components/SettingsScreen";
 
 export function ElysiaUsageRouteScreen() {

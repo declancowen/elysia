@@ -12,7 +12,6 @@ import { museClient } from "@elysiatools/provider-muse/client";
 import { openCodeClient } from "@elysiatools/provider-opencode/client";
 import { piClient } from "@elysiatools/provider-pi/client";
 
-/** The provider client definitions this web build ships, in presentation order. */
 export const providerClients = makeProviderClientRegistry([
   {
     driverKind: ProviderDriverKind.make("codex"),

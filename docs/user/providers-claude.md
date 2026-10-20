@@ -1,112 +1,29 @@
-# Claude
+# Claude Code through Elysia
 
-Elysia uses Claude Code's login and configuration. Start with the default provider
-for one account; [provider setup](./install.md#providers) covers installation and
-shared provider settings.
+Elysia uses the company Elysia CLI to configure and run Claude Code. Open **Settings → Providers** to install the prerequisites, connect, or update the managed CLI.
 
-## Separate accounts or configurations
+## Reuse your existing sign-in
 
-Use a separate Claude config directory for each account. This also works for named
-presets that need different Claude settings or a router connection.
+If the CLI is already signed in from your terminal, Elysia imports and reuses that native sign-in. Enter company credentials only when the CLI reports that they are needed. The CLI owns credential validation, certificate trust and network requirements on both macOS and Windows.
 
-Keep your existing account in the default directory. On the environment's machine,
-create the second login:
+Elysia does not require a separate Claude subscription login or a second account setup. Optional plugin installation problems do not invalidate a working native sign-in.
 
-```bash
-mkdir -p ~/.claude_personal
-CLAUDE_CONFIG_DIR=~/.claude_personal claude auth login
-```
+## Models and context
 
-Add another Claude instance in **Settings > Providers**:
+Choose an available model in the thread composer, or change the default for new threads in provider settings. Existing threads retain their selected model. The native CLI owns the available roster; the app does not reintroduce retired models or maintain a separate provider list.
 
-| Instance        | Binary path | CLAUDE_CONFIG_DIR path |
-| --------------- | ----------- | ---------------------- |
-| Claude Work     | `claude`    | Leave empty            |
-| Claude Personal | `claude`    | `~/.claude_personal`   |
+The CLI’s `elysia-code --config` output is the account/configuration reference. CLI 0.3.10 shows model-specific context length, auto-compact window and token rates. Initialization, CLI updates and model switches maintain those values. Older configurations may show `not set` until the CLI refreshes them.
 
-An empty config-directory setting uses Claude Code's normal configuration. The
-custom setting changes `CLAUDE_CONFIG_DIR`, leaving `HOME` and the system keychain
-location intact. Use the same variable for the login command. Setting `HOME`
-instead can put credentials where this provider will not find them.
+You can send `/compact` in an existing conversation. The CLI and Claude Code own the compaction behavior and configured context limits.
 
-Check the account reported in provider settings after signing in. Existing
-threads can switch only between Claude instances with the same config directory.
-Separate account directories stay isolated, including their local conversation
-state. Claude does not have Codex's shared-home and shadow-home arrangement.
+## Updates
 
-For presets that differ only in API keys or endpoints, use the instance's
-**Environment variables**. Variable assignments do not belong in **Launch arguments**.
+Use the Elysia CLI updater in **Settings → Providers** to update the managed copy used by app sessions. Updating a separate global CLI does not update the app’s managed copy. A successful update applies its configuration to a fresh process on the next user turn; finish or stop running work before replacing its process.
 
-Claude Code's verbose mode can stay enabled when you use Claude for text generation, including
-thread titles, branch names, commit messages, and pull request descriptions. On a remote connection,
-Elysia uses the Claude configuration on the connected server.
+## Usage
 
-## Compact long conversations
+The account totals reported by the native CLI are authoritative for spend, allowance and reset period. Stats also shows model-level estimates from recorded activity and known rates. Input/output token rates in `--config` are pricing metadata, not an itemized statement of billed cost per model.
 
-Set **Auto-compact after** in the Claude provider settings to an integer between
-`100000` and `1000000`. For example, `300000` asks Claude to summarize at about
-300,000 tokens. This changes when compaction happens, not the model's context
-window. Leave it empty for Claude Code's default.
+## Skills and commands
 
-You can also send `/compact` in an existing conversation. Web and desktop offer
-**Compact context** from the context meter. When you return to a large thread
-after Claude's prompt cache expires, a **Compact** chip with the thread's token count shows
-next to the send button. While it is on, Enter summarizes the history first, then
-sends your message. Click the chip to switch it to **Full** and keep the full
-history for that message. The cache lasts about an hour on a Claude
-subscription and 5 minutes with an API key, Bedrock, or Vertex. See [commands and skills](./composer.md#commands-and-skills) for using
-composer commands.
-
-## Usage limits
-
-If your Claude subscription runs out of usage mid-turn, the thread shows which
-limit was reached and the remaining wait when Claude provides a reset time.
-Claude Code holds the turn until that window reopens, so it can keep showing as
-working. Wait for the reset, or stop the turn and continue later. The warning's
-timestamp shows when the displayed wait started.
-
-## Skills
-
-Claude skills come from the config directory's `skills` folder and the project's
-`.claude/skills` folder. If both define the same name, the config-directory copy
-wins. Skills disabled in Claude's settings do not appear in the composer.
-
-Use `$` in the composer to select a skill. Skills marked `disable-model-invocation`
-can still be started by you. Invoke those one per message: Claude directly runs
-only the last named skill and may try to start earlier ones through its Skill
-tool, which refuses skills reserved for manual invocation.
-
-## OpenRouter
-
-Create a Claude instance with its own config directory, such as
-`~/.claude_openrouter`, and keep **Binary path** set to `claude`. In that instance's
-**Environment variables**, use:
-
-| Variable               | Value                                     |
-| ---------------------- | ----------------------------------------- |
-| `ANTHROPIC_BASE_URL`   | `https://openrouter.ai/api`               |
-| `ANTHROPIC_AUTH_TOKEN` | Your OpenRouter API key, marked Sensitive |
-| `ANTHROPIC_API_KEY`    | An explicitly empty value                 |
-
-If that Claude config directory has a cached Anthropic login, run `/logout` in a
-Claude Code session using that directory before starting the router setup. Cached
-login credentials can conflict with the router token.
-
-Select the model you want in Elysia. For an OpenRouter model outside the built-in
-list, open that Claude instance in **Settings > Providers** and add its full model
-ID with **Add custom model**. Then select it in the chat model picker.
-`ANTHROPIC_DEFAULT_*_MODEL` variables map Claude Code aliases such as `sonnet`; they
-do not replace the explicit model ID selected in Elysia. Custom models may have
-fewer effort, thinking, or context controls than built-in models.
-
-Verify the model used in OpenRouter's activity dashboard. For current compatibility
-requirements, use the
-[OpenRouter Claude Code guide](https://openrouter.ai/docs/cookbook/coding-agents/claude-code-integration).
-
-## Other routers
-
-A local router uses an ordinary Claude provider instance. Give it a separate
-config directory and put the router's endpoint and credential variables in that
-instance's **Environment variables**. The router must run where the environment
-can reach it. Follow the [Claude Code Router instructions](https://github.com/musistudio/claude-code-router)
-for its installation and routing configuration.
+Claude skills come from the CLI-configured settings and the project’s `.claude/skills` directory. Enabled native plugins can contribute namespaced skills. Use the composer’s skill picker and slash menu for the commands available to that session; Elysia leaves managed `elysia-*` commands under the CLI’s ownership.

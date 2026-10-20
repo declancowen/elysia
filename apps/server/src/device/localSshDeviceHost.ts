@@ -1,6 +1,10 @@
 import * as NodeDnsPromises from "node:dns/promises";
 import * as NodeNet from "node:net";
-import { CONNECTIONS_ENABLED, type SshDeviceHostConfig } from "@elysiatools/contracts";
+import {
+  CONNECTIONS_ENABLED,
+  type DeviceHostConfig,
+  type SshDeviceHostConfig,
+} from "@elysiatools/contracts";
 import * as NodeOS from "node:os";
 import * as Context from "effect/Context";
 import { runSshCommand } from "@elysiatools/ssh/command";
@@ -18,7 +22,6 @@ export const LocalDeviceHostAddresses = Context.Reference<ReadonlySet<string>>(
   },
 );
 
-/** Resolve aliases on the owning environment without opening an SSH connection. */
 export const isLocalSshDeviceHost = Effect.fn("isLocalSshDeviceHost")(function* (
   host: SshDeviceHostConfig,
 ) {
@@ -60,13 +63,16 @@ export const isLocalSshDeviceHost = Effect.fn("isLocalSshDeviceHost")(function* 
   );
 });
 
-export const remoteSshDeviceHosts = Effect.fn("remoteSshDeviceHosts")(function* (
-  hosts: ReadonlyArray<SshDeviceHostConfig>,
-) {
+export const remoteSshDeviceHosts = Effect.fn("remoteSshDeviceHosts")(function* <
+  Host extends DeviceHostConfig,
+>(hosts: ReadonlyArray<Host>) {
   if (!CONNECTIONS_ENABLED) return [];
   return yield* Effect.filter(
     hosts,
-    (host) => isLocalSshDeviceHost(host).pipe(Effect.map((local) => !local)),
+    (host) =>
+      host.kind === "ssh"
+        ? isLocalSshDeviceHost(host).pipe(Effect.map((local) => !local))
+        : Effect.succeed(true),
     { concurrency: 4 },
   );
 });

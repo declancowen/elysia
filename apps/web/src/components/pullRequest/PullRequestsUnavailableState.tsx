@@ -20,7 +20,7 @@ export function PullRequestsUnavailableState({
 }) {
   return (
     <Empty className="scrollbar-gutter-both min-h-0 justify-center-safe overflow-y-auto [&>*]:shrink-0">
-      <EmptyMedia variant="icon">
+      <EmptyMedia variant="illustration">
         <PullRequestGlyph.pullRequest />
       </EmptyMedia>
       <EmptyHeader>

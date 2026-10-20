@@ -1,8 +1,3 @@
-/**
- * The built-in transcript formats by provider, for engine and cache tests.
- *
- * @module usageTestFormats
- */
 import type { UsageProviderKind } from "@elysiatools/contracts";
 import type { TranscriptUsageFormat } from "@elysiatools/provider-core/server/usage";
 import { piUsageFormat } from "@elysiatools/provider-pi/server/usage";

@@ -1,13 +1,12 @@
 /**
- * OpenCode instance settings. Shared by the server driver and the client
- * settings form, so it holds only browser-safe schema code.
- *
- * @module provider-opencode/settings
+ * Shared by the server driver and the client settings form, so it holds only
+ * browser-safe schema code.
  */
 import {
   CustomModelSetting,
   makeBinaryPathSetting,
   makeProviderSettingsSchema,
+  secretSetting,
   TrimmedString,
 } from "@elysiatools/contracts";
 import * as Effect from "effect/Effect";
@@ -15,8 +14,6 @@ import * as Schema from "effect/Schema";
 
 export const OpenCodeSettings = makeProviderSettingsSchema(
   {
-    // Off by default (like Cursor and Grok): the binding is not yet stable
-    // enough to probe on every install. Users opt in from Settings.
     enabled: Schema.Boolean.pipe(
       Schema.withDecodingDefault(Effect.succeed(false)),
       Schema.annotateKey({ providerSettingsForm: { hidden: true } }),
@@ -35,7 +32,7 @@ export const OpenCodeSettings = makeProviderSettingsSchema(
       Schema.withDecodingDefault(Effect.succeed("")),
       Schema.annotateKey({
         title: "Server URL",
-        description: "Leave blank to let T3 Code spawn the server when needed.",
+        description: "Leave blank to let Elysia spawn the server when needed.",
         providerSettingsForm: {
           placeholder: "http://127.0.0.1:4096",
           clearWhenEmpty: "omit",
@@ -43,10 +40,11 @@ export const OpenCodeSettings = makeProviderSettingsSchema(
       }),
     ),
     serverPassword: TrimmedString.pipe(
+      secretSetting,
       Schema.withDecodingDefault(Effect.succeed("")),
       Schema.annotateKey({
         title: "Server password",
-        description: "Stored in plain text on disk.",
+        description: "Stored separately on the host.",
         providerSettingsForm: {
           control: "password",
           placeholder: "Optional",

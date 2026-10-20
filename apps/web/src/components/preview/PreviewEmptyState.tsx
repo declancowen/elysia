@@ -36,7 +36,7 @@ export function PreviewEmptyState({
     return (
       <Empty>
         <EmptyMedia variant="icon">
-          <Globe className="size-4.5 text-muted-foreground" />
+          <Globe className="size-4.5" />
         </EmptyMedia>
         <EmptyTitle>No preview yet</EmptyTitle>
         <EmptyDescription>

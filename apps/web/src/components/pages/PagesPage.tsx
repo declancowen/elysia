@@ -46,7 +46,7 @@ import { WorkspaceSurfaceHeader } from "../WorkspaceSurfaceHeader";
 import { WorkspacePageContainer } from "../WorkspacePageContainer";
 import { applyWorkspaceBulkAction } from "../WorkspaceBulkActions";
 import { Button } from "../ui/button";
-import { Empty, EmptyHeader, EmptyTitle, EmptyDescription } from "../ui/empty";
+import { Empty, EmptyHeader, EmptyTitle, EmptyDescription, EmptyMedia } from "../ui/empty";
 import { Input } from "../ui/input";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "../ui/input-group";
 import { Select, SelectTrigger, SelectValue, SelectPopup, SelectItem } from "../ui/select";
@@ -412,17 +412,15 @@ export function PagesPage({ folderId = null }: { folderId?: PageId | null }) {
     setProjectId(currentFolder?.projectId ?? "none");
     setCreateOpen(true);
   };
+  const [handledRequestedCreate, setHandledRequestedCreate] = useState<typeof requestedCreate>();
+  if (handledRequestedCreate !== requestedCreate) {
+    setHandledRequestedCreate(requestedCreate);
+    if (requestedCreate) startCreate(requestedCreate);
+  }
   useEffect(() => {
     if (!requestedCreate) return;
-    setError(null);
-    setRenaming(null);
-    setTitle("");
-    setCreateKind(requestedCreate);
-    setCreateParent(currentFolderId ?? "none");
-    setProjectId(currentFolder?.projectId ?? "none");
-    setCreateOpen(true);
     void navigate({ to: "/pages", search: {}, replace: true });
-  }, [requestedCreate, navigate, currentFolderId, currentFolder?.projectId]);
+  }, [requestedCreate, navigate]);
   const create = async () => {
     if (!environmentId || !title.trim() || submitting.current) return;
     submitting.current = true;
@@ -1047,15 +1045,17 @@ export function PagesPage({ folderId = null }: { folderId?: PageId | null }) {
             </p>
           ) : query.data && !groups.some((group) => group.pages.length) ? (
             <Empty>
-              <Files01Icon aria-hidden className="size-16 text-muted-foreground" />
+              <EmptyMedia variant="illustration">
+                <Files01Icon aria-hidden />
+              </EmptyMedia>
               <EmptyHeader>
-                <EmptyTitle>
-                  {query.data.pages.length ? "No matching pages" : "No pages"}
-                </EmptyTitle>
+                <EmptyTitle>{search.trim() ? "No matching pages" : "No pages"}</EmptyTitle>
                 <EmptyDescription>
-                  {query.data.pages.length
+                  {search.trim()
                     ? "Try a different search to find your pages."
-                    : "Pages from every project in this workspace appear here."}
+                    : currentFolder
+                      ? "Create a page or folder to add it here."
+                      : "Pages from every project in this workspace appear here."}
                 </EmptyDescription>
               </EmptyHeader>
             </Empty>

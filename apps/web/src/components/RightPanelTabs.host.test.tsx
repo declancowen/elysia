@@ -1,5 +1,5 @@
-import { DEFAULT_RESOLVED_KEYBINDINGS } from "@elysiatools/shared/keybindings";
 // @vitest-environment jsdom
+import { DEFAULT_RESOLVED_KEYBINDINGS } from "@elysiatools/shared/keybindings";
 import { act, type ReactNode } from "react";
 import { createRoot } from "react-dom/client";
 import { expect, it, vi } from "vite-plus/test";

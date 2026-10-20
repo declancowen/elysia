@@ -19,7 +19,8 @@ it.each([null, "Start a new chat to use this model"])(
             <ComboboxList>
               <ModelListRow
                 index={0}
-                model={model}
+                slug={model.slug}
+                name={model.name}
                 instanceId={ProviderInstanceId.make("claudeAgent")}
                 driverKind={ProviderDriverKind.make("claudeAgent")}
                 providerDisplayName="Elysia"

@@ -1,7 +1,4 @@
-// @vitest-environment jsdom
-import { act, useEffect } from "react";
-import { createRoot, type Root } from "react-dom/client";
-import { beforeEach, afterEach, expect, it, vi } from "vite-plus/test";
+import { beforeEach, expect, it, vi } from "vite-plus/test";
 import { EnvironmentId, ProviderInstanceId } from "@elysiatools/contracts";
 
 const mocks = vi.hoisted(() => ({
@@ -24,9 +21,6 @@ vi.mock("@elysiatools/contracts", async (importOriginal) => ({
     return mocks.connectionsEnabled;
   },
 }));
-vi.mock("@effect/atom-react", () => ({
-  useAtomValue: (atom: string) => (atom === "settings" ? mocks.settings : []),
-}));
 vi.mock("../hooks/useSettings", () => ({
   ensureClientSettingsHydrated: mocks.hydrate,
   getClientSettings: () => mocks.clientSettings,
@@ -37,35 +31,36 @@ vi.mock("../providerInstances", () => ({
 }));
 vi.mock("../state/entities", () => ({
   readProjects: () => mocks.projects,
-  useAllEnvironmentProjectSnapshotsReady: () => mocks.projectsReady,
 }));
-vi.mock("../state/environments", () => ({
-  usePrimaryEnvironmentId: () => mocks.environmentId,
+vi.mock("../state/primaryEnvironment", () => ({ primaryEnvironmentIdAtom: "environment" }));
+vi.mock("../state/shell", () => ({ allEnvironmentProjectSnapshotsReadyAtom: "projects-ready" }));
+vi.mock("../rpc/atomRegistry", () => ({
+  appAtomRegistry: {
+    get: (atom: string) =>
+      atom === "environment"
+        ? mocks.environmentId
+        : atom === "settings"
+          ? mocks.settings
+          : atom === "projects-ready"
+            ? mocks.projectsReady
+            : [],
+  },
 }));
 vi.mock("../state/projects", () => ({ projectEnvironment: { createAgent: "create-agent" } }));
 vi.mock("../state/server", () => ({
   primaryServerSettingsAtom: "settings",
   primaryServerProvidersAtom: "providers",
 }));
-vi.mock("../state/use-atom-command", () => ({ useAtomCommand: () => mocks.createAgent }));
 vi.mock("@elysiatools/client-runtime/state/runtime", () => ({
+  runAtomCommand: (_registry: unknown, _command: unknown, value: unknown) =>
+    mocks.createAgent(value),
   squashAtomCommandFailure: (result: { cause: unknown }) => result.cause,
 }));
 
-import { useCompleteOnboarding } from "./firstRun";
+import { completeOnboarding as complete } from "./firstRun";
 
-let root: Root;
-let host: HTMLDivElement;
-let complete: () => Promise<void>;
 let environmentNumber = 0;
-function Harness() {
-  const finish = useCompleteOnboarding();
-  useEffect(() => {
-    complete = finish;
-  }, [finish]);
-  return null;
-}
-beforeEach(async () => {
+beforeEach(() => {
   vi.clearAllMocks();
   mocks.connectionsEnabled = false;
   mocks.environmentId = `onboarding-${++environmentNumber}`;
@@ -83,15 +78,6 @@ beforeEach(async () => {
     _tag: "Success",
     value: { projectId: "agent", threadId: "thread" },
   });
-  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
-  host = document.createElement("div");
-  document.body.append(host);
-  root = createRoot(host);
-  await act(async () => root.render(<Harness />));
-});
-afterEach(async () => {
-  await act(async () => root.unmount());
-  host.remove();
 });
 
 it("creates the starter with native defaults before saving completion", async () => {
@@ -137,7 +123,6 @@ it("shares concurrent gate and wizard creation and keeps it across a completion-
   resolveCreation({ _tag: "Success", value: { projectId: "agent", threadId: "thread" } });
   await outcomes;
   mocks.clientSettings.onboardingCompletedAt = null;
-  await act(async () => root.render(<Harness />));
   await complete();
   expect(mocks.createAgent).toHaveBeenCalledOnce();
 });
@@ -166,8 +151,20 @@ it.each(["completed", "existing-agent", "upstream"])(
 
 it("waits for authoritative projects before creating or completing onboarding", async () => {
   mocks.projectsReady = false;
-  await act(async () => root.render(<Harness />));
   await expect(complete()).rejects.toThrow("workspace is still loading");
   expect(mocks.createAgent).not.toHaveBeenCalled();
   expect(mocks.persist).not.toHaveBeenCalled();
+});
+
+it("reads the current native defaults at completion time", async () => {
+  const previous = mocks.settings.defaultModelSelection;
+  mocks.settings.defaultModelSelection = { instanceId: "claudeAgent", model: "new-native-default" };
+  try {
+    await complete();
+    expect(mocks.createAgent.mock.calls[0]?.[0].input.defaultModelSelection.model).toBe(
+      "new-native-default",
+    );
+  } finally {
+    mocks.settings.defaultModelSelection = previous;
+  }
 });

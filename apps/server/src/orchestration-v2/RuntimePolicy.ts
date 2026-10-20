@@ -17,9 +17,6 @@ import * as ProviderInstanceRegistry from "../provider/ProviderInstanceRegistry.
 import * as ProviderAdapter from "@elysiatools/provider-core/server/ProviderAdapter";
 import * as ProjectStore from "./ProjectStore.ts";
 
-/**
- * ERRORS
- */
 export class RuntimePolicyResolveError extends Schema.TaggedError<RuntimePolicyResolveError>()(
   "RuntimePolicyResolveError",
   {
@@ -44,9 +41,6 @@ export const RuntimePolicyV2Override = Schema.Struct({
 });
 export type RuntimePolicyV2Override = typeof RuntimePolicyV2Override.Type;
 
-/**
- * SERVICE DEFINITION
- */
 export interface RuntimePolicyV2Shape {
   readonly resolve: (input: {
     readonly thread: OrchestrationV2AppThread;
@@ -59,9 +53,6 @@ export class RuntimePolicyV2 extends Context.Service<RuntimePolicyV2, RuntimePol
   "@elysiatools/server/orchestration-v2/RuntimePolicy/RuntimePolicyV2",
 ) {}
 
-/**
- * IMPLEMENTATIONS
- */
 export const layer: Layer.Layer<RuntimePolicyV2> = Layer.succeed(RuntimePolicyV2, {
   resolve: (input) =>
     Effect.succeed({
@@ -71,11 +62,6 @@ export const layer: Layer.Layer<RuntimePolicyV2> = Layer.succeed(RuntimePolicyV2
     }),
 });
 
-/**
- * The mode a provider runs a thread in. A mode the provider does not offer
- * (a thread set before it stopped offering it, or a stale client) runs in
- * Supervised rather than having Elysia imitate it.
- */
 function providerRuntimeMode(
   runtimeMode: RuntimeMode,
   supportedRuntimeModes: ReadonlyArray<RuntimeMode> | undefined,

@@ -10,8 +10,7 @@ import {
   useClientSettings,
   useClientSettingsHydrationStatus,
 } from "../../hooks/useSettings";
-import { isLocalEnvironmentDisabled } from "../../localEnvironment";
-import { useCompleteOnboarding } from "../../onboarding/firstRun";
+import { completeOnboarding } from "../../onboarding/firstRun";
 import {
   isFirstRunWorkspaceProvenanceAuthoritative,
   isFreshFirstRunWorkspace,
@@ -20,11 +19,7 @@ import {
   transitionFirstRunGateState,
   type FirstRunGateState,
 } from "../../onboarding/firstRun.logic";
-import {
-  useAllEnvironmentShellsBootstrapped,
-  useProjects,
-  useThreadShells,
-} from "../../state/entities";
+import { useAllEnvironmentShellsBootstrapped, useProjects } from "../../state/entities";
 import { useEnvironments } from "../../state/environments";
 import { environmentProjects } from "../../state/projects";
 import { primaryServerConfigAtom, primaryServerWelcomeAtom } from "../../state/server";
@@ -33,8 +28,6 @@ import { environmentThreadShells } from "../../state/threads";
 import { Button } from "../ui/button";
 
 /**
- * Holds back authenticated and hosted app trees until the first-run decision
- * is known, so a fresh install never flashes the main screen before the wizard.
  * Nothing renders while pending — no shell, no EventRouter (whose welcome
  * payload would otherwise navigate into a thread), no dialogs.
  *
@@ -67,6 +60,18 @@ const workspaceEvidenceLiveAtom = Atom.make((get) => {
   return true;
 }).pipe(Atom.withLabel("web-onboarding-workspace-evidence-live"));
 
+// The gate only needs how many threads exist and, while there is at most one,
+// that thread; a shell update of any thread in a populated workspace must not
+// re-render the app root.
+const threadCountAtom = Atom.make(
+  (get) => get(environmentThreadShells.threadShellsAtom).length,
+).pipe(Atom.withLabel("web-onboarding-thread-count"));
+
+const soleThreadAtom = Atom.make((get) => {
+  const threads = get(environmentThreadShells.threadShellsAtom);
+  return threads.length === 1 ? threads[0]! : null;
+}).pipe(Atom.withLabel("web-onboarding-sole-thread"));
+
 export function FirstRunGate({
   enabled,
   hostedStatic,
@@ -80,18 +85,16 @@ export function FirstRunGate({
   const pathname = useLocation({ select: (location) => location.pathname });
   const hydrationStatus = useClientSettingsHydrationStatus();
   const hydrated = hydrationStatus === "ready";
-  const completeOnboarding = useCompleteOnboarding();
   const onboardingCompletedAt = useClientSettings((settings) => settings.onboardingCompletedAt);
   const bootstrapped = useAllEnvironmentShellsBootstrapped();
-  const { environments, isReady: environmentCatalogReady } = useEnvironments();
+  const { isReady: environmentCatalogReady } = useEnvironments();
   const projects = useProjects();
-  const threads = useThreadShells();
+  const threadCount = useAtomValue(threadCountAtom);
+  const soleThread = useAtomValue(soleThreadAtom);
   const serverConfig = useAtomValue(primaryServerConfigAtom);
   const serverWelcome = useAtomValue(primaryServerWelcomeAtom);
   const primaryShellLive = useAtomValue(primaryShellLiveAtom);
   const workspaceEvidenceLive = useAtomValue(workspaceEvidenceLiveAtom);
-  // Within a session settings stay hydrated, so remounts (e.g. returning from
-  // the wizard) resolve synchronously instead of blanking a frame.
   const [gateState, setGateState] = useState<FirstRunGateState>(() => ({
     decision:
       CONNECTIONS_ENABLED &&
@@ -112,26 +115,22 @@ export function FirstRunGate({
   // bootstrap project" just because its root string matches the primary cwd.
   const serverCwd = serverConfig?.cwd ?? null;
   const primaryEnvironmentId = serverConfig?.environment.environmentId ?? null;
-  const workspaceFresh = isFreshFirstRunWorkspace({
-    primaryEnvironmentId,
-    serverCwd,
-    bootstrapProjectId: serverWelcome?.bootstrapProjectId,
-    bootstrapThreadId: serverWelcome?.bootstrapThreadId,
-    bootstrapProjectCreated: serverWelcome?.bootstrapProjectCreated,
-    bootstrapThreadCreated: serverWelcome?.bootstrapThreadCreated,
-    projects,
-    threads,
-  });
+  const workspaceFresh =
+    threadCount <= 1 &&
+    isFreshFirstRunWorkspace({
+      primaryEnvironmentId,
+      serverCwd,
+      bootstrapProjectId: serverWelcome?.bootstrapProjectId,
+      bootstrapThreadId: serverWelcome?.bootstrapThreadId,
+      bootstrapProjectCreated: serverWelcome?.bootstrapProjectCreated,
+      bootstrapThreadCreated: serverWelcome?.bootstrapThreadCreated,
+      projects,
+      threads: soleThread === null ? [] : [soleThread],
+    });
 
   const { decision: nextDecision, persistCompletion } =
     hostedStatic && CONNECTIONS_ENABLED
-      ? resolveHostedFirstRunDecision({
-          localEnvironmentDisabled: isLocalEnvironmentDisabled(),
-          hydrated,
-          completed: onboardingCompletedAt !== null,
-          catalogReady: environmentCatalogReady,
-          environmentCount: environments.length,
-        })
+      ? resolveHostedFirstRunDecision(hydrated)
       : resolveFirstRunDecision({
           development: import.meta.env.DEV,
           ...(!CONNECTIONS_ENABLED
@@ -161,8 +160,17 @@ export function FirstRunGate({
           serverConfigAvailable: serverConfig !== null,
           workspaceFresh,
           projectCount: projects.length,
-          threadCount: threads.length,
+          threadCount,
         });
+
+  if (hydrated) {
+    const transitioned = CONNECTIONS_ENABLED
+      ? transitionFirstRunGateState(gateState, { type: "evidence", decision: nextDecision })
+      : gateState.decision === nextDecision
+        ? gateState
+        : { decision: nextDecision, stalled: false };
+    if (transitioned !== gateState) setGateState(transitioned);
+  }
 
   useEffect(() => {
     if ((CONNECTIONS_ENABLED && decision === "wizard") || !hydrated) return;
@@ -172,23 +180,7 @@ export function FirstRunGate({
         if (!CONNECTIONS_ENABLED) void navigate({ to: "/welcome", replace: true });
       });
     }
-
-    setGateState((state) =>
-      CONNECTIONS_ENABLED
-        ? transitionFirstRunGateState(state, { type: "evidence", decision: nextDecision })
-        : state.decision === nextDecision
-          ? state
-          : { decision: nextDecision, stalled: false },
-    );
-  }, [
-    completeOnboarding,
-    decision,
-    hydrated,
-    navigate,
-    nextDecision,
-    onboardingCompletedAt,
-    persistCompletion,
-  ]);
+  }, [decision, hydrated, navigate, onboardingCompletedAt, persistCompletion]);
 
   // A stalled server read gets a recovery screen, but never mounts the app.
   // The timer starts after settings hydrate so slow local hydration does not
@@ -202,14 +194,20 @@ export function FirstRunGate({
     return () => window.clearTimeout(timer);
   }, [decision, enabled, hydrated]);
 
+  // Setup opens by itself only from the home route. A direct link, such as
+  // Settings, opens as asked so setup can never lock a user out of the app.
+  const wizardOwnsRoute = pathname === "/";
   useEffect(() => {
-    if (decision === "wizard" && pathname !== "/welcome") {
+    if (decision === "wizard" && wizardOwnsRoute) {
       void navigate({ to: "/welcome", replace: true });
     }
-  }, [decision, navigate, pathname]);
+  }, [decision, navigate, wizardOwnsRoute]);
 
   if (settingsReadFailed) {
     return <FirstRunRecovery reason="settings" retrying={hydrationStatus === "retrying"} />;
+  }
+  if (decision === "wizard" && !wizardOwnsRoute) {
+    return children;
   }
   if (decision !== "app") {
     return stalled ? <FirstRunRecovery reason="connection" /> : null;

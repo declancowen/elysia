@@ -1,4 +1,5 @@
 import { useDebouncedValue } from "~/state/queries";
+import { parsePullRequestQuery } from "@elysiatools/client-runtime/pull-request-query";
 import { useState } from "react";
 import { LayersIcon, Plug2Icon, ArrowDownUpIcon } from "~/icons";
 import { useRegularProjects } from "~/hooks/useRegularProjects";
@@ -17,7 +18,6 @@ import {
 } from "./PullRequestListFilters";
 import {
   pullRequestHostActions,
-  parsePullRequestQuery,
   collectPullRequestListFacets,
   sortPullRequestGroups,
 } from "./pullRequestList.logic";

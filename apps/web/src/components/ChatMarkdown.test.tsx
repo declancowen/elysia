@@ -18,12 +18,14 @@ import { Button } from "./ui/button";
 import { setMarkdownTaskChecked } from "./files/filePreviewMode";
 
 vi.mock("../hooks/useFileMetadata", () => ({ useFileMetadata: () => null }));
-vi.mock("@effect/atom-react", () => ({ useAtomValue: () => null }));
 vi.mock("./chat/MermaidDiagram", () => ({
   // Real Mermaid needs layout APIs jsdom lacks; a rendered diagram is an SVG.
   MermaidDiagram: () => <svg aria-label="Diagram" />,
 }));
-vi.mock("../hooks/useTheme", () => ({ useTheme: () => ({ resolvedTheme: "dark" }) }));
+vi.mock("../hooks/useTheme", () => ({
+  useTheme: () => ({ resolvedTheme: "dark" }),
+  useRenderedAppearance: () => "dark",
+}));
 vi.mock("../hooks/useSettings", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../hooks/useSettings")>();
   const settings = actual.getClientSettings();
@@ -59,7 +61,8 @@ vi.mock("../state/session", async (importOriginal) => {
     ...actual,
     useEnvironmentScope: hasScope,
     readEnvironmentScope: hasScope,
-    usePreparedConnection: () => ({ _tag: "Loading" }),
+    readPreparedConnection: () => null,
+    usePreparedConnection: () => ({ _tag: "None" }),
   };
 });
 vi.mock("../state/entities", () => ({
@@ -529,7 +532,7 @@ describe("ChatMarkdown streaming", () => {
           currentTarget: {
             checked: true,
             closest: () => ({
-              dataset: { taskMarkerOffset: String(listItem.props["data-task-marker-offset"]) },
+              dataset: { listItemOffset: String(listItem.props["data-list-item-offset"]) },
             }),
           },
         } as unknown as Parameters<typeof onChange>[0]);
@@ -1203,13 +1206,18 @@ it.each([
     query: "Hidden needle",
     count: 1,
   },
-  { text: ARTIFACT_TEMPLATE_DIRECTIVE, query: "Hello World", count: 1, useTemplate: true },
-  { text: ARTIFACT_TEMPLATE_DIRECTIVE, query: "Document template", count: 1, useTemplate: true },
-  { text: ARTIFACT_TEMPLATE_DIRECTIVE, query: "World Document", count: 0, useTemplate: true },
-  { text: ARTIFACT_TEMPLATE_DIRECTIVE, query: "Use template", count: 0, useTemplate: true },
+  { text: ARTIFACT_TEMPLATE_DIRECTIVE, query: "Hello World", count: 1, includeTemplate: true },
+  {
+    text: ARTIFACT_TEMPLATE_DIRECTIVE,
+    query: "Document template",
+    count: 1,
+    includeTemplate: true,
+  },
+  { text: ARTIFACT_TEMPLATE_DIRECTIVE, query: "World Document", count: 0, includeTemplate: true },
+  { text: ARTIFACT_TEMPLATE_DIRECTIVE, query: "Use template", count: 0, includeTemplate: true },
 ])(
   "highlights the indexed occurrences of $query in $text",
-  async ({ text, query, count, lineBreaks, user, useTemplate }) => {
+  async ({ text, query, count, lineBreaks, user, includeTemplate }) => {
     const skills = [{ name: "test-t3-app", displayName: "T3 App Testing" }];
     const highlights = new Map<string, Set<Range>>();
     vi.stubGlobal(
@@ -1243,7 +1251,7 @@ it.each([
                 skills={skills}
                 lineBreaks={lineBreaks ?? false}
                 parseRawHtml={!user}
-                onUseArtifactTemplate={useTemplate ? () => undefined : undefined}
+                onUseArtifactTemplate={includeTemplate ? () => undefined : undefined}
               />
             </MarkdownFindContext>
           </div>

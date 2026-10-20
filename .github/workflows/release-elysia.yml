@@ -126,7 +126,12 @@ jobs:
             scripts/build-desktop-artifact.test.ts \
             scripts/lib/brand-assets.test.ts \
             scripts/update-release-package-versions.test.ts \
-            scripts/merge-update-manifests.test.ts
+            scripts/merge-update-manifests.test.ts \
+            scripts/lib/cli-external-packages.test.ts \
+            scripts/lib/third-party-licenses.test.ts \
+            packages/shared/src/cliRelease.test.ts \
+            packages/shared/src/devHome.test.ts \
+            scripts/relay-build-policy.test.mjs
 
       - name: Test Elysia runtime and credential protection
         run: |
@@ -136,57 +141,112 @@ jobs:
             apps/server/src/provider/ElysiaPolicy.test.ts \
             apps/server/src/provider/ElysiaNativeSessions.test.ts \
             apps/server/src/elysiaConnections.test.ts \
+            apps/server/src/elysiaBackgroundConnections.test.ts \
+            apps/server/src/cloud/publicConfig.test.ts \
             apps/server/src/provider/ProviderCredentialStore.test.ts \
             packages/provider-core/src/server/providerAuthFlow.test.ts \
             apps/server/src/provider/ElysiaStats.test.ts \
+            apps/server/src/provider/ElysiaModelCatalog.test.ts \
+            apps/server/src/usage/usagePricing.test.ts \
+            apps/server/src/usage/usageAggregation.test.ts \
+            apps/server/src/usage/elysiaAppUsage.test.ts \
+            apps/server/src/usage/UsageService.test.ts \
             apps/server/src/auth/RpcAuthorization.test.ts \
             apps/server/src/mcp/toolkits/repository/handlers.test.ts \
             apps/server/src/provider/Drivers/ClaudeSkillDispatch.test.ts \
             apps/server/src/provider/Drivers/ElysiaSlashCommands.test.ts
 
-      - name: Test Elysia client and onboarding
+      - name: Test project files and icons
         run: |
           vp test run --config vite.config.ts \
-            apps/web/src/elysiaModelSelection.test.ts \
-            apps/web/src/themePalette.test.ts \
-            apps/web/src/themeBoot.test.ts \
-            apps/web/src/lib/browserStorageMigration.test.ts \
             apps/server/src/project/ElysiaProjectFileLoader.test.ts \
             packages/shared/src/elysiaProjectFile.test.ts \
-            apps/web/src/components/Sidebar.logic.test.ts \
-            apps/web/src/components/ProjectFavicon.test.tsx \
-            packages/shared/src/projectIcon.test.ts \
-            apps/web/src/rightPanelStore.test.ts \
-            apps/web/src/components/threadSidebarWidth.test.ts \
-            apps/web/src/components/chat/ThreadOverviewPanel.test.tsx \
-            apps/web/src/components/chat/PanelLayoutControls.test.tsx \
-            apps/web/src/components/chat/OpenInPicker.test.ts \
-            apps/web/src/components/sidebar/SidebarChrome.test.tsx \
-            apps/web/src/components/usage/ElysiaUsagePage.test.tsx \
-            apps/web/src/components/uploadedSources.test.ts \
-            apps/web/src/components/chat/ModelPickerContent.test.ts \
-            apps/web/src/components/chat/modelPickerKeys.test.ts \
-            apps/web/src/components/chat/modelPickerSearch.test.ts \
-            apps/web/src/components/settings/ProviderSettingsForm.test.ts \
-            apps/web/src/components/settings/ProviderSettingsPanel.logic.test.ts \
-            apps/web/src/components/settings/ProviderSettingsPanel.environment.test.tsx \
-            apps/web/src/components/settings/ElysiaSetupSection.test.tsx \
-            apps/web/src/components/settings/settingsWorkspace.test.ts \
-            apps/web/src/components/settings/scheduledTasksSettings.logic.test.ts \
-            apps/web/src/components/settings/ScheduledTaskEditor.test.tsx \
-            apps/web/src/components/settings/ScheduledTaskPrompt.test.tsx \
-            apps/web/src/components/settings/SettingsScopeSentence.test.tsx \
-            apps/web/src/state/desktopUpdate.test.ts \
-            apps/web/src/components/desktopUpdate.logic.test.ts \
-            apps/web/src/components/sidebar/SidebarUpdatePill.test.tsx
-          vp test run --config vite.config.ts \
-            apps/web/src/components/settings/settingsSearch.test.ts \
+            packages/shared/src/projectIcon.test.ts
+
+      - name: Test Elysia client and onboarding
+        working-directory: apps/web
+        run: |
+          vp test run --project unit \
+            src/elysiaModelSelection.test.ts \
+            src/themePalette.test.ts \
+            src/themeBoot.test.ts \
+            src/lib/runtime.test.ts \
+            src/lib/browserStorageMigration.test.ts \
+            src/components/Sidebar.logic.test.ts \
+            src/rightPanelStore.test.ts \
+            src/components/threadSidebarWidth.test.ts \
+            src/components/chat/OpenInPicker.test.ts \
+            src/components/usage/ElysiaUsagePage.test.tsx \
+            src/components/uploadedSources.test.ts \
+            src/components/chat/ModelPickerContent.test.ts \
+            src/components/chat/modelPickerKeys.test.ts \
+            src/components/chat/modelPickerSearch.test.ts \
+            src/components/settings/ProviderSettingsForm.test.ts \
+            src/components/settings/ProviderSettingsPanel.logic.test.ts \
+            src/components/settings/ProviderSettingsPanel.environment.test.tsx \
+            src/components/settings/settingsWorkspace.test.ts \
+            src/components/settings/scheduledTasksSettings.logic.test.ts \
+            src/state/desktopUpdate.test.ts \
+            src/components/desktopUpdate.logic.test.ts \
+            src/components/sidebar/SidebarUpdatePill.test.tsx \
+            src/components/chat/channelTimeline.test.ts \
+            src/components/chat/MessagesTimeline.test.tsx \
+            src/hooks/useArchivedConversationTabs.test.tsx \
+            src/components/agents/agentSidebarStore.test.ts \
+            src/components/tasks/taskViews.test.ts \
+            src/components/chat/MessagesTimeline.logic.test.ts \
+            src/components/chat/QueuedRunsControl.test.tsx \
+            src/agentPresentation.test.ts \
+            src/components/threadActionMenu.logic.test.ts \
+            src/components/chat/ContextWindowMeter.logic.test.ts \
+            src/components/agents/agentProfileSave.test.ts \
+            src/components/agents/agentDialogStore.test.ts \
+            src/components/agents/agentSidebarPreferences.test.ts \
+            src/conversationTabsStore.test.ts \
+            src/components/agents/useDelegatedAgents.test.tsx \
+            src/components/ProjectFavicon.test.tsx \
+            src/components/chat/ThreadOverviewPanel.test.tsx \
+            src/components/chat/PanelLayoutControls.test.tsx \
+            src/components/sidebar/SidebarChrome.test.tsx \
+            src/components/settings/ElysiaSetupSection.test.tsx \
+            src/components/settings/ScheduledTaskEditor.test.tsx \
+            src/components/settings/ScheduledTaskPrompt.test.tsx \
+            src/components/settings/SettingsScopeSentence.test.tsx \
+            src/components/chat/ModelListRow.interaction.test.tsx \
+            src/components/WorkspaceSideChat.test.tsx \
+            src/components/WorkspaceCollectionView.test.tsx \
+            src/components/WorkspaceRichTextEditor.test.tsx \
+            src/components/tasks/useTaskCardLayout.test.tsx \
+            src/components/agents/AgentMentionChip.test.tsx \
+            src/components/agents/AgentEditorPage.test.tsx \
+            src/components/agents/AgentControls.test.tsx \
+            src/components/agents/AgentGroupDialog.test.tsx \
+            src/components/agents/AgentsSidebar.test.tsx \
+            src/hooks/useConversationRowClick.test.tsx \
+            src/components/agents/AgentAvatarPicker.test.tsx \
+            src/components/settings/ArchivedAgentsSection.test.tsx \
+            src/components/chat/ComposerPrimaryActions.agent.test.tsx
+          vp test run --project unit src/components/settings/settingsSearch.test.ts \
             --testNamePattern 'finds Appearance themes by|finds Send shortcut for'
+          vp test run --project unit src/components/ChatView.logic.test.ts \
+            --testNamePattern 'resolveDraftPromotionNavigationTarget|draft hero submission transition'
+
+      - name: Install Chromium for web release guards
+        run: node apps/web/node_modules/playwright/cli.js install --with-deps --only-shell chromium
+
+      - name: Test Elysia browser interactions
+        working-directory: apps/web
+        run: |
+          vp test run --project browser \
+            src/components/WorkspaceEditorCommands.browser.test.ts \
+            src/components/ThreadNotificationCoordinator.browser.test.tsx \
+            src/components/ThreadNotificationCoordinator.badge.browser.test.tsx
 
       - name: Test desktop stable updater and settings
         run: |
           vp test run --config vite.config.ts \
             apps/desktop/src/app/DesktopClerk.test.ts \
+            apps/desktop/src/ipc/methods/window.test.ts \
             apps/desktop/src/settings/DesktopAppSettings.test.ts \
             apps/desktop/src/settings/DesktopClientSettings.test.ts \
             apps/desktop/src/updates/updateChannels.test.ts \
@@ -206,21 +266,10 @@ jobs:
             packages/shared/src/channelReplies.test.ts \
             apps/server/src/orchestration-v2/Orchestrator.channels.test.ts \
             apps/server/src/orchestration-v2/ProviderSwitchService.test.ts \
-            apps/web/src/components/chat/channelTimeline.test.ts \
-            apps/web/src/components/chat/ModelListRow.interaction.test.tsx \
-            apps/web/src/components/chat/MessagesTimeline.test.tsx \
-            apps/web/src/hooks/useArchivedConversationTabs.test.tsx \
-            apps/web/src/components/agents/agentSidebarStore.test.ts \
             apps/server/src/orchestration-v2/PersistentAgents.test.ts \
             apps/server/src/orchestration-v2/PersistentAgentReset.test.ts \
             apps/server/src/tasks/TaskService.test.ts \
             apps/server/src/workspace/WorkspaceChatService.test.ts \
-            apps/web/src/components/WorkspaceSideChat.test.tsx \
-            apps/web/src/components/WorkspaceCollectionView.test.tsx \
-            apps/web/src/components/WorkspaceEditorCommands.test.ts \
-            apps/web/src/components/WorkspaceRichTextEditor.test.tsx \
-            apps/web/src/components/tasks/useTaskCardLayout.test.tsx \
-            apps/web/src/components/tasks/taskViews.test.ts \
             packages/shared/src/composerContextReferences.test.ts \
             apps/server/src/orchestration-v2/AgentDelegation.test.ts \
             apps/server/src/orchestration-v2/RuntimePolicy.test.ts \
@@ -242,31 +291,7 @@ jobs:
             apps/server/src/orchestration-v2/CheckpointRollbackService.test.ts \
             apps/server/src/orchestration-v2/CheckpointRestoreSafety.test.ts \
             packages/client-runtime/src/userMessage.test.ts \
-            packages/client-runtime/src/state/threadWorkflows.test.ts \
-            apps/web/src/components/chat/MessagesTimeline.logic.test.ts \
-            apps/web/src/components/agents/AgentMentionChip.test.tsx \
-            apps/web/src/components/chat/QueuedRunsControl.test.tsx \
-            apps/web/src/agentPresentation.test.ts \
-            apps/web/src/components/threadActionMenu.logic.test.ts \
-            apps/web/src/components/chat/ContextWindowMeter.logic.test.ts \
-            apps/web/src/components/agents/agentProfileSave.test.ts \
-            apps/web/src/components/agents/agentDialogStore.test.ts \
-            apps/web/src/components/agents/AgentEditorPage.test.tsx \
-            apps/web/src/components/agents/AgentControls.test.tsx \
-            apps/web/src/components/agents/AgentGroupDialog.test.tsx \
-            apps/web/src/components/agents/AgentsSidebar.test.tsx \
-            apps/web/src/components/agents/agentSidebarPreferences.test.ts \
-            apps/web/src/conversationTabsStore.test.ts \
-            apps/web/src/hooks/useConversationRowClick.test.tsx \
-            apps/web/src/components/agents/useDelegatedAgents.test.tsx \
-            apps/web/src/components/agents/AgentAvatarPicker.test.tsx \
-            apps/web/src/components/settings/ArchivedAgentsSection.test.tsx \
-            apps/web/src/components/chat/ComposerPrimaryActions.agent.test.tsx \
-            apps/web/src/components/ThreadNotificationCoordinator.test.tsx \
-            apps/web/src/components/ThreadNotificationCoordinator.badge.test.tsx
-          vp test run --config vite.config.ts \
-            apps/web/src/components/ChatView.logic.test.ts \
-            --testNamePattern 'resolveDraftPromotionNavigationTarget|draft hero submission transition'
+            packages/client-runtime/src/state/threadWorkflows.test.ts
 
       - uses: ./.github/actions/setup-apt-mirrors
 

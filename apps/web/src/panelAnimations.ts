@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { observeResize } from "~/lib/observeResize";
 import { type PanelAnimationDurationMs } from "@elysiatools/contracts/settings";
 
@@ -9,10 +9,6 @@ const PanelAnimationSuppressionContext = createContext(false);
 
 export const PanelAnimationSuppressionProvider = PanelAnimationSuppressionContext.Provider;
 
-/**
- * Suppresses panel motion for the first painted frame of an initial route or navigation.
- * State restored by a route must be visible immediately; later user actions can animate.
- */
 export function usePanelNavigationSuppression(navigationKey: string): boolean {
   const [paintedNavigationKey, setPaintedNavigationKey] = useState<string | null>(null);
   const suppressed = paintedNavigationKey !== navigationKey;
@@ -42,7 +38,6 @@ export function usePanelAnimationSettings(): {
   return { active: durationMs > 0 && !prefersReducedMotion && !suppressed, durationMs };
 }
 
-/** Keeps closing panel content mounted until its opt-in transition ends. */
 export function usePanelPresence<T>(
   open: boolean,
   value: T | null,
@@ -50,19 +45,36 @@ export function usePanelPresence<T>(
   scopeKey: string | null,
   durationMs: PanelAnimationDurationMs,
 ): { present: boolean; value: T | null } {
-  const [retained, setRetained] = useState<{ scopeKey: string | null; value: T | null } | null>(
-    open ? { scopeKey, value } : null,
-  );
-  // Callers supply primitive or memoized values; preserve the last open snapshot in state.
-  if (open && (retained === null || retained.scopeKey !== scopeKey || retained.value !== value)) {
+  type Snapshot = { scopeKey: string | null; value: T | null };
+  const lastOpen = useRef<Snapshot | null>(open ? { scopeKey, value } : null);
+  const [retained, setRetained] = useState<Snapshot | null>(open ? { scopeKey, value } : null);
+  if (open && (retained === null || retained.scopeKey !== scopeKey)) {
     setRetained({ scopeKey, value });
   } else if (!open && retained !== null && (!animated || retained.scopeKey !== scopeKey)) {
     setRetained(null);
   }
 
+  // Open panels render the current input directly. Capture committed content
+  // without setting state on every new object supplied by a caller.
+  useLayoutEffect(() => {
+    if (open) {
+      lastOpen.current = { scopeKey, value };
+      return;
+    }
+    const closing = animated && lastOpen.current?.scopeKey === scopeKey ? lastOpen.current : null;
+    if (closing === null) lastOpen.current = null;
+    if (retained !== closing) {
+      // Transfer committed content before the closing animation paints.
+      setRetained(closing);
+    }
+  }, [animated, open, retained, scopeKey, value]);
+
   useEffect(() => {
     if (open || !animated) return;
-    const timeout = window.setTimeout(() => setRetained(null), durationMs);
+    const timeout = window.setTimeout(() => {
+      if (lastOpen.current?.scopeKey === scopeKey) lastOpen.current = null;
+      setRetained((current) => (current?.scopeKey === scopeKey ? null : current));
+    }, durationMs);
     return () => window.clearTimeout(timeout);
   }, [animated, durationMs, open, scopeKey]);
 

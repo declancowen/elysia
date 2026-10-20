@@ -5,6 +5,7 @@ import * as RelayClient from "@elysiatools/shared/relayClient";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Stream from "effect/Stream";
+import * as HttpClient from "effect/http/HttpClient";
 import { ChildProcessSpawner } from "effect/process";
 import * as ServerSecretStore from "./auth/ServerSecretStore.ts";
 import * as ServerEnvironment from "./environment/ServerEnvironment.ts";
@@ -12,6 +13,7 @@ import * as ThreadManagement from "./orchestration-v2/ThreadManagementService.ts
 import * as ProjectService from "./project/ProjectService.ts";
 import * as AgentAwarenessRelay from "./relay/AgentAwarenessRelay.ts";
 import * as ManagedEndpointRuntime from "./cloud/ManagedEndpointRuntime.ts";
+import { resolveRelayClientTracingConfig } from "./cloud/publicConfig.ts";
 import { readAgentActivityPublishingActive } from "./cloud/config.ts";
 import { remoteSshDeviceHosts } from "./device/localSshDeviceHost.ts";
 
@@ -21,6 +23,25 @@ const secrets = Layer.mock(ServerSecretStore.ServerSecretStore)({
 });
 
 describe("Elysia background connections policy", () => {
+  it("does not configure a relay exporter even with runtime or bundled tracing credentials", () => {
+    const configured = {
+      tracesUrl: "https://telemetry.example.test/v1/traces",
+      tracesDataset: "fixture",
+      tracesToken: "fixture-token",
+    };
+    assert.isNull(
+      resolveRelayClientTracingConfig(
+        {
+          T3CODE_TELEMETRY_ENABLED: "true",
+          T3CODE_RELAY_CLIENT_OTLP_TRACES_URL: configured.tracesUrl,
+          T3CODE_RELAY_CLIENT_OTLP_TRACES_DATASET: configured.tracesDataset,
+          T3CODE_RELAY_CLIENT_OTLP_TRACES_TOKEN: configured.tracesToken,
+        },
+        configured,
+      ),
+    );
+    assert.isNull(resolveRelayClientTracingConfig({}, configured));
+  });
   it.effect(
     "does not create relay identity, read secrets, subscribe or publish background activity",
     () =>
@@ -57,6 +78,8 @@ describe("Elysia background connections policy", () => {
         } as const;
         assert.deepEqual(yield* runtime.applyConfig(config), { status: "disabled" });
         yield* runtime.requestRecovery(config);
+        assert.isNull(yield* runtime.inspectConnector);
+        assert.lengthOf(yield* Stream.runCollect(runtime.readinessChanged), 0);
         assert.lengthOf(yield* Stream.runCollect(runtime.recoveryRequests), 0);
       }).pipe(
         Effect.provide(
@@ -65,6 +88,12 @@ describe("Elysia background connections policy", () => {
               ChildProcessSpawner.ChildProcessSpawner,
               ChildProcessSpawner.make(() =>
                 Effect.die("Disabled hosting must not spawn a connector."),
+              ),
+            ),
+            Layer.succeed(
+              HttpClient.HttpClient,
+              HttpClient.make(() =>
+                Effect.die("Disabled hosting must not make a network request."),
               ),
             ),
             Layer.mock(RelayClient.RelayClient)({
@@ -78,7 +107,7 @@ describe("Elysia background connections policy", () => {
 
   it.effect("ignores persisted SSH device hosts before any alias probing or connection", () =>
     remoteSshDeviceHosts([
-      { id: "saved-remote", label: "Saved remote", target: "remote-fixture" },
+      { kind: "ssh", id: "saved-remote", label: "Saved remote", target: "remote-fixture" },
     ]).pipe(
       Effect.tap((hosts) => Effect.sync(() => assert.deepEqual(hosts, []))),
       Effect.provide(NodeServices.layer),

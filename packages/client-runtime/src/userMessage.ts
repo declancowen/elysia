@@ -18,10 +18,6 @@ export function resolveUserMessageIntentMarker(
 const LEGACY_AUTOMATION_PREFIX = /^\[Triggered by schedule task: [^\r\n]+\]\r?\n\r?\n/;
 const LEGACY_AUTOMATION_MESSAGE_ID = /^scheduled-task-message:(.+):\d+:(?:scheduled|manual)$/;
 
-/**
- * Text and sender label for a user-role message. Older scheduled messages
- * stored their attribution in the prompt itself.
- */
 export function resolveUserMessagePresentation(message: {
   readonly id?: string;
   readonly role: string;
@@ -58,7 +54,6 @@ export function resolveUserMessagePresentation(message: {
   }
   return {
     text: message.text,
-    // Restart continuations were sent as the agent before they became notices.
     attribution:
       message.createdBy !== "agent"
         ? null

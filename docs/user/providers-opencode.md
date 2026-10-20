@@ -1,5 +1,7 @@
 # OpenCode
 
+This provider is retained for upstream compatibility and is unavailable in the Elysia UI. For supported setup, see [Claude Code through Elysia](./providers-claude.md). The reference below applies only to the dormant provider implementation.
+
 Install and authenticate OpenCode on the machine running your environment, then
 enable it in **Settings > Providers**. See [provider setup](./install.md#providers).
 Elysia requires OpenCode 1.14.19 or newer, including when you connect an existing

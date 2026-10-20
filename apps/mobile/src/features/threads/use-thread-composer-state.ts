@@ -5,11 +5,11 @@ import {
   channelWorkStartedAt,
   delegatedAgentsFromTurnItems,
 } from "@elysiatools/shared/agentMentions";
-import { useDelegatedAgents } from "../features/agents/useDelegatedAgents";
+import { useDelegatedAgents } from "../agents/useDelegatedAgents";
 import { AuthOrchestrationOperateScope } from "@elysiatools/contracts";
-import * as Dialog from "../components/ui/Dialog";
-import { readEnvironmentScope } from "./session";
-import type { ComposerTextPaste } from "../native/T3ComposerEditor.types";
+import * as Dialog from "../../components/ui/Dialog";
+import { readEnvironmentScope } from "../../state/session";
+import type { ComposerTextPaste } from "../../native/T3ComposerEditor.types";
 import { useAtomValue } from "@effect/atom-react";
 import { threadRuntimeIsActive } from "@elysiatools/client-runtime/state/shell";
 import { resolvePendingHandoff } from "@elysiatools/client-runtime/handoff";
@@ -51,18 +51,18 @@ import {
   composerContextSendBlockReason,
   reidentifyComposerContext,
   uploadedComposerContext,
-} from "../lib/composerContext";
-import { prepareTurnAttachments, validateDraftFileAttachments } from "../lib/attachmentUpload";
-import { agentMentionInputError, createAgentMentionHandoff } from "../lib/agentMentionHandoff";
-import { composerAgentMentionItems } from "../features/threads/composerAgentMentions";
-import { uuidv4 } from "../lib/uuid";
+} from "../../lib/composerContext";
+import { prepareTurnAttachments, validateDraftFileAttachments } from "../../lib/attachmentUpload";
+import { agentMentionInputError, createAgentMentionHandoff } from "../../lib/agentMentionHandoff";
+import { composerAgentMentionItems } from "./composerAgentMentions";
+import { uuidv4 } from "../../lib/uuid";
 
-import { makeQueuedMessageMetadata } from "../lib/commandMetadata";
+import { makeQueuedMessageMetadata } from "../../lib/commandMetadata";
 import {
   describeUnavailableModelSelection,
   isModelSelectionUnavailable,
-} from "../lib/modelOptions";
-import { resolveProviderInteractionMode } from "./legacy-plan-mode";
+} from "../../lib/modelOptions";
+import { resolveProviderInteractionMode } from "../../state/legacy-plan-mode";
 import {
   convertPastedImagesToAttachments,
   createPastedTextComposerAttachment,
@@ -70,19 +70,19 @@ import {
   pickComposerFiles,
   pickComposerMedia,
   removePersistedComposerAttachmentFile,
-} from "../lib/composerImages";
-import type { DraftComposerImageAttachment } from "../lib/composerImages";
-import { scopedThreadKey } from "../lib/scopedEntities";
-import { buildThreadFeed, createThreadFeedCache } from "../lib/threadActivity";
-import { acknowledgedThreadMessagesAtom } from "./acknowledged-thread-messages";
-import { appendPendingThreadMessages } from "../features/threads/pending-thread-feed";
-import { threadAllowsProviderSwitch } from "./thread-provider-switching";
-import { appAtomRegistry } from "../state/atom-registry";
-import { pendingThreadCreationMessage } from "./pending-thread-creation";
+} from "../../lib/composerImages";
+import type { DraftComposerImageAttachment } from "../../lib/composerImages";
+import { scopedThreadKey } from "../../lib/scopedEntities";
+import { buildThreadFeed, createThreadFeedCache } from "../../lib/threadActivity";
+import { acknowledgedThreadMessagesAtom } from "../../state/acknowledged-thread-messages";
+import { appendPendingThreadMessages } from "./pending-thread-feed";
+import { threadAllowsProviderSwitch } from "../../state/thread-provider-switching";
+import { appAtomRegistry } from "../../state/atom-registry";
+import { pendingThreadCreationMessage } from "../../state/pending-thread-creation";
 import {
   composerAttachmentUploadBlockReason,
   composerAttachmentUploadsAtom,
-} from "../state/composer-attachment-uploads";
+} from "../../state/composer-attachment-uploads";
 import {
   appendComposerDraftAttachments,
   captureComposerDraftInsertion,
@@ -103,7 +103,7 @@ import {
   updateComposerDraftSettings,
   useComposerDraft,
   useComposerDraftSettings,
-} from "./use-composer-drafts";
+} from "../../state/use-composer-drafts";
 import {
   resolveComposerDispatchMode,
   type ActiveTurnComposerAction,
@@ -111,9 +111,9 @@ import {
 import { Atom } from "effect/reactivity";
 import { AsyncResult } from "effect/reactivity";
 import { settlePromise, squashAtomCommandFailure } from "@elysiatools/client-runtime/state/runtime";
-import { DEFAULT_FOLLOW_UP_BEHAVIOR } from "../lib/followUpBehavior";
-import { mobilePreferencesAtom } from "./preferences";
-import { environmentThreadDetails } from "./threads";
+import { DEFAULT_FOLLOW_UP_BEHAVIOR } from "../../lib/followUpBehavior";
+import { mobilePreferencesAtom } from "../../state/preferences";
+import { environmentThreadDetails } from "../../state/threads";
 import {
   endQueuedRunEdit,
   getQueuedRunEdit,
@@ -121,20 +121,26 @@ import {
   removeQueuedRunEditAttachment,
   resolveQueuedEditPayload,
   useQueuedRunEdit,
-} from "./queued-run-edit";
-import { setPendingConnectionError } from "../state/use-remote-environment-registry";
-import { clearThreadComposerError, setThreadComposerError } from "./thread-composer-error";
+} from "../../state/queued-run-edit";
+import { setPendingConnectionError } from "../../state/use-remote-environment-registry";
+import {
+  clearThreadComposerError,
+  setThreadComposerError,
+} from "../../state/thread-composer-error";
 import {
   useSelectedThreadProjection,
   useSelectedThreadVisibleTurnItems,
-} from "../state/use-thread-detail";
-import { useThreadSelection } from "../state/use-thread-selection";
-import { enqueueThreadOutboxMessage } from "./thread-outbox";
-import { dispatchingQueuedMessageIdAtom, useThreadOutboxMessages } from "./use-thread-outbox";
-import { threadEnvironment } from "./threads";
-import { useProjects, useThreadShells } from "./entities";
-import { projectEnvironment } from "./projects";
-import { useAtomCommand } from "./use-atom-command";
+} from "../../state/use-thread-detail";
+import { useThreadSelection } from "../../state/use-thread-selection";
+import { enqueueThreadOutboxMessage } from "../../state/thread-outbox";
+import {
+  dispatchingQueuedMessageIdAtom,
+  useThreadOutboxMessages,
+} from "../../state/use-thread-outbox";
+import { threadEnvironment } from "../../state/threads";
+import { useProjects, useThreadShells } from "../../state/entities";
+import { projectEnvironment } from "../../state/projects";
+import { useAtomCommand } from "../../state/use-atom-command";
 
 const EMPTY_QUEUE_WORKFLOW_ATOM = Atom.make<null>(null).pipe(
   Atom.withLabel("mobile-thread-queue-workflow:empty"),

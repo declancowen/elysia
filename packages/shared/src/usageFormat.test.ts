@@ -57,7 +57,7 @@ describe("hourly usage formatting", () => {
   it("formats rolling instants in the requested time zone", () => {
     expect(formatHourShort("2026-08-11T00:37:00.000Z", "UTC")).toBe("12 AM");
     expect(formatHourShort("2026-08-11T12:37:00.000Z", "UTC")).toBe("12 PM");
-    expect(formatDateTimeShort("2026-08-11T17:37:00.000Z", "UTC")).toBe("11/08/2026, 17");
+    expect(formatDateTimeShort("2026-08-11T17:37:00.000Z", "UTC")).toBe("11/08/2026, 17:00");
   });
 
   it("disambiguates repeated hours during a fall-back transition", () => {
@@ -72,20 +72,20 @@ describe("hourly usage formatting", () => {
   });
 
   it.each([
-    [true, "2 PM", "12 AM"],
-    [false, "14:00", "00:00"],
-  ])("formats hourly usage labels with hour12=%s", (hour12, afternoon, midnight) => {
+    [true, "2 PM", "12 AM", "11/08/2026, 2 pm"],
+    [false, "14:00", "00:00", "11/08/2026, 14:00"],
+  ])("formats hourly usage labels with hour12=%s", (hour12, afternoon, midnight, dateTime) => {
     const instant = "2026-08-11T14:37:00.000Z";
 
     expect(formatHourShort(instant, "UTC", hour12)).toBe(afternoon);
     expect(formatHourShort("2026-08-11T00:37:00.000Z", "UTC", hour12)).toBe(midnight);
-    expect(formatDateTimeShort(instant, "UTC", hour12)).toBe(`Aug 11, ${afternoon}`);
+    expect(formatDateTimeShort(instant, "UTC", hour12)).toBe(dateTime);
     expect(formatRelativeHourShort(instant, instant, "UTC", hour12)).toBe(`${afternoon} today`);
     expect(formatRelativeHourShort(instant, "2026-08-12T15:37:00.000Z", "UTC", hour12)).toBe(
       `${afternoon} yesterday`,
     );
     expect(formatRelativeHourShort(instant, "2026-08-14T15:37:00.000Z", "UTC", hour12)).toBe(
-      `Aug 11, ${afternoon}`,
+      dateTime,
     );
   });
 

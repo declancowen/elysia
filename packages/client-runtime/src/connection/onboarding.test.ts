@@ -5,6 +5,7 @@ import {
   ORCHESTRATION_PROTOCOL_VERSION,
 } from "@elysiatools/contracts";
 import { describe, expect, it } from "@effect/vitest";
+import { vi } from "vite-plus/test";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
@@ -38,6 +39,12 @@ import {
 import * as EnvironmentRegistry from "./registry.ts";
 import * as ConnectionProfileStore from "./profileStore.ts";
 import * as ConnectionWakeups from "./wakeups.ts";
+
+// Retained upstream pairing fixtures opt in here; Elysia keeps connections disabled.
+vi.mock("@elysiatools/contracts", async (original) => ({
+  ...(await original<typeof import("@elysiatools/contracts")>()),
+  CONNECTIONS_ENABLED: true,
+}));
 
 const layerClientPresentation = Layer.succeed(
   ClientCapabilities.ClientPresentation,

@@ -175,7 +175,7 @@ describe("learned routes", () => {
       reported: [tailscale, mesh],
       allowInsecure: true,
     })!;
-    expect(first.map(connectionRouteLabel)).toEqual(["Tailscale", "VPN", "T3 Connect"]);
+    expect(first.map(connectionRouteLabel)).toEqual(["Tailscale", "VPN", "Elysia Connect"]);
 
     const corrected = mergeLearnedRoutes({
       entry: entryWithRoutes(relayOnly, first),
@@ -184,7 +184,7 @@ describe("learned routes", () => {
       allowInsecure: true,
     })!;
     expect(ids(corrected)).toEqual(ids(first));
-    expect(corrected.map(connectionRouteLabel)).toEqual(["VPN", "VPN", "T3 Connect"]);
+    expect(corrected.map(connectionRouteLabel)).toEqual(["VPN", "VPN", "Elysia Connect"]);
     expect(
       mergeLearnedRoutes({
         entry: entryWithRoutes(relayOnly, corrected),
@@ -207,7 +207,7 @@ describe("learned routes", () => {
       allowInsecure: true,
     })!;
     expect(ids(confirmed)).toEqual(["paired", "other", "relay"]);
-    expect(confirmed.map(connectionRouteLabel)).toEqual(["Tailscale", "VPN", "T3 Connect"]);
+    expect(confirmed.map(connectionRouteLabel)).toEqual(["Tailscale", "VPN", "Elysia Connect"]);
   });
 
   it("leaves user routes alone and does not learn an address already saved", () => {
@@ -296,7 +296,7 @@ describe("learned routes", () => {
       reported: [{ kind: "lan", httpBaseUrl: `${lanOrigin}/` }],
       allowInsecure: true,
     });
-    // The stale route is gone; the address is learned again with T3 Connect's credential.
+    // The stale route is gone; the address is learned again with Elysia Connect's credential.
     expect(ids(routes)).toEqual([`learned:${ENVIRONMENT_ID}:${lanOrigin}`, "public", "relay"]);
     expect(profileOf(routes![0]!)).toMatchObject({ authorization: "t3-connect" });
   });

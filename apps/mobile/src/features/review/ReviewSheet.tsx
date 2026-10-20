@@ -41,7 +41,7 @@ import { useEnvironmentPresentation } from "../../state/presentation";
 import { useAtomCommand } from "../../state/use-atom-command";
 import { useUniwindTheme } from "../../lib/useUniwindTheme";
 import { IOS_NAV_BAR_HEIGHT } from "../../lib/layoutMetrics";
-import { useThreadDraftForThread } from "../../state/use-thread-composer-state";
+import { useThreadDraftForThread } from "../threads/use-thread-composer-state";
 import { EnvironmentConnectionNotice } from "../connection/EnvironmentConnectionNotice";
 import { useAppearancePreferences } from "../settings/appearance/AppearancePreferencesProvider";
 import {

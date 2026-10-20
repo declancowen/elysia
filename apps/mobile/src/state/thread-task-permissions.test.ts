@@ -21,6 +21,12 @@ import type { PendingThreadRequests } from "@elysiatools/client-runtime/state/th
 import { AsyncResult, type Atom } from "effect/reactivity";
 import { beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
+// The handoff case exercises a retained provider; production provider policy remains unchanged.
+vi.mock("@elysiatools/contracts", async (original) => ({
+  ...(await original<typeof import("@elysiatools/contracts")>()),
+  isEnabledProviderDriver: () => true,
+}));
+
 const state = vi.hoisted(() => ({
   grantedEnvironments: new Set<string>(),
   connectionState: "connected",
@@ -83,7 +89,12 @@ vi.mock("@effect/atom-react", async () => {
   const { appAtomRegistry } = await import("./atom-registry");
   return { useAtomValue: <A>(atom: Atom.Atom<A>) => appAtomRegistry.get(atom) };
 });
-vi.mock("./entities", () => ({ useServerConfigs: () => new Map() }));
+vi.mock("./entities", () => ({
+  useProjects: () => [],
+  useThreadShells: () => [],
+  useServerConfigs: () => new Map(),
+}));
+vi.mock("./projects", () => ({ projectEnvironment: { delegateAgent: vi.fn() } }));
 vi.mock("./session", () => ({
   readEnvironmentScope: (environmentId: string, scope: string) =>
     scope === AuthOrchestrationOperateScope && state.grantedEnvironments.has(environmentId),
@@ -109,6 +120,7 @@ vi.mock("./threads", async () => {
   const { Atom } = await import("effect/reactivity");
   return {
     environmentThreadDetails: { queueWorkflowAtom: () => Atom.make(null) },
+    environmentThreadShells: { threadShellsForProjectRefsAtom: () => Atom.make([]) },
     threadEnvironment: {
       respondToApproval: state.approve,
       respondToUserInput: state.answer,
@@ -168,7 +180,7 @@ vi.mock("../lib/commandMetadata", () => ({
 vi.mock("../lib/copyTextWithHaptic", () => ({ copyTextWithHaptic: vi.fn() }));
 vi.mock("./use-remote-environment-registry", () => ({ setPendingConnectionError: vi.fn() }));
 
-import { useThreadComposerState } from "./use-thread-composer-state";
+import { useThreadComposerState } from "../features/threads/use-thread-composer-state";
 import { useSelectedThreadRequests } from "./use-selected-thread-requests";
 
 beforeEach(() => {

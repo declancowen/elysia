@@ -149,7 +149,6 @@ export function isModelSelectionUnavailable(
     driver === "antigravity" &&
     (!provider ||
       !isEnabledProviderDriver(provider.driver) ||
-      !provider.enabled ||
       !provider.installed ||
       provider.auth.status === "unauthenticated" ||
       provider.availability === "unavailable" ||

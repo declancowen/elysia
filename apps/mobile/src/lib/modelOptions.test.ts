@@ -45,6 +45,36 @@ describe("mobile model options", () => {
     } as unknown as ServerConfig;
     expect(buildModelOptions(config, null, undefined, null)).toEqual([]);
   });
+  it("allows a project override to enable an installed retained provider", () => {
+    const instanceId = ProviderInstanceId.make("antigravity_work");
+    const projectId = ProjectId.make("project");
+    const selection = { instanceId, model: "gemini" };
+    const config = {
+      providers: [
+        {
+          instanceId,
+          driver: "antigravity",
+          enabled: false,
+          installed: true,
+          auth: { status: "authenticated" },
+          availability: "available",
+          models: [{ slug: selection.model }],
+        },
+      ],
+      settings: {
+        ...DEFAULT_SERVER_SETTINGS,
+        providerInstances: {
+          [instanceId]: { driver: ProviderDriverKind.make("antigravity"), enabled: false },
+        },
+        projectSettingsOverrides: {
+          [projectId]: { providerInstances: { [instanceId]: { enabled: true } } },
+        },
+      },
+    } as unknown as ServerConfig;
+
+    expect(isModelSelectionUnavailable(config, selection, projectId)).toBe(false);
+  });
+
   it("groups models by provider and flags legacy entries", () => {
     const config = {
       providers: [

@@ -72,7 +72,7 @@ import { useSelectedThreadGitActions } from "../../state/use-selected-thread-git
 import { useSelectedThreadGitState } from "../../state/use-selected-thread-git-state";
 import { useSelectedThreadRequests } from "../../state/use-selected-thread-requests";
 import { useSelectedThreadWorktree } from "../../state/use-selected-thread-worktree";
-import { useThreadComposerState } from "../../state/use-thread-composer-state";
+import { useThreadComposerState } from "./use-thread-composer-state";
 import { resolveMergeBackTargetThreadId } from "@elysiatools/client-runtime/state/thread-relationships";
 import { resolveLatestMergeBackRun } from "@elysiatools/client-runtime/state/thread-workflows";
 import { threadEnvironment } from "../../state/threads";

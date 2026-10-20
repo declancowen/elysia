@@ -2091,7 +2091,7 @@ describe("PiAdapterV2", () => {
             result: {
               content,
               structuredContent: scriptResult,
-              details: { server: "elysia-code", tool: "preview_snapshot" },
+              details: { server: "elysia", tool: "preview_snapshot" },
             },
             expected: { content, structuredContent: { threadId: "child-thread" } },
           },
@@ -2118,7 +2118,7 @@ describe("PiAdapterV2", () => {
                   { type: "text", text: "second" },
                 ],
               },
-              details: { server: "elysia-code", tool: "preview_snapshot" },
+              details: { server: "elysia", tool: "preview_snapshot" },
             },
             expected: {
               content: [

@@ -203,6 +203,35 @@ it("allows entry and marks the company connection active only after verified aut
   expect(onContinue).toHaveBeenCalledOnce();
 });
 
+it.each(["throw", "reject"] as const)(
+  "clears pending and preserves the safe setup error when a command fails by %s",
+  async (failure) => {
+    const diagnostic = new Error("Private transport diagnostic");
+    if (failure === "throw")
+      setup.start.mockImplementationOnce(() => {
+        throw diagnostic;
+      });
+    else setup.start.mockRejectedValueOnce(diagnostic);
+    await render();
+    await act(async () => button("Continue")!.click());
+    expect(button("Continue")?.disabled).toBe(false);
+    expect(container.querySelector('[role="alert"]')?.textContent).toBe(
+      "Elysia could not complete the request. Check the setup status and retry.",
+    );
+    expect(setup.toast).toHaveBeenCalledWith({
+      type: "error",
+      title: "Could not connect Elysia",
+      description: "Check the setup status and retry.",
+    });
+    expect(container.textContent).not.toContain(diagnostic.message);
+    expect(onContinue).not.toHaveBeenCalled();
+    await act(async () => button("Continue")!.click());
+    expect(setup.start).toHaveBeenCalledTimes(2);
+    expect(container.querySelector('[role="alert"]')).toBeNull();
+    expect(button("Continue")?.disabled).toBe(false);
+  },
+);
+
 it("submits credentials from the single footer button, then gates entry on verification", async () => {
   setup.auth = authState({
     phase: "waiting",

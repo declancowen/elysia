@@ -9,7 +9,6 @@ const mocks = vi.hoisted(() => ({
   complete: vi.fn(),
   refresh: vi.fn(),
   toast: vi.fn(),
-  connectionsEnabled: true,
   providers: [] as Array<{
     driver: string;
     instanceId: string;
@@ -21,9 +20,8 @@ const mocks = vi.hoisted(() => ({
 }));
 vi.mock("@elysiatools/contracts", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@elysiatools/contracts")>()),
-  get CONNECTIONS_ENABLED() {
-    return mocks.connectionsEnabled;
-  },
+  // Exercise the retained upstream import flow separately from the native policy suite.
+  CONNECTIONS_ENABLED: true,
 }));
 
 vi.mock("../../state/session", () => ({
@@ -63,11 +61,12 @@ vi.mock("../../state/server", () => ({
   primaryServerProvidersAtom: "primary-providers",
   serverEnvironment: {
     providersValueAtom: () => [],
-    configValueAtom: () => (mocks.connectionsEnabled ? null : {}),
+    configValueAtom: () => null,
     refreshProviders: "refresh",
   },
 }));
-vi.mock("@effect/atom-react", () => ({
+vi.mock("@effect/atom-react", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@effect/atom-react")>()),
   useAtomValue: (value: unknown) => (value === "primary-providers" ? mocks.providers : value),
 }));
 vi.mock("../settings/ElysiaSetupSection", () => ({
@@ -124,7 +123,6 @@ let container: HTMLDivElement;
 
 beforeEach(() => {
   vi.clearAllMocks();
-  mocks.connectionsEnabled = true;
   mocks.providers = [];
   vi.stubGlobal(
     "ResizeObserver",
@@ -162,34 +160,6 @@ async function click(label: string) {
   expect(button, `button ${label}`).toBeDefined();
   await act(async () => button!.click());
 }
-
-it("finishes Elysia authentication without opening project import", async () => {
-  mocks.connectionsEnabled = false;
-  mocks.providers = [
-    {
-      driver: "claudeAgent",
-      instanceId: "claudeAgent",
-      enabled: true,
-      status: "ready",
-      auth: { status: "authenticated" },
-    },
-  ];
-  const onDone = vi.fn();
-  await act(async () => root.render(<WelcomeWizard localAvailable onDone={onDone} />));
-  expect(document.body.textContent).not.toContain("Projects");
-  await click("Continue");
-  expect(onDone).toHaveBeenCalledOnce();
-  expect(mocks.importThreads).not.toHaveBeenCalled();
-});
-
-it("keeps Elysia setup open until company authentication is verified", async () => {
-  mocks.connectionsEnabled = false;
-  const onDone = vi.fn();
-  await act(async () => root.render(<WelcomeWizard localAvailable onDone={onDone} />));
-  await click("Continue");
-  expect(onDone).not.toHaveBeenCalled();
-  expect(mocks.complete).not.toHaveBeenCalled();
-});
 
 it("enters the workspace after a partial import and warns after navigation finishes", async () => {
   let finishNavigation = () => {};

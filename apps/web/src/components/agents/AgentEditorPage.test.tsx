@@ -440,6 +440,21 @@ it("keeps the editor and field values available after a native save failure", as
   expect(router.state.location.pathname).toBe("/local/durable-agent-chat");
 });
 
+it.each([
+  [new Error("Native update rejected"), "Native update rejected"],
+  ["untyped rejection", "Could not save this agent. Try again."],
+])("keeps the agent editor retryable after a rejected save (%s)", async (cause, message) => {
+  state.update.mockRejectedValueOnce(cause);
+  await render();
+  await act(async () => openAgentDialog(scopeProjectRef(environmentId, projectId)));
+  await submit();
+  expect(host.querySelector('[role="alert"]')!.textContent).toBe(message);
+  expect(button("Save agent").disabled).toBe(false);
+  expect(router.state.location.pathname).toBe("/agents");
+  await submit();
+  expect(router.state.location.pathname).toBe("/local/durable-agent-chat");
+});
+
 it("preserves a newer editor when a previous create response arrives after navigation", async () => {
   let complete!: (result: AtomCommandResult<AgentCreateResult, Error>) => void;
   state.create.mockImplementation(

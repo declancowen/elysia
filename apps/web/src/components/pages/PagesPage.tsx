@@ -187,12 +187,11 @@ export function PagesPage({ folderId = null }: { folderId?: PageId | null }) {
           !currentFolder?.projectId)),
   );
   const breadcrumbs: PageSummary[] = [];
-  for (
-    let folder = currentFolder;
-    folder && !breadcrumbs.some((entry) => entry.id === folder!.id);
-    folder = folders.find((entry) => entry.id === folder?.parentFolderId)
-  )
+  let folder = currentFolder;
+  while (folder && !breadcrumbs.some((entry) => entry.id === folder?.id)) {
     breadcrumbs.unshift(folder);
+    folder = folders.find((entry) => entry.id === folder?.parentFolderId);
+  }
   const shownPages = allPages.filter(
     (page) => search.trim() || (page.parentFolderId ?? null) === currentFolderId,
   );

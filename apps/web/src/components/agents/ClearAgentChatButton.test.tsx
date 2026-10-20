@@ -58,6 +58,7 @@ it("cancel keeps the conversation and memory intact", async () => {
   expect(state.reset).not.toHaveBeenCalled();
   expect(state.navigate).not.toHaveBeenCalled();
   expect(state.clearDraft).not.toHaveBeenCalled();
+  expect(host.querySelector("button")?.disabled).toBe(false);
 });
 it("confirmed reset replaces the tab and clears the old composer before opening a fresh chat", async () => {
   await click();
@@ -95,6 +96,22 @@ it("failed reset stays on the chat and retries the same request safely", async (
   const request = state.reset.mock.calls[0]?.[0];
   await act(async () => host.querySelector("button")!.click());
   expect(state.reset.mock.calls[1]?.[0]).toEqual(request);
+});
+
+it("clears pending after a rejected confirmation without changing the conversation", async () => {
+  state.confirm.mockRejectedValueOnce(new Error("Dialog unavailable"));
+  await click();
+  expect(state.reset).not.toHaveBeenCalled();
+  expect(state.navigate).not.toHaveBeenCalled();
+  expect(state.clearDraft).not.toHaveBeenCalled();
+  expect(host.querySelector("button")?.disabled).toBe(false);
+  expect(state.toast).toHaveBeenCalledWith({
+    type: "error",
+    title: "Could not reset agent",
+    description: "Dialog unavailable",
+  });
+  await act(async () => host.querySelector("button")!.click());
+  expect(state.reset).toHaveBeenCalledOnce();
 });
 
 it("clearing a response side panel keeps the source thread open", async () => {

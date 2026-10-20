@@ -201,3 +201,43 @@ it.each(["page", "task"] as const)(
     }
   },
 );
+
+it.each([
+  [new Error("Scratch workspace unavailable"), "Scratch workspace unavailable"],
+  ["untyped rejection", "Could not open chat."],
+])("releases a failed side-chat start and allows a retry (%s)", async (cause, message) => {
+  const host = document.body.appendChild(document.createElement("div"));
+  const root = createRoot(host);
+  function Harness() {
+    return useWorkspaceSideChat({
+      environmentId: EnvironmentId.make("local"),
+      target: { kind: "task", id: WorkTaskId.make("TASK-1") },
+      title: "Document",
+      projectId: null,
+      onOpen: () => {},
+    }).panel;
+  }
+  state.scratch.mockRejectedValueOnce(cause);
+  try {
+    await act(async () => root.render(<Harness />));
+    await act(async () =>
+      host.querySelector<HTMLButtonElement>('button[aria-label="Open side chat"]')!.click(),
+    );
+    expect(host.querySelector('[role="alert"]')?.textContent).toContain(message);
+    expect(
+      host.querySelector<HTMLButtonElement>('button[aria-label="Open side chat"]')!.disabled,
+    ).toBe(false);
+    expect(Object.values(useComposerDraftStore.getState().draftThreadsByThreadKey)).toHaveLength(0);
+    expect(state.link).not.toHaveBeenCalled();
+    const retry = [...host.querySelectorAll("button")].find(
+      (button) => button.textContent === "Retry",
+    )!;
+    await act(async () => retry.click());
+    expect(host.querySelector('[role="alert"]')).toBeNull();
+    expect(Object.values(useComposerDraftStore.getState().draftThreadsByThreadKey)).toHaveLength(1);
+    expect(state.scratch).toHaveBeenCalledTimes(2);
+  } finally {
+    await act(async () => root.unmount());
+    host.remove();
+  }
+});

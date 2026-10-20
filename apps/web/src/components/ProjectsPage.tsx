@@ -6,6 +6,7 @@ import {
 } from "@elysiatools/client-runtime/environment";
 import {
   isAtomCommandInterrupted,
+  settlePromise,
   squashAtomCommandFailure,
 } from "@elysiatools/client-runtime/state/runtime";
 import { Link } from "@tanstack/react-router";
@@ -110,17 +111,19 @@ export function ProjectsPage() {
   const togglePin = async (thread: ThreadShell) => {
     const ref = scopeThreadRef(thread.environmentId, thread.id);
     setPendingPin(scopedThreadKey(ref));
-    try {
+    await settlePromise(async () => {
       const result = await (thread.pinnedAt == null ? pinThread(ref) : unpinThread(ref));
       if (result._tag === "Failure" && !isAtomCommandInterrupted(result)) {
         reportProjectActionFailure("Could not update chat pin", squashAtomCommandFailure(result));
       }
-    } catch (error) {
-      reportProjectActionFailure("Could not update chat pin", error);
-    } finally {
-      setPendingPin(null);
-    }
+    })
+      .then((result) => {
+        if (result._tag === "Failure")
+          reportProjectActionFailure("Could not update chat pin", squashAtomCommandFailure(result));
+      })
+      .finally(() => setPendingPin(null));
   };
+
   const projectContextMenu = async (
     project: SidebarProjectSnapshot,
     position: { x: number; y: number },

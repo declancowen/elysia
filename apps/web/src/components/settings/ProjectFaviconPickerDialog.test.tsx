@@ -20,11 +20,13 @@ vi.mock("react/compiler-runtime", async () => {
   return { c: reactHookHarness.useMemoCache };
 });
 
-vi.mock("@effect/atom-react", () => ({
+vi.mock("@effect/atom-react", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@effect/atom-react")>()),
   useAtomValue: () => ({}),
 }));
 
-vi.mock("~/state/server", () => ({
+vi.mock("~/state/server", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("~/state/server")>()),
   primaryServerKeybindingsAtom: Symbol("keybindings"),
 }));
 

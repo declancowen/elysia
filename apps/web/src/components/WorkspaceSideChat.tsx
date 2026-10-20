@@ -11,7 +11,7 @@ import {
   type WorkspaceChatTarget,
 } from "@elysiatools/contracts";
 import { scopeProjectRef, scopeThreadRef } from "@elysiatools/client-runtime/environment";
-import { squashAtomCommandFailure } from "@elysiatools/client-runtime/state/runtime";
+import { settlePromise, squashAtomCommandFailure } from "@elysiatools/client-runtime/state/runtime";
 import { resolveProjectSettings } from "@elysiatools/shared/projectSettings";
 import { formatComposerContextReference } from "@elysiatools/shared/composerContextReferences";
 import { usePanelAnimationSettings, usePanelPresence } from "../panelAnimations";
@@ -144,7 +144,7 @@ export function useWorkspaceSideChat({
     const key = targetKey;
     setBusy(true);
     setError(null);
-    try {
+    await settlePromise(async () => {
       let destination = projects.find(
         (project) => project.environmentId === environmentId && project.id === projectId,
       );
@@ -190,13 +190,16 @@ export function useWorkspaceSideChat({
       );
       setDraft({ id, draftId });
       show(id);
-    } catch (cause) {
-      if (currentTargetKey.current === key)
-        setError(cause instanceof Error ? cause.message : "Could not open chat.");
-    } finally {
-      setBusy(false);
-    }
+    })
+      .then((result) => {
+        if (result._tag === "Failure" && currentTargetKey.current === key) {
+          const cause = squashAtomCommandFailure(result);
+          setError(cause instanceof Error ? cause.message : "Could not open chat.");
+        }
+      })
+      .finally(() => setBusy(false));
   };
+
   const controls = (
     <>
       <Menu>

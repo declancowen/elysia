@@ -1,5 +1,5 @@
 import type { EnvironmentId } from "@elysiatools/contracts";
-import { squashAtomCommandFailure } from "@elysiatools/client-runtime/state/runtime";
+import { settlePromise, squashAtomCommandFailure } from "@elysiatools/client-runtime/state/runtime";
 import { RotateCcwIcon, ChannelIcon } from "~/icons";
 import { useRef, useState } from "react";
 import { useEnvironments } from "../../state/environments";
@@ -68,18 +68,25 @@ function ArchivedAgentRow({ project, connected }: { project: Project; connected:
     pendingRef.current = true;
     setPending(true);
     setError(null);
-    try {
+    await settlePromise(async () => {
       const result = await updateProject({
         environmentId: project.environmentId,
         input: { projectId: project.id, agentProfile: { ...profile, archived: false } },
       });
       if (result._tag === "Failure") throw squashAtomCommandFailure(result);
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "Could not restore this agent. Try again.");
-    } finally {
-      pendingRef.current = false;
-      setPending(false);
-    }
+    })
+      .then((result) => {
+        if (result._tag === "Failure") {
+          const cause = squashAtomCommandFailure(result);
+          setError(
+            cause instanceof Error ? cause.message : "Could not restore this agent. Try again.",
+          );
+        }
+      })
+      .finally(() => {
+        pendingRef.current = false;
+        setPending(false);
+      });
   }
   return (
     <SettingsRow

@@ -1,5 +1,5 @@
 import { scopeThreadRef } from "@elysiatools/client-runtime/environment";
-import { squashAtomCommandFailure } from "@elysiatools/client-runtime/state/runtime";
+import { settlePromise, squashAtomCommandFailure } from "@elysiatools/client-runtime/state/runtime";
 import { useNavigate } from "@tanstack/react-router";
 import { SINGLE_PROVIDER_UI } from "@elysiatools/contracts";
 import { useRef, useState } from "react";
@@ -22,20 +22,21 @@ export function useAgentActions({ project, thread, busy }: AgentRosterEntry) {
     if (pendingRef.current) return false;
     pendingRef.current = true;
     setPending(true);
-    try {
-      await action();
-      return true;
-    } catch (cause) {
-      toastManager.add({
-        type: "error",
-        title,
-        description: cause instanceof Error ? cause.message : "Try again.",
+    return settlePromise(action)
+      .then((result) => {
+        if (result._tag === "Success") return true;
+        const cause = squashAtomCommandFailure(result);
+        toastManager.add({
+          type: "error",
+          title,
+          description: cause instanceof Error ? cause.message : "Try again.",
+        });
+        return false;
+      })
+      .finally(() => {
+        pendingRef.current = false;
+        setPending(false);
       });
-      return false;
-    } finally {
-      pendingRef.current = false;
-      setPending(false);
-    }
   }
 
   function openConversation({ newTab = false }: { newTab?: boolean } = {}) {

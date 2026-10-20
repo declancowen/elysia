@@ -5,7 +5,7 @@ import {
   type ScopedProjectRef,
 } from "@elysiatools/contracts";
 import { scopeThreadRef } from "@elysiatools/client-runtime/environment";
-import { squashAtomCommandFailure } from "@elysiatools/client-runtime/state/runtime";
+import { settlePromise, squashAtomCommandFailure } from "@elysiatools/client-runtime/state/runtime";
 import { createModelSelection } from "@elysiatools/shared/model";
 import { resolveProjectSettings } from "@elysiatools/shared/projectSettings";
 import { useLocation, useNavigate, useRouter } from "@tanstack/react-router";
@@ -184,7 +184,7 @@ export function AgentEditorPage({ projectRef }: { projectRef: ScopedProjectRef |
 }
 
 function AgentEditor({ project }: { project: Project | null }) {
-  const draft = project ? null : useAgentDialogStore.getState().creationDraft;
+  const [draft] = useState(() => (project ? null : useAgentDialogStore.getState().creationDraft));
   const primaryEnvironmentId = usePrimaryEnvironmentId();
   const environmentId = project?.environmentId ?? primaryEnvironmentId;
   const { environments } = useEnvironments();
@@ -301,6 +301,29 @@ function AgentEditor({ project }: { project: Project | null }) {
       useAgentDialogStore.getState() === intent;
   }
 
+  const openConversation = async (ownsResult = ownEditorResult()) => {
+    if (!ownsResult()) return;
+    const conversation = project ? getAgentConversation(project, threads) : null;
+    if (conversation) {
+      if (conversation.archivedAt !== null) {
+        const result = await unarchiveThread({
+          environmentId: conversation.environmentId,
+          input: { threadId: conversation.id },
+        });
+        if (result._tag === "Failure") throw squashAtomCommandFailure(result);
+      }
+      if (!ownsResult()) return;
+      closeAgentDialog();
+      await navigate({
+        to: "/$environmentId/$threadId",
+        params: buildThreadRouteParams(scopeThreadRef(conversation.environmentId, conversation.id)),
+      });
+    } else {
+      closeAgentDialog();
+      await navigate({ to: "/" });
+    }
+  };
+
   async function save() {
     if (
       !environmentId ||
@@ -324,7 +347,7 @@ function AgentEditor({ project }: { project: Project | null }) {
       notificationsEnabled,
       archived: project?.agentProfile?.archived ?? false,
     };
-    try {
+    await settlePromise(async () => {
       if (!project) {
         const result = await createAgent({
           environmentId,
@@ -382,35 +405,18 @@ function AgentEditor({ project }: { project: Project | null }) {
         });
         await openConversation(ownsResult);
       }
-    } catch (cause) {
-      if (ownsResult())
-        setError(cause instanceof Error ? cause.message : "Could not save this agent. Try again.");
-    } finally {
-      if (mounted.current) setPending(false);
-    }
-  }
-
-  async function openConversation(ownsResult = ownEditorResult()) {
-    if (!ownsResult()) return;
-    const conversation = project ? getAgentConversation(project, threads) : null;
-    if (conversation) {
-      if (conversation.archivedAt !== null) {
-        const result = await unarchiveThread({
-          environmentId: conversation.environmentId,
-          input: { threadId: conversation.id },
-        });
-        if (result._tag === "Failure") throw squashAtomCommandFailure(result);
-      }
-      if (!ownsResult()) return;
-      closeAgentDialog();
-      await navigate({
-        to: "/$environmentId/$threadId",
-        params: buildThreadRouteParams(scopeThreadRef(conversation.environmentId, conversation.id)),
+    })
+      .then((result) => {
+        if (result._tag === "Failure" && ownsResult()) {
+          const cause = squashAtomCommandFailure(result);
+          setError(
+            cause instanceof Error ? cause.message : "Could not save this agent. Try again.",
+          );
+        }
+      })
+      .finally(() => {
+        if (mounted.current) setPending(false);
       });
-    } else {
-      closeAgentDialog();
-      await navigate({ to: "/" });
-    }
   }
 
   function cancel() {

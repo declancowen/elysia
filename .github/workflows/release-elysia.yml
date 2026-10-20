@@ -240,6 +240,7 @@ jobs:
             src/components/settings/ScheduledTaskPrompt.browser.test.tsx \
             src/components/settings/ProviderSettingsPanel.environment.browser.test.tsx \
             src/components/settings/ProviderSettingsPanel.policy.browser.test.tsx \
+            src/components/onboarding/WelcomeWizard.elysia.browser.test.tsx \
             src/components/ThreadNotificationCoordinator.browser.test.tsx \
             src/components/ThreadNotificationCoordinator.badge.browser.test.tsx
 

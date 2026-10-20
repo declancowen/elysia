@@ -11,6 +11,7 @@ import { ArrowRightIcon, CheckIcon } from "~/icons";
 import { toastManager } from "../ui/toast";
 import {
   isAtomCommandInterrupted,
+  settlePromise,
   squashAtomCommandFailure,
   type AtomCommandResult,
 } from "@elysiatools/client-runtime/state/runtime";
@@ -93,7 +94,7 @@ export function ElysiaSetupSection({
   async function run(command: () => Promise<AtomCommandResult<unknown, unknown>>) {
     setPending(true);
     setError(null);
-    try {
+    await settlePromise(async () => {
       const result = await command();
       if (result._tag === "Failure" && !isAtomCommandInterrupted(result)) {
         const cause = squashAtomCommandFailure(result);
@@ -108,16 +109,20 @@ export function ElysiaSetupSection({
           description: message,
         });
       }
-    } catch {
-      setError("Elysia could not complete the request. Check the setup status and retry.");
-      toastManager.add({
-        type: "error",
-        title: "Could not connect Elysia",
-        description: "Check the setup status and retry.",
+    })
+      .then((result) => {
+        if (result._tag === "Failure") {
+          setError("Elysia could not complete the request. Check the setup status and retry.");
+          toastManager.add({
+            type: "error",
+            title: "Could not connect Elysia",
+            description: "Check the setup status and retry.",
+          });
+        }
+      })
+      .finally(() => {
+        setPending(false);
       });
-    } finally {
-      setPending(false);
-    }
   }
   return (
     <div className={onContinue ? "space-y-3 p-1" : "space-y-4 px-3 py-3 sm:px-4"}>

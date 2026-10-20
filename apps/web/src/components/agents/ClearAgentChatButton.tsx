@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { CommandId, ThreadId, type ProjectId, type ScopedThreadRef } from "@elysiatools/contracts";
+import { settlePromise, squashAtomCommandFailure } from "@elysiatools/client-runtime/state/runtime";
 import { useAtomCommand } from "~/state/use-atom-command";
 import { readLocalApi } from "~/localApi";
 import { randomUUID } from "~/lib/utils";
@@ -40,7 +41,7 @@ export function ClearAgentChatButton({
     const api = readLocalApi();
     if (!api || pending) return;
     setPending(true);
-    try {
+    await settlePromise(async () => {
       const confirmed = await api.dialogs.confirm(
         `Reset ${target.channel ? "channel" : "agent"} ${target.name}?\n\nThis removes the ${target.channel ? "channel" : "agent"}'s conversation and saved memory and starts it over. This cannot be undone.${target.channel ? " Member agents keep their separate chats and memories." : ""}`,
         { variant: "destructive" },
@@ -73,15 +74,20 @@ export function ClearAgentChatButton({
           to: "/$environmentId/$threadId",
           params: buildThreadRouteParams(nextRef),
         });
-    } catch (error) {
-      toastManager.add({
-        type: "error",
-        title: `Could not reset ${target.channel ? "channel" : "agent"}`,
-        description: error instanceof Error ? error.message : "Try again.",
+    })
+      .then((result) => {
+        if (result._tag === "Failure") {
+          const error = squashAtomCommandFailure(result);
+          toastManager.add({
+            type: "error",
+            title: `Could not reset ${target.channel ? "channel" : "agent"}`,
+            description: error instanceof Error ? error.message : "Try again.",
+          });
+        }
+      })
+      .finally(() => {
+        setPending(false);
       });
-    } finally {
-      setPending(false);
-    }
   };
   const label = target.channel ? "Reset channel" : "Reset agent";
   const button = (

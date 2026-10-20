@@ -469,8 +469,25 @@ export function deriveAgentPanelModel({
   };
 }
 
-// Workflow scripts open with their `meta` export, after any leading comments.
-const WORKFLOW_SCRIPT_START = /^\s*(?:(?:\/\/[^\n]*|\/\*[\s\S]*?\*\/)\s*)*export\s+const\s+meta\b/;
+// Consume each leading comment once; a repeated comment regex backtracks on ordinary prose.
+function startsWithWorkflowScript(text: string): boolean {
+  let offset = 0;
+  while (offset < text.length) {
+    while (offset < text.length && /\s/u.test(text[offset]!)) offset++;
+    if (text.startsWith("//", offset)) {
+      const end = text.indexOf("\n", offset + 2);
+      if (end === -1) return false;
+      offset = end + 1;
+    } else if (text.startsWith("/*", offset)) {
+      const end = text.indexOf("*/", offset + 2);
+      if (end === -1) return false;
+      offset = end + 2;
+    } else {
+      return /^export\s+const\s+meta\b/.test(text.slice(offset));
+    }
+  }
+  return false;
+}
 
 /**
  * Whether a user message is the script a provider-native workflow runs. Servers mark every
@@ -482,7 +499,7 @@ export function isWorkflowScriptMessage(message: {
   readonly workflowScript?: boolean | undefined;
 }): boolean {
   return (
-    message.role === "user" && (message.workflowScript ?? WORKFLOW_SCRIPT_START.test(message.text))
+    message.role === "user" && (message.workflowScript ?? startsWithWorkflowScript(message.text))
   );
 }
 

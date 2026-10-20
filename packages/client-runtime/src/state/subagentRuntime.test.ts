@@ -302,6 +302,35 @@ describe("resolveWorkflowOpening", () => {
     expect(opening).toMatchObject({ script: SCRIPT, name: null, group: null });
   });
 
+  it.each([
+    "export const meta = {};",
+    "\uFEFF\t\n/* leading\ncomment */ // next\nexport\nconst\tmeta = {};",
+    "/* first *//* second */export const meta;",
+  ])("recognizes the legacy workflow opening %j", (text) => {
+    expect(isWorkflowScriptMessage(brief(text))).toBe(true);
+  });
+
+  it.each([
+    "// export const meta = {};",
+    "/* unclosed export const meta = {};",
+    "/* closed */ prose */ export const meta = {};",
+    "export const metadata = {};",
+    "export let meta = {};",
+  ])("leaves malformed or non-workflow openings as ordinary text: %j", (text) => {
+    expect(isWorkflowScriptMessage(brief(text))).toBe(false);
+  });
+
+  it.each(["// leading \n", "/* leading */ \n"])(
+    "handles long comment prefixes without changing workflow classification: %j",
+    (comment) => {
+      const prefix = comment.repeat(4_096);
+      expect(isWorkflowScriptMessage(brief(`${prefix}export const meta = {};`))).toBe(true);
+      expect(isWorkflowScriptMessage(brief(`${prefix}Explain this code.`))).toBe(false);
+      expect(isWorkflowScriptMessage(brief(`${prefix}Explain this code.`, true))).toBe(true);
+      expect(isWorkflowScriptMessage(brief(`${prefix}export const meta = {};`, false))).toBe(false);
+    },
+  );
+
   it("recognizes an unmarked first message from the parent's workflow row", () => {
     const opening = resolveWorkflowOpening({
       thread: childThread,

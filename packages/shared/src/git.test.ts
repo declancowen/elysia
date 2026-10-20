@@ -8,6 +8,7 @@ import {
   buildTemporaryWorktreeBranchName,
   flattenTemporaryWorktreeBranchName,
   isTemporaryWorktreeBranch,
+  isBareGitConfig,
   normalizeGitRemoteUrl,
   parseGitHubRepositoryNameWithOwnerFromRemoteUrl,
   parseOriginUrlFromGitConfig,
@@ -92,6 +93,32 @@ describe("normalizeGitRemoteUrl", () => {
     expect(normalizeGitRemoteUrl("git@ssh.dev.azure.com:v3/T3Tools/T3Code")).toBe(
       "ssh.dev.azure.com/v3/t3tools/t3code",
     );
+  });
+});
+
+describe("isBareGitConfig", () => {
+  it.each([
+    ["[core]\nbare = true", true],
+    ["[  CoRe\t] bare = YES # enabled", true],
+    ["[core]\nbare", true],
+    ["[core]\nbare ; enabled", true],
+    ['[core]\nbare = "on"', true],
+    ["[core]\nbare = 1", true],
+    ["[core]\nbare = true\nbare = false", false],
+    ['[core "subsection"]\nbare = true', false],
+    ["[core]\nbare = false\n[other]\nbare = true", false],
+    ["[core]\nbare = true\n[other]\nbare = false", true],
+    ["[core]\nbare = truthy", false],
+    ["[core] bare = true\rignored", false],
+    ["", false],
+  ])("reads bare repository settings from %j", (config, expected) => {
+    expect(isBareGitConfig(config)).toBe(expected);
+  });
+
+  it("rejects a long unclosed section and still reads a later valid core section", () => {
+    const malformed = `[${" ".repeat(32_768)}X`;
+    expect(isBareGitConfig(malformed)).toBe(false);
+    expect(isBareGitConfig(`${malformed}\n[core] bare = true`)).toBe(true);
   });
 });
 

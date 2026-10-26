@@ -160,6 +160,18 @@ For authorized mobile verification, a missing or outdated native client is an in
 - One request is one PR. Split it only when the maintainer asks. Outside contributions follow the stricter [one problem per PR](CONTRIBUTING.md#one-problem) rule.
 - When babysitting: call `watch_pull_request` and end your turn. Elysia wakes you on checks, comments, or conflicts. Do not poll or sleep. Verify each bot finding against the source, fix real ones, dismiss false positives with a written reason. Stay quiet when nothing is new. Stop when the bots are green on the latest commit.
 
+## Releases
+
+When a release is authorized, complete the required reviews and checks, commit the reviewed changes, and push them to `main` in `declancowen/elysia`. Use `gh` for release operations.
+
+Check the published releases for the next stable version, then dispatch GitHub Actions from `main`:
+
+```sh
+gh workflow run release-elysia.yml --repo declancowen/elysia --ref main -f version=X.Y.Z -f publish=true
+```
+
+The workflow builds, signs and publishes the installers and stable update feed. Follow its run and verify the published assets before reporting that the release is published. Report dispatch or build failures explicitly; a pushed commit or started workflow does not establish publication. See the [release procedure](docs/operations/release.md).
+
 ## Documentation
 
 Most code changes do not need an internal documentation change. Agents can read the code.

@@ -221,7 +221,7 @@ minimumReleaseAgeExclude:
 
 overrides:
   # Security fixes for transitive pins; retain CommonJS for xcode and dbus-next.
-  "@modelcontextprotocol/sdk": 1.31.0
+  "@modelcontextprotocol/sdk": 1.32.0
   "seroval": 1.6.3
   "proxy-addr": 2.0.8
   "shell-quote": 1.11.0

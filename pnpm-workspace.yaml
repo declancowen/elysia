@@ -71,8 +71,8 @@ catalog:
   tldts: 7.4.2
   typescript: 7.0.2
   undici: 8.11.2
-  vite: npm:@voidzero-dev/vite-plus-core@1.0.0
-  vite-plus: 1.0.0
+  vite: npm:@voidzero-dev/vite-plus-core@1.1.0
+  vite-plus: 1.1.0
   ws: 8.22.0
   yaml: ^2.9.0
   # Markdown pipeline: the server counts find matches with the same parser the
@@ -221,7 +221,7 @@ minimumReleaseAgeExclude:
 
 overrides:
   # Security fixes for transitive pins; retain CommonJS for xcode and dbus-next.
-  "@modelcontextprotocol/sdk": 1.31.0
+  "@modelcontextprotocol/sdk": 1.32.0
   "seroval": 1.6.3
   "proxy-addr": 2.0.8
   "shell-quote": 1.11.0

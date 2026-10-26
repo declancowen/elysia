@@ -7,7 +7,7 @@ import { buildGhosttyThemeConfig, getMobileTerminalTheme } from "./terminalTheme
 
 describe("getMobileTerminalTheme", () => {
   it("uses the shared default light terminal colors", () => {
-    expect(getMobileTerminalTheme("t3-code", "light")).toMatchObject({
+    expect(getMobileTerminalTheme("elysia", "light")).toMatchObject({
       background: "#FFFFFF",
       foreground: "#002244",
       cursorForeground: "#003CB2",
@@ -16,7 +16,7 @@ describe("getMobileTerminalTheme", () => {
   });
 
   it("uses the shared default dark terminal colors", () => {
-    expect(getMobileTerminalTheme("t3-code", "dark")).toMatchObject({
+    expect(getMobileTerminalTheme("elysia", "dark")).toMatchObject({
       background: "#002244",
       foreground: "#FFFFFF",
       cursorForeground: "#28B4FF",
@@ -24,7 +24,7 @@ describe("getMobileTerminalTheme", () => {
     });
   });
   it("applies the selected palette without replacing ANSI status colors", () => {
-    const standard = getMobileTerminalTheme("t3-code", "dark");
+    const standard = getMobileTerminalTheme("elysia", "dark");
     const ocean = getMobileTerminalTheme("ocean", "dark");
 
     expect(ocean.background).not.toBe(standard.background);
@@ -45,7 +45,7 @@ describe("getMobileTerminalTheme", () => {
 
 describe("buildGhosttyThemeConfig", () => {
   it("serializes theme colors into a ghostty config file", () => {
-    const config = buildGhosttyThemeConfig(getMobileTerminalTheme("t3-code", "dark"));
+    const config = buildGhosttyThemeConfig(getMobileTerminalTheme("elysia", "dark"));
 
     expect(config).toContain("background = #002244");
     expect(config).toContain("foreground = #FFFFFF");

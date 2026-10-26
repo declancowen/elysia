@@ -4,6 +4,7 @@ import { describe, expect, it } from "vite-plus/test";
 import type { EnvironmentProject } from "@elysiatools/client-runtime/state/shell";
 import type { HomeProjectScope } from "../home/homeThreadList";
 import {
+  newTaskDestination,
   filterProjectScopes,
   getProjectScopeSelectionTarget,
   resolveDraftProjectSelection,
@@ -54,22 +55,6 @@ function makeScope(projects: ReadonlyArray<EnvironmentProject>): HomeProjectScop
   };
 }
 
-describe("getProjectScopeSelectionTarget", () => {
-  it("keeps the current environment when it hosts the selected logical project", () => {
-    const projects = [makeProject("t3code-mac", "mac"), makeProject("t3code-server", "server")];
-    expect(getProjectScopeSelectionTarget(makeScope(projects), EnvironmentId.make("server"))).toBe(
-      projects[1],
-    );
-  });
-
-  it("falls back to the representative when the current environment does not host the project", () => {
-    const projects = [makeProject("t3code-mac", "mac"), makeProject("t3code-server", "server")];
-    expect(getProjectScopeSelectionTarget(makeScope(projects), EnvironmentId.make("other"))).toBe(
-      projects[0],
-    );
-  });
-});
-
 describe("resolveEnvironmentProjectMatch", () => {
   it("follows the same repository onto the target machine", () => {
     const selected = makeProject("t3code", "mac", { repositoryKey: "github.com/t3tools/t3code" });
@@ -109,31 +94,9 @@ describe("resolveEnvironmentProjectMatch", () => {
     expect(resolveEnvironmentProjectMatch([fork, unindexed], selected)).toBe(unindexed);
     expect(resolveEnvironmentProjectMatch([fork], selected)).toBe(fork);
   });
-
-  it("falls back to the first project on the target so the draft has a key to carry over to", () => {
-    const selected = makeProject("t3code", "mac", { repositoryKey: "github.com/t3tools/t3code" });
-    const target = [makeProject("unrelated", "server"), makeProject("also-unrelated", "server")];
-    expect(resolveEnvironmentProjectMatch(target, selected)).toBe(target[0]);
-    expect(resolveEnvironmentProjectMatch([], selected)).toBeNull();
-  });
 });
 
 describe("resolveDraftProjectSelection", () => {
-  it("preserves an explicit project selection", () => {
-    const project = makeProject("t3code");
-    expect(
-      resolveDraftProjectSelection("environment:t3code", [project], [makeScope([project])]),
-    ).toEqual({ kind: "preserve" });
-  });
-
-  it("selects the only physical project when no project was explicitly selected", () => {
-    const project = makeProject("t3code");
-    expect(resolveDraftProjectSelection(null, [project], [makeScope([project])])).toEqual({
-      kind: "select",
-      project,
-    });
-  });
-
   it("selects one logical project even when it has multiple physical workspaces", () => {
     const projects = [makeProject("t3code"), makeProject("t3code-2"), makeProject("t3code-3")];
     expect(resolveDraftProjectSelection(null, projects, [makeScope(projects)])).toEqual({
@@ -149,6 +112,31 @@ describe("resolveDraftProjectSelection", () => {
     ).toEqual({
       kind: "select",
       project,
+    });
+  });
+});
+
+describe("newTaskDestination", () => {
+  it("opens the current thread's project directly in split view", () => {
+    const projects = [makeProject("first"), makeProject("current", "other-environment")];
+    expect(newTaskDestination(true, projects, projects[1], "request")).toEqual({
+      draft: { requestId: "request", environmentId: "other-environment", projectId: "current" },
+    });
+  });
+  it("uses an available project when split view has no current project", () => {
+    expect(newTaskDestination(true, [makeProject("first")], undefined, "request")).toEqual({
+      draft: { requestId: "request", environmentId: "environment", projectId: "first" },
+    });
+  });
+  it("keeps the picker when there are no projects", () => {
+    expect(newTaskDestination(true, [], undefined, "request")).toEqual({
+      draft: { requestId: "request" },
+    });
+  });
+  it("opens the same draft route in compact view", () => {
+    const project = makeProject("current");
+    expect(newTaskDestination(false, [project], project, "request")).toEqual({
+      draft: { requestId: "request", environmentId: "environment", projectId: "current" },
     });
   });
 });

@@ -1,0 +1,23 @@
+{
+  "name": "@elysiatools/source-control-definitions",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./registry": {
+      "types": "./src/registry.ts",
+      "import": "./src/registry.ts"
+    }
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@elysiatools/source-control-azure-devops": "workspace:*",
+    "@elysiatools/source-control-bitbucket": "workspace:*",
+    "@elysiatools/source-control-core": "workspace:*",
+    "@elysiatools/source-control-forgejo": "workspace:*",
+    "@elysiatools/source-control-gitcafe": "workspace:*",
+    "@elysiatools/source-control-github": "workspace:*",
+    "@elysiatools/source-control-gitlab": "workspace:*"
+  }
+}

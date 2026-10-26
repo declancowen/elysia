@@ -1,4 +1,4 @@
-import { isWorkspaceImagePreviewPath } from "@elysiatools/shared/filePreview";
+import { isWorkspaceImagePreviewPath } from "@elysiatools/shared/mediaPreview";
 import { COMPUTER_USE_TOOL_SOURCE, dynamicToolSurface } from "@elysiatools/shared/toolActivity";
 import type {
   ToolActivityIcon,

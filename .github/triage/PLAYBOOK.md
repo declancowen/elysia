@@ -23,10 +23,9 @@ the server process is currently running, and the exact paths for state, logs, an
 the database.
 
 Its triage CLI version (called "Installed version" in older context files) is only
-the version of the `t3` that ran `t3 triage`. It is often not the build the bug
-happened on: `npx t3 triage` runs whatever `t3` npm resolves, while the user may
-run the desktop app, the background service, or a nightly. The server process line
-gives the local server's version when the server recorded one.
+the version of the `elysia` that ran `elysia triage`. It may differ from the build
+the bug happened on if the desktop app or server uses another release. The server
+process line gives the local server's version when the server recorded one.
 
 ## 3. Check for a newer playbook
 
@@ -65,9 +64,9 @@ Diagnosis grounded in source beats guessing.
 First establish the shape of the install, because the same symptom points at
 different code depending on it:
 
-- How is Elysia running on this machine: `npx t3 serve` in a terminal, the
+- How is Elysia running on this machine: `elysia serve` in a terminal, the
   background service, or the desktop app?
-- Which surface is the user connecting from: the website (app.t3.codes), the
+- Which surface is the user connecting from: a web browser, the
   desktop app against a local server, the desktop app against a remote server,
   or the mobile app?
 

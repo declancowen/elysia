@@ -1,6 +1,11 @@
+vi.mock("vite-plus/test/browser", () => ({
+  page: { elementLocator: () => ({}) },
+  utils: { getElementLocatorSelectors: () => ({}) },
+}));
+import { render as renderUi } from "../../test/render";
+import { act } from "../../test/act";
 // @vitest-environment jsdom
-import { act } from "react";
-import { createRoot } from "react-dom/client";
+
 import { beforeEach, expect, it, vi } from "vite-plus/test";
 import {
   EnvironmentId,
@@ -83,7 +88,6 @@ vi.mock("./ChatView", () => ({
 }));
 
 beforeEach(() => {
-  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   vi.stubGlobal("matchMedia", () => ({
     matches: false,
     addEventListener: () => {},
@@ -100,7 +104,7 @@ it.each(["page", "task"] as const)(
   async (kind) => {
     const host = document.createElement("div");
     document.body.append(host);
-    const root = createRoot(host);
+    await using root = await renderUi(null, { container: host, router: false });
     const target =
       kind === "page"
         ? { kind, id: PageId.make("page-11111111-1111-1111-1111-111111111111") }
@@ -122,7 +126,7 @@ it.each(["page", "task"] as const)(
       await act(async () => button!.click());
     };
     try {
-      await act(async () => root.render(<Harness projectId={ProjectId.make("project")} />));
+      await act(async () => root.rerender(<Harness projectId={ProjectId.make("project")} />));
       expect(state.create).not.toHaveBeenCalled();
       expect(state.link).not.toHaveBeenCalled();
       await click("Open side chat");
@@ -162,7 +166,7 @@ it.each(["page", "task"] as const)(
           archivedAt: "2026-10-05",
         },
       ];
-      await act(async () => root.render(<Harness projectId={ProjectId.make("project")} />));
+      await act(async () => root.rerender(<Harness projectId={ProjectId.make("project")} />));
       expect(host.textContent).toContain("Generated context title");
       expect(host.querySelector("[data-route-kind]")?.getAttribute("data-route-kind")).toBe(
         "server",
@@ -173,7 +177,7 @@ it.each(["page", "task"] as const)(
       await act(async () =>
         document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })),
       );
-      await act(async () => root.render(<Harness projectId={null} />));
+      await act(async () => root.rerender(<Harness projectId={null} />));
       await click("New linked chat");
       const second = Object.values(useComposerDraftStore.getState().draftThreadsByThreadKey).at(
         -1,
@@ -192,7 +196,7 @@ it.each(["page", "task"] as const)(
           archivedAt: "2026-10-05",
         },
       ];
-      await act(async () => root.render(<Harness projectId={null} />));
+      await act(async () => root.rerender(<Harness projectId={null} />));
       expect(host.textContent).not.toContain("Archived pending chat");
       expect(host.textContent).toContain("Generated context title");
     } finally {
@@ -207,7 +211,7 @@ it.each([
   ["untyped rejection", "Could not open chat."],
 ])("releases a failed side-chat start and allows a retry (%s)", async (cause, message) => {
   const host = document.body.appendChild(document.createElement("div"));
-  const root = createRoot(host);
+  await using root = await renderUi(null, { container: host, router: false });
   function Harness() {
     return useWorkspaceSideChat({
       environmentId: EnvironmentId.make("local"),
@@ -219,7 +223,7 @@ it.each([
   }
   state.scratch.mockRejectedValueOnce(cause);
   try {
-    await act(async () => root.render(<Harness />));
+    await act(async () => root.rerender(<Harness />));
     await act(async () =>
       host.querySelector<HTMLButtonElement>('button[aria-label="Open side chat"]')!.click(),
     );

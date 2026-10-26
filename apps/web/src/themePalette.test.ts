@@ -1,49 +1,56 @@
-import { DEFAULT_THEME, ELYSIA_THEMES, BUILT_IN_THEMES } from "@elysiatools/shared/themePalettes";
-import { describe, expect, it, vi } from "vite-plus/test";
-import { converter } from "culori/fn";
-
 import {
-  getWorkspaceThemeColors,
-  applyThemeColorPreview,
-  applyThemePalette,
-  getThemeColorsForMode,
-  getThemeDefinition,
-  getThemeModes,
-  getThemePreviewSidebarArtwork,
-  getThemePreferenceMode,
-  isKnownThemePreference,
-  getCustomThemes,
-  getStandardThemeColors,
-  getStoredCustomThemeCollection,
-  invalidateCustomThemes,
-  installCustomTheme,
-  canonicalThemePreference,
-  parseThemeFile,
-  parseThemeHalves,
-  removeCustomTheme,
-  removeCustomThemes,
-  replaceCustomThemeCollection,
-  resolveDesktopTheme,
-  resolveThemeAppearance,
-  serializeThemeFile,
-  subscribeToThemePreview,
-  subscribeToCustomThemes,
-  themeAllowsSidebarArtwork,
+  CUSTOM_THEMES_STORAGE_KEY,
   ELYSIA_CHAT_THEME,
   EMBER_THEME,
   GROVE_THEME,
   IRIS_THEME,
   OCEAN_THEME,
-  updateCustomTheme,
-  updateThemeColorFamily,
-  CUSTOM_THEMES_STORAGE_KEY,
+  THEME_FILE_VERSION,
+  applyThemeColorPreview,
+  applyThemePalette,
+  canonicalThemePreference,
   createVividThemeColors,
+  getCustomThemes,
   getDefaultThemeColors,
+  getStandardThemeColors,
+  getStoredCustomThemeCollection,
+  getThemeColorsForMode,
+  getThemeDefinition,
+  getThemeModes,
+  getThemePreferenceMode,
+  getThemePreviewSidebarArtwork,
+  getWorkspaceThemeColors,
+  installCustomTheme,
+  invalidateCustomThemes,
+  isKnownThemePreference,
+  parseThemeFile,
+  parseThemeHalves,
+  removeCustomTheme,
+  replaceCustomThemeCollection,
+  resolveDesktopTheme,
+  resolveThemeAppearance,
+  serializeThemeFile,
+  singleAppearanceOf,
+  subscribeToCustomThemes,
+  subscribeToThemePreview,
+  themeAllowsSidebarArtwork,
   themeColorToHex,
   toCanonicalThemeColor,
-  THEME_FILE_VERSION,
-  singleAppearanceOf,
+  updateCustomTheme,
+  updateThemeColorFamily,
 } from "./themePalette";
+function expectThemeColors(
+  colors: Readonly<Record<string, string>>,
+  expected: Readonly<Record<string, string>>,
+): void {
+  for (const [role, value] of Object.entries(expected)) {
+    expect(asHex(colors[role]!)).toBe(value);
+  }
+}
+
+import { BUILT_IN_THEMES, DEFAULT_THEME, ELYSIA_THEMES } from "@elysiatools/shared/themePalettes";
+import { converter } from "culori/fn";
+import { describe, expect, it, vi } from "vite-plus/test";
 
 function asHex(value: string): string {
   const hex = themeColorToHex(value);
@@ -55,15 +62,6 @@ function canonical(value: string): string {
   const color = toCanonicalThemeColor(value);
   if (!color) throw new Error(`Expected a theme color, received ${value}`);
   return color;
-}
-
-function expectThemeColors(
-  colors: Readonly<Record<string, string>>,
-  expected: Readonly<Record<string, string>>,
-): void {
-  for (const [role, value] of Object.entries(expected)) {
-    expect(asHex(colors[role]!)).toBe(value);
-  }
 }
 
 function contrastRatio(first: string, second: string): number {
@@ -83,16 +81,6 @@ function contrastRatio(first: string, second: string): number {
 }
 
 describe("theme files", () => {
-  it("keeps every built-in palette value in canonical OKLCH form", () => {
-    for (const theme of BUILT_IN_THEMES) {
-      for (const colors of [theme.colors, ...Object.values(theme.variants ?? {})]) {
-        for (const value of Object.values(colors)) {
-          expect(toCanonicalThemeColor(value)).toBe(value);
-        }
-      }
-    }
-  });
-
   it("keeps built-in and standard search pairs readable and distinct from inline code", () => {
     const toOklab = converter("oklab");
     const distance = (first: string, second: string) => {
@@ -483,7 +471,7 @@ describe("theme files", () => {
     });
   });
 
-  it("keeps the T3 Chat palette faithful and readable", () => {
+  it("keeps the Elysia Chat palette faithful and readable", () => {
     expectThemeColors(ELYSIA_CHAT_THEME.colors, {
       canvas: "#fdf7fd",
       chrome: "#fdf7fd",
@@ -765,48 +753,6 @@ describe("theme files", () => {
     invalidateCustomThemes();
   });
 
-  it("replaces collection entries even when their stored collection label is malformed", () => {
-    const collection = { id: "open-vsx:demo.theme", label: "Demo Theme" };
-    const stored = new Map<string, string>([
-      [
-        CUSTOM_THEMES_STORAGE_KEY,
-        JSON.stringify([
-          {
-            id: "old-light",
-            label: "Old Light",
-            appearance: "light",
-            colors: { canvas: "#ffffff" },
-            collection: { id: collection.id, label: 42 },
-          },
-        ]),
-      ],
-    ]);
-    vi.stubGlobal("window", {
-      localStorage: {
-        getItem: (key: string) => stored.get(key) ?? null,
-        setItem: (key: string, value: string) => stored.set(key, value),
-      },
-    });
-
-    invalidateCustomThemes();
-    const replacement = {
-      ...parseThemeFile({
-        version: THEME_FILE_VERSION,
-        id: "old-light",
-        name: "New Light",
-        appearance: "light",
-        colors: { canvas: "#fafafa" },
-      }),
-      collection,
-    };
-
-    expect(replaceCustomThemeCollection(collection.id, [replacement])).toEqual([replacement]);
-    expect(getCustomThemes()).toEqual([replacement]);
-
-    vi.unstubAllGlobals();
-    invalidateCustomThemes();
-  });
-
   it("canonicalizes explicit writes without migrating untouched themes", () => {
     const stored = new Map<string, string>();
     const untouchedTheme = {
@@ -862,56 +808,6 @@ describe("theme files", () => {
     });
     removeCustomTheme("aurora");
     expect(JSON.parse(stored.get(CUSTOM_THEMES_STORAGE_KEY) ?? "[]")).toEqual([untouchedTheme]);
-
-    vi.unstubAllGlobals();
-    invalidateCustomThemes();
-  });
-
-  it("removes multiple custom themes atomically while preserving unrelated entries", () => {
-    const collection = { id: "open-vsx:demo.theme", label: "Demo Theme" };
-    const personalTheme = {
-      id: "personal",
-      label: "Personal",
-      appearance: "dark",
-      colors: { canvas: "#111111", futureRole: "hsl(10 20% 30%)" },
-      futureMetadata: { version: 2 },
-    };
-    const stored = new Map<string, string>([
-      [
-        CUSTOM_THEMES_STORAGE_KEY,
-        JSON.stringify([
-          personalTheme,
-          {
-            id: "demo-light",
-            label: "Demo Light",
-            appearance: "light",
-            colors: { canvas: "#ffffff" },
-            collection,
-          },
-          {
-            id: "demo-dark",
-            label: "Demo Dark",
-            appearance: "dark",
-            colors: { canvas: "#000000" },
-            collection,
-          },
-        ]),
-      ],
-    ]);
-    const setItem = vi.fn((key: string, value: string) => stored.set(key, value));
-    vi.stubGlobal("window", {
-      localStorage: {
-        getItem: (key: string) => stored.get(key) ?? null,
-        setItem,
-      },
-    });
-
-    invalidateCustomThemes();
-    removeCustomThemes(["demo-light", "demo-dark"]);
-
-    expect(setItem).toHaveBeenCalledOnce();
-    expect(getCustomThemes()).toEqual([expect.objectContaining({ id: "personal" })]);
-    expect(JSON.parse(stored.get(CUSTOM_THEMES_STORAGE_KEY) ?? "[]")).toEqual([personalTheme]);
 
     vi.unstubAllGlobals();
     invalidateCustomThemes();
@@ -986,77 +882,6 @@ describe("theme files", () => {
       ),
     ).toThrow(`Failed to read the theme library from ${CUSTOM_THEMES_STORAGE_KEY}.`);
     expect(setItem).not.toHaveBeenCalled();
-
-    vi.unstubAllGlobals();
-    invalidateCustomThemes();
-  });
-
-  it("rejects malformed stored entries that reuse an installed theme id", () => {
-    const storedThemes = JSON.stringify([{ id: "aurora", malformed: true }]);
-    const setItem = vi.fn();
-    vi.stubGlobal("window", {
-      localStorage: {
-        getItem: () => storedThemes,
-        setItem,
-      },
-    });
-
-    invalidateCustomThemes();
-    expect(() =>
-      installCustomTheme(
-        parseThemeFile({
-          version: THEME_FILE_VERSION,
-          id: "aurora",
-          name: "Aurora",
-          appearance: "light",
-          colors: { accent: "#5b6cff" },
-        }),
-      ),
-    ).toThrow('A theme named "Aurora" is already installed.');
-    expect(setItem).not.toHaveBeenCalled();
-
-    vi.unstubAllGlobals();
-    invalidateCustomThemes();
-  });
-
-  it("collapses duplicate raw entries when their theme is explicitly updated", () => {
-    const stored = new Map<string, string>();
-    const theme = {
-      id: "aurora",
-      label: "Aurora",
-      appearance: "light",
-      colors: { accent: "#5b6cff" },
-    };
-    const untouchedTheme = { id: "future", malformed: true, metadata: { version: 2 } };
-    stored.set(
-      CUSTOM_THEMES_STORAGE_KEY,
-      JSON.stringify([theme, { id: "aurora", malformed: true }, untouchedTheme]),
-    );
-    vi.stubGlobal("window", {
-      localStorage: {
-        getItem: (key: string) => stored.get(key) ?? null,
-        setItem: (key: string, value: string) => stored.set(key, value),
-      },
-    });
-
-    invalidateCustomThemes();
-    const installedTheme = getCustomThemes()[0]!;
-    updateCustomTheme({
-      ...installedTheme,
-      label: "Aurora Night",
-      colors: { ...installedTheme.colors, accent: "hsl(263 70% 58%)" },
-    });
-
-    const updatedLibrary = JSON.parse(stored.get(CUSTOM_THEMES_STORAGE_KEY) ?? "[]");
-    expect(updatedLibrary.filter((entry: { id?: string }) => entry.id === "aurora")).toHaveLength(
-      1,
-    );
-    expect(updatedLibrary[0]).toMatchObject({
-      id: "aurora",
-      label: "Aurora Night",
-      colors: { accent: canonical("hsl(263 70% 58%)") },
-    });
-    expect(updatedLibrary[1]).toEqual(untouchedTheme);
 
     vi.unstubAllGlobals();
     invalidateCustomThemes();

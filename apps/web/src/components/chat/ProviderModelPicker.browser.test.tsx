@@ -1,3 +1,5 @@
+import { render as renderUi, type Screen } from "../../../test/render";
+import { act } from "../../../test/act";
 import {
   ANTIGRAVITY_DEFAULT_MODEL,
   ProviderDriverKind,
@@ -6,9 +8,9 @@ import {
 } from "@elysiatools/contracts";
 import { RegistryContext, useAtomSet, useAtomValue } from "@effect/atom-react";
 import { Atom, AtomRegistry } from "effect/reactivity";
-import { act, type ReactNode } from "react";
-import { createRoot, type Root } from "react-dom/client";
-import { afterEach, describe, expect, it, vi } from "vite-plus/test";
+import { type ReactNode } from "react";
+
+import { describe, expect, it, vi } from "vite-plus/test";
 import { page, userEvent } from "vite-plus/test/browser";
 
 import "~/index.css";
@@ -55,7 +57,7 @@ vi.mock(import("@tanstack/react-router"), async (original) => ({
   useNavigate: () => vi.fn(),
 }));
 
-let pickerRoot: Root | undefined;
+let pickerRoot: Screen | undefined;
 let pickerRegistry: AtomRegistry.AtomRegistry | undefined;
 
 function providerEntry(instanceId: string, driver: string) {
@@ -75,22 +77,23 @@ function providerEntry(instanceId: string, driver: string) {
   return deriveProviderInstanceEntries([provider])[0]!;
 }
 
-afterEach(async () => {
-  if (pickerRoot) await act(async () => pickerRoot!.unmount());
-  pickerRoot = undefined;
-  pickerRegistry?.dispose();
-  pickerRegistry = undefined;
-  document.body.replaceChildren();
-  vi.unstubAllGlobals();
-});
+let resources: AsyncDisposableStack;
+function setup() {
+  resources = new AsyncDisposableStack();
+  resources.defer(() => {
+    pickerRoot = undefined;
+    pickerRegistry = undefined;
+    vi.unstubAllGlobals();
+  });
+  return resources;
+}
 
 // Returns the trigger's visible text, which is what the user reads before opening the picker.
 async function triggerText(node: ReactNode) {
-  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   const container = document.createElement("div");
   document.body.append(container);
-  const root = createRoot(container);
-  await act(async () => root.render(node));
+  await using root = await renderUi(null, { container: container, router: false });
+  await act(async () => root.rerender(node));
   const text = container.querySelector("button")?.textContent ?? "";
   await act(async () => root.unmount());
   return text;
@@ -121,20 +124,19 @@ function renderPicker(input: {
 }
 
 async function click(target: Parameters<typeof userEvent.click>[0]) {
-  await act(async () => userEvent.click(target));
+  await userEvent.click(target);
 }
 
 async function openLegacyPicker(activeModel: string) {
-  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   const entry = providerEntry("codex", "codex");
-  pickerRegistry = AtomRegistry.make();
+  pickerRegistry = resources.adopt(AtomRegistry.make(), (registry) => registry.dispose());
   pickerRegistry.set(favoritesAtom, [
     { provider: entry.instanceId, model: "current-favorite" },
     { provider: entry.instanceId, model: "legacy-favorite" },
   ]);
-  pickerRoot = createRoot(document.body.appendChild(document.createElement("div")));
+  pickerRoot = resources.use(await renderUi(null, { router: false }));
   await act(async () =>
-    pickerRoot!.render(
+    pickerRoot!.rerender(
       <RegistryContext.Provider value={pickerRegistry!}>
         <ProviderModelPicker
           environmentId={null}
@@ -166,6 +168,7 @@ async function openLegacyPicker(activeModel: string) {
 
 describe("ProviderModelPicker", () => {
   it("hoists legacy favorites in provider order and returns an unfavorited model to legacy", async () => {
+    await using _fixture = setup();
     await openLegacyPicker("current");
     const legacyFavorite = page.getByRole("option", { name: /Legacy favorite/ });
     const currentFavorite = page.getByRole("option", { name: /Current favorite/ });
@@ -196,6 +199,7 @@ describe("ProviderModelPicker", () => {
   });
 
   it("keeps unrelated legacy models collapsed when the active model is a favorite", async () => {
+    await using _fixture = setup();
     await openLegacyPicker("legacy-favorite");
 
     await expect.element(page.getByRole("option", { name: /Legacy favorite/ })).toBeVisible();
@@ -207,6 +211,7 @@ describe("ProviderModelPicker", () => {
   });
 
   it("shows a neutral aggregate value without a representative model or availability badge", async () => {
+    await using _fixture = setup();
     const label = await renderPicker({
       instanceId: "codex_personal",
       driver: "codex",
@@ -222,6 +227,7 @@ describe("ProviderModelPicker", () => {
   it.each(["", ANTIGRAVITY_DEFAULT_MODEL])(
     "shows a choice prompt before Antigravity has an account catalog for %s",
     async (model) => {
+      await using _fixture = setup();
       const label = await renderPicker({
         instanceId: "antigravity",
         driver: "antigravity",
@@ -237,6 +243,7 @@ describe("ProviderModelPicker", () => {
   it.each([{ aliases: [ANTIGRAVITY_DEFAULT_MODEL] }, { isDefault: true }])(
     "shows the actual default model for an Antigravity marker with %j",
     async (defaultMetadata) => {
+      await using _fixture = setup();
       const label = await renderPicker({
         instanceId: "google_work",
         driver: "antigravity",
@@ -256,6 +263,7 @@ describe("ProviderModelPicker", () => {
   it.each(["opencode", "antigravity"])(
     "keeps the selected model label when the %s account catalog does not contain it",
     async (driver) => {
+      await using _fixture = setup();
       const label = await renderPicker({
         instanceId: "team_runtime",
         driver,
@@ -271,6 +279,7 @@ describe("ProviderModelPicker", () => {
   it.each(["codex", "claudeAgent", "cursor", "grok"])(
     "uses the first option label for a missing %s model",
     async (driver) => {
+      await using _fixture = setup();
       const label = await renderPicker({
         instanceId: `${driver}_work`,
         driver,
@@ -284,6 +293,7 @@ describe("ProviderModelPicker", () => {
   );
 
   it("prefers a matching model for OpenCode", async () => {
+    await using _fixture = setup();
     const label = await renderPicker({
       instanceId: "custom_runtime",
       driver: "opencode",
@@ -299,6 +309,7 @@ describe("ProviderModelPicker", () => {
   });
 
   it("uses the first option when the active instance entry is missing", async () => {
+    await using _fixture = setup();
     const label = await renderPicker({
       instanceId: "missing_instance",
       driver: "opencode",
@@ -312,6 +323,7 @@ describe("ProviderModelPicker", () => {
   });
 
   it("keeps instance initials visible in the resting trigger", async () => {
+    await using _fixture = setup();
     const activeEntry = providerEntry("codex_personal", "codex");
     const label = await triggerText(
       <ProviderModelPicker

@@ -7,14 +7,12 @@ import {
   type ReactNode,
   type RefObject,
 } from "react";
-
 import { cn } from "~/lib/utils";
 import { Button } from "../ui/button";
 import { SidebarInput, SidebarMenuButton } from "../ui/sidebar";
 import { SidebarCommandShortcut, SidebarNewChatButton } from "./SidebarChrome";
 import { Popover, PopoverPopup, PopoverTrigger } from "../ui/popover";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
-
 export interface SidebarThreadHeaderProps {
   searchFieldRef?: RefObject<HTMLDivElement | null>;
   hasProjects: boolean;
@@ -26,7 +24,6 @@ export interface SidebarThreadHeaderProps {
   newThreadInProjectShortcutLabel: string | null | undefined;
   showNewThreadInProjectHint: boolean;
 }
-
 export interface SidebarThreadSearchProps {
   searchResultsId: string;
   searchFieldRef?: RefObject<HTMLDivElement | null>;
@@ -40,7 +37,6 @@ export interface SidebarThreadSearchProps {
   activeSearchResultIndex: number;
   onClearSearch: () => void;
 }
-
 export function SidebarThreadSearch({
   searchResultsId,
   searchFieldRef,
@@ -55,6 +51,7 @@ export function SidebarThreadSearch({
   onClearSearch,
 }: SidebarThreadSearchProps) {
   const resultsVisible = isSearching && searchResultCount > 0;
+  // Shrinking results can remove the active option; never leave aria-activedescendant pointing at it.
   const activeResultExists = resultsVisible && activeSearchResultIndex < searchResultCount;
   return (
     <div ref={searchFieldRef} className="flex h-8 items-center gap-1">
@@ -106,7 +103,6 @@ export function SidebarThreadSearch({
     </div>
   );
 }
-
 export function SidebarThreadHeader({
   hasProjects,
   projectScope,
@@ -120,7 +116,6 @@ export function SidebarThreadHeader({
   const newThreadLabel = newThreadShortcutLabel
     ? `New thread (${newThreadShortcutLabel})`
     : "New thread";
-
   return (
     <div className="flex items-center gap-1">
       <div className="min-w-0 flex-1">
@@ -160,7 +155,6 @@ export function SidebarThreadHeader({
     </div>
   );
 }
-
 export function SidebarHeaderIconButton({
   label,
   tooltip = label,

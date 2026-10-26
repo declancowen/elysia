@@ -4,7 +4,6 @@ import { EnvironmentId, ProjectId, ProviderInstanceId, ThreadId } from "@elysiat
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 
-import { OrchestratorProjectionError } from "../orchestration-v2/Orchestrator.ts";
 import * as ThreadManagement from "../orchestration-v2/ThreadManagementService.ts";
 import type * as McpInvocationContext from "./McpInvocationContext.ts";
 import { liveThreadShell } from "./McpToolAccess.testkit.ts";
@@ -23,62 +22,6 @@ const scope: McpInvocationContext.McpInvocationScope = {
   capabilities: new Set(["orchestration"]),
   issuedAt: 1,
 };
-
-function layerService(
-  getThreadShell: ThreadManagement.ThreadManagementService["Service"]["getThreadShell"],
-) {
-  return ThreadMetadataMcp.layer.pipe(
-    Layer.provide(
-      Layer.merge(
-        Layer.mock(ThreadManagement.ThreadManagementService)({
-          getThreadShell,
-          getThreadRecords: () => Effect.die("projection must not load after shell failure"),
-        } satisfies Partial<ThreadManagement.ThreadManagementService["Service"]>),
-        NodeCrypto.layer,
-      ),
-    ),
-  );
-}
-
-const updateCallingThread = Effect.gen(function* () {
-  const service = yield* ThreadMetadataMcp.ThreadMetadataMcpService;
-  return yield* service.update(scope, {
-    action: "rename",
-    title: "Renamed thread",
-    clientRequestId: "metadata-caller-classification",
-  });
-});
-
-it.effect("reports an absent calling thread as thread_not_found", () =>
-  Effect.gen(function* () {
-    const error = yield* updateCallingThread.pipe(
-      Effect.provide(layerService(() => Effect.succeed(null))),
-      Effect.flip,
-    );
-
-    expect(error.code).toBe("thread_not_found");
-  }),
-);
-
-it.effect("keeps calling-thread storage failures as orchestration errors", () =>
-  Effect.gen(function* () {
-    const error = yield* updateCallingThread.pipe(
-      Effect.provide(
-        layerService(() =>
-          Effect.fail(
-            new OrchestratorProjectionError({
-              threadId,
-              cause: new Error("storage unavailable"),
-            }),
-          ),
-        ),
-      ),
-      Effect.flip,
-    );
-
-    expect(error.code).toBe("orchestration_error");
-  }),
-);
 
 it.effect(
   "rejects metadata changes outside the calling project before loading or dispatching",

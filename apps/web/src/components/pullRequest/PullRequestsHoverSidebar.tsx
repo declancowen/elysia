@@ -142,6 +142,20 @@ export function PullRequestsHoverSidebar() {
           />
           <PullRequestFiltersMenu
             iconOnly
+            optionScope={environments
+              .filter(
+                (environment) =>
+                  environment.serverConfig?.environment.capabilities.pullRequests === true &&
+                  (!preferences.environmentId ||
+                    preferences.environmentId === environment.environmentId),
+              )
+              .map((environment) => ({
+                environmentId: environment.environmentId,
+                input: {
+                  ...(preferences.projectId ? { projectId: preferences.projectId } : {}),
+                  ...(preferences.host ? { host: preferences.host } : {}),
+                },
+              }))}
             state={preferences.state}
             stateOptions={STATE_TABS}
             onState={(state) => update({ state })}
@@ -195,6 +209,7 @@ export function PullRequestsHoverSidebar() {
           value={preferences.q ?? ""}
           busy={query.isPending}
           onChange={(q) => update({ q: q || undefined })}
+          onSubmit={(q) => update({ q: q || undefined })}
         />
       </div>
       <SidebarContent>
@@ -210,7 +225,6 @@ export function PullRequestsHoverSidebar() {
                   showProjectTitle
                   showProvider={false}
                   onSelect={select}
-                  speedMode={false}
                   onActed={() => query.refresh()}
                 />
               ))}

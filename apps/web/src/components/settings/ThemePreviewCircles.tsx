@@ -10,7 +10,6 @@ import {
   type ThemeAppearance,
   type ThemeDefinition,
 } from "../../themePalette";
-
 const THEME_PREVIEW_ROLES = [
   "sidebar",
   "canvas",
@@ -32,18 +31,15 @@ export type ThemeCardDefinition = {
 };
 export type ThemeMode = ThemeAppearance | "system";
 export type ThemeCardPreviewColors = ThemeCardPreview["colors"];
-
 export const STANDARD_THEME_CARDS: ReadonlyArray<ThemeCardDefinition> = [
   getThemeCardDefinition(DEFAULT_THEME),
 ];
-
 export function previewColorsOf(
   card: ThemeCardDefinition,
   mode: ThemeAppearance,
 ): ThemeCardPreviewColors | null {
   return card.previews.find((preview) => preview.mode === mode)?.colors ?? null;
 }
-
 export function getThemeCardDefinition(theme: ThemeDefinition): ThemeCardDefinition {
   return {
     id: theme.id,
@@ -65,7 +61,6 @@ export function getThemeCardDefinition(theme: ThemeDefinition): ThemeCardDefinit
     }),
   };
 }
-
 function getThemePreviewStyle(
   colors: ThemeCardPreviewColors,
   mode: ThemeAppearance,
@@ -82,13 +77,11 @@ function getThemePreviewStyle(
     ].join(", "),
   };
 }
-
 function themePreviewEdgeShadow(mode: ThemeAppearance): string {
   return mode === "dark"
     ? "inset 0 0 0 1px rgb(255 255 255 / 0.14), 0 1px 2px rgb(0 0 0 / 0.18)"
     : "inset 0 0 0 1px rgb(0 0 0 / 0.10), 0 1px 2px rgb(0 0 0 / 0.08)";
 }
-
 export function ThemePreviewCircle({
   colors,
   mode,
@@ -105,7 +98,9 @@ export function ThemePreviewCircle({
         "relative block size-14 shrink-0 overflow-hidden rounded-full border-2 border-background",
         className,
       )}
-      style={{ boxShadow: themePreviewEdgeShadow(mode) }}
+      style={{
+        boxShadow: themePreviewEdgeShadow(mode),
+      }}
     >
       <span
         className="absolute inset-0 rounded-full"
@@ -118,7 +113,6 @@ export function ThemePreviewCircle({
     </span>
   );
 }
-
 export function ThemePreviewCircles({
   label,
   activeModes,
@@ -158,7 +152,9 @@ export function ThemePreviewCircles({
                       <span
                         aria-hidden
                         className="pointer-events-none absolute inset-0 rounded-full"
-                        style={{ boxShadow: "inset 0 0 0 2px var(--ring)" }}
+                        style={{
+                          boxShadow: "inset 0 0 0 2px var(--ring)",
+                        }}
                       />
                       <span
                         aria-hidden

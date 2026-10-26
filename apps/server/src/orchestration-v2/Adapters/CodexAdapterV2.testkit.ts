@@ -256,7 +256,7 @@ export const CodexOrchestratorReplayHarness: OrchestratorV2ProviderReplayHarness
           const clientInfo = frame.params.clientInfo;
           if (
             !Predicate.isObject(clientInfo) ||
-            !["Elysia", "T3 Code"].includes(String(clientInfo.name))
+            !["Elysia", "Elysia"].includes(String(clientInfo.name))
           )
             return entry;
           return {

@@ -1,36 +1,8 @@
-import { describe, expect, it, vi } from "vite-plus/test";
+import { vi } from "vite-plus/test";
+import { showExternalLinkContextMenu, resolveExternalWebLinkHost } from "./externalLinkContextMenu";
+import { describe, expect, it } from "vite-plus/test";
 
-import {
-  resolveExternalWebLinkHost,
-  resolveExternalWebLinkHref,
-  showExternalLinkContextMenu,
-} from "./externalLinkContextMenu";
-
-function createHarness(
-  selection:
-    | "open-in-preview"
-    | "open-external"
-    | "copy-link"
-    | "link-to-thread"
-    | "unlink-from-thread"
-    | null,
-) {
-  const showContextMenu = vi.fn().mockResolvedValue(selection);
-  const openInPreview = vi.fn().mockResolvedValue(undefined);
-  const openExternal = vi.fn().mockResolvedValue(undefined);
-  const copyLink = vi.fn().mockResolvedValue(undefined);
-  const updateThreadLink = vi.fn().mockResolvedValue(undefined);
-  const reportFailure = vi.fn();
-
-  return {
-    showContextMenu,
-    openInPreview,
-    openExternal,
-    copyLink,
-    updateThreadLink,
-    reportFailure,
-  };
-}
+import { resolveExternalWebLinkHref } from "./externalLinkContextMenu";
 
 describe("external chat link context menu", () => {
   it("offers both open actions and Copy Link", async () => {
@@ -221,3 +193,29 @@ describe("external chat link context menu", () => {
     expect(resolveExternalWebLinkHref(href)).toBeNull();
   });
 });
+
+function createHarness(
+  selection:
+    | "open-in-preview"
+    | "open-external"
+    | "copy-link"
+    | "link-to-thread"
+    | "unlink-from-thread"
+    | null,
+) {
+  const showContextMenu = vi.fn().mockResolvedValue(selection);
+  const openInPreview = vi.fn().mockResolvedValue(undefined);
+  const openExternal = vi.fn().mockResolvedValue(undefined);
+  const copyLink = vi.fn().mockResolvedValue(undefined);
+  const updateThreadLink = vi.fn().mockResolvedValue(undefined);
+  const reportFailure = vi.fn();
+
+  return {
+    showContextMenu,
+    openInPreview,
+    openExternal,
+    copyLink,
+    updateThreadLink,
+    reportFailure,
+  };
+}

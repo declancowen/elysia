@@ -182,8 +182,6 @@ it.effect(
         yield* insertRow(sql, { ...row, enabled: 1 }, now);
       }
 
-      // it.effect freezes the clock; pin it just past the seeded due time so
-      // the poll sees the rows as due.
       yield* TestClock.setTime(Date.parse(now) + 1_000);
       const dispatched = yield* Ref.make(0);
       const lastDispatched = yield* Deferred.make<void>();
@@ -213,7 +211,7 @@ it.effect(
                 }),
                 Layer.mock(ThreadManagementService.ThreadManagementService)({}),
                 Layer.mock(ProjectStore.ProjectStoreV2)({
-                  get: () => Effect.succeed(Option.none()),
+                  get: () => Effect.succeedNone,
                 }),
                 Layer.mock(AgentDelegation.AgentDelegation)({}),
                 Layer.mock(SecretRequests.SecretRequests)({}),
@@ -222,8 +220,7 @@ it.effect(
               ),
             ),
           );
-          // The poll loop delays before its first pass, so the frozen test
-          // clock must advance once to trigger it.
+          // The poll delays before its first pass; advance the frozen clock once.
           yield* TestClock.adjust("6 seconds");
           yield* Deferred.await(lastDispatched);
           const inflight = yield* sql<{
@@ -315,7 +312,7 @@ it.effect(
                 }),
                 Layer.mock(ThreadManagementService.ThreadManagementService)({}),
                 Layer.mock(ProjectStore.ProjectStoreV2)({
-                  get: () => Effect.succeed(Option.none()),
+                  get: () => Effect.succeedNone,
                 }),
                 Layer.mock(AgentDelegation.AgentDelegation)({}),
                 Layer.mock(SecretRequests.SecretRequests)({}),

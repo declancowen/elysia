@@ -1,3 +1,4 @@
+import { act } from "../../test/act";
 import { AuthSourceControlWriteScope, EnvironmentId, ThreadId } from "@elysiatools/contracts";
 import { AsyncResult } from "effect/reactivity";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
@@ -152,9 +153,7 @@ vi.mock("./AnimatedHeight", () => ({ AnimatedHeight: "AnimatedHeight" }));
 import GitActionsControl from "./GitActionsControl";
 
 import { createElement, memo } from "react";
-import { act, create } from "react-test-renderer";
-
-vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+import { create } from "react-test-renderer";
 
 const renderers: ReturnType<typeof create>[] = [];
 // ThreadDetailsPanel keeps this component mounted behind React.memo when threads change.
@@ -187,7 +186,6 @@ async function clickQuickAction(renderer: ReturnType<typeof create>) {
 }
 
 beforeEach(() => {
-  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   vi.stubGlobal("window", {
     addEventListener: vi.fn(),
     removeEventListener: vi.fn(),

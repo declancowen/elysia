@@ -19,7 +19,6 @@ const ICON_BY_KIND: Record<EnvironmentMachineKind, FunctionComponent<LucideProps
   "mac-mini": HardDriveIcon,
   "mac-studio": ServerIcon,
 };
-
 export const ENVIRONMENT_MACHINE_KIND_LABELS: Record<EnvironmentMachineKind, string> = {
   server: "Server",
   cloud: "Cloud VM",
@@ -29,17 +28,17 @@ export const ENVIRONMENT_MACHINE_KIND_LABELS: Record<EnvironmentMachineKind, str
   "mac-mini": "Mini PC",
   "mac-studio": "Workstation",
 };
-
 export function environmentMachineIcon(
   kind: EnvironmentMachineKind,
 ): FunctionComponent<LucideProps> {
   return ICON_BY_KIND[kind];
 }
-
 export function EnvironmentMachineIcon({
   kind,
   ...props
-}: LucideProps & { readonly kind: EnvironmentMachineKind }) {
+}: LucideProps & {
+  readonly kind: EnvironmentMachineKind;
+}) {
   const Icon = ICON_BY_KIND[kind];
   return <Icon {...props} />;
 }

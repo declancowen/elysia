@@ -1,3 +1,4 @@
+import { act } from "../../../test/act";
 import {
   AuthOrchestrationOperateScope,
   EnvironmentId,
@@ -6,7 +7,7 @@ import {
 import { DEFAULT_RESOLVED_KEYBINDINGS } from "@elysiatools/shared/keybindings";
 import { AsyncResult } from "effect/reactivity";
 import { cloneElement, useState, type ReactElement, type ReactNode } from "react";
-import { act, create, type ReactTestRenderer } from "react-test-renderer";
+import { create, type ReactTestRenderer } from "react-test-renderer";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
 import type { RemoteOpenState } from "../../remoteOpen";
@@ -126,7 +127,7 @@ beforeEach(() => {
   state.markHintSeen.mockReset();
   state.keydown = null;
   state.listeners.clear();
-  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+
   vi.stubGlobal("navigator", { platform: "Linux" });
   const events = new EventTarget();
   const storage = new Map<string, string>();

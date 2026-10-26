@@ -1,5 +1,6 @@
+import { act } from "../../../test/act";
 import { DEFAULT_SERVER_SETTINGS } from "@elysiatools/contracts";
-import { act, type ReactNode } from "react";
+import { type ReactNode } from "react";
 import { create, type ReactTestRenderer } from "react-test-renderer";
 import { afterEach, describe, expect, it, vi } from "vite-plus/test";
 

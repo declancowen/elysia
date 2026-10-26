@@ -84,6 +84,7 @@ export function AgentGroupDialog({
   const selection = resolveAgentGroupSelection(name, candidates, selectedIds, leadId);
   const selectedAgents = candidates.filter(({ project }) => selectedIds.includes(project.id));
   const selectedLead = selectedAgents.find(({ project }) => project.id === leadId)?.project;
+  // oxlint-disable-next-line elysia/react-effect-budget -- Scope async save ownership to this mounted dialog so completion cannot navigate after it closes.
   useEffect(() => {
     mounted.current = true;
     return () => {
@@ -91,6 +92,7 @@ export function AgentGroupDialog({
     };
   }, []);
 
+  // oxlint-disable-next-line elysia/react-effect-budget -- Preserve the channel creation draft in the shared navigation store across editor unmounts.
   useEffect(() => {
     if (page && !existing)
       useAgentDialogStore.setState({

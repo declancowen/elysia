@@ -1,8 +1,7 @@
+import { act, render as renderUi, type Screen } from "../../test/render";
 import type { DesktopPreviewFavicon, PreviewSessionSnapshot } from "@elysiatools/contracts";
 import { DEFAULT_RESOLVED_KEYBINDINGS } from "@elysiatools/shared/keybindings";
-import { act } from "react";
-import { createRoot, type Root } from "react-dom/client";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
+import { describe, expect, it, vi } from "vite-plus/test";
 
 const setAudioMuted = vi.hoisted(() => vi.fn(async () => undefined));
 
@@ -80,23 +79,23 @@ function overlay(
   };
 }
 
-let root: Root;
-let container: HTMLDivElement;
+let root: Screen;
+let container: HTMLElement;
 const noop = () => undefined;
 
-beforeEach(() => {
-  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+async function setup() {
+  const resources = new AsyncDisposableStack();
+  resources.defer(async () => {
+    vi.unstubAllGlobals();
+  });
+
   setAudioMuted.mockClear();
   container = document.createElement("div");
   document.body.append(container);
-  root = createRoot(container);
-});
+  root = resources.use(await renderUi(null, { container: container, router: false }));
 
-afterEach(async () => {
-  await act(() => root.unmount());
-  container.remove();
-  vi.unstubAllGlobals();
-});
+  return resources;
+}
 
 async function renderTabs(
   first: DesktopPreviewFavicon | null,
@@ -105,7 +104,7 @@ async function renderTabs(
   previewRuntimeTabId: ((tabId: string) => string) | null = (tabId) => `runtime:${tabId}`,
 ) {
   await act(() =>
-    root.render(
+    root.rerender(
       <RightPanelTabs
         mode="inline"
         open
@@ -166,6 +165,7 @@ const button = (name: string) =>
 
 describe("preview tab favicon", () => {
   it("prefers a live capture and never asks a public provider about a private hostname", async () => {
+    await using _fixture = await setup();
     await renderTabs(favicon(PIXEL_A, "http://24x.xf.local/"));
     expect(imageSources()).toEqual([PIXEL_A]);
 
@@ -174,6 +174,7 @@ describe("preview tab favicon", () => {
   });
 
   it("keeps route-specific captures isolated between live tabs on one origin", async () => {
+    await using _fixture = await setup();
     await renderTabs(
       favicon(PIXEL_A, "http://24x.xf.local/"),
       favicon(PIXEL_B, "http://24x.xf.local/admin"),
@@ -182,6 +183,7 @@ describe("preview tab favicon", () => {
   });
 
   it("hides a capture while the server session still describes another origin", async () => {
+    await using _fixture = await setup();
     await renderTabs(favicon(PIXEL_A, "https://example.com/"));
     expect(imageSources()).not.toContain(PIXEL_A);
   });
@@ -192,6 +194,7 @@ describe("preview tab audio toggle", () => {
     { audible: false, audioMuted: false },
     { audible: false, audioMuted: true },
   ])("is absent for a silent tab (muted=$audioMuted)", async (audio) => {
+    await using _fixture = await setup();
     await renderTabs(null, undefined, audio);
     expect(button("Mute Local site")).toBeUndefined();
     expect(button("Unmute Local site")).toBeUndefined();
@@ -201,12 +204,14 @@ describe("preview tab audio toggle", () => {
     { audioMuted: false, label: "Mute Local site", nextMuted: true },
     { audioMuted: true, label: "Unmute Local site", nextMuted: false },
   ])("$label addresses the desktop by runtime tab id", async ({ audioMuted, label, nextMuted }) => {
+    await using _fixture = await setup();
     await renderTabs(null, undefined, { audible: true, audioMuted });
     await act(() => button(label)!.click());
     expect(setAudioMuted).toHaveBeenCalledExactlyOnceWith("runtime:tab-1", nextMuted);
   });
 
   it("hides the toggle when no runtime tab id can be resolved", async () => {
+    await using _fixture = await setup();
     await renderTabs(null, undefined, { audible: true }, null);
     expect(button("Mute Local site")).toBeUndefined();
   });

@@ -22,7 +22,7 @@ export function WorkspaceTabStrip<T extends { id: string }>({
   label: string;
   renderTab: (tab: T, controls: WorkspaceTabControls) => ReactNode;
 }) {
-  const { tabListRef, tabScrollState, scrollTabs } = useTabOverflow(activeId);
+  const { tabListRef, attachTabList, tabScrollState, scrollTabs } = useTabOverflow(activeId);
   const moveTab = useStableCallback((index: number, direction: -1 | 1 | "first" | "last") => {
     const nextIndex =
       direction === "first"
@@ -42,7 +42,7 @@ export function WorkspaceTabStrip<T extends { id: string }>({
       className="flex h-full min-w-0 flex-1 items-center gap-1 [-webkit-app-region:no-drag]"
     >
       <ScrollArea
-        ref={tabListRef}
+        ref={attachTabList}
         hideScrollbars
         radius="none"
         viewportTabIndex={-1}

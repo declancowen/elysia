@@ -262,7 +262,7 @@ export function CollectionTableCell({
       role="cell"
       className={cn("flex min-w-0 items-center", align === "right" && "justify-end")}
     >
-      {children ?? <span className="text-muted-foreground">—</span>}
+      {children ?? <span className="text-muted-foreground">–</span>}
     </div>
   ) : (
     children

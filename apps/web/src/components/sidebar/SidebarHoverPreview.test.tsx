@@ -1,7 +1,13 @@
+vi.mock("vite-plus/test/browser", () => ({
+  page: { elementLocator: () => ({}) },
+  utils: { getElementLocatorSelectors: () => ({}) },
+}));
+import { render as renderUi, type Screen } from "../../../test/render";
+import { act } from "../../../test/act";
 // @vitest-environment jsdom
-import { act, type ReactNode } from "react";
-import { createRoot, type Root } from "react-dom/client";
-import { afterEach, beforeEach, expect, it, vi } from "vite-plus/test";
+import { type ReactNode } from "react";
+
+import { expect, it, vi } from "vite-plus/test";
 import { SidebarHoverPreviewProvider, useSidebarHoverPreview } from "./SidebarHoverPreview";
 
 const state = vi.hoisted(() => ({ pinned: false, finePointer: true, href: "/one" }));
@@ -21,7 +27,7 @@ vi.mock("../ui/sidebar", () => ({
 }));
 vi.mock("./SidebarHoverContents", () => ({ default: () => <p>Preview items</p> }));
 
-let root: Root;
+let root: Screen;
 let host: HTMLDivElement;
 function Harness() {
   const hover = useSidebarHoverPreview()!;
@@ -38,7 +44,7 @@ function Harness() {
 }
 async function render(sidebarAvailable = true) {
   await act(async () =>
-    root.render(
+    root.rerender(
       <SidebarHoverPreviewProvider sidebarAvailable={sidebarAvailable}>
         <Harness />
       </SidebarHoverPreviewProvider>,
@@ -51,25 +57,28 @@ async function pointer(element: Element, type: "pointerover" | "pointerout") {
 async function advance(ms: number) {
   await act(async () => vi.advanceTimersByTime(ms));
 }
-beforeEach(() => {
+async function setup() {
+  const resources = new AsyncDisposableStack();
+  resources.defer(async () => {
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+  });
+
   localStorage.clear();
   vi.useFakeTimers();
-  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+
   state.pinned = false;
   state.finePointer = true;
   state.href = "/one";
   host = document.createElement("div");
   document.body.append(host);
-  root = createRoot(host);
-});
-afterEach(async () => {
-  await act(() => root.unmount());
-  host.remove();
-  vi.useRealTimers();
-  vi.unstubAllGlobals();
-});
+  root = resources.use(await renderUi(null, { container: host, router: false }));
+
+  return resources;
+}
 
 it("avoids pass-by flashes, allows crossing the rail gap, and retains closing content only for its transition", async () => {
+  await using _fixture = await setup();
   await render();
   const button = host.querySelector("button")!;
   await pointer(button, "pointerover");
@@ -96,6 +105,7 @@ it("avoids pass-by flashes, allows crossing the rail gap, and retains closing co
 });
 
 it("suppresses all pinned previews, ignores touch, and clears immediately on navigation", async () => {
+  await using _fixture = await setup();
   state.pinned = true;
   await render();
   await pointer(host.querySelector("button")!, "pointerover");
@@ -118,6 +128,7 @@ it("suppresses all pinned previews, ignores touch, and clears immediately on nav
 });
 
 it("cancels a pending preview and removes an open preview immediately when the sidebar opens", async () => {
+  await using _fixture = await setup();
   await render();
   await pointer(host.querySelector("button")!, "pointerover");
   await advance(90);
@@ -139,6 +150,7 @@ it("cancels a pending preview and removes an open preview immediately when the s
 });
 
 it("allows previews when the pinned sidebar is unavailable on the current surface", async () => {
+  await using _fixture = await setup();
   state.pinned = true;
   await render(false);
   await pointer(host.querySelector("button")!, "pointerover");
@@ -147,6 +159,7 @@ it("allows previews when the pinned sidebar is unavailable on the current surfac
 });
 
 it("shares and persists the resized width across hover sections", async () => {
+  await using _fixture = await setup();
   await render();
   await pointer(host.querySelector("button")!, "pointerover");
   await advance(180);
@@ -175,6 +188,7 @@ it("shares and persists the resized width across hover sections", async () => {
 });
 
 it("keeps a create dialog usable outside the hover panel and closes only after leaving it", async () => {
+  await using _fixture = await setup();
   await render();
   await pointer(host.querySelector("button")!, "pointerover");
   await advance(180);

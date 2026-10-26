@@ -1,3 +1,4 @@
+import { act } from "../../../test/act";
 import { RegistryContext } from "@effect/atom-react";
 import type {
   DeleteProjectInput,
@@ -21,7 +22,7 @@ import { DEFAULT_RESOLVED_KEYBINDINGS } from "@elysiatools/shared/keybindings";
 import * as Cause from "effect/Cause";
 import { AsyncResult, Atom, AtomRegistry } from "effect/reactivity";
 import { cloneElement, type ReactElement, type ReactNode } from "react";
-import { act, create, type ReactTestRenderer } from "react-test-renderer";
+import { create, type ReactTestRenderer } from "react-test-renderer";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
 import type { Project } from "../../types";
@@ -59,6 +60,7 @@ const state = vi.hoisted(() => ({
 }));
 
 vi.mock("~/connection/runtime", () => ({ connectionAtomRuntime: undefined }));
+vi.mock("~/state/olderSettledShelf", () => ({ readUnloadedThreadCount: () => 0 }));
 vi.mock("@elysiatools/client-runtime/state/session", () => ({
   createEnvironmentSessionAtoms: () => ({
     sessionStateAtom: (id: EnvironmentId) => state.sessions.get(id)!,
@@ -237,7 +239,6 @@ function deferred<T>() {
 let renderer: ReactTestRenderer | undefined;
 
 beforeEach(() => {
-  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   vi.clearAllMocks();
   state.registry = AtomRegistry.make();
   state.sessions.clear();

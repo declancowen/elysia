@@ -1,10 +1,11 @@
+import { act } from "../../../test/act";
 import {
   ASSISTANT_CITATION_MAX_COMMENT_LENGTH,
   EnvironmentId,
   MessageId,
   ThreadId,
 } from "@elysiatools/contracts";
-import { act, useState, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { create, type ReactTestRenderer } from "react-test-renderer";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
@@ -51,7 +52,7 @@ const sourceAnchor = {
 
 let renderer: ReactTestRenderer;
 
-function mount(onSave = vi.fn(() => true)) {
+async function mount(onSave = vi.fn(() => true)) {
   function Composer() {
     const [open, setOpen] = useState(true);
     return (
@@ -62,23 +63,25 @@ function mount(onSave = vi.fn(() => true)) {
       />
     );
   }
-  act(() => {
+  await act(() => {
     renderer = create(<Composer />);
   });
   return onSave;
 }
 
-function typeComment(value: string) {
-  act(() => renderer.root.findByType("textarea").props.onChange({ currentTarget: { value } }));
+async function typeComment(value: string) {
+  await act(() =>
+    renderer.root.findByType("textarea").props.onChange({ currentTarget: { value } }),
+  );
 }
 
-function removeSource() {
+async function removeSource() {
   const { onUnavailable } = mocks.observeSource.mock.lastCall![0];
-  act(() => onUnavailable());
+  await act(() => onUnavailable());
 }
 
-function clickButton(label: string) {
-  act(() =>
+async function clickButton(label: string) {
+  await act(() =>
     renderer.root
       .findAllByType("button")
       .find((button) => button.props.children === label)!
@@ -87,22 +90,21 @@ function clickButton(label: string) {
 }
 
 beforeEach(() => {
-  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   mocks.observeSource.mockReset().mockReturnValue(mocks.dispose);
   mocks.dispose.mockClear();
 });
 
-afterEach(() => {
-  act(() => renderer?.unmount());
+afterEach(async () => {
+  await act(() => renderer?.unmount());
   vi.unstubAllGlobals();
 });
 
 describe("citation comment source disappearance", () => {
-  it("preserves an over-length draft at the composer until it can be shortened and saved", () => {
-    const onSave = mount();
+  it("preserves an over-length draft at the composer until it can be shortened and saved", async () => {
+    const onSave = await mount();
     const draft = "x".repeat(ASSISTANT_CITATION_MAX_COMMENT_LENGTH + 1);
-    typeComment(draft);
-    removeSource();
+    await typeComment(draft);
+    await removeSource();
 
     expect(renderer.root.findByType("textarea").props.value).toBe(draft);
     expect(renderer.root.findByType("textarea").props["aria-invalid"]).toBe(true);
@@ -112,40 +114,40 @@ describe("citation comment source disappearance", () => {
     expect(mocks.dispose).toHaveBeenCalled();
     expect(mocks.observeSource).toHaveBeenCalledTimes(1);
 
-    typeComment("shortened comment");
-    clickButton("Save");
+    await typeComment("shortened comment");
+    await clickButton("Save");
     expect(onSave).toHaveBeenCalledWith("shortened comment");
     expect(renderer.root.findAllByType("textarea")).toHaveLength(0);
   });
 
-  it("preserves a rejected save and allows a later retry", () => {
-    const onSave = mount(vi.fn(() => false));
-    typeComment("keep this draft");
-    removeSource();
+  it("preserves a rejected save and allows a later retry", async () => {
+    const onSave = await mount(vi.fn(() => false));
+    await typeComment("keep this draft");
+    await removeSource();
 
     expect(onSave).toHaveBeenCalledWith("keep this draft");
     expect(renderer.root.findByType("textarea").props.value).toBe("keep this draft");
     expect(renderer.root.findByType(PopoverPopup).props.anchor).toBeUndefined();
     onSave.mockReturnValue(true);
-    clickButton("Save");
+    await clickButton("Save");
     expect(onSave).toHaveBeenLastCalledWith("keep this draft");
     expect(renderer.root.findAllByType("textarea")).toHaveLength(0);
   });
 
-  it("still allows explicit cancellation after source disappearance", () => {
-    const onSave = mount(vi.fn(() => false));
-    typeComment("discard this draft");
-    removeSource();
+  it("still allows explicit cancellation after source disappearance", async () => {
+    const onSave = await mount(vi.fn(() => false));
+    await typeComment("discard this draft");
+    await removeSource();
     onSave.mockClear();
-    clickButton("Cancel");
+    await clickButton("Cancel");
     expect(onSave).not.toHaveBeenCalled();
     expect(renderer.root.findAllByType("textarea")).toHaveLength(0);
   });
 
-  it("saves and closes when the source disappears with a valid draft", () => {
-    const onSave = mount();
-    typeComment("saved comment");
-    removeSource();
+  it("saves and closes when the source disappears with a valid draft", async () => {
+    const onSave = await mount();
+    await typeComment("saved comment");
+    await removeSource();
     expect(onSave).toHaveBeenCalledWith("saved comment");
     expect(renderer.root.findAllByType("textarea")).toHaveLength(0);
   });

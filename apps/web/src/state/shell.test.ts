@@ -3,7 +3,10 @@ import {
   PrimaryConnectionTarget,
 } from "@elysiatools/client-runtime/connection";
 import type { EnvironmentCatalogState } from "@elysiatools/client-runtime/state/connections";
-import type { EnvironmentShellState } from "@elysiatools/client-runtime/state/shell";
+import {
+  EMPTY_SHELL_STATE,
+  type EnvironmentShellState,
+} from "@elysiatools/client-runtime/state/shell";
 import { EnvironmentId } from "@elysiatools/contracts";
 import * as Option from "effect/Option";
 import { Atom, AtomRegistry } from "effect/reactivity";
@@ -16,6 +19,7 @@ const REMOTE = EnvironmentId.make("remote");
 
 function shellState(status: EnvironmentShellState["status"]): EnvironmentShellState {
   return {
+    ...EMPTY_SHELL_STATE,
     status,
     snapshot:
       status === "empty"

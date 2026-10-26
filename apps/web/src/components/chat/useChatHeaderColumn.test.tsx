@@ -1,11 +1,16 @@
+vi.mock("vite-plus/test/browser", () => ({
+  page: { elementLocator: () => ({}) },
+  utils: { getElementLocatorSelectors: () => ({}) },
+}));
+import { render as renderUi } from "../../../test/render";
+import { act } from "../../../test/act";
 // @vitest-environment jsdom
-import { act, useRef, type RefObject } from "react";
-import { createRoot } from "react-dom/client";
+import { useRef, type RefObject } from "react";
+
 import { expect, it, vi } from "vite-plus/test";
 import { useChatHeaderColumn } from "./useChatHeaderColumn";
 
 it("aligns a newly opened conversation when its column attaches after the topbar", async () => {
-  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   const deliveries: Array<() => void> = [];
   vi.stubGlobal(
     "ResizeObserver",
@@ -71,9 +76,9 @@ it("aligns a newly opened conversation when its column attaches after the topbar
   }
   const host = document.createElement("div");
   document.body.append(host);
-  const root = createRoot(host);
+  await using root = await renderUi(null, { container: host, router: false });
   try {
-    await act(async () => root.render(<Conversation />));
+    await act(async () => root.rerender(<Conversation />));
     const header = host.querySelector<HTMLElement>("[data-main-header]")!;
     expect(header.style.width).toBe("");
     // The real observer delivers after React has attached the later sibling.
@@ -87,7 +92,7 @@ it("aligns a newly opened conversation when its column attaches after the topbar
     await act(async () => deliveries.forEach((deliver) => deliver()));
     expect(header.textContent).not.toContain("Launch Team");
     expect(header.textContent).toContain("Workspace");
-    await act(async () => root.render(<Conversation inline={false} />));
+    await act(async () => root.rerender(<Conversation inline={false} />));
     expect(header.style.width).toBe("");
     expect(header.textContent).toContain("Launch Team");
   } finally {

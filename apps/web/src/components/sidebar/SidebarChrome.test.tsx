@@ -1,7 +1,13 @@
+vi.mock("vite-plus/test/browser", () => ({
+  page: { elementLocator: () => ({}) },
+  utils: { getElementLocatorSelectors: () => ({}) },
+}));
+import { render as renderUi } from "../../../test/render";
+import { act } from "../../../test/act";
 // @vitest-environment jsdom
 import { EnvironmentId } from "@elysiatools/contracts";
-import { act, useRef, useState, useSyncExternalStore } from "react";
-import { createRoot } from "react-dom/client";
+import { useRef, useState, useSyncExternalStore } from "react";
+
 import { expect, it, vi } from "vite-plus/test";
 
 import { SidebarProvider, useSidebar } from "../ui/sidebar";
@@ -70,7 +76,7 @@ function SidebarVisibility() {
 
 it("navigates rail pages and keeps the thread switcher in Workspace", async () => {
   vi.stubGlobal("cookieStore", { set: vi.fn(async () => {}) });
-  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+
   vi.stubGlobal("matchMedia", () => ({
     matches: false,
     addEventListener: vi.fn(),
@@ -86,10 +92,10 @@ it("navigates rail pages and keeps the thread switcher in Workspace", async () =
   });
   const container = document.createElement("div");
   document.body.append(container);
-  const root = createRoot(container);
+  await using root = await renderUi(null, { container: container, router: false });
   const render = () => {
     for (const listener of state.listeners) listener();
-    root.render(
+    root.rerender(
       <SidebarProvider defaultOpen={false}>
         <SidebarVisibility />
         <AppNavigationRail />
@@ -193,7 +199,6 @@ vi.mock("./SidebarUpdatePill", () => ({
 vi.mock("./SidebarThreadUndoNotice", () => ({ SidebarThreadUndoNotice: () => null }));
 
 it("keeps Work/Code beside Settings, preserves sidebar layout, and hides both switches in Settings and Stats", async () => {
-  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   vi.stubGlobal("matchMedia", () => ({
     matches: false,
     addEventListener: vi.fn(),
@@ -210,11 +215,11 @@ it("keeps Work/Code beside Settings, preserves sidebar layout, and hides both sw
   });
   const container = document.createElement("div");
   document.body.append(container);
-  const root = createRoot(container);
+  await using root = await renderUi(null, { container: container, router: false });
   const environmentId = EnvironmentId.make("local");
   const render = () => {
     for (const listener of state.listeners) listener();
-    root.render(
+    root.rerender(
       <SidebarProvider>
         <SidebarUtilityMenu />
         <RecentThreadsHeader environmentId={environmentId} />
@@ -305,7 +310,6 @@ it("keeps Work/Code beside Settings, preserves sidebar layout, and hides both sw
 });
 
 it("starts the new top-level chat in Chats and expands the section", async () => {
-  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   vi.stubGlobal("matchMedia", () => ({
     matches: false,
     addEventListener: vi.fn(),
@@ -317,10 +321,10 @@ it("starts the new top-level chat in Chats and expands the section", async () =>
   state.startScratchThread.mockReset();
   const container = document.createElement("div");
   document.body.append(container);
-  const root = createRoot(container);
+  await using root = await renderUi(null, { container: container, router: false });
   try {
     await act(async () =>
-      root.render(
+      root.rerender(
         <SidebarProvider>
           <SidebarNewChatButton />
         </SidebarProvider>,
@@ -333,7 +337,7 @@ it("starts the new top-level chat in Chats and expands the section", async () =>
     expect(useUiStateStore.getState().projectExpandedById[RECENT_THREADS_EXPANSION_KEY]).toBe(true);
     state.connected = false;
     await act(async () =>
-      root.render(
+      root.rerender(
         <SidebarProvider>
           <SidebarNewChatButton />
         </SidebarProvider>,
@@ -351,7 +355,6 @@ it("starts the new top-level chat in Chats and expands the section", async () =>
 });
 
 it("opens search from its icon in each view and keeps the command shortcut available", async () => {
-  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   vi.stubGlobal(
     "ResizeObserver",
     class {
@@ -362,7 +365,7 @@ it("opens search from its icon in each view and keeps the command shortcut avail
   );
   const host = document.createElement("div");
   document.body.append(host);
-  const root = createRoot(host);
+  await using root = await renderUi(null, { container: host, router: false });
   const openPalette = vi.fn();
   const keyDown = vi.fn();
   function Search() {
@@ -385,7 +388,7 @@ it("opens search from its icon in each view and keeps the command shortcut avail
   }
   try {
     await act(async () =>
-      root.render(
+      root.rerender(
         <CommandDialog onOpenChange={openPalette}>
           <SidebarHeaderSearch shortcutLabel="⌘K" />
         </CommandDialog>,
@@ -396,7 +399,7 @@ it("opens search from its icon in each view and keeps the command shortcut avail
     await act(async () => search.click());
     expect(openPalette.mock.calls.at(-1)?.[0]).toBe(true);
     await act(async () =>
-      root.render(
+      root.rerender(
         <CommandDialog onOpenChange={openPalette}>
           <Search />
         </CommandDialog>,

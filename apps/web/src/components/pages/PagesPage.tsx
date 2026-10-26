@@ -130,6 +130,7 @@ export function PagesPage({ folderId = null }: { folderId?: PageId | null }) {
   const [createKind, setCreateKind] = useState<"page" | "folder">("page");
   const [createParent, setCreateParent] = useState<string>(folderId ?? "none");
   const folderHoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // oxlint-disable-next-line elysia/react-effect-budget -- Cancel a drag-hover timer when its folder surface unmounts.
   useEffect(
     () => () => {
       if (folderHoverTimer.current) clearTimeout(folderHoverTimer.current);
@@ -416,6 +417,7 @@ export function PagesPage({ folderId = null }: { folderId?: PageId | null }) {
     setHandledRequestedCreate(requestedCreate);
     if (requestedCreate) startCreate(requestedCreate);
   }
+  // oxlint-disable-next-line elysia/react-effect-budget -- Consume the external create-link parameter after opening its dialog.
   useEffect(() => {
     if (!requestedCreate) return;
     void navigate({ to: "/pages", search: {}, replace: true });
@@ -1215,11 +1217,11 @@ export function PagesPage({ folderId = null }: { folderId?: PageId | null }) {
               >
                 <SelectTrigger aria-label="Parent folder">
                   <SelectValue>
-                    {folders.find((folder) => folder.id === createParent)?.title ?? "None"}
+                    {folders.find((folder) => folder.id === createParent)?.title ?? "No folder"}
                   </SelectValue>
                 </SelectTrigger>
                 <SelectPopup>
-                  <SelectItem value="none">None</SelectItem>
+                  <SelectItem value="none">No folder</SelectItem>
                   {folders
                     .filter((folder) => folder.id !== renaming?.id)
                     .map((folder) => (

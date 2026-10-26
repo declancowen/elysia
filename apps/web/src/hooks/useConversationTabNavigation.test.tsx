@@ -1,9 +1,15 @@
+vi.mock("vite-plus/test/browser", () => ({
+  page: { elementLocator: () => ({}) },
+  utils: { getElementLocatorSelectors: () => ({}) },
+}));
+import { render as renderUi, type Screen } from "../../test/render";
+import { act } from "../../test/act";
 // @vitest-environment jsdom
 import { scopeThreadRef } from "@elysiatools/client-runtime/environment";
 import { EnvironmentId, ProjectId, ThreadId, PageId, WorkTaskId } from "@elysiatools/contracts";
-import { act, useLayoutEffect } from "react";
-import { createRoot, type Root } from "react-dom/client";
-import { afterEach, beforeEach, expect, it, vi } from "vite-plus/test";
+import { useLayoutEffect } from "react";
+
+import { expect, it, vi } from "vite-plus/test";
 import { DraftId } from "../composerDraftStore";
 import { useConversationTabsStore, type ConversationTabTarget } from "../conversationTabsStore";
 import { useAgentSidebarStore } from "../components/agents/agentSidebarStore";
@@ -21,7 +27,7 @@ vi.mock("../state/entities", () => ({
 vi.mock("../components/pullRequest/pullRequestListPreferences", () => ({
   readPullRequestListPreferences: () => ({ involvement: "reviewRequested", state: "closed" }),
 }));
-let root: Root;
+let root: Screen;
 let host: HTMLDivElement;
 let navigateSection: ReturnType<typeof useConversationSectionNavigation>;
 let navigateTab: ReturnType<typeof useConversationTabNavigation>;
@@ -34,25 +40,28 @@ function Harness() {
   }, [tab, section]);
   return null;
 }
-beforeEach(async () => {
+async function setup() {
+  const resources = new AsyncDisposableStack();
+  resources.defer(async () => {});
+
   state.navigate.mockClear();
   state.agent = false;
   useConversationTabsStore.setState({ tabs: [], activeId: null });
   useAgentSidebarStore.setState({ active: false });
   host = document.createElement("div");
   document.body.append(host);
-  root = createRoot(host);
-  await act(async () => root.render(<Harness />));
-});
-afterEach(async () => {
-  await act(async () => root.unmount());
-  host.remove();
-});
+  root = resources.use(await renderUi(null, { container: host, router: false }));
+  await act(async () => root.rerender(<Harness />));
+
+  return resources;
+}
+
 const conversation: ConversationTabTarget = {
   kind: "server",
   threadRef: scopeThreadRef(EnvironmentId.make("remote"), ThreadId.make("agent")),
 };
 it("selects the Agents sidebar for agent/channel conversations and Workspace for project threads", async () => {
+  await using _fixture = await setup();
   state.agent = true;
   await act(async () => navigateTab(conversation));
   expect(useAgentSidebarStore.getState().active).toBe(true);
@@ -66,6 +75,7 @@ it("selects the Agents sidebar for agent/channel conversations and Workspace for
   expect(useAgentSidebarStore.getState().active).toBe(false);
 });
 it("returns drafts to Workspace and preserves replacement redirects", async () => {
+  await using _fixture = await setup();
   useAgentSidebarStore.setState({ active: true });
   await act(async () => navigateTab({ kind: "draft", draftId: DraftId.make("draft") }, true));
   expect(useAgentSidebarStore.getState().active).toBe(false);
@@ -76,6 +86,7 @@ it("returns drafts to Workspace and preserves replacement redirects", async () =
   });
 });
 it("keeps the PR list filters while serializing the tab's exact server, project, host and PR identity", async () => {
+  await using _fixture = await setup();
   useAgentSidebarStore.setState({ active: true });
   await act(async () =>
     navigateTab({
@@ -104,6 +115,7 @@ it("keeps the PR list filters while serializing the tab's exact server, project,
 });
 
 it("reuses a section's existing tab and adds a first section tab without replacing the previous view", async () => {
+  await using _fixture = await setup();
   const store = useConversationTabsStore.getState();
   store.open(conversation);
   store.open(
@@ -134,6 +146,7 @@ it("reuses a section's existing tab and adds a first section tab without replaci
 });
 
 it("navigates page and task tabs to their existing editors and restores them from the rail", async () => {
+  await using _fixture = await setup();
   const page: ConversationTabTarget = {
     kind: "page",
     environmentId: EnvironmentId.make("local"),
@@ -170,6 +183,7 @@ it("navigates page and task tabs to their existing editors and restores them fro
 });
 
 it("opens creation tabs in Agents and keeps channel creation separate", async () => {
+  await using _fixture = await setup();
   await act(async () => navigateTab({ kind: "agent-create" }));
   expect(state.navigate).toHaveBeenLastCalledWith({
     to: "/agents",
@@ -186,6 +200,7 @@ it("opens creation tabs in Agents and keeps channel creation separate", async ()
 });
 
 it("restores common surface tabs and replaces stale settings scope when changing sections", async () => {
+  await using _fixture = await setup();
   const surface: ConversationTabTarget = {
     kind: "surface",
     path: "/settings/projects",

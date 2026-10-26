@@ -137,10 +137,12 @@ function OverviewPopover({
   }
   // The shared header can live outside the thread pane, so report reserved space
   // to the pane owner instead of relying on the trigger being its DOM descendant.
+  // oxlint-disable-next-line elysia/react-effect-budget -- Reserve and release parent pane space for the portaled overview before layout paints.
   useLayoutEffect(() => {
     onDockedChange?.(open && wide && !hidden);
     return () => onDockedChange?.(false);
   }, [open, wide, hidden, onDockedChange]);
+  // oxlint-disable-next-line elysia/react-effect-budget -- Notify the separate header owner when the portaled overview opens or is hidden.
   useLayoutEffect(() => {
     if (!hidden) onOpenChange?.(open);
   }, [open, hidden, onOpenChange]);
@@ -148,8 +150,8 @@ function OverviewPopover({
   const [sourcesExpanded, setSourcesExpanded] = useState(true);
   const [gitExpanded, setGitExpanded] = useState(true);
   const delegated = useDelegatedAgents(sourceThreadRef ?? null, delegatedAgents);
-  const initialJobs = useRef<Set<string> | null>(null);
-  const openedJobs = useRef(new Set<string>());
+  const [initialJobs, setInitialJobs] = useState<ReadonlySet<string> | null>(null);
+  const [openedJobs, setOpenedJobs] = useState<ReadonlySet<string>>(() => new Set());
   const grouped = groupDelegatedAgents(delegated);
   const [view, setView] = useState<
     { kind: "agent" | "subagent"; id: string } | { kind: "subagents" } | null
@@ -195,6 +197,7 @@ function OverviewPopover({
   const expandedWidth = wide
     ? collapsedWidth + (availableSize.width - collapsedWidth) / 2
     : availableSize.width;
+  // oxlint-disable-next-line elysia/react-effect-budget -- Observe the committed reply DOM and land its scroll position at the selected response.
   useLayoutEffect(() => {
     const body = bodyRef.current;
     if (!open || !selectedAgent) {
@@ -218,6 +221,7 @@ function OverviewPopover({
     landReply();
     return observeResize(body, landReply);
   }, [open, view, selectedAgent, bodyRef, landedView]);
+  // oxlint-disable-next-line elysia/react-effect-budget -- Measure the portaled panel against its DOM workspace and own resize listeners.
   useLayoutEffect(() => {
     if (!open || hidden) return;
     const column =
@@ -260,25 +264,27 @@ function OverviewPopover({
       window.removeEventListener("resize", measure);
     };
   }, [open, hidden, composerElement, threadBoundaryRef]);
-  useEffect(() => {
-    if (!sourceHistoryReady || memberIds) return;
-    if (initialJobs.current === null)
-      initialJobs.current = new Set(delegated.map(({ job }) => job.activityId));
-    for (const { job, working } of delegated) {
-      if (openedJobs.current.has(job.activityId)) continue;
-      if (working || !initialJobs.current.has(job.activityId)) {
-        openedJobs.current.add(job.activityId);
-        setView({ kind: "agent", id: job.agentProjectId });
-        setOpen(true);
-      }
+  if (sourceHistoryReady && !memberIds) {
+    const initial = initialJobs ?? new Set(delegated.map(({ job }) => job.activityId));
+    if (initialJobs === null) setInitialJobs(initial);
+    const newlyOpened = delegated.filter(
+      ({ job, working }) =>
+        !openedJobs.has(job.activityId) && (working || !initial.has(job.activityId)),
+    );
+    if (newlyOpened.length > 0) {
+      setOpenedJobs(new Set([...openedJobs, ...newlyOpened.map(({ job }) => job.activityId)]));
+      setView({ kind: "agent", id: newlyOpened.at(-1)!.job.agentProjectId });
+      setOpen(true);
     }
-  }, [delegated, sourceHistoryReady, memberIds]);
+  }
+  // oxlint-disable-next-line elysia/react-effect-budget -- Acknowledge the consumed open request in the shared overview command store.
   useEffect(() => {
     if (targetMatches)
       useThreadOverviewStore.setState((state) =>
         state.target === target ? { target: null } : state,
       );
   }, [target, targetMatches]);
+  // oxlint-disable-next-line elysia/react-effect-budget -- Acknowledge the consumed toggle request in the shared overview command store.
   useEffect(() => {
     if (toggleMatches)
       useThreadOverviewStore.setState((state) =>

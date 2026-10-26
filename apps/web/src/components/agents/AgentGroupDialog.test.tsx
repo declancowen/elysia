@@ -1,3 +1,9 @@
+vi.mock("vite-plus/test/browser", () => ({
+  page: { elementLocator: () => ({}) },
+  utils: { getElementLocatorSelectors: () => ({}) },
+}));
+import { render as renderUi, type Screen } from "../../../test/render";
+import { act } from "../../../test/act";
 // @vitest-environment jsdom
 import {
   EnvironmentId,
@@ -8,9 +14,8 @@ import {
 } from "@elysiatools/contracts";
 import * as Cause from "effect/Cause";
 import { AsyncResult } from "effect/reactivity";
-import { act } from "react";
-import { createRoot, type Root } from "react-dom/client";
-import { afterEach, beforeEach, expect, it, vi } from "vite-plus/test";
+
+import { expect, it, vi } from "vite-plus/test";
 import type { AgentRosterEntry } from "./useAgents";
 
 const state = vi.hoisted(() => ({
@@ -66,14 +71,19 @@ function agent(id: string): AgentRosterEntry {
   };
 }
 const agents = [agent("Alice"), agent("Bob"), agent("Charlie")];
-let root: Root;
+let root: Screen;
 let host: HTMLDivElement;
 const submit = () =>
   document
     .querySelector("form")!
     .dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
-beforeEach(() => {
-  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+async function setup() {
+  const resources = new AsyncDisposableStack();
+  resources.defer(async () => {
+    Reflect.deleteProperty(Element.prototype, "getAnimations");
+    vi.unstubAllGlobals();
+  });
+
   Object.defineProperty(Element.prototype, "getAnimations", {
     configurable: true,
     value: () => [],
@@ -100,17 +110,14 @@ beforeEach(() => {
   state.router.latestLocation.href = "/agents";
   host = document.createElement("div");
   document.body.append(host);
-  root = createRoot(host);
-});
-afterEach(async () => {
-  await act(async () => root.unmount());
-  host.remove();
-  Reflect.deleteProperty(Element.prototype, "getAnimations");
-  vi.unstubAllGlobals();
-});
+  root = resources.use(await renderUi(null, { container: host, router: false }));
+
+  return resources;
+}
 
 it("changes lead when deselected and creates the native group conversation with remaining members", async () => {
-  await act(async () => root.render(<AgentGroupDialog agents={agents} onClose={state.close} />));
+  await using _fixture = await setup();
+  await act(async () => root.rerender(<AgentGroupDialog agents={agents} onClose={state.close} />));
   const input = document.querySelector<HTMLInputElement>('input[aria-label="Channel name"]')!;
   await act(async () => {
     Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(input, "Team");
@@ -143,6 +150,7 @@ it("changes lead when deselected and creates the native group conversation with 
 });
 
 it("keeps failed edits open for retry and preserves the durable conversation in the update", async () => {
+  await using _fixture = await setup();
   const existing = agent("Team");
   existing.project = {
     ...existing.project,
@@ -157,7 +165,7 @@ it("keeps failed edits open for retry and preserves the durable conversation in 
   };
   state.update.mockResolvedValueOnce(AsyncResult.failure(Cause.fail(new Error("Save failed"))));
   await act(async () =>
-    root.render(<AgentGroupDialog agents={agents} existing={existing} onClose={state.close} />),
+    root.rerender(<AgentGroupDialog agents={agents} existing={existing} onClose={state.close} />),
   );
   await act(async () => {
     submit();
@@ -178,16 +186,18 @@ it("keeps failed edits open for retry and preserves the durable conversation in 
 });
 
 it("preserves a page draft and replaces its creation tab with the saved channel conversation", async () => {
+  await using _fixture = await setup();
   useConversationTabsStore.getState().open({ kind: "agent-create", channel: true });
   const tabId = useConversationTabsStore.getState().activeId;
-  const render = () => root.render(<AgentGroupDialog agents={agents} page onClose={state.close} />);
+  const render = () =>
+    root.rerender(<AgentGroupDialog agents={agents} page onClose={state.close} />);
   await act(async () => render());
   const input = host.querySelector<HTMLInputElement>('input[aria-label="Channel name"]')!;
   await act(async () => {
     Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(input, "Team");
     input.dispatchEvent(new Event("input", { bubbles: true }));
   });
-  await act(async () => root.render(null));
+  await act(async () => root.rerender(null));
   await act(async () => render());
   expect(host.querySelector<HTMLInputElement>('input[aria-label="Channel name"]')!.value).toBe(
     "Team",

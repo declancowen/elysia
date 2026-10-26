@@ -1,11 +1,15 @@
+vi.mock("vite-plus/test/browser", () => ({
+  page: { elementLocator: () => ({}) },
+  utils: { getElementLocatorSelectors: () => ({}) },
+}));
+import { render as renderUi } from "../../../test/render";
+import { act } from "../../../test/act";
 // @vitest-environment jsdom
-import { act } from "react";
-import { createRoot } from "react-dom/client";
+
 import { expect, it, vi } from "vite-plus/test";
 import { useTaskCardLayout } from "./useTaskCardLayout";
 
 it("matches the tallest rendered title and footer, then shrinks after wrapping or content changes", async () => {
-  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   const disconnect = vi.fn();
   let resize = () => {};
   vi.stubGlobal(
@@ -39,7 +43,7 @@ it("matches the tallest rendered title and footer, then shrinks after wrapping o
   });
   const host = document.createElement("div");
   document.body.append(host);
-  const root = createRoot(host);
+  await using root = await renderUi(null, { container: host, router: false });
   function Harness({ expanded = true, enabled = true }) {
     const ref = useTaskCardLayout(enabled);
     return (
@@ -59,7 +63,7 @@ it("matches the tallest rendered title and footer, then shrinks after wrapping o
     host.firstElementChild!.getAttribute("style")?.includes(`${name}:`);
   const style = () => (host.firstElementChild as HTMLElement).style;
   try {
-    await act(async () => root.render(<Harness />));
+    await act(async () => root.rerender(<Harness />));
     expect(style().getPropertyValue("--task-card-title-height")).toBe("48px");
     expect(style().getPropertyValue("--task-card-metadata-height")).toBe("76px");
     heights.long = 24;
@@ -68,9 +72,9 @@ it("matches the tallest rendered title and footer, then shrinks after wrapping o
     expect(style().getPropertyValue("--task-card-title-height")).toBe("24px");
     expect(style().getPropertyValue("--task-card-metadata-height")).toBe("46px");
     heights.twoRows = 100;
-    await act(async () => root.render(<Harness expanded={false} />));
+    await act(async () => root.rerender(<Harness expanded={false} />));
     expect(style().getPropertyValue("--task-card-metadata-height")).toBe("46px");
-    await act(async () => root.render(<Harness enabled={false} />));
+    await act(async () => root.rerender(<Harness enabled={false} />));
     expect(height("--task-card-title-height")).toBe(false);
     expect(height("--task-card-metadata-height")).toBe(false);
     expect(disconnect).toHaveBeenCalled();

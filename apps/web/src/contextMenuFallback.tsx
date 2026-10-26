@@ -60,6 +60,7 @@ import {
   XIcon,
   Volume2,
   VolumeOff,
+  UserPlusIcon,
   type LucideIcon,
 } from "./icons";
 
@@ -87,6 +88,7 @@ const MENU_ICONS: Record<string, LucideIcon> = {
   "refresh-cw": RefreshCwIcon,
   settings: SettingsIcon,
   "folder-tree": FolderTreeIcon,
+  "user-plus": UserPlusIcon,
   trash: Trash2Icon,
   plus: PlusIcon,
   link: Link2Icon,

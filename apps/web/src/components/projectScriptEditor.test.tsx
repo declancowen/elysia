@@ -1,7 +1,8 @@
+import { act } from "../../test/act";
 import { EnvironmentId } from "@elysiatools/contracts";
 import * as Cause from "effect/Cause";
 import { AsyncResult } from "effect/reactivity";
-import { act, StrictMode, type ReactNode } from "react";
+import { StrictMode, type ReactNode } from "react";
 import { create, type ReactTestRenderer } from "react-test-renderer";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
@@ -74,8 +75,8 @@ function editor(nextRequest: ProjectScriptEditorRequest) {
   );
 }
 
-function open(nextRequest: ProjectScriptEditorRequest) {
-  act(() => {
+async function open(nextRequest: ProjectScriptEditorRequest) {
+  await act(() => {
     if (renderer) renderer.update(editor(nextRequest));
     else renderer = create(editor(nextRequest));
   });
@@ -101,7 +102,7 @@ function deferredSave() {
 
 beforeEach(() => {
   renderer = null;
-  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+
   onSubmit.mockReset();
   onClose.mockReset();
   onDelete.mockReset();
@@ -116,10 +117,10 @@ describe("project action editor save lifecycle", () => {
   it("blocks repeated submits and edits until the current save completes", async () => {
     const save = deferredSave();
     onSubmit.mockReturnValue(save.promise);
-    open(request("build"));
+    await open(request("build"));
 
     let completion!: Promise<void>;
-    act(() => {
+    await act(() => {
       completion = submit();
       void submit();
     });
@@ -143,17 +144,17 @@ describe("project action editor save lifecycle", () => {
     const first = deferredSave();
     const second = deferredSave();
     onSubmit.mockReturnValueOnce(first.promise).mockReturnValueOnce(second.promise);
-    open(request("build"));
+    await open(request("build"));
     let firstCompletion!: Promise<void>;
-    act(() => {
+    await act(() => {
       firstCompletion = submit();
     });
 
-    open(request("test"));
+    await open(request("test"));
     expect(saveButton().props.disabled).toBe(false);
     expect(renderer!.root.findByProps({ id: "script-name" }).props.value).toBe("test");
     let secondCompletion!: Promise<void>;
-    act(() => {
+    await act(() => {
       secondCompletion = submit();
     });
 
@@ -177,13 +178,13 @@ describe("project action editor save lifecycle", () => {
     async (outcome) => {
       const save = deferredSave();
       onSubmit.mockReturnValue(save.promise);
-      open(request("build"));
+      await open(request("build"));
       let completion!: Promise<void>;
-      act(() => {
+      await act(() => {
         completion = submit();
       });
 
-      open(request("test", "New request error"));
+      await open(request("test", "New request error"));
       await act(async () => {
         if (outcome === "failure")
           save.resolve(AsyncResult.failure(Cause.fail(new Error("Old save error"))));
@@ -202,7 +203,7 @@ describe("project action editor save lifecycle", () => {
   it("shows a current save error and allows retry", async () => {
     onSubmit.mockResolvedValueOnce(AsyncResult.failure(Cause.fail(new Error("Save failed"))));
     onSubmit.mockResolvedValueOnce(AsyncResult.success(undefined));
-    open(request("build"));
+    await open(request("build"));
 
     await act(async () => {
       await submit();
@@ -224,13 +225,13 @@ describe("project action editor save lifecycle", () => {
   it.each(["cancel", "unmount"] as const)("ignores save completion after %s", async (exit) => {
     const save = deferredSave();
     onSubmit.mockReturnValue(save.promise);
-    open(request("build"));
+    await open(request("build"));
     let completion!: Promise<void>;
-    act(() => {
+    await act(() => {
       completion = submit();
     });
 
-    act(() => {
+    await act(() => {
       if (exit === "cancel") {
         renderer!.root
           .findAllByType("button")

@@ -442,6 +442,7 @@ function ScheduledTaskEnvironmentList({
   const linkedState = states.find((state) => state.environment.environmentId === environmentId);
   const linkedTask = linkedState?.tasks?.find((task) => task.id === taskId);
   const openedLink = useRef(false);
+  // oxlint-disable-next-line elysia/react-effect-budget -- Open a deep-linked task once its asynchronous environment query resolves.
   useEffect(() => {
     if (!openedLink.current && environmentId && linkedTask) {
       openedLink.current = true;
@@ -586,6 +587,7 @@ export function ScheduledTaskEnvironmentSection({
   );
   const linkedTask = tasksQuery.data?.tasks.find((task) => task.id === taskId);
   const openedLink = useRef(false);
+  // oxlint-disable-next-line elysia/react-effect-budget -- Resolve the incoming task link after the live task snapshot arrives.
   useEffect(() => {
     if (!compact && !openedLink.current && linkedTask) {
       openedLink.current = true;

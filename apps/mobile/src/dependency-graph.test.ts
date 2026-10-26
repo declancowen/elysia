@@ -2,12 +2,7 @@ import * as NodeFS from "node:fs";
 import * as NodePath from "node:path";
 import { describe, expect, it } from "vite-plus/test";
 
-/**
- *    Dynamic `import("...")` calls are excluded from this rule on purpose:
- *    they are the deliberate async escape hatch (e.g. composer-draft cleanup
- *    reaching `lib/attachmentUpload`), and Metro resolves them after both
- *    modules have initialized, so they cannot create an initialization cycle.
- */
+/** Dynamic imports cannot create Metro initialization cycles: they resolve after both modules initialize. */
 
 const SOURCE_ROOT = __dirname;
 
@@ -205,16 +200,6 @@ function findCycles(graph: PlatformGraph): ReadonlyArray<ReadonlyArray<string>> 
 
 const graphs = PLATFORMS.map(buildPlatformGraph);
 
-function upwardEdges(): string[] {
-  const union = new Set<string>();
-  for (const graph of graphs) {
-    for (const edge of graph.crossLayerEdges) {
-      union.add(edge);
-    }
-  }
-  return [...union].sort();
-}
-
 describe("mobile dependency graph", () => {
   it.each(PLATFORMS)("has no circular imports under %s resolution", (platform) => {
     const graph = graphs.find((candidate) => candidate.platform === platform)!;
@@ -223,7 +208,7 @@ describe("mobile dependency graph", () => {
   });
 
   it("keeps upward imports from state/lib/components/native into features at the ceiling", () => {
-    const edges = upwardEdges();
+    const edges = [...new Set(graphs.flatMap((graph) => [...graph.crossLayerEdges]))];
     const edgesFor = (from: Layer, to: Layer): string[] =>
       edges.filter((edge) => {
         const [source, target] = edge.split(" -> ");

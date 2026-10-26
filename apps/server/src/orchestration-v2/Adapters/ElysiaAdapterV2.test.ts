@@ -4,6 +4,11 @@ import {
   EnvironmentId,
   ProviderInstanceId,
   ProviderSessionId,
+  ProjectId,
+  RunId,
+  RunAttemptId,
+  NodeId,
+  MessageId,
   ThreadId,
 } from "@elysiatools/contracts";
 import { describe, it } from "@effect/vitest";
@@ -15,6 +20,9 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Layer from "effect/Layer";
+import * as DateTime from "effect/DateTime";
+import * as Stream from "effect/Stream";
+import type { ClaudeAgentSdkQueryOptions } from "./ClaudeAdapterV2.ts";
 import * as IdAllocator from "@elysiatools/provider-core/server/IdAllocator";
 import * as CommandPolicy from "../CommandPolicy.ts";
 import { elysiaModelCatalog } from "../../provider/ElysiaModelCatalog.ts";
@@ -31,6 +39,148 @@ const decodeClaudeSettings = Schema.decodeSync(ClaudeSettings);
 const modelCatalog = elysiaModelCatalog(["gpt-5-4", "deepseek-v4.1-flash"]);
 
 describe("Elysia V2 runtime boundary", () => {
+  it.effect(
+    "starts each selected model with native routing headers rather than the saved CLI default",
+    () =>
+      Effect.scoped(
+        Effect.gen(function* () {
+          const fileSystem = yield* FileSystem.FileSystem;
+          const path = yield* Path.Path;
+          const profile = yield* fileSystem.makeTempDirectoryScoped({ prefix: "elysia-routing-" });
+          const instanceId = ProviderInstanceId.make("elysia-routing-test");
+          const catalog = elysiaModelCatalog(["gpt-6.1-sol", "deepseek-v4.1-flash"]);
+          for (const model of ["gpt-6.1-sol", "deepseek-v4.1-flash"]) {
+            const nativeHeaders =
+              model === "gpt-6.1-sol"
+                ? "x-portkey-config: fixture\nx-portkey-beta: use-responses-api"
+                : "x-portkey-config: fixture";
+            let openedOptions: ClaudeAgentSdkQueryOptions | undefined;
+            const adapter = yield* makeClaudeAdapterV2({
+              crypto: yield* Crypto.Crypto,
+              instanceId,
+              settings: decodeClaudeSettings({ homePath: profile }),
+              environment: {
+                ELYSIA_PROFILE_ROOT: profile,
+                ANTHROPIC_MODEL: "deepseek-v4.1-flash",
+                ANTHROPIC_CUSTOM_HEADERS: "stale-default-headers",
+              },
+              resolveEnvironment: (selected) =>
+                Effect.succeed({
+                  ELYSIA_PROFILE_ROOT: profile,
+                  ANTHROPIC_MODEL: selected,
+                  ANTHROPIC_AUTH_TOKEN: "fixture-secret",
+                  ANTHROPIC_CUSTOM_HEADERS: nativeHeaders,
+                }),
+              modelCatalog: Effect.succeed(catalog),
+              attachmentsDir: profile,
+              fileSystem,
+              path,
+              idAllocator: yield* IdAllocator.IdAllocatorV2,
+              queryRunner: {
+                allocateSessionId: Effect.succeed("native-model-routing"),
+                open: (input) =>
+                  Effect.sync(() => {
+                    openedOptions = input.options;
+                    return {
+                      messages: Stream.never,
+                      offer: () => Effect.void,
+                      setModel: () => Effect.void,
+                      applyFlagSettings: () => Effect.void,
+                      setPermissionMode: () => Effect.void,
+                      backgroundTasks: () => Effect.succeed(false),
+                      stopTask: () => Effect.void,
+                      interrupt: Effect.void,
+                      close: Effect.void,
+                    };
+                  }),
+                forkSession: () => Effect.die("unused"),
+                subagentLaunchToolUseId: () => Effect.succeed(null),
+                assertComplete: Effect.void,
+              },
+            });
+            const threadId = ThreadId.make("routing-" + model);
+            const modelSelection = { instanceId, model };
+            const runtimePolicy = {
+              cwd: profile,
+              runtimeMode: "full-access",
+              interactionMode: "default",
+            } as const;
+            const runtime = yield* adapter.openSession({
+              threadId,
+              providerSessionId: ProviderSessionId.make("routing-" + model),
+              modelSelection,
+              runtimePolicy,
+            });
+            const providerThread = yield* runtime.ensureThread({
+              threadId,
+              modelSelection,
+              runtimePolicy,
+            });
+            const now = yield* DateTime.now;
+            yield* runtime.startTurn({
+              appThread: {
+                id: threadId,
+                projectId: ProjectId.make("routing-project"),
+                title: "Routing fixture",
+                createdBy: "user",
+                creationSource: "web",
+                providerInstanceId: instanceId,
+                modelSelection,
+                runtimeMode: "full-access",
+                interactionMode: "default",
+                branch: null,
+                worktreePath: null,
+                activeProviderThreadId: providerThread.id,
+                lineage: {
+                  parentThreadId: null,
+                  relationshipToParent: null,
+                  rootThreadId: threadId,
+                },
+                forkedFrom: null,
+                createdAt: now,
+                updatedAt: now,
+                archivedAt: null,
+                settledOverride: null,
+                settledAt: null,
+                lastVisitedAt: null,
+                deletedAt: null,
+              },
+              threadId,
+              runId: RunId.make("routing-run"),
+              runOrdinal: 1,
+              providerTurnOrdinal: 1,
+              attemptId: RunAttemptId.make("routing-attempt"),
+              rootNodeId: NodeId.make("routing-root"),
+              providerThread,
+              message: {
+                messageId: MessageId.make("routing-message"),
+                text: "Respond using the selected model.",
+                attachments: [],
+                createdBy: "user",
+                creationSource: "web",
+              },
+              modelSelection,
+              runtimePolicy,
+            });
+            expect(openedOptions?.model).toBe(model);
+            expect(openedOptions?.env).toMatchObject({
+              ANTHROPIC_MODEL: model,
+              ANTHROPIC_AUTH_TOKEN: "fixture-secret",
+              ANTHROPIC_CUSTOM_HEADERS: nativeHeaders,
+            });
+            expect(openedOptions?.managedSettings?.env).not.toHaveProperty(
+              "ANTHROPIC_CUSTOM_HEADERS",
+            );
+            expect(openedOptions?.managedSettings?.env).not.toHaveProperty("ANTHROPIC_AUTH_TOKEN");
+          }
+        }).pipe(
+          Effect.provide(
+            Layer.mergeAll(NodeServices.layer, IdAllocator.layer, McpProviderSessions.layer),
+          ),
+        ),
+      ),
+  );
+
   it.effect(
     "rejects a missing protected native session before opening a query, permitting portable recovery",
     () =>

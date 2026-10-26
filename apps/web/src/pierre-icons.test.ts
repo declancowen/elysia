@@ -1,13 +1,20 @@
 import { assert, describe, it } from "vite-plus/test";
 
 import {
+  ELYSIA_PIERRE_ICONS,
   hasSpecificPierreIconForFileName,
   resolvePierreIconForEntry,
   syntheticFileNameForLanguageId,
-  ELYSIA_PIERRE_ICONS,
 } from "./pierre-icons";
 
 describe("Pierre file icons", () => {
+  it.each(["photo.heic", "photo.heif", "PHOTO.HEIC", "folder/photo.HEIF"])(
+    "uses the image icon for %s",
+    (name) => {
+      assert.equal(resolvePierreIconForEntry(name, "file")?.token, "image");
+      assert.isTrue(hasSpecificPierreIconForFileName(name));
+    },
+  );
   it("uses detected types for extensionless files while keeping known filename icons", () => {
     assert.equal(
       resolvePierreIconForEntry("custom-script", "file", "text/x-python")?.token,
@@ -23,11 +30,6 @@ describe("Pierre file icons", () => {
       resolvePierreIconForEntry("unknown", "file", "application/octet-stream")?.name,
       "elysia-file-icon-file",
     );
-  });
-  it("uses Pierre exact filename and complete-set extension mappings", () => {
-    assert.equal(resolvePierreIconForEntry("Dockerfile", "file")?.token, "docker");
-    assert.equal(resolvePierreIconForEntry("src/Button.tsx", "file")?.token, "react");
-    assert.equal(resolvePierreIconForEntry("vite.config.ts", "file")?.token, "vite");
   });
 
   it("uses built-in Pierre icons where available", () => {
@@ -60,8 +62,9 @@ describe("Pierre file icons", () => {
       [
         ...Object.values(ELYSIA_PIERRE_ICONS.byFileName),
         ...Object.values(ELYSIA_PIERRE_ICONS.byFileExtension),
-      ].filter((name) => name.startsWith("t3-")),
+      ].filter((name) => name.startsWith("elysia-")),
     );
+    assert.isAbove(customIconNames.size, 0);
     for (const iconName of customIconNames) {
       assert.include(ELYSIA_PIERRE_ICONS.spriteSheet, `id="${iconName}"`);
     }

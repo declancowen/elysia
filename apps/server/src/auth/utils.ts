@@ -9,24 +9,25 @@ import * as NodeCrypto from "node:crypto";
 import * as Base64Url from "effect/encoding/Base64Url";
 import * as Result from "effect/Result";
 
-const SESSION_COOKIE_NAME = "t3_session";
+const SESSION_COOKIE_NAME = "elysia_session";
 
-/**
- * Cookies are scoped by host but *not* by port, so any two servers that can be
- * live on one hostname at once need separate names — otherwise the second
- * clobbers the first's session and both sides see "Invalid session token
- * signature" until someone clears cookies by hand.
- */
-export function resolveSessionCookieName(input: {
+/** Cookies span ports; use separate names for servers sharing a hostname. */
+interface SessionCookieInput {
   readonly mode: "web" | "desktop";
   readonly port: number;
   readonly host: string | undefined;
   readonly instanceKey: string;
   readonly environmentId: string;
   readonly development: boolean;
-}): string {
+}
+
+export function resolveSessionCookieName(input: SessionCookieInput): string {
+  return scopedSessionCookieName(input, SESSION_COOKIE_NAME);
+}
+
+function scopedSessionCookieName(input: SessionCookieInput, name: string): string {
   if (input.mode === "desktop") {
-    return `${SESSION_COOKIE_NAME}_${input.port}`;
+    return `${name}_${input.port}`;
   }
 
   const instanceHash = NodeCrypto.createHash("sha256")
@@ -39,20 +40,20 @@ export function resolveSessionCookieName(input: {
     .slice(0, 12);
 
   if (!input.development && isRemoteReachableHost(input.host)) {
-    return `${SESSION_COOKIE_NAME}_${instanceHash}`;
+    return `${name}_${instanceHash}`;
   }
 
-  return `${SESSION_COOKIE_NAME}_${input.port}_${instanceHash}`;
+  return `${name}_${input.port}_${instanceHash}`;
 }
 
-export function resolveLegacySessionCookieName(input: {
-  readonly mode: "web" | "desktop";
-  readonly host: string | undefined;
-  readonly development: boolean;
-}): string | undefined {
-  return input.mode === "web" && !input.development && isRemoteReachableHost(input.host)
-    ? SESSION_COOKIE_NAME
-    : undefined;
+// Read only the exact prior name for this environment; tokens still use normal session validation.
+export function resolveLegacySessionCookieNames(input: SessionCookieInput): ReadonlyArray<string> {
+  return [
+    scopedSessionCookieName(input, "t3_session"),
+    ...(input.mode === "web" && !input.development && isRemoteReachableHost(input.host)
+      ? ["t3_session", SESSION_COOKIE_NAME]
+      : []),
+  ];
 }
 
 export function isRemoteReachableHost(host: string | undefined): boolean {

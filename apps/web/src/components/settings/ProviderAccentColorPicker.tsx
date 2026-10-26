@@ -1,5 +1,3 @@
-"use client";
-
 import { PlusIcon, XIcon } from "~/icons";
 import { useEffect, useRef, useState } from "react";
 

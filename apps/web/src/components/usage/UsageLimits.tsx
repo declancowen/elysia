@@ -18,9 +18,9 @@ import {
   remainingPercent,
 } from "@elysiatools/shared/usageLimits";
 import { GaugeIcon, TrendingDownIcon, TrendingUpIcon } from "~/icons";
-import { Fragment, type ReactNode, useState } from "react";
-
+import { Fragment, type ReactNode, useLayoutEffect, useState } from "react";
 import { usePrimarySettings } from "../../hooks/useSettings";
+import { observeResize } from "../../lib/observeResize";
 import { environmentPresentations } from "../../state/presentation";
 import { useEnvironmentScope, readEnvironmentScope } from "../../state/session";
 import { serverEnvironment } from "../../state/server";
@@ -40,20 +40,32 @@ import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
 import { UsageLimitsPooled } from "./UsageLimitsPooled";
 import { PROVIDER_PRESENTATION } from "./usageProviders";
 import { UsageBarTrack } from "./UsageBarTrack";
-
-const PACE: Record<LimitPace, { readonly label: string; readonly icon: typeof GaugeIcon }> = {
-  ahead: { label: "Ahead of pace: spending faster than the window elapses", icon: TrendingUpIcon },
-  on: { label: "On pace with the window", icon: GaugeIcon },
-  under: { label: "Under pace: headroom left for the rest of the window", icon: TrendingDownIcon },
+const PACE: Record<
+  LimitPace,
+  {
+    readonly label: string;
+    readonly icon: typeof GaugeIcon;
+  }
+> = {
+  ahead: {
+    label: "Ahead of pace: spending faster than the window elapses",
+    icon: TrendingUpIcon,
+  },
+  on: {
+    label: "On pace with the window",
+    icon: GaugeIcon,
+  },
+  under: {
+    label: "Under pace: headroom left for the rest of the window",
+    icon: TrendingDownIcon,
+  },
 };
-
 export function barColor(driver: ServerProvider["driver"]): string {
   const presentation = Object.values(PROVIDER_PRESENTATION).find(
     (entry) => entry.driverKind === driver,
   );
   return presentation?.color ?? "var(--foreground)";
 }
-
 export function PaceIcon({ pace }: { readonly pace: LimitPace }) {
   const Icon = PACE[pace].icon;
   return (
@@ -74,6 +86,44 @@ export function PaceIcon({ pace }: { readonly pace: LimitPace }) {
   );
 }
 
+// The tick sits in a transparent gap cut from the bar, clamped so it stays inside at 0% and 100%.
+// The gap is a clip-path slot rather than a mask: a mask composites its layer and re-antialiases
+// the bar's rounded ends, and the polygon reaches 1px past the box so only the slot edges clip.
+function paceMarkStyles(timeLeft: number | null) {
+  if (timeLeft === null) return null;
+  const at = `clamp(3px, ${timeLeft}%, calc(100% - 3px))`;
+  const [left, right] = [`calc(${at} - 3px)`, `calc(${at} + 3px)`];
+  const [near, far] = ["-1px", "calc(100% + 1px)"];
+  return {
+    tick: {
+      left: at,
+    },
+    gap: {
+      clipPath: `polygon(${near} ${near}, ${left} ${near}, ${left} ${far}, ${right} ${far}, ${right} ${near}, ${far} ${near}, ${far} ${far}, ${near} ${far})`,
+    },
+    // For a track painted on an element that also draws focus rings, which a clip would cut.
+    gappedTrack: {
+      backgroundColor: "transparent",
+      backgroundImage: `linear-gradient(to right, var(--color-muted) ${left}, transparent ${left}, transparent ${right}, var(--color-muted) ${right})`,
+    },
+  };
+}
+
+/**
+ * Pace mark styles for the bar given the returned ref. Below 6px there is no room for the gap
+ * and tick, so the bar draws neither, as the mobile bars do.
+ */
+export function usePaceMark(timeLeft: number | null) {
+  const [bar, setBar] = useState<HTMLElement | null>(null);
+  const [roomy, setRoomy] = useState(false);
+  useLayoutEffect(() => {
+    if (!bar) return;
+    const measure = () => setRoomy(bar.getBoundingClientRect().width >= 6);
+    measure();
+    return observeResize(bar, measure);
+  }, [bar]);
+  return [setBar, roomy ? paceMarkStyles(timeLeft) : null] as const;
+}
 function WindowBar({
   color,
   window,
@@ -86,19 +136,18 @@ function WindowBar({
   const timestampFormat = usePrimarySettings((settings) => settings.timestampFormat);
   const remaining = remainingPercent(window);
   const timeLeft = paceRemainingPercent(window, now);
+  const [barRef] = usePaceMark(timeLeft);
   const resetsIn = formatResetsIn(window, now);
   const resetsAt = window.resetsAt
     ? formatUpcomingTimestamp(window.resetsAt, timestampFormat, now)
     : null;
-  const summary = `${window.label}: ${remaining}% left${
-    timeLeft === null ? "" : `, ${timeLeft}% of the window left`
-  }${resetsIn ? `, ${resetsIn}` : ""}`;
-
+  const summary = `${window.label}: ${remaining}% left${timeLeft === null ? "" : `, ${timeLeft}% of the window left`}${resetsIn ? `, ${resetsIn}` : ""}`;
   return (
     <Tooltip>
       <TooltipTrigger
         render={
           <div
+            ref={barRef}
             role="img"
             aria-label={summary}
             tabIndex={0}
@@ -127,7 +176,6 @@ function WindowBar({
     </Tooltip>
   );
 }
-
 export function LimitWindows({
   driver,
   windows,
@@ -170,30 +218,32 @@ export function LimitWindows({
     </div>
   );
 }
-
 const OUTCOME_TEXT: Record<ProviderConsumeResetCreditOutcome, string> = {
   reset: "Reset applied. Your windows have cleared.",
   nothingToReset: "Nothing to reset right now.",
   noCredit: "No reset credit left.",
   alreadyRedeemed: "That credit was already redeemed.",
 };
-
 export function useResetCredit(
   environmentId: EnvironmentId,
   input: ProviderConsumeResetCreditInput,
 ) {
   const canManageProviders = useEnvironmentScope(environmentId, AuthProvidersManageScope);
-  const consume = useAtomCommand(serverEnvironment.consumeResetCredit, { reportFailure: false });
+  const consume = useAtomCommand(serverEnvironment.consumeResetCredit, {
+    reportFailure: false,
+  });
   const [confirming, setConfirming] = useState(false);
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
-
   const redeem = async () => {
     setConfirming(false);
     if (!readEnvironmentScope(environmentId, AuthProvidersManageScope)) return;
     setBusy(true);
     setStatus(null);
-    const result = await consume({ environmentId, input });
+    const result = await consume({
+      environmentId,
+      input,
+    });
     setBusy(false);
     if (result._tag === "Success") {
       setStatus(result.value.warning ?? OUTCOME_TEXT[result.value.outcome]);
@@ -205,15 +255,18 @@ export function useResetCredit(
         : "Could not use the reset credit.",
     );
   };
-
-  return { canManageProviders, confirming, setConfirming, busy, status, redeem };
+  return {
+    canManageProviders,
+    confirming,
+    setConfirming,
+    busy,
+    status,
+    redeem,
+  };
 }
 
-/**
- * Redeeming spends a credit the provider granted the user, so it never fires on a bare click.
- * Mount it outside any popover that holds the button: dialogs stack under popovers, and closing
- * the popover would unmount a dialog rendered inside it.
- */
+/** Require confirmation because redemption spends credits. Mount outside popovers, which stack above
+ * dialogs and unmount on close. */
 export function ResetCreditDialog({
   open,
   onOpenChange,
@@ -245,7 +298,6 @@ export function ResetCreditDialog({
     </AlertDialog>
   );
 }
-
 export function resetCreditsSummary(
   credits: ServerProviderResetCredits,
   now: number,
@@ -257,11 +309,8 @@ export function resetCreditsSummary(
   if (credits.availableCount === 0) return "No reset credits banked";
   if (compact)
     return `${credits.availableCount} banked${expiresIn ? ` · expires in ${expiresIn}` : ""}`;
-  return `${credits.availableCount} ${credits.availableCount === 1 ? "reset credit" : "reset credits"} banked${
-    expiresIn ? ` · next expires in ${expiresIn}` : ""
-  }`;
+  return `${credits.availableCount} ${credits.availableCount === 1 ? "reset credit" : "reset credits"} banked${expiresIn ? ` · next expires in ${expiresIn}` : ""}`;
 }
-
 export function ResetCredits({
   environmentId,
   input,
@@ -304,10 +353,7 @@ export function ResetCredits({
   );
 }
 
-/**
- * The page advances `now` on explicit refresh rather than ticking: a live clock would repaint the
- * page for no decision-changing gain.
- */
+/** Advance now only on explicit refresh to avoid page repaints from ticking. */
 export function UsageLimitsSection({
   selectedEnvironmentIds,
   hiddenProviders,
@@ -341,7 +387,12 @@ export function UsageLimitsSection({
                 const accounts = source.accounts.filter((account) => isVisible(account.driver));
                 return accounts.length === 0 && source.accounts.length > 0
                   ? []
-                  : [{ ...source, accounts }];
+                  : [
+                      {
+                        ...source,
+                        accounts,
+                      },
+                    ];
               }),
             },
           },

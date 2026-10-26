@@ -3,6 +3,9 @@ import { UsageDay, type UsageBucket } from "@elysiatools/contracts";
 import { elysiaUsageModelName, elysiaUsagePeriods, elysiaUsageRange } from "./elysiaUsage";
 
 it.each([
+  ["gpt-6.1-sol", "GPT 6.1 Sol"],
+  ["claude-sonnet-5-5", "Claude Sonnet 5.5"],
+  ["claude-haiku-5-5", "Claude Haiku 5.5"],
   ["us.anthropic.claude-sonnet-5", "Claude Sonnet 5"],
   ["us.anthropic.claude-haiku-4-5-20251001-v1:0", "Claude Haiku 4.5"],
   ["global.anthropic.claude-opus-4-6-v1:0", "Claude Opus 4.6"],

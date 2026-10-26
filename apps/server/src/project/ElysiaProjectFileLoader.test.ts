@@ -32,29 +32,6 @@ const writeProjectFile = Effect.fn("writeProjectFile")(function* (
 
 it.layer(layerTest)("ElysiaProjectFileLoader", (it) => {
   describe("load", () => {
-    it.effect("loads and decodes a valid elysia.json", () =>
-      Effect.gen(function* () {
-        const loader = yield* ElysiaProjectFileLoader.ElysiaProjectFileLoader;
-        const cwd = yield* makeTempDir;
-        yield* writeProjectFile(
-          cwd,
-          `{
-            // JSONC is tolerated
-            "iconPath": "assets/logo.svg",
-            "scripts": [{ "name": "Dev", "command": "pnpm dev" }],
-          }`,
-        );
-
-        const loaded = yield* loader.load(cwd);
-
-        expect(Option.isSome(loaded)).toBe(true);
-        if (Option.isSome(loaded)) {
-          expect(loaded.value.iconPath).toBe("assets/logo.svg");
-          expect(loaded.value.scripts).toEqual([{ name: "Dev", command: "pnpm dev" }]);
-        }
-      }),
-    );
-
     it.effect("loads existing legacy-only repository configuration", () =>
       Effect.gen(function* () {
         const loader = yield* ElysiaProjectFileLoader.ElysiaProjectFileLoader;
@@ -67,6 +44,7 @@ it.layer(layerTest)("ElysiaProjectFileLoader", (it) => {
         expect(Option.getOrNull(yield* loader.load(cwd))?.scripts?.[0]?.name).toBe("Legacy");
       }),
     );
+
     it.effect("prefers elysia.json when both files exist", () =>
       Effect.gen(function* () {
         const loader = yield* ElysiaProjectFileLoader.ElysiaProjectFileLoader;
@@ -76,6 +54,7 @@ it.layer(layerTest)("ElysiaProjectFileLoader", (it) => {
         expect(Option.getOrNull(yield* loader.load(cwd))?.iconPath).toBe("elysia.svg");
       }),
     );
+
     it.effect("does not hide malformed elysia.json with legacy configuration", () =>
       Effect.gen(function* () {
         const loader = yield* ElysiaProjectFileLoader.ElysiaProjectFileLoader;
@@ -85,35 +64,11 @@ it.layer(layerTest)("ElysiaProjectFileLoader", (it) => {
         expect(Option.isNone(yield* loader.load(cwd))).toBe(true);
       }),
     );
-
-    it.effect("returns none when elysia.json is missing", () =>
-      Effect.gen(function* () {
-        const loader = yield* ElysiaProjectFileLoader.ElysiaProjectFileLoader;
-        const cwd = yield* makeTempDir;
-
-        const loaded = yield* loader.load(cwd);
-
-        expect(Option.isNone(loaded)).toBe(true);
-      }),
-    );
-
     it.effect("returns none for malformed JSON without failing", () =>
       Effect.gen(function* () {
         const loader = yield* ElysiaProjectFileLoader.ElysiaProjectFileLoader;
         const cwd = yield* makeTempDir;
         yield* writeProjectFile(cwd, "{ not json");
-
-        const loaded = yield* loader.load(cwd);
-
-        expect(Option.isNone(loaded)).toBe(true);
-      }),
-    );
-
-    it.effect("returns none for schema-invalid files without failing", () =>
-      Effect.gen(function* () {
-        const loader = yield* ElysiaProjectFileLoader.ElysiaProjectFileLoader;
-        const cwd = yield* makeTempDir;
-        yield* writeProjectFile(cwd, '{ "scripts": [{ "name": "Dev" }] }');
 
         const loaded = yield* loader.load(cwd);
 

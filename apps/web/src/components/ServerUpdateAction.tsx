@@ -22,7 +22,6 @@ import {
 } from "@elysiatools/client-runtime/state/runtime";
 import { CircleArrowUpIcon } from "~/icons";
 import { type ComponentProps, type ReactNode, useRef, useState } from "react";
-
 import { requestConfirmDialog } from "~/confirmDialog";
 import { useOpenLink } from "~/browser/useOpenLink";
 import { useEnvironmentSettings } from "~/hooks/useSettings";
@@ -33,22 +32,18 @@ import { manualServerUpdateUrl } from "~/versionSkew";
 import { Button } from "./ui/button";
 import { toastManager } from "./ui/toast";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "./ui/tooltip";
-
 const UPDATE_STAGE_LABELS: Record<ServerUpdateStage, string> = {
   downloading: "Downloading…",
   installing: "Downloading…",
   resuming: "Restarting…",
 };
 const pendingUpdateEnvironmentIds = new Set<EnvironmentId>();
-
 export function serverUpdateStageLabel(stage: ServerUpdateStage): string {
   return UPDATE_STAGE_LABELS[stage];
 }
-
 function updateFailureMessage(error: unknown): string {
   return error instanceof Error ? error.message : "Server update failed.";
 }
-
 export interface ServerUpdateTarget {
   readonly environmentId: EnvironmentId;
   readonly serverLabel: string;
@@ -59,11 +54,9 @@ export interface ServerUpdateTarget {
   readonly targetVersion: string;
   readonly continueThreadsAfterServerUpdate?: boolean;
 }
-
 export type PendingServerUpdate = Omit<ServerUpdateTarget, "continueThreadsAfterServerUpdate"> & {
   readonly serverVersion: string;
 };
-
 export interface ServerUpdateControl {
   readonly label: string;
   readonly disabled: boolean;
@@ -74,37 +67,54 @@ type UpdateButtonProps = Pick<ComponentProps<typeof Button>, "variant" | "size" 
   readonly label?: string;
   readonly appearance?: "button" | "icon";
 };
-
 export type ServerUpdateOutcome =
-  | { readonly status: "updated" | "skipped" }
-  | { readonly status: "failed"; readonly message: string };
+  | {
+      readonly status: "updated" | "skipped";
+    }
+  | {
+      readonly status: "failed";
+      readonly message: string;
+    };
 
 /** Toasts its success or failure unless `quiet`; never rejects. */
 export function useServerUpdate() {
-  const updateServer = useAtomCommand(serverEnvironment.updateServer, { reportFailure: false });
+  const updateServer = useAtomCommand(serverEnvironment.updateServer, {
+    reportFailure: false,
+  });
   return async (
     target: ServerUpdateTarget,
-    { quiet = false }: { readonly quiet?: boolean } = {},
+    {
+      quiet = false,
+    }: {
+      readonly quiet?: boolean;
+    } = {},
   ): Promise<ServerUpdateOutcome> => {
     const { environmentId, serverLabel, selfUpdate, targetVersion } = target;
     if (
       !canUpdateServer(appAtomRegistry.get(environmentSession.sessionStateAtom(environmentId))) ||
       pendingUpdateEnvironmentIds.has(environmentId)
     )
-      return { status: "skipped" };
+      return {
+        status: "skipped",
+      };
     pendingUpdateEnvironmentIds.add(environmentId);
     const result = await updateServer({
       environmentId,
       input: {
         targetVersion,
         ...(target.threadContinuation && target.continueThreadsAfterServerUpdate
-          ? { continueRunningThreads: true }
+          ? {
+              continueRunningThreads: true,
+            }
           : {}),
       },
     });
     pendingUpdateEnvironmentIds.delete(environmentId);
     if (result._tag === "Failure") {
-      if (isAtomCommandInterrupted(result)) return { status: "skipped" };
+      if (isAtomCommandInterrupted(result))
+        return {
+          status: "skipped",
+        };
       const message = updateFailureMessage(squashAtomCommandFailure(result));
       if (!quiet) {
         toastManager.add({
@@ -113,7 +123,10 @@ export function useServerUpdate() {
           description: message,
         });
       }
-      return { status: "failed", message };
+      return {
+        status: "failed",
+        message,
+      };
     }
     if (!quiet) {
       toastManager.add({
@@ -125,10 +138,11 @@ export function useServerUpdate() {
             : `Reconnected on Elysia ${result.value.targetVersion}.`,
       });
     }
-    return { status: "updated" };
+    return {
+      status: "updated",
+    };
   };
 }
-
 export function ServerUpdatesAction({
   targets,
   label = "Update all",
@@ -179,18 +193,21 @@ export function ServerUpdatesAction({
     </Button>
   );
 }
-
 export function canUpdateServer(
   result: AsyncResult.AsyncResult<AuthSessionState, unknown>,
 ): boolean {
   if (result._tag !== "Success" || !result.value.authenticated) return false;
   return sessionGrantsScope(result.value, AuthEnvironmentMaintainScope);
 }
-
 export function ServerUpdateProgress({
   state,
 }: {
-  readonly state: Exclude<ServerUpdateState, { status: "idle" }>;
+  readonly state: Exclude<
+    ServerUpdateState,
+    {
+      status: "idle";
+    }
+  >;
 }) {
   if (state.status === "failed") {
     return (
@@ -211,10 +228,7 @@ export function ServerUpdateProgress({
   );
 }
 
-/**
- * Self-updates delegate their full lifecycle to client-runtime so this component can unmount
- * during reconnect without losing operation state.
- */
+/** client-runtime owns self-updates so unmounting during reconnect preserves operation state. */
 export function ServerUpdateAction({
   environmentId,
   serverLabel,
@@ -242,7 +256,6 @@ export function ServerUpdateAction({
   );
   const update = useServerUpdate();
   const openLink = useOpenLink(null);
-
   const handleUpdate = async () => {
     if (
       unsupportedDesktopUpdate ||
@@ -271,7 +284,6 @@ export function ServerUpdateAction({
       continueThreadsAfterServerUpdate,
     });
   };
-
   const manualUrl = selfUpdate === null ? manualServerUpdateUrl(targetVersion) : null;
   const actionLabel = unsupportedDesktopUpdate
     ? "Update the desktop app on"
@@ -290,9 +302,12 @@ export function ServerUpdateAction({
           )
       : () => void handleUpdate();
   const disabled = unsupportedDesktopUpdate || (manualUrl === null && !canUpdate);
-
-  if (render) return render({ label: actionLabel, disabled, onClick });
-
+  if (render)
+    return render({
+      label: actionLabel,
+      disabled,
+      onClick,
+    });
   if (unsupportedDesktopUpdate) {
     return (
       <span className="text-muted-foreground text-xs">
@@ -300,7 +315,6 @@ export function ServerUpdateAction({
       </span>
     );
   }
-
   if (appearance === "icon") {
     return (
       <Tooltip>
@@ -322,7 +336,6 @@ export function ServerUpdateAction({
       </Tooltip>
     );
   }
-
   return (
     <Button
       size={size}
@@ -336,9 +349,7 @@ export function ServerUpdateAction({
   );
 }
 
-/**
- * Its version comes from the host descriptor because the host never delivers a server config.
- */
+/** Read the host descriptor's version because the host never delivers server config. */
 export function OutdatedServerUpdateAction({
   environmentId,
   serverLabel,
@@ -352,14 +363,22 @@ export function OutdatedServerUpdateAction({
   readonly targetVersion: string;
   readonly label?: string;
 }) {
-  const update = useAtomCommand(updateOutdatedServer, { reportFailure: false });
+  const update = useAtomCommand(updateOutdatedServer, {
+    reportFailure: false,
+  });
   const handleUpdate = async () => {
     if (pendingUpdateEnvironmentIds.has(environmentId)) return;
     pendingUpdateEnvironmentIds.add(environmentId);
     const result = await update({
       environmentId,
-      input: { targetVersion },
-      ...(fromVersion === undefined ? {} : { fromVersion }),
+      input: {
+        targetVersion,
+      },
+      ...(fromVersion === undefined
+        ? {}
+        : {
+            fromVersion,
+          }),
     });
     pendingUpdateEnvironmentIds.delete(environmentId);
     if (result._tag === "Failure") {

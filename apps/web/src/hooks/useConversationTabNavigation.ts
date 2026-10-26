@@ -135,6 +135,7 @@ export function useArchivedConversationTabs() {
   const { tabs, activeId, forget } = useConversationTabsStore();
   const navigateTab = useConversationTabNavigation();
   const navigate = useNavigate();
+  // oxlint-disable-next-line elysia/react-effect-budget -- Reconcile external archive/delete events with the shared tab store and browser route.
   useEffect(() => {
     const archived = tabs.filter(({ target }) => {
       if (target.kind !== "server") return false;

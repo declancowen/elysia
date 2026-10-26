@@ -4,14 +4,19 @@ import {
   type FileTreeIcons,
 } from "@pierre/trees";
 import { VIDEO_FILE_EXTENSIONS } from "@elysiatools/shared/video";
-import { fileIconPathForMimeType } from "@elysiatools/shared/filePreview";
-
+import { fileIconPathForMimeType } from "@elysiatools/shared/mediaPreview";
 export interface PierreIconResolution {
   name: string;
   token?: string;
 }
-
 const PIERRE_ICON_SPRITE_ID = "elysia-pierre-file-icon-sprite";
+const DOCUMENT_ICON_COLORS: Readonly<Record<string, string>> = {
+  "elysia-file-icon-pdf": "light-dark(#d52c36, #ff6762)",
+  "elysia-file-icon-word": "light-dark(#1a85d4, #69b1ff)",
+  "elysia-file-icon-spreadsheet": "light-dark(#199f43, #5ecc71)",
+  "elysia-file-icon-slides": "light-dark(#d47628, #ffa359)",
+  "elysia-file-icon-epub": "light-dark(#693acf, #9d6afb)",
+};
 
 // Phosphor regular glyphs; resolver and sprite IDs must match.
 const ELYSIA_FILE_ICON_SPRITE = `<svg xmlns="http://www.w3.org/2000/svg" width="0" height="0" aria-hidden="true">
@@ -34,6 +39,48 @@ const ELYSIA_FILE_ICON_SPRITE = `<svg xmlns="http://www.w3.org/2000/svg" width="
   <!-- Lucide Code Xml icon, ISC license. -->
   <symbol id="elysia-file-icon-xml" viewBox="0 0 24 24">
     <path fill="none" style="stroke: light-dark(#d47628, #ffa359)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="m18 16 4-4-4-4M6 8l-4 4 4 4M14.5 4l-5 16" />
+  </symbol>
+  <!-- Lucide File Type, File Text, File Spreadsheet, Presentation and Book Open icons, ISC license. -->
+  <symbol id="elysia-file-icon-pdf" viewBox="0 0 24 24">
+    <g fill="none" style="stroke: ${DOCUMENT_ICON_COLORS["elysia-file-icon-pdf"]}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z" />
+      <path d="M14 2v5a1 1 0 0 0 1 1h5" />
+      <path d="M11 18h2" />
+      <path d="M12 12v6" />
+      <path d="M9 13v-.5a.5.5 0 0 1 .5-.5h5a.5.5 0 0 1 .5.5v.5" />
+    </g>
+  </symbol>
+  <symbol id="elysia-file-icon-word" viewBox="0 0 24 24">
+    <g fill="none" style="stroke: ${DOCUMENT_ICON_COLORS["elysia-file-icon-word"]}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z" />
+      <path d="M14 2v5a1 1 0 0 0 1 1h5" />
+      <path d="M10 9H8" />
+      <path d="M16 13H8" />
+      <path d="M16 17H8" />
+    </g>
+  </symbol>
+  <symbol id="elysia-file-icon-spreadsheet" viewBox="0 0 24 24">
+    <g fill="none" style="stroke: ${DOCUMENT_ICON_COLORS["elysia-file-icon-spreadsheet"]}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z" />
+      <path d="M14 2v5a1 1 0 0 0 1 1h5" />
+      <path d="M8 13h2" />
+      <path d="M14 13h2" />
+      <path d="M8 17h2" />
+      <path d="M14 17h2" />
+    </g>
+  </symbol>
+  <symbol id="elysia-file-icon-slides" viewBox="0 0 24 24">
+    <g fill="none" style="stroke: ${DOCUMENT_ICON_COLORS["elysia-file-icon-slides"]}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M2 3h20" />
+      <path d="M21 3v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V3" />
+      <path d="m7 21 5-5 5 5" />
+    </g>
+  </symbol>
+  <symbol id="elysia-file-icon-epub" viewBox="0 0 24 24">
+    <g fill="none" style="stroke: ${DOCUMENT_ICON_COLORS["elysia-file-icon-epub"]}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M12 7v14" />
+      <path d="M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z" />
+    </g>
   </symbol>
   <!-- Language logos from Simple Icons, CC0. -->
   <symbol id="elysia-file-icon-csharp" viewBox="0 0 24 24">
@@ -73,7 +120,6 @@ const ELYSIA_FILE_ICON_SPRITE = `<svg xmlns="http://www.w3.org/2000/svg" width="
     <path style="fill: light-dark(#84848a, #adadb1)" d="M.014 0h5.34v2.652H2.888v18.681h2.468V24H.015V0Zm17.622 5.049v2.78h-4.274v12.935h-3.008V7.83H6.059V5.05h11.577ZM23.986 24h-5.34v-2.652h2.467V2.667h-2.468V0h5.34v24Z" />
   </symbol>
 </svg>`;
-
 export const ELYSIA_PIERRE_ICONS = {
   set: "complete",
   colored: true,
@@ -81,7 +127,12 @@ export const ELYSIA_PIERRE_ICONS = {
   remap: Object.fromEntries(
     ["file", "chevron", "dot", "lock", "ellipsis"].map((name) => [
       "file-tree-icon-" + name,
-      { name: "elysia-file-icon-" + name, width: 16, height: 16, viewBox: "0 0 256 256" },
+      {
+        name: "elysia-file-icon-" + name,
+        width: 16,
+        height: 16,
+        viewBox: "0 0 256 256",
+      },
     ]),
   ),
   byFileName: {
@@ -95,6 +146,20 @@ export const ELYSIA_PIERRE_ICONS = {
     ...Object.fromEntries(
       VIDEO_FILE_EXTENSIONS.map((extension) => [extension, "elysia-file-icon-video"]),
     ),
+    pdf: "elysia-file-icon-pdf",
+    doc: "elysia-file-icon-word",
+    docx: "elysia-file-icon-word",
+    odt: "elysia-file-icon-word",
+    rtf: "elysia-file-icon-word",
+    xls: "elysia-file-icon-spreadsheet",
+    xlsx: "elysia-file-icon-spreadsheet",
+    ods: "elysia-file-icon-spreadsheet",
+    csv: "elysia-file-icon-spreadsheet",
+    tsv: "elysia-file-icon-spreadsheet",
+    ppt: "elysia-file-icon-slides",
+    pptx: "elysia-file-icon-slides",
+    odp: "elysia-file-icon-slides",
+    epub: "elysia-file-icon-epub",
     cs: "elysia-file-icon-csharp",
     csx: "elysia-file-icon-csharp",
     dart: "elysia-file-icon-dart",
@@ -103,6 +168,8 @@ export const ELYSIA_PIERRE_ICONS = {
     ex: "elysia-file-icon-elixir",
     exs: "elysia-file-icon-elixir",
     hs: "elysia-file-icon-haskell",
+    heic: "file-tree-builtin-image",
+    heif: "file-tree-builtin-image",
     lhs: "elysia-file-icon-haskell",
     java: "elysia-file-icon-java",
     kt: "elysia-file-icon-kotlin",
@@ -118,9 +185,7 @@ export const ELYSIA_PIERRE_ICONS = {
     xml: "elysia-file-icon-xml",
   },
 } satisfies FileTreeIcons;
-
 const completeIconResolver = createFileTreeIconResolver(ELYSIA_PIERRE_ICONS);
-
 const LANGUAGE_EXTENSION_ALIASES: Record<string, string> = {
   bash: "sh",
   csharp: "cs",
@@ -143,16 +208,13 @@ const LANGUAGE_EXTENSION_ALIASES: Record<string, string> = {
   tsx: "tsx",
   yaml: "yml",
 };
-
 export function basenameOfPath(pathValue: string): string {
   const slashIndex = pathValue.lastIndexOf("/");
   return slashIndex === -1 ? pathValue : pathValue.slice(slashIndex + 1);
 }
-
 const LANGUAGE_FILE_NAMES: Record<string, string> = {
   dockerfile: "Dockerfile",
 };
-
 export function syntheticFileNameForLanguageId(languageId: string): string {
   const normalized = languageId.toLowerCase();
   return (
@@ -160,7 +222,6 @@ export function syntheticFileNameForLanguageId(languageId: string): string {
     `file.${LANGUAGE_EXTENSION_ALIASES[normalized] ?? normalized}`
   );
 }
-
 export function resolvePierreIconForEntry(
   pathValue: string,
   kind: "file" | "directory",
@@ -168,6 +229,8 @@ export function resolvePierreIconForEntry(
 ): PierreIconResolution | null {
   if (kind === "directory") return null;
   const icon = completeIconResolver.resolveIcon("file-tree-icon-file", pathValue);
+  if (icon?.name === "file-tree-builtin-image" && icon.token === undefined)
+    return { ...icon, token: "image" };
   return !isSpecificIcon(icon) && mimeType
     ? completeIconResolver.resolveIcon(
         "file-tree-icon-file",
@@ -175,7 +238,6 @@ export function resolvePierreIconForEntry(
       )
     : icon;
 }
-
 function isSpecificIcon(icon: PierreIconResolution | null): boolean {
   return (
     icon !== null &&
@@ -183,13 +245,20 @@ function isSpecificIcon(icon: PierreIconResolution | null): boolean {
     icon.name !== ELYSIA_PIERRE_ICONS.remap["file-tree-icon-file"]?.name
   );
 }
-
+export function documentIconColorForFileName(fileName: string) {
+  const icon = resolvePierreIconForEntry(fileName, "file");
+  return icon ? DOCUMENT_ICON_COLORS[icon.name] : undefined;
+}
 export function hasSpecificPierreIconForFileName(fileName: string): boolean {
   return isSpecificIcon(resolvePierreIconForEntry(fileName, "file"));
 }
-
 export function ensurePierreIconSprite(): void {
-  if (typeof document === "undefined" || document.getElementById(PIERRE_ICON_SPRITE_ID)) return;
+  if (
+    typeof document === "undefined" ||
+    !document.body ||
+    document.getElementById(PIERRE_ICON_SPRITE_ID)
+  )
+    return;
   const container = document.createElement("div");
   container.id = PIERRE_ICON_SPRITE_ID;
   container.setAttribute("aria-hidden", "true");

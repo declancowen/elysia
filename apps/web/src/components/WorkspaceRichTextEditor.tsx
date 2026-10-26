@@ -150,13 +150,16 @@ export function WorkspaceRichTextEditor({
     }),
     [editor, disabled],
   );
+  // oxlint-disable-next-line elysia/react-effect-budget -- Reconcile persisted HTML with the external Tiptap document without echoing an edit back.
   useEffect(() => {
     if (editor && editor.getHTML() !== value)
       editor.commands.setContent(value, { emitUpdate: false });
   }, [editor, value]);
+  // oxlint-disable-next-line elysia/react-effect-budget -- Synchronize editing permission with the external Tiptap editor instance.
   useEffect(() => {
     editor?.setEditable(!disabled);
   }, [editor, disabled]);
+  // oxlint-disable-next-line elysia/react-effect-budget -- Scroll the committed slash-menu DOM option into view after keyboard selection changes.
   useLayoutEffect(() => {
     if (selected < 0 || !slash?.commands.length) return;
     selectedOption.current?.scrollIntoView?.({ block: "nearest" });

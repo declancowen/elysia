@@ -190,9 +190,11 @@ const make = Effect.gen(function* () {
           );
         }),
       ),
-    get: (input) => wrap(read(input.id).pipe(Effect.map((page) => ({ page })))),
+    get: Effect.fn("PageService.get")((input) =>
+      wrap(read(input.id).pipe(Effect.map((page) => ({ page })))),
+    ),
     save,
-    delete: (input) =>
+    delete: Effect.fn("PageService.delete")((input) =>
       wrap(
         lock
           .withPermit(
@@ -209,6 +211,7 @@ const make = Effect.gen(function* () {
           )
           .pipe(Effect.tap(() => notify)),
       ),
+    ),
   });
 });
 export const layer = Layer.effect(PageService, make);

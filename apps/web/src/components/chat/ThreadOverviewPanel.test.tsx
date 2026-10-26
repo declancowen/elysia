@@ -1,7 +1,12 @@
+vi.mock("vite-plus/test/browser", () => ({
+  page: { elementLocator: () => ({}) },
+  utils: { getElementLocatorSelectors: () => ({}) },
+}));
+import { render as renderUi, type Screen } from "../../../test/render";
+import { act } from "../../../test/act";
 // @vitest-environment jsdom
-import { act } from "react";
-import { createRoot, type Root } from "react-dom/client";
-import { afterEach, beforeEach, expect, it, vi } from "vite-plus/test";
+
+import { expect, it, vi } from "vite-plus/test";
 import { EventId, MessageId, ProjectId, ThreadId, TurnId } from "@elysiatools/contracts";
 import type { DelegatedAgentView } from "../agents/useDelegatedAgents";
 import {
@@ -40,7 +45,7 @@ import {
 import { EnvironmentId } from "@elysiatools/contracts";
 import type { ChatAttachment } from "~/types";
 
-let root: Root;
+let root: Screen;
 let host: HTMLDivElement;
 function createTestRouter() {
   const rootRoute = createRootRoute();
@@ -74,7 +79,7 @@ const props: ThreadOverviewPanelProps = {
 
 async function render(overrides: Partial<ThreadOverviewPanelProps> = {}) {
   await act(async () =>
-    root.render(
+    root.rerender(
       <RouterContextProvider router={router}>
         <ThreadOverviewPanel {...props} {...overrides} />
       </RouterContextProvider>,
@@ -99,7 +104,13 @@ async function outsidePress() {
   });
 }
 
-beforeEach(async () => {
+async function setup() {
+  const resources = new AsyncDisposableStack();
+  resources.defer(async () => {
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  });
+
   router = createTestRouter();
   await router.load();
   state.wide = false;
@@ -108,7 +119,7 @@ beforeEach(async () => {
   state.roster = [];
   useThreadOverviewStore.setState({ target: null, toggle: null });
   vi.clearAllMocks();
-  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+
   vi.stubGlobal(
     "ResizeObserver",
     class {
@@ -119,17 +130,13 @@ beforeEach(async () => {
   );
   host = document.createElement("div");
   document.body.appendChild(host);
-  root = createRoot(host);
-});
+  root = resources.use(await renderUi(null, { container: host, router: false }));
 
-afterEach(async () => {
-  await act(async () => root.unmount());
-  host.remove();
-  vi.restoreAllMocks();
-  vi.unstubAllGlobals();
-});
+  return resources;
+}
 
 it("shows only three uploads, collapses with a count, and opens all sources", async () => {
+  await using _fixture = await setup();
   await render();
   expect(document.querySelector('[role="dialog"]')).toBeNull();
   await click("Thread overview");
@@ -148,6 +155,7 @@ it("shows only three uploads, collapses with a count, and opens all sources", as
 });
 
 it("keeps the wide overview open during chat interaction and resets it when the screen narrows", async () => {
+  await using _fixture = await setup();
   state.wide = true;
   await render();
   await click("Thread overview");
@@ -162,6 +170,7 @@ it("keeps the wide overview open during chat interaction and resets it when the 
 });
 
 it("uses a dismissible overlay when another sidebar occupies the wide screen", async () => {
+  await using _fixture = await setup();
   state.wide = true;
   await render({ transient: true });
   await click("Thread overview");
@@ -170,6 +179,7 @@ it("uses a dismissible overlay when another sidebar occupies the wide screen", a
 });
 
 it("closes on Escape and navigation, and keeps sources and agents visible in Work mode", async () => {
+  await using _fixture = await setup();
   state.code = false;
   await render();
   await click("Thread overview");
@@ -186,6 +196,7 @@ it("closes on Escape and navigation, and keeps sources and agents visible in Wor
 });
 
 it("opens the full Sources view and dismisses the narrow overlay", async () => {
+  await using _fixture = await setup();
   await render();
   await click("Thread overview");
   await click("View all");
@@ -193,6 +204,7 @@ it("opens the full Sources view and dismisses the narrow overlay", async () => {
 });
 
 it("opens subagents inside the same floating overview", async () => {
+  await using _fixture = await setup();
   await render();
   await click("Thread overview");
   expect(props.onToggleChanges).not.toHaveBeenCalled();
@@ -224,6 +236,7 @@ function workingAgent(name: string): DelegatedAgentView {
 }
 
 it("keeps one agent entry, uses its own summary, and expands halfway across and down the wide thread", async () => {
+  await using _fixture = await setup();
   state.wide = true;
   const first = workingAgent("Friday");
   const second = {
@@ -302,6 +315,7 @@ it("keeps one agent entry, uses its own summary, and expands halfway across and 
 });
 
 it("keeps completed history closed after the source detail loads", async () => {
+  await using _fixture = await setup();
   await render({ sourceHistoryReady: false });
   const agent = workingAgent("Friday");
   state.delegated = [{ ...agent, working: false, data: { ...agent.data!, status: "completed" } }];
@@ -315,6 +329,7 @@ it("keeps completed history closed after the source detail loads", async () => {
 });
 
 it("opens an individual subagent result inside the container and returns through Back", async () => {
+  await using _fixture = await setup();
   await render({
     subagents: [
       {
@@ -340,6 +355,7 @@ it("opens an individual subagent result inside the container and returns through
 });
 
 it("uses the overview arrow for Git changes, and expands narrow agent responses without changing height", async () => {
+  await using _fixture = await setup();
   await render();
   await click("Thread overview");
   const panel = document.querySelector('[role="dialog"]') as HTMLElement;
@@ -364,6 +380,7 @@ it("uses the overview arrow for Git changes, and expands narrow agent responses 
 });
 
 it("opens the clicked agent's responses only in the originating chat", async () => {
+  await using _fixture = await setup();
   const agent = workingAgent("Friday");
   state.delegated = [{ ...agent, working: false, data: { ...agent.data!, status: "completed" } }];
   const source = { environmentId: EnvironmentId.make("local"), threadId: ThreadId.make("source") };
@@ -384,6 +401,7 @@ it("opens the clicked agent's responses only in the originating chat", async () 
 });
 
 it("consumes repeated shortcuts even when they reuse the same thread reference", async () => {
+  await using _fixture = await setup();
   const source = { environmentId: EnvironmentId.make("local"), threadId: ThreadId.make("source") };
   await render({ sourceThreadRef: source });
   for (const expectedOpen of [true, false, true]) {
@@ -394,6 +412,7 @@ it("consumes repeated shortcuts even when they reuse the same thread reference",
 });
 
 it("retains an unmatched target until its source thread mounts", async () => {
+  await using _fixture = await setup();
   const agent = workingAgent("Friday");
   state.delegated = [{ ...agent, working: false, data: { ...agent.data!, status: "completed" } }];
   const source = { environmentId: EnvironmentId.make("local"), threadId: ThreadId.make("source") };
@@ -409,6 +428,7 @@ it("retains an unmatched target until its source thread mounts", async () => {
 it.each([false, true])(
   "fits the thread column after panel resizing and hides pointless expansion (wide: %s)",
   async (wide) => {
+    await using _fixture = await setup();
     const observers = new Map<Element, Set<() => void>>();
     vi.stubGlobal(
       "ResizeObserver",
@@ -464,6 +484,7 @@ it.each([false, true])(
 it.each([false, true])(
   "shows one task identity and one response identity across progress and final messages (group=%s)",
   async (group) => {
+    await using _fixture = await setup();
     const agent = workingAgent("Friday");
     state.delegated = [
       {
@@ -543,6 +564,7 @@ it.each([false, true])(
 );
 
 it("opens the agent chat in its source environment and dismisses the floating view", async () => {
+  await using _fixture = await setup();
   const agent = workingAgent("Friday");
   state.delegated = [agent];
   await render({
@@ -560,6 +582,7 @@ it("opens the agent chat in its source environment and dismisses the floating vi
 });
 
 it("lands on the latest loaded response, reserves space for short replies, and preserves manual scrolling", async () => {
+  await using _fixture = await setup();
   const first = workingAgent("Friday");
   const latest = {
     ...first,
@@ -631,6 +654,7 @@ it("lands on the latest loaded response, reserves space for short replies, and p
 });
 
 it("keeps a streaming task summary separate from the result", async () => {
+  await using _fixture = await setup();
   const agent = workingAgent("Friday");
   const message = {
     id: MessageId.make("summary"),
@@ -663,6 +687,7 @@ it("keeps a streaming task summary separate from the result", async () => {
 });
 
 it("keeps Git available with no diff and lets it collapse before opening changes", async () => {
+  await using _fixture = await setup();
   await render({ changes: null, showGit: true });
   await click("Thread overview");
   expect(document.body.textContent).toContain("Changes+0−0");
@@ -679,6 +704,7 @@ it("keeps Git available with no diff and lets it collapse before opening changes
 });
 
 it("reveals large V2 child rosters one page at a time without losing failed results", async () => {
+  await using _fixture = await setup();
   const { projectedSubagentsToRuntime } =
     await import("@elysiatools/client-runtime/state/subagentRuntime");
   const DateTime = await import("effect/DateTime");
@@ -712,6 +738,7 @@ it("reveals large V2 child rosters one page at a time without losing failed resu
 });
 
 it("retains an unsaved workspace action and Git selection across collapse and responsive resizing", async () => {
+  await using _fixture = await setup();
   state.wide = true;
   const controls = {
     workspaceContent: <textarea aria-label="Action draft" defaultValue="Saved action" />,
@@ -740,6 +767,7 @@ it("retains an unsaved workspace action and Git selection across collapse and re
 });
 
 it("keeps a header-mounted agent view inside its original thread column", async () => {
+  await using _fixture = await setup();
   state.delegated = [workingAgent("Friday")];
   host.setAttribute("data-chat-header", "");
   vi.spyOn(host, "getBoundingClientRect").mockReturnValue(new DOMRect(0, 0, 1200, 52));
@@ -756,6 +784,7 @@ it("keeps a header-mounted agent view inside its original thread column", async 
 });
 
 it("keeps Workspace usable within the thread frame when the right panel is maximized", async () => {
+  await using _fixture = await setup();
   host.setAttribute("data-chat-header", "");
   const workspace = document.createElement("div");
   workspace.setAttribute("data-chat-workspace-panels", "");
@@ -773,6 +802,7 @@ it("keeps Workspace usable within the thread frame when the right panel is maxim
 });
 
 it("keeps workspace and sources available without the agent section in agent and channel chats", async () => {
+  await using _fixture = await setup();
   await render({
     showAgents: false,
     showGit: false,
@@ -787,6 +817,7 @@ it("keeps workspace and sources available without the agent section in agent and
 });
 
 it("keeps incoming responses hidden until the details panel closes", async () => {
+  await using _fixture = await setup();
   const onOpenChange = vi.fn();
   const agent = workingAgent("Friday");
   state.delegated = [agent];

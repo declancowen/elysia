@@ -29,14 +29,15 @@ const baseState: ThreadActionMenuState = {
   ],
 };
 
-function ids(state: ThreadActionMenuState): string[] {
+function ids(state: ThreadActionMenuState) {
   return buildThreadActionMenuItems(state).map((item) => item.id);
 }
 
-function allIds(state: ThreadActionMenuState): string[] {
-  const flatten = (items: ReturnType<typeof buildThreadActionMenuItems>): string[] =>
-    items.flatMap((item) => [item.id, ...(item.children ? flatten(item.children) : [])]);
-  return flatten(buildThreadActionMenuItems(state));
+function allIds(state: ThreadActionMenuState) {
+  return buildThreadActionMenuItems(state).flatMap((item) => [
+    item.id,
+    ...(item.children ?? []).map((child) => child.id),
+  ]);
 }
 
 describe("buildThreadActionMenuItems", () => {

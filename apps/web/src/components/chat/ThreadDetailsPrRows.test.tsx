@@ -1,5 +1,6 @@
+import { act } from "../../../test/act";
 import { EnvironmentId, ThreadId, type ThreadPullRequestLink } from "@elysiatools/contracts";
-import { act } from "react";
+
 import { create, type ReactTestRenderer } from "react-test-renderer";
 import { afterEach, expect, it, vi } from "vite-plus/test";
 
@@ -61,14 +62,13 @@ const top = link(2, "layer-two", "layer-one", "2026-01-01T00:00:20.000Z");
 const other = link(3, "unrelated", "main", "2026-01-01T00:00:05.000Z");
 
 let renderer: ReactTestRenderer;
-afterEach(() => {
-  act(() => renderer?.unmount());
+afterEach(async () => {
+  await act(() => renderer?.unmount());
   vi.unstubAllGlobals();
 });
 
-function render(links: ReadonlyArray<ThreadPullRequestLink>, current: ThreadPullRequestLink) {
-  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
-  act(() => {
+async function render(links: ReadonlyArray<ThreadPullRequestLink>, current: ThreadPullRequestLink) {
+  await act(() => {
     renderer = create(
       <ThreadDetailsPrRows
         threadRef={{
@@ -100,33 +100,33 @@ const toggleLabel = () =>
     ?.children.filter((child) => typeof child === "string")
     .join("");
 
-function toggle() {
-  act(() => {
+async function toggle() {
+  await act(() => {
     (renderer.root.findAllByType("button").at(-1)!.props as { onClick: () => void }).onClick();
   });
 }
 
-it("shows only the current pull request until the rest are asked for", () => {
-  render([other, bottom, top], top);
+it("shows only the current pull request until the rest are asked for", async () => {
+  await render([other, bottom, top], top);
   expect(rows()).toEqual(["2"]);
   expect(toggleLabel()).toBe("Show 2 more");
 
-  toggle();
+  await toggle();
   expect(rows()).toEqual(["2", "1", "3"]);
   expect(toggleLabel()).toBe("Show less");
 
-  toggle();
+  await toggle();
   expect(rows()).toEqual(["2"]);
   expect(toggleLabel()).toBe("Show 2 more");
 });
 
-it("keeps the single row untouched when the thread links one pull request", () => {
-  render([bottom], bottom);
+it("keeps the single row untouched when the thread links one pull request", async () => {
+  await render([bottom], bottom);
   expect(rows()).toEqual(["1"]);
   expect(toggleLabel()).toBeUndefined();
 });
 
-it("lets only watched pull requests stop their watch", () => {
+it("lets only watched pull requests stop their watch", async () => {
   const watched: ThreadPullRequestLink = {
     ...bottom,
     watch: {
@@ -141,8 +141,8 @@ it("lets only watched pull requests stop their watch", () => {
       wakes: 0,
     },
   };
-  render([other, watched, top], top);
-  toggle();
+  await render([other, watched, top], top);
+  await toggle();
   const spans = renderer.root.findAllByType("span");
   expect(
     spans
@@ -150,7 +150,7 @@ it("lets only watched pull requests stop their watch", () => {
       .map((node) => node.props["data-row"]),
   ).toEqual(["1"]);
 
-  act(() => spans.find((node) => node.props["data-row"] === "1")!.props.onClick());
+  await act(() => spans.find((node) => node.props["data-row"] === "1")!.props.onClick());
   expect(watchCommand).toHaveBeenCalledWith({
     environmentId: EnvironmentId.make("environment"),
     input: {

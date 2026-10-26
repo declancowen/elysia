@@ -1,5 +1,5 @@
 import * as NodeServices from "@effect/platform-node/NodeServices";
-import { assert, expect, it } from "@effect/vitest";
+import { expect, it } from "@effect/vitest";
 import * as HostProcess from "@elysiatools/shared/HostProcess";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
@@ -7,97 +7,10 @@ import * as Path from "effect/Path";
 
 import packageJson from "../../package.json" with { type: "json" };
 import {
-  formatCliCommand,
   resolveHostCliCommand,
   resolveRootCliCommand,
   resolveServerInstallation,
 } from "./invocation.ts";
-
-it("formats package runner commands from their cache entry paths", () => {
-  for (const [entryPath, expected] of [
-    ["/home/theo/.npm/_npx/abc123/node_modules/elysia/dist/bin.mjs", "npx elysia serve"],
-    [
-      "C:\\Users\\theo\\AppData\\Local\\npm-cache\\_npx\\abc\\node_modules\\elysia\\dist\\bin.mjs",
-      "npx elysia serve",
-    ],
-    ["/home/theo/.cache/pnpm/dlx/abc/node_modules/elysia/dist/bin.mjs", "pnpm dlx elysia serve"],
-    [
-      "/home/theo/.local/share/pnpm/.pnpm/dlx/abc/node_modules/elysia/dist/bin.mjs",
-      "pnpm dlx elysia serve",
-    ],
-    [
-      "C:\\Users\\theo\\AppData\\Local\\pnpm-cache\\dlx\\abc\\node_modules\\elysia\\dist\\bin.mjs",
-      "pnpm dlx elysia serve",
-    ],
-    ["/home/theo/.bun/install/cache/elysia@0.0.31/dist/bin.mjs", "bunx elysia serve"],
-    ["/tmp/bunx-1000-elysia@latest/node_modules/elysia/dist/bin.mjs", "bunx elysia serve"],
-    [
-      "C:\\Users\\theo\\AppData\\Local\\Temp\\bunx-0-elysia@latest\\node_modules\\elysia\\dist\\bin.mjs",
-      "bunx elysia serve",
-    ],
-  ] as const) {
-    assert.equal(formatCliCommand({ subcommand: "serve", entryPath, version: "0.0.31" }), expected);
-  }
-});
-
-it("treats stable installs as direct invocations", () => {
-  for (const entryPath of [
-    "/usr/local/lib/node_modules/elysia/dist/bin.mjs",
-    "/home/theo/Code/work/elysia/apps/server/dist/bin.mjs",
-    "/home/theo/.elysia/runtime/0.0.31/node_modules/elysia/dist/bin.mjs",
-    "",
-  ]) {
-    assert.equal(
-      formatCliCommand({ subcommand: "serve", entryPath, version: "0.0.31" }),
-      "elysia serve",
-    );
-  }
-});
-
-it("re-suggests the prerelease channel only for prerelease builds", () => {
-  for (const [version, expected] of [
-    ["0.0.31-nightly.20260729", "npx elysia@nightly serve"],
-    ["0.0.31-preview.20260729.1", "npx elysia@preview serve"],
-    ["0.0.31-foo-preview.20260729.1", "npx elysia serve"],
-    ["0.0.31", "npx elysia serve"],
-  ] as const) {
-    assert.equal(
-      formatCliCommand({
-        subcommand: "serve",
-        entryPath: "/home/theo/.npm/_npx/abc123/node_modules/elysia/dist/bin.mjs",
-        version,
-      }),
-      expected,
-    );
-  }
-});
-
-it("formats serve suggestions to match the launching command", () => {
-  assert.equal(
-    formatCliCommand({
-      subcommand: "serve",
-      entryPath: "/home/theo/.npm/_npx/abc/node_modules/elysia/dist/bin.mjs",
-      version: "0.0.31-nightly.20260729",
-    }),
-    "npx elysia@nightly serve",
-  );
-  assert.equal(
-    formatCliCommand({
-      subcommand: "serve",
-      entryPath: "/tmp/bunx-1000-elysia@latest/node_modules/elysia/dist/bin.mjs",
-      version: "0.0.31",
-    }),
-    "bunx elysia serve",
-  );
-  assert.equal(
-    formatCliCommand({
-      subcommand: "serve",
-      entryPath: "/usr/local/lib/node_modules/elysia/dist/bin.mjs",
-      version: "0.0.31-nightly.20260729",
-    }),
-    "elysia serve",
-  );
-});
 
 it.layer(NodeServices.layer)("root CLI commands", (it) => {
   const rootCommand = (input: {
@@ -130,7 +43,6 @@ it.layer(NodeServices.layer)("root CLI commands", (it) => {
       expect(yield* rootCommand({ node: "/usr/bin/node", entry: npx })).toBe(
         "sudo npx elysia browser setup",
       );
-      // nvm, fnm, and tarball installs are dropped by sudo's PATH reset.
       expect(
         yield* rootCommand({ node: "/home/theo/.nvm/versions/node/v24/bin/node", entry: npx }),
       ).toBe('sudo env "PATH=$PATH" npx elysia browser setup');
@@ -201,16 +113,12 @@ it.layer(NodeServices.layer)("host CLI commands", (it) => {
           Effect.provideService(HostProcess.Platform, platform),
           Effect.provideService(HostProcess.Environment, { PATH: "", ...env }),
         );
-      // The desktop shim is called through `&`, and each argument is quoted
-      // the PowerShell way: no POSIX single quotes anywhere.
       expect((yield* hostCommand("win32", { T3CODE_CLI_PATH: shim })).command).toBe(
         `& "${shim}" doctor "--base-dir" "C:\\Users\\Jane Doe\\.elysia"`,
       );
-      // Without a launcher, plain `elysia` with PowerShell-quoted arguments.
       expect((yield* hostCommand("win32", {})).command).toBe(
         'elysia doctor "--base-dir" "C:\\Users\\Jane Doe\\.elysia"',
       );
-      // Typographic quotes also delimit PowerShell strings; doubling keeps them.
       expect(
         (yield* resolveHostCliCommand("doctor", [
           "--base-dir",
@@ -322,8 +230,6 @@ it.layer(NodeServices.layer)("manual server installation ownership", (it) => {
         Effect.provideService(HostProcess.Platform, "linux"),
         Effect.provideService(HostProcess.Environment, { T3CODE_NPM_LAUNCHER_PATH: launcher }),
       );
-      // A launcher for another version is some other `elysia` the server spawned
-      // (the variable is inherited), not the install this executable runs from.
       for (const [version, expected] of [
         ["0.0.1", null],
         [packageJson.version, { kind: "npm-global", prefix: yield* fs.realPath(prefix) }],

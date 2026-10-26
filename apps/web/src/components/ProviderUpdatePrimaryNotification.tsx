@@ -123,6 +123,7 @@ export function ProviderUpdatePrimaryNotification() {
   const { dismissedNotificationKeys, dismissNotificationKey } =
     useDismissedProviderUpdateNotificationKeys();
 
+  // oxlint-disable-next-line elysia/react-effect-budget -- Dispose the imperative toast-manager prompt when its React owner unmounts.
   useEffect(() => {
     return () => {
       const activeToast = activeToastRef.current;
@@ -155,6 +156,7 @@ export function ProviderUpdatePrimaryNotification() {
     void navigate({ to: "/settings/providers" });
   };
 
+  // oxlint-disable-next-line elysia/react-effect-budget -- Publish externally pushed provider update completion into the imperative toast manager.
   useEffect(() => {
     const activeToast = activeToastRef.current;
     if (activeToast?.kind !== "update") {
@@ -180,6 +182,7 @@ export function ProviderUpdatePrimaryNotification() {
     activeToastRef.current = null;
   }, [providers, openProviderSettings]);
 
+  // oxlint-disable-next-line elysia/react-effect-budget -- Reconcile pushed update availability and current authorization with the imperative toast prompt.
   useEffect(() => {
     const activeToast = activeToastRef.current;
     if (activeToast?.kind === "prompt" && activeToast.key !== notificationKey) {

@@ -10,7 +10,15 @@ import {
   squashAtomCommandFailure,
 } from "@elysiatools/client-runtime/state/runtime";
 import { Link } from "@tanstack/react-router";
-import { useState } from "react";
+import { useRef, useState } from "react";
+import { AuthOrchestrationOperateScope } from "@elysiatools/contracts";
+import { useAtomValue } from "@effect/atom-react";
+import { useThreadActionMenu } from "../hooks/useThreadActionMenu";
+import { threadEnvironment } from "../state/threads";
+import { useOrchestrationCommand } from "../state/use-orchestration-command";
+import { readEnvironmentScope } from "../state/session";
+import { canShareWithGuestAtom } from "./chat/guestShareAvailability";
+import { Input } from "./ui/input";
 import { useUiStateStore } from "../uiStateStore";
 import {
   SidebarOrderedList,
@@ -305,7 +313,10 @@ export function ProjectsPage() {
                                   id={scopedThreadKey(threadRef)}
                                   className="grid grid-cols-[minmax(0,1fr)_4.5rem_4.5rem] items-center gap-3 rounded-lg px-3 py-1 sm:grid-cols-[minmax(0,1fr)_6rem_5.5rem] hover:bg-secondary/50"
                                 >
-                                  <ProjectThreadLink thread={thread} />
+                                  <ProjectThreadLink
+                                    thread={thread}
+                                    projectCwd={project.workspaceRoot}
+                                  />
                                   <time
                                     className="text-xs text-muted-foreground"
                                     dateTime={threadUpdatedAt}
@@ -344,8 +355,14 @@ export function ProjectsPage() {
   );
 }
 
-function ProjectThreadLink({ thread }: { thread: ThreadShell }) {
+function ProjectThreadLink({ thread, projectCwd }: { thread: ThreadShell; projectCwd: string }) {
   const drag = useSidebarRowDrag();
+  const [renamingTitle, setRenamingTitle] = useState<string | null>(null);
+  const renameCommitted = useRef(false);
+  const updateThreadMetadata = useOrchestrationCommand(threadEnvironment.updateMetadata, {
+    reportFailure: false,
+  });
+  const canShareWithGuest = useAtomValue(canShareWithGuestAtom(thread.environmentId));
   const threadRef = scopeThreadRef(thread.environmentId, thread.id);
   const target = { kind: "server" as const, threadRef };
   const navigateTab = useConversationTabNavigation();
@@ -357,39 +374,86 @@ function ProjectThreadLink({ thread }: { thread: ThreadShell }) {
     () => open(false),
     () => open(true),
   );
+  const commitRename = () => {
+    if (renameCommitted.current || renamingTitle === null) return;
+    renameCommitted.current = true;
+    setRenamingTitle(null);
+    if (!readEnvironmentScope(thread.environmentId, AuthOrchestrationOperateScope)) return;
+    const title = renamingTitle.trim();
+    if (!title) {
+      toastManager.add({ type: "warning", title: "Thread title cannot be empty" });
+      return;
+    }
+    if (title === thread.title) return;
+    void updateThreadMetadata({
+      environmentId: thread.environmentId,
+      input: { threadId: thread.id, title },
+    }).then((result) => {
+      if (result._tag === "Failure" && !isAtomCommandInterrupted(result))
+        reportProjectActionFailure("Could not rename chat", squashAtomCommandFailure(result));
+    });
+  };
+  const { openMenu } = useThreadActionMenu({
+    threadRef,
+    projectCwd,
+    canShareWithGuest,
+    onStartRename: () => {
+      renameCommitted.current = false;
+      setRenamingTitle(thread.title);
+    },
+  });
   return (
-    <Link
-      to="/$environmentId/$threadId"
-      params={buildThreadRouteParams(threadRef)}
-      ref={drag?.setActivatorNodeRef}
-      {...drag?.attributes}
-      {...drag?.listeners}
-      onClick={(event) => {
-        if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
-        event.preventDefault();
-        click.onClick(event);
-      }}
-      onDoubleClick={click.onDoubleClick}
+    <div
+      className="flex min-w-0 items-center gap-2"
       onContextMenu={(event) => {
         event.preventDefault();
-        void showContextMenuFallback(
-          [{ id: "open-tab", label: "Open in new tab", icon: "open-new-tab" }],
-          {
-            x: event.clientX,
-            y: event.clientY,
-          },
-        )
-          .then((action) => {
-            if (action === "open-tab") open(true);
-          })
-          .catch((error: unknown) =>
-            reportProjectActionFailure("Could not open the tab menu", error),
-          );
+        void openMenu({ x: event.clientX, y: event.clientY });
       }}
-      className="flex min-w-0 cursor-pointer touch-none items-center gap-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
     >
-      <MessageCircle className="size-4 shrink-0 text-muted-foreground" />
-      <span className="truncate">{thread.title}</span>
-    </Link>
+      {renamingTitle !== null ? (
+        <Input
+          autoFocus
+          value={renamingTitle}
+          aria-label="Chat title"
+          onChange={(event) => setRenamingTitle(event.target.value)}
+          onBlur={commitRename}
+          onKeyDown={(event) => {
+            if (event.key === "Enter") {
+              event.preventDefault();
+              commitRename();
+            } else if (event.key === "Escape") {
+              renameCommitted.current = true;
+              setRenamingTitle(null);
+            }
+          }}
+        />
+      ) : (
+        <Link
+          to="/$environmentId/$threadId"
+          params={buildThreadRouteParams(threadRef)}
+          ref={drag?.setActivatorNodeRef}
+          {...drag?.attributes}
+          {...drag?.listeners}
+          onClick={(event) => {
+            if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+            event.preventDefault();
+            click.onClick(event);
+          }}
+          onDoubleClick={click.onDoubleClick}
+          className="flex min-w-0 flex-1 cursor-pointer touch-none items-center gap-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+        >
+          <MessageCircle className="size-4 shrink-0 text-muted-foreground" />
+          <span className="truncate">{thread.title}</span>
+        </Link>
+      )}
+      <ContextMenuButton
+        variant="ghost"
+        size="icon-sm"
+        aria-label={`Actions for ${thread.title}`}
+        onOpen={openMenu}
+      >
+        <MoreHorizontalIcon />
+      </ContextMenuButton>
+    </div>
   );
 }

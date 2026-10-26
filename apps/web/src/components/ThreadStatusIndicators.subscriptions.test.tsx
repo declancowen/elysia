@@ -1,5 +1,6 @@
+import { act } from "../../test/act";
 import { ProjectId, ThreadId, type VcsStatusResult } from "@elysiatools/contracts";
-import { act, type ComponentProps, type ReactNode } from "react";
+import { type ComponentProps, type ReactNode } from "react";
 import { create, type ReactTestRenderer } from "react-test-renderer";
 import { afterEach, expect, it, vi } from "vite-plus/test";
 
@@ -44,27 +45,35 @@ vi.mock("../state/pullRequests", async (importOriginal) => {
   const original = await importOriginal<typeof import("../state/pullRequests")>();
   const { AsyncResult, Atom } = await import("effect/reactivity");
   const { ProjectId } = await import("@elysiatools/contracts");
+  const received = new Map<number, ReturnType<typeof summary>>();
+  function summary(number: number) {
+    return {
+      provider: "github" as const,
+      projectId: ProjectId.make("project-test"),
+      repository: "example/repo",
+      number,
+      title: "Observed linked PR",
+      url: `https://github.com/example/repo/pull/${number}`,
+      state: "open" as const,
+      headBranch: "feature/test",
+      baseBranch: "main",
+      updatedAt: "2026-09-04T00:00:00.000Z",
+    };
+  }
   const summaries = Atom.family((number: number) =>
     Atom.make(() => {
       state.queries.push(`pr:${number}`);
-      return AsyncResult.success({
-        provider: "github" as const,
-        projectId: ProjectId.make("project-test"),
-        repository: "example/repo",
-        number,
-        title: "Observed linked PR",
-        url: `https://github.com/example/repo/pull/${number}`,
-        state: "open" as const,
-        headBranch: "feature/test",
-        baseBranch: "main",
-        updatedAt: "2026-09-04T00:00:00.000Z",
-      });
+      const value = summary(number);
+      received.set(number, value);
+      return AsyncResult.success(value);
     }),
   );
   return {
     ...original,
     linkedPullRequestDetailAtom: ({ input }: { input: { number: number } }) =>
       summaries(input.number),
+    useSharedPullRequestSummary: (_environmentId: unknown, reference: { number: number } | null) =>
+      reference === null ? null : (received.get(reference.number) ?? null),
   };
 });
 vi.mock("./ui/tooltip", async () => {
@@ -90,14 +99,21 @@ afterEach(() => {
 it("leases only visible palette results while retaining observed and cached PR badges", async () => {
   const observers: Array<{ setVisible: (visible: boolean) => void }> = [];
   const scrollRoot = {};
-  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+
   vi.stubGlobal(
     "IntersectionObserver",
     class {
-      constructor(callback: (entries: ReadonlyArray<{ isIntersecting: boolean }>) => void) {
-        observers.push({ setVisible: (visible) => callback([{ isIntersecting: visible }]) });
+      constructor(
+        private readonly callback: (
+          entries: ReadonlyArray<{ target: Element; isIntersecting: boolean }>,
+        ) => void,
+      ) {}
+      observe(target: Element) {
+        observers.push({
+          setVisible: (visible) => this.callback([{ target, isIntersecting: visible }]),
+        });
       }
-      observe() {}
+      unobserve() {}
       disconnect() {}
     },
   );

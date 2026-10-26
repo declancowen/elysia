@@ -1,6 +1,7 @@
+import { act } from "../../../test/act";
 import { SourceControlProviderKind } from "@elysiatools/contracts";
 import { EnvironmentId, ProjectId, type PullRequestDetailView } from "@elysiatools/contracts";
-import { act, type ReactNode } from "react";
+import { type ReactNode } from "react";
 import { create, type ReactTestRenderer } from "react-test-renderer";
 import { afterEach, beforeEach, expect, it, vi } from "vite-plus/test";
 
@@ -80,7 +81,6 @@ const detail: PullRequestDetailView = {
 
 let renderer: ReactTestRenderer;
 beforeEach(() => {
-  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   const store = new Map<string, string>();
   vi.stubGlobal(
     "window",
@@ -93,8 +93,8 @@ beforeEach(() => {
     }),
   );
 });
-afterEach(() => {
-  act(() => renderer?.unmount());
+afterEach(async () => {
+  await act(() => renderer?.unmount());
   vi.unstubAllGlobals();
 });
 
@@ -122,49 +122,49 @@ function heading(title: string) {
     .find((button) => button.findAllByType("span").some((span) => span.children.includes(title)))!;
 }
 
-function click(title: string) {
-  act(() =>
+async function click(title: string) {
+  await act(() =>
     heading(title).props.onClick({ nativeEvent: {}, preventDefault() {}, stopPropagation() {} }),
   );
 }
 
-it("toggles checks from their heading and resets sections for another pull request", () => {
-  act(() => {
+it("toggles checks from their heading and resets sections for another pull request", async () => {
+  await act(() => {
     renderer = create(render());
   });
   expect(
     renderer.root.findAllByType("span").some((span) => span.children.includes("Unit tests")),
   ).toBe(false);
-  click("Checks");
+  await click("Checks");
   expect(
     renderer.root.findAllByType("span").some((span) => span.children.includes("Unit tests")),
   ).toBe(true);
-  click("Checks");
+  await click("Checks");
   expect(heading("Checks").props["aria-expanded"]).toBe(false);
-  click("Checks");
-  click("Description");
-  act(() =>
+  await click("Checks");
+  await click("Description");
+  await act(() =>
     renderer.update(render({ ...detail, url: "https://github.com/owner/repo/pull/2", number: 2 })),
   );
   expect(heading("Checks").props["aria-expanded"]).toBe(false);
   expect(heading("Description").props["aria-expanded"]).toBe(true);
 });
 
-it("keeps an unsaved description when collapsed and reopened", () => {
-  act(() => {
+it("keeps an unsaved description when collapsed and reopened", async () => {
+  await act(() => {
     renderer = create(render());
   });
-  act(() => renderer.root.findByProps({ "aria-label": "Edit description" }).props.onClick());
-  act(() =>
+  await act(() => renderer.root.findByProps({ "aria-label": "Edit description" }).props.onClick());
+  await act(() =>
     renderer.root.findByType("textarea").props.onChange({
       target: { value: "Unsaved description" },
       currentTarget: { value: "Unsaved description" },
       nativeEvent: {},
     }),
   );
-  click("Description");
+  await click("Description");
   expect(heading("Description").props["aria-expanded"]).toBe(false);
-  click("Description");
+  await click("Description");
   expect(renderer.root.findByType("textarea").props.value).toBe("Unsaved description");
 });
 
@@ -181,7 +181,7 @@ function filterItem(label: string) {
   );
 }
 
-it("hides bot and resolved comments until the filter shows them, and remembers the choice", () => {
+it("hides bot and resolved comments until the filter shows them, and remembers the choice", async () => {
   const comment = (index: number, login: string, body: string, isBot = false) => ({
     id: `comment-${index}`,
     kind: "issue-comment" as const,
@@ -218,7 +218,7 @@ it("hides bot and resolved comments until the filter shows them, and remembers t
       },
     ],
   };
-  act(() => {
+  await act(() => {
     renderer = create(render(value));
   });
   expect(texts()).toEqual(["Human comment"]);
@@ -226,20 +226,20 @@ it("hides bot and resolved comments until the filter shows them, and remembers t
     renderer.root.findByProps({ "aria-label": "Filter comments" }).children.join(""),
   ).toContain("13 hidden");
 
-  act(() => filterItem("Bot comments").props.onCheckedChange(true));
+  await act(() => filterItem("Bot comments").props.onCheckedChange(true));
   // Bots now share the human comment's pages: the ten most recent, the oldest left behind.
   expect(texts().filter((text) => text.startsWith("Bot report"))).toHaveLength(9);
   expect(texts()).toContain("Human comment");
   expect(texts()).not.toContain("Bot report 0");
 
-  act(() => filterItem("Resolved or dismissed").props.onCheckedChange(true));
+  await act(() => filterItem("Resolved or dismissed").props.onCheckedChange(true));
   expect(
     renderer.root.findAllByType("button").some((button) => button.children.includes("Resolved")),
   ).toBe(true);
 
   // Another pull request, or the same one opened again, keeps the reader's choice.
-  act(() => renderer.unmount());
-  act(() => {
+  await act(() => renderer.unmount());
+  await act(() => {
     renderer = create(render({ ...value, url: `${value.url}0`, number: 10 }));
   });
   expect(filterItem("Bot comments").props.checked).toBe(true);

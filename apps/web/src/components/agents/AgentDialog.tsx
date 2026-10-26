@@ -69,6 +69,7 @@ export function AgentDialogHost() {
     : undefined;
   const location = useLocation();
   const navigate = useNavigate();
+  // oxlint-disable-next-line elysia/react-effect-budget -- Consume a shared editor intent by navigating the browser to its dedicated agent route.
   useEffect(() => {
     if (
       !target ||
@@ -212,6 +213,7 @@ function AgentEditor({ project }: { project: Project | null }) {
     draft?.browserAccess ?? null,
   );
   const [modelOverride, setModel] = useState<ModelSelection | null>(draft?.model ?? null);
+  // oxlint-disable-next-line elysia/react-effect-budget -- Preserve the agent creation draft in the shared navigation store across editor unmounts.
   useEffect(() => {
     if (!project)
       useAgentDialogStore.setState({
@@ -256,6 +258,7 @@ function AgentEditor({ project }: { project: Project | null }) {
   const navigate = useNavigate();
   const router = useRouter();
   const mounted = useRef(false);
+  // oxlint-disable-next-line elysia/react-effect-budget -- Invalidate async save ownership when this editor unmounts.
   useEffect(() => {
     mounted.current = true;
     return () => {

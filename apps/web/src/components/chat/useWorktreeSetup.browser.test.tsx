@@ -1,7 +1,8 @@
+import { render as renderUi } from "../../../test/render";
+import { act } from "../../../test/act";
 import { EnvironmentId, ThreadId } from "@elysiatools/contracts";
 import { scopeThreadRef } from "@elysiatools/client-runtime/environment";
-import { act } from "react";
-import { createRoot } from "react-dom/client";
+
 import { expect, it, vi } from "vite-plus/test";
 
 vi.mock("../../state/query", () => ({ useEnvironmentQuery: () => ({ data: undefined }) }));
@@ -14,9 +15,8 @@ vi.mock("../../terminalUiStateStore", () => ({
 import { useWorktreeSetup } from "./useWorktreeSetup";
 
 it("renders ordinary threads when the route reference is rebuilt on each render", async () => {
-  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   const host = document.createElement("div");
-  const root = createRoot(host);
+  await using root = await renderUi(null, { container: host, router: false });
   const environmentId = EnvironmentId.make("local");
   const threadId = ThreadId.make("ordinary-thread");
   function WorktreeProbe() {
@@ -34,8 +34,8 @@ it("renders ordinary threads when the route reference is rebuilt on each render"
     return <p>{setup.blocksSend ? "Preparing" : "Ready"}</p>;
   }
   try {
-    await act(() => root.render(<WorktreeProbe />));
-    await act(() => root.render(<WorktreeProbe />));
+    await act(() => root.rerender(<WorktreeProbe />));
+    await act(() => root.rerender(<WorktreeProbe />));
     expect(host.textContent).toBe("Ready");
   } finally {
     await act(() => root.unmount());

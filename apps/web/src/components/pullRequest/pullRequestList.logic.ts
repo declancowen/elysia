@@ -1,17 +1,12 @@
-import * as Schema from "effect/Schema";
-
-import {
+import { sourceControlClients } from "@elysiatools/client-runtime/source-control-clients";
+import { resolvePullRequestAuthorFilter } from "@elysiatools/contracts";
+import type {
   EnvironmentId,
   PullRequestListEntry,
   PullRequestListProjectError,
   PullRequestListResult,
-  pullRequestHostOf,
-  resolvePullRequestAuthorFilter,
-} from "@elysiatools/contracts";
-import type {
   ProjectId,
   RepositoryIdentity,
-  SourceControlProviderKind,
   PullRequestAction,
   PullRequestActor,
   PullRequestDiffStat,
@@ -22,65 +17,50 @@ import type {
   PullRequestListState,
   PullRequestState,
 } from "@elysiatools/contracts";
-
-import { sourceControlRepositorySelector } from "@elysiatools/shared/sourceControl";
-
 import { toSortableTimestamp } from "../../lib/threadSort";
 import type { PullRequestListSort } from "./pullRequestListPreferences";
-
 export interface EnvironmentPullRequestEntry extends PullRequestListEntry {
   readonly environmentId: EnvironmentId;
 }
-
 export interface EnvironmentPullRequestStat extends PullRequestDiffStat {
   readonly environmentId: EnvironmentId;
 }
-
 export interface EnvironmentPullRequestError extends PullRequestListProjectError {
   readonly environmentId: EnvironmentId;
 }
-
 export type PullRequestGroupKey = "reviewRequested" | "authored" | "others";
-
 export interface PullRequestGroup<Entry extends PullRequestListEntry = PullRequestListEntry> {
   readonly key: PullRequestGroupKey;
   readonly label: string;
   readonly entries: ReadonlyArray<Entry>;
 }
-
 export interface PullRequestAuthorFacet {
   readonly actor: PullRequestActor;
   readonly count: number;
   readonly mergedCount: number;
 }
-
 export interface PullRequestLabelFacet extends PullRequestLabel {
   readonly count: number;
 }
-
 export type PullRequestViewers = PullRequestListResult["viewers"];
-
-type ScopedEntry = PullRequestListEntry & { readonly environmentId?: string };
-
+type ScopedEntry = PullRequestListEntry & {
+  readonly environmentId?: string;
+};
 const pullRequestViewerKey = (entry: ScopedEntry): string =>
   `${entry.environmentId ?? ""} ${entry.host}`;
-
 const GROUP_LABELS: Record<PullRequestGroupKey, string> = {
   reviewRequested: "Review requested",
   authored: "Authored",
   others: "Others",
 };
-
 function normalize(value: string | null | undefined): string | null {
   const trimmed = value?.trim().toLowerCase() ?? "";
   return trimmed.length > 0 ? trimmed : null;
 }
-
 export function pullRequestLabelColor(color: string | null): string | null {
   const hex = color?.trim().replace(/^#/, "") ?? "";
   return /^[0-9a-fA-F]{6}$/.test(hex) ? `#${hex}` : null;
 }
-
 export function collectPullRequestListFacets(
   entries: ReadonlyArray<PullRequestListEntry>,
   state: PullRequestListState,
@@ -129,18 +109,102 @@ export function collectPullRequestListFacets(
   };
 }
 
+/**
+ * What a filter picker offers for `query`: the loaded rows that match keep their counts and lead,
+ * then whatever the host found that no loaded row carries, so a name nobody has loaded yet is
+ * still one search away.
+ */
+/** How many loaded matches come before the host's answers. */
+const HOSTED_CHOICE_ROOM = 15;
+export function pullRequestAuthorChoices(
+  facets: ReadonlyArray<PullRequestAuthorFacet>,
+  hosted: ReadonlyArray<PullRequestActor>,
+  query: string,
+): ReadonlyArray<PullRequestAuthorFacet> {
+  const needle = normalize(query);
+  const loaded = facets.filter(
+    (facet) =>
+      needle === null ||
+      facet.actor.login.toLowerCase().includes(needle) ||
+      facet.actor.name?.toLowerCase().includes(needle),
+  );
+  const known = new Map(facets.map((facet) => [normalize(facet.actor.login), facet]));
+  const seen = new Set(loaded.map((facet) => normalize(facet.actor.login)));
+  const added: PullRequestAuthorFacet[] = [];
+  for (const actor of hosted) {
+    const key = normalize(actor.login);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    added.push(
+      known.get(key) ?? {
+        actor,
+        count: 0,
+        mergedCount: 0,
+      },
+    );
+  }
+  // The picker shows a short list, and loaded matches alone could fill it.
+  return [...loaded.slice(0, HOSTED_CHOICE_ROOM), ...added, ...loaded.slice(HOSTED_CHOICE_ROOM)];
+}
+
+/**
+ * The author a filter names, as a choice: an author picked from the host's answer is on no
+ * loaded row, so it stays shown after the search that found it clears.
+ */
+export function selectedPullRequestAuthor(
+  facets: ReadonlyArray<PullRequestAuthorFacet>,
+  hosted: ReadonlyArray<PullRequestActor>,
+  value: string | undefined,
+): PullRequestAuthorFacet | undefined {
+  if (value === undefined) return undefined;
+  const key = normalize(value);
+  return (
+    facets.find((facet) => normalize(facet.actor.login) === key) ?? {
+      actor: hosted.find((actor) => normalize(actor.login) === key) ?? {
+        login: value,
+        name: null,
+        avatarUrl: null,
+      },
+      count: 0,
+      mergedCount: 0,
+    }
+  );
+}
+export function pullRequestLabelChoices(
+  facets: ReadonlyArray<PullRequestLabelFacet>,
+  hosted: ReadonlyArray<PullRequestLabel>,
+  query: string,
+): ReadonlyArray<PullRequestLabelFacet> {
+  const needle = normalize(query);
+  const loaded = facets.filter(
+    (facet) => needle === null || facet.name.toLowerCase().includes(needle),
+  );
+  const known = new Map(facets.map((facet) => [normalize(facet.name), facet]));
+  const seen = new Set(loaded.map((facet) => normalize(facet.name)));
+  const added: PullRequestLabelFacet[] = [];
+  for (const label of hosted) {
+    const key = normalize(label.name);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    added.push(
+      known.get(key) ?? {
+        ...label,
+        count: 0,
+      },
+    );
+  }
+  return [...loaded, ...added];
+}
 export function pullRequestEntryViewer(
   entry: ScopedEntry,
   viewers: PullRequestViewers,
 ): string | null {
   return normalize(viewers[pullRequestViewerKey(entry)] ?? viewers[entry.host]);
 }
-
 function isAuthoredByViewer(entry: ScopedEntry, viewers: PullRequestViewers): boolean {
   const viewer = pullRequestEntryViewer(entry, viewers);
   return viewer !== null && normalize(entry.author?.login) === viewer;
 }
-
 export function matchesPullRequestQuery(entry: PullRequestListEntry, query: string): boolean {
   const normalizedQuery = query.trim().toLowerCase();
   if (normalizedQuery.length === 0) return true;
@@ -148,7 +212,6 @@ export function matchesPullRequestQuery(entry: PullRequestListEntry, query: stri
     .toLowerCase()
     .includes(normalizedQuery);
 }
-
 export function filterPullRequestsByInvolvement<Entry extends ScopedEntry>(
   entries: ReadonlyArray<Entry>,
   viewers: PullRequestViewers,
@@ -162,7 +225,6 @@ export function filterPullRequestsByInvolvement<Entry extends ScopedEntry>(
   }
   return entries;
 }
-
 export function narrowPullRequestsToFilters<Entry extends PullRequestListEntry>(
   entries: ReadonlyArray<Entry>,
   filters: {
@@ -178,7 +240,6 @@ export function narrowPullRequestsToFilters<Entry extends PullRequestListEntry>(
       (filters.host === undefined || entry.host === filters.host),
   );
 }
-
 export function matchesPullRequestFilters(
   entry: PullRequestListEntry,
   filters: PullRequestListFilters,
@@ -199,7 +260,6 @@ export function matchesPullRequestFilters(
         resolvePullRequestAuthorFilter(filters.author, viewer).toLowerCase())
   );
 }
-
 export function groupPullRequestsByInvolvement<Entry extends ScopedEntry>(
   entries: ReadonlyArray<Entry>,
   viewers: PullRequestViewers,
@@ -220,14 +280,16 @@ export function groupPullRequestsByInvolvement<Entry extends ScopedEntry>(
   }
   return (["authored", "reviewRequested", "others"] as const)
     .filter((key) => buckets[key].length > 0)
-    .map((key) => ({ key, label: GROUP_LABELS[key], entries: buckets[key] }));
+    .map((key) => ({
+      key,
+      label: GROUP_LABELS[key],
+      entries: buckets[key],
+    }));
 }
-
 export function pullRequestEntryKey(entry: ScopedEntry): string {
   const scope = entry.environmentId === undefined ? "" : `${entry.environmentId}:`;
   return `${scope}${entry.host}:${entry.repository}#${entry.number}`;
 }
-
 export interface PullRequestStatsTarget {
   readonly environmentId: EnvironmentId;
   readonly input: {
@@ -238,20 +300,15 @@ export interface PullRequestStatsTarget {
     }>;
   };
 }
-
 export interface PullRequestStatsBatch extends PullRequestStatsTarget {
   readonly keys: ReadonlySet<string>;
 }
-
 export type PullRequestStatsPolicy = "visible" | "eager";
-
 export interface PullRequestStatsScope {
   readonly key: string;
   readonly policy: PullRequestStatsPolicy;
 }
-
 const MAX_PULL_REQUEST_STATS_REFS = 500;
-
 export function pullRequestStatsKeysToRequest(
   entriesByKey: ReadonlyMap<string, EnvironmentPullRequestEntry>,
   enteredKeys: ReadonlySet<string>,
@@ -272,7 +329,6 @@ export function pullRequestStatsKeysToRequest(
     }),
   );
 }
-
 export function pullRequestStatsBatches(
   entriesByKey: ReadonlyMap<string, EnvironmentPullRequestEntry>,
   keys: ReadonlySet<string>,
@@ -304,7 +360,9 @@ export function pullRequestStatsBatches(
       const batch = rows.slice(index, index + MAX_PULL_REQUEST_STATS_REFS);
       batches.push({
         environmentId,
-        input: { refs: batch.map((row) => row.ref) },
+        input: {
+          refs: batch.map((row) => row.ref),
+        },
         keys: new Set(batch.map((row) => row.key)),
       });
     }
@@ -312,10 +370,7 @@ export function pullRequestStatsBatches(
   });
 }
 
-/**
- * Size sorting needs every loaded row, while the other modes only need rows
- * near the viewport.
- */
+/** Size sorting needs all loaded rows' stats; other modes need only nearby rows. */
 export function pullRequestStatsRequestBatches({
   entriesByKey,
   candidateKeys,
@@ -337,7 +392,6 @@ export function pullRequestStatsRequestBatches({
     : pullRequestStatsKeysToRequest(entriesByKey, requestedKeys, activeBatches, statsByRow);
   return pullRequestStatsBatches(entriesByKey, keys);
 }
-
 export function pullRequestStatsRefreshBatches({
   requestedScope,
   currentScope,
@@ -363,7 +417,6 @@ export function pullRequestStatsRefreshBatches({
     refresh: true,
   });
 }
-
 export function retainVisiblePullRequestStatsBatches(
   batches: ReadonlyArray<PullRequestStatsBatch>,
   visibleKeys: ReadonlySet<string>,
@@ -376,11 +429,7 @@ export function retainVisiblePullRequestStatsBatches(
   });
 }
 
-/**
- * The feed is sliced by recency, so an older authored or review-requested row can be
- * missing from its first page and arrive with a later one; grouping the loaded pages would
- * then move it above rows already read.
- */
+/** Recency pagination can introduce older priority rows; grouping pages would reorder read rows. */
 export function partitionPullRequestsWithPriority<Entry extends PullRequestListEntry>(
   entries: ReadonlyArray<Entry>,
   authored: ReadonlyArray<Entry>,
@@ -407,25 +456,35 @@ export function partitionPullRequestsWithPriority<Entry extends PullRequestListE
   const byRecency = (left: Entry, right: Entry) => right.updatedAt.localeCompare(left.updatedAt);
   return (
     [
-      { key: "authored", entries: [...authoredByKey.values()].toSorted(byRecency) },
-      { key: "reviewRequested", entries: [...reviewByKey.values()].toSorted(byRecency) },
-      { key: "others", entries: others },
+      {
+        key: "authored",
+        entries: [...authoredByKey.values()].toSorted(byRecency),
+      },
+      {
+        key: "reviewRequested",
+        entries: [...reviewByKey.values()].toSorted(byRecency),
+      },
+      {
+        key: "others",
+        entries: others,
+      },
     ] as const
   )
     .filter((group) => group.entries.length > 0)
-    .map((group) => ({ ...group, label: GROUP_LABELS[group.key] }));
+    .map((group) => ({
+      ...group,
+      label: GROUP_LABELS[group.key],
+    }));
 }
-
 export type PullRequestDiffStats = ReadonlyMap<
   string,
-  { readonly additions: number; readonly deletions: number }
+  {
+    readonly additions: number;
+    readonly deletions: number;
+  }
 >;
 
-/**
- * The stats read is keyed by the rows on screen, so adding or removing one row is a fresh
- * query with nothing in it yet; replacing the map would blank every count already showing for
- * the round trip.
- */
+/** New stats queries must not blank existing counts. */
 export function mergePullRequestDiffStats(
   previous: PullRequestDiffStats,
   stats: ReadonlyArray<{
@@ -446,13 +505,11 @@ export function mergePullRequestDiffStats(
   }
   return next;
 }
-
 export const pullRequestDiffStatKey = (row: {
   readonly environmentId: string;
   readonly projectId: string;
   readonly number: number;
 }) => `${row.environmentId} ${row.projectId} ${row.number}`;
-
 export interface MergedPullRequestList {
   readonly viewers: PullRequestViewers;
   readonly providers: PullRequestListResult["providers"];
@@ -462,7 +519,6 @@ export interface MergedPullRequestList {
   readonly nextCursors: Readonly<Record<string, PullRequestListCursors>>;
   readonly truncatedEnvironments: ReadonlyArray<string>;
 }
-
 export function mergePullRequestLists(
   answers: ReadonlyArray<readonly [EnvironmentId, PullRequestListResult]>,
 ): MergedPullRequestList | null {
@@ -492,8 +548,18 @@ export function mergePullRequestLists(
             },
       );
     }
-    entries.push(...answer.entries.map((entry) => ({ ...entry, environmentId })));
-    errors.push(...answer.errors.map((error) => ({ ...error, environmentId })));
+    entries.push(
+      ...answer.entries.map((entry) => ({
+        ...entry,
+        environmentId,
+      })),
+    );
+    errors.push(
+      ...answer.errors.map((error) => ({
+        ...error,
+        environmentId,
+      })),
+    );
     truncated ||= answer.truncated;
     if (answer.truncated) truncatedEnvironments.push(environmentId);
     if (Object.keys(answer.nextCursors).length > 0) {
@@ -510,117 +576,30 @@ export function mergePullRequestLists(
     truncatedEnvironments,
   };
 }
-
-const SNAPSHOT_MAX_ENTRIES = 99;
-
-type SnapshotStorage = Pick<Storage, "getItem" | "setItem">;
-
 export const pullRequestEnvironmentSetKey = (environmentIds: ReadonlyArray<string>): string =>
   [...environmentIds].sort((left, right) => left.localeCompare(right)).join(",");
-
-const snapshotStorageKey = (environmentSetKey: string) =>
-  `elysia.pullRequests.list:${environmentSetKey}`;
 
 export interface PullRequestPartitionsSnapshot {
   readonly authored: ReadonlyArray<EnvironmentPullRequestEntry>;
   readonly reviewing: ReadonlyArray<EnvironmentPullRequestEntry>;
 }
 
-export interface PullRequestListSnapshot {
-  readonly scope: string;
-  readonly data: MergedPullRequestList;
-  readonly partitions?: PullRequestPartitionsSnapshot | undefined;
-}
-
-const EnvironmentPullRequestEntrySchema = Schema.Struct({
-  ...PullRequestListEntry.fields,
-  environmentId: EnvironmentId,
-});
-
-const EnvironmentPullRequestErrorSchema = Schema.Struct({
-  ...PullRequestListProjectError.fields,
-  environmentId: EnvironmentId,
-});
-
-const decodeSnapshot = Schema.decodeUnknownOption(
-  Schema.Struct({
-    scope: Schema.String,
-    data: Schema.Struct({
-      ...PullRequestListResult.fields,
-      entries: Schema.Array(EnvironmentPullRequestEntrySchema),
-      errors: Schema.Array(EnvironmentPullRequestErrorSchema),
-      nextCursors: Schema.Record(Schema.String, PullRequestListResult.fields.nextCursors),
-      truncatedEnvironments: Schema.Array(Schema.String),
-    }),
-    partitions: Schema.optional(
-      Schema.Struct({
-        authored: Schema.Array(EnvironmentPullRequestEntrySchema),
-        reviewing: Schema.Array(EnvironmentPullRequestEntrySchema),
-      }),
-    ),
-  }),
-);
-
-export function readPullRequestListSnapshot(
-  storage: SnapshotStorage | undefined,
-  environmentSetKey: string,
-): PullRequestListSnapshot | null {
-  try {
-    const raw = storage?.getItem(snapshotStorageKey(environmentSetKey));
-    if (!raw) return null;
-    const decoded = decodeSnapshot(JSON.parse(raw));
-    return decoded._tag === "Some" ? decoded.value : null;
-  } catch {
-    return null;
-  }
-}
-
-export function writePullRequestListSnapshot(
-  storage: SnapshotStorage | undefined,
-  environmentSetKey: string,
-  snapshot: PullRequestListSnapshot,
-): void {
-  try {
-    storage?.setItem(
-      snapshotStorageKey(environmentSetKey),
-      JSON.stringify({
-        scope: snapshot.scope,
-        data: {
-          ...snapshot.data,
-          entries: snapshot.data.entries.slice(0, SNAPSHOT_MAX_ENTRIES),
-          errors: [],
-          nextCursors: {},
-          truncatedEnvironments: [],
-        },
-        ...(snapshot.partitions === undefined
-          ? {}
-          : {
-              partitions: {
-                authored: snapshot.partitions.authored.slice(0, SNAPSHOT_MAX_ENTRIES),
-                reviewing: snapshot.partitions.reviewing.slice(0, SNAPSHOT_MAX_ENTRIES),
-              },
-            }),
-      }),
-    );
-  } catch {}
-}
-
-/**
- * Until `projectsKnown`, the id is kept rather than dropped: an environment that has not
- * reported yet is not the same as one without the project, and dropping first would show every
- * project's pull requests for a moment before narrowing back down.
- */
+/** Retain project scope during reconnect until projects arrive. */
 export function resolveProjectScope<Id extends string>(
   projectId: Id | undefined,
-  projects: ReadonlyArray<{ readonly id: string }>,
+  projects: ReadonlyArray<{
+    readonly id: string;
+  }>,
   projectsKnown: boolean,
 ): Id | undefined {
   if (projectId === undefined || !projectsKnown) return projectId;
   return projects.some((project) => project.id === projectId) ? projectId : undefined;
 }
-
 export function findScopedProject<
-  Project extends { readonly id: string; readonly environmentId: string },
+  Project extends {
+    readonly id: string;
+    readonly environmentId: string;
+  },
 >(
   projects: ReadonlyArray<Project>,
   environmentId: string | null | undefined,
@@ -633,11 +612,17 @@ export function findScopedProject<
   }
   return matches.find((project) => project.environmentId === environmentId);
 }
-
 export function resolveQueryEnvironmentIds<Id extends string>(
   environmentIds: ReadonlyArray<Id>,
-  projects: ReadonlyArray<{ readonly id: string; readonly environmentId: Id }>,
-  scopedProject: { readonly environmentId: Id } | undefined,
+  projects: ReadonlyArray<{
+    readonly id: string;
+    readonly environmentId: Id;
+  }>,
+  scopedProject:
+    | {
+        readonly environmentId: Id;
+      }
+    | undefined,
   scopedProjectId: string | undefined,
   projectsKnown: boolean,
 ): ReadonlyArray<Id> {
@@ -653,11 +638,7 @@ export function resolveQueryEnvironmentIds<Id extends string>(
   return environmentIds.filter((environmentId) => holders.has(environmentId));
 }
 
-/**
- * Still connecting is not the same as gone: a server the workspace already knows about is kept
- * named here even while it has nothing to answer with yet, so the lookup that follows finds
- * nothing under it rather than falling through to a different server's project of the same id.
- */
+/** Retain connecting environments to avoid matching another server's project id. */
 export function resolveSelectedEnvironmentId<Id extends string>(
   namedEnvironmentId: Id | undefined,
   knownEnvironmentIds: ReadonlySet<Id>,
@@ -667,17 +648,12 @@ export function resolveSelectedEnvironmentId<Id extends string>(
   return knownEnvironmentIds.has(namedEnvironmentId) ? namedEnvironmentId : fallbackEnvironmentId;
 }
 
-/**
- * Every host searches more than a row shows — GitHub reads bodies and commit messages, GitLab
- * and Bitbucket read descriptions — so a result can be a real match with nothing on the row to
- * show for it.
- */
+/** Host search also matches bodies and commits absent from visible row fields. */
 export function scorePullRequestMatch(entry: PullRequestListEntry, query: string): number {
   const needle = query.trim().toLowerCase();
   if (needle.length === 0) return 0;
   const number = needle.replace(/^#/u, "");
   if (/^\d+$/u.test(number)) return String(entry.number) === number ? 100 : 0;
-
   const title = entry.title.toLowerCase();
   const terms = needle.split(/\s+/u).filter((term) => term.length > 0);
   if (title === needle) return 90;
@@ -689,7 +665,6 @@ export function scorePullRequestMatch(entry: PullRequestListEntry, query: string
   if (terms.some((term) => title.includes(term))) return 30;
   return 10;
 }
-
 export function rankPullRequestMatches<Entry extends PullRequestListEntry>(
   entries: ReadonlyArray<Entry>,
   query: string,
@@ -700,7 +675,6 @@ export function rankPullRequestMatches<Entry extends PullRequestListEntry>(
     return byScore !== 0 ? byScore : right.updatedAt.localeCompare(left.updatedAt);
   });
 }
-
 export function rankPullRequestsByMergeReadiness<Entry extends PullRequestListEntry>(
   entries: ReadonlyArray<Entry>,
   hasMeasuredSize: (entry: Entry) => boolean = (entry) => entry.additions + entry.deletions > 0,
@@ -721,7 +695,6 @@ export function rankPullRequestsByMergeReadiness<Entry extends PullRequestListEn
     return measured || sized || right.updatedAt.localeCompare(left.updatedAt);
   });
 }
-
 function rankByTierThenRecency<Entry extends PullRequestListEntry>(
   entries: ReadonlyArray<Entry>,
   tier: (entry: Entry) => number,
@@ -738,7 +711,6 @@ function rankByTierThenRecency<Entry extends PullRequestListEntry>(
     return rightUpdated - leftUpdated;
   });
 }
-
 export function rankPullRequestsBlockedOnAuthor<Entry extends PullRequestListEntry>(
   entries: ReadonlyArray<Entry>,
 ): ReadonlyArray<Entry> {
@@ -752,13 +724,11 @@ export function rankPullRequestsBlockedOnAuthor<Entry extends PullRequestListEnt
     return 4;
   });
 }
-
-export function rankPullRequestsBlockedOnReviewer<Entry extends PullRequestListEntry>(
+function rankPullRequestsBlockedOnReviewer<Entry extends PullRequestListEntry>(
   entries: ReadonlyArray<Entry>,
 ): ReadonlyArray<Entry> {
   return rankByTierThenRecency(entries, (entry) => (entry.state === "open" ? 0 : 1));
 }
-
 export function sortPullRequestGroups<Entry extends PullRequestListEntry>(
   groups: ReadonlyArray<PullRequestGroup<Entry>>,
   sort: PullRequestListSort,
@@ -767,8 +737,10 @@ export function sortPullRequestGroups<Entry extends PullRequestListEntry>(
   involvement: PullRequestInvolvement = "all",
 ): ReadonlyArray<PullRequestGroup<Entry>> {
   const sortWithinGroups = (rank: (entries: ReadonlyArray<Entry>) => ReadonlyArray<Entry>) =>
-    groups.map((group) => ({ ...group, entries: rank(group.entries) }));
-
+    groups.map((group) => ({
+      ...group,
+      entries: rank(group.entries),
+    }));
   if (sort === "ready") {
     return searchText.trim().length === 0
       ? sortWithinGroups((entries) => rankPullRequestsByMergeReadiness(entries, hasMeasuredSize))
@@ -785,11 +757,13 @@ export function sortPullRequestGroups<Entry extends PullRequestListEntry>(
         groupRole === "authored"
           ? rankPullRequestsBlockedOnAuthor
           : rankPullRequestsBlockedOnReviewer;
-      return { ...group, entries: rank(group.entries) };
+      return {
+        ...group,
+        entries: rank(group.entries),
+      };
     });
   }
   if (sort === "updated") return groups;
-
   const timestamp = (entry: Entry) =>
     toSortableTimestamp(entry.updatedAt) ?? toSortableTimestamp(entry.createdAt) ?? 0;
   return sortWithinGroups((entries) =>
@@ -811,18 +785,29 @@ export function sortPullRequestGroups<Entry extends PullRequestListEntry>(
     }),
   );
 }
-
 export function withDiffStat<
-  Entry extends PullRequestListEntry & { readonly environmentId: string },
+  Entry extends PullRequestListEntry & {
+    readonly environmentId: string;
+  },
 >(
   entry: Entry,
-  statsByRow: ReadonlyMap<string, { readonly additions: number; readonly deletions: number }>,
+  statsByRow: ReadonlyMap<
+    string,
+    {
+      readonly additions: number;
+      readonly deletions: number;
+    }
+  >,
 ): Entry {
   if (entry.additions !== 0 || entry.deletions !== 0) return entry;
   const stat = statsByRow.get(pullRequestDiffStatKey(entry));
-  return stat === undefined ? entry : { ...entry, ...stat };
+  return stat === undefined
+    ? entry
+    : {
+        ...entry,
+        ...stat,
+      };
 }
-
 export interface PullRequestListOverride {
   readonly state: PullRequestState;
   readonly isDraft?: boolean;
@@ -830,30 +815,49 @@ export interface PullRequestListOverride {
   readonly token: number;
   readonly at: number;
 }
-
 export function pullRequestOverrideAfterAction(
   entry: Pick<PullRequestListEntry, "state" | "isDraft">,
   action: PullRequestAction,
   now: Date,
   token: number,
 ): PullRequestListOverride | null {
-  const stamp = { updatedAt: now.toISOString(), token, at: now.getTime() };
+  const stamp = {
+    updatedAt: now.toISOString(),
+    token,
+    at: now.getTime(),
+  };
   switch (action) {
     case "close":
-      return { state: "closed", ...stamp };
+      return {
+        state: "closed",
+        ...stamp,
+      };
     case "reopen":
-      return { state: "open", ...stamp };
+      return {
+        state: "open",
+        ...stamp,
+      };
     case "merge":
-      return { state: "merged", ...stamp };
+      return {
+        state: "merged",
+        ...stamp,
+      };
     case "draft":
-      return { state: entry.state, isDraft: true, ...stamp };
+      return {
+        state: entry.state,
+        isDraft: true,
+        ...stamp,
+      };
     case "ready":
-      return { state: entry.state, isDraft: false, ...stamp };
+      return {
+        state: entry.state,
+        isDraft: false,
+        ...stamp,
+      };
     default:
       return null;
   }
 }
-
 export function applyPullRequestOverrides<Entry extends PullRequestListEntry>(
   entries: ReadonlyArray<Entry>,
   overrides: ReadonlyMap<string, PullRequestListOverride>,
@@ -865,11 +869,17 @@ export function applyPullRequestOverrides<Entry extends PullRequestListEntry>(
   for (const entry of entries) {
     const override = overrides.get(keyOf(entry));
     if (state !== "all" && (override?.state ?? entry.state) !== state) continue;
-    out.push(override === undefined ? entry : { ...entry, ...override });
+    out.push(
+      override === undefined
+        ? entry
+        : {
+            ...entry,
+            ...override,
+          },
+    );
   }
   return overrides.size === 0 && out.length === entries.length ? entries : out;
 }
-
 export function reusePullRequestEntries<Entry extends PullRequestListEntry>(
   previous: ReadonlyArray<Entry>,
   next: ReadonlyArray<Entry>,
@@ -892,16 +902,9 @@ export function reusePullRequestEntries<Entry extends PullRequestListEntry>(
     ? previous
     : out;
 }
-
 const PULL_REQUEST_OVERRIDE_TRUST_MS = 60_000;
 
-/**
- * A read that started before the action can land after it and still say the old thing, so an
- * override is not cleared because an answer arrived but because the answer agrees: the row is
- * there in the state the override said. A row that is absent says nothing — the authored and
- * reviewing groups are read apart from the feed, and a page is only a page — so absence never
- * confirms.
- */
+/** Retire overrides only when returned rows agree; partial-feed absence proves nothing. */
 export function settlePullRequestOverrides<Entry extends PullRequestListEntry>(
   overrides: ReadonlyMap<string, PullRequestListOverride>,
   answered: ReadonlyArray<Entry>,
@@ -925,9 +928,7 @@ export function settlePullRequestOverrides<Entry extends PullRequestListEntry>(
   }
   return kept.size === overrides.size ? overrides : kept;
 }
-
 export type PullRequestQuickAction = "close" | "merge" | "ready" | "reopen";
-
 export function pullRequestHostActions(
   providers: ReadonlyArray<PullRequestListResult["providers"][number]>,
 ): (
@@ -940,12 +941,12 @@ export function pullRequestHostActions(
         : [[provider.host.toLowerCase(), new Set(provider.actions)] as const],
     ),
   );
-  const legacy = new Set<PullRequestAction>(["close", "merge", "ready", "reopen"]);
   const none = new Set<PullRequestAction>();
   return (entry) =>
-    byHost.get(entry.host.toLowerCase()) ?? (entry.provider === "github" ? legacy : none);
+    byHost.get(entry.host.toLowerCase()) ??
+    sourceControlClients.find(entry.provider)?.changeRequestActionsWhenUnreported ??
+    none;
 }
-
 export function pullRequestQuickActions(
   entry: Pick<EnvironmentPullRequestEntry, "state" | "isDraft">,
   hostActions: ReadonlySet<PullRequestAction>,
@@ -960,20 +961,16 @@ export function pullRequestQuickActions(
           : ["close", "merge"];
   return forState.filter((action) => hostActions.has(action));
 }
-
 export function largestPullRequestReadCount(
   entries: ReadonlyArray<EnvironmentPullRequestEntry>,
 ): number {
   const counts = new Map<string, number>();
   for (const entry of entries) {
-    const read = `${entry.environmentId} ${entry.host.toLowerCase()} ${
-      entry.provider === "github" ? "" : entry.repository.toLowerCase()
-    }`;
+    const read = `${entry.environmentId} ${entry.host.toLowerCase()} ${sourceControlClients.find(entry.provider)?.changeRequestListScope === "host" ? "" : entry.repository.toLowerCase()}`;
     counts.set(read, (counts.get(read) ?? 0) + 1);
   }
   return Math.max(0, ...counts.values());
 }
-
 export function findProjectForRepository<
   Project extends {
     readonly id: string;
@@ -1000,12 +997,15 @@ export function findProjectForRepository<
       return false;
     }
     const identity = project.repositoryIdentity;
-    if (!identity || sourceControlRepositorySelector(identity)?.toLowerCase() !== repository) {
+    if (
+      !identity ||
+      sourceControlClients.repositorySelector(identity)?.toLowerCase() !== repository
+    ) {
       return false;
     }
     return (
       host === undefined ||
-      pullRequestHostOf(identity, identity.provider as SourceControlProviderKind) === host
+      sourceControlClients.changeRequestHost(identity, identity.provider) === host
     );
   });
   // Azure repository names can collide across projects on the same host.

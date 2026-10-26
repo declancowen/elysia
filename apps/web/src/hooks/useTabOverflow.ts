@@ -37,6 +37,7 @@ export function useTabOverflow(activeId: string | null) {
       behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth",
     });
   });
+  // oxlint-disable-next-line elysia/react-effect-budget -- Keep the selected tab visible in the native scroll viewport after tab changes.
   useEffect(() => {
     if (!activeId || !tabScrollState.hasOverflow) return;
     const viewport = tabScrollViewport(tabListRef.current);
@@ -47,8 +48,9 @@ export function useTabOverflow(activeId: string | null) {
     if (tab.left < bounds.left) viewport.scrollLeft += tab.left - bounds.left;
     else if (tab.right > bounds.right) viewport.scrollLeft += tab.right - bounds.right;
   }, [activeId, tabScrollState.hasOverflow]);
-  useEffect(() => {
-    const viewport = tabScrollViewport(tabListRef.current);
+  const attachTabList = useStableCallback((root: HTMLDivElement | null) => {
+    tabListRef.current = root;
+    const viewport = tabScrollViewport(root);
     if (!viewport) return;
     const content = viewport.firstElementChild;
     const stopObserving = observeResize(
@@ -68,10 +70,11 @@ export function useTabOverflow(activeId: string | null) {
     viewport.addEventListener("wheel", handleWheel, { passive: false });
     updateTabScrollState();
     return () => {
+      tabListRef.current = null;
       stopObserving();
       viewport.removeEventListener("scroll", updateTabScrollState);
       viewport.removeEventListener("wheel", handleWheel);
     };
-  }, [updateTabScrollState]);
-  return { tabListRef, tabScrollState, scrollTabs };
+  });
+  return { tabListRef, attachTabList, tabScrollState, scrollTabs };
 }

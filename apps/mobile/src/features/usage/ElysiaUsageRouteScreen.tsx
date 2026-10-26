@@ -9,7 +9,7 @@ export function ElysiaUsageRouteScreen() {
       <ScreenScrollView contentContainerClassName="gap-4 p-5">
         <Text className="text-lg font-t3-bold">Your Elysia savings</Text>
         <Text className="text-sm text-foreground-muted">
-          View your savings any time — type /elysia-compression stats inside Claude Code.
+          View your savings any time. Type /elysia-compression stats inside Claude Code.
         </Text>
         <View className="gap-2 rounded-xl bg-card p-4">
           <Text className="font-t3-bold">Compression dashboard</Text>

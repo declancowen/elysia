@@ -1,6 +1,6 @@
-import { act, useState, type ReactNode } from "react";
-import { createRoot, type Root } from "react-dom/client";
-import { afterEach, beforeEach, expect, it, vi } from "vite-plus/test";
+import { act, render as renderUi } from "../../../test/render";
+import { useState, type ReactNode } from "react";
+import { expect, it, vi } from "vite-plus/test";
 import type { SettingsScopeSearch } from "./settingsScope";
 
 interface ScopeState {
@@ -78,7 +78,7 @@ vi.mock(import("./SettingsPanels"), async (original) => ({
   useSettingsRestore: (() => ({ changedSettingLabels: [] })) as never,
 }));
 
-import { Route } from "../../routes/settings";
+import { Route } from "../../routes/_chat.settings";
 
 function StatefulContent() {
   const [value, setValue] = useState(0);
@@ -89,29 +89,22 @@ function StatefulContent() {
   );
 }
 
-let root: Root;
-let container: HTMLDivElement;
 const Layout = Route.options.component!;
 await Layout.preload?.();
 
-async function render(scope: ScopeState) {
-  state.scope = scope;
-  await act(async () => root.render(<Layout />));
-}
-function retainedValue() {
-  return container.querySelector('button[aria-label="Retained value"]')?.textContent ?? null;
-}
+async function setup() {
+  const screen = await renderUi(null, { router: false });
+  const { container } = screen;
+  async function render(scope: ScopeState) {
+    state.scope = scope;
+    await act(async () => screen.rerender(<Layout />));
+  }
+  function retainedValue() {
+    return container.querySelector('button[aria-label="Retained value"]')?.textContent ?? null;
+  }
 
-beforeEach(() => {
-  container = document.createElement("div");
-  document.body.append(container);
-  root = createRoot(container);
-});
-afterEach(async () => {
-  await act(async () => root.unmount());
-  container.remove();
-});
-
+  return Object.assign(screen, { render, retainedValue });
+}
 const first = { search: { machine: "first", project: "one" }, environmentId: "first" };
 const otherProject = { search: { machine: "first", project: "two" }, environmentId: "first" };
 const otherMachine = { search: { machine: "second", project: "one" }, environmentId: "second" };
@@ -130,6 +123,9 @@ it.each([
   ["/settings/diagnostics", "a disconnect", "0", first, disconnected],
   ["/settings/keybindings", "another project", "0", first, otherProject],
 ])("%s after %s shows %s", async (pathname, _change, expected, before, after) => {
+  await using fixture = await setup();
+  const { render, retainedValue, container } = fixture;
+
   state.pathname = pathname;
   await render(before);
   await act(async () =>

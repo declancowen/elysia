@@ -4,7 +4,6 @@ import { useAtomValue } from "@effect/atom-react";
 import { useLocation, useNavigate } from "@tanstack/react-router";
 import { Atom } from "effect/reactivity";
 import { useEffect, useState } from "react";
-
 import {
   ensureClientSettingsHydrated,
   useClientSettings,
@@ -27,16 +26,9 @@ import { environmentShell } from "../../state/shell";
 import { environmentThreadShells } from "../../state/threads";
 import { Button } from "../ui/button";
 
-/**
- * Nothing renders while pending — no shell, no EventRouter (whose welcome
- * payload would otherwise navigate into a thread), no dialogs.
- *
- * Elysia requires a live, authenticated native provider. Saved completion
- * flags and workspace history cannot bypass company credential setup.
- */
+/** Pending blocks all rendering, including EventRouter welcome navigation. */
 
 const FIRST_RUN_DECISION_TIMEOUT_MS = 4_000;
-
 const primaryShellLiveAtom = Atom.make((get) => {
   const serverConfig = get(primaryServerConfigAtom);
   return (
@@ -44,34 +36,28 @@ const primaryShellLiveAtom = Atom.make((get) => {
     get(environmentShell.stateValueAtom(serverConfig.environment.environmentId)).status === "live"
   );
 }).pipe(Atom.withLabel("web-onboarding-primary-shell-live"));
-
 const workspaceEvidenceLiveAtom = Atom.make((get) => {
   const environmentIds = new Set([
     ...get(environmentProjects.projectsAtom).map((project) => project.environmentId),
     ...get(environmentThreadShells.threadShellsAtom).map((thread) => thread.environmentId),
   ]);
-
   for (const environmentId of environmentIds) {
     if (get(environmentShell.stateValueAtom(environmentId)).status !== "live") {
       return false;
     }
   }
-
   return true;
 }).pipe(Atom.withLabel("web-onboarding-workspace-evidence-live"));
 
-// The gate only needs how many threads exist and, while there is at most one,
-// that thread; a shell update of any thread in a populated workspace must not
-// re-render the app root.
+// Subscribe only to thread count and the sole thread so populated-workspace shell updates cannot rerender the
+// app root.
 const threadCountAtom = Atom.make(
   (get) => get(environmentThreadShells.threadShellsAtom).length,
 ).pipe(Atom.withLabel("web-onboarding-thread-count"));
-
 const soleThreadAtom = Atom.make((get) => {
   const threads = get(environmentThreadShells.threadShellsAtom);
   return threads.length === 1 ? threads[0]! : null;
 }).pipe(Atom.withLabel("web-onboarding-sole-thread"));
-
 export function FirstRunGate({
   enabled,
   hostedStatic,
@@ -82,7 +68,9 @@ export function FirstRunGate({
   readonly children: React.ReactNode;
 }) {
   const navigate = useNavigate();
-  const pathname = useLocation({ select: (location) => location.pathname });
+  const pathname = useLocation({
+    select: (location) => location.pathname,
+  });
   const hydrationStatus = useClientSettingsHydrationStatus();
   const hydrated = hydrationStatus === "ready";
   const onboardingCompletedAt = useClientSettings((settings) => settings.onboardingCompletedAt);
@@ -105,14 +93,7 @@ export function FirstRunGate({
   }));
   const { decision, stalled } = gateState;
   const settingsReadFailed = hydrationStatus === "failed" || hydrationStatus === "retrying";
-  // A workspace still counts as fresh when its only content is the server's
-  // own cwd auto-bootstrap: web mode creates a project + thread from cwd at
-  // startup (`autoBootstrapProjectFromCwd` defaults on there), so "no
-  // projects at all" would mean `elysia` users never see the wizard. Any
-  // other project, more than one thread, or state in a non-primary
-  // environment is real user state — the aggregate hooks span every
-  // environment, and a saved remote's project must never read as "the
-  // bootstrap project" just because its root string matches the primary cwd.
+  // The server's sole cwd-bootstrap project/thread still counts as fresh so Elysia users see onboarding.
   const serverCwd = serverConfig?.cwd ?? null;
   const primaryEnvironmentId = serverConfig?.environment.environmentId ?? null;
   const workspaceFresh =
@@ -127,7 +108,6 @@ export function FirstRunGate({
       projects,
       threads: soleThread === null ? [] : [soleThread],
     });
-
   const { decision: nextDecision, persistCompletion } =
     hostedStatic && CONNECTIONS_ENABLED
       ? resolveHostedFirstRunDecision(hydrated)
@@ -162,22 +142,29 @@ export function FirstRunGate({
           projectCount: projects.length,
           threadCount,
         });
-
   if (hydrated) {
     const transitioned = CONNECTIONS_ENABLED
-      ? transitionFirstRunGateState(gateState, { type: "evidence", decision: nextDecision })
+      ? transitionFirstRunGateState(gateState, {
+          type: "evidence",
+          decision: nextDecision,
+        })
       : gateState.decision === nextDecision
         ? gateState
-        : { decision: nextDecision, stalled: false };
+        : {
+            decision: nextDecision,
+            stalled: false,
+          };
     if (transitioned !== gateState) setGateState(transitioned);
   }
-
   useEffect(() => {
     if ((CONNECTIONS_ENABLED && decision === "wizard") || !hydrated) return;
-
     if (persistCompletion && onboardingCompletedAt === null) {
       void completeOnboarding().catch(() => {
-        if (!CONNECTIONS_ENABLED) void navigate({ to: "/welcome", replace: true });
+        if (!CONNECTIONS_ENABLED)
+          void navigate({
+            to: "/welcome",
+            replace: true,
+          });
       });
     }
   }, [decision, hydrated, navigate, onboardingCompletedAt, persistCompletion]);
@@ -188,7 +175,12 @@ export function FirstRunGate({
   useEffect(() => {
     if (!enabled || decision !== "pending" || !hydrated) return;
     const timer = window.setTimeout(
-      () => setGateState((state) => transitionFirstRunGateState(state, { type: "timeout" })),
+      () =>
+        setGateState((state) =>
+          transitionFirstRunGateState(state, {
+            type: "timeout",
+          }),
+        ),
       FIRST_RUN_DECISION_TIMEOUT_MS,
     );
     return () => window.clearTimeout(timer);
@@ -199,10 +191,12 @@ export function FirstRunGate({
   const wizardOwnsRoute = pathname === "/";
   useEffect(() => {
     if (decision === "wizard" && wizardOwnsRoute) {
-      void navigate({ to: "/welcome", replace: true });
+      void navigate({
+        to: "/welcome",
+        replace: true,
+      });
     }
   }, [decision, navigate, wizardOwnsRoute]);
-
   if (settingsReadFailed) {
     return <FirstRunRecovery reason="settings" retrying={hydrationStatus === "retrying"} />;
   }
@@ -214,7 +208,6 @@ export function FirstRunGate({
   }
   return children;
 }
-
 function FirstRunRecovery({
   reason,
   retrying = false,

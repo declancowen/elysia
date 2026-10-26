@@ -1,3 +1,4 @@
+import { writeElysiaQuerySettings } from "../provider/ElysiaQuerySettings.ts";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
@@ -5,7 +6,11 @@ import * as Schema from "effect/Schema";
 import * as Stream from "effect/Stream";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 
-import { type ClaudeSettings, TextGenerationError } from "@elysiatools/contracts";
+import {
+  type ClaudeSettings,
+  type ProviderSetupError,
+  TextGenerationError,
+} from "@elysiatools/contracts";
 import { resolveSpawnCommand } from "@elysiatools/shared/shell";
 
 import * as TextGenerationOperations from "@elysiatools/provider-core/server/textGenerationOperations";
@@ -36,9 +41,9 @@ import {
 } from "../provider/Drivers/ClaudeHome.ts";
 
 const CLAUDE_TIMEOUT_MS = 180_000;
-/** The tools an investigation can see. `--tools` takes bare names; patterns go in the allow list. */
+/** `--tools` takes bare names; patterns go in the allow list. */
 const CLAUDE_INVESTIGATION_TOOLS = "Read,Grep,Glob,Bash";
-/** What it may run without asking. In dontAsk mode every other call, Bash included, is refused. */
+/** In dontAsk mode every call outside this list, Bash included, is refused. */
 const CLAUDE_INVESTIGATION_ALLOWED = [
   "Read",
   "Grep",
@@ -47,10 +52,7 @@ const CLAUDE_INVESTIGATION_ALLOWED = [
   "Bash(git log:*)",
   "Bash(git show:*)",
 ].join(",");
-/**
- * The allowed git commands accept any trailing arguments, and `--output` makes each of them write
- * a file anywhere. Deny rules win over allow rules, so this keeps the investigation read-only.
- */
+// Denies override allows; block git --output/-o because allowed trailing args can otherwise write anywhere.
 const CLAUDE_INVESTIGATION_DENIED = ["Bash(git * --output*)", "Bash(git * -o *)"].join(",");
 
 const ClaudeOutputEnvelope = Schema.Struct({
@@ -71,10 +73,7 @@ const ClaudeErrorResult = Schema.Struct({ is_error: Schema.Literal(true), result
 const isClaudeErrorResult = Schema.is(ClaudeErrorResult);
 const decodeJsonOption = Schema.decodeUnknownOption(Schema.fromJsonString(Schema.Unknown));
 
-/**
- * The error a failed `claude -p --output-format json` run reports on stdout. Stderr may only
- * hold notices from a wrapper around the binary, so the caller prefers this when present.
- */
+// Claude reports JSON errors on stdout; stderr may contain only wrapper notices.
 function claudeErrorResult(stdout: string): string | undefined {
   const output = Option.getOrUndefined(decodeJsonOption(stdout));
   const messages: ReadonlyArray<unknown> = Array.isArray(output) ? output : [output];
@@ -88,6 +87,7 @@ export const makeClaudeTextGeneration = Effect.fn("makeClaudeTextGeneration")(fu
   claudeSettings: ClaudeSettings,
   environment?: NodeJS.ProcessEnv,
   modelCatalog: Effect.Effect<ClaudeModelCatalog> = Effect.succeed(BUNDLED_CLAUDE_MODEL_CATALOG),
+  resolveEnvironment?: (model: string) => Effect.Effect<NodeJS.ProcessEnv, ProviderSetupError>,
 ) {
   const commandSpawner = yield* ChildProcessSpawner.ChildProcessSpawner;
   const fileSystem = yield* FileSystem.FileSystem;
@@ -139,9 +139,22 @@ export const makeClaudeTextGeneration = Effect.fn("makeClaudeTextGeneration")(fu
     S["DecodingServices"]
   > {
     const catalog = yield* scopedModelCatalog;
+    const model = resolveClaudeCatalogApiModelId(catalog, modelSelection);
+    const nativeEnvironment = resolveEnvironment
+      ? yield* resolveEnvironment(model).pipe(
+          Effect.mapError(
+            (cause) =>
+              new TextGenerationError({
+                operation,
+                detail: "Could not load the native model configuration.",
+                cause,
+              }),
+          ),
+        )
+      : environment;
     const claudeEnvironment = elysiaModelEnvironment(
-      yield* makeClaudeEnvironment(claudeSettings, environment),
-      resolveClaudeCatalogApiModelId(catalog, modelSelection),
+      yield* makeClaudeEnvironment(claudeSettings, nativeEnvironment),
+      model,
       catalog,
     );
     const resolvedModelSelection = {
@@ -204,6 +217,20 @@ export const makeClaudeTextGeneration = Effect.fn("makeClaudeTextGeneration")(fu
               )
           : cwd;
       const managedMcpConfig = yield* hasClaudeManagedMcpConfig();
+      const nativeSettingsPath = yield* writeElysiaQuerySettings({
+        environment: claudeEnvironment,
+        settings,
+      }).pipe(
+        Effect.provideService(FileSystem.FileSystem, fileSystem),
+        Effect.mapError(
+          (cause) =>
+            new TextGenerationError({
+              operation,
+              detail: "Could not prepare the native model configuration.",
+              cause,
+            }),
+        ),
+      );
       const spawnCommand = yield* resolveSpawnCommand(
         claudeSettings.binaryPath || "claude",
         [
@@ -216,7 +243,7 @@ export const makeClaudeTextGeneration = Effect.fn("makeClaudeTextGeneration")(fu
           resolveClaudeCatalogApiModelId(catalog, resolvedModelSelection),
           ...(cliEffort ? ["--effort", cliEffort] : []),
           "--settings",
-          settingsJson,
+          nativeSettingsPath ?? settingsJson,
           ...(investigate
             ? [
                 "--tools",
@@ -228,8 +255,7 @@ export const makeClaudeTextGeneration = Effect.fn("makeClaudeTextGeneration")(fu
               ]
             : ["--tools", ""]),
           "--disable-slash-commands",
-          // Claude refuses this flag next to a managed-mcp.json, which already keeps the
-          // user's own MCP servers out.
+          // managed-mcp.json already isolates servers and makes Claude reject this flag.
           ...(managedMcpConfig ? [] : ["--strict-mcp-config"]),
           "--permission-mode",
           "dontAsk",

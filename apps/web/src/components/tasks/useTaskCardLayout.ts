@@ -5,6 +5,7 @@ import { observeResize } from "~/lib/observeResize";
 export function useTaskCardLayout(enabled: boolean) {
   const ref = useRef<HTMLDivElement>(null);
 
+  // oxlint-disable-next-line elysia/react-effect-budget -- Measure committed card content into shared CSS heights and own the ResizeObserver lifecycle.
   useLayoutEffect(() => {
     const collection = ref.current;
     if (!enabled || !collection) return;

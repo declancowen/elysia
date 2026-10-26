@@ -1,7 +1,6 @@
-import { act } from "react";
-import { createRoot, type Root } from "react-dom/client";
+import { act, render, stubGlobal } from "../../../test/render";
 import { EnvironmentId, ProjectId } from "@elysiatools/contracts";
-import { afterEach, beforeEach, expect, it, vi } from "vite-plus/test";
+import { expect, it, vi } from "vite-plus/test";
 
 const mocks = vi.hoisted(() => ({
   importThreads: vi.fn(),
@@ -91,7 +90,7 @@ vi.mock("../../onboarding/useProjectScans", () => ({
             title: "project",
             projectId: "test-project",
             threadCount: 29,
-            lastActiveAt: new Date().toISOString(),
+            lastActiveAt: "2026-09-05T00:00:00.000Z",
             sources: ["codex"],
           },
         ],
@@ -118,13 +117,10 @@ vi.mock("../ui/toast", () => ({
 
 import { WelcomeWizard } from "./WelcomeWizard";
 
-let root: Root;
-let container: HTMLDivElement;
-
-beforeEach(() => {
+function fixtures(): Disposable {
   vi.clearAllMocks();
   mocks.providers = [];
-  vi.stubGlobal(
+  const resizeObserver = stubGlobal(
     "ResizeObserver",
     class {
       observe() {}
@@ -132,10 +128,7 @@ beforeEach(() => {
       disconnect() {}
     },
   );
-  Object.defineProperty(Element.prototype, "getAnimations", {
-    configurable: true,
-    value: () => [],
-  });
+  const animations = vi.spyOn(Element.prototype, "getAnimations").mockReturnValue([]);
   mocks.projects = [{ id: "test-project", environmentId: "test-env", workspaceRoot: "/project" }];
   mocks.complete.mockResolvedValue(undefined);
   mocks.refresh.mockResolvedValue(undefined);
@@ -143,15 +136,13 @@ beforeEach(() => {
     _tag: "Success",
     value: { importedCount: 28, skippedCount: 1 },
   });
-  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
-  container = document.createElement("div");
-  document.body.append(container);
-  root = createRoot(container);
-});
-afterEach(async () => {
-  await act(async () => root.unmount());
-  container.remove();
-});
+  return {
+    [Symbol.dispose]() {
+      resizeObserver[Symbol.dispose]();
+      animations.mockRestore();
+    },
+  };
+}
 
 async function click(label: string) {
   const button = [...document.querySelectorAll("button")].find(
@@ -162,12 +153,13 @@ async function click(label: string) {
 }
 
 it("enters the workspace after a partial import and warns after navigation finishes", async () => {
+  using _fixtures = fixtures();
   let finishNavigation = () => {};
   const navigation = new Promise<void>((resolve) => {
     finishNavigation = resolve;
   });
   const onDone = vi.fn(() => navigation);
-  await act(async () => root.render(<WelcomeWizard localAvailable onDone={onDone} />));
+  await using _screen = await render(<WelcomeWizard localAvailable onDone={onDone} />);
   await click("Continue");
   await click("Continue");
   await click("Import 1 project");
@@ -197,12 +189,13 @@ it.each([
 ] as const)(
   "finishes setup with %i imported and %i skipped threads",
   async (importedCount, skippedCount, warning) => {
+    using _fixtures = fixtures();
     mocks.importThreads.mockResolvedValue({
       _tag: "Success",
       value: { importedCount, skippedCount },
     });
     const onDone = vi.fn();
-    await act(async () => root.render(<WelcomeWizard localAvailable onDone={onDone} />));
+    await using _screen = await render(<WelcomeWizard localAvailable onDone={onDone} />);
     await click("Continue");
     await click("Continue");
     await click("Import 1 project");
@@ -223,9 +216,10 @@ it.each([
 );
 
 it("keeps setup open when saving completion fails and preserves the import warning on retry", async () => {
+  using _fixtures = fixtures();
   mocks.complete.mockRejectedValueOnce(new Error("settings unavailable"));
   const onDone = vi.fn();
-  await act(async () => root.render(<WelcomeWizard localAvailable onDone={onDone} />));
+  await using _screen = await render(<WelcomeWizard localAvailable onDone={onDone} />);
   await click("Continue");
   await click("Continue");
   await click("Import 1 project");
@@ -245,8 +239,9 @@ it("keeps setup open when saving completion fails and preserves the import warni
 });
 
 it("requires explicit Close to complete local setup", async () => {
+  using _fixtures = fixtures();
   const onDone = vi.fn();
-  await act(async () => root.render(<WelcomeWizard localAvailable onDone={onDone} />));
+  await using _screen = await render(<WelcomeWizard localAvailable onDone={onDone} />);
   await act(async () => {
     document.activeElement?.dispatchEvent(
       new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),

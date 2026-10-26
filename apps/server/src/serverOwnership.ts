@@ -25,6 +25,7 @@ import {
   SERVICE_RESTART_PENDING_FILE,
   SERVICE_STATE_FILE,
   compareExactServiceVersions,
+  parseServiceState,
   serviceStateActiveVersion,
 } from "./cloud/serviceProtocol.ts";
 import * as ProcessRunner from "./processRunner.ts";
@@ -40,12 +41,11 @@ export class ServerAlreadyRunningError extends Schema.TaggedError<ServerAlreadyR
   "ServerAlreadyRunningError",
   { stateDir: Schema.String },
 ) {
-  // Distinct process exit code so a supervisor can tell "owned by another
-  // server" apart from a crash and stop restarting.
+  // Distinct exit codes let supervisors stop restarting an already-owned server.
   override readonly [Runtime.errorExitCode] = SERVER_EXIT_CODE_STATE_DIR_OWNED;
 
   override get message(): string {
-    return `A Elysia server already owns ${this.stateDir}. Stop that server, or use a separate Elysia home and pair with it, then retry. No server was stopped.`;
+    return `An Elysia server already owns ${this.stateDir}. Stop that server, or use a separate Elysia home and pair with it, then retry. No server was stopped.`;
   }
 }
 
@@ -56,7 +56,7 @@ export class OlderBootServiceError extends Schema.TaggedError<OlderBootServiceEr
   override readonly [Runtime.errorExitCode] = SERVER_EXIT_CODE_STATE_DIR_OWNED;
 
   override get message(): string {
-    return `A Elysia background service set up for ${this.baseDir} may still run a release without the ownership lock. On that machine, try \`elysia update\` and let it restart (or run \`elysia service restart\` if the update is already installed). If the older launcher cannot update, run \`elysia service uninstall\`, then reinstall with \`elysia service install\` from a current CLI. You can also leave the service uninstalled. Pass \`--base-dir ${this.baseDir}\` to each command, and use a current Elysia server CLI if \`elysia\` is not installed or is outdated. Then retry. No server was stopped.`;
+    return `An Elysia background service set up for ${this.baseDir} may still run a release without the ownership lock. On that machine, try \`elysia update\` and let it restart (or run \`elysia service restart\` if the update is already installed). If the older launcher cannot update, run \`elysia service uninstall\`, then reinstall with \`elysia service install\` from a current CLI. You can also leave the service uninstalled. Pass \`--base-dir ${this.baseDir}\` to each command, and use a current Elysia server CLI if \`elysia\` is not installed or is outdated. Then retry. No server was stopped.`;
   }
 }
 
@@ -74,10 +74,7 @@ const isSqliteBusy = (cause: unknown) =>
   (("errcode" in cause && cause.errcode === 5) ||
     ("code" in cause && cause.code === "SQLITE_BUSY"));
 
-/**
- * Servers from before this lock only publish `server-runtime.json`. Treat
- * their record as stale only when the process start time proves PID reuse.
- */
+// Pre-lock servers publish only runtime state; require start-time proof of PID reuse before treating it as stale.
 const legacyOwnerIsLive = Effect.fn("legacyOwnerIsLive")(function* (
   state: PersistedServerRuntimeState,
 ) {
@@ -109,6 +106,55 @@ const legacyOwnerIsLive = Effect.fn("legacyOwnerIsLive")(function* (
   return !Number.isFinite(startedAt) || startedAt <= recordedAt + 1_000;
 });
 
+// Existing fork releases predate the explicit capability marker. Inspect installed code,
+// never execute it: upstream's release numbers cannot identify a lock-aware Elysia runtime.
+const installedRuntimeHasOwnership = (
+  runtimeDir: string,
+  version: string,
+  stateText: string,
+): boolean => {
+  let protocol: unknown;
+  try {
+    protocol = (JSON.parse(stateText) as { protocol?: unknown }).protocol;
+  } catch {
+    return false;
+  }
+  const versionDir = NodePath.join(runtimeDir, "versions", version);
+  // These exact old launcher paths are upgrade inputs, never current install targets.
+  const entry =
+    protocol === 3
+      ? NodePath.join(versionDir, "t3")
+      : protocol === 2
+        ? NodePath.join(versionDir, "node_modules", "t3", "dist", "bin.mjs")
+        : undefined;
+  if (entry === undefined) return false;
+  let fd: number | undefined;
+  try {
+    const stat = NodeFS.statSync(entry);
+    if (!stat.isFile() || stat.size > 256 * 1024 * 1024) return false;
+    fd = NodeFS.openSync(entry, "r");
+    const markers = new Set([
+      "Elysia server already owns",
+      "server-owner.sqlite",
+      "BEGIN EXCLUSIVE",
+    ]);
+    const buffer = Buffer.allocUnsafe(64 * 1024);
+    let previous = "";
+    let count: number;
+    while ((count = NodeFS.readSync(fd, buffer)) > 0) {
+      const text = previous + buffer.toString("latin1", 0, count);
+      for (const marker of markers) if (text.includes(marker)) markers.delete(marker);
+      if (markers.size === 0) return true;
+      previous = text.slice(-128);
+    }
+  } catch {
+    // Missing or unreadable code does not establish safe concurrent startup.
+  } finally {
+    if (fd !== undefined) NodeFS.closeSync(fd);
+  }
+  return false;
+};
+
 // Pre-lock services become invisible when another server replaces their runtime
 // record. Unreadable configuration or an unavailable manager allows startup.
 const olderBootServiceHome = Effect.fn("olderBootServiceHome")(
@@ -138,9 +184,8 @@ const olderBootServiceHome = Effect.fn("olderBootServiceHome")(
       return undefined;
     }
     const runtimeDir = NodePath.join(baseDir, "runtime");
-    const version = serviceStateActiveVersion(
-      yield* fs.readFileString(NodePath.join(runtimeDir, SERVICE_STATE_FILE)),
-    );
+    const stateText = yield* fs.readFileString(NodePath.join(runtimeDir, SERVICE_STATE_FILE));
+    const version = serviceStateActiveVersion(stateText);
     if (version === undefined) return undefined;
     const run = (command: string, args: ReadonlyArray<string>) =>
       runner.run({ command, args, timeout: Duration.seconds(5), maxOutputBytes: 65_536 });
@@ -171,8 +216,12 @@ const olderBootServiceHome = Effect.fn("olderBootServiceHome")(
     if (loaded && (yield* fs.exists(NodePath.join(runtimeDir, SERVICE_RESTART_PENDING_FILE)))) {
       return baseDir;
     }
-    // Stable 0.1.0 shipped the ownership lock. Earlier lock-aware prereleases
-    // are conservatively refused because older runtimes expose no capability marker.
+    // Fork release numbers do not track upstream: trust an installed capability first.
+    if (
+      parseServiceState(stateText)?.serverOwnership === "sqlite-v1" ||
+      installedRuntimeHasOwnership(runtimeDir, version, stateText)
+    )
+      return undefined;
     return compareExactServiceVersions(version, "0.1.0") < 0 ? baseDir : undefined;
   },
   Effect.orElseSucceed(() => undefined),

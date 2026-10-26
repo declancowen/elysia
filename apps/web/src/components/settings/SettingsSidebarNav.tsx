@@ -1,12 +1,5 @@
-import { useConversationTabsStore } from "../../conversationTabsStore";
-import { useConversationTabNavigation } from "../../hooks/useConversationTabNavigation";
-import { useConversationRowClick } from "../../hooks/useConversationRowClick";
-import { toastManager } from "../ui/toast";
-import { readLocalApi } from "../../localApi";
-import { isElectron } from "~/env";
-import { ClockIcon } from "~/icons";
-import { useCodeWorkspace } from "~/hooks/useSettings";
 import { CONNECTIONS_ENABLED, SINGLE_PROVIDER_UI } from "@elysiatools/contracts";
+import { useLocation, useNavigate } from "@tanstack/react-router";
 import {
   lazy,
   Suspense,
@@ -18,48 +11,56 @@ import {
   type KeyboardEvent,
   type ReactNode,
 } from "react";
+import { isElectron } from "~/env";
+import { useCodeWorkspace } from "~/hooks/useSettings";
 import {
   ArchiveIcon,
   BlocksIcon,
   BubblesIcon,
-  ScanIcon,
+  ClockIcon,
+  FlaskConicalIcon,
   GitBranchIcon,
   HardDriveIcon,
-  PanelsTopLeftIcon,
   KeyboardIcon,
   Link2Icon,
   PaletteIcon,
+  PanelsTopLeftIcon,
+  ScanIcon,
   SearchIcon,
   Settings2Icon,
   XIcon,
 } from "~/icons";
-import { useLocation, useNavigate } from "@tanstack/react-router";
+import { useConversationTabsStore } from "../../conversationTabsStore";
+import { useConversationRowClick } from "../../hooks/useConversationRowClick";
+import { useConversationTabNavigation } from "../../hooks/useConversationTabNavigation";
+import { readLocalApi } from "../../localApi";
+import { toastManager } from "../ui/toast";
 
+import { SidebarChromeHeader, SidebarUtilityMenu } from "../sidebar/SidebarChrome";
 import { Button } from "../ui/button";
 import { Kbd } from "../ui/kbd";
 import {
   SidebarContent,
   SidebarFooter,
   SidebarGroup,
+  SidebarInput,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-  useSidebar,
   useSidebarVisibility,
-  SidebarInput,
 } from "../ui/sidebar";
-import { SidebarChromeHeader, SidebarUtilityMenu } from "../sidebar/SidebarChrome";
 import { scrollToSettingsTarget } from "./settingsLayout";
+import { validateSettingsScopeSearch, type SettingsScopeSearch } from "./settingsScope";
 import {
-  searchSettings,
   isSettingsOverviewVisible,
+  revealSettingsSearchTarget,
+  searchSettings,
   SETTINGS_SECTION_LABELS,
   type SettingsPath,
   type SettingsSearchItem,
 } from "./settingsSearch";
 import { isSettingsPathVisibleInWorkspace } from "./settingsWorkspace";
 import { useAvailableSettingsSearchItems } from "./useAvailableSettingsSearchItems";
-import { type SettingsScopeSearch, validateSettingsScopeSearch } from "./settingsScope";
 
 const SnapShotIcon = ScanIcon;
 
@@ -89,6 +90,7 @@ const SETTINGS_SECTION_ICONS: Readonly<
   "/settings/source-control": GitBranchIcon,
   "/settings/storage": HardDriveIcon,
   "/settings/connections": Link2Icon,
+  "/settings/beta": FlaskConicalIcon,
   "/settings/archived": ArchiveIcon,
 };
 
@@ -103,6 +105,11 @@ const SETTINGS_NAV_ITEMS: ReadonlyArray<{
     label: SETTINGS_SECTION_LABELS[to],
     icon: SETTINGS_SECTION_ICONS[to],
   }));
+
+// Attached only to the highlighted result, so it runs whenever the highlight lands on a row.
+function scrollResultIntoView(row: HTMLElement | null) {
+  row?.scrollIntoView({ block: "nearest" });
+}
 
 function SettingsSectionIcon({ to }: { to: SettingsPath }) {
   const Icon = SETTINGS_SECTION_ICONS[to];
@@ -166,8 +173,9 @@ export function SettingsSidebarNav({
   const codeWorkspace = useCodeWorkspace();
   const navigate = useNavigate();
   const currentHash = useLocation({ select: (location) => location.hash });
-  const currentSearch = useLocation({ select: (location) => location.search });
-  const scopeSearch = validateSettingsScopeSearch(currentSearch);
+  const scopeSearch = useLocation({
+    select: (location) => validateSettingsScopeSearch(location.search),
+  });
   const navItems = SETTINGS_NAV_ITEMS.filter(
     (item) =>
       item.to !== "/settings/connections" &&
@@ -175,7 +183,6 @@ export function SettingsSidebarNav({
       isSettingsPathVisibleInWorkspace(item.to, codeWorkspace) &&
       (item.to !== "/settings/projects" || isSettingsOverviewVisible(scopeSearch)),
   );
-  const { isMobile, setOpenMobile } = useSidebar();
   const sidebarVisible = useSidebarVisibility();
   const searchInputRef = useRef<HTMLInputElement>(null);
   const searchId = useId();
@@ -220,7 +227,7 @@ export function SettingsSidebarNav({
             target.tagName === "TEXTAREA" ||
             target.isContentEditable)) ||
           target.closest(
-            '[role="dialog"], [aria-modal="true"], [data-slot$="popup"], [data-keybinding-capture]',
+            '[role="dialog"]:not([data-app-modal]), [aria-modal="true"]:not([data-app-modal]), [data-slot$="popup"]:not([data-app-modal]), [data-keybinding-capture]',
           ) !== null)
       ) {
         return;
@@ -238,9 +245,6 @@ export function SettingsSidebarNav({
   }, [preview, sidebarVisible]);
 
   const handleSectionClick = (to: SettingsPath) => {
-    if (isMobile) {
-      setOpenMobile(false);
-    }
     void navigate({
       to,
       hash: "",
@@ -255,10 +259,9 @@ export function SettingsSidebarNav({
   };
   const handleSearchResultClick = (item: SettingsSearchItem) => {
     clearSearch();
-    if (isMobile) {
-      setOpenMobile(false);
-    }
+    setSearchVisible(false);
     const targetId = item.targetId ?? item.id;
+    revealSettingsSearchTarget(targetId);
     if (pathname === item.to && currentHash.replace(/^#/, "") === targetId) {
       scrollToSettingsTarget(targetId);
       return;
@@ -381,7 +384,11 @@ export function SettingsSidebarNav({
                 aria-label={hasResults ? "Settings search results" : undefined}
               >
                 {results.map((item, index) => (
-                  <SidebarMenuItem key={item.id} role="presentation">
+                  <SidebarMenuItem
+                    key={item.id}
+                    role="presentation"
+                    ref={index === activeResultIndex ? scrollResultIntoView : undefined}
+                  >
                     <SidebarMenuButton
                       id={`${searchId}-result-${item.id}`}
                       role="option"

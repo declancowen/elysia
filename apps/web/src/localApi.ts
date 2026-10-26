@@ -54,8 +54,7 @@ function createBrowserLocalApi(): LocalApi {
         }
         return showContextMenuFallback(items, position);
       },
-      // Elysia uses themed menus on web and desktop; dismiss retained menus
-      // when the state behind them goes away.
+      // Unlike native menus, the DOM fallback needs dismissal when underlying state disappears.
       close: async () => {
         if (SINGLE_PROVIDER_UI || !window.desktopBridge) {
           dismissContextMenu();

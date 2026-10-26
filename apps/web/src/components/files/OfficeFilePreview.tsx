@@ -2,8 +2,9 @@ import { readFilePreviewBytes } from "@elysiatools/client-runtime/file-preview";
 import {
   OFFICE_PREVIEW_MAX_BYTES,
   type OfficePreviewFormat,
+  type OfficePreviewKind,
 } from "@elysiatools/shared/filePreview";
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { Button } from "~/components/ui/button";
 import { FileSurfaceFailure, FileSurfaceLoading, FileSurfaceNotice } from "./fileSurfaceChrome";
 import { loadOfficePreview } from "./officePreview";
@@ -11,11 +12,10 @@ import { loadOfficePreview } from "./officePreview";
 // Only the parent runs the trusted renderer. Document scripts, forms, frames and
 // network requests are blocked inside the same-origin, script-disabled frame.
 const FRAME = `<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data: blob:; style-src 'unsafe-inline'; font-src data:; form-action 'none'; base-uri 'none'"><style>body{margin:0;background:#e5e7eb;color:#111;font:14px system-ui}#content{padding:16px}table{border-collapse:collapse;background:white}td,th{border:1px solid #ddd;padding:6px 10px;white-space:pre-wrap;min-width:64px}.slide{margin-bottom:16px}.docx-wrapper{padding:0!important}</style></head><body><div id="styles"></div><main id="content"></main></body></html>`;
-
-export default function OfficeFilePreview(props: {
+export default function LegacyOfficeFilePreview(props: {
   src: string;
   name: string;
-  format: OfficePreviewFormat;
+  format: Extract<OfficePreviewFormat, "xls">;
   refresh?: () => Promise<string | null>;
 }) {
   const [frameDocument, setFrameDocument] = useState<Document | null>(null);
@@ -27,6 +27,7 @@ export default function OfficeFilePreview(props: {
   const [sheet, setSheet] = useState(0);
   const [revision, setRevision] = useState(0);
   const { src, format, refresh } = props;
+  // oxlint-disable-next-line elysia/react-effect-budget -- Each source owns an abortable file fetch and discards its previous spreadsheet preview.
   useEffect(() => {
     const controller = new AbortController();
     // oxlint-disable-next-line react/set-state-in-effect -- Each external file invalidates its previous preview.
@@ -54,6 +55,7 @@ export default function OfficeFilePreview(props: {
     });
     return () => controller.abort();
   }, [src, format, refresh, revision]);
+  // oxlint-disable-next-line elysia/react-effect-budget -- The imperative spreadsheet renderer must follow iframe and sheet changes and dispose its previous DOM.
   useEffect(() => {
     const target = frameDocument;
     if (!document || !target) return;
@@ -124,5 +126,18 @@ export default function OfficeFilePreview(props: {
         </div>
       ) : null}
     </div>
+  );
+}
+const OfficeViewer = lazy(() => import("./OfficeViewer"));
+export function OfficeFilePreview(props: {
+  readonly src: string;
+  readonly name: string;
+  readonly kind: OfficePreviewKind;
+  readonly sizeBytes?: number;
+}) {
+  return (
+    <Suspense fallback={<FileSurfaceLoading />}>
+      <OfficeViewer key={JSON.stringify([props.src, props.kind, props.sizeBytes])} {...props} />
+    </Suspense>
   );
 }

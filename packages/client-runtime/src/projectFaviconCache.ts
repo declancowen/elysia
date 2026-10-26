@@ -1,5 +1,5 @@
 import { EnvironmentId } from "@elysiatools/contracts";
-import { mediaMimeType } from "@elysiatools/shared/filePreview";
+import { mediaMimeType } from "@elysiatools/shared/mediaPreview";
 import {
   getProjectFaviconCacheKey,
   getProjectFaviconResourceKey,

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
-import { act, type ReactNode } from "react";
-import { createRoot, type Root } from "react-dom/client";
+import { act, render as renderDom } from "../../../test/render";
+import { type ReactNode } from "react";
 import {
   DEFAULT_CLIENT_SETTINGS,
   DEFAULT_SERVER_SETTINGS,
@@ -159,8 +159,6 @@ const project: Project = {
   workspaceRoot: "/website",
   agentProfile: undefined,
 };
-let root: Root;
-let host: HTMLDivElement;
 const click = (element: HTMLElement) => act(async () => element.click());
 function button(name: string) {
   const element = [...document.querySelectorAll<HTMLElement>("button")].find(
@@ -171,7 +169,7 @@ function button(name: string) {
   return element!;
 }
 function destination() {
-  const label = [...host.querySelectorAll("label")].find((entry) =>
+  const label = [...document.body.querySelectorAll("label")].find((entry) =>
     entry.textContent?.startsWith("Project, agent or channel"),
   )!;
   return document.getElementById(label.htmlFor)!;
@@ -195,7 +193,7 @@ async function selectModel(name: string) {
 }
 async function fillDetails() {
   await act(async () => {
-    const title = host.querySelector<HTMLInputElement>(
+    const title = document.body.querySelector<HTMLInputElement>(
       'input[placeholder="e.g. Check for Sentry issues"]',
     )!;
     Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(
@@ -203,7 +201,7 @@ async function fillDetails() {
       "Daily review",
     );
     title.dispatchEvent(new Event("input", { bubbles: true }));
-    const prompt = host.querySelector("textarea")!;
+    const prompt = document.body.querySelector("textarea")!;
     Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value")!.set!.call(
       prompt,
       "Review the latest changes.",
@@ -213,7 +211,6 @@ async function fillDetails() {
 }
 beforeEach(async () => {
   vi.clearAllMocks();
-  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   vi.stubGlobal("matchMedia", () => ({
     matches: false,
     addEventListener: vi.fn(),
@@ -286,27 +283,13 @@ beforeEach(async () => {
     ]),
   );
   state.save.mockResolvedValue({ _tag: "Success", value: {} });
-  host = document.createElement("div");
-  document.body.append(host);
-  root = createRoot(host);
-  await act(async () =>
-    root.render(
-      <ScheduledTaskEditor
-        initialEnvironmentId={environmentId}
-        task={null}
-        onClose={state.close}
-        inline
-      />,
-    ),
-  );
 });
 afterEach(async () => {
-  await act(async () => root.unmount());
-  host.remove();
   vi.unstubAllGlobals();
 });
 
 it("groups destinations with icons and excludes archived and other-environment spaces", async () => {
+  await using _screen = await renderDom(view(), { router: false });
   expect(destination().querySelector("svg")).not.toBeNull();
   await click(destination());
   expect(
@@ -325,6 +308,7 @@ it("groups destinations with icons and excludes archived and other-environment s
 });
 
 it("lets an agent task change model and saves the choice in its dedicated thread", async () => {
+  await using _screen = await renderDom(view(), { router: false });
   await selectDestination("Alex");
   expect(destination().querySelector(".agent-avatar")).not.toBeNull();
   await selectModel("Careful model");
@@ -343,6 +327,7 @@ it("lets an agent task change model and saves the choice in its dedicated thread
 });
 
 it("follows the newly selected agent's model before accepting an explicit override", async () => {
+  await using _screen = await renderDom(view(), { router: false });
   await selectModel("Careful model");
   await selectDestination("Alex");
   expect(button("Scheduled task model").textContent).toContain("Fast model");
@@ -359,6 +344,7 @@ it("follows the newly selected agent's model before accepting an explicit overri
 });
 
 it("refuses an agent destination whose dedicated chat is unavailable", async () => {
+  await using _screen = await renderDom(view(), { router: false });
   state.threads.delete(agent.agentProfile!.conversationThreadId!);
   await selectDestination("Alex");
   await fillDetails();
@@ -371,9 +357,10 @@ it("refuses an agent destination whose dedicated chat is unavailable", async () 
 });
 
 it("routes a channel task to its dedicated thread and keeps member models", async () => {
+  await using _screen = await renderDom(view(), { router: false });
   await selectDestination("Team");
-  expect(host.textContent).toContain("Channel members use their own selected models.");
-  expect(host.querySelector('[aria-label="Scheduled task model"]')).toBeNull();
+  expect(document.body.textContent).toContain("Channel members use their own selected models.");
+  expect(document.body.querySelector('[aria-label="Scheduled task model"]')).toBeNull();
   await fillDetails();
   await click(button("Create task"));
   expect(state.save).toHaveBeenCalledWith({
@@ -387,6 +374,7 @@ it("routes a channel task to its dedicated thread and keeps member models", asyn
 });
 
 it("saves project tasks without a dedicated thread so each run starts its own thread", async () => {
+  await using _screen = await renderDom(view(), { router: false });
   await fillDetails();
   await click(button("Create task"));
   expect(state.save).toHaveBeenCalledWith({
@@ -399,3 +387,19 @@ it("saves project tasks without a dedicated thread so each run starts its own th
   });
   expect(state.close).toHaveBeenCalledOnce();
 });
+
+vi.mock("vite-plus/test/browser", () => ({
+  page: { elementLocator: () => ({}) },
+  utils: { getElementLocatorSelectors: () => ({}) },
+}));
+
+function view() {
+  return (
+    <ScheduledTaskEditor
+      initialEnvironmentId={environmentId}
+      task={null}
+      onClose={state.close}
+      inline
+    />
+  );
+}

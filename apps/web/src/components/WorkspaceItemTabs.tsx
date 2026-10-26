@@ -33,6 +33,7 @@ export function WorkspaceItemTabs({ target }: { target: WorkspaceItemTabTarget |
       state.tabs.find((tab) => tab.id === state.activeId)?.target.kind !== target.kind,
     );
   });
+  // oxlint-disable-next-line elysia/react-effect-budget -- Synchronize direct browser routes and edited titles into the shared tab store.
   useEffect(() => {
     if (targetKey !== null) registerTarget();
   }, [targetKey, registerTarget]);

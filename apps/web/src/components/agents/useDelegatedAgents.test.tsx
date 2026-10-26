@@ -1,7 +1,8 @@
+import { act } from "../../../test/act";
 import { RegistryContext } from "@effect/atom-react";
 import { EnvironmentId, EventId, MessageId, ProjectId, ThreadId } from "@elysiatools/contracts";
 import type { AgentGetDelegationResult } from "@elysiatools/contracts";
-import { act } from "react";
+
 import { create, type ReactTestRenderer } from "react-test-renderer";
 import { afterAll, afterEach, beforeEach, expect, it, vi } from "vite-plus/test";
 import { makeThreadFixture } from "../../test-fixtures";
@@ -101,7 +102,6 @@ const mount = async () => {
   });
 };
 it("refreshes a retained working job when reopening after it finished", async () => {
-  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   state.load.mockResolvedValue(response);
   await mount();
   expect(renderer!.root.findByType("p").children).toEqual(["working"]);
@@ -115,7 +115,6 @@ it("refreshes a retained working job when reopening after it finished", async ()
 });
 
 it("retains one subscription when equivalent source and jobs are rebuilt", async () => {
-  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   state.load.mockResolvedValue({ ...response, status: "completed" });
   const render = (generation: number) => (
     <RegistryContext.Provider value={appAtomRegistry}>
@@ -135,7 +134,6 @@ it("retains one subscription when equivalent source and jobs are rebuilt", async
 });
 
 it("follows group member lifecycle changes without waiting for a group response", async () => {
-  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   const lead = ProjectId.make("lead");
   const member = ProjectId.make("member");
   state.projects = [

@@ -14,10 +14,6 @@ import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
 import { cn } from "~/lib/utils";
 import { modelPickerModelKey } from "./modelPickerKeys";
 import { ProviderInstanceIcon } from "./ProviderInstanceIcon";
-
-// Rows take the model's fields rather than the picker's item object, and one shared toggle
-// handler, because the picker rebuilds its items on every search keystroke; that keeps memo
-// effective for rows whose content did not change.
 export const ModelListRow = memo(function ModelListRow(props: {
   index: number;
   slug: string;
@@ -50,7 +46,6 @@ export const ModelListRow = memo(function ModelListRow(props: {
     subProvider: props.subProvider,
   };
   const providerLabel = getProviderRowLabel(props.providerDisplayName, props.subProvider);
-
   const row = (
     <ComboboxItem
       hideIndicator
@@ -101,12 +96,16 @@ export const ModelListRow = memo(function ModelListRow(props: {
       )}
       <div className="min-w-0 flex-1 text-left">
         <div className="flex min-w-0 items-center gap-2">
-          <div className="min-w-0 truncate text-xs font-medium leading-snug">
+          <div className="min-w-0 truncate text-xs font-medium leading-snug redesign:text-sm redesign:font-normal">
             {props.useTriggerLabel
               ? getTriggerDisplayModelLabel(model)
               : getDisplayModelName(
                   model,
-                  props.preferShortName ? { preferShortName: true } : undefined,
+                  props.preferShortName
+                    ? {
+                        preferShortName: true,
+                      }
+                    : undefined,
                 )}
           </div>
           {props.showNewBadge ? (
@@ -141,18 +140,19 @@ export const ModelListRow = memo(function ModelListRow(props: {
       </div>
 
       <div className="flex shrink-0 items-center gap-1.5">
-        {props.showSelection && props.isSelected ? (
-          <CheckIcon className="size-3.5" aria-hidden="true" />
-        ) : null}
         {props.jumpLabel ? <Kbd>{props.jumpLabel}</Kbd> : null}
+        {props.showSelection ? (
+          <CheckIcon
+            className={cn("size-3.5", !props.isSelected && "invisible")}
+            aria-hidden="true"
+          />
+        ) : null}
       </div>
     </ComboboxItem>
   );
-
   if (!props.disabledReason) {
     return row;
   }
-
   return (
     <Tooltip>
       <TooltipTrigger render={row} />

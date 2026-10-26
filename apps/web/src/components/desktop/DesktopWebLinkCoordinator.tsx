@@ -1,7 +1,7 @@
 import { scopeProjectRef, scopeThreadRef } from "@elysiatools/client-runtime/environment";
 import { squashAtomCommandFailure } from "@elysiatools/client-runtime/state/runtime";
 import type { EnvironmentId, ScopedThreadRef } from "@elysiatools/contracts";
-import { parseChangeRequestUrl } from "@elysiatools/shared/changeRequestUrl";
+import { sourceControlClients } from "@elysiatools/client-runtime/source-control-clients";
 import { promptLinkAppPath } from "@elysiatools/shared/promptLinks";
 import { useRouter } from "@tanstack/react-router";
 import * as Effect from "effect/Effect";
@@ -155,7 +155,7 @@ export function DesktopWebLinkCoordinator() {
     // delivered at launch would miss its project and fall through to the browser. Hold PR
     // links, and only those, until discovery settles; an ordinary link never waits for it.
     const hold =
-      openPullRequestsInApp && parseChangeRequestUrl(url) !== null
+      openPullRequestsInApp && sourceControlClients.parseChangeRequestUrl(url) !== null
         ? projectsSettled()
         : Promise.resolve();
     void hold.then(() => {

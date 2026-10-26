@@ -1,4 +1,4 @@
-import { OtlpHeadersFromString, OtlpProtocol } from "@elysiatools/shared/observability";
+import { elysiaOtlpConfig } from "@elysiatools/shared/otelEnvironment";
 import * as Config from "effect/Config";
 import * as ConfigProvider from "effect/ConfigProvider";
 import * as Option from "effect/Option";
@@ -45,23 +45,32 @@ export const DesktopConfig = Config.all({
   commitHashOverride: trimmedString("T3CODE_COMMIT_HASH"),
   desktopLanHostOverride: trimmedString("T3CODE_DESKTOP_LAN_HOST"),
   desktopHttpsEndpointUrls: commaSeparatedStrings("T3CODE_DESKTOP_HTTPS_ENDPOINTS"),
-  otlpTracesUrl: trimmedString("T3CODE_OTLP_TRACES_URL"),
-  otlpMetricsUrl: trimmedString("T3CODE_OTLP_METRICS_URL"),
-  otlpLogsUrl: trimmedString("T3CODE_OTLP_LOGS_URL"),
-  otlpExportIntervalMs: Config.Int("T3CODE_OTLP_EXPORT_INTERVAL_MS").pipe(
-    Config.withDefault(10_000),
-  ),
-  otlpHeaders: Config.schema(OtlpHeadersFromString, "T3CODE_OTLP_HEADERS").pipe(Config.option),
-  otlpProtocol: Config.schema(OtlpProtocol, "T3CODE_OTLP_PROTOCOL").pipe(
-    Config.withDefault("http/json"),
-  ),
+  otlp: elysiaOtlpConfig,
+  desktopLauncherPath: trimmedString("T3CODE_DESKTOP_LAUNCHER_PATH"),
   appImagePath: trimmedString("APPIMAGE"),
   disableAutoUpdate: optionalBoolean("T3CODE_DISABLE_AUTO_UPDATE"),
   mockUpdates: optionalBoolean("T3CODE_DESKTOP_MOCK_UPDATES"),
   mockUpdateServerPort: Config.Port("T3CODE_DESKTOP_MOCK_UPDATE_SERVER_PORT").pipe(
     Config.withDefault(3000),
   ),
-});
+}).pipe(
+  Config.map(({ otlp, ...config }) => ({
+    ...config,
+    otlpTracesUrl: Option.fromUndefinedOr(otlp.traces?.value).pipe(
+      Option.flatMap(trimNonEmptyOption),
+    ),
+    otlpMetricsUrl: Option.fromUndefinedOr(otlp.metrics?.value).pipe(
+      Option.flatMap(trimNonEmptyOption),
+    ),
+    otlpLogsUrl: Option.fromUndefinedOr(otlp.logs?.value).pipe(Option.flatMap(trimNonEmptyOption)),
+    otlpTracesVariable: otlp.traces?.variable,
+    otlpMetricsVariable: otlp.metrics?.variable,
+    otlpLogsVariable: otlp.logs?.variable,
+    otlpHeaders: Option.fromUndefinedOr(otlp.headers),
+    otlpProtocol: otlp.protocol,
+    otlpExportIntervalMs: otlp.exportIntervalMs,
+  })),
+);
 
 export const layerTest = (env: Readonly<Record<string, string | undefined>>) =>
   ConfigProvider.layer(ConfigProvider.fromEnv({ env: compactEnv(env) }));

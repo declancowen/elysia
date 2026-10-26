@@ -1,38 +1,21 @@
 import { useCanGoBack, useNavigate } from "@tanstack/react-router";
-import { useEffect } from "react";
-
-function useNavigateBack() {
-  const navigate = useNavigate();
-  const canGoBack = useCanGoBack();
-
-  return () => {
-    if (canGoBack) {
-      window.history.back();
-      return;
-    }
-    void navigate({ to: "/" });
-  };
-}
+import { useEffect, useEffectEvent } from "react";
 
 export function useEscapeToGoBack(onEscape?: () => void) {
-  const navigateBack = useNavigateBack();
-  const handleEscape = onEscape ?? navigateBack;
-
+  const navigate = useNavigate();
+  const canGoBack = useCanGoBack();
+  const handleEscape = useEffectEvent((event: KeyboardEvent) => {
+    if (event.defaultPrevented || event.repeat || event.isComposing || event.key !== "Escape")
+      return;
+    event.preventDefault();
+    if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+    if (onEscape) onEscape();
+    else if (canGoBack) window.history.back();
+    else void navigate({ to: "/" });
+  });
   useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.defaultPrevented || event.repeat || event.isComposing || event.key !== "Escape")
-        return;
-      event.preventDefault();
-
-      const activeElement = document.activeElement;
-      if (activeElement instanceof HTMLElement) {
-        activeElement.blur();
-      }
-
-      handleEscape();
-    };
-
+    const onKeyDown = (event: KeyboardEvent) => handleEscape(event);
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [handleEscape]);
+  }, []);
 }

@@ -3,9 +3,9 @@ import {
   ProviderInstanceId,
   type ServerProvider,
 } from "@elysiatools/contracts";
-import { act, type ComponentProps } from "react";
-import { createRoot, type Root } from "react-dom/client";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
+import type { ComponentProps } from "react";
+import { render } from "../../../test/render";
+import { describe, expect, it, vi } from "vite-plus/test";
 import { userEvent } from "vite-plus/test/browser";
 
 import { ProviderInstanceCard } from "./ProviderInstanceCard";
@@ -15,22 +15,6 @@ vi.mock("../../../../../packages/contracts/src/forkPolicy.ts", async (original) 
   ...(await original<typeof import("@elysiatools/contracts")>()),
   isEnabledProviderDriver: () => true,
 }));
-
-let root: Root;
-let container: HTMLDivElement;
-
-beforeEach(() => {
-  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
-  container = document.createElement("div");
-  document.body.append(container);
-  root = createRoot(container);
-});
-
-afterEach(async () => {
-  await act(async () => root.unmount());
-  container.remove();
-  vi.unstubAllGlobals();
-});
 
 const driver = ProviderDriverKind.make("codex");
 
@@ -55,50 +39,48 @@ async function renderCard(
   liveProvider: ServerProvider,
   mode: ComponentProps<typeof ProviderInstanceCard>["mode"],
 ) {
-  await act(async () =>
-    root.render(
-      <ProviderInstanceCard
-        instanceId={liveProvider.instanceId}
-        instance={{ driver, enabled: true }}
-        driverOption={undefined}
-        liveProvider={liveProvider}
-        mode={mode}
-        onUpdate={() => undefined}
-        hiddenModels={[]}
-        favoriteModels={[]}
-        modelOrder={[]}
-        onHiddenModelsChange={() => undefined}
-        onFavoriteModelsChange={() => undefined}
-        onToggleFavorite={() => undefined}
-        onModelOrderChange={() => undefined}
-      />,
-    ),
+  return render(
+    <ProviderInstanceCard
+      instanceId={liveProvider.instanceId}
+      instance={{ driver, enabled: true }}
+      driverOption={undefined}
+      liveProvider={liveProvider}
+      mode={mode}
+      onUpdate={() => undefined}
+      hiddenModels={[]}
+      favoriteModels={[]}
+      modelOrder={[]}
+      onHiddenModelsChange={() => undefined}
+      onFavoriteModelsChange={() => undefined}
+      onToggleFavorite={() => undefined}
+      onModelOrderChange={() => undefined}
+    />,
   );
 }
 
 describe("ProviderInstanceCard", () => {
   it("hides the account email until the user reveals it, and hides it again", async () => {
-    await renderCard(
+    await using screen = await renderCard(
       provider({ auth: { status: "authenticated", email: "developer@example.com" } }),
       "editor",
     );
-    expect(container.textContent).toContain("Authenticated as");
-    expect(container.textContent).not.toContain("developer@example.com");
+    expect(screen.container.textContent).toContain("Authenticated as");
+    expect(screen.container.textContent).not.toContain("developer@example.com");
 
-    const toggle = container.querySelector<HTMLButtonElement>(
+    const toggle = screen.container.querySelector<HTMLButtonElement>(
       'button[aria-label="Toggle account email visibility"]',
     )!;
     await userEvent.click(toggle);
     expect(toggle.textContent).toBe("developer@example.com");
 
     await userEvent.click(toggle);
-    expect(container.textContent).not.toContain("developer@example.com");
+    expect(screen.container.textContent).not.toContain("developer@example.com");
   });
 
   it.each(["list", "editor"] as const)(
     "surfaces a failed probe message in the %s",
     async (mode) => {
-      await renderCard(
+      await using screen = await renderCard(
         provider({
           version: null,
           status: "error",
@@ -108,8 +90,8 @@ describe("ProviderInstanceCard", () => {
         }),
         mode,
       );
-      expect(container.textContent).toContain("Unavailable");
-      expect(container.textContent).toContain("is not a symlink");
+      expect(screen.container.textContent).toContain("Unavailable");
+      expect(screen.container.textContent).toContain("is not a symlink");
     },
   );
 });

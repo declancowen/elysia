@@ -1,6 +1,11 @@
+vi.mock("vite-plus/test/browser", () => ({
+  page: { elementLocator: () => ({}) },
+  utils: { getElementLocatorSelectors: () => ({}) },
+}));
+import { render as renderUi } from "../../test/render";
+import { act } from "../../test/act";
 // @vitest-environment jsdom
-import { act } from "react";
-import { createRoot } from "react-dom/client";
+
 import { expect, it, vi } from "vite-plus/test";
 import { AppTopbar, useAppTopbarHost } from "./AppTopbar";
 import { SidebarProvider, SidebarTrigger, useSidebar } from "./ui/sidebar";
@@ -29,7 +34,6 @@ function TopbarHostState() {
 }
 
 it("publishes the committed topbar host and clears it when the topbar unmounts", async () => {
-  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   vi.stubGlobal("matchMedia", () => ({
     matches: false,
     addEventListener: vi.fn(),
@@ -37,7 +41,7 @@ it("publishes the committed topbar host and clears it when the topbar unmounts",
   }));
   const container = document.createElement("div");
   document.body.append(container);
-  const root = createRoot(container);
+  await using root = await renderUi(null, { container: container, router: false });
   const render = (mounted: boolean) => (
     <SidebarProvider>
       {mounted ? <AppTopbar sidebarControl={null} /> : null}
@@ -45,13 +49,13 @@ it("publishes the committed topbar host and clears it when the topbar unmounts",
     </SidebarProvider>
   );
   try {
-    await act(async () => root.render(render(true)));
+    await act(async () => root.rerender(render(true)));
     const host = container.querySelector("[data-app-topbar]");
     expect(host).not.toBeNull();
     expect(container.querySelector("output")!.textContent).toBe("elysia-app-topbar-content");
-    await act(async () => root.render(render(false)));
+    await act(async () => root.rerender(render(false)));
     expect(container.querySelector("output")!.textContent).toBe("unmounted");
-    await act(async () => root.render(render(true)));
+    await act(async () => root.rerender(render(true)));
     expect(container.querySelector("output")!.textContent).toBe("elysia-app-topbar-content");
   } finally {
     await act(async () => root.unmount());
@@ -61,7 +65,6 @@ it("publishes the committed topbar host and clears it when the topbar unmounts",
 });
 
 it("moves through real browser history while preserving the sidebar toggle", async () => {
-  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   vi.stubGlobal("cookieStore", {
     set: async ({ name, value }: { name: string; value: string }) => {
       document.cookie = `${name}=${value}`;
@@ -77,12 +80,12 @@ it("moves through real browser history while preserving the sidebar toggle", asy
   window.history.pushState({}, "", "/settings");
   const container = document.createElement("div");
   document.body.append(container);
-  const root = createRoot(container);
+  await using root = await renderUi(null, { container: container, router: false });
   const button = (label: string) =>
     container.querySelector<HTMLButtonElement>(`button[aria-label="${label}"]`)!;
   try {
     await act(async () =>
-      root.render(
+      root.rerender(
         <SidebarProvider>
           <AppTopbar sidebarControl={<SidebarTrigger aria-label="Toggle main sidebar" />} />
           <SidebarState />

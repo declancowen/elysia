@@ -77,6 +77,8 @@ describe("native Elysia model routing", () => {
   it("rejects invalid native token metadata", () => {
     const decode = Schema.decodeUnknownOption(ElysiaModelMetadata);
     expect(decode(metadata)._tag).toBe("Some");
+    expect(decode({ "new-native-model": {} })._tag).toBe("Some");
+    expect(decode({ "new-native-model": { contextWindowTokens: 1000 } })._tag).toBe("None");
     for (const values of [
       { contextWindowTokens: 0, autoCompactWindowTokens: 1 },
       { contextWindowTokens: 10, autoCompactWindowTokens: 11 },

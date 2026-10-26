@@ -35,6 +35,7 @@ export function useAppTopbarHost() {
 
 export function AppTopbar({ sidebarControl }: { sidebarControl: ReactNode }) {
   const location = useLocation();
+  // oxlint-disable-next-line elysia/react-effect-budget -- Reconcile browser-route transitions with the shared conversation tab store.
   useEffect(() => {
     const target = surfaceTabForLocation(location.pathname, location.search);
     if (!target) return;

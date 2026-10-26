@@ -1,23 +1,24 @@
+import { sourceControlClients } from "@elysiatools/client-runtime/source-control-clients";
+import type { PullRequestAction } from "@elysiatools/contracts";
+import { SINGLE_PROVIDER_UI } from "@elysiatools/contracts";
+import { memo, type RefCallback } from "react";
+import { SearchIcon } from "~/icons";
 import { useConversationTabsStore } from "../../conversationTabsStore";
 import { useConversationRowClick } from "../../hooks/useConversationRowClick";
-import { SINGLE_PROVIDER_UI } from "@elysiatools/contracts";
-import { SearchIcon } from "~/icons";
-import type { PullRequestAction } from "@elysiatools/contracts";
-import { sourceControlClients } from "@elysiatools/client-runtime/source-control-clients";
-import { PullRequestStackPopover } from "./PullRequestStackPopover";
+import { PullRequestChangeBreakdownStat } from "./PullRequestChangeBreakdownStat";
 import {
   PullRequestSpeedActions,
   type PullRequestSpeedActionResult,
 } from "./PullRequestSpeedActions";
-import { memo, type RefCallback } from "react";
+import { PullRequestStackPopover } from "./PullRequestStackPopover";
 
 import { cn } from "~/lib/utils";
 import { getSourceControlPresentationForKind } from "~/sourceControlPresentation";
 
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
 import { PullRequestChecksPopover } from "./PullRequestChecksPopover";
-import type { EnvironmentPullRequestEntry } from "./pullRequestList.logic";
 import { openOnHostLabel, showPullRequestLinkContextMenu } from "./pullRequestLinkContextMenu";
+import type { EnvironmentPullRequestEntry } from "./pullRequestList.logic";
 import {
   PULL_REQUEST_ROW_CLASS,
   PULL_REQUEST_ROW_NUMBER_CLASS,
@@ -25,11 +26,7 @@ import {
   PullRequestRowGlyph,
   PullRequestRowLines,
 } from "./PullRequestListRow";
-import {
-  PullRequestDiffStat,
-  PullRequestLabelChip,
-  PullRequestReviewDecisionGlyph,
-} from "./pullRequestPresentation";
+import { PullRequestLabelChip, PullRequestReviewDecisionGlyph } from "./pullRequestPresentation";
 
 const LABEL_SLOTS = [
   { overflow: "@xl/pr-row-meta:hidden" },
@@ -84,7 +81,6 @@ function PullRequestRowImpl({
   statsKey,
   statsRef,
   onSelect,
-  speedMode,
   hostActions,
   onActed,
   closing = false,
@@ -97,11 +93,10 @@ function PullRequestRowImpl({
   showProvider: boolean;
   environmentLabel?: string;
   matchedElsewhere?: boolean;
-  /** Used by the list's shared visibility observer to defer optional line-count reads. */
+  /** Visibility key for deferred line-count reads. */
   statsKey?: string;
   statsRef?: RefCallback<HTMLDivElement>;
   onSelect: (entry: PullRequestRowTarget, newTab?: boolean) => void;
-  speedMode: boolean;
   hostActions: ReadonlySet<PullRequestAction>;
   onActed: (result: PullRequestSpeedActionResult) => void;
   closing?: boolean;
@@ -116,7 +111,7 @@ function PullRequestRowImpl({
     state.isOpen({ kind: "pull-request", ...entry }),
   );
   const openInNewTab = SINGLE_PROVIDER_UI && !alreadyOpen ? () => onSelect(entry, true) : undefined;
-  const { Icon, providerName } = getSourceControlPresentationForKind(entry.provider);
+  const { Icon, providerName, terminology } = getSourceControlPresentationForKind(entry.provider);
   return (
     <div
       ref={statsRef}
@@ -214,7 +209,14 @@ function PullRequestRowImpl({
                   }
                 />
               ) : null}
-              <PullRequestDiffStat
+              <PullRequestChangeBreakdownStat
+                environmentId={entry.environmentId}
+                reference={{
+                  projectId: entry.projectId,
+                  host: entry.host,
+                  repository: entry.repository,
+                  number: entry.number,
+                }}
                 additions={entry.additions}
                 deletions={entry.deletions}
                 className="font-mono"
@@ -267,7 +269,7 @@ function PullRequestRowImpl({
         <PullRequestSpeedActions
           entry={entry}
           hostActions={hostActions}
-          visible={speedMode}
+          terminology={terminology}
           onActed={onActed}
           closing={closing}
           sweeping={sweeping}

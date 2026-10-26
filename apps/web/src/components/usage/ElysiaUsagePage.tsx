@@ -102,7 +102,7 @@ export function ElysiaUsagePage() {
   const [dates, setDates] = useState(() => elysiaUsageRange(30, new Date()));
   const [resolution, setResolution] = useState<ElysiaUsageResolution>("day");
   const [metric, setMetric] = useState<"cost" | "tokens">("cost");
-  const now = new Date();
+  const [now, setNow] = useState(() => new Date());
   const today = elysiaUsageRange(1, now).until;
   const timeZone = makeWindow(1, now).timeZone;
   const usageAtom =
@@ -120,8 +120,8 @@ export function ElysiaUsagePage() {
   const query = useEnvironmentQuery(statsAtom);
   const usage = useEnvironmentQuery(usageAtom);
   const account = useEnvironmentQuery(accountAtom);
+  // oxlint-disable-next-line elysia/react-effect-budget -- Reopening cached native queries must refresh their subscriptions without duplicating fresh in-flight reads.
   useEffect(() => {
-    // New queries load on subscription; reopen cached queries once without duplicate in-flight reads.
     if (statsAtom) {
       const result = registry.get(statsAtom);
       if (!result.waiting && result._tag !== "Initial") registry.refresh(statsAtom);
@@ -136,6 +136,7 @@ export function ElysiaUsagePage() {
     }
   }, [registry, statsAtom, usageAtom, accountAtom]);
   const refresh = () => {
+    setNow(new Date());
     if (statsAtom) registry.refresh(statsAtom);
     if (usageAtom) registry.refresh(usageAtom);
     if (accountAtom) registry.refresh(accountAtom);
@@ -219,6 +220,7 @@ export function ElysiaUsagePage() {
                 aria-label="Statistics scope"
                 onValueChange={(value) => {
                   if (!value[0]) return;
+                  setNow(new Date());
                   setScope(value[0] === "lifetime" ? "lifetime" : "current");
                   if (value[0] !== "lifetime") setRange(value[0]);
                 }}

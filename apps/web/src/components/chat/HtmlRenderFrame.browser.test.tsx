@@ -1,6 +1,3 @@
-import { act } from "react";
-import { createRoot, type Root } from "react-dom/client";
-import { afterEach, expect, it, vi } from "vite-plus/test";
 import { EnvironmentId } from "@elysiatools/contracts";
 import {
   htmlRenderTheme,
@@ -8,20 +5,19 @@ import {
   injectHtmlRenderBootstrap,
 } from "@elysiatools/shared/htmlRender";
 import { ELYSIA_DARK_THEME_COLORS } from "@elysiatools/shared/themePalettes";
+import { describe, expect, it, vi } from "vite-plus/test";
+import { userEvent } from "vite-plus/test/browser";
 
 import "~/index.css";
+import { render } from "../../../test/render";
 
-import { HtmlRenderFrame } from "./HtmlRenderFrame";
-
-const page = vi.hoisted(() => ({ url: "" }));
-vi.mock(import("~/assets/assetUrls"), async (original) => ({
-  ...(await original()),
-  useAssetUrlState: () => ({
+const asset = vi.hoisted(() => ({ url: "about:blank" }));
+vi.mock(import("~/assets/longLivedAssetUrls"), () => ({
+  useLongLivedAssetUrl: () => ({
     _tag: "Success",
-    url: page.url,
+    url: asset.url,
     expiresAt: Date.now() + 60 * 60_000,
   }),
-  useAssetUrlRefresh: () => vi.fn(),
 }));
 vi.mock(import("~/hooks/useHtmlRenderTheme"), async (original) => ({
   ...(await original()),
@@ -29,35 +25,54 @@ vi.mock(import("~/hooks/useHtmlRenderTheme"), async (original) => ({
     htmlRenderTheme(ELYSIA_DARK_THEME_COLORS, "dark", HTML_RENDER_DEFAULT_FONTS),
 }));
 
-let root: Root | undefined;
-let container: HTMLDivElement | undefined;
+vi.mock(import("~/assets/assetUrls"), async (original) => ({
+  ...(await original()),
+  useAssetUrlRefresh: () => async () => asset.url,
+}));
 
-afterEach(async () => {
-  await act(() => root?.unmount());
-  container?.remove();
-  URL.revokeObjectURL(page.url);
-});
+import { HtmlRenderFrame } from "./HtmlRenderFrame";
 
-it("grows past the agent's height to fit the page the client lays out", async () => {
-  page.url = URL.createObjectURL(
-    new Blob([injectHtmlRenderBootstrap('<div style="height:2345px"></div>')], {
-      type: "text/html",
-    }),
-  );
-  container = document.createElement("div");
-  document.body.append(container);
-  root = createRoot(container);
-  await act(() =>
-    root!.render(
+describe("HtmlRenderFrame", () => {
+  it("reports leaving full screen when it unmounts while expanded", async () => {
+    asset.url = "about:blank";
+    const onFullscreenChange = vi.fn();
+    await using screen = await render(
+      <HtmlRenderFrame
+        environmentId={EnvironmentId.make("environment")}
+        htmlRender={{ attachmentId: "attachment", title: "Report", height: 200 }}
+        threadRef={undefined}
+        onFullscreenChange={onFullscreenChange}
+      />,
+    );
+
+    await userEvent.click(screen.getByRole("button", { name: "Open full screen" }));
+    await expect.element(screen.getByRole("dialog")).toBeVisible();
+    expect(onFullscreenChange).toHaveBeenLastCalledWith(true);
+
+    await screen.unmount();
+    expect(onFullscreenChange).toHaveBeenLastCalledWith(false);
+  });
+  it("grows past the agent's height to fit the page the client lays out", async () => {
+    const url = URL.createObjectURL(
+      new Blob([injectHtmlRenderBootstrap('<div style="height:2345px"></div>')], {
+        type: "text/html",
+      }),
+    );
+    using _url = {
+      [Symbol.dispose]() {
+        URL.revokeObjectURL(url);
+      },
+    };
+    asset.url = url;
+    await using screen = await render(
       <HtmlRenderFrame
         environmentId={EnvironmentId.make("environment-1")}
         htmlRender={{ attachmentId: "html", title: "Tall page", height: 400 }}
         threadRef={undefined}
       />,
-    ),
-  );
-
-  const box = container.firstElementChild as HTMLElement;
-  await expect.poll(() => box.style.height).toBe("2345px");
-  expect(box.querySelector("iframe")?.clientHeight).toBe(2345);
+    );
+    const box = screen.container.firstElementChild as HTMLElement;
+    await expect.poll(() => box.style.height).toBe("2345px");
+    expect(box.querySelector("iframe")?.clientHeight).toBe(2345);
+  });
 });

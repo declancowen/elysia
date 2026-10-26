@@ -31,6 +31,9 @@ import { ElysiaModelMetadata } from "./ElysiaModelCatalog.ts";
 
 const decodeAccountUsage = Schema.decodeUnknownOption(ElysiaAccountUsageSnapshot);
 const decodeModelMetadata = Schema.decodeEffect(Schema.fromJsonString(ElysiaModelMetadata));
+const decodeModelEnvironment = Schema.decodeEffect(
+  Schema.fromJsonString(Schema.Record(Schema.String, Schema.String)),
+);
 
 export function parseElysiaAccountUsage(output: string): ElysiaAccountUsageSnapshot {
   // Read only the native --config Usage section; never return profile IDs or credentials.
@@ -56,7 +59,7 @@ export function parseElysiaAccountUsage(output: string): ElysiaAccountUsageSnaps
 // ponytail: 0.3.8 has global paths rather than a profile flag. Import the actual
 // package in an isolated home; replace this bridge when the CLI adds --home.
 export const ELYSIA_CLI_BRIDGE = String.raw`
-import ast, hashlib, http.client, importlib.util, io, json, math, os, re, shlex, shutil, socket, ssl, subprocess, sys, tempfile, urllib.error, urllib.request, zipfile
+import ast, contextlib, hashlib, http.client, importlib.util, io, json, math, os, re, shlex, shutil, socket, ssl, subprocess, sys, tempfile, urllib.error, urllib.request, zipfile
 from pathlib import Path
 
 source, root = sys.argv[1:3]
@@ -177,6 +180,29 @@ if operation == "bootstrap":
 spec = importlib.util.spec_from_file_location("elysia_native", script)
 native = importlib.util.module_from_spec(spec)
 exec(compile(script.read_bytes(), str(script), "exec"), native.__dict__)
+if operation == "model-environment":
+    # Run the native model transform on a private copy, never the saved default.
+    # This keeps routing headers, limits and tracing metadata in native ownership.
+    try:
+        model = sys.argv[4]
+        settings_file = native.SETTINGS_FILE
+        settings = json.loads(settings_file.read_text(encoding="utf-8"))
+        allowed = getattr(native, "ALLOWED_MODELS", settings.get("allowed_models", []))
+        if model not in allowed:
+            raise ValueError("Unavailable model")
+        update_model = getattr(native, "update_model", None)
+        if callable(update_model):
+            with tempfile.TemporaryDirectory(prefix="model-", dir=root) as temporary:
+                native.SETTINGS_FILE = Path(temporary) / "settings.json"
+                native.SETTINGS_FILE.write_text(json.dumps(settings), encoding="utf-8")
+                with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+                    update_model(model)
+                settings = json.loads(native.SETTINGS_FILE.read_text(encoding="utf-8"))
+        print(json.dumps(settings["env"]))
+    except (Exception, SystemExit):
+        print("ELYSIA_ERROR:configuration", file=sys.stderr)
+        sys.exit(1)
+    sys.exit(0)
 if operation == "model-metadata":
     # Native routing and prices only: no main(), show_config(), auth or network.
     # The CLI owns its tier boundary in show_config's model-specific label.
@@ -235,19 +261,20 @@ if operation == "model-metadata":
         return price
     models = {}
     context_env = getattr(native, "model_context_env", None)
-    if callable(context_env):
-        for model in native.ALLOWED_MODELS:
+    for model in getattr(native, "ALLOWED_MODELS", []):
+        models[model] = {}
+        if callable(context_env):
             try:
                 values = context_env(model)
-                models[model] = {
+                models[model].update({
                     "contextWindowTokens": int(values["CLAUDE_CODE_MAX_CONTEXT_TOKENS"]),
                     "autoCompactWindowTokens": int(values["CLAUDE_CODE_AUTO_COMPACT_WINDOW"]),
-                }
-                pricing = model_pricing(model)
-                if pricing is not None:
-                    models[model]["pricing"] = pricing
+                })
             except (KeyError, TypeError, ValueError):
                 pass
+        pricing = model_pricing(model)
+        if pricing is not None:
+            models[model]["pricing"] = pricing
     print(json.dumps(models))
     sys.exit(0)
 native.MCP_FILE = root / ".claude/.claude.json"
@@ -1039,10 +1066,10 @@ export const makeElysiaCli = Effect.fn("makeElysiaCli")(function* (input: {
       .pipe(Effect.orElseSucceed(() => false));
     const readProfile = (operation: "validate" | "adopt") =>
       run(operation).pipe(
-        Effect.catch((error) => {
-          if (error.detail.includes("credentials are incomplete")) return Effect.void;
-          return Effect.fail(error);
-        }),
+        Effect.catchIf(
+          (error) => error.detail.includes("credentials are incomplete"),
+          () => Effect.void,
+        ),
       );
     if (nativeInstalled && !disconnected) {
       if (wasReady) yield* readProfile("validate");
@@ -1080,6 +1107,26 @@ export const makeElysiaCli = Effect.fn("makeElysiaCli")(function* (input: {
           connectionError ?? "Connect Elysia using your native CLI credentials before coding.",
       });
     yield* refreshEnvironment;
+  });
+  const modelEnvironment = Effect.fn("ElysiaCli.modelEnvironment")(function* (model: string) {
+    yield* requireReady;
+    const result = yield* spawnAndCollect(
+      python,
+      command("model-environment", undefined, [model]),
+    ).pipe(
+      Effect.provideService(ChildProcessSpawner.ChildProcessSpawner, spawner),
+      Effect.timeout("5 seconds"),
+      Effect.flatMap((result) =>
+        result.code === 0
+          ? decodeModelEnvironment(result.stdout).pipe(
+              Effect.mapError(() => failure("model-environment")),
+            )
+          : Effect.fail(failure("model-environment")),
+      ),
+      Effect.mapError(() => failure("model-environment")),
+      Effect.withTracerEnabled(false),
+    );
+    return { ...environment, ...result };
   });
   const accountUsage = Effect.gen(function* () {
     if (!input.config.enabled || !(yield* ready))
@@ -1156,6 +1203,7 @@ export const makeElysiaCli = Effect.fn("makeElysiaCli")(function* (input: {
     root,
     environment,
     readSettings,
+    modelEnvironment,
     modelMetadata,
     modelPricing,
     compression,

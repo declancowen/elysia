@@ -1,6 +1,12 @@
+vi.mock("vite-plus/test/browser", () => ({
+  page: { elementLocator: () => ({}) },
+  utils: { getElementLocatorSelectors: () => ({}) },
+}));
+import { render as renderUi } from "../../test/render";
+import { act } from "../../test/act";
 // @vitest-environment jsdom
-import { act, useState } from "react";
-import { createRoot } from "react-dom/client";
+import { useState } from "react";
+
 import { Menu, MenuTrigger, MenuPopup } from "./ui/menu";
 import { expect, it, vi } from "vite-plus/test";
 import {
@@ -16,10 +22,9 @@ import {
 } from "./WorkspaceCollectionView";
 
 it("edits metadata through a real menu without starting a row drag", async () => {
-  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   const host = document.createElement("div");
   document.body.append(host);
-  const root = createRoot(host);
+  await using root = await renderUi(null, { container: host, router: false });
   const drag = vi.fn();
   function Harness() {
     const [status, setStatus] = useState("todo");
@@ -40,7 +45,7 @@ it("edits metadata through a real menu without starting a row drag", async () =>
     );
   }
   try {
-    await act(async () => root.render(<Harness />));
+    await act(async () => root.rerender(<Harness />));
     const trigger = host.querySelector<HTMLButtonElement>("button")!;
     await act(async () => {
       trigger.dispatchEvent(new MouseEvent("pointerdown", { bubbles: true }));
@@ -62,10 +67,9 @@ it("edits metadata through a real menu without starting a row drag", async () =>
 });
 
 it("changes visible properties across list and table without hiding the agent column", async () => {
-  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   const host = document.createElement("div");
   document.body.append(host);
-  const root = createRoot(host);
+  await using root = await renderUi(null, { container: host, router: false });
   function Harness() {
     const [view, setView] = useState<CollectionView>("list");
     const [properties, setProperties] = useState<CollectionProperty[]>(["project"]);
@@ -114,7 +118,7 @@ it("changes visible properties across list and table without hiding the agent co
     await act(async () => option.click());
   };
   try {
-    await act(async () => root.render(<Harness />));
+    await act(async () => root.rerender(<Harness />));
     expect(host.querySelector('[role="columnheader"]')).toBeNull();
     expect(host.textContent).not.toContain("07/10/2026");
     await act(async () => trigger("Properties").click());
@@ -147,10 +151,9 @@ it("changes visible properties across list and table without hiding the agent co
 });
 
 it("keeps one table header across groups while exposing separate agent and status cells", async () => {
-  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   const host = document.createElement("div");
   document.body.append(host);
-  const root = createRoot(host);
+  await using root = await renderUi(null, { container: host, router: false });
   const columns = [
     { id: "title", label: "Title" },
     { id: "agent", label: "Assigned agent" },
@@ -185,7 +188,7 @@ it("keeps one table header across groups while exposing separate agent and statu
     );
   }
   try {
-    await act(async () => root.render(<Harness />));
+    await act(async () => root.rerender(<Harness />));
     expect(
       [...host.querySelectorAll('[role="columnheader"]')].map((node) => node.textContent),
     ).toEqual(["Title", "Assigned agent", "Agent status"]);
@@ -202,10 +205,10 @@ it("keeps one table header across groups while exposing separate agent and statu
 
 it("offers Pages Wall view and changes the selected card size", async () => {
   vi.useFakeTimers();
-  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+
   const host = document.createElement("div");
   document.body.append(host);
-  const root = createRoot(host);
+  await using root = await renderUi(null, { container: host, router: false });
   function Harness() {
     const [view, setView] = useState<CollectionView>("list");
     const [size, setSize] = useState<"small" | "medium" | "large">("medium");
@@ -232,7 +235,7 @@ it("offers Pages Wall view and changes the selected card size", async () => {
     await act(async () => vi.advanceTimersByTime(300));
   };
   try {
-    await act(async () => root.render(<Harness />));
+    await act(async () => root.rerender(<Harness />));
     await act(async () => host.querySelector<HTMLButtonElement>('[aria-label="View"]')!.click());
     await choose("Wall");
     expect(host.querySelector('[aria-label="View"]')?.textContent).toBe("Wall");

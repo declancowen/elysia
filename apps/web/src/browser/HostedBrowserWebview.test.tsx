@@ -1,3 +1,4 @@
+import { act } from "../../test/act";
 import {
   DEFAULT_CLIENT_SETTINGS,
   EnvironmentId,
@@ -6,7 +7,7 @@ import {
   type ClientSettings,
   type DesktopPreviewBridge,
 } from "@elysiatools/contracts";
-import { act } from "react";
+
 import { create, type ReactTestRenderer } from "react-test-renderer";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
@@ -75,7 +76,7 @@ beforeEach(() => {
     webPreferences: "contextIsolation=yes",
     preloadUrl: null,
   });
-  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+
   vi.stubGlobal("window", globalThis);
   const windowEvents = new EventTarget();
   vi.stubGlobal("addEventListener", windowEvents.addEventListener.bind(windowEvents));

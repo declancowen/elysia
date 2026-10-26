@@ -44,11 +44,14 @@ describe("runMigrations", () => {
       );
       const updated = yield* history;
       assert.deepStrictEqual(updated.slice(0, oldHistory.length), oldHistory);
-      assert.deepStrictEqual(updated.slice(-4), [
+      assert.deepStrictEqual(updated.slice(-7), [
         [70, "DropUnusedV1Projections"],
         [71, "CanonicalizeThreadPullRequestLinks"],
         [72, "CodexUsageNativeTurnIndex"],
         [73, "RepairClientSettlementTimestamps"],
+        [74, "WebhookDedupe"],
+        [75, "ShellStopRequestIndex"],
+        [76, "ThreadMessageSearch"],
       ]);
       assert.deepStrictEqual(yield* runMigrations(), []);
 

@@ -1,11 +1,10 @@
+import { act, render as renderUi, type Screen } from "../../test/render";
 import { RegistryContext } from "@effect/atom-react";
 import { EnvironmentId } from "@elysiatools/contracts";
 import * as DateTime from "effect/DateTime";
 import * as Option from "effect/Option";
 import { Atom, AtomRegistry } from "effect/reactivity";
-import { act } from "react";
-import { createRoot, type Root } from "react-dom/client";
-import { afterEach, beforeEach, expect, it, vi } from "vite-plus/test";
+import { expect, it, vi } from "vite-plus/test";
 
 const state = vi.hoisted(() => ({
   mode: "notifications",
@@ -86,7 +85,7 @@ const thread = {
   session: null as { status: string } | null,
   latestTurn: { turnId: "turn", state: "running", completedAt: null as string | null },
 };
-let root: Root;
+let root: Screen;
 let focused = false;
 let visibility = "visible";
 
@@ -165,7 +164,7 @@ function complete(environment = "one", completedAt = "2026-09-13T08:00:00Z") {
 }
 async function render() {
   await act(async () =>
-    root.render(
+    root.rerender(
       <RegistryContext.Provider value={registry}>
         <ThreadNotificationCoordinator />
       </RegistryContext.Provider>,
@@ -173,7 +172,15 @@ async function render() {
   );
 }
 
-beforeEach(() => {
+async function setup() {
+  const resources = new AsyncDisposableStack();
+  resources.defer(async () => {
+    delete window.desktopBridge;
+    registry.dispose();
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  });
+
   vi.clearAllMocks();
   registry = AtomRegistry.make();
   state.mode = "notifications";
@@ -185,25 +192,22 @@ beforeEach(() => {
   visibility = "visible";
   TestNotification.permission = "granted";
   TestNotification.sent = [];
-  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+
   vi.stubGlobal("Notification", TestNotification);
   vi.spyOn(window, "focus").mockImplementation(() => undefined);
   vi.spyOn(document, "hasFocus").mockImplementation(() => focused);
   vi.spyOn(document, "visibilityState", "get").mockImplementation(
     () => visibility as DocumentVisibilityState,
   );
-  root = createRoot(document.createElement("div"));
-});
+  root = resources.use(
+    await renderUi(null, { container: document.createElement("div"), router: false }),
+  );
 
-afterEach(async () => {
-  await act(async () => root.unmount());
-  delete window.desktopBridge;
-  registry.dispose();
-  vi.restoreAllMocks();
-  vi.unstubAllGlobals();
-});
+  return resources;
+}
 
 it("uses bounded tags across threads and environments, replaces repeat alerts, and clears on focus", async () => {
+  await using _fixture = await setup();
   const environmentId = "fd6fff30-f90b-4ee7-9812-4cf497791b90";
   const otherEnvironmentId = "25b62992-b996-4ee3-8d82-d988840e45c1";
   const threadId = "a8395a98-a186-4fe7-9d4c-fb8ba63b7588";
@@ -253,6 +257,7 @@ it("uses bounded tags across threads and environments, replaces repeat alerts, a
 });
 
 it("does not badge old completions on first load or reconnect", async () => {
+  await using _fixture = await setup();
   complete();
   await render();
   state.shells.set("one", { status: "connecting", snapshot: Option.none() });
@@ -264,6 +269,7 @@ it("does not badge old completions on first load or reconnect", async () => {
 });
 
 it("removes alerts only from environments that leave the client", async () => {
+  await using _fixture = await setup();
   await render();
   complete("one");
   complete("two");
@@ -284,6 +290,7 @@ it("removes alerts only from environments that leave the client", async () => {
 });
 
 it("starts a fresh count after another native app window gains focus", async () => {
+  await using _fixture = await setup();
   let clear: (() => void) | undefined;
   const unsubscribe = vi.fn();
   Object.assign(window, {
@@ -303,7 +310,6 @@ it("starts a fresh count after another native app window gains focus", async () 
   await render();
   expect(state.badge).toHaveBeenLastCalledWith(1);
   await act(async () => root.unmount());
-  root = createRoot(document.createElement("div"));
   expect(unsubscribe).toHaveBeenCalledOnce();
   expect(state.badge).toHaveBeenLastCalledWith(0);
 });
@@ -311,6 +317,7 @@ it("starts a fresh count after another native app window gains focus", async () 
 it.each(["off", "sound", "focused", "denied", "archived"])(
   "does not show visual alerts when %s",
   async (condition) => {
+    await using _fixture = await setup();
     if (condition === "off" || condition === "sound") state.mode = condition;
     if (condition === "focused") focused = true;
     if (condition === "denied") TestNotification.permission = "denied";
@@ -333,6 +340,7 @@ it.each(["off", "sound", "focused", "denied", "archived"])(
 it.each(["hasPendingApprovals", "hasPendingUserInput"] as const)(
   "badges %s and clears when notifications are disabled",
   async (flag) => {
+    await using _fixture = await setup();
     await render();
     state.shells.set("one", shell({ [flag]: true }));
     await render();
@@ -351,6 +359,7 @@ it.each(["hasPendingApprovals", "hasPendingUserInput"] as const)(
 );
 
 it("shows in-app alerts without adding a badge while focused", async () => {
+  await using _fixture = await setup();
   state.inApp = true;
   focused = true;
   await render();
@@ -362,6 +371,7 @@ it("shows in-app alerts without adding a badge while focused", async () => {
 });
 
 it("badges background failures with in-app notifications enabled", async () => {
+  await using _fixture = await setup();
   state.inApp = true;
   await render();
   state.shells.set("one", shell({ latestTurn: { ...thread.latestTurn, state: "error" } }));

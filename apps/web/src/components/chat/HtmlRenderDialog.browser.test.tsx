@@ -1,6 +1,5 @@
-import { act } from "react";
-import { createRoot, type Root } from "react-dom/client";
-import { afterEach, beforeEach, expect, it, vi } from "vite-plus/test";
+import { act, render as renderUi, type Screen } from "../../../test/render";
+import { expect, it, vi } from "vite-plus/test";
 import { page, userEvent } from "vite-plus/test/browser";
 import { htmlRenderTheme, HTML_RENDER_DEFAULT_FONTS } from "@elysiatools/shared/htmlRender";
 import { ELYSIA_DARK_THEME_COLORS } from "@elysiatools/shared/themePalettes";
@@ -45,11 +44,14 @@ vi.mock(import("~/hooks/useHtmlRenderTheme"), async (original) => ({
     htmlRenderTheme(ELYSIA_DARK_THEME_COLORS, "dark", HTML_RENDER_DEFAULT_FONTS),
 }));
 
-let root: Root;
-let container: HTMLDivElement;
+let root: Screen;
+let container: HTMLElement;
 const onClose = vi.fn();
 
-beforeEach(async () => {
+async function setup() {
+  const resources = new AsyncDisposableStack();
+  resources.defer(async () => {});
+
   refresh.mockReset();
   cachedUrl.lifeMs = 60 * 60_000;
   openLink.mockReset().mockResolvedValue(undefined);
@@ -58,9 +60,9 @@ beforeEach(async () => {
   onClose.mockClear();
   container = document.createElement("div");
   document.body.append(container);
-  root = createRoot(container);
+  root = resources.use(await renderUi(null, { container: container, router: false }));
   await act(() =>
-    root.render(
+    root.rerender(
       <HtmlRenderDialog
         src="https://environment.test/page.html"
         title="Diagram"
@@ -68,12 +70,9 @@ beforeEach(async () => {
       />,
     ),
   );
-});
 
-afterEach(async () => {
-  await act(() => root.unmount());
-  container.remove();
-});
+  return resources;
+}
 
 function button(label: string) {
   return page.getByRole("button", { name: label, exact: true });
@@ -85,6 +84,7 @@ async function click(label: string) {
 }
 
 it("zooms the loaded page within bounds and resets without reloading it", async () => {
+  await using _fixture = await setup();
   const frame = document.querySelector("iframe")!;
   const src = frame.src;
   for (let step = 0; step < 4; step += 1) await click("Zoom in");
@@ -101,6 +101,7 @@ it("zooms the loaded page within bounds and resets without reloading it", async 
 });
 
 it("closes with the close button or Escape", async () => {
+  await using _fixture = await setup();
   await click("Close");
   expect(onClose).toHaveBeenCalledOnce();
   onClose.mockClear();
@@ -111,7 +112,7 @@ it("closes with the close button or Escape", async () => {
 async function renderInline() {
   // Async so a URL minted at mount lands inside act.
   await act(async () =>
-    root.render(
+    root.rerender(
       <HtmlRenderFrame
         environmentId={EnvironmentId.make("environment")}
         htmlRender={{ attachmentId: "html", title: "Diagram", height: 400 }}
@@ -125,6 +126,7 @@ async function renderInline() {
 }
 
 it("offers only full screen and opens with the inline URL while keeping the inline page loaded", async () => {
+  await using _fixture = await setup();
   await renderInline();
   expect(document.querySelector('[aria-label="Open in panel"]')).toBeNull();
   const inlineFrame = document.querySelector("iframe")!;
@@ -153,6 +155,7 @@ async function renderInlineNearExpiry() {
 }
 
 it("opens full screen with a fresh URL when the inline one is near expiry", async () => {
+  await using _fixture = await setup();
   await renderInlineNearExpiry();
   refresh.mockResolvedValue("https://environment.test/renewed.html");
   await click("Open full screen");
@@ -163,6 +166,7 @@ it("opens full screen with a fresh URL when the inline one is near expiry", asyn
 });
 
 it("routes links from the expanded page through its thread", async () => {
+  await using _fixture = await setup();
   await renderInline();
   openChangeRequestLink.mockReturnValue(true);
   await click("Open full screen");
@@ -189,6 +193,7 @@ it("routes links from the expanded page through its thread", async () => {
 it.each([null, new Error("Disconnected")])(
   "reports an unavailable URL instead of opening a blank page: %s",
   async (failure) => {
+    await using _fixture = await setup();
     await renderInlineNearExpiry();
     if (failure === null) refresh.mockResolvedValue(null);
     else refresh.mockRejectedValue(failure);

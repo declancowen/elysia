@@ -54,6 +54,7 @@ export function useDelegatedAgents(
   );
   const results = useAtomValue(resultsAtom);
   const revisions = useRef(new Map<string, { value: string | null; dirty: boolean }>());
+  // oxlint-disable-next-line elysia/react-effect-budget -- Invalidate external query atoms when authoritative shell revisions advance, preserving completed delegation results.
   useEffect(() => {
     jobs.forEach((job, index) => {
       const query = queries[index],

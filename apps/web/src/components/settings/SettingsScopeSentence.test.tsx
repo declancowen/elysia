@@ -1,12 +1,11 @@
 // @vitest-environment jsdom
+import { act, render as renderDom } from "../../../test/render";
 import {
   DEFAULT_CLIENT_SETTINGS,
   EnvironmentId,
   ProjectId,
   ThreadId,
 } from "@elysiatools/contracts";
-import { act } from "react";
-import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, expect, it, vi } from "vite-plus/test";
 import type { Project } from "../../types";
 import { derivePhysicalProjectKey, selectProjectGroupingSettings } from "../../logicalProject";
@@ -80,10 +79,7 @@ const agent: Project = {
     conversationThreadId: ThreadId.make("alex-settings-chat"),
   },
 };
-let host: HTMLDivElement;
-let root: Root;
-const render = () =>
-  act(async () => root.render(<SettingsScopeSentence key={JSON.stringify(state.search)} />));
+const view = () => <SettingsScopeSentence key={JSON.stringify(state.search)} />;
 const named = (role: string, name: string) =>
   [
     ...document.querySelectorAll<HTMLElement>(
@@ -95,7 +91,6 @@ const named = (role: string, name: string) =>
   )!;
 const click = (element: HTMLElement) => act(async () => element.click());
 beforeEach(() => {
-  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   vi.stubGlobal("matchMedia", () => ({
     matches: false,
     addEventListener: vi.fn(),
@@ -129,25 +124,20 @@ beforeEach(() => {
   state.pathname = "/settings/general";
   state.navigate.mockClear();
   state.select.mockClear();
-  host = document.createElement("div");
-  document.body.append(host);
-  root = createRoot(host);
 });
 afterEach(async () => {
-  await act(async () => root.unmount());
-  host.remove();
   vi.unstubAllGlobals();
 });
 
 it("offers an agent avatar and name, selects its existing project scope and opens its profile", async () => {
-  await render();
+  await using screen = await renderDom(view(), { router: false });
   await click(named("button", "Settings scope: App defaults"));
   expect(document.body.textContent).toContain("Agents");
   expect(document.body.textContent).not.toContain("Archived agent");
   const option = named("menuitemradio", "Alex");
   expect(option.querySelector("svg")).not.toBeNull();
   await click(option);
-  await render();
+  await screen.rerender(view());
   expect(state.select).toHaveBeenCalledWith({
     project: derivePhysicalProjectKey(agent),
     machine: environmentId,
@@ -166,7 +156,7 @@ it("offers an agent avatar and name, selects its existing project scope and open
   expect(document.querySelector('[data-slot="popover-popup"]')).toBeNull();
   await click(named("button", "Settings scope: Alex"));
   await click(named("menuitemradio", "App defaults"));
-  await render();
+  await screen.rerender(view());
   expect(named("button", "Settings scope: App defaults")).toBeDefined();
   expect(document.querySelector('[data-slot="popover-popup"]')).toBeNull();
 });
@@ -174,9 +164,14 @@ it("offers an agent avatar and name, selects its existing project scope and open
 it("keeps an agent's scheduled tasks visible on direct scoped navigation without reopening its profile", async () => {
   state.search = { project: derivePhysicalProjectKey(agent), machine: environmentId };
   state.pathname = "/settings/scheduled-tasks";
-  await render();
+  await using _screen = await renderDom(view(), { router: false });
   expect(named("button", "Settings scope: Alex")).toBeDefined();
   expect(document.querySelector('[data-slot="popover-popup"]')).toBeNull();
   await click(named("button", "Manage Alex"));
   expect(document.body.textContent).toContain(agent.agentProfile!.instructions);
 });
+
+vi.mock("vite-plus/test/browser", () => ({
+  page: { elementLocator: () => ({}) },
+  utils: { getElementLocatorSelectors: () => ({}) },
+}));

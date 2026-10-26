@@ -1,6 +1,12 @@
+vi.mock("vite-plus/test/browser", () => ({
+  page: { elementLocator: () => ({}) },
+  utils: { getElementLocatorSelectors: () => ({}) },
+}));
+import { render as renderUi } from "../../../test/render";
+import { act } from "../../../test/act";
 // @vitest-environment jsdom
-import { act, useState } from "react";
-import { createRoot } from "react-dom/client";
+import { useState } from "react";
+
 import { expect, it, vi } from "vite-plus/test";
 import { ProviderDriverKind, ProviderInstanceId } from "@elysiatools/contracts";
 import { Combobox, ComboboxList, ComboboxPopup, ComboboxTrigger } from "../ui/combobox";
@@ -37,9 +43,9 @@ it.each([null, "Start a new chat to use this model"])(
     }
     const host = document.createElement("div");
     document.body.append(host);
-    const root = createRoot(host);
+    await using root = await renderUi(null, { container: host, router: false });
     try {
-      await act(async () => root.render(<Picker />));
+      await act(async () => root.rerender(<Picker />));
       const star = document.querySelector<HTMLButtonElement>(
         'button[aria-label="Add to favorites"]',
       );

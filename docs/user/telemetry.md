@@ -15,7 +15,8 @@ the signal's currently running endpoint and do not follow redirects. To check a 
 that requires authentication, save it and restart the server first.
 
 `ELYSIA_OTLP_*_URL` and standard `OTEL_EXPORTER_OTLP_*` environment variables override the saved
-settings. For endpoints saved here or set with `ELYSIA_OTLP_*_URL`, set `ELYSIA_OTLP_HEADERS` for
+settings. An overridden signal shows **Set by environment** and names the variable that set it. Its
+**Test** checks the running endpoint. For endpoints saved here or set with `ELYSIA_OTLP_*_URL`, set `ELYSIA_OTLP_HEADERS` for
 receivers that need authentication and `ELYSIA_OTLP_PROTOCOL=http/protobuf` for receivers that do
 not accept JSON. An endpoint set with `OTEL_EXPORTER_OTLP_*` takes its headers and protocol from
 `OTEL_EXPORTER_OTLP_HEADERS` and `OTEL_EXPORTER_OTLP_PROTOCOL` instead.

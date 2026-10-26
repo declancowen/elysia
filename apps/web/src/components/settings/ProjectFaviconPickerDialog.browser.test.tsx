@@ -5,9 +5,8 @@ import {
   type ProjectEntry,
 } from "@elysiatools/contracts";
 import { AsyncResult, Atom } from "effect/reactivity";
-import { act } from "react";
-import { createRoot, type Root } from "react-dom/client";
-import { afterEach, beforeEach, expect, it, vi } from "vite-plus/test";
+import { act, render } from "../../../test/render";
+import { expect, it, vi } from "vite-plus/test";
 
 import "~/index.css";
 
@@ -60,11 +59,8 @@ import {
   ProjectFaviconPickerDialog,
 } from "./ProjectFaviconPickerDialog";
 
-let root: Root;
-let container: HTMLDivElement;
-
-beforeEach(() => {
-  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+function fixtures(): Disposable {
+  const platform = Object.getOwnPropertyDescriptor(navigator, "platform");
   Object.defineProperty(navigator, "platform", { configurable: true, get: () => "MacIntel" });
   toast.mockClear();
   state.entries = [];
@@ -73,36 +69,31 @@ beforeEach(() => {
   state.createUrl
     .mockReset()
     .mockImplementation(({ input }) => state.assets.get(input.resource.path)!);
-  container = document.createElement("div");
-  document.body.append(container);
-  root = createRoot(container);
-});
-afterEach(async () => {
-  await act(async () => root.unmount());
-  container.remove();
-  Reflect.deleteProperty(navigator, "platform");
-  vi.unstubAllGlobals();
-});
+  return {
+    [Symbol.dispose]() {
+      if (platform) Object.defineProperty(navigator, "platform", platform);
+      else Reflect.deleteProperty(navigator, "platform");
+    },
+  };
+}
 
 async function renderPicker(onPickExternal?: () => Promise<string | null>) {
   const onOpenChange = vi.fn();
   const onSelect = vi.fn();
-  await act(async () =>
-    root.render(
-      <RegistryContext.Provider value={appAtomRegistry}>
-        <ProjectFaviconPickerDialog
-          cwd="/Users/me/project"
-          environmentId={EnvironmentId.make("local")}
-          onOpenChange={onOpenChange}
-          {...(onPickExternal ? { onPickExternal } : {})}
-          onSelect={onSelect}
-          open
-          projectName="Project"
-        />
-      </RegistryContext.Provider>,
-    ),
+  const screen = await render(
+    <RegistryContext.Provider value={appAtomRegistry}>
+      <ProjectFaviconPickerDialog
+        cwd="/Users/me/project"
+        environmentId={EnvironmentId.make("local")}
+        onOpenChange={onOpenChange}
+        {...(onPickExternal ? { onPickExternal } : {})}
+        onSelect={onSelect}
+        open
+        projectName="Project"
+      />
+    </RegistryContext.Provider>,
   );
-  return { onOpenChange, onSelect };
+  return { ...screen, onOpenChange, onSelect };
 }
 async function clickOpenInFinder() {
   const button = [...document.querySelectorAll("button")].find((element) =>
@@ -113,8 +104,10 @@ async function clickOpenInFinder() {
 }
 
 it("selects an image from the native file picker", async () => {
+  using _fixtures = fixtures();
   const onPickExternal = vi.fn().mockResolvedValue("/Users/me/Pictures/icon.png");
-  const { onOpenChange, onSelect } = await renderPicker(onPickExternal);
+  await using screen = await renderPicker(onPickExternal);
+  const { onOpenChange, onSelect } = screen;
 
   await clickOpenInFinder();
 
@@ -129,9 +122,9 @@ it("hides the native picker for WSL project paths", () => {
 });
 
 it("keeps the dialog open when the native picker fails", async () => {
-  const { onOpenChange, onSelect } = await renderPicker(
-    vi.fn().mockRejectedValue(new Error("picker failed")),
-  );
+  using _fixtures = fixtures();
+  await using screen = await renderPicker(vi.fn().mockRejectedValue(new Error("picker failed")));
+  const { onOpenChange, onSelect } = screen;
 
   await clickOpenInFinder();
 
@@ -165,7 +158,7 @@ async function publishUrl(path: string, url: string) {
   await act(async () => {
     appAtomRegistry.set(
       state.assets.get(path)!,
-      AsyncResult.success({ relativeUrl: url, expiresAt: Date.now() + 60_000 }),
+      AsyncResult.success({ relativeUrl: url, expiresAt: 9_007_199_254_740_991 }),
     );
   });
 }
@@ -181,9 +174,11 @@ async function expectPreview(row: HTMLElement) {
 }
 
 it("loads previews asynchronously and only acquires offscreen images after scrolling", async () => {
+  using _fixtures = fixtures();
   const paths = Array.from({ length: 40 }, (_, index) => `icons/icon-${index}.svg`);
   addFiles(paths);
-  const { onSelect } = await renderPicker();
+  await using screen = await renderPicker();
+  const { onSelect } = screen;
   const first = fileRow("icons/icon-0.svg");
   const last = fileRow("icons/icon-39.svg");
 
@@ -215,9 +210,10 @@ it("loads previews asynchronously and only acquires offscreen images after scrol
 });
 
 it("loads without IntersectionObserver and recovers a failed image when its URL changes", async () => {
+  using _fixtures = fixtures();
   vi.stubGlobal("IntersectionObserver", undefined);
   addFiles(["icons/logo.svg"]);
-  await renderPicker();
+  await using _screen = await renderPicker();
   const row = fileRow("icons/logo.svg");
 
   expect(state.createUrl).toHaveBeenCalledWith({
@@ -240,10 +236,12 @@ it("loads without IntersectionObserver and recovers a failed image when its URL 
 });
 
 it("keeps denied previews selectable with their file icon", async () => {
+  using _fixtures = fixtures();
   vi.stubGlobal("IntersectionObserver", undefined);
   state.canReadFiles = false;
   addFiles(["icons/private.svg"]);
-  const { onSelect } = await renderPicker();
+  await using screen = await renderPicker();
+  const { onSelect } = screen;
   const row = fileRow("icons/private.svg");
 
   await act(async () => row.click());
@@ -254,9 +252,10 @@ it("keeps denied previews selectable with their file icon", async () => {
 });
 
 it("keeps the file icon until the image load is acknowledged", async () => {
+  using _fixtures = fixtures();
   vi.stubGlobal("IntersectionObserver", undefined);
   addFiles(["icons/loading.svg"]);
-  await renderPicker();
+  await using _screen = await renderPicker();
   const row = fileRow("icons/loading.svg");
   // Hold the load notification so a fast data URL has the same UI state as a slow request.
   const holdLoad = (event: Event) => {

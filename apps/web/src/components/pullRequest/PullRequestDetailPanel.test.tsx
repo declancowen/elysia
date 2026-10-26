@@ -1,3 +1,4 @@
+import { act } from "../../../test/act";
 import { SourceControlProviderKind } from "@elysiatools/contracts";
 import {
   EnvironmentId,
@@ -8,7 +9,7 @@ import {
   type ThreadPullRequestLink,
 } from "@elysiatools/contracts";
 import { DEFAULT_CLIENT_SETTINGS } from "@elysiatools/contracts/settings";
-import { act, type ReactNode, type ReactElement, type ComponentProps } from "react";
+import { type ReactNode, type ReactElement, type ComponentProps } from "react";
 import { create, type ReactTestRenderer } from "react-test-renderer";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import { DraftId, useComposerDraftStore } from "~/composerDraftStore";
@@ -53,6 +54,7 @@ vi.mock("~/state/pullRequests", async (importOriginal) => ({
   pullRequestEnvironment: {
     detail: () => "detail",
     activity: () => "activity",
+    changeBreakdown: () => "change-breakdown",
     // The header menu reads the stored guide to label "Write guide" or "Rewrite guide".
     reviewGuide: () => "review-guide",
     generateReviewGuide: { permissionAtom: () => "generate-review-guide" },
@@ -226,7 +228,6 @@ const newDraftId = DraftId.make("new-draft");
 let renderer: ReactTestRenderer;
 
 beforeEach(() => {
-  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   vi.stubGlobal("window", { addEventListener: vi.fn(), removeEventListener: vi.fn() });
   useComposerDraftStore.setState({ draftsByThreadKey: {} });
   newThread
@@ -237,8 +238,8 @@ beforeEach(() => {
     value: { branch: "feature", worktreePath: "/workspace/pr" },
   });
 });
-afterEach(() => {
-  act(() => renderer?.unmount());
+afterEach(async () => {
+  await act(() => renderer?.unmount());
   vi.unstubAllGlobals();
 });
 

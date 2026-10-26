@@ -1,11 +1,9 @@
-import { act, useLayoutEffect } from "react";
-import { createRoot, type Root } from "react-dom/client";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
+import { useLayoutEffect } from "react";
+import { act, render, fakeTimers } from "../test/render";
+import { describe, expect, it, vi } from "vite-plus/test";
 
 import { usePanelNavigationSuppression, usePanelPresence } from "./panelAnimations";
 
-let root: Root;
-let pendingFrames: FrameRequestCallback[] = [];
 let observed: boolean[] = [];
 
 function SuppressionProbe({ navigationKey }: { navigationKey: string }) {
@@ -16,26 +14,10 @@ function SuppressionProbe({ navigationKey }: { navigationKey: string }) {
   return null;
 }
 
-beforeEach(() => {
-  vi.useFakeTimers();
-  pendingFrames = [];
+function timers(): Disposable {
   observed = [];
-  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
-  // Frames are stepped by hand so each assertion lands between two paints.
-  vi.spyOn(window, "requestAnimationFrame").mockImplementation((callback) => {
-    pendingFrames.push(callback);
-    return pendingFrames.length;
-  });
-  vi.spyOn(window, "cancelAnimationFrame").mockImplementation(() => undefined);
-  root = createRoot(document.createElement("div"));
-});
-
-afterEach(async () => {
-  await act(() => root.unmount());
-  vi.restoreAllMocks();
-  vi.unstubAllGlobals();
-  vi.useRealTimers();
-});
+  return fakeTimers();
+}
 
 describe("usePanelPresence", () => {
   let presence: { present: boolean; value: string | null };
@@ -56,48 +38,47 @@ describe("usePanelPresence", () => {
   }
 
   it("retains the closing chat for the transition and cancels removal when reopened", async () => {
-    await act(() => {
-      root.render(<PresenceProbe open />);
-    });
-    await act(() => root.render(<PresenceProbe open={false} />));
+    using _timers = timers();
+    await using screen = await render(<PresenceProbe open />);
+    await screen.rerender(<PresenceProbe open={false} />);
     expect(presence).toEqual({ present: true, value: "chat-one" });
     await act(() => vi.advanceTimersByTime(90));
-    await act(() => root.render(<PresenceProbe open />));
+    await screen.rerender(<PresenceProbe open />);
     await act(() => vi.advanceTimersByTime(180));
     expect(presence).toEqual({ present: true, value: "chat-one" });
-    await act(() => root.render(<PresenceProbe open={false} />));
+    await screen.rerender(<PresenceProbe open={false} />);
     await act(() => vi.advanceTimersByTime(180));
     expect(presence).toEqual({ present: false, value: null });
   });
 
   it("never retains a chat across document scopes or when motion is disabled", async () => {
-    await act(() => {
-      root.render(<PresenceProbe open />);
-    });
-    await act(() => root.render(<PresenceProbe open={false} scopeKey="task-two" />));
+    using _timers = timers();
+    await using screen = await render(<PresenceProbe open />);
+    await screen.rerender(<PresenceProbe open={false} scopeKey="task-two" />);
     expect(presence).toEqual({ present: false, value: null });
-    await act(() => root.render(<PresenceProbe open />));
-    await act(() => root.render(<PresenceProbe open={false} animated={false} />));
+    await screen.rerender(<PresenceProbe open />);
+    await screen.rerender(<PresenceProbe open={false} animated={false} />);
     expect(presence).toEqual({ present: false, value: null });
-    await act(() => root.render(<PresenceProbe open={false} animated />));
+    await screen.rerender(<PresenceProbe open={false} animated />);
     expect(presence).toEqual({ present: false, value: null });
   });
 
   it("renders fresh object values without looping and retains the latest committed content", async () => {
+    using _timers = timers();
     const host = document.createElement("div");
-    await act(() => root.unmount());
-    root = createRoot(host);
     function ObjectPresenceProbe({ open, title }: { open: boolean; title: string }) {
       const panel = usePanelPresence(open, { title }, true, "thread-one", 180);
       return panel.present ? <span>{panel.value?.title}</span> : null;
     }
 
-    await act(() => root.render(<ObjectPresenceProbe open title="Initial panel" />));
+    await using screen = await render(<ObjectPresenceProbe open title="Initial panel" />, {
+      container: host,
+    });
     expect(host.textContent).toBe("Initial panel");
-    await act(() => root.render(<ObjectPresenceProbe open title="Updated panel" />));
+    await screen.rerender(<ObjectPresenceProbe open title="Updated panel" />);
     expect(host.textContent).toBe("Updated panel");
     const openContent = host.firstChild;
-    await act(() => root.render(<ObjectPresenceProbe open={false} title="Closed input" />));
+    await screen.rerender(<ObjectPresenceProbe open={false} title="Closed input" />);
     expect(host.textContent).toBe("Updated panel");
     expect(host.firstChild).toBe(openContent);
     await act(() => vi.advanceTimersByTime(180));
@@ -106,13 +87,13 @@ describe("usePanelPresence", () => {
 });
 
 async function paintPendingFrame() {
-  const callback = pendingFrames.shift();
-  await act(() => callback?.(0));
+  await act(() => vi.advanceTimersToNextFrame());
 }
 
 describe("usePanelNavigationSuppression", () => {
   it("suppresses initial and navigated panel state until each route has painted", async () => {
-    await act(() => root.render(<SuppressionProbe navigationKey="/thread/one" />));
+    using _timers = timers();
+    await using screen = await render(<SuppressionProbe navigationKey="/thread/one" />);
     expect(observed.at(-1)).toBe(true);
 
     await paintPendingFrame();
@@ -120,7 +101,7 @@ describe("usePanelNavigationSuppression", () => {
     await paintPendingFrame();
     expect(observed.at(-1)).toBe(false);
 
-    await act(() => root.render(<SuppressionProbe navigationKey="/thread/two" />));
+    await screen.rerender(<SuppressionProbe navigationKey="/thread/two" />);
     expect(observed.at(-1)).toBe(true);
 
     await paintPendingFrame();

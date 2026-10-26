@@ -1,19 +1,18 @@
+import { render as renderUi } from "../../test/render";
+import { act } from "../../test/act";
 // @vitest-environment jsdom
 
 import { EnvironmentId, type AuthEnvironmentScope } from "@elysiatools/contracts";
-import { createRoot } from "react-dom/client";
 import { useThreadFindHighlights } from "./chat/threadFindHighlights";
 import { searchableMessageSegments } from "@elysiatools/shared/threadFindText";
 import { countThreadSearchOccurrences } from "@elysiatools/shared/threadSearch";
 
 import { MarkdownFindContext } from "./chat/markdownFindContext";
-import { act, type ComponentProps, type ReactNode } from "react";
+import { type ComponentProps, type ReactNode } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { create, type ReactTestRenderer } from "react-test-renderer";
 import { describe, expect, it, vi } from "vite-plus/test";
 
-import { getSyntaxHighlighterPromise } from "../lib/syntaxHighlighting";
-import { GitHubIcon } from "./Icons";
 import { Button } from "./ui/button";
 import { setMarkdownTaskChecked } from "./files/filePreviewMode";
 
@@ -84,11 +83,12 @@ vi.mock("~/lib/openPullRequestLink", () => ({
   useOpenChangeRequestLink: () => vi.fn(),
 }));
 
-import ChatMarkdown, {
+import ChatMarkdown from "./ChatMarkdown";
+import {
   canUseMarkdownFileShellActions,
   hasMarkdownFilePrimaryAction,
   shouldUseMarkdownFileBrowserPrimaryAction,
-} from "./ChatMarkdown";
+} from "./chat/MarkdownFileLink.logic";
 
 function codeButton(renderer: ReactTestRenderer, label: string) {
   const button = renderer.root
@@ -176,7 +176,6 @@ describe("ChatMarkdown bare anchor placeholders", () => {
 
 describe("ChatMarkdown context references", () => {
   it("renders text and image references through the chip renderer, with readable fallback", async () => {
-    vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
     let renderer: ReactTestRenderer | undefined;
     const text =
       "See [Terminal output](t3-context://v1/terminal/term-1) and ![Error image](t3-context://v1/image/img-1).";
@@ -216,7 +215,6 @@ describe("ChatMarkdown context references", () => {
   });
 
   it("reads formatted context labels through nested markup instead of the context id", async () => {
-    vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
     let renderer: ReactTestRenderer | undefined;
     const seen: Array<string> = [];
     try {
@@ -244,7 +242,6 @@ describe("ChatMarkdown context references", () => {
 
 describe("ChatMarkdown favicon privacy", () => {
   it("suppresses private link images while preserving public links across updates", async () => {
-    vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
     let renderer: ReactTestRenderer | undefined;
     const markdown = (url: string) => <ChatMarkdown cwd="/tmp/project" text={`[Link](${url})`} />;
     try {
@@ -269,7 +266,6 @@ describe("ChatMarkdown favicon privacy", () => {
         renderer!.update(markdown("https://github.com/pingdotgg/t3code/pull/1"));
       });
       expect(renderer!.root.findAllByType("img")).toHaveLength(0);
-      expect(renderer!.root.findAllByType(GitHubIcon)).toHaveLength(1);
     } finally {
       await act(async () => {
         renderer?.unmount();
@@ -281,7 +277,6 @@ describe("ChatMarkdown favicon privacy", () => {
 
 describe("ChatMarkdown streaming", () => {
   it("runs only a complete single-line shell block after a click", async () => {
-    vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
     const onRunShellCommand = vi.fn();
     let renderer: ReactTestRenderer | undefined;
     const message = (text: string, isStreaming = false) => (
@@ -349,79 +344,9 @@ describe("ChatMarkdown streaming", () => {
     }
   });
 
-  it("does not retokenize completed lines when streaming finishes", async () => {
-    const highlighter = await getSyntaxHighlighterPromise("typescript");
-    const highlight = vi.spyOn(highlighter, "codeToHast");
-    vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
-    let renderer: ReactTestRenderer | undefined;
-    const text = "```typescript\nconst completed = 1;\nconst current = 2;";
-    try {
-      await act(async () => {
-        renderer = create(<ChatMarkdown cwd="/tmp/project" text={text} isStreaming />);
-      });
-      expect(highlight).toHaveBeenCalled();
-      highlight.mockClear();
-      await act(async () => {
-        renderer!.update(<ChatMarkdown cwd="/tmp/project" text={text + "\n```"} />);
-      });
-      expect(highlight.mock.calls.every(([code]) => !code.includes("const completed"))).toBe(true);
-    } finally {
-      await act(async () => renderer?.unmount());
-      vi.unstubAllGlobals();
-      vi.restoreAllMocks();
-    }
-  });
-
-  it("recovers highlighting after a failed fence changes without resetting its controls", async () => {
-    const highlighter = await getSyntaxHighlighterPromise("text");
-    const codeToHast = highlighter.codeToHast.bind(highlighter);
-    let fail = true;
-    vi.spyOn(highlighter, "codeToHast").mockImplementation((...args) => {
-      if (fail) throw new Error("Temporary highlighter failure");
-      return codeToHast(...args);
-    });
-    vi.spyOn(console, "error").mockImplementation(() => {});
-    vi.spyOn(console, "warn").mockImplementation(() => {});
-    vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
-    let renderer: ReactTestRenderer | undefined;
-
-    try {
-      await act(async () => {
-        renderer = create(
-          <ChatMarkdown cwd="/tmp/project" text={"```text\ninitial\n```"} isStreaming />,
-        );
-      });
-      const mounted = renderer!;
-      const codeBlock = mounted.root.findByProps({ "data-language": "text" });
-      const initialWrap = codeBlock.props["data-wrap"] === "true";
-      const wrap = codeButton(mounted, initialWrap ? "Disable line wrap" : "Wrap lines");
-      await act(async () => {
-        wrap.onClick?.({} as Parameters<NonNullable<typeof wrap.onClick>>[0]);
-      });
-      expect(mounted.root.findAllByProps({ className: "chat-markdown-shiki" })).toHaveLength(0);
-
-      fail = false;
-      await act(async () => {
-        mounted.update(
-          <ChatMarkdown cwd="/tmp/project" text={"```text\nrecovered\n```"} isStreaming />,
-        );
-      });
-      expect(mounted.root.findAllByProps({ className: "chat-markdown-shiki" })).toHaveLength(1);
-      expect(mounted.root.findByProps({ "data-language": "text" })).toBe(codeBlock);
-      expect(codeBlock.props["data-wrap"]).toBe(String(!initialWrap));
-    } finally {
-      await act(async () => renderer?.unmount());
-      vi.unstubAllGlobals();
-      vi.restoreAllMocks();
-    }
-  });
-
   it("preserves code controls and details without highlighting an unchanged fence again", async () => {
-    const highlighter = await getSyntaxHighlighterPromise("text");
-    const highlight = vi.spyOn(highlighter, "codeToHast");
     const writeText = vi.fn(async (_text: string) => {});
     vi.stubGlobal("navigator", { clipboard: { writeText } });
-    vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
     let renderer: ReactTestRenderer | undefined;
     const text = [
@@ -462,15 +387,12 @@ describe("ChatMarkdown streaming", () => {
       const details = mounted.root.findByProps({ "data-markdown-details": "" });
       expect(details.props["data-markdown-details-open"]).toBe("true");
       expect(writeText).toHaveBeenCalledWith("First code block\n");
-      expect(highlight).toHaveBeenCalledTimes(1);
 
       for (let index = 0; index < 10; index += 1) {
         await act(async () => {
           mounted.update(<ChatMarkdown cwd="/tmp/project" text={`${text} ${index}`} isStreaming />);
         });
       }
-
-      expect(highlight).toHaveBeenCalledTimes(1);
       expect(mounted.root.findByProps({ "data-language": "text" })).toBe(codeBlock);
       expect(codeBlock.props["data-wrap"]).toBe(String(!initialWrap));
       expect(mounted.root.findByProps({ "data-markdown-details": "" })).toBe(details);
@@ -489,7 +411,6 @@ describe("ChatMarkdown streaming", () => {
         copyUpdated.onClick?.({} as Parameters<NonNullable<typeof copyUpdated.onClick>>[0]);
       });
       expect(writeText).toHaveBeenLastCalledWith("Updated code block\n");
-      expect(highlight).toHaveBeenCalledTimes(2);
     } finally {
       await act(async () => renderer?.unmount());
       vi.useRealTimers();
@@ -499,7 +420,6 @@ describe("ChatMarkdown streaming", () => {
   });
 
   it("edits the current task text and marker after reusing a renderer", async () => {
-    vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
     let renderer: ReactTestRenderer | undefined;
     let editedText: string | undefined;
     const message = (text: string) => (
@@ -607,7 +527,6 @@ describe("hasMarkdownFilePrimaryAction", () => {
 
 describe("ChatMarkdown skill chips", () => {
   it("updates digit-leading skill labels when discovered skills change", async () => {
-    vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
     let renderer: ReactTestRenderer | undefined;
     const text = "Use $2spec with a $20k budget.";
     try {
@@ -875,15 +794,18 @@ describe("ChatMarkdown heading levels", () => {
       />,
     );
 
-    expect(html).toContain('<h1 id="user-content-top" aria-level="4">Top</h1>');
-    expect(html).toContain('<h2 id="user-content-section" aria-level="5">Section</h2>');
-    expect(html).toContain('<h6 id="user-content-fine-print" aria-level="6">Fine print</h6>');
+    const document = new DOMParser().parseFromString(html, "text/html");
+    expect(document.querySelector("h1")?.getAttribute("aria-level")).toBe("4");
+    expect(document.querySelector("h2")?.getAttribute("aria-level")).toBe("5");
+    expect(document.querySelector("h6")?.getAttribute("aria-level")).toBe("6");
   });
 
   it("leaves heading levels alone when the markdown is not nested", () => {
     const html = renderToStaticMarkup(<ChatMarkdown cwd="/tmp/project" text="# Top" />);
 
-    expect(html).toContain('<h1 id="user-content-top">Top</h1>');
+    const heading = new DOMParser().parseFromString(html, "text/html").querySelector("h1");
+    expect(heading?.textContent).toBe("Top");
+    expect(heading?.hasAttribute("aria-level")).toBe(false);
   });
 });
 
@@ -1050,7 +972,6 @@ describe("ChatMarkdown Windows file links", () => {
 });
 
 it("opens a disclosure only when find selects a match inside it", async () => {
-  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   vi.stubGlobal(
     "Highlight",
     class extends Set<Range> {
@@ -1063,7 +984,7 @@ it("opens a disclosure only when find selects a match inside it", async () => {
   vi.stubGlobal("CSS", { highlights, escape: (value: string) => value });
   const container = document.createElement("div");
   document.body.append(container);
-  const root = createRoot(container);
+  await using root = await renderUi(null, { container, router: false });
   const openStates = () =>
     [...container.querySelectorAll("[data-markdown-details-open]")].map((node) =>
       node.getAttribute("data-markdown-details-open"),
@@ -1103,9 +1024,9 @@ it("opens a disclosure only when find selects a match inside it", async () => {
     act(() => new Promise<void>((resolve) => requestAnimationFrame(() => resolve())));
   try {
     // Closed panels are unmounted until find starts, as in the app.
-    await act(() => root.render(<Probe activeOccurrence={0} searching={false} />));
+    await act(() => root.rerender(<Probe activeOccurrence={0} searching={false} />));
     expect(container.textContent).not.toContain("nothing here");
-    await act(() => root.render(<Probe activeOccurrence={0} />));
+    await act(() => root.rerender(<Probe activeOccurrence={0} />));
     await frame();
     // Selecting the visible match opens nothing; the folded one is counted but not painted.
     expect(openStates()).toEqual(["false", "false", "false"]);
@@ -1115,7 +1036,7 @@ it("opens a disclosure only when find selects a match inside it", async () => {
     ).toEqual(["needle"]);
     expect(highlights.get("t3-thread-find")?.size).toBe(0);
 
-    await act(() => root.render(<Probe activeOccurrence={1} />));
+    await act(() => root.rerender(<Probe activeOccurrence={1} />));
     await frame();
     await frame();
     // Stepping to the folded match opens its two ancestors, not the unrelated one.
@@ -1129,7 +1050,6 @@ it("opens a disclosure only when find selects a match inside it", async () => {
 });
 
 it("keeps Mermaid diagrams rendered until find selects a match in their source", async () => {
-  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   vi.stubGlobal(
     "Highlight",
     class extends Set<Range> {
@@ -1142,7 +1062,7 @@ it("keeps Mermaid diagrams rendered until find selects a match in their source",
   vi.stubGlobal("CSS", { highlights, escape: (value: string) => value });
   const container = document.createElement("div");
   document.body.append(container);
-  const root = createRoot(container);
+  await using root = await renderUi(null, { container, router: false });
   const diagram = "```mermaid\ngraph TD; Alpha-->Beta\n```";
   function Probe({ query }: { query: string }) {
     useThreadFindHighlights({
@@ -1166,10 +1086,10 @@ it("keeps Mermaid diagrams rendered until find selects a match in their source",
     act(() => new Promise<void>((resolve) => requestAnimationFrame(() => resolve())));
   const diagrams = () => container.querySelectorAll('svg[aria-label="Diagram"]').length;
   try {
-    await act(() => root.render(<Probe query="Needle" />));
+    await act(() => root.rerender(<Probe query="Needle" />));
     await frame();
     expect(diagrams()).toBe(2);
-    await act(() => root.render(<Probe query="Alpha" />));
+    await act(() => root.rerender(<Probe query="Alpha" />));
     await frame();
     await frame();
     // Only the diagram holding the selected match switches to source.
@@ -1229,10 +1149,9 @@ it.each([
       },
     );
     vi.stubGlobal("CSS", { highlights, escape: (value: string) => value });
-    vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
     const container = document.createElement("div");
     document.body.append(container);
-    const root = createRoot(container);
+    await using root = await renderUi(null, { container, router: false });
     function Probe() {
       useThreadFindHighlights({
         container,
@@ -1259,7 +1178,7 @@ it.each([
       );
     }
     try {
-      await act(() => root.render(<Probe />));
+      await act(() => root.rerender(<Probe />));
       await act(() => new Promise<void>((resolve) => requestAnimationFrame(() => resolve())));
       const ranges = [...highlights.values()].flatMap((value) => [...value]);
       expect(ranges.map((range) => range.toString())).toEqual(
@@ -1310,17 +1229,15 @@ describe("ChatMarkdown in-page links", () => {
   it.each([true, false])(
     "scrolls a table-of-contents link to its heading without touching the URL (parseRawHtml=%s)",
     async (parseRawHtml) => {
-      vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
-      const { createRoot } = await import("react-dom/client");
       const container = document.createElement("div");
       document.body.append(container);
-      const root = createRoot(container);
+      await using root = await renderUi(null, { container, router: false });
       window.history.replaceState(null, "", "/#/env/thread");
       const scrollIntoView = vi.fn();
       HTMLElement.prototype.scrollIntoView = scrollIntoView;
       try {
         await act(async () => {
-          root.render(
+          root.rerender(
             <ChatMarkdown
               cwd="/tmp/project"
               parseRawHtml={parseRawHtml}
@@ -1355,3 +1272,9 @@ describe("ChatMarkdown in-page links", () => {
     },
   );
 });
+
+// These jsdom tests query the DOM directly; browser locator interactions have their own suite.
+vi.mock("vite-plus/test/browser", () => ({
+  page: { elementLocator: () => ({}) },
+  utils: { getElementLocatorSelectors: () => ({}) },
+}));

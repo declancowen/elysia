@@ -1,0 +1,10 @@
+{
+  "platforms": ["apple", "android"],
+  "apple": {
+    "modules": ["ElysiaHighlightsModule"],
+    "podspecPath": "ElysiaHighlightsNative.podspec"
+  },
+  "android": {
+    "modules": ["expo.modules.elysiahighlights.ElysiaHighlightsModule"]
+  }
+}

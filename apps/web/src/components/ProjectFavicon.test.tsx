@@ -1,9 +1,13 @@
+import { act, render as renderUi, type Screen } from "../../test/render";
 // @vitest-environment jsdom
 import type { EnvironmentId } from "@elysiatools/contracts";
 import { PROJECT_FAVICON_FALLBACK_MARKER } from "@elysiatools/shared/projectFavicon";
-import { act } from "react";
-import { createRoot, type Root } from "react-dom/client";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
+import { describe, expect, it, vi } from "vite-plus/test";
+
+vi.mock("vite-plus/test/browser", () => ({
+  page: { elementLocator: () => ({}) },
+  utils: { getElementLocatorSelectors: () => ({}) },
+}));
 
 const testState = vi.hoisted(() => ({
   faviconUrl: `https://environment.test/api/assets/token/project-favicon-missing`,
@@ -37,11 +41,11 @@ function makeProject(overrides: Partial<ProjectFaviconProject> = {}): ProjectFav
   };
 }
 
-let container: HTMLDivElement;
-let root: Root;
+let container: HTMLElement;
+let root: Screen;
 const render = async (project = makeProject(), className = "size-4") => {
   await act(async () => {
-    root.render(<ProjectFavicon project={project} className={className} />);
+    root.rerender(<ProjectFavicon project={project} className={className} />);
   });
 };
 const dispatchImageEvent = async (selector: string, event: "load" | "error") => {
@@ -53,22 +57,22 @@ const dispatchImageEvent = async (selector: string, event: "load" | "error") => 
 };
 
 describe("ProjectFavicon", () => {
-  beforeEach(() => {
-    vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+  async function setup() {
+    const resources = new AsyncDisposableStack();
+    resources.defer(async () => {
+      vi.unstubAllGlobals();
+    });
+
     testState.faviconUrl = `https://environment.test/api/assets/token/${PROJECT_FAVICON_FALLBACK_MARKER}`;
     container = document.createElement("div");
     document.body.append(container);
-    root = createRoot(container);
-  });
-  afterEach(async () => {
-    await act(async () => {
-      root.unmount();
-    });
-    container.remove();
-    vi.unstubAllGlobals();
-  });
+    root = resources.use(await renderUi(null, { container: container, router: false }));
+
+    return resources;
+  }
 
   it("renders a matching outline in the project text colour and existing badge footprint", async () => {
+    await using _fixture = await setup();
     await render();
     const icon = container.querySelector('svg[data-icon="chef-hat"]');
     expect(icon).not.toBeNull();
@@ -86,6 +90,7 @@ describe("ProjectFavicon", () => {
   });
 
   it("updates the automatic glyph when a project is renamed and uses a folder for an unknown name", async () => {
+    await using _fixture = await setup();
     await render();
     await render(makeProject({ title: "Downloads" }));
     expect(container.querySelector('svg[data-icon="download"]')).not.toBeNull();
@@ -95,6 +100,7 @@ describe("ProjectFavicon", () => {
   });
 
   it("preserves an explicitly saved monogram ahead of a real favicon", async () => {
+    await using _fixture = await setup();
     testState.faviconUrl = "data:image/svg+xml,<svg/>";
     await render(makeProject({ projectIcon: { kind: "monogram", text: "RR", color: "rose" } }));
     expect(container.querySelector("svg text")?.textContent).toBe("RR");
@@ -103,6 +109,7 @@ describe("ProjectFavicon", () => {
   });
 
   it("preserves a saved Lucide icon and colour ahead of a real favicon", async () => {
+    await using _fixture = await setup();
     testState.faviconUrl = "data:image/svg+xml,<svg/>";
     await render(
       makeProject({ projectIcon: { kind: "lucide", name: "alarm-clock", color: "violet" } }),
@@ -114,6 +121,7 @@ describe("ProjectFavicon", () => {
   });
 
   it("preserves a saved emoji ahead of a real favicon", async () => {
+    await using _fixture = await setup();
     testState.faviconUrl = "data:image/svg+xml,<svg/>";
     await render(makeProject({ projectIcon: { kind: "emoji", emoji: "🦄" } }));
     expect(container.textContent).toBe("🦄");
@@ -121,6 +129,7 @@ describe("ProjectFavicon", () => {
   });
 
   it("replaces the outline after a real favicon loads and restores it if the image fails", async () => {
+    await using _fixture = await setup();
     testState.faviconUrl = "https://environment.test/api/assets/token-a/favicon.svg";
     await render();
     expect(container.querySelector('svg[data-icon="chef-hat"]')).not.toBeNull();
@@ -134,6 +143,7 @@ describe("ProjectFavicon", () => {
   });
 
   it("keeps an older loaded favicon while a refreshed URL loads or fails", async () => {
+    await using _fixture = await setup();
     testState.faviconUrl = "https://environment.test/api/assets/token-a/favicon.svg";
     await render();
     await dispatchImageEvent("img.hidden", "load");
@@ -147,6 +157,7 @@ describe("ProjectFavicon", () => {
   });
 
   it("requests the saved favicon path and immediately displays a cached inline image", async () => {
+    await using _fixture = await setup();
     testState.faviconUrl = "data:image/svg+xml,<svg/>";
     await render(makeProject({ faviconPath: "brand/icon.svg" }));
     expect(testState.lastTarget).toEqual({

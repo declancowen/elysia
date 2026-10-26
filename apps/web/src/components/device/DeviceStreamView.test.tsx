@@ -1,4 +1,7 @@
-import { act, useEffect, useSyncExternalStore } from "react";
+import { RegistryContext } from "@effect/atom-react";
+import { AtomRegistry } from "effect/reactivity";
+import { act } from "../../../test/act";
+import { useEffect, useSyncExternalStore } from "react";
 import { create, type ReactTestRenderer } from "react-test-renderer";
 import { EnvironmentId } from "@elysiatools/contracts";
 import { afterEach, beforeEach, expect, it, vi } from "vite-plus/test";
@@ -45,8 +48,20 @@ class Image extends EventTarget {
   }
 }
 let renderer: ReactTestRenderer | undefined;
+let registry: AtomRegistry.AtomRegistry;
 let primes = 0;
 beforeEach(() => {
+  registry = AtomRegistry.make({
+    scheduleTask(callback) {
+      let cancelled = false;
+      queueMicrotask(() => {
+        if (!cancelled) callback();
+      });
+      return () => {
+        cancelled = true;
+      };
+    },
+  });
   primes = 0;
   viewerMounts = 0;
   viewerUnmounts = 0;
@@ -54,6 +69,8 @@ beforeEach(() => {
 afterEach(async () => {
   await act(async () => renderer?.unmount());
   renderer = undefined;
+  await act(async () => vi.advanceTimersByTimeAsync(0));
+  registry.dispose();
   vi.useRealTimers();
   vi.unstubAllGlobals();
 });
@@ -61,7 +78,12 @@ afterEach(async () => {
 async function setup(h264 = false) {
   vi.useFakeTimers();
   vi.stubGlobal("window", globalThis);
-  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+  vi.stubGlobal("document", {
+    createElement: (type: string) => {
+      expect(type).toBe("canvas");
+      return { style: {}, getContext: () => ({ drawImage() {} }), remove() {} };
+    },
+  });
   let videoBody: ReadableStreamDefaultController<Uint8Array> | undefined;
   let output: VideoFrameOutputCallback | undefined;
   if (h264) {
@@ -120,26 +142,26 @@ async function setup(h264 = false) {
       disconnect() {}
     },
   );
-  const images: Image[] = [];
+  const images = [new Image()];
   const view = (visible: boolean) => (
-    <DeviceStreamView
-      hostId="local"
-      environmentId={EnvironmentId.make("test")}
-      deviceId="test"
-      platform="ios"
-      visible={visible}
-      allowPhoneView={h264}
-    />
+    <RegistryContext.Provider value={registry}>
+      <DeviceStreamView
+        hostId="local"
+        environmentId={EnvironmentId.make("test")}
+        deviceId="test"
+        platform="ios"
+        visible={visible}
+        allowPhoneView={h264}
+      />
+    </RegistryContext.Provider>
   );
   await act(async () => {
     renderer = create(view(true), {
       createNodeMock: (node) => {
-        if (node.type === "img") {
-          const image = new Image();
-          images.push(image);
-          return image;
-        }
+        // Re-reading a host ref is not a new image load; keep its decoded dimensions.
+        if (node.type === "img") return images[0]!;
         return {
+          append() {},
           getContext: () => ({ drawImage() {} }),
           style: { setProperty() {} },
           getBoundingClientRect: () => ({ width: 400, height: 800 }),
@@ -169,10 +191,10 @@ async function setup(h264 = false) {
 
 it("removes MJPEG requests while hidden and reconnects when shown", async () => {
   const { images, view } = await setup();
-  expect(images[0]!.src).toContain("stream.mjpeg");
+  expect(images.some((image) => image.src.includes("stream.mjpeg"))).toBe(true);
   await act(async () => renderer!.update(view(false)));
   expect(renderer!.root.findAllByType("img")).toHaveLength(0);
-  expect(images[0]!.src).toBe("");
+  expect(images.every((image) => image.src === "")).toBe(true);
   expect(vi.getTimerCount()).toBe(0);
   await act(async () => renderer!.update(view(true)));
   expect(images.at(-1)!.src).toContain("stream.mjpeg");
@@ -186,14 +208,15 @@ it("offers Reconnect after the shared timeout and receives a frame after retry w
   expect(
     renderer!.root.findByProps({ role: "alert" }).findByType("span").children.join(""),
   ).toContain("No video");
-  expect(images[0]!.src).toBe("");
+  expect(images.every((image) => image.src === "")).toBe(true);
   await act(async () => renderer!.root.findByType("button").props.onClick());
   expect(renderer!.root.findAllByProps({ role: "alert" })).toHaveLength(0);
-  expect(images[1]!.src).toContain("stream.mjpeg");
+  const activeImage = images.find((image) => image.src.includes("stream.mjpeg"));
+  expect(activeImage).toBeDefined();
   await act(async () => {
-    images[1]!.naturalWidth = 400;
-    images[1]!.naturalHeight = 800;
-    images[1]!.dispatchEvent(new Event("load"));
+    activeImage!.naturalWidth = 400;
+    activeImage!.naturalHeight = 800;
+    activeImage!.dispatchEvent(new Event("load"));
   });
   expect(renderer!.root.findAllByProps({ role: "status" })).toHaveLength(0);
   expect(renderer!.root.findAllByType("button")).toHaveLength(0);

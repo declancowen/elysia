@@ -1565,3 +1565,103 @@ def model_context_env(model):
     }).pipe(Effect.scoped, Effect.provide(NodeServices.layer));
   },
 );
+
+const nativeRoutingFixture =
+  nativeFixture +
+  String.raw`
+CLI_VERSION = "0.3.11"
+ALLOWED_MODELS = ["gpt-6.1-sol", "deepseek-v4.1-flash"]
+def model_context_env(model):
+    maximum, compact = (272000, 230000) if model == "gpt-6.1-sol" else (1048576, 900000)
+    return {"CLAUDE_CODE_MAX_CONTEXT_TOKENS": str(maximum), "CLAUDE_CODE_AUTO_COMPACT_WINDOW": str(compact)}
+def update_model(model):
+    assert SETTINGS_FILE.parent.name.startswith("model-"), "The saved native default must not change"
+    data = json.loads(SETTINGS_FILE.read_text())
+    data["model"] = model
+    env = data["env"]
+    env.update(model_context_env(model))
+    env["ANTHROPIC_MODEL"] = model
+    headers = [line for line in env["ANTHROPIC_CUSTOM_HEADERS"].split("\n") if not line.startswith("x-portkey-beta:")]
+    if model == "gpt-6.1-sol":
+        headers.append("x-portkey-beta:use-responses-api-2026-07-30")
+    env["ANTHROPIC_CUSTOM_HEADERS"] = "\n".join(headers)
+    metadata = json.loads(env["CC_LANGSMITH_METADATA"])
+    metadata["model"] = model
+    env["CC_LANGSMITH_METADATA"] = json.dumps(metadata)
+    SETTINGS_FILE.write_text(json.dumps(data))
+    print("native-only model update")
+def unexpected(*args, **kwargs):
+    raise AssertionError("Model routing must not authenticate, configure certificates or start addons")
+main = _init_globals = setup_ssl = validate_gateway_credentials = unexpected
+`;
+
+it("delegates each selected model's headers, context and tracing to the native CLI without changing its saved default", () => {
+  const { source, profile } = fixture(nativeRoutingFixture);
+  const settingsFile = NodePath.join(profile, ".claude/settings.json");
+  NodeFS.mkdirSync(NodePath.dirname(settingsFile), { recursive: true });
+  const settings = JSON.stringify({
+    model: "deepseek-v4.1-flash",
+    allowed_models: ["retired-model", "deepseek-v4.1-flash"],
+    env: {
+      ANTHROPIC_MODEL: "deepseek-v4.1-flash",
+      ANTHROPIC_AUTH_TOKEN: "fixture-secret",
+      ANTHROPIC_CUSTOM_HEADERS:
+        "x-portkey-api-key: fixture-secret\nx-portkey-config: fixture-config",
+      CC_LANGSMITH_METADATA: JSON.stringify({
+        model: "deepseek-v4.1-flash",
+        config_id: "fixture-config",
+      }),
+      NODE_EXTRA_CA_CERTS: "/native/custom-ca.pem",
+      SSL_CERT_FILE: "/native/custom-ca.pem",
+    },
+  });
+  NodeFS.writeFileSync(settingsFile, settings);
+  const invoke = (model: string) =>
+    NodeChildProcess.spawnSync(
+      "python3",
+      ["-c", ELYSIA_CLI_BRIDGE, source, profile, "model-environment", model],
+      { env: { ...process.env, ELYSIA_CLI_BRIDGE }, encoding: "utf8" },
+    );
+  const sol = invoke("gpt-6.1-sol");
+  expect(sol.status, sol.stderr).toBe(0);
+  expect(JSON.parse(sol.stdout)).toMatchObject({
+    ANTHROPIC_MODEL: "gpt-6.1-sol",
+    ANTHROPIC_AUTH_TOKEN: "fixture-secret",
+    CLAUDE_CODE_MAX_CONTEXT_TOKENS: "272000",
+    CLAUDE_CODE_AUTO_COMPACT_WINDOW: "230000",
+    NODE_EXTRA_CA_CERTS: "/native/custom-ca.pem",
+    SSL_CERT_FILE: "/native/custom-ca.pem",
+  });
+  expect(JSON.parse(sol.stdout).ANTHROPIC_CUSTOM_HEADERS).toBe(
+    "x-portkey-api-key: fixture-secret\nx-portkey-config: fixture-config\nx-portkey-beta:use-responses-api-2026-07-30",
+  );
+  expect(JSON.parse(JSON.parse(sol.stdout).CC_LANGSMITH_METADATA).model).toBe("gpt-6.1-sol");
+  expect(sol.stdout).not.toContain("native-only model update");
+  const deepseek = invoke("deepseek-v4.1-flash");
+  expect(deepseek.status, deepseek.stderr).toBe(0);
+  expect(JSON.parse(deepseek.stdout).ANTHROPIC_CUSTOM_HEADERS).not.toContain("x-portkey-beta");
+  expect(JSON.parse(deepseek.stdout).CLAUDE_CODE_MAX_CONTEXT_TOKENS).toBe("1048576");
+  const retired = invoke("retired-model");
+  expect(retired.status).toBe(1);
+  expect(retired.stdout + retired.stderr).not.toContain("fixture-secret");
+  expect(NodeFS.readFileSync(settingsFile, "utf8")).toBe(settings);
+  expect(NodeFS.readdirSync(profile).some((name) => name.startsWith("model-"))).toBe(false);
+  expect(NodeFS.existsSync(NodePath.join(profile, "ready"))).toBe(false);
+});
+
+it("keeps the native roster and pricing when a new model has no configured context values", () => {
+  const { run } = fixture(
+    nativePricingFixture +
+      String.raw`
+ALLOWED_MODELS = ["fixture-flat", "new-model"]
+def model_context_env(model):
+    return {}
+`,
+  );
+  const result = run("model-metadata");
+  expect(result.status, result.stderr).toBe(0);
+  expect(JSON.parse(result.stdout)).toEqual({
+    "fixture-flat": { pricing: { inputCostPerMillionTokens: 1.5, outputCostPerMillionTokens: 6 } },
+    "new-model": {},
+  });
+});

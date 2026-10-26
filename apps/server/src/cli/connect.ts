@@ -71,7 +71,7 @@ const headlessFlag = Flag.Boolean("headless").pipe(
  * OAuth callback, so the device authorization grant is the only flow that
  * can work.
  */
-export const headlessSessionConfig = Config.all({
+const headlessSessionConfig = Config.all({
   sshConnection: Config.String("SSH_CONNECTION").pipe(Config.option),
   sshTty: Config.String("SSH_TTY").pipe(Config.option),
 }).pipe(
@@ -383,7 +383,7 @@ const waitForReachability = Effect.fn("cloud.cli.wait_for_reachability")(functio
   yield* Console.error(
     formatAlertBox(
       last === null
-        ? "✕ Could not check Connections\n  The T3 server on this machine did not answer.\n  Fix: run `elysia service status`, then `elysia connect status`."
+        ? "✕ Could not check Connections\n  The Elysia server on this machine did not answer.\n  Fix: run `elysia service status`, then `elysia connect status`."
         : formatReachabilityFailure(last),
     ),
   );
@@ -442,7 +442,7 @@ const unlinkRelayEnvironment = Effect.fn("cloud.cli.unlink_relay_environment")(f
  * A missing CLI login or a failed relay DELETE leaves that record registered, so
  * those outcomes warn to deregister it from the Connections account page.
  */
-export const reportCloudDisconnectResults = Effect.fn("cloud.cli.report_disconnect_results")(
+const reportCloudDisconnectResults = Effect.fn("cloud.cli.report_disconnect_results")(
   function* (input: {
     readonly clearAuthorization: boolean;
     readonly liveResult: LiveCloudActionResult;
@@ -470,11 +470,11 @@ export const reportCloudDisconnectResults = Effect.fn("cloud.cli.report_disconne
       yield* Console.warn(
         input.clearAuthorization
           ? "Could not revoke the relay-side environment record before signing out.\nThe stored CLI authorization was still removed locally."
-          : "Could not revoke the relay-side environment record yet.\nRun `elysia connect unlink` again when the relay is reachable, or deregister it from the Connections page of your T3 account.",
+          : "Could not revoke the relay-side environment record yet.\nRun `elysia connect unlink` again when the relay is reachable, or deregister it from the Connections page of your Elysia account.",
       );
     } else if (input.relayResult.value.status === "not-authenticated") {
       yield* Console.warn(
-        "The relay-side environment record was not revoked.\nDeregister it from the Connections page of your T3 account, or run `elysia connect login` and retry.",
+        "The relay-side environment record was not revoked.\nDeregister it from the Connections page of your Elysia account, or run `elysia connect login` and retry.",
       );
     } else if (input.relayResult.value.status === "revoked") {
       yield* Console.log("Revoked the relay-side environment record.");
@@ -613,7 +613,7 @@ const connectLinkCommand = Command.make("link", {
   headless: headlessFlag,
   publishOnly: Flag.Boolean("publish-only").pipe(
     Flag.withDescription(
-      "Link to publish agent activity only — no managed tunnel. Reach this environment out of band (e.g. Tailscale).",
+      "Link to publish agent activity only, with no managed tunnel. Reach this environment out of band (e.g. Tailscale).",
     ),
     Flag.withDefault(false),
   ),
@@ -722,10 +722,8 @@ const connectPublishCommand = Command.make("publish", {
           stringToBytes(enabled ? "true" : "false"),
         );
         if (!enabled) {
-          // If enabling scheduled a publish-only link that hasn't been
-          // provisioned yet, disabling must cancel it too — otherwise the next
-          // start still links an environment whose only purpose was publishing.
-          // A pending managed link is left alone; it exists for the tunnel.
+          // Cancel unprovisioned publish-only links too, or the next start will recreate them.
+          // Managed links also serve the tunnel and must survive.
           const linkedNow = Option.isSome(yield* secrets.get(CLOUD_LINKED_USER_ID));
           if (!linkedNow && (yield* CliState.readCliDesiredLinkMode) === "publish_only") {
             yield* CliState.setCliDesiredCloudLink(false);
@@ -747,10 +745,7 @@ const connectPublishCommand = Command.make("publish", {
           );
           return;
         }
-        // A link may already be desired (e.g. `elysia connect link` before the
-        // server's first start). Never downgrade it: a desired managed link
-        // also covers publishing, so only request a publish-only link when no
-        // link is pending at all.
+        // A desired managed link already covers publishing and must not be downgraded.
         if (yield* CliState.readCliDesiredCloudLink) {
           yield* Console.log(
             "A Connections link is already pending. Start Elysia to finish provisioning it; publishing starts once it links.",
@@ -784,29 +779,29 @@ const connectLogoutCommand = Command.make("logout", {
   ),
 );
 
-export const reportServiceOnboarding = Effect.fn("cli.connect.report_service_onboarding")(
-  function* (outcome: CliService.ServiceOnboardingOutcome) {
-    if (outcome === "pending") {
-      yield* Console.log(
-        "\nBackground service restarting\n\nThe server establishes the Connections link once it is back. Check the log above if it does not come back.",
-      );
-      return;
-    }
-    if (outcome === "ready") {
-      const platform = yield* HostProcess.Platform;
-      yield* Console.log(
-        platform === "darwin"
-          ? "\n✓ Background service ready\n\nElysia is set to run while you are logged in to this Mac. The server establishes the Connections link on startup."
-          : "\n✓ Background service ready\n\nElysia is set to keep running after you log out. The server establishes the Connections link on startup.",
-      );
-      return;
-    }
-    const serveCommand = yield* resolveCliCommand("serve");
+const reportServiceOnboarding = Effect.fn("cli.connect.report_service_onboarding")(function* (
+  outcome: CliService.ServiceOnboardingOutcome,
+) {
+  if (outcome === "pending") {
     yield* Console.log(
-      `\nNext\n  Start the server with \`${serveCommand}\` to make this machine reachable.\n  It checks that other devices can reach this machine when it starts.`,
+      "\nBackground service restarting\n\nThe server establishes the Elysia Connect link once it is back. Check the log above if it does not come back.",
     );
-  },
-);
+    return;
+  }
+  if (outcome === "ready") {
+    const platform = yield* HostProcess.Platform;
+    yield* Console.log(
+      platform === "darwin"
+        ? "\n✓ Background service ready\n\nElysia is set to run while you are logged in to this Mac. The server establishes the Elysia Connect link on startup."
+        : "\n✓ Background service ready\n\nElysia is set to keep running after you log out. The server establishes the Elysia Connect link on startup.",
+    );
+    return;
+  }
+  const serveCommand = yield* resolveCliCommand("serve");
+  yield* Console.log(
+    `\nNext\n  Start the server with \`${serveCommand}\` to make this machine reachable.\n  It checks that other devices can reach this machine when it starts.`,
+  );
+});
 
 export const connectCommand = Command.make("connect", {
   ...projectLocationFlags,

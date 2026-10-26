@@ -1,3 +1,9 @@
+vi.mock("vite-plus/test/browser", () => ({
+  page: { elementLocator: () => ({}) },
+  utils: { getElementLocatorSelectors: () => ({}) },
+}));
+import { render as renderUi, type Screen } from "../../../test/render";
+import { act } from "../../../test/act";
 // @vitest-environment jsdom
 import { makeThreadFixture } from "../../test-fixtures";
 import {
@@ -12,9 +18,8 @@ import { scopeThreadRef, scopeProjectRef } from "@elysiatools/client-runtime/env
 import type { AtomCommandResult } from "@elysiatools/client-runtime/state/runtime";
 import * as Cause from "effect/Cause";
 import { AsyncResult } from "effect/reactivity";
-import { act } from "react";
-import { createRoot, type Root } from "react-dom/client";
-import { afterEach, beforeEach, expect, it, vi } from "vite-plus/test";
+
+import { expect, it, vi } from "vite-plus/test";
 import Edit03Icon from "@hugeicons/core-free-icons/Edit03Icon";
 import ArchiveOff03Icon from "@hugeicons/core-free-icons/ArchiveOff03Icon";
 import { derivePhysicalProjectKey } from "../../logicalProject";
@@ -127,10 +132,10 @@ const thread: SidebarThreadSummary = makeThreadFixture({
 });
 const initialExpansion = useUiStateStore.getState().projectExpandedById;
 let host: HTMLDivElement;
-let root: Root;
+let root: Screen;
 async function render(current = true, roster = false) {
   await act(async () =>
-    root.render(
+    root.rerender(
       roster ? (
         <AgentRoster />
       ) : (
@@ -150,9 +155,17 @@ async function click(label: string) {
   expect(button(label), label).toBeDefined();
   await act(async () => button(label).click());
 }
-beforeEach(() => {
+async function setup() {
+  const resources = new AsyncDisposableStack();
+  resources.defer(async () => {
+    await act(async () => dismissContextMenu());
+    useUiStateStore.setState({ projectExpandedById: initialExpansion });
+    closeAgentDialog();
+    vi.unstubAllGlobals();
+  });
+
   useConversationTabsStore.setState({ tabs: [], activeId: null });
-  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+
   vi.stubGlobal(
     "ResizeObserver",
     class {
@@ -192,18 +205,13 @@ beforeEach(() => {
   useAgentSidebarPreferences.setState({ pinned: [], sections: [], assignment: {} });
   host = document.createElement("div");
   document.body.append(host);
-  root = createRoot(host);
-});
-afterEach(async () => {
-  await act(async () => dismissContextMenu());
-  await act(async () => root.unmount());
-  host.remove();
-  useUiStateStore.setState({ projectExpandedById: initialExpansion });
-  closeAgentDialog();
-  vi.unstubAllGlobals();
-});
+  root = resources.use(await renderUi(null, { container: host, router: false }));
+
+  return resources;
+}
 
 it("opens current-agent details and edits through the global dialog without changing chats", async () => {
+  await using _fixture = await setup();
   await render();
   await click("Manage Alex");
   expect(document.body.textContent).toContain(profile.instructions);
@@ -219,6 +227,7 @@ it("opens current-agent details and edits through the global dialog without chan
 });
 
 it("opens scheduled tasks scoped to the current agent and closes the profile", async () => {
+  await using _fixture = await setup();
   await render();
   await click("Manage Alex");
   await click("Scheduled");
@@ -235,6 +244,7 @@ it("opens scheduled tasks scoped to the current agent and closes the profile", a
 });
 
 it("fits the popover avatar to changing name and role height without unbounded growth", async () => {
+  await using _fixture = await setup();
   const name = "A long agent name ".repeat(10);
   const role = "A long agent role ".repeat(10);
   state.projects = [{ ...project, title: name, agentProfile: { ...profile, title: role } }];
@@ -287,6 +297,7 @@ it("fits the popover avatar to changing name and role height without unbounded g
 });
 
 it("opens from the roster and recovers the linked legacy archived conversation", async () => {
+  await using _fixture = await setup();
   state.threads = [{ ...thread, archivedAt: "2026-10-01T10:00:00Z" }];
   await render(false, true);
   expect(document.body.textContent).toContain("Alex");
@@ -305,6 +316,7 @@ it("opens from the roster and recovers the linked legacy archived conversation",
 });
 
 it("shows agent management only for the current agent and keeps create/archive access in the right places", async () => {
+  await using _fixture = await setup();
   await render(false);
   expect(host.querySelector("button")).toBeNull();
   await render(false, true);
@@ -323,13 +335,14 @@ it("shows agent management only for the current agent and keeps create/archive a
 });
 
 it("collapses Agents even when empty, persists across remounts, and expands when creating", async () => {
+  await using _fixture = await setup();
   state.projects = [];
   await render(false, true);
   expect(host.textContent).toContain("No agents yet");
   await click("Agents");
   expect(host.textContent).not.toContain("No agents yet");
   expect(button("Agents").getAttribute("aria-expanded")).toBe("false");
-  await act(async () => root.render(null));
+  await act(async () => root.rerender(null));
   await render(false, true);
   expect(button("Agents").getAttribute("aria-expanded")).toBe("false");
   await click("New agent, channel or section");
@@ -340,6 +353,7 @@ it("collapses Agents even when empty, persists across remounts, and expands when
 });
 
 it("archives directly from the roster without opening the chat and blocks the action while working", async () => {
+  await using _fixture = await setup();
   await render(false, true);
   await click("Archive Alex");
   expect(state.update).toHaveBeenCalledWith({
@@ -367,6 +381,7 @@ it("archives directly from the roster without opening the chat and blocks the ac
 });
 
 it("allows archiving the only starter agent and leaves an empty roster without losing its chat", async () => {
+  await using _fixture = await setup();
   const starter = { ...project, title: "Your First Agent" };
   state.projects = [starter];
   await render(false, true);
@@ -386,6 +401,7 @@ it("allows archiving the only starter agent and leaves an empty roster without l
 });
 
 it("archives only the profile once while pending, preserving the linked conversation and retrying failures", async () => {
+  await using _fixture = await setup();
   let complete!: (result: AtomCommandResult<void, Error>) => void;
   state.update.mockImplementation(
     () =>
@@ -418,6 +434,7 @@ it("archives only the profile once while pending, preserving the linked conversa
 });
 
 it("blocks archiving during native work", async () => {
+  await using _fixture = await setup();
   state.threads = [
     {
       ...thread,
@@ -442,6 +459,7 @@ it("blocks archiving during native work", async () => {
 it.each([true, false])(
   "right-click edits from another chat and hides archived agents (Elysia: %s)",
   async (elysia) => {
+    await using _fixture = await setup();
     state.elysia = elysia;
     await render(false, true);
     expect(host.textContent).not.toContain("Archived person");
@@ -471,6 +489,7 @@ it.each([true, false])(
 );
 
 it("keeps roster right-click and overflow actions identical", async () => {
+  await using _fixture = await setup();
   await render(false, true);
   await act(async () =>
     button("Alex").dispatchEvent(new MouseEvent("contextmenu", { bubbles: true })),
@@ -500,6 +519,7 @@ it("keeps roster right-click and overflow actions identical", async () => {
 });
 
 it("shares section actions and removes only the selected section and its assignments", async () => {
+  await using _fixture = await setup();
   useAgentSidebarPreferences.setState({
     sections: [
       { id: "research", name: "Research" },
@@ -507,7 +527,7 @@ it("shares section actions and removes only the selected section and its assignm
     ],
     assignment: { alex: "research", friday: "work" },
   });
-  await act(async () => root.render(<AgentSidebarSections agents={[]} renderRow={() => null} />));
+  await act(async () => root.rerender(<AgentSidebarSections agents={[]} renderRow={() => null} />));
   const label = [
     ...host.querySelectorAll<HTMLElement>('section[aria-label="Research"] button'),
   ].find((element) => element.textContent === "Research")!;
@@ -532,6 +552,7 @@ it("shares section actions and removes only the selected section and its assignm
 });
 
 it("closes the narrow sidebar only after its linked agent conversation opens successfully", async () => {
+  await using _fixture = await setup();
   state.mobile = true;
   state.threads = [{ ...thread, archivedAt: "2026-10-01T10:00:00Z" }];
   state.unarchive.mockResolvedValue(AsyncResult.failure(Cause.fail(new Error("Offline"))));
@@ -546,6 +567,7 @@ it("closes the narrow sidebar only after its linked agent conversation opens suc
 });
 
 it("dismisses the narrow sidebar when creating from either entry point or editing from the row menu", async () => {
+  await using _fixture = await setup();
   state.mobile = true;
   state.sidebarOpen = true;
   await render(false, true);
@@ -582,6 +604,7 @@ it("dismisses the narrow sidebar when creating from either entry point or editin
 });
 
 it("keeps the narrow sidebar open on context-menu cancellation and dismisses it only when editing", async () => {
+  await using _fixture = await setup();
   state.mobile = true;
   state.sidebarOpen = true;
   state.contextMenu.mockResolvedValue(null);
@@ -607,6 +630,7 @@ it("keeps the narrow sidebar open on context-menu cancellation and dismisses it 
 });
 
 it("keeps the current agent visible while Agents is collapsed and hides it after leaving", async () => {
+  await using _fixture = await setup();
   state.activeThreadId = threadId;
   await render(false, true);
   await click("Agents");
@@ -640,7 +664,7 @@ async function renderConversations(channel = false) {
     thread,
     busy: false,
   };
-  await act(async () => root.render(<AgentConversationList agents={[entry]} ready />));
+  await act(async () => root.rerender(<AgentConversationList agents={[entry]} ready />));
 }
 async function rightClickConversation() {
   await act(async () =>
@@ -652,6 +676,7 @@ async function rightClickConversation() {
 it.each([false, true])(
   "right-click pins and unpins an agent or channel without navigating (channel=%s)",
   async (channel) => {
+    await using _fixture = await setup();
     await renderConversations(channel);
     await rightClickConversation();
     const kind = channel ? "channel" : "agent";
@@ -669,6 +694,7 @@ it.each([false, true])(
   },
 );
 it("opens the same edit dialog from a conversation's right-click menu", async () => {
+  await using _fixture = await setup();
   await renderConversations();
   await rightClickConversation();
   await click("Edit agent");
@@ -681,6 +707,7 @@ it("opens the same edit dialog from a conversation's right-click menu", async ()
 it.each([false, true])(
   "archives through the conversation right-click menu (channel=%s)",
   async (channel) => {
+    await using _fixture = await setup();
     await renderConversations(channel);
     await rightClickConversation();
     await click(channel ? "Archive channel" : "Archive agent");
@@ -698,6 +725,7 @@ it.each([false, true])(
 it.each([false, true])(
   "hides the new-tab action for an open agent or channel (channel=%s)",
   async (channel) => {
+    await using _fixture = await setup();
     await renderConversations(channel);
     await rightClickConversation();
     expect(button("Open in new tab")).toBeDefined();
@@ -724,6 +752,7 @@ it.each([false, true])(
 );
 
 it("hides the workspace roster's new-tab action for any open conversation", async () => {
+  await using _fixture = await setup();
   await render(false, true);
   const rightClick = async () => {
     await act(async () =>

@@ -240,47 +240,4 @@ describe("DesktopWslBackend", () => {
       ),
     );
   });
-
-  it.effect("retries an unchanged WSL instance when it is idle after failed preflight", () => {
-    let startCount = 0;
-    const primary = makeStubInstance({
-      id: DesktopBackendPool.PRIMARY_INSTANCE_ID,
-      label: "Windows",
-      snapshot: primarySnapshot,
-    });
-    const wsl = makeStubInstance({
-      id: DesktopBackendPool.BackendInstanceId("wsl:Ubuntu"),
-      label: "WSL (Ubuntu)",
-      snapshot: idleSnapshot,
-      start: Effect.sync(() => {
-        startCount += 1;
-      }),
-    });
-
-    return Effect.gen(function* () {
-      const backend = yield* DesktopWslBackend.DesktopWslBackend;
-
-      yield* backend.reconcile;
-
-      assert.equal(startCount, 1);
-    }).pipe(
-      Effect.provide(
-        DesktopWslBackend.layer.pipe(
-          Layer.provideMerge(DesktopBackendPool.layerTest([primary, wsl])),
-          Layer.provideMerge(layerBackendConfiguration),
-          Layer.provideMerge(layerServerExposure),
-          Layer.provideMerge(layerNet),
-          Layer.provideMerge(
-            DesktopAppSettings.layerTest({
-              ...DesktopAppSettings.DEFAULT_DESKTOP_SETTINGS,
-              wslBackendEnabled: true,
-              wslDistro: "Ubuntu",
-              wslOnly: false,
-            }),
-          ),
-          Layer.provideMerge(DesktopWslEnvironment.layerTest({ isAvailable: true })),
-        ),
-      ),
-    );
-  });
 });

@@ -1,4 +1,5 @@
-import { act, create, type ReactTestRenderer } from "react-test-renderer";
+import { act } from "../../../test/act";
+import { create, type ReactTestRenderer } from "react-test-renderer";
 import { afterEach, expect, it, vi } from "vite-plus/test";
 import { EnvironmentId, ProjectId, ThreadId } from "@elysiatools/contracts";
 import { scopeThreadRef } from "@elysiatools/client-runtime/environment";
@@ -40,7 +41,6 @@ afterEach(async () => {
   vi.unstubAllGlobals();
 });
 it("identifies the channel author, expands the referenced response and cancels reply mode", async () => {
-  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   const cancel = vi.fn();
   await act(() => {
     renderer = create(

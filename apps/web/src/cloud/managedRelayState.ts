@@ -19,11 +19,8 @@ import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import { AsyncResult, Atom } from "effect/reactivity";
-import { useEffect } from "react";
-
 import { runtime } from "../lib/runtime";
 import { appAtomRegistry } from "../rpc/atomRegistry";
-
 const managedRelayAtomRuntime = Atom.runtime(
   Layer.effect(
     ManagedRelay.ManagedRelayClient,
@@ -32,11 +29,8 @@ const managedRelayAtomRuntime = Atom.runtime(
     ),
   ),
 );
-
 const managedRelayQueryManager = createManagedRelayQueryManager(managedRelayAtomRuntime);
-
 const managedRelayMutationScheduler = createAtomCommandScheduler();
-
 export const deregisterManagedRelayEnvironmentCommand = createRuntimeCommand(
   managedRelayAtomRuntime,
   {
@@ -50,15 +44,12 @@ export const deregisterManagedRelayEnvironmentCommand = createRuntimeCommand(
     execute: (input, registry) => deregisterManagedRelayEnvironment(registry, input),
   },
 );
-
 const EMPTY_ENVIRONMENTS_ATOM = Atom.make(
   AsyncResult.success<ReadonlyArray<RelayClientEnvironmentRecord>>([]),
 ).pipe(Atom.keepAlive, Atom.withLabel("managed-relay:web:environments:null"));
-
 const EMPTY_DEVICES_ATOM = Atom.make(
   AsyncResult.success<ReadonlyArray<RelayClientDeviceRecord>>([]),
 ).pipe(Atom.keepAlive, Atom.withLabel("managed-relay:web:devices:null"));
-
 export function useManagedRelayEnvironments() {
   const session = useAtomValue(managedRelaySessionAtom);
   const accountId = session?.accountId ?? null;
@@ -67,47 +58,28 @@ export function useManagedRelayEnvironments() {
     : EMPTY_ENVIRONMENTS_ATOM;
   const result = useAtomValue(atom);
   const snapshot = readManagedRelaySnapshotState(result);
-  useEffect(() => {
-    if (snapshot.error) {
-      console.error("[elysia-cloud] Relay environment listing failed", {
-        message: snapshot.error,
-        traceId: snapshot.errorTraceId,
-      });
-    }
-  }, [snapshot.error, snapshot.errorTraceId]);
   const refresh = () => {
     if (accountId) {
       managedRelayQueryManager.refreshEnvironments(appAtomRegistry, accountId);
     }
   };
-
   return {
     ...snapshot,
     accountId,
     refresh,
   };
 }
-
 export function useManagedRelayDevices() {
   const session = useAtomValue(managedRelaySessionAtom);
   const accountId = session?.accountId ?? null;
   const atom = accountId ? managedRelayQueryManager.devicesAtom(accountId) : EMPTY_DEVICES_ATOM;
   const result = useAtomValue(atom);
   const snapshot = readManagedRelaySnapshotState(result);
-  useEffect(() => {
-    if (snapshot.error) {
-      console.error("[elysia-cloud] Relay device listing failed", {
-        message: snapshot.error,
-        traceId: snapshot.errorTraceId,
-      });
-    }
-  }, [snapshot.error, snapshot.errorTraceId]);
   const refresh = () => {
     if (accountId) {
       managedRelayQueryManager.refreshDevices(appAtomRegistry, accountId);
     }
   };
-
   return {
     ...snapshot,
     accountId,

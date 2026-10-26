@@ -11,6 +11,7 @@ export function useConversationRowClick(
     if (timer.current !== null) clearTimeout(timer.current);
     timer.current = null;
   };
+  // oxlint-disable-next-line elysia/react-effect-budget -- Cancel the delayed native click timer when the row owner unmounts.
   useEffect(
     () => () => {
       if (timer.current !== null) clearTimeout(timer.current);

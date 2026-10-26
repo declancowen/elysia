@@ -1,5 +1,3 @@
-"use client";
-
 import { useEffect, useRef, useState } from "react";
 import { ScrollArea as ScrollAreaPrimitive } from "@base-ui/react/scroll-area";
 
@@ -87,6 +85,7 @@ function ScrollBar({
 }: ScrollAreaPrimitive.Scrollbar.Props) {
   const [track, setTrack] = useState<HTMLDivElement | null>(null);
   const thumbRef = useRef<HTMLDivElement>(null);
+  // oxlint-disable-next-line elysia/react-effect-budget -- Synchronize the compact thumb with DOM scroll and resize events.
   useEffect(() => {
     if (!track || orientation !== "vertical") return;
     const viewport = track.parentElement?.querySelector<HTMLElement>(

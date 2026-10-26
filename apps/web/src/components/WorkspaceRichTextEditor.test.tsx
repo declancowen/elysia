@@ -1,6 +1,12 @@
+vi.mock("vite-plus/test/browser", () => ({
+  page: { elementLocator: () => ({}) },
+  utils: { getElementLocatorSelectors: () => ({}) },
+}));
+import { render as renderUi } from "../../test/render";
+import { act } from "../../test/act";
 // @vitest-environment jsdom
-import { act, createRef } from "react";
-import { createRoot } from "react-dom/client";
+import { createRef } from "react";
+
 import { expect, it, vi } from "vite-plus/test";
 import {
   WorkspaceRichTextEditor,
@@ -8,7 +14,6 @@ import {
 } from "./WorkspaceRichTextEditor";
 
 it("focuses the document body on request and leaves disabled pages unfocused", async () => {
-  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   vi.spyOn(window, "scrollBy").mockImplementation(() => {});
   const frames: FrameRequestCallback[] = [];
   vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => frames.push(callback));
@@ -23,24 +28,24 @@ it("focuses the document body on request and leaves disabled pages unfocused", a
   });
   const host = document.createElement("div");
   document.body.append(host);
-  const root = createRoot(host);
+  await using root = await renderUi(null, { container: host, router: false });
   const ref = createRef<WorkspaceRichTextEditorHandle>();
   const title = document.createElement("input");
   document.body.append(title);
   const flushFocus = async () =>
-    act(async () => {
+    await act(async () => {
       ref.current?.focus();
       for (const frame of frames.splice(0)) frame(0);
     });
   try {
     await act(async () =>
-      root.render(<WorkspaceRichTextEditor ref={ref} value="<p>Body</p>" onChange={() => {}} />),
+      root.rerender(<WorkspaceRichTextEditor ref={ref} value="<p>Body</p>" onChange={() => {}} />),
     );
     title.focus();
     await flushFocus();
     expect(document.activeElement).toBe(host.querySelector('[role="textbox"]'));
     await act(async () =>
-      root.render(
+      root.rerender(
         <WorkspaceRichTextEditor ref={ref} value="<p>Body</p>" onChange={() => {}} disabled />,
       ),
     );

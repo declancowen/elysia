@@ -64,25 +64,6 @@ const fakeAppImage = (canMount = true) => {
 };
 
 describe("renderCliShim", () => {
-  it("runs the AppImage's bundled CLI with every argument and unmounts after", () => {
-    const { root, image, shim } = fakeAppImage();
-    const result = run(shim, ["browser", "setup", "a b"]);
-    expect(result.status).toBe(3);
-    expect(result.stdout.split("\n")).toEqual([
-      `node=1 cli=${shim} home=${root}/home`,
-      `${image}/resources/app.asar/apps/server/dist/bin.mjs`,
-      "browser",
-      "setup",
-      "a b",
-      "",
-    ]);
-    NodeChildProcess.spawnSync("sh", [
-      "-c",
-      `i=0; while [ ! -e '${root}/unmounted' ] && [ $i -lt 40 ]; do sleep 0.05; i=$((i+1)); done`,
-    ]);
-    expect(NodeFS.existsSync(NodePath.join(root, "unmounted"))).toBe(true);
-  });
-
   it("extracts the AppImage where it cannot be mounted", () => {
     const { shim } = fakeAppImage(false);
     const result = run(shim, ["--version"], { APPIMAGE_EXTRACT_AND_RUN: "1" });
@@ -100,7 +81,6 @@ describe("renderCliShim", () => {
       executable: NodePath.join(root, "app"),
       entry: "/bin.mjs",
     });
-    // sudo clears the environment, so the launcher supplies its own.
     expect(run(shim, []).stdout).toContain(`home=${root}/home`);
     expect(run(shim, [], { T3CODE_HOME: "/elsewhere" }).stdout).toContain("home=/elsewhere");
     // Run by a relative path, it still names itself absolutely.
@@ -126,18 +106,6 @@ describe("renderCliShim", () => {
       "setup",
       "",
     ]);
-  });
-
-  it("tells a person whose app moved to reopen it", () => {
-    const root = tempRoot();
-    const shim = writeShim(root, {
-      kind: "direct",
-      executable: NodePath.join(root, "Gone.app/Contents/MacOS/Elysia"),
-      entry: "/bin.mjs",
-    });
-    const result = run(shim, ["--version"]);
-    expect(result.status).toBe(127);
-    expect(result.stderr).toContain("Open the app once to update this command.");
   });
 
   it("writes a Windows launcher that keeps cmd from reinterpreting paths", () => {

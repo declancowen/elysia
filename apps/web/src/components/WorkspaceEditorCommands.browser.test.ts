@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from "vite-plus/test";
+import { describe, expect, it } from "vite-plus/test";
 import { Editor } from "@tiptap/core";
 import StarterKit from "@tiptap/starter-kit";
 import TaskList from "@tiptap/extension-task-list";
@@ -10,21 +10,21 @@ import {
   runPageBlockCommand,
   movePageCommandSelection,
 } from "./WorkspaceEditorCommands";
-const editors: Editor[] = [];
+let editors: DisposableStack;
 function create(content: string) {
   const editor = new Editor({
     extensions: [StarterKit, TaskList, TaskItem.configure({ nested: true }), TableKit],
     content,
   });
-  editors.push(editor);
+  editors.adopt(editor, (active) => active.destroy());
   editor.commands.setTextSelection(editor.state.doc.content.size - 1);
   return editor;
 }
-afterEach(() => {
-  for (const editor of editors.splice(0)) editor.destroy();
-});
+
 describe("document block commands", () => {
   it("filters slash inserts and replaces the typed trigger with a real checklist", () => {
+    using _editors = new DisposableStack();
+    editors = _editors;
     const editor = create("<p>/todo</p>");
     const match = pageSlashMatch(editor.state);
     expect(match?.commands.map((command) => command.id)).toEqual(["task"]);
@@ -48,6 +48,8 @@ describe("document block commands", () => {
     "code",
     "divider",
   ] as const)("inserts %s into the saved document", (id) => {
+    using _editors = new DisposableStack();
+    editors = _editors;
     const editor = create("<p>/</p>");
     const range = pageSlashMatch(editor.state);
     const command = PAGE_BLOCK_COMMANDS.find((item) => item.id === id);
@@ -67,6 +69,8 @@ describe("document block commands", () => {
     expect(nodeNames).toContain(expected);
   });
   it("inserts, edits and reloads a table without retaining the slash trigger", () => {
+    using _editors = new DisposableStack();
+    editors = _editors;
     const editor = create("<p>/table</p>");
     const match = pageSlashMatch(editor.state);
     expect(match?.commands.map((command) => command.id)).toEqual(["table"]);
@@ -86,6 +90,8 @@ describe("document block commands", () => {
     expect(reloaded.getHTML()).not.toContain("<table");
   });
   it("offers table actions only inside a table and does not insert nested tables", () => {
+    using _editors = new DisposableStack();
+    editors = _editors;
     expect(pageSlashMatch(create("<p>/add row</p>").state)?.commands).toEqual([]);
     const editor = create("<p>/table</p>");
     const insert = pageSlashMatch(editor.state);
@@ -101,6 +107,8 @@ describe("document block commands", () => {
     ]);
   });
   it("edits table rows and columns through slash commands and preserves saved content", () => {
+    using _editors = new DisposableStack();
+    editors = _editors;
     const editor = create("<p>/table</p>");
     const insert = pageSlashMatch(editor.state);
     if (!insert?.commands[0]) throw new Error("Expected table command");
@@ -138,6 +146,8 @@ describe("document block commands", () => {
     expect(reloaded.getHTML()).not.toContain("<table");
   });
   it("does not treat prose, code blocks, or selected text as slash menus", () => {
+    using _editors = new DisposableStack();
+    editors = _editors;
     expect(pageSlashMatch(create("<p>Visit /heading</p>").state)).toBeNull();
     expect(pageSlashMatch(create("<pre><code>/heading</code></pre>").state)).toBeNull();
     const editor = create("<p>/heading</p>");
@@ -145,6 +155,8 @@ describe("document block commands", () => {
     expect(pageSlashMatch(editor.state)).toBeNull();
   });
   it("wraps keyboard selection in both directions and handles an empty filter", () => {
+    using _editors = new DisposableStack();
+    editors = _editors;
     expect(movePageCommandSelection(0, -1, 10)).toBe(9);
     expect(movePageCommandSelection(9, 1, 10)).toBe(0);
     expect(movePageCommandSelection(0, 1, 0)).toBe(0);

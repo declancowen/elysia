@@ -1,7 +1,12 @@
+vi.mock("vite-plus/test/browser", () => ({
+  page: { elementLocator: () => ({}) },
+  utils: { getElementLocatorSelectors: () => ({}) },
+}));
+import { render as renderUi, type Screen } from "../../../test/render";
+import { act } from "../../../test/act";
 // @vitest-environment jsdom
-import { act } from "react";
-import { createRoot, type Root } from "react-dom/client";
-import { afterEach, beforeEach, expect, it, vi } from "vite-plus/test";
+
+import { expect, it, vi } from "vite-plus/test";
 import { EnvironmentId, ProjectId, ThreadId } from "@elysiatools/contracts";
 const state = vi.hoisted(() => ({
   confirm: vi.fn(),
@@ -23,13 +28,18 @@ vi.mock("~/conversationTabsStore", () => ({
 }));
 vi.mock("../ui/toast", () => ({ toastManager: { add: state.toast } }));
 import { ClearAgentChatButton } from "./ClearAgentChatButton";
-let root: Root;
+let root: Screen;
 let host: HTMLDivElement;
 const threadRef = { environmentId: EnvironmentId.make("local"), threadId: ThreadId.make("old") };
 const target = { projectId: ProjectId.make("alex"), name: "Alex", channel: false, threadRef };
-beforeEach(() => {
+async function setup() {
+  const resources = new AsyncDisposableStack();
+  resources.defer(async () => {
+    vi.unstubAllGlobals();
+  });
+
   vi.clearAllMocks();
-  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+
   state.confirm.mockResolvedValue(true);
   state.reset.mockResolvedValue({
     _tag: "Success",
@@ -38,18 +48,17 @@ beforeEach(() => {
   state.navigate.mockResolvedValue(undefined);
   host = document.createElement("div");
   document.body.appendChild(host);
-  root = createRoot(host);
-});
-afterEach(async () => {
-  await act(async () => root.unmount());
-  host.remove();
-  vi.unstubAllGlobals();
-});
+  root = resources.use(await renderUi(null, { container: host, router: false }));
+
+  return resources;
+}
+
 async function click(channel = false) {
-  await act(async () => root.render(<ClearAgentChatButton target={{ ...target, channel }} />));
+  await act(async () => root.rerender(<ClearAgentChatButton target={{ ...target, channel }} />));
   await act(async () => host.querySelector("button")!.click());
 }
 it("cancel keeps the conversation and memory intact", async () => {
+  await using _fixture = await setup();
   state.confirm.mockResolvedValue(false);
   await click();
   expect(state.confirm).toHaveBeenCalledWith(expect.stringContaining("This cannot be undone"), {
@@ -61,6 +70,7 @@ it("cancel keeps the conversation and memory intact", async () => {
   expect(host.querySelector("button")?.disabled).toBe(false);
 });
 it("confirmed reset replaces the tab and clears the old composer before opening a fresh chat", async () => {
+  await using _fixture = await setup();
   await click();
   expect(host.querySelector("button")?.textContent).toContain("Reset agent");
   expect(state.reset).toHaveBeenCalledWith({
@@ -81,6 +91,7 @@ it("confirmed reset replaces the tab and clears the old composer before opening 
   });
 });
 it("explains that clearing a channel preserves member agents' separate memory", async () => {
+  await using _fixture = await setup();
   await click(true);
   expect(host.querySelector("button")?.textContent).toContain("Reset channel");
   expect(state.confirm).toHaveBeenCalledWith(
@@ -89,6 +100,7 @@ it("explains that clearing a channel preserves member agents' separate memory", 
   );
 });
 it("failed reset stays on the chat and retries the same request safely", async () => {
+  await using _fixture = await setup();
   state.reset.mockResolvedValueOnce({ _tag: "Failure" });
   await click();
   expect(state.navigate).not.toHaveBeenCalled();
@@ -99,6 +111,7 @@ it("failed reset stays on the chat and retries the same request safely", async (
 });
 
 it("clears pending after a rejected confirmation without changing the conversation", async () => {
+  await using _fixture = await setup();
   state.confirm.mockRejectedValueOnce(new Error("Dialog unavailable"));
   await click();
   expect(state.reset).not.toHaveBeenCalled();
@@ -115,9 +128,10 @@ it("clears pending after a rejected confirmation without changing the conversati
 });
 
 it("clearing a response side panel keeps the source thread open", async () => {
+  await using _fixture = await setup();
   const onCleared = vi.fn();
   await act(async () =>
-    root.render(<ClearAgentChatButton target={target} onCleared={onCleared} />),
+    root.rerender(<ClearAgentChatButton target={target} onCleared={onCleared} />),
   );
   await act(async () => host.querySelector("button")!.click());
   expect(onCleared).toHaveBeenCalledOnce();

@@ -1,3 +1,4 @@
+import { act, render as renderUi, type Screen } from "../../test/render";
 import "~/index.css";
 
 import { RegistryContext, useAtomValue } from "@effect/atom-react";
@@ -12,9 +13,7 @@ import {
 import { DEFAULT_CLIENT_SETTINGS } from "@elysiatools/contracts/settings";
 import * as DateTime from "effect/DateTime";
 import { AsyncResult, Atom, AtomRegistry } from "effect/reactivity";
-import { act } from "react";
-import { createRoot, type Root } from "react-dom/client";
-import { afterEach, beforeEach, expect, it, vi } from "vite-plus/test";
+import { expect, it, vi } from "vite-plus/test";
 import { page } from "vite-plus/test/browser";
 
 vi.mock("../hooks/useThreadRouteTarget", () => ({
@@ -113,29 +112,31 @@ const patchAtoms = Atom.family((path: string) =>
   ),
 );
 let registry: AtomRegistry.AtomRegistry;
-let container: HTMLDivElement;
-let root: Root;
+let container: HTMLElement;
+let root: Screen;
 
-beforeEach(() => {
-  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+async function setup() {
+  const resources = new AsyncDisposableStack();
+  resources.defer(async () => {
+    registry.dispose();
+    localStorage.clear();
+    vi.unstubAllGlobals();
+  });
+
   localStorage.setItem("elysia.diffFileTreeOpen", "true");
   useDiffPanelStore.setState({ byThreadKey: {}, branchBaseRefByThreadKey: {} });
   registry = AtomRegistry.make();
   container = document.createElement("div");
   container.style.cssText = "width: 1000px; height: 300px";
   document.body.append(container);
-  root = createRoot(container);
-});
-afterEach(async () => {
-  await act(async () => root.unmount());
-  container.remove();
-  registry.dispose();
-  localStorage.clear();
-  vi.unstubAllGlobals();
-});
+  root = resources.use(await renderUi(null, { container: container, router: false }));
+
+  return resources;
+}
+
 async function render() {
   await act(async () =>
-    root.render(
+    root.rerender(
       <RegistryContext.Provider value={registry}>
         <DiffPanel
           visible
@@ -167,8 +168,8 @@ async function scrollToStart() {
   await act(async () => {
     viewport().scrollTop = 0;
     viewport().dispatchEvent(new Event("scroll"));
-    await new Promise(requestAnimationFrame);
   });
+  await expect.poll(() => viewport().scrollTop).toBe(0);
 }
 async function selectTreeFile(path: string) {
   const tree = container.querySelector("file-tree-container")!;
@@ -181,6 +182,7 @@ async function selectTreeFile(path: string) {
 }
 
 it("reveals a delayed turn selection, preserves siblings, and repeats after scope changes", async () => {
+  await using _fixture = await setup();
   await selectTurn("e.txt");
   await render();
   await expect
@@ -212,6 +214,7 @@ it("reveals a delayed turn selection, preserves siblings, and repeats after scop
 });
 
 it("waits for a lazy Git patch while preserving sibling choices and expanded defaults", async () => {
+  await using _fixture = await setup();
   registry.set(collapsedAtom, false);
   await render();
   await toggle("b.txt", true).click();

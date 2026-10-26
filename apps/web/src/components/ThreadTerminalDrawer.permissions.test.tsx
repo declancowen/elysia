@@ -1,3 +1,4 @@
+import { act } from "../../test/act";
 import {
   AuthTerminalOperateScope,
   EnvironmentId,
@@ -7,7 +8,7 @@ import {
 import { DEFAULT_CLIENT_SETTINGS } from "@elysiatools/contracts/settings";
 import { nextTerminalAttachSeedState } from "@elysiatools/client-runtime/state/terminal";
 import { AsyncResult } from "effect/reactivity";
-import { act, create, type ReactTestRenderer } from "react-test-renderer";
+import { create, type ReactTestRenderer } from "react-test-renderer";
 import { afterEach, beforeEach, expect, it, vi } from "vite-plus/test";
 import type {
   GhosttyTerminalSurface,
@@ -28,7 +29,7 @@ const state = vi.hoisted(() => ({
     >(),
 }));
 
-vi.mock("@effect/atom-react", () => ({ useAtomValue: () => null }));
+vi.mock("@effect/atom-react", () => ({ useAtomValue: () => null, useAtomMount: () => {} }));
 vi.mock("../hooks/useSettings", () => ({
   getClientSettings: () => DEFAULT_CLIENT_SETTINGS,
   useClientSettings: (select: (settings: typeof DEFAULT_CLIENT_SETTINGS) => unknown) =>
@@ -45,7 +46,10 @@ vi.mock("../state/use-atom-command", () => ({
   useAtomCommand: (command: string) => (command === "resize" ? state.resize : state.otherCommand),
 }));
 vi.mock("../state/terminalSessions", () => ({
-  useAttachedTerminalSession: () => session,
+  attachedTerminalSessionAtom: () => "terminal-session",
+}));
+vi.mock("../rpc/atomRegistry", () => ({
+  appAtomRegistry: { get: () => session, subscribe: () => () => {} },
 }));
 vi.mock("~/terminal/ghostty/surface", () => ({
   GhosttyTerminalSurface: { create: state.createSurface },
@@ -85,7 +89,6 @@ beforeEach(() => {
   // A surface can report its initial grid while asynchronous WASM setup is
   // pending. Keep that unrelated setup pending while exercising its callback.
   state.createSurface.mockReset().mockReturnValue(new Promise(() => undefined));
-  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   vi.stubGlobal("document", {
     body: {},
     documentElement: { classList: { contains: () => false } },
@@ -117,11 +120,8 @@ it("rechecks the target terminal grant when a retained surface callback reports 
         terminalLabel="Terminal 1"
         cwd="/repo"
         onSessionExited={state.otherCommand}
-        focusRequestId={0}
         autoFocus={false}
         visible={true}
-        resizeEpoch={0}
-        drawerHeight={200}
         keybindings={[]}
       />,
       { createNodeMock: () => ({ closest: () => null, contains: () => false }) },

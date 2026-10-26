@@ -15,7 +15,6 @@ import * as Deferred from "effect/Deferred";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
-import * as Option from "effect/Option";
 import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
 import * as SqlClient from "effect/sql/SqlClient";
@@ -151,7 +150,7 @@ it.effect.each(["agent", "channel", "linked-memory", "failed-detach", "failed-li
         Layer.mock(ServerSettingsService)({}),
         Layer.mock(Store.ProjectStoreV2)({}),
         Layer.mock(Projects.ProjectService)({
-          getById: () => Effect.succeed(Option.some(owner)),
+          getById: () => Effect.succeedSome(owner),
           resetAgentConversation: (input) =>
             Effect.gen(function* () {
               assert.isTrue(deleted && detached);

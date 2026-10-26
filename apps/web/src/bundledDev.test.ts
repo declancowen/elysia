@@ -1,6 +1,9 @@
+import * as NodeEvents from "node:events";
+import { createLogger, createServer } from "vite-plus";
+import { tailwindPlugins } from "../vite/tailwind";
+
 // @effect-diagnostics nodeBuiltinImport:off - builds and executes real dev bundles on disk.
 import * as NodeChildProcess from "node:child_process";
-import * as NodeEvents from "node:events";
 import * as NodeFSP from "node:fs/promises";
 import * as NodeOS from "node:os";
 import * as NodePath from "node:path";
@@ -8,16 +11,12 @@ import * as NodeURL from "node:url";
 import * as NodeUtil from "node:util";
 
 import react from "@vitejs/plugin-react";
-import { createLogger, createServer } from "vite-plus";
 import { expect, it } from "vite-plus/test";
-
-import { tailwindPlugins } from "../vite/tailwind";
-import { warmLazyEntries } from "../vite/warmBundledDev";
 
 const execFile = NodeUtil.promisify(NodeChildProcess.execFile);
 
 it("initializes React refresh before a shared UI chunk runs in bundled dev", async () => {
-  const root = await NodeFSP.mkdtemp(NodePath.join(NodeOS.tmpdir(), "t3-bootstrap-"));
+  const root = await NodeFSP.mkdtemp(NodePath.join(NodeOS.tmpdir(), "elysia-bootstrap-"));
   const output = NodePath.join(root, "output");
   let resolveBundle!: (files: Map<string, string>) => void;
   let rejectBundle!: (error: unknown) => void;
@@ -220,46 +219,6 @@ it("hot updates Tailwind classes when a source file changes in bundled dev", asy
     expect(css).toContain("margin: 137px");
   } finally {
     socket?.close();
-    await server?.close();
-    await NodeFSP.rm(root, { recursive: true, force: true });
-  }
-});
-
-it("warms the wanted lazy chunk chain and nothing else", async () => {
-  const root = await NodeFSP.mkdtemp(NodePath.join(NodeOS.tmpdir(), "t3-warm-"));
-  let server: Awaited<ReturnType<typeof createServer>> | undefined;
-
-  try {
-    await NodeFSP.mkdir(NodePath.join(root, "src"));
-    await NodeFSP.writeFile(
-      NodePath.join(root, "index.html"),
-      '<html><body><script type="module" src="/src/bootstrap.ts"></script></body></html>',
-    );
-    await NodeFSP.writeFile(NodePath.join(root, "src/bootstrap.ts"), 'void import("./main");');
-    await NodeFSP.writeFile(
-      NodePath.join(root, "src/main.ts"),
-      'export const route = () => import("./route"); export const rare = () => import("./rare");',
-    );
-    await NodeFSP.writeFile(NodePath.join(root, "src/route.ts"), "export const route = 1;");
-    await NodeFSP.writeFile(NodePath.join(root, "src/rare.ts"), "export const rare = 1;");
-
-    server = await createServer({
-      configFile: false,
-      root,
-      logLevel: "silent",
-      experimental: { bundledDev: true },
-      server: { host: "127.0.0.1", port: 0 },
-    });
-    await server.listen();
-
-    // The route is only discoverable after main compiles, so this also covers the pass walk.
-    const warmed = await warmLazyEntries(server, ["src/main.ts", "src/route.ts"]);
-    const canonicalRoot = server.config.root;
-    expect(warmed.map((id) => NodePath.relative(canonicalRoot, id.split("?")[0] ?? id))).toEqual([
-      "src/main.ts",
-      "src/route.ts",
-    ]);
-  } finally {
     await server?.close();
     await NodeFSP.rm(root, { recursive: true, force: true });
   }

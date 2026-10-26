@@ -11,7 +11,9 @@ test("release workflow test filters resolve to existing test owners", () => {
   for (const step of workflow.split(/(?=^      - (?:name|uses):)/m)) {
     const cwd = /^        working-directory: (.+)$/m.exec(step)?.[1] ?? ".";
     const paths = [
-      ...step.matchAll(/(?:apps|packages|scripts|src)\/[\w./-]+\.test\.[cm]?[jt]sx?/g),
+      ...step.matchAll(
+        /(?:apps|packages|scripts|src)\/[\w./-]+(?:\.browser)?\.test\.[cm]?[jt]sx?/g,
+      ),
     ];
     for (const [path] of paths) {
       assert.ok(existsSync(resolve(root, cwd, path)), `Missing release test: ${cwd}/${path}`);
@@ -28,7 +30,9 @@ test("web release guards use the app compiler and the matching test project", ()
   for (const step of workflow.split(/(?=^      - (?:name|uses):)/m)) {
     const cwd = /^        working-directory: (.+)$/m.exec(step)?.[1] ?? ".";
     const paths = [
-      ...step.matchAll(/(?:^|\s)((?:apps\/web\/src|src)\/[\w./-]+\.test\.[cm]?[jt]sx?)/g),
+      ...step.matchAll(
+        /(?:^|\s)((?:apps\/web\/src|src)\/[\w./-]+(?:\.browser)?\.test\.[cm]?[jt]sx?)/g,
+      ),
     ];
     if (paths.length === 0) continue;
     assert.equal(cwd, "apps/web", "Web tests must load apps/web/vite.config.ts");

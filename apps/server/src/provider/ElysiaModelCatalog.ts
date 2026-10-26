@@ -2,7 +2,7 @@ import * as Schema from "effect/Schema";
 import type { ModelCapabilities } from "@elysiatools/contracts";
 import { BUNDLED_CLAUDE_MODEL_CATALOG, type ClaudeModelCatalog } from "./ClaudeModelCatalog.ts";
 
-// Gateway IDs from the supplied Elysia 0.3.10 package; native settings take
+// Gateway IDs from the supplied Elysia 0.3.11 package; native settings take
 // precedence after setup/update. Keep IDs opaque when dispatching to Claude.
 export const ELYSIA_MODELS = [
   "kimi-k2.7-code",
@@ -47,13 +47,20 @@ const ElysiaNativeModelPricing = Schema.Struct({
 export const ElysiaModelMetadata = Schema.Record(
   Schema.String,
   Schema.Struct({
-    contextWindowTokens: NativeTokenCount,
-    autoCompactWindowTokens: NativeTokenCount,
+    contextWindowTokens: Schema.optionalKey(NativeTokenCount),
+    autoCompactWindowTokens: Schema.optionalKey(NativeTokenCount),
     pricing: Schema.optionalKey(ElysiaNativeModelPricing),
   }).check(
-    Schema.makeFilter((value) => value.autoCompactWindowTokens < value.contextWindowTokens, {
-      expected: "an auto-compact window below the model context length",
-    }),
+    Schema.makeFilter(
+      (value) =>
+        (value.contextWindowTokens === undefined && value.autoCompactWindowTokens === undefined) ||
+        (value.contextWindowTokens !== undefined &&
+          value.autoCompactWindowTokens !== undefined &&
+          value.autoCompactWindowTokens < value.contextWindowTokens),
+      {
+        expected: "an auto-compact window below the model context length",
+      },
+    ),
   ),
 );
 export type ElysiaModelMetadata = typeof ElysiaModelMetadata.Type;

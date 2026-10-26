@@ -1,5 +1,12 @@
 // @vitest-environment jsdom
+import {
+  buildDraftActionMenuItems,
+  buildThreadActionMenuItems,
+} from "./components/threadActionMenu.logic";
+import { buildMultiSelectThreadContextMenuItems } from "./components/Sidebar.logic";
+// eslint-disable-next-line elysia/require-disposable-render -- This jsdom suite cannot load the browser-only harness; each owned root unmounts in finally.
 import { act } from "react";
+// eslint-disable-next-line elysia/require-disposable-render -- Imperative menu disposal is exercised in jsdom; button hosts unmount in finally.
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import {
@@ -11,6 +18,7 @@ import {
 } from "./contextMenuFallback";
 
 beforeEach(() => {
+  // eslint-disable-next-line elysia/require-disposable-render -- Unit-only act state is restored by afterEach, including when an assertion fails.
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => {
     callback(0);
@@ -19,8 +27,12 @@ beforeEach(() => {
 });
 
 afterEach(async () => {
-  await act(async () => dismissContextMenu());
-  vi.unstubAllGlobals();
+  try {
+    await act(async () => dismissContextMenu());
+    expect(document.querySelector('[data-slot="menu-popup"]')).toBeNull();
+  } finally {
+    vi.unstubAllGlobals();
+  }
 });
 
 function item(label: string) {
@@ -60,6 +72,79 @@ describe("shared row menus", () => {
     await act(async () => item("Move").click());
     await expect(selection).resolves.toBe("move");
     expect(document.querySelector('[data-slot="menu-popup"]')).toBeNull();
+  });
+
+  it("renders the full thread action menu with icons and section dividers", async () => {
+    const actions = buildThreadActionMenuItems({
+      canOperate: true,
+      openInNewTab: true,
+      branch: "feature/menu",
+      projectFilter: { label: "Research", isActive: false },
+      isPinned: false,
+      isSettled: false,
+      autoSettleEnabled: true,
+      isSnoozed: false,
+      canSnoozeNow: true,
+      isRegeneratingTitle: false,
+      isRunning: false,
+      canShareWithGuest: true,
+      supports: {
+        settlement: true,
+        autoSettleOptOut: true,
+        snooze: true,
+        pinning: true,
+        titleRegeneration: true,
+      },
+      snoozePresets: [
+        {
+          id: "hour",
+          label: "In an hour",
+          whenLabel: "3 PM",
+          snoozedUntil: "2099-01-01T15:00:00Z",
+        },
+      ],
+    });
+    await open(actions);
+    for (const action of actions) {
+      expect(item(action.label).querySelector("svg"), action.label).not.toBeNull();
+    }
+    expect(document.querySelectorAll('[role="separator"]')).toHaveLength(
+      actions.filter((action) => action.separatorBefore).length,
+    );
+  });
+
+  it("renders icons for nested thread actions, reverse actions, drafts and bulk actions", async () => {
+    const threadActions = buildThreadActionMenuItems({
+      canOperate: true,
+      branch: "main",
+      projectFilter: null,
+      isPinned: true,
+      isSettled: true,
+      autoSettleEnabled: false,
+      isSnoozed: true,
+      canSnoozeNow: true,
+      isRegeneratingTitle: false,
+      isRunning: false,
+      supports: {
+        settlement: true,
+        autoSettleOptOut: true,
+        snooze: true,
+        pinning: true,
+        titleRegeneration: true,
+      },
+      snoozePresets: [],
+    });
+    const nestedActions = threadActions.flatMap((action) => action.children ?? [action]);
+    const menus = [
+      nestedActions,
+      buildDraftActionMenuItems({ hasPath: true, hasBranch: true, hasProject: true }),
+      buildMultiSelectThreadContextMenuItems({ count: 2, hasRunningThread: false }),
+    ];
+    for (const menu of menus) {
+      await open(menu);
+      for (const action of menu)
+        expect(item(action.label).querySelector("svg"), action.id).not.toBeNull();
+    }
   });
 
   it("keeps choice icons on the left and ticks on the right", async () => {

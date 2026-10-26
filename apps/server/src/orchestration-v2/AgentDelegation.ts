@@ -37,6 +37,7 @@ import * as Schema from "effect/Schema";
 import * as SqlClient from "effect/sql/SqlClient";
 import * as Scheduler from "../scheduling/Scheduler.ts";
 import * as AttachmentClaims from "./AttachmentClaims.ts";
+import * as DocumentText from "../provider/DocumentText.ts";
 import * as CommandReceiptStore from "./CommandReceiptStore.ts";
 import * as EventSink from "./EventSink.ts";
 import * as ProjectStore from "./ProjectStore.ts";
@@ -110,6 +111,7 @@ const delegateToPersistentAgentImpl = Effect.fn("delegateToPersistentAgent")(fun
   | EventSink.EventSinkV2
   | ThreadCommandExecutor.ThreadCommandExecutor
   | FileSystem.FileSystem
+  | DocumentText.DocumentText
   | ServerConfig.ServerConfig
   | Crypto.Crypto
   | SqlClient.SqlClient
@@ -878,9 +880,15 @@ const make = Effect.gen(function* () {
     | Effect.Services<ReturnType<typeof reconcileImpl>>
   >();
   return AgentDelegation.of({
-    delegate: (input) => delegateToPersistentAgentImpl(input).pipe(Effect.provide(context)),
-    reconcile: () => reconcileImpl().pipe(Effect.provide(context)),
-    get: (input) => getAgentDelegationImpl(input).pipe(Effect.provide(context)),
+    delegate: Effect.fn("AgentDelegation.delegate")((input) =>
+      delegateToPersistentAgentImpl(input).pipe(Effect.provide(context)),
+    ),
+    reconcile: Effect.fn("AgentDelegation.reconcile")(() =>
+      reconcileImpl().pipe(Effect.provide(context)),
+    ),
+    get: Effect.fn("AgentDelegation.get")((input) =>
+      getAgentDelegationImpl(input).pipe(Effect.provide(context)),
+    ),
   });
 });
 export const layer = Layer.effect(AgentDelegation, make);

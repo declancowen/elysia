@@ -1,10 +1,15 @@
-import type { MouseEventHandler } from "react";
-import { PlayIcon, CheckIcon, ListPlusIcon, CornerUpRightIcon } from "~/icons";
-import { Square } from "~/icons";
-import { memo, type PointerEventHandler } from "react";
-import { ChevronDownIcon, ChevronLeftIcon } from "~/icons";
-import { Minimize2Icon } from "~/icons";
-import { getEnvironmentIdentificationMode } from "~/hooks/useSettings";
+import { memo, type MouseEventHandler, type PointerEventHandler } from "react";
+import {
+  PlayIcon,
+  CheckIcon,
+  ListPlusIcon,
+  CornerUpRightIcon,
+  Square,
+  ChevronDownIcon,
+  ChevronLeftIcon,
+  Minimize2Icon,
+} from "~/icons";
+import { useClientSettings, getEnvironmentIdentificationMode } from "~/hooks/useSettings";
 import { formatContextWindowTokens } from "~/lib/contextWindow";
 import { cn } from "~/lib/utils";
 import { useShortcutModifierState } from "../../shortcutModifierState";
@@ -18,7 +23,6 @@ import {
   alternateComposerDispatchAction,
   resolveComposerDispatchMode,
 } from "@elysiatools/client-runtime/state/composer-dispatch";
-
 interface PendingActionState {
   questionIndex: number;
   isLastQuestion: boolean;
@@ -26,7 +30,6 @@ interface PendingActionState {
   isResponding: boolean;
   isComplete: boolean;
 }
-
 interface ComposerPrimaryActionsProps {
   compact: boolean;
   canOperateThread: boolean;
@@ -58,7 +61,6 @@ interface ComposerPrimaryActionsProps {
   keepFullHistory?: boolean;
   onToggleKeepFullHistory?: () => void;
 }
-
 const formatPendingPrimaryActionLabel = (input: {
   compact: boolean;
   isLastQuestion: boolean;
@@ -76,14 +78,11 @@ const formatPendingPrimaryActionLabel = (input: {
   }
   return input.questionIndex > 0 ? "Submit answers" : "Submit answer";
 };
-
 const messageActionPillClassName =
   "inline-flex shrink-0 cursor-pointer items-center justify-center gap-1.5 whitespace-nowrap rounded-full bg-message-action font-medium text-base text-message-action-foreground shadow-xs shadow-message-action/24 outline-none hover:bg-message-action-hover focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-64 disabled:shadow-none sm:text-sm";
-
 const preventPointerFocus: PointerEventHandler<HTMLElement> = (event) => {
   event.preventDefault();
 };
-
 export const ComposerPrimaryActions = memo(function ComposerPrimaryActions({
   compact,
   canOperateThread,
@@ -115,9 +114,12 @@ export const ComposerPrimaryActions = memo(function ComposerPrimaryActions({
   onToggleKeepFullHistory,
 }: ComposerPrimaryActionsProps) {
   const pointerFocusProps = preserveComposerFocusOnPointerDown
-    ? { onPointerDown: preventPointerFocus }
+    ? {
+        onPointerDown: preventPointerFocus,
+      }
     : undefined;
   const environmentIdentificationMode = getEnvironmentIdentificationMode();
+  const redesign = useClientSettings((s) => s.redesignEnabled);
   const shortcutModifiers = useShortcutModifierState();
   const isQueuing =
     !isEditingQueuedMessage &&
@@ -132,7 +134,6 @@ export const ComposerPrimaryActions = memo(function ComposerPrimaryActions({
   const stageBackdropVariant = useSidebarStageBackdropVariant(
     environmentIdentificationMode === "artwork",
   );
-
   const renderStopGenerationButton = (insidePendingAction: boolean) => (
     <button
       type="button"
@@ -154,7 +155,6 @@ export const ComposerPrimaryActions = memo(function ComposerPrimaryActions({
       <Square size={12} fill="currentColor" aria-hidden="true" />
     </button>
   );
-
   if (pendingAction) {
     return (
       <div className={cn("flex items-center justify-end", compact ? "gap-1.5" : "gap-2")}>
@@ -204,7 +204,6 @@ export const ComposerPrimaryActions = memo(function ComposerPrimaryActions({
       </div>
     );
   }
-
   if (showPlanFollowUpPrompt && (promptHasText || !canResume)) {
     if (promptHasText) {
       return (
@@ -218,7 +217,6 @@ export const ComposerPrimaryActions = memo(function ComposerPrimaryActions({
         </button>
       );
     }
-
     return (
       <div data-chat-composer-implement-actions="true" className="flex items-center justify-end">
         <button
@@ -272,19 +270,15 @@ export const ComposerPrimaryActions = memo(function ComposerPrimaryActions({
       </div>
     );
   }
-
   if (canInterrupt && !hasSendableContent && !isEditingQueuedMessage) {
     return renderStopGenerationButton(false);
   }
-
   const showResume = canResume && !hasSendableContent && !isEditingQueuedMessage;
-
   const compactTokens =
     compactBeforeSendTokens !== null && !showResume && !isEditingQueuedMessage
       ? formatContextWindowTokens(compactBeforeSendTokens)
       : null;
   const compactsBeforeSend = compactTokens !== null && !keepFullHistory;
-
   const submitLabel = showResume
     ? "Resume thread"
     : isEditingQueuedMessage
@@ -315,15 +309,14 @@ export const ComposerPrimaryActions = memo(function ComposerPrimaryActions({
       : isRunning && !isEditingQueuedMessage && canSteer
         ? `Click to ${followUpBehavior}, Ctrl/⌘-click${alternateShortcutLabel ? ` or ${alternateShortcutLabel}` : ""} to ${alternateAction}`
         : submitLabel);
-
   const sendButton = (
     <button
       type={showResume ? "button" : "submit"}
       className={cn(
-        "relative isolate flex h-9 w-9 items-center justify-center overflow-hidden rounded-full shadow-xs transition-all duration-150 enabled:cursor-pointer enabled:inset-shadow-control-highlight hover:scale-105 active:inset-shadow-control-pressed active:shadow-none disabled:pointer-events-none disabled:opacity-64 disabled:shadow-none disabled:hover:scale-100 sm:h-8 sm:w-8 [&_svg]:pointer-events-none",
+        "relative isolate flex h-9 w-9 items-center justify-center overflow-hidden rounded-full shadow-xs transition-all duration-150 enabled:cursor-pointer enabled:inset-shadow-control-highlight hover:scale-105 active:inset-shadow-control-pressed active:shadow-none disabled:pointer-events-none disabled:shadow-none disabled:hover:scale-100 sm:h-8 sm:w-8 [&_svg]:pointer-events-none",
         stageBackdropVariant
-          ? "bg-transparent text-white enabled:shadow-black/24 enabled:hover:brightness-110"
-          : "bg-message-action text-message-action-foreground enabled:shadow-message-action/24 hover:bg-message-action-hover",
+          ? "bg-transparent text-white enabled:shadow-black/24 enabled:hover:brightness-110 disabled:opacity-64"
+          : "bg-message-action text-message-action-foreground enabled:shadow-message-action/24 hover:bg-message-action-hover disabled:bg-foreground/12 disabled:text-muted-foreground",
       )}
       {...pointerFocusProps}
       onClick={showResume ? onResume : onSubmitMessage}
@@ -366,7 +359,6 @@ export const ComposerPrimaryActions = memo(function ComposerPrimaryActions({
       )}
     </button>
   );
-
   const submit = (
     <Tooltip key="submit">
       <TooltipTrigger render={<span className="inline-flex" />}>{sendButton}</TooltipTrigger>
@@ -374,7 +366,6 @@ export const ComposerPrimaryActions = memo(function ComposerPrimaryActions({
     </Tooltip>
   );
   if (compactTokens === null) return submit;
-
   return (
     <div data-chat-composer-compact-send="true" className="flex items-center gap-2">
       <Tooltip>
@@ -382,12 +373,16 @@ export const ComposerPrimaryActions = memo(function ComposerPrimaryActions({
           render={
             <button
               type="button"
-              className={cn(
-                "flex h-9 shrink-0 cursor-pointer items-center gap-1.5 rounded-full border px-2.5 text-xs tabular-nums outline-none transition-colors focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-64 sm:h-8 [&_svg]:pointer-events-none [&_svg]:size-3.5",
-                keepFullHistory
-                  ? "border-border text-muted-foreground hover:text-foreground"
-                  : "border-warning/40 text-warning hover:bg-warning/8",
-              )}
+              className={
+                redesign
+                  ? "flex h-7 shrink-0 cursor-pointer items-center gap-1.5 rounded-(--control-radius) px-2 font-medium text-base text-foreground/80 tabular-nums outline-none hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-64 sm:text-sm aria-pressed:bg-accent/60 aria-pressed:text-foreground [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:text-muted-foreground"
+                  : cn(
+                      "flex h-9 shrink-0 cursor-pointer items-center gap-1.5 rounded-full border px-2.5 text-xs tabular-nums outline-none transition-colors focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-64 sm:h-8 [&_svg]:pointer-events-none [&_svg]:size-3.5",
+                      keepFullHistory
+                        ? "border-border text-muted-foreground hover:text-foreground"
+                        : "border-warning/40 text-warning hover:bg-warning/8",
+                    )
+              }
               {...pointerFocusProps}
               aria-pressed={!keepFullHistory}
               aria-label={`Compact ${compactTokens} tokens of history before sending`}
@@ -397,8 +392,19 @@ export const ComposerPrimaryActions = memo(function ComposerPrimaryActions({
           }
         >
           <Minimize2Icon aria-hidden="true" />
-          {keepFullHistory ? "Full" : "Compact"}
-          <span>{compactTokens}</span>
+          {/* The new design keeps the token count in the tooltip so the permission label keeps its room. */}
+          {redesign ? (
+            keepFullHistory ? (
+              "Keep full"
+            ) : (
+              "Compact next"
+            )
+          ) : (
+            <>
+              {keepFullHistory ? "Full" : "Compact"}
+              <span>{compactTokens}</span>
+            </>
+          )}
         </TooltipTrigger>
         <TooltipPopup>
           <div>

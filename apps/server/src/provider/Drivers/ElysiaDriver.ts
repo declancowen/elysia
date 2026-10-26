@@ -181,13 +181,19 @@ export const ElysiaDriver: ProviderDriver<ClaudeSettings, ElysiaDriverEnv> = {
     } satisfies ClaudeSettings;
     const modelCatalog = Effect.gen(function* () {
       const settings = yield* elysia.readSettings;
-      return settings._tag === "Some"
-        ? elysiaModelCatalog(
-            settings.value.allowed_models,
-            settings.value.model,
-            yield* elysia.modelMetadata,
-          )
-        : elysiaModelCatalog(ELYSIA_MODELS);
+      const metadata = yield* elysia.modelMetadata;
+      const nativeModels = Object.keys(metadata);
+      const models =
+        nativeModels.length > 0
+          ? nativeModels
+          : settings._tag === "Some"
+            ? settings.value.allowed_models
+            : ELYSIA_MODELS;
+      const nativeDefault =
+        settings._tag === "Some" && models.includes(settings.value.model)
+          ? settings.value.model
+          : "deepseek-v4.1-flash";
+      return elysiaModelCatalog(models, nativeDefault, metadata);
     });
     const continuationGroupKey = yield* makeClaudeContinuationGroupKey(effectiveConfig, processEnv);
     const stampIdentity = withInstanceIdentity({
@@ -215,6 +221,7 @@ export const ElysiaDriver: ProviderDriver<ClaudeSettings, ElysiaDriverEnv> = {
       // A native update installs user MCP/plugins that a live CLI has not loaded.
       queryConfigurationVersion: elysia.configurationVersion,
       authorizeModel: authorize,
+      resolveEnvironment: elysia.modelEnvironment,
       attachmentsDir: (yield* ServerConfig).attachmentsDir,
       crypto: yield* Crypto.Crypto,
       fileSystem: fs,
@@ -237,6 +244,7 @@ export const ElysiaDriver: ProviderDriver<ClaudeSettings, ElysiaDriverEnv> = {
       effectiveConfig,
       processEnv,
       modelCatalog,
+      elysia.modelEnvironment,
     );
     const textGeneration = {
       ...nativeTextGeneration,

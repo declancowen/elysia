@@ -1,14 +1,3 @@
-import { PlusIcon } from "~/icons";
-import { ElysiaSetupSection } from "./ElysiaSetupSection";
-import { isEnabledProviderDriver, SINGLE_PROVIDER_UI } from "@elysiatools/contracts";
-import { SettingsGroup } from "./SettingsGroup";
-import { RefreshIcon } from "~/components/ui/refresh-icon";
-import {
-  AuthSettingsWriteScope,
-  AuthProvidersManageScope,
-  AuthOrchestrationReadScope,
-} from "@elysiatools/contracts";
-import { useEnvironmentScope, readEnvironmentScope } from "../../state/session";
 import { useAtomValue } from "@effect/atom-react";
 import { connectionStatusTitle } from "@elysiatools/client-runtime/connection";
 import { safeErrorLogAttributes } from "@elysiatools/client-runtime/errors";
@@ -17,18 +6,23 @@ import {
   squashAtomCommandFailure,
 } from "@elysiatools/client-runtime/state/runtime";
 import {
+  AuthOrchestrationReadScope,
+  AuthProvidersManageScope,
+  AuthSettingsWriteScope,
   defaultInstanceIdForDriver,
-  type EnvironmentId,
-  type AcpRegistryUrlAuthAction,
+  isEnabledProviderDriver,
   PROVIDER_DISPLAY_NAMES,
   ProviderDriverKind,
+  resolveEnvironmentMachineKind,
+  resolveProjectProviderInstanceEnabled,
+  resolveProviderInstanceEnabled,
+  SINGLE_PROVIDER_UI,
+  type AcpRegistryUrlAuthAction,
+  type EnvironmentId,
   type ProjectId,
   type ProviderInstanceConfig,
   type ProviderInstanceId,
   type ServerProvider,
-  resolveEnvironmentMachineKind,
-  resolveProjectProviderInstanceEnabled,
-  resolveProviderInstanceEnabled,
 } from "@elysiatools/contracts";
 import { DEFAULT_UNIFIED_SETTINGS, type UnifiedSettings } from "@elysiatools/contracts/settings";
 import {
@@ -39,19 +33,25 @@ import * as Arr from "effect/Array";
 import * as Duration from "effect/Duration";
 import * as Result from "effect/Result";
 import { useRef, useState, type ReactNode } from "react";
+import { RefreshIcon } from "~/components/ui/refresh-icon";
+import { PlusIcon } from "~/icons";
+import { readEnvironmentScope, useEnvironmentScope } from "../../state/session";
+import { ElysiaSetupSection } from "./ElysiaSetupSection";
+import { SettingsGroup } from "./SettingsGroup";
 
 import { isDesktopLocalConnectionTarget } from "../../connection/desktopLocal";
+import { useRelativeTimeState } from "../../hooks/useRelativeTimeState";
 import {
   useEnvironmentSettings,
   usePersistEnvironmentProviderInstanceMutation,
-  useUpdateEnvironmentSettings,
-  useUpdateEnvironmentModelPreferences,
   useToggleEnvironmentModelFavorite,
+  useUpdateEnvironmentModelPreferences,
+  useUpdateEnvironmentSettings,
 } from "../../hooks/useSettings";
 import { useStableCallback } from "../../hooks/useStableCallback";
-import { EnvironmentMachineIcon } from "../EnvironmentMachineIcon";
 import { cn } from "../../lib/utils";
 import { resolveAppModelSelectionState } from "../../modelSelection";
+import { useProjects } from "../../state/entities";
 import {
   useEnvironments,
   usePrimaryEnvironmentId,
@@ -63,14 +63,13 @@ import {
   serverEnvironment,
 } from "../../state/server";
 import { useEnvironmentSessionState } from "../../state/session";
-import { useProjects } from "../../state/entities";
 import { useAtomCommand } from "../../state/use-atom-command";
-import { useRelativeTimeState } from "../../hooks/useRelativeTimeState";
 import {
-  ConnectionStatusDot,
   connectionPhaseDotClassName,
   connectionPhasePingClassName,
+  ConnectionStatusDot,
 } from "../ConnectionStatusDot";
+import { EnvironmentMachineIcon } from "../EnvironmentMachineIcon";
 import {
   isProviderSettingsUpdateCandidate,
   isProviderUpdateActive,
@@ -95,18 +94,26 @@ import {
   NumberFieldInput,
 } from "../ui/number-field";
 import { ScrollArea } from "../ui/scroll-area";
+import { stackedThreadToast, toastManager } from "../ui/toast";
 import { Toggle, ToggleGroup } from "../ui/toggle-group";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
-import { stackedThreadToast, toastManager } from "../ui/toast";
 import { AddProviderInstanceDialog } from "./AddProviderInstanceDialog";
-import { ExpandableText } from "./ExpandableText";
-import { ProviderInstanceCard } from "./ProviderInstanceCard";
-import { ProviderSetupSection, readAntigravityAuthMethod } from "./ProviderSetupSection";
-import { ProviderAuthenticationSection } from "./ProviderAuthenticationSection";
-import { CodexSetupSection, CodexManagedRuntimeFields } from "./CodexSetupSection";
+import { CodexManagedRuntimeFields, CodexSetupSection } from "./CodexSetupSection";
 import { readCodexSetupMode } from "./CodexSetupSection.logic";
-import { providerClients } from "./providerDriverMeta";
-import { searchableSetting } from "./settingsSearch";
+import { ExpandableText } from "./ExpandableText";
+import { ProviderAuthenticationSection } from "./ProviderAuthenticationSection";
+import { ProviderInstanceCard } from "./ProviderInstanceCard";
+import {
+  buildProviderEnvironmentOptions,
+  buildProviderInstanceOverridePatch,
+  classifyProviderEnvironmentAccess,
+  isProviderSettingsEnvironmentAvailable,
+  resolveRemoteOperateAccess,
+  resolveSelectedProviderEnvironmentId,
+  type ProviderEnvironmentAccess,
+  type ProviderOperateAccess,
+} from "./ProviderSettingsPanel.logic";
+import { ProviderSetupSection, readAntigravityAuthMethod } from "./ProviderSetupSection";
 import {
   backgroundActivityOverrideSettings,
   buildProviderInstanceUpdatePatch,
@@ -114,6 +121,7 @@ import {
   normalizeIntervalSeconds,
   PROVIDER_HEALTH_INTERVAL_STEP_SECONDS,
 } from "./SettingsPanels.logic";
+import { providerClients } from "./providerDriverMeta";
 import {
   PolicyTooltip,
   SettingResetButton,
@@ -122,16 +130,7 @@ import {
   SettingsSection,
   useSettingsSearchTargetId,
 } from "./settingsLayout";
-import {
-  buildProviderEnvironmentOptions,
-  buildProviderInstanceOverridePatch,
-  classifyProviderEnvironmentAccess,
-  isProviderSettingsEnvironmentAvailable,
-  type ProviderEnvironmentAccess,
-  type ProviderOperateAccess,
-  resolveRemoteOperateAccess,
-  resolveSelectedProviderEnvironmentId,
-} from "./ProviderSettingsPanel.logic";
+import { searchableSetting } from "./settingsSearch";
 
 function modelListChanges(current: ReadonlyArray<string>, next: ReadonlyArray<string>) {
   const currentSet = new Set(current);
@@ -157,8 +156,7 @@ function configuredBinaryPath(config: unknown): string {
   return typeof config.binaryPath === "string" ? config.binaryPath.trim() : "";
 }
 
-// Subscribes on its own: a status push restamps `checkedAt` on every provider,
-// and this label is the only part of the panel that shows it.
+// Subscribe only in the label because every status push restamps all providers' checkedAt.
 function ProviderLastChecked({ environmentId }: { environmentId: EnvironmentId }) {
   const serverProviders =
     useAtomValue(serverEnvironment.providersValueAtom(environmentId)) ?? EMPTY_SERVER_PROVIDERS;
@@ -263,8 +261,7 @@ function EnvironmentUnavailablePlaceholder({
       : `Waiting for ${environment.label}'s configuration.`
     : connectionStatusTitle(environment.connection);
   const error = isLoading ? null : environment.connection.error;
-  // No spinner: this state can persist indefinitely for a wedged device, and a
-  // continuously repainting animation would run the whole time.
+  // Wedged devices can remain here indefinitely; a spinner would continuously repaint.
   return (
     <ProviderSettingsPlaceholder
       deviceTabs={deviceTabs}
@@ -346,7 +343,6 @@ function ProviderSettingsPanelContent(target: ProviderSettingsTarget) {
         hasServerConfig: true,
       }),
   )?.environmentId;
-  // A search jump to a setting the selected device cannot show switches to one that can.
   let searchRedirectEnvironmentId: EnvironmentId | undefined;
   {
     if (
@@ -579,9 +575,7 @@ export function EnvironmentProviderSettings({
   const toggleModelFavorite = useToggleEnvironmentModelFavorite(environmentId);
   const persistProviderInstance = usePersistEnvironmentProviderInstanceMutation(environmentId);
   const serverProviders = useAtomValue(providersIgnoringCheckedAtAtom(environmentId));
-  // Older servers decode an unknown providerInstances key away, so sending
-  // a project override patch would silently do nothing. Hide the switch
-  // instead of offering a control that can never take effect.
+  // Hide overrides on older servers that silently ignore providerInstances patches.
   const supportsProjectProviderOverrides = useAtomValue(
     serverEnvironment.configValueAtom(environmentId),
     (config) => config?.environment.capabilities.projectProviderInstanceOverrides === true,
@@ -610,8 +604,6 @@ export function EnvironmentProviderSettings({
   const refreshingRef = useRef(false);
   const updatingInstanceIdsRef = useRef<Set<ProviderInstanceId>>(new Set());
 
-  // Rows call these at event time and receive the same functions every render,
-  // so a settings write or provider push only redraws the row it changed.
   const acceptUrlAuthentication = useStableCallback(
     (instanceId: ProviderInstanceId, action: AcpRegistryUrlAuthAction) => {
       void acceptAcpRegistryUrlAuth({
@@ -700,8 +692,7 @@ export function EnvironmentProviderSettings({
       updateTarget?: "runtime",
     ) => {
       if (!readEnvironmentScope(environmentId, AuthProvidersManageScope)) return;
-      // Ref-based re-entry guard, mirroring refreshProviders: a state updater
-      // may run after this function returns, so it cannot gate the dispatch.
+      // Guard re-entry with a ref; deferred state updates cannot gate dispatch.
       if (updatingInstanceIdsRef.current.has(candidate.instanceId)) {
         return;
       }
@@ -909,9 +900,7 @@ export function EnvironmentProviderSettings({
       const agentId = providerConfigString(instance.config, "agentId");
       if (agentId === null) return;
 
-      // The server decides from its latest settings whether this was the last
-      // instance using the managed agent. A client-side snapshot check can race
-      // two removals and make both callers skip cleanup.
+      // Concurrent removals race client snapshots; let the server decide whether the agent remains in use.
       const uninstallResult = await uninstallAcpRegistryManagedBinary({
         environmentId,
         input: { agentId },
@@ -1235,12 +1224,7 @@ interface ProviderInstanceRowActions {
 
 const NO_MODELS: ReadonlyArray<string> = [];
 
-/**
- * The boundary that lets the list skip work: the parent rebuilds every row
- * element when settings change, so this cheap component re-renders, but each
- * prop is a primitive, a settings value shared across pushes, or a stable
- * action, and its cached card element is returned unchanged.
- */
+/** Stable props let this boundary return cached cards even when settings rebuild parent row elements. */
 function ProviderInstanceRow({
   environmentId,
   environmentLabel,

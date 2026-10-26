@@ -1,18 +1,11 @@
-import { settlePromise, squashAtomCommandFailure } from "@elysiatools/client-runtime/state/runtime";
-import { AsyncResult } from "effect/reactivity";
-import type { EnvironmentId, ThreadId } from "@elysiatools/contracts";
 import { formatDiffCount } from "@elysiatools/client-runtime/diff-count";
-import { useNavigation, type StaticScreenProps } from "@react-navigation/native";
-import { AppActivityIndicator } from "../../components/ui/AppActivityIndicator";
-import { nativeHeaderScrollEdgeEffects } from "../../native/StackHeader";
-import { AppBar } from "../../components/ui/AppBar";
-import type { AppBarMenuItem } from "../../components/ui/AppBar.types";
-import type { ReviewSectionItem } from "./reviewModel";
-import { useReviewHeaderPresentation } from "./useReviewHeaderPresentation";
-import { Screen, ScreenStack, ScreenStackHeaderConfig } from "react-native-screens";
+import { settlePromise, squashAtomCommandFailure } from "@elysiatools/client-runtime/state/runtime";
+import type { EnvironmentId, ThreadId } from "@elysiatools/contracts";
+import { type StaticScreenProps, useNavigation } from "@react-navigation/native";
+import { AsyncResult } from "effect/reactivity";
 import {
-  type Ref,
   type ReactElement,
+  type Ref,
   useEffect,
   useImperativeHandle,
   useRef,
@@ -20,54 +13,62 @@ import {
 } from "react";
 import {
   FlatList,
+  type NativeSyntheticEvent,
   Platform,
   Pressable,
   RefreshControl,
   ScrollView,
-  type NativeSyntheticEvent,
   StyleSheet,
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Screen, ScreenStack, ScreenStackHeaderConfig } from "react-native-screens";
+import { AppActivityIndicator } from "../../components/ui/AppActivityIndicator";
+import { AppBar } from "../../components/ui/AppBar";
+import type { AppBarMenuItem } from "../../components/ui/AppBar.types";
 import { useNativeColumnLayoutMetrics } from "../../native/native-layout-metrics";
+import { NativeInspectorContent } from "../../native/NativeInspectorContent";
+import { nativeHeaderScrollEdgeEffects } from "../../native/StackHeader";
+import type { ReviewSectionItem } from "./reviewModel";
+import { useReviewHeaderPresentation } from "./useReviewHeaderPresentation";
 
-import { AppText as Text } from "../../components/ui/AppText";
-import { SymbolView } from "../../components/ui/AppSymbol";
 import { AndroidScreenHeader } from "../../components/ui/AndroidScreenHeader";
+import { SymbolView } from "../../components/ui/AppSymbol";
+import { AppText as Text } from "../../components/ui/AppText";
 import { ScreenContent } from "../../components/ui/ScreenContent";
-import { cn } from "../../lib/cn";
 import { environmentCatalog } from "../../connection/catalog";
+import { cn } from "../../lib/cn";
+import { useUniwindTheme } from "../../lib/useUniwindTheme";
 import { useEnvironmentPresentation } from "../../state/presentation";
 import { useAtomCommand } from "../../state/use-atom-command";
-import { useUniwindTheme } from "../../lib/useUniwindTheme";
-import { IOS_NAV_BAR_HEIGHT } from "../../lib/layoutMetrics";
-import { useThreadDraftForThread } from "../threads/use-thread-composer-state";
-import { EnvironmentConnectionNotice } from "../connection/EnvironmentConnectionNotice";
-import { useAppearancePreferences } from "../settings/appearance/AppearancePreferencesProvider";
-import {
-  useAdaptiveWorkspaceLayout,
-  useAdaptiveWorkspacePaneRole,
-  useRegisterWorkspaceInspector,
-} from "../layout/AdaptiveWorkspaceLayout";
 import { useSelectedThreadWorktree } from "../../state/use-selected-thread-worktree";
-import { useReviewCacheForThread } from "./reviewState";
+import { useThreadDraftForThread } from "../../state/use-thread-composer-state";
+import { EnvironmentConnectionNotice } from "../connection/EnvironmentConnectionNotice";
 import {
   isNativeReviewDiffDrawEvent,
   type NativeReviewDiffViewHandle,
   resolveNativeReviewDiffView,
 } from "../diffs/nativeReviewDiffSurface";
-import { NATIVE_REVIEW_DIFF_CONTENT_WIDTH } from "./nativeReviewDiffAdapter";
+import {
+  useAdaptiveWorkspaceLayout,
+  useAdaptiveWorkspacePaneRole,
+  useRegisterWorkspaceInspector,
+} from "../layout/AdaptiveWorkspaceLayout";
+import { useAppearancePreferences } from "../settings/appearance/AppearancePreferencesProvider";
 import { useAppearanceCodeSurface } from "../settings/appearance/useAppearanceCodeSurface";
-import { useReviewDiffData } from "./useReviewDiffData";
-import { useReviewDiffPrewarming } from "./useReviewDiffPrewarming";
+import { reportShowcaseSceneRendered } from "../showcase/showcaseRenderSignal";
+import { useSelectWorkspaceDetail } from "../workspace/useSelectWorkspaceDetail";
+import { NATIVE_REVIEW_DIFF_CONTENT_WIDTH } from "./nativeReviewDiffAdapter";
+import { buildReviewSectionMenu } from "./review-section-menu";
+import { resolveReviewAvailability } from "./reviewAvailability";
 import { useReviewFileVisibility } from "./reviewFileVisibility";
-import { useReviewSections } from "./useReviewSections";
+import { resolveSelectedReviewFileId } from "./reviewPaneSelection";
+import { useReviewCacheForThread } from "./reviewState";
 import { useNativeReviewDiffBridge } from "./useNativeReviewDiffBridge";
 import { useReviewCommentSelectionController } from "./useReviewCommentSelectionController";
-import { resolveReviewAvailability } from "./reviewAvailability";
-import { resolveSelectedReviewFileId } from "./reviewPaneSelection";
-import { buildReviewSectionMenu } from "./review-section-menu";
-import { reportShowcaseSceneRendered } from "../showcase/showcaseRenderSignal";
+import { useReviewDiffData } from "./useReviewDiffData";
+import { useReviewDiffPrewarming } from "./useReviewDiffPrewarming";
+import { useReviewSections } from "./useReviewSections";
 
 function ReviewHeader(
   props: Parameters<typeof useReviewHeaderPresentation>[0] & {
@@ -307,7 +308,6 @@ function ReviewFileNavigator({
   onSelectFile,
   ref,
 }: ReviewFileNavigatorProps) {
-  const insets = useSafeAreaInsets();
   const theme = useUniwindTheme();
   const sheetColor = theme["--color-sheet"];
   const foregroundColor = theme["--color-foreground"];
@@ -359,15 +359,8 @@ function ReviewFileNavigator({
       data={files}
       extraData={selectedFileId}
       keyExtractor={(file) => file.id}
-      contentContainerStyle={{
-        paddingHorizontal: 8,
-        paddingBottom: 8,
-
-        paddingTop: Platform.OS === "ios" ? insets.top + IOS_NAV_BAR_HEIGHT + 8 : 8,
-      }}
-      scrollIndicatorInsets={
-        Platform.OS === "ios" ? { top: insets.top + IOS_NAV_BAR_HEIGHT } : undefined
-      }
+      contentInsetAdjustmentBehavior={Platform.OS === "ios" ? "automatic" : "never"}
+      contentContainerStyle={{ paddingHorizontal: 8, paddingVertical: 8 }}
       renderItem={renderFile}
     />
   );
@@ -384,7 +377,7 @@ function ReviewFileNavigator({
             scrollEdgeEffects={headerScrollEdgeEffects}
             style={{ backgroundColor: sheetColor, flex: 1 }}
           >
-            {fileList}
+            <NativeInspectorContent>{fileList}</NativeInspectorContent>
             <ScreenStackHeaderConfig
               backgroundColor="rgba(0,0,0,0)"
               color={foregroundColor}
@@ -441,6 +434,7 @@ export function ReviewSheet(props: ReviewSheetProps) {
   useAdaptiveWorkspacePaneRole("inspector");
   const { panes, showAuxiliaryPane } = useAdaptiveWorkspaceLayout();
   const navigation = useNavigation();
+  const selectDetail = useSelectWorkspaceDetail();
   const insets = useSafeAreaInsets();
   const { themeAppearance: selectedTheme } = useAppearancePreferences();
   const headerIcon = String(useUniwindTheme()["--color-icon"]);
@@ -459,6 +453,7 @@ export function ReviewSheet(props: ReviewSheetProps) {
 
   useEffect(() => {
     showAuxiliaryPane("inspector");
+    // oxlint-disable-next-line react/exhaustive-effect-dependencies -- Opening review for another thread reselects its inspector pane.
   }, [environmentId, showAuxiliaryPane, threadId]);
   const {
     error,
@@ -467,7 +462,6 @@ export function ReviewSheet(props: ReviewSheetProps) {
     refreshSelectedSection,
     selectSection,
     isSelectedSectionPending,
-    diffPreviewRevision,
   } = useReviewSections({
     enabled: isEnvironmentReady,
     environmentId,
@@ -491,13 +485,9 @@ export function ReviewSheet(props: ReviewSheetProps) {
     environmentId,
     cwd: selectedThreadCwd,
     selectedSection,
-    revision: diffPreviewRevision,
     draftMessage,
   });
-  // Resolution returns null while Expo registers the native view (or forever
-  // when the binary lacks it). Rendering a null component type crashes the
-  // app, so callers must fall back — ThreadFeed's ReviewCommentCard does the
-  // same check.
+  // Expo may return null before registration or in older binaries; use the fallback.
   const NativeReviewDiffView = resolveNativeReviewDiffView();
   const nativeReviewDiffViewRef = useRef<NativeReviewDiffViewHandle>(null);
   const showcasedReviewDrawRef = useRef<string | null>(null);
@@ -621,9 +611,9 @@ export function ReviewSheet(props: ReviewSheetProps) {
       navigation.goBack();
       return;
     }
-    navigation.navigate("Thread", {
-      environmentId: String(environmentId),
-      threadId: String(threadId),
+    selectDetail({
+      name: "Thread",
+      params: { environmentId: String(environmentId), threadId: String(threadId) },
     });
   };
   const androidHeaderSubtitle = [
@@ -730,6 +720,7 @@ export function ReviewSheet(props: ReviewSheetProps) {
               >
                 {listHeader}
                 <View className="min-w-0 flex-1" collapsable={false}>
+                  {/* oxlint-disable-next-line react/static-components -- The resolver returns a cached native component with stable identity. */}
                   <NativeReviewDiffView
                     collapsable={false}
                     testID="review-native-diff-view"
@@ -779,10 +770,7 @@ export function ReviewSheet(props: ReviewSheetProps) {
               showsVerticalScrollIndicator={false}
               className="flex-1"
               refreshControl={
-                // The native diff surface owns pull-to-refresh via onPullToRefresh;
-                // the raw fallback (and empty states) need an explicit control —
-                // iOS has no other refresh affordance here (the explicit
-                // "Refresh current diff" menu is Android-only).
+                // Fallback and empty states need refresh controls; only Android has an explicit refresh menu.
                 <RefreshControl
                   refreshing={isPullRefreshing || isSelectedSectionPending || areFilePatchesPending}
                   onRefresh={() => void handlePullToRefresh()}

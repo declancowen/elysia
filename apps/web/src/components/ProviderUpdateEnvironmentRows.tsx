@@ -169,18 +169,11 @@ export function ProviderUpdateEnvironmentRows({
 
   const [visibleAfterIso] = useState(() => new Date().toISOString());
 
-  // setPendingEnvironments is an async state update, and PENDING_EXPIRY_MS can
-  // clear the spinner while a request is still in flight, so a rapid
-  // double-click (or a click after the expiry fires mid- request) would
-  // otherwise dispatch a second full round of updates. A ref updates
-  // synchronously, so we can bail before doing any work.
+  // A synchronous guard prevents duplicate dispatch before React publishes pending state
+  // and while the request-expiry timer clears its spinner.
   const inFlightEnvironmentsRef = useRef<Set<EnvironmentId>>(new Set());
 
-  // Bumped on each dispatch and captured locally, so an attempt that was
-  // superseded -- e.g. one that already tripped the expiry safety net and was
-  // retried -- detects it is no longer current and skips every state write when
-  // it finally resolves, instead of clobbering the newer attempt's
-  // spinner/result/error or its in-flight guard.
+  // Expired attempts must not overwrite a later retry’s result or in-flight guard.
   const requestVersionRef = useRef<Map<EnvironmentId, number>>(new Map());
 
   const [pendingEnvironments, setPendingEnvironments] = useState<ReadonlySet<EnvironmentId>>(
@@ -250,7 +243,7 @@ export function ProviderUpdateEnvironmentRows({
       inFlightEnvironmentsRef.current.delete(environmentId);
       clearPending(environmentId);
       setErrorByEnvironment((previous) =>
-        new Map(previous).set(environmentId, "Update timed out — try again."),
+        new Map(previous).set(environmentId, "Update timed out. Try again."),
       );
     }, PENDING_EXPIRY_MS);
     const settled = await settlePromise(async () => {
@@ -299,7 +292,7 @@ export function ProviderUpdateEnvironmentRows({
         setErrorByEnvironment((previous) =>
           new Map(previous).set(
             environmentId,
-            "This environment isn’t connected — try again once it reconnects.",
+            "This environment is not connected. Try again once it reconnects.",
           ),
         );
         return;

@@ -1,22 +1,30 @@
+vi.mock("vite-plus/test/browser", () => ({
+  page: { elementLocator: () => ({}) },
+  utils: { getElementLocatorSelectors: () => ({}) },
+}));
+import { render as renderUi } from "../../../test/render";
+import { act } from "../../../test/act";
 // @vitest-environment jsdom
-import { act } from "react";
-import { createRoot } from "react-dom/client";
+
 import { expect, it, vi } from "vite-plus/test";
 
-vi.mock("~/hooks/useSettings", () => ({ getEnvironmentIdentificationMode: () => "none" }));
+vi.mock("~/hooks/useSettings", () => ({
+  getEnvironmentIdentificationMode: () => "none",
+  useClientSettings: (select: (settings: { redesignEnabled: boolean }) => unknown) =>
+    select({ redesignEnabled: false }),
+}));
 vi.mock("../SidebarStageBackdrop", () => ({ useSidebarStageBackdropVariant: () => null }));
 
 import { ComposerPrimaryActions } from "./ComposerPrimaryActions";
 
 it("implements an agent plan in its existing conversation and keeps the new-thread menu for regular projects", async () => {
-  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   const container = document.createElement("div");
   document.body.append(container);
-  const root = createRoot(container);
+  await using root = await renderUi(null, { container: container, router: false });
   const implement = vi.fn();
   const implementInNewThread = vi.fn();
   const render = (allowImplementPlanInNewThread: boolean) =>
-    root.render(
+    root.rerender(
       <form
         onSubmit={(event) => {
           event.preventDefault();

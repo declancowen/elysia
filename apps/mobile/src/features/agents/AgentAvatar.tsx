@@ -56,6 +56,7 @@ export function AgentAvatar({
   const tilt = useSharedValue(0);
   const reducedMotion = useReducedMotion();
   const bodyStyle = useAnimatedStyle(() => ({ transform: [{ rotate: `${tilt.value}deg` }] }));
+  // oxlint-disable-next-line elysia/react-effect-budget -- Start and stop native Reanimated work when app visibility or motion preferences change; remove the AppState subscription on unmount.
   useEffect(() => {
     const stop = () => {
       cancelAnimation(blink);

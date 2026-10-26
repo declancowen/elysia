@@ -1,7 +1,13 @@
+vi.mock("vite-plus/test/browser", () => ({
+  page: { elementLocator: () => ({}) },
+  utils: { getElementLocatorSelectors: () => ({}) },
+}));
+import { render as renderUi } from "../../test/render";
+import { act } from "../../test/act";
 // @vitest-environment jsdom
 import { DEFAULT_RESOLVED_KEYBINDINGS } from "@elysiatools/shared/keybindings";
-import { act, type ReactNode } from "react";
-import { createRoot } from "react-dom/client";
+import { type ReactNode } from "react";
+
 import { expect, it, vi } from "vite-plus/test";
 import { RightPanelTabs } from "./RightPanelTabs";
 
@@ -18,7 +24,6 @@ vi.mock("./preview/PreviewPanelShell", () => ({
 }));
 
 it("moves the tab bar between header hosts without closing its menu or changing tab actions", async () => {
-  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   vi.stubGlobal(
     "ResizeObserver",
     class {
@@ -39,15 +44,15 @@ it("moves the tab bar between header hosts without closing its menu or changing 
   const firstHost = document.createElement("div");
   const secondHost = document.createElement("div");
   document.body.append(content, firstHost, secondHost);
-  const root = createRoot(content);
+  await using root = await renderUi(null, { container: content, router: false });
   const agents = { id: "agents", kind: "agents" } as const;
   const sources = { id: "sources", kind: "sources" } as const;
   const onActivate = vi.fn();
   const onCloseSurface = vi.fn();
   const onAddSources = vi.fn();
-  const render = (tabBarHost: HTMLElement) =>
-    act(async () =>
-      root.render(
+  const render = async (tabBarHost: HTMLElement) =>
+    await act(async () =>
+      root.rerender(
         <RightPanelTabs
           mode="inline"
           keybindings={DEFAULT_RESOLVED_KEYBINDINGS}

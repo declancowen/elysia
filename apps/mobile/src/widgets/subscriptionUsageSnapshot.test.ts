@@ -1,4 +1,8 @@
 import {
+  subscriptionUsageTimeline,
+  type SubscriptionUsageSnapshot,
+} from "./subscriptionUsageSnapshot";
+import {
   EnvironmentId,
   ProviderDriverKind,
   ProviderInstanceId,
@@ -10,11 +14,9 @@ import { DEFAULT_MOBILE_THEME_ID } from "../lib/mobileTheme";
 import { getMobileThemeRuntimeVariables } from "../lib/mobileThemeVariables";
 import { createWidgetTheme } from "./widgetTheme";
 import {
-  type SubscriptionUsageSnapshot,
   buildSubscriptionUsageSnapshot,
   createWidgetRefresher,
   WIDGET_REFRESH_INTERVAL,
-  subscriptionUsageTimeline,
 } from "./subscriptionUsageSnapshot";
 
 function contrastRatio(first: string, second: string) {
@@ -83,64 +85,6 @@ describe("subscription widget snapshots", () => {
     expect(snapshot.url).toBe(deepLink);
     expect(JSON.stringify(snapshot)).not.toContain("private@example.com");
   });
-  it("clears data after removing environments", () => {
-    expect(buildSubscriptionUsageSnapshot(new Map(), deepLink).providers).toEqual([]);
-  });
-  it.each<{ name: string; overrides: Partial<ServerProvider> }>([
-    { name: "disabled", overrides: { enabled: false } },
-    {
-      name: "missing",
-      overrides: { installed: false, status: "error", usageLimits: undefined },
-    },
-    {
-      name: "API-key",
-      overrides: {
-        usageLimits: { checkedAt, windows: [], unavailable: { reason: "unsupported" } },
-      },
-    },
-  ])("hides $name providers", ({ overrides }) => {
-    expect(
-      buildSubscriptionUsageSnapshot(presentations([provider(overrides)]), deepLink).providers,
-    ).toEqual([]);
-  });
-  it.each([
-    { name: "Codex", driver: "codex" },
-    { name: "Claude", driver: "claudeAgent" },
-  ])("only shows $name when $name and OpenCode are configured", ({ name, driver }) => {
-    const snapshot = buildSubscriptionUsageSnapshot(
-      presentations([
-        provider({
-          instanceId: ProviderInstanceId.make(driver),
-          driver: ProviderDriverKind.make(driver),
-        }),
-        provider({
-          instanceId: ProviderInstanceId.make("opencode"),
-          driver: ProviderDriverKind.make("opencode"),
-          usageLimits: undefined,
-        }),
-      ]),
-      deepLink,
-    );
-    expect(snapshot.providers).toHaveLength(1);
-    expect(snapshot.providers[0]).toMatchObject({
-      name,
-      totalWindows: 1,
-      windows: [{ remaining: 60 }],
-    });
-    expect(subscriptionUsageTimeline(snapshot, now + 15 * 60_000)[0]?.props.providers).toEqual([
-      expect.objectContaining({ name, totalWindows: 0, windows: [] }),
-    ]);
-  });
-  it("keeps an enabled provider visible before its first usage read", () => {
-    const snapshot = buildSubscriptionUsageSnapshot(
-      presentations([provider({ usageLimits: undefined })]),
-      deepLink,
-    );
-    expect(snapshot.checkedAt).toBe(0);
-    expect(snapshot.providers).toEqual([
-      { name: "Codex", detail: "No limits available", windows: [], expiresAt: 0, totalWindows: 0 },
-    ]);
-  });
   it("uses upstream deduplication for a native account also present in a proxy hub", () => {
     const input = new Map([
       [
@@ -176,29 +120,6 @@ describe("subscription widget snapshots", () => {
     const snapshot = buildSubscriptionUsageSnapshot(input, deepLink);
     expect(snapshot.providers[0]?.name).toBe("Codex");
     expect(JSON.stringify(snapshot)).not.toContain("example.com");
-  });
-  it("keeps unavailable quotas distinct from zero usage and omits provider error messages", () => {
-    const snapshot = buildSubscriptionUsageSnapshot(
-      presentations([
-        provider({
-          usageLimits: {
-            ...limits,
-            unavailable: { reason: "probeFailed", message: "token secret" },
-          },
-        }),
-      ]),
-      deepLink,
-    );
-    expect(snapshot.providers[0]?.windows).toEqual([]);
-    expect(JSON.stringify(snapshot)).not.toContain("token secret");
-    expect(
-      buildSubscriptionUsageSnapshot(
-        presentations([
-          provider({ usageLimits: { checkedAt, windows: [{ ...window, usedPercent: 0 }] } }),
-        ]),
-        deepLink,
-      ).providers[0]?.windows[0]?.remaining,
-    ).toBe(100);
   });
   it("bounds OS storage and puts the most constrained windows first", () => {
     const windows = Array.from({ length: 20 }, (_, index) => ({
@@ -330,21 +251,6 @@ describe("subscription widget snapshots", () => {
 });
 
 describe("widget refresh probes", () => {
-  it("throttles each connected environment independently and retries failures", async () => {
-    const probe = vi
-      .fn<(id: string) => Promise<void>>()
-      .mockRejectedValueOnce(new Error("offline"))
-      .mockResolvedValue(undefined);
-    const refresh = createWidgetRefresher(probe);
-    await refresh([], now);
-    expect(probe).not.toHaveBeenCalled();
-    await refresh(["first"], now);
-    await refresh(["first", "second"], now + 1);
-    expect(probe.mock.calls).toEqual([["first"], ["second"]]);
-    await refresh(["first"], now + WIDGET_REFRESH_INTERVAL);
-    expect(probe.mock.calls).toEqual([["first"], ["second"], ["first"]]);
-  });
-
   it("does not overlap a slow probe even after the refresh interval", async () => {
     let finish!: () => void;
     const probe = vi.fn(

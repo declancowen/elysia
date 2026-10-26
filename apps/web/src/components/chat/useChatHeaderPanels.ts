@@ -16,9 +16,11 @@ export function useChatHeaderPanels(
   const overviewChanged = (open: boolean) => {
     if (open) setDetailsOpen(false);
   };
+  // oxlint-disable-next-line elysia/react-effect-budget -- Notify the pane owner of reserved header space before the portaled layout paints.
   useLayoutEffect(() => {
     onDockedChange?.(overviewDocked || (detailsOpen && wide));
   }, [onDockedChange, overviewDocked, detailsOpen, wide]);
+  // oxlint-disable-next-line elysia/react-effect-budget -- Release the parent pane reservation when this header owner unmounts.
   useLayoutEffect(() => () => onDockedChange?.(false), [onDockedChange]);
   return {
     detailsOpen,

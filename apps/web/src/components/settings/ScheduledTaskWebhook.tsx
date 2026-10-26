@@ -1,3 +1,4 @@
+import { webhookDeliveryLabel } from "./scheduledTasksSettings.logic";
 import { useState, type ReactNode } from "react";
 import { useAtomValue } from "@effect/atom-react";
 import {
@@ -5,7 +6,6 @@ import {
   type EnvironmentId,
   type ScheduledTask,
   type ScheduledTaskWebhookDeliverySummary,
-  type ScheduledTaskWebhookDeliveryOutcome,
 } from "@elysiatools/contracts";
 import {
   isAtomCommandInterrupted,
@@ -45,18 +45,17 @@ const relativeLabel = (value: string) => {
       : relative.value
     : "Unknown";
 };
-const DELIVERY_OUTCOME_LABELS: Record<ScheduledTaskWebhookDeliveryOutcome, string> = {
-  accepted: "Ran",
-  dispatch_failed: "Run failed",
-  rejected_signature: "Bad signature",
-  disabled: "Task paused",
-  rate_limited: "Rate limited",
-  expired: "Too old",
-};
 
-function deliveryOutcomeVariant(outcome: ScheduledTaskWebhookDeliveryOutcome) {
+function deliveryOutcomeVariant(outcome: string) {
   if (outcome === "accepted") return "success";
-  if (outcome === "disabled" || outcome === "rate_limited" || outcome === "expired") {
+  if (
+    outcome === "duplicate" ||
+    outcome === "coalesced" ||
+    outcome === "filtered" ||
+    outcome === "disabled" ||
+    outcome === "rate_limited" ||
+    outcome === "expired"
+  ) {
     return "warning";
   }
   return "error";
@@ -111,7 +110,7 @@ export function WebhookDeliveriesDialog({
             <div className="space-y-4">
               <div className="flex flex-wrap items-center gap-2 text-sm">
                 <Badge variant={deliveryOutcomeVariant(selected.outcome)}>
-                  {DELIVERY_OUTCOME_LABELS[selected.outcome]}
+                  {webhookDeliveryLabel(selected)}
                 </Badge>
                 <span>
                   {selected.method} · {relativeLabel(selected.receivedAt)}
@@ -157,7 +156,7 @@ export function WebhookDeliveriesDialog({
                     onClick={() => setSelectedId(delivery.id)}
                   >
                     <Badge variant={deliveryOutcomeVariant(delivery.outcome)}>
-                      {DELIVERY_OUTCOME_LABELS[delivery.outcome]}
+                      {webhookDeliveryLabel(delivery)}
                     </Badge>
                     <span>{delivery.method}</span>
                     <span className="text-muted-foreground">

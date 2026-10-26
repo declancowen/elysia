@@ -25,6 +25,7 @@ function DelegatedAvatar(props: {
   const status = result.data?.status ?? (result.error ? "unavailable" : "queued");
   const { onStatus } = props;
   const activityId = props.delegation.activityId;
+  // oxlint-disable-next-line elysia/react-effect-budget -- Report asynchronously observed delegation status to the parent status cache after commit, never during child render.
   useEffect(() => onStatus(activityId, status), [onStatus, activityId, status]);
   const name = project?.title ?? props.delegation.agentName;
   return (

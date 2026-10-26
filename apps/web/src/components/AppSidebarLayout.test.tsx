@@ -1,6 +1,12 @@
+vi.mock("vite-plus/test/browser", () => ({
+  page: { elementLocator: () => ({}) },
+  utils: { getElementLocatorSelectors: () => ({}) },
+}));
+import { render as renderUi } from "../../test/render";
+import { act } from "../../test/act";
 // @vitest-environment jsdom
-import { act, type ReactNode } from "react";
-import { createRoot } from "react-dom/client";
+import { type ReactNode } from "react";
+
 import { expect, it, vi } from "vite-plus/test";
 import { AppSidebarLayout } from "./AppSidebarLayout";
 import { setAgentSidebarActive } from "./agents/agentSidebarStore";
@@ -13,6 +19,12 @@ const state = vi.hoisted(() => ({
 vi.mock("@effect/atom-react", () => ({ useAtomValue: () => [] }));
 vi.mock("@tanstack/react-router", () => ({
   useNavigate: () => vi.fn(),
+  useRouter: () => ({
+    get state() {
+      return { location: { pathname: state.pathname, state: {} }, matches: [] };
+    },
+    navigate: vi.fn(),
+  }),
   useCanGoBack: () => false,
   useParams: () => ({}),
   useLocation: (options?: {
@@ -75,7 +87,6 @@ vi.mock("./agents/AgentsSidebar", () => ({ AgentsSidebar: () => <p>Agent navigat
 vi.mock("./settings/SettingsSidebarNav", () => ({ SettingsSidebarNav: () => null }));
 
 it("opens and closes the mobile sidebar from the main page", async () => {
-  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   vi.stubGlobal("cookieStore", { set: vi.fn(async () => {}) });
   vi.stubGlobal("innerWidth", 500);
   vi.stubGlobal("matchMedia", () => ({
@@ -93,10 +104,10 @@ it("opens and closes the mobile sidebar from the main page", async () => {
   });
   const container = document.createElement("div");
   document.body.append(container);
-  const root = createRoot(container);
+  await using root = await renderUi(null, { container: container, router: false });
   try {
     await act(async () =>
-      root.render(
+      root.rerender(
         <AppSidebarLayout>
           <p>Current chat</p>
         </AppSidebarLayout>,
@@ -117,7 +128,7 @@ it("opens and closes the mobile sidebar from the main page", async () => {
     expect(opener.getAttribute("aria-pressed")).toBe("false");
     state.pathname = "/projects";
     await act(async () =>
-      root.render(
+      root.rerender(
         <AppSidebarLayout>
           <p>Projects</p>
         </AppSidebarLayout>,
@@ -140,7 +151,6 @@ it("opens and closes the mobile sidebar from the main page", async () => {
 });
 
 it("retains Agents beside its conversations and restores each Home sidebar and utility view", async () => {
-  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   vi.stubGlobal("cookieStore", { set: vi.fn(async () => {}) });
   vi.stubGlobal("innerWidth", 1280);
   vi.stubGlobal("matchMedia", () => ({
@@ -150,10 +160,10 @@ it("retains Agents beside its conversations and restores each Home sidebar and u
   }));
   const host = document.createElement("div");
   document.body.append(host);
-  const root = createRoot(host);
-  const render = () =>
-    act(async () =>
-      root.render(
+  await using root = await renderUi(null, { container: host, router: false });
+  const render = async () =>
+    await act(async () =>
+      root.rerender(
         <AppSidebarLayout>
           <p>Conversation body</p>
         </AppSidebarLayout>,
@@ -219,7 +229,6 @@ it("retains Agents beside its conversations and restores each Home sidebar and u
 });
 
 it("restores each surface width and resets only the current surface", async () => {
-  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   vi.stubGlobal("cookieStore", { set: vi.fn(async () => {}) });
   vi.stubGlobal("innerWidth", 1440);
   vi.stubGlobal("matchMedia", () => ({
@@ -235,11 +244,11 @@ it("restores each surface width and resets only the current surface", async () =
   };
   const host = document.createElement("div");
   document.body.append(host);
-  const root = createRoot(host);
-  const render = (pathname: string) => {
+  await using root = await renderUi(null, { container: host, router: false });
+  const render = async (pathname: string) => {
     state.pathname = pathname;
-    return act(async () =>
-      root.render(
+    return await act(async () =>
+      root.rerender(
         <AppSidebarLayout>
           <p>{pathname}</p>
         </AppSidebarLayout>,

@@ -302,6 +302,7 @@ export function TasksPage() {
     onOpen: () => setPanelOpen(false),
   });
   const refreshSelected = selectedQuery.refresh;
+  // oxlint-disable-next-line elysia/react-effect-budget -- Invalidate the selected detail RPC lease when its live task summary advances.
   useEffect(() => {
     if (
       summary &&
@@ -1437,9 +1438,7 @@ function TaskEditor({
     setDescription(task.description);
     setReady(true);
   }
-  useEffect(() => {
-    draft.current = { title, description };
-  }, [title, description]);
+  // oxlint-disable-next-line elysia/react-effect-budget -- Reconcile externally updated task revisions with the local unsaved draft and conflict baseline.
   useEffect(() => {
     if (initializing.current) {
       if (task.revision < initialRevision) return;
@@ -1460,8 +1459,16 @@ function TaskEditor({
       setConflicted(true);
       return;
     }
-    setTitle((value) => (value === old.title ? task.title : value));
-    setDescription((value) => (value === old.description ? task.description : value));
+    const next = {
+      title: draft.current.title === old.title ? task.title : draft.current.title,
+      description:
+        draft.current.description === old.description
+          ? task.description
+          : draft.current.description,
+    };
+    draft.current = next;
+    setTitle(next.title);
+    setDescription(next.description);
     saved.current = task;
   }, [task, initialRevision]);
   const flush = useStableCallback(async function flush(): Promise<boolean> {
@@ -1504,6 +1511,7 @@ function TaskEditor({
       return flush();
     return result;
   });
+  // oxlint-disable-next-line elysia/react-effect-budget -- Own the cancellable debounce that saves the editor draft through the server command.
   useEffect(() => {
     if (error || (title === saved.current.title && description === saved.current.description))
       return;
@@ -1539,6 +1547,7 @@ function TaskEditor({
             maxLength={200}
             value={title}
             onChange={(event) => {
+              draft.current = { ...draft.current, title: event.target.value };
               setTitle(event.target.value);
               setError(null);
             }}
@@ -1581,6 +1590,7 @@ function TaskEditor({
             label="Task"
             value={taskEditorContent(description)}
             onChange={(content) => {
+              draft.current = { ...draft.current, description: content };
               setDescription(content);
               setError(null);
             }}
@@ -1732,7 +1742,7 @@ function TaskEditor({
             ].map(([label, date]) => (
               <div key={label} className="flex justify-between gap-3">
                 <dt>{label}</dt>
-                <dd>{date ? formatCalendarDate(date) : "—"}</dd>
+                <dd>{date ? formatCalendarDate(date) : "–"}</dd>
               </div>
             ))}
           </dl>

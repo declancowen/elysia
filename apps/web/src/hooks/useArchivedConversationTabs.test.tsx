@@ -1,4 +1,5 @@
-import { act } from "react";
+import { act } from "../../test/act";
+
 import { create, type ReactTestRenderer } from "react-test-renderer";
 import { beforeEach, expect, it, vi } from "vite-plus/test";
 import { EnvironmentId, ProjectId, ThreadId } from "@elysiatools/contracts";

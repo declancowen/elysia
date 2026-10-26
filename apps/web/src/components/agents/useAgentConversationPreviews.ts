@@ -50,6 +50,7 @@ export function useAgentConversationPreviews(agents: readonly AgentRosterEntry[]
     ),
   );
   const revisions = useRef(new Map<string, { value: string; dirty: boolean }>());
+  // oxlint-disable-next-line elysia/react-effect-budget -- Refresh bounded preview RPC leases when externally pushed conversation revisions change.
   useEffect(() => {
     const liveKeys = new Set(batches.map((batch) => batch.key));
     for (const key of revisions.current.keys())

@@ -1,6 +1,10 @@
 import { UPSTREAM_ANALYTICS_ENABLED } from "@elysiatools/contracts";
-import Constants from "expo-constants";
 import * as RelayTracing from "@elysiatools/shared/relayTracing";
+import {
+  type ReleaseChannel,
+  releaseResourceAttributes,
+} from "@elysiatools/shared/releaseResource";
+import Constants from "expo-constants";
 
 import { hasTracingPublicConfig, resolveCloudPublicConfig } from "../cloud/publicConfig";
 
@@ -12,8 +16,15 @@ export interface TracingConfig {
 
 export interface TracingResource {
   readonly serviceVersion?: string;
+  readonly serviceInstanceId: string;
   readonly appVariant: string;
 }
+
+const RELEASE_CHANNEL_BY_VARIANT: Readonly<Record<string, ReleaseChannel | undefined>> = {
+  development: "dev",
+  preview: "preview",
+  production: "stable",
+};
 
 export function resolveTracingConfig(): TracingConfig | null {
   if (!UPSTREAM_ANALYTICS_ENABLED) return null;
@@ -26,16 +37,23 @@ export function resolveTracingConfig(): TracingConfig | null {
 }
 
 export function layerFromConfig(config: TracingConfig | null, resource: TracingResource) {
+  const channel =
+    typeof __DEV__ !== "undefined" && __DEV__
+      ? "dev"
+      : RELEASE_CHANNEL_BY_VARIANT[resource.appVariant];
   return RelayTracing.layer(UPSTREAM_ANALYTICS_ENABLED ? config : null, {
     serviceName: "elysia-mobile",
     serviceVersion: resource.serviceVersion,
     runtime: "react-native",
+    serviceInstanceId: resource.serviceInstanceId,
     client: `mobile-${resource.appVariant}`,
+    attributes: channel && releaseResourceAttributes(channel),
   });
 }
 
 export const layer = layerFromConfig(resolveTracingConfig(), {
   serviceVersion: Constants.expoConfig?.version,
+  serviceInstanceId: Constants.sessionId,
   appVariant:
     typeof Constants.expoConfig?.extra?.appVariant === "string"
       ? Constants.expoConfig.extra.appVariant

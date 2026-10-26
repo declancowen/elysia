@@ -15,7 +15,7 @@ export type ContentBlock =
   | KnownContentBlock<"resource_link">
   | KnownContentBlock<"resource">
   | {
-      readonly type: "_t3_unknown";
+      readonly type: "_elysia_unknown";
       readonly originalType: string;
       readonly raw: unknown;
     };
@@ -242,6 +242,7 @@ export type PromptRequest = Omit<V2.PromptRequest, "prompt"> & {
 export interface PromptResponse {
   readonly stopReason: StopReason;
   readonly usage?: V2.Usage | null;
+  readonly error?: V2.Error | null;
   readonly _meta?: Meta;
 }
 
@@ -262,7 +263,7 @@ export type ToolCallContent =
     }
   | { readonly type: "terminal"; readonly terminalId: string; readonly _meta?: Meta }
   | {
-      readonly type: "_t3_unknown";
+      readonly type: "_elysia_unknown";
       readonly originalType: string;
       readonly raw: unknown;
     };
@@ -358,7 +359,7 @@ export type SessionUpdate =
   | { readonly sessionUpdate: "plan"; readonly entries: ReadonlyArray<V2.PlanEntry> }
   | { readonly sessionUpdate: "current_mode_update"; readonly currentModeId: string }
   | {
-      readonly sessionUpdate: "_t3_unknown";
+      readonly sessionUpdate: "_elysia_unknown";
       readonly originalSessionUpdate: string;
       readonly raw: unknown;
     };

@@ -1,13 +1,11 @@
 import { useAtomValue } from "@effect/atom-react";
 import { createContext, type ReactNode, useContext } from "react";
-
 import { useEnvironments, usePrimaryEnvironmentId } from "../../state/environments";
-import { memberProjectFilesAtom, type ProjectFileMember } from "./settingsProjectFiles";
-import { useSettingsProjectGroups } from "./useSettingsProjectGroups";
 import { resolveScopedSettingsTargets, selectScopedSettingsEnvironments } from "./scopedSettings";
+import { memberProjectFilesAtom, type ProjectFileMember } from "./settingsProjectFiles";
 import { resolveSettingsScope, type SettingsScopeSearch } from "./settingsScope";
 import { selectSingleEnvironmentScope } from "./settingsScopeAxis";
-
+import { useSettingsProjectGroups } from "./useSettingsProjectGroups";
 function useMemberProjectFiles(scope: ReturnType<typeof resolveSettingsScope>) {
   const members = scope.kind === "project" || scope.kind === "checkout" ? scope.members : [];
   return useAtomValue(
@@ -22,7 +20,6 @@ function useMemberProjectFiles(scope: ReturnType<typeof resolveSettingsScope>) {
     ),
   );
 }
-
 function useResolvedSettingsScope(rawSearch: SettingsScopeSearch, singleEnvironment: boolean) {
   const groups = useSettingsProjectGroups();
   const { environments: availableEnvironments } = useEnvironments();
@@ -47,9 +44,15 @@ function useResolvedSettingsScope(rawSearch: SettingsScopeSearch, singleEnvironm
     targets.find((candidate) => candidate.environmentId === selected.environment?.environmentId) ??
     targets[0] ??
     null;
-  return { scope, groups, search, ...selected, targets, target };
+  return {
+    scope,
+    groups,
+    search,
+    ...selected,
+    targets,
+    target,
+  };
 }
-
 const SettingsScopeContext = createContext<
   | (ReturnType<typeof useResolvedSettingsScope> & {
       singleEnvironment: boolean;
@@ -58,7 +61,6 @@ const SettingsScopeContext = createContext<
     })
   | null
 >(null);
-
 export function SettingsScopeProvider({
   search,
   onChange,
@@ -71,14 +73,16 @@ export function SettingsScopeProvider({
   children: ReactNode;
 }) {
   const resolved = useResolvedSettingsScope(search, singleEnvironment);
-  const value = { ...resolved, singleEnvironment, selectScope: onChange };
+  const value = {
+    ...resolved,
+    singleEnvironment,
+    selectScope: onChange,
+  };
   return <SettingsScopeContext value={value}>{children}</SettingsScopeContext>;
 }
-
 export function useOptionalSettingsScope() {
   return useContext(SettingsScopeContext);
 }
-
 export function useSettingsScope() {
   const scope = useOptionalSettingsScope();
   if (scope === null) throw new Error("Settings scope must be read inside SettingsScopeProvider.");

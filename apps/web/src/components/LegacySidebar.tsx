@@ -1,67 +1,19 @@
-import { showContextMenuFallback } from "../contextMenuFallback";
-import { useConversationTabNavigation } from "../hooks/useConversationTabNavigation";
-import { useConversationRowClick } from "../hooks/useConversationRowClick";
-import { currentConversationTabsStore } from "../conversationTabsStore";
-import { useAgents } from "./agents/useAgents";
-import { useSupportsMultiplePullRequests } from "~/hooks/useSupportsMultiplePullRequests";
-import { resolveThreadCurrentPullRequestLink } from "@elysiatools/shared/threadPullRequests";
-import { Spinner } from "~/components/ui/spinner";
 import {
-  ArchiveIcon,
-  ArrowUpDownIcon,
-  FolderClosedIcon,
-  FolderOpenIcon,
-  FolderPlusIcon,
-  PinIcon,
-  PinOffIcon,
-  Globe2Icon,
-  SquarePenIcon,
-  TriangleAlertIcon,
-} from "~/icons";
-import {
-  ChangeRequestStatusIcon,
-  prStatusIndicator,
-  PrStatusTooltipContent,
-  ThreadTerminalStatusButton,
-  ThreadStatusLabel,
-  ThreadWorktreeIndicator,
-  useLinkedThreadPullRequest,
-} from "./ThreadStatusIndicators";
-import { EnvironmentMachineIcon } from "./EnvironmentMachineIcon";
-import { ProjectFavicon } from "./ProjectFavicon";
-import { useAtomValue } from "@effect/atom-react";
-import { autoAnimate } from "@formkit/auto-animate";
-import React, { useEffect, useEffectEvent, memo, useRef, useState } from "react";
-import { cn } from "~/lib/utils";
-import { useShallow } from "zustand/react/shallow";
-import {
+  closestCorners,
+  type CollisionDetection,
   DndContext,
   type DragCancelEvent,
-  type CollisionDetection,
-  PointerSensor,
+  type DragEndEvent,
   type DragStartEvent,
-  closestCorners,
+  PointerSensor,
   pointerWithin,
   useSensor,
   useSensors,
-  type DragEndEvent,
 } from "@dnd-kit/core";
-import { SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { restrictToFirstScrollableAncestor, restrictToVerticalAxis } from "@dnd-kit/modifiers";
+import { SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import {
-  AuthOrchestrationOperateScope,
-  AuthPreviewOperateScope,
-  type ContextMenuItem,
-  SINGLE_PROVIDER_UI,
-  type EnvironmentId,
-  ProjectId,
-  type ScopedThreadRef,
-  type ResolvedKeybindingsConfig,
-  type SidebarProjectGroupingMode,
-  resolveEnvironmentMachineKind,
-  ThreadId,
-} from "@elysiatools/contracts";
+import { useAtomValue } from "@effect/atom-react";
 import {
   parseScopedThreadKey,
   scopedProjectKey,
@@ -70,13 +22,27 @@ import {
   scopeThreadRef,
 } from "@elysiatools/client-runtime/environment";
 import { safeErrorLogAttributes } from "@elysiatools/client-runtime/errors";
+import { threadRuntimeCanArchive } from "@elysiatools/client-runtime/state/models";
+import { isScratchProject } from "@elysiatools/client-runtime/state/projects";
 import {
   isAtomCommandInterrupted,
   settlePromise,
   squashAtomCommandFailure,
 } from "@elysiatools/client-runtime/state/runtime";
-import { threadRuntimeCanArchive } from "@elysiatools/client-runtime/state/models";
-import { useNavigate, useRouter } from "@tanstack/react-router";
+import { resolveThreadCurrentPullRequestLink } from "@elysiatools/client-runtime/thread-pull-requests";
+import {
+  AuthOrchestrationOperateScope,
+  AuthPreviewOperateScope,
+  type ContextMenuItem,
+  type EnvironmentId,
+  ProjectId,
+  type ResolvedKeybindingsConfig,
+  resolveEnvironmentMachineKind,
+  type ScopedThreadRef,
+  type SidebarProjectGroupingMode,
+  SINGLE_PROVIDER_UI,
+  ThreadId,
+} from "@elysiatools/contracts";
 import {
   MAX_SIDEBAR_THREAD_PREVIEW_COUNT,
   MIN_SIDEBAR_THREAD_PREVIEW_COUNT,
@@ -84,40 +50,58 @@ import {
   type SidebarThreadPreviewCount,
   type SidebarThreadSortOrder,
 } from "@elysiatools/contracts/settings";
+import { autoAnimate } from "@formkit/auto-animate";
+import { useNavigate, useRouter } from "@tanstack/react-router";
+import React, {
+  createContext,
+  memo,
+  useContext,
+  useEffect,
+  useEffectEvent,
+  useRef,
+  useState,
+} from "react";
+import { useShallow } from "zustand/react/shallow";
+import { PullRequestGlyph } from "~/components/pullRequest/pullRequestIcons";
+import { Spinner } from "~/components/ui/spinner";
+import { useCopyToClipboard } from "~/hooks/useCopyToClipboard";
+import { useIsMobile } from "~/hooks/useMediaQuery";
+import {
+  getClientSettings,
+  updateClientSettings,
+  useClientSettings,
+  useCodeWorkspace,
+} from "~/hooks/useSettings";
+import { useSupportsMultiplePullRequests } from "~/hooks/useSupportsMultiplePullRequests";
+import {
+  ArchiveIcon,
+  ArrowUpDownIcon,
+  FolderClosedIcon,
+  FolderOpenIcon,
+  FolderPlusIcon,
+  Globe2Icon,
+  PinIcon,
+  PinOffIcon,
+  SquarePenIcon,
+  TriangleAlertIcon,
+} from "~/icons";
+import { cn } from "~/lib/utils";
+import { selectNonAgentProjectItems, selectRegularProjects } from "../agentPresentation";
+import { isCommandPaletteOpen, openCommandPalette } from "../commandPaletteBus";
+import { useComposerDraftStore } from "../composerDraftStore";
 import { isDesktopLocalConnectionTarget, isWslConnectionTarget } from "../connection/desktopLocal";
 import { useDesktopLocalBootstraps } from "../connection/useDesktopLocalBootstraps";
+import { showContextMenuFallback } from "../contextMenuFallback";
+import { currentConversationTabsStore } from "../conversationTabsStore";
 import { isElectron } from "../env";
+import { useConversationRowClick } from "../hooks/useConversationRowClick";
+import { useConversationTabNavigation } from "../hooks/useConversationTabNavigation";
+import { useNewThreadHandler } from "../hooks/useHandleNewThread";
+import { useScratchProject } from "../hooks/useScratchProject";
 import { useStableCallback } from "../hooks/useStableCallback";
 import { useTerminalFocus } from "../hooks/useTerminalFocus";
-import { useOpenPrLink } from "../lib/openPullRequestLink";
-import { releaseProjectDraftUploads } from "../lib/composerDraftUploads";
-import { isTerminalFocused } from "../lib/terminalFocus";
-import { isMacPlatform } from "../lib/utils";
-import { useSidebarPendingFileDropStore } from "../sidebarPendingFileDropStore";
-import { makeWorkspaceFileDropHandlers } from "./chat/workspaceFileDrop";
-import {
-  readThreadShell,
-  useProjects,
-  useThreadShells,
-  useThreadShellsForProjectRefs,
-  waitForProjectRemoval,
-} from "../state/entities";
-import { selectThreadTerminalUiState, useTerminalUiStateStore } from "../terminalUiStateStore";
-import { useThreadRunningTerminalIds } from "../state/terminalSessions";
-import { useThreadDiscoveredPorts } from "../portDiscoveryState";
-import { openDiscoveredPort } from "./preview/openDiscoveredPort";
-import { useAtomCommand } from "../state/use-atom-command";
-import {
-  ORCHESTRATION_OPERATE_DENIED_MESSAGE,
-  useOrchestrationCommand,
-} from "../state/use-orchestration-command";
-import { previewEnvironment } from "../state/preview";
-import { readEnvironmentScope, useEnvironmentScope } from "../state/session";
-import {
-  legacyProjectCwdPreferenceKey,
-  resolveProjectExpanded,
-  useUiStateStore,
-} from "../uiStateStore";
+import { useThreadActions } from "../hooks/useThreadActions";
+import { useThreadRouteTarget } from "../hooks/useThreadRouteTarget";
 import {
   resolveShortcutCommand,
   shortcutLabelForCommand,
@@ -126,23 +110,100 @@ import {
   threadJumpIndexFromCommand,
   threadTraversalDirectionFromCommand,
 } from "../keybindings";
-import { isModelPickerOpen } from "../modelPickerVisibility";
-import { useShortcutModifierState } from "../shortcutModifierState";
+import { releaseProjectDraftUploads } from "../lib/composerDraftUploads";
+import { useOpenPrLink } from "../lib/openPullRequestLink";
+import { isTerminalFocused } from "../lib/terminalFocus";
+import { sortThreads } from "../lib/threadSort";
+import { isMacPlatform } from "../lib/utils";
 import { ensureLocalApi, readLocalApi } from "../localApi";
-import { useComposerDraftStore } from "../composerDraftStore";
-import { useNewThreadHandler } from "../hooks/useHandleNewThread";
-import { useScratchProject } from "../hooks/useScratchProject";
-import { isScratchProject } from "@elysiatools/client-runtime/state/projects";
+import {
+  derivePhysicalProjectKey,
+  deriveProjectGroupingOverrideKey,
+  getProjectOrderKey,
+  selectProjectGroupingSettings,
+} from "../logicalProject";
+import { isModelPickerOpen } from "../modelPickerVisibility";
+import { useThreadDiscoveredPorts } from "../portDiscoveryState";
+import { useShortcutModifierState } from "../shortcutModifierState";
+import { useSidebarPendingFileDropStore } from "../sidebarPendingFileDropStore";
+import {
+  buildPhysicalToLogicalProjectKeyMap,
+  buildSidebarProjectSnapshots,
+  type SidebarProjectGroupMember,
+  type SidebarProjectSnapshot,
+} from "../sidebarProjectGrouping";
 import { useDesktopUpdateState } from "../state/desktopUpdate";
-import { useThreadActions } from "../hooks/useThreadActions";
-import { buildThreadPinMenuItems } from "./threadActionMenu.logic";
-import { readEnvironmentSupportsPinning } from "../state/entities";
-import { projectEnvironment } from "../state/projects";
-import { threadEnvironment, useEnvironmentThread } from "../state/threads";
+import {
+  readEnvironmentSupportsPinning,
+  readThreadShell,
+  useProjects,
+  useThreadShells,
+  useThreadShellsForProjectRefs,
+  waitForProjectRemoval,
+} from "../state/entities";
 import { useEnvironment, useEnvironments, usePrimaryEnvironmentId } from "../state/environments";
+import { readUnloadedThreadCount } from "../state/olderSettledShelf";
+import { previewEnvironment } from "../state/preview";
+import { projectEnvironment } from "../state/projects";
+import { primaryServerKeybindingsAtom } from "../state/server";
+import { readEnvironmentScope, useEnvironmentScope } from "../state/session";
+import { useThreadRunningTerminalIds } from "../state/terminalSessions";
+import { threadEnvironment, useEnvironmentThread } from "../state/threads";
+import { useAtomCommand } from "../state/use-atom-command";
+import {
+  ORCHESTRATION_OPERATE_DENIED_MESSAGE,
+  useOrchestrationCommand,
+} from "../state/use-orchestration-command";
+import { selectThreadTerminalUiState, useTerminalUiStateStore } from "../terminalUiStateStore";
 import { buildThreadRouteParams, resolveActiveThreadRouteRef } from "../threadRoutes";
-import { stackedThreadToast, toastManager } from "./ui/toast";
+import {
+  getThreadKeysToDeselectAfterDelete,
+  useThreadSelectionStore,
+} from "../threadSelectionStore";
+import type { SidebarThreadSummary } from "../types";
+import {
+  legacyProjectCwdPreferenceKey,
+  resolveProjectExpanded,
+  useUiStateStore,
+} from "../uiStateStore";
+import { EnvironmentMachineIcon } from "./EnvironmentMachineIcon";
+import { ProjectFavicon } from "./ProjectFavicon";
 import { RelativeTime } from "./RelativeTime";
+import {
+  archiveSelectedThreadEntries,
+  buildMultiSelectThreadContextMenuItems,
+  deleteSelectedThreadEntries,
+  filterSidebarV2VisibleThreads,
+  getSidebarThreadIdsToPrewarm,
+  isContextMenuPointerDown,
+  isSidebarNestedLinkClick,
+  isTrailingDoubleClick,
+  orderItemsByPreferredIds,
+  resolveAdjacentThreadId,
+  resolveProjectStatusIndicator,
+  resolveThreadLastVisitedAt,
+  resolveThreadStatusPill,
+  setFileDragActive,
+  shouldClearThreadSelectionOnMouseDown,
+  sortPinnedThreadsForSidebar,
+  sortProjectsForSidebar,
+  ThreadStatusPill,
+  useSidebarRowSubscriptionLease,
+  useThreadJumpHintsVisible,
+} from "./Sidebar.logic";
+import {
+  ChangeRequestStatusIcon,
+  prStatusIndicator,
+  PrStatusTooltipContent,
+  ThreadStatusLabel,
+  ThreadTerminalStatusButton,
+  ThreadWorktreeIndicator,
+  useLinkedThreadPullRequest,
+} from "./ThreadStatusIndicators";
+import { AgentRoster, WorkspacePinnedAgents } from "./agents/AgentRoster";
+import { useAgents } from "./agents/useAgents";
+import { openGuestShareDialog } from "./chat/guestShareDialogState";
+import { makeWorkspaceFileDropHandlers } from "./chat/workspaceFileDrop";
 import {
   getArm64IntelBuildWarningDescription,
   getDesktopUpdateActionError,
@@ -153,6 +214,18 @@ import {
   shouldToastDesktopUpdateActionResult,
 } from "./desktopUpdate.logic";
 import { showDesktopUpdateDownloadedToast } from "./desktopUpdate.toast";
+import { openDiscoveredPort } from "./preview/openDiscoveredPort";
+import { RecentThreadsHeader, useRecentThreadsExpansion } from "./sidebar/RecentThreadsHeader";
+import {
+  SidebarChromeFooter,
+  SidebarChromeHeader,
+  SidebarHeaderSearch,
+  SidebarNewChatButton,
+} from "./sidebar/SidebarChrome";
+import { SidebarOrderedList, SidebarOrderedRow } from "./sidebar/SidebarOrderedList";
+import { SidebarSectionHeader, useSidebarSectionExpansion } from "./sidebar/SidebarSectionHeader";
+import { type SidebarRouteReveal, useActiveRowReveal } from "./sidebar/routeReveal";
+import { buildThreadPinMenuItems } from "./threadActionMenu.logic";
 import { Alert, AlertAction, AlertDescription, AlertTitle } from "./ui/alert";
 import { Button } from "./ui/button";
 import {
@@ -174,7 +247,6 @@ import {
   NumberFieldInput,
 } from "./ui/number-field";
 import { Select, SelectItem, SelectPopup, SelectTrigger, SelectValue } from "./ui/select";
-import { Tooltip, TooltipPopup, TooltipTrigger } from "./ui/tooltip";
 import {
   SidebarContent,
   SidebarGroup,
@@ -185,68 +257,8 @@ import {
   SidebarMenuSubItem,
   useSidebar,
 } from "./ui/sidebar";
-import {
-  getThreadKeysToDeselectAfterDelete,
-  useThreadSelectionStore,
-} from "../threadSelectionStore";
-import { isCommandPaletteOpen, openCommandPalette } from "../commandPaletteBus";
-import {
-  archiveSelectedThreadEntries,
-  buildMultiSelectThreadContextMenuItems,
-  deleteSelectedThreadEntries,
-  filterSidebarV2VisibleThreads,
-  getSidebarThreadIdsToPrewarm,
-  resolveAdjacentThreadId,
-  isContextMenuPointerDown,
-  isSidebarNestedLinkClick,
-  isTrailingDoubleClick,
-  resolveProjectStatusIndicator,
-  resolveThreadLastVisitedAt,
-  resolveThreadStatusPill,
-  orderItemsByPreferredIds,
-  shouldClearThreadSelectionOnMouseDown,
-  sortProjectsForSidebar,
-  sortPinnedThreadsForSidebar,
-  useSidebarRowSubscriptionLease,
-  useThreadJumpHintVisibility,
-  ThreadStatusPill,
-} from "./Sidebar.logic";
-import { sortThreads } from "../lib/threadSort";
-import {
-  SidebarChromeFooter,
-  SidebarChromeHeader,
-  SidebarHeaderSearch,
-  SidebarNewChatButton,
-} from "./sidebar/SidebarChrome";
-import { RecentThreadsHeader, useRecentThreadsExpansion } from "./sidebar/RecentThreadsHeader";
-import { WorkspacePinnedAgents, AgentRoster } from "./agents/AgentRoster";
-import { SidebarOrderedList, SidebarOrderedRow } from "./sidebar/SidebarOrderedList";
-import { SidebarSectionHeader, useSidebarSectionExpansion } from "./sidebar/SidebarSectionHeader";
-import { selectNonAgentProjectItems, selectRegularProjects } from "../agentPresentation";
-import { useCopyToClipboard } from "~/hooks/useCopyToClipboard";
-import { useIsMobile } from "~/hooks/useMediaQuery";
-import {
-  useClientSettings,
-  updateClientSettings,
-  useCodeWorkspace,
-  getClientSettings,
-} from "~/hooks/useSettings";
-import { primaryServerKeybindingsAtom } from "../state/server";
-import {
-  derivePhysicalProjectKey,
-  deriveProjectGroupingOverrideKey,
-  getProjectOrderKey,
-  selectProjectGroupingSettings,
-} from "../logicalProject";
-import type { SidebarThreadSummary } from "../types";
-import {
-  buildPhysicalToLogicalProjectKeyMap,
-  buildSidebarProjectSnapshots,
-  type SidebarProjectGroupMember,
-  type SidebarProjectSnapshot,
-} from "../sidebarProjectGrouping";
-import { PullRequestGlyph } from "~/components/pullRequest/pullRequestIcons";
-import { useThreadRouteTarget } from "../hooks/useThreadRouteTarget";
+import { stackedThreadToast, toastManager } from "./ui/toast";
+import { Tooltip, TooltipPopup, TooltipTrigger } from "./ui/tooltip";
 const SIDEBAR_SORT_LABELS: Record<SidebarProjectSortOrder, string> = {
   updated_at: "Last user message",
   created_at: "Created at",
@@ -286,7 +298,7 @@ function formatProjectMemberActionLabel(
     return member.title;
   }
   return member.environmentLabel
-    ? `${member.environmentLabel} — ${member.workspaceRoot}`
+    ? `${member.environmentLabel}: ${member.workspaceRoot}`
     : member.workspaceRoot;
 }
 function projectExpansionPreferenceKeys(project: SidebarProjectSnapshot): string[] {
@@ -393,6 +405,12 @@ function checkTaskPermission(environmentId: EnvironmentId): boolean {
   );
   return false;
 }
+
+// The active row reports itself, so a route change scrolls to it once it mounts.
+const RevealActiveRowContext = createContext<(row: HTMLElement | null, threadKey: string) => void>(
+  () => {},
+);
+
 const SidebarThreadRow = memo(function SidebarThreadRow(props: SidebarThreadRowProps) {
   const codeWorkspace = useCodeWorkspace();
   const dragKey = scopedThreadKey(scopeThreadRef(props.thread.environmentId, props.thread.id));
@@ -432,12 +450,7 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: SidebarThreadRowP
   const canOperatePreview = useEnvironmentScope(thread.environmentId, AuthPreviewOperateScope);
   const threadKey = scopedThreadKey(scopeThreadRef(thread.environmentId, thread.id));
   const [isFileDragOver, setIsFileDragOver] = useState(false);
-  useEffect(() => {
-    if (!isFileDragOver) return;
-    const clearFileDrag = () => setIsFileDragOver(false);
-    window.addEventListener("dragend", clearFileDrag);
-    return () => window.removeEventListener("dragend", clearFileDrag);
-  }, [isFileDragOver]);
+  const revealActiveRow = useContext(RevealActiveRowContext);
   const { leaseLiveStatus, rowRef } = useSidebarRowSubscriptionLease(isActive);
   const localLastVisitedAt = useUiStateStore((state) => state.threadLastVisitedAtById[threadKey]);
   const lastVisitedAt = resolveThreadLastVisitedAt(thread.lastVisitedAt, localLastVisitedAt);
@@ -480,11 +493,10 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: SidebarThreadRowP
   );
   const pr = linkedPullRequestStatus?.pr ?? null;
   const supportsMultiplePullRequests = useSupportsMultiplePullRequests(thread.environmentId);
-  // Every hook runs above this line: the handlers below key on this ref, and the
-  // compiler can only cache it once no hook call follows its plain uses.
+  // Hooks must precede this ref's plain uses for the compiler to cache it.
   const threadRef = scopeThreadRef(thread.environmentId, thread.id);
   const fileDropHandlers = makeWorkspaceFileDropHandlers({
-    setDragActive: setIsFileDragOver,
+    setDragActive: (active) => setFileDragActive(setIsFileDragOver, active),
     addFiles: (files) => {
       onFileDropThreads(threadRef, files);
     },
@@ -548,8 +560,7 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: SidebarThreadRowP
   const handleRowDoubleClick = (event: React.MouseEvent) => {
     if (!readEnvironmentScope(thread.environmentId, AuthOrchestrationOperateScope)) return;
     if (renamingThreadKey === threadKey) return;
-    // On mobile the first tap navigates and closes the sidebar sheet, so the
-    // inline rename can't be shown. Renaming there stays on the context menu.
+    // Mobile navigation closes the sidebar on the first tap, so rename stays in the context menu.
     if (isMobile) return;
     if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
     if ((event.target as HTMLElement).closest("button, a")) return;
@@ -658,8 +669,7 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: SidebarThreadRowP
       void commitRename(threadRef, renamingTitle, thread.title);
     }
   };
-  // Without stopping `dblclick`, double-clicking to select a word would re-fire
-  // the row's rename handler and reset the in-progress edit back to the title.
+  // Stop dblclick propagation so word selection cannot restart rename and discard edits.
   const handleRenameInputClick = (event: React.MouseEvent<HTMLInputElement>) => {
     event.stopPropagation();
   };
@@ -717,6 +727,7 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: SidebarThreadRowP
       {/* A thread row is the legacy sidebar's own control (a focusable div that hosts nested
           links and buttons), not a SidebarMenuSubButton, so it owns its look here. */}
       <div
+        ref={isActive ? (node) => revealActiveRow(node, threadKey) : undefined}
         role="button"
         tabIndex={0}
         data-active={isActive}
@@ -1339,20 +1350,26 @@ function useProjectThreadPanel(input: {
     (settings) => settings.sidebarThreadPreviewCount,
   );
   const activeThreadKey = activeRouteThreadKey ?? undefined;
-  const pinnedCollapsedThread =
-    !activeThreadKey || projectExpanded
-      ? null
-      : (visibleProjectThreads.find(
-          (thread) =>
-            scopedThreadKey(scopeThreadRef(thread.environmentId, thread.id)) === activeThreadKey,
-        ) ?? null);
-  const hasOverflowingThreads = visibleProjectThreads.length > sidebarThreadPreviewCount;
+  const activeThread = activeThreadKey
+    ? (visibleProjectThreads.find(
+        (thread) =>
+          scopedThreadKey(scopeThreadRef(thread.environmentId, thread.id)) === activeThreadKey,
+      ) ?? null)
+    : null;
+  const pinnedCollapsedThread = projectExpanded ? null : activeThread;
+  // The open thread stays listed past the preview cut, as it does in a
+  // collapsed project, so it alone does not overflow the preview.
+  const hasOverflowingThreads = visibleProjectThreads.some(
+    (thread, index) =>
+      index >= sidebarThreadPreviewCount &&
+      scopedThreadKey(scopeThreadRef(thread.environmentId, thread.id)) !== activeThreadKey,
+  );
   const previewThreads =
     isThreadListExpanded || !hasOverflowingThreads
       ? visibleProjectThreads
       : visibleProjectThreads.slice(0, sidebarThreadPreviewCount);
   const visibleThreadKeys = new Set(
-    [...previewThreads, ...(pinnedCollapsedThread ? [pinnedCollapsedThread] : [])].map((thread) =>
+    [...previewThreads, ...(activeThread ? [activeThread] : [])].map((thread) =>
       scopedThreadKey(scopeThreadRef(thread.environmentId, thread.id)),
     ),
   );
@@ -1614,7 +1631,12 @@ const SidebarProjectItem = memo(function SidebarProjectItem(props: SidebarProjec
       return;
     }
     const memberProjectRef = scopeProjectRef(member.environmentId, member.id);
-    const memberThreadCount = memberThreadCountByPhysicalKey.get(member.physicalProjectKey) ?? 0;
+    const memberThreadCount =
+      (memberThreadCountByPhysicalKey.get(member.physicalProjectKey) ?? 0) +
+      readUnloadedThreadCount(
+        [{ environmentId: member.environmentId, id: member.id }],
+        sidebarThreads,
+      );
     if (memberThreadCount > 0) {
       const warningToastId = toastManager.add(
         stackedThreadToast({
@@ -1636,10 +1658,18 @@ const SidebarProjectItem = memo(function SidebarProjectItem(props: SidebarProjec
                     thread.environmentId === memberProjectRef.environmentId &&
                     thread.projectId === memberProjectRef.projectId,
                 );
+                const threadCount =
+                  latestProjectThreads.length +
+                  readUnloadedThreadCount(
+                    [{ environmentId: member.environmentId, id: member.id }],
+                    latestProjectThreads,
+                  );
                 const confirmed = await api.dialogs.confirm(
-                  latestProjectThreads.length > 0
+                  threadCount > 0
                     ? [
-                        `Remove project "${member.title}" and delete its ${latestProjectThreads.length} thread${latestProjectThreads.length === 1 ? "" : "s"}?`,
+                        `Remove project "${member.title}" and delete its ${threadCount} thread${
+                          threadCount === 1 ? "" : "s"
+                        }?`,
                         `Path: ${member.workspaceRoot}`,
                         ...(member.environmentLabel
                           ? [`Environment: ${member.environmentLabel}`]
@@ -1736,6 +1766,12 @@ const SidebarProjectItem = memo(function SidebarProjectItem(props: SidebarProjec
       const api = readLocalApi();
       if (!api) return;
       const actionHandlers = new Map<string, () => Promise<void> | void>();
+      const icons = {
+        rename: "pencil",
+        grouping: "folder-tree",
+        "copy-path": "copy",
+        delete: "trash",
+      } as const;
       const makeLeaf = (
         action: "rename" | "grouping" | "copy-path" | "delete",
         member: SidebarProjectGroupMember,
@@ -1765,6 +1801,7 @@ const SidebarProjectItem = memo(function SidebarProjectItem(props: SidebarProjec
         return {
           id,
           label: formatProjectMemberActionLabel(member, project.groupedProjectCount),
+          icon: icons[action],
           ...(options?.destructive
             ? {
                 destructive: true,
@@ -1801,21 +1838,15 @@ const SidebarProjectItem = memo(function SidebarProjectItem(props: SidebarProjec
                 : {}),
             }),
             label,
-            ...(action === "delete"
-              ? {
-                  icon: "trash",
-                }
-              : {}),
+            icon: icons[action],
+            separatorBefore: action === "copy-path" || action === "delete",
           };
         }
         return {
           id: `${action}:submenu`,
           label,
-          ...(action === "delete"
-            ? {
-                icon: "trash",
-              }
-            : {}),
+          icon: icons[action],
+          separatorBefore: action === "copy-path" || action === "delete",
           children: project.memberProjects.map((member) =>
             makeLeaf(action, member, {
               ...(options?.destructive
@@ -1841,7 +1872,8 @@ const SidebarProjectItem = memo(function SidebarProjectItem(props: SidebarProjec
           },
         });
       });
-      const clicked = await api.contextMenu.show(
+      const showMenu = SINGLE_PROVIDER_UI ? showContextMenuFallback : api.contextMenu.show;
+      const clicked = await showMenu(
         [
           buildTargetedItem("rename", "Rename", {
             isDisabled: (member) =>
@@ -1925,9 +1957,7 @@ const SidebarProjectItem = memo(function SidebarProjectItem(props: SidebarProjec
       return;
     }
 
-    // Ignore the trailing click of a plain double-click so it doesn't navigate
-    // while a double-click is starting an inline rename. Placed after the
-    // modifier branches so cmd/shift selection still processes every click.
+    // Ignore trailing double-clicks after modifier handling so rename does not navigate or break selection.
     if (isTrailingDoubleClick(event.detail)) {
       return;
     }
@@ -1968,7 +1998,7 @@ const SidebarProjectItem = memo(function SidebarProjectItem(props: SidebarProjec
     const canOperateSelection = selectedThreadEntries.every(({ threadRef }) =>
       readEnvironmentScope(threadRef.environmentId, AuthOrchestrationOperateScope),
     );
-    const clicked = await api.contextMenu.show(
+    const clicked = await (SINGLE_PROVIDER_UI ? showContextMenuFallback : api.contextMenu.show)(
       buildMultiSelectThreadContextMenuItems({
         count,
         hasRunningThread,
@@ -2119,10 +2149,11 @@ const SidebarProjectItem = memo(function SidebarProjectItem(props: SidebarProjec
         return;
       }
       const clickedResult = await settlePromise(() =>
-        api.contextMenu.show(
+        (SINGLE_PROVIDER_UI ? showContextMenuFallback : api.contextMenu.show)(
           project.memberProjects.map((member) => ({
             id: member.physicalProjectKey,
             label: formatProjectMemberActionLabel(member, project.groupedProjectCount),
+            icon: "workspace-project",
           })),
           {
             x: event.clientX,
@@ -2305,8 +2336,6 @@ const SidebarProjectItem = memo(function SidebarProjectItem(props: SidebarProjec
   };
   const navigateTab = useConversationTabNavigation();
 
-  // Every thread row receives this, so it keeps one identity while the thread
-  // list changes instead of re-rendering all of them.
   const handleThreadContextMenu = useStableCallback(
     async (
       threadRef: ScopedThreadRef,
@@ -2349,6 +2378,7 @@ const SidebarProjectItem = memo(function SidebarProjectItem(props: SidebarProjec
             ? [
                 {
                   id: "new-thread-on-branch",
+                  icon: "message-square-plus",
                   label: `New thread on ${thread.branch}`,
                 },
               ]
@@ -2362,27 +2392,35 @@ const SidebarProjectItem = memo(function SidebarProjectItem(props: SidebarProjec
           })),
           {
             id: "rename",
+            separatorBefore: true,
+            icon: "pencil",
             label: "Rename thread",
             disabled: !canOperateThread,
           },
           {
             id: "mark-unread",
+            icon: "mail-open",
             label: "Mark unread",
           },
           {
             id: "copy-path",
+            separatorBefore: true,
+            icon: "folder",
             label: "Copy Path",
           },
           {
             id: "copy-thread-id",
+            icon: "hash",
             label: "Copy Thread ID",
           },
           {
             id: "project-settings",
+            icon: "settings",
             label: projectless ? "Chat settings" : "Project settings",
           },
           {
             id: "delete",
+            separatorBefore: true,
             label: "Delete",
             destructive: true,
             icon: "trash",
@@ -2438,6 +2476,11 @@ const SidebarProjectItem = memo(function SidebarProjectItem(props: SidebarProjec
       }
       if (clicked === "rename") {
         startThreadRename(threadKey, thread.title);
+        return;
+      }
+
+      if (clicked === "share-guest") {
+        openGuestShareDialog(threadRef);
         return;
       }
       if (clicked === "mark-unread") {
@@ -2762,8 +2805,7 @@ const SidebarProjectListRow = memo(function SidebarProjectListRow(props: Sidebar
 });
 function LocalSecondaryStatus() {
   const { environments } = useEnvironments();
-  // The desktop reports which local secondary backends (e.g. the WSL backend)
-  // exist; the hook polls because the bridge has no change event.
+  // Poll desktop-local backends because the bridge has no change event.
   const secondaries = useDesktopLocalBootstraps();
   const localEnvByUrl = (() => {
     const map = new Map<
@@ -3349,9 +3391,7 @@ function openAddProjectCommandPalette() {
   });
 }
 
-// Project and thread derivations live in their own hooks so they reach
-// LegacySidebar frozen and cached on their real inputs; inline, its later hook
-// calls made the compiler recompute them, and the props of every row with them.
+// Separate hooks cache real inputs; later sidebar hooks would invalidate every row's props.
 function useLegacySidebarProjects() {
   const projects = selectRegularProjects(useProjects());
   const projectOrder = useUiStateStore((store) => store.projectOrder);
@@ -3408,8 +3448,7 @@ function useLegacySidebarProjects() {
   };
 }
 
-// Kept apart from useLegacySidebarProjects so a thread change re-sorts the
-// projects without rebuilding their snapshots, which every project row keys on.
+// Re-sort on thread changes without rebuilding project snapshots used as row keys.
 function useSortedLegacySidebarProjects(input: {
   sidebarProjects: readonly SidebarProjectSnapshot[];
   physicalToLogicalKey: ReadonlyMap<string, string>;
@@ -3590,10 +3629,17 @@ function useLegacySidebarThreads(input: {
 export default function LegacySidebar({
   preview = false,
   projectsOnly = false,
+  routeReveal: providedRouteReveal,
 }: {
   preview?: boolean;
   projectsOnly?: boolean;
+  routeReveal?: SidebarRouteReveal;
 } = {}) {
+  const [localRouteReveal] = useState<SidebarRouteReveal>(() => ({
+    observedKey: null,
+    pendingKey: null,
+  }));
+  const routeReveal = providedRouteReveal ?? localRouteReveal;
   const reorderProjects = useUiStateStore((store) => store.reorderProjects);
   const navigate = useNavigate();
   const sidebarThreadSortOrder = useClientSettings((s) => s.sidebarThreadSortOrder);
@@ -3617,7 +3663,6 @@ export default function LegacySidebar({
   const [expandedThreadListsByProject, setExpandedThreadListsByProject] = useState<
     ReadonlySet<string>
   >(() => new Set());
-  const { showThreadJumpHints, updateThreadJumpHintsVisibility } = useThreadJumpHintVisibility();
   const dragInProgressRef = useRef(false);
   const suppressProjectClickAfterDragRef = useRef(false);
   const suppressProjectClickForContextMenuRef = useRef(false);
@@ -3652,6 +3697,7 @@ export default function LegacySidebar({
     sidebarThreadPreviewCount,
     expandedThreadListsByProject,
   });
+  const revealActiveRow = useActiveRowReveal(routeReveal, routeThreadKey);
   const newThreadShortcutLabelOptions = {
     platform,
     context: {
@@ -3677,8 +3723,6 @@ export default function LegacySidebar({
   };
   const projectDnDSensors = useSensors(useSensor(PointerSensor, PROJECT_POINTER_SENSOR_OPTIONS));
 
-  // DndContext keeps these across a drag, so they keep one identity and read the
-  // latest projects when called.
   const handleProjectDragEnd = useStableCallback((event: DragEndEvent) => {
     if (!SINGLE_PROVIDER_UI && sidebarProjectSortOrder !== "manual") {
       dragInProgressRef.current = false;
@@ -3748,13 +3792,12 @@ export default function LegacySidebar({
       context: sidebarShortcutContext,
     },
   );
+  const showThreadJumpHints = useThreadJumpHintsVisible(shouldShowThreadJumpHintsNow);
   const visibleThreadJumpLabelByKey = showThreadJumpHints
     ? threadJumpLabelByKey
     : EMPTY_THREAD_JUMP_LABELS;
   const orderedSidebarThreadKeys = visibleSidebarThreadKeys;
-  useEffect(() => {
-    updateThreadJumpHintsVisibility(shouldShowThreadJumpHintsNow);
-  }, [shouldShowThreadJumpHintsNow, updateThreadJumpHintsVisibility]);
+
   const onWindowKeyDown = useEffectEvent((event: globalThis.KeyboardEvent) => {
     if (preview) return;
     const shortcutContext = {
@@ -3811,6 +3854,7 @@ export default function LegacySidebar({
       window.removeEventListener("keydown", handleWindowKeyDown);
     };
   }, []);
+  // A window listener whose lifetime is the sidebar's: no element owns outside clicks.
   useEffect(() => {
     if (preview) return;
     const onMouseDown = (event: globalThis.MouseEvent) => {
@@ -3962,7 +4006,7 @@ export default function LegacySidebar({
     });
   };
   return (
-    <>
+    <RevealActiveRowContext value={revealActiveRow}>
       {prewarmedSidebarThreadRefs.map((threadRef) => (
         <SidebarThreadDetailPrewarmer key={scopedThreadKey(threadRef)} threadRef={threadRef} />
       ))}
@@ -4014,6 +4058,6 @@ export default function LegacySidebar({
         attachProjectListAutoAnimateRef={attachProjectListAutoAnimateRef}
       />
       {!preview ? <SidebarChromeFooter /> : null}
-    </>
+    </RevealActiveRowContext>
   );
 }

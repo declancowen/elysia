@@ -1,7 +1,6 @@
+import { act, render as renderUi } from "../../../test/render";
 import { EnvironmentId, ProjectId, SourceControlProviderKind } from "@elysiatools/contracts";
-import { act } from "react";
-import { createRoot, type Root } from "react-dom/client";
-import { afterEach, beforeEach, expect, it, vi } from "vite-plus/test";
+import { expect, it, vi } from "vite-plus/test";
 
 import type { EnvironmentPullRequestEntry } from "./pullRequestList.logic";
 import { PullRequestRow } from "./PullRequestRow";
@@ -20,20 +19,6 @@ vi.mock(import("~/browser/useOpenLink"), async (original) => ({
   ...(await original()),
   useOpenLink: () => vi.fn(),
 }));
-
-let root: Root;
-let container: HTMLDivElement;
-beforeEach(() => {
-  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
-  container = document.createElement("div");
-  document.body.append(container);
-  root = createRoot(container);
-});
-afterEach(async () => {
-  await act(async () => root.unmount());
-  container.remove();
-  vi.unstubAllGlobals();
-});
 
 const entry: EnvironmentPullRequestEntry = {
   environmentId: EnvironmentId.make("env-1"),
@@ -68,12 +53,12 @@ it("opens reported checks without selecting the row and omits the control withou
       showProjectTitle={false}
       showProvider={false}
       onSelect={onSelect}
-      speedMode={false}
       hostActions={new Set()}
       onActed={vi.fn()}
     />
   );
-  await act(async () => root.render(render(true)));
+  await using root = await renderUi(render(true));
+  const { container } = root;
   const checks = container.querySelector<HTMLElement>(
     '[aria-label="Checks: Some checks were not successful"]',
   )!;
@@ -82,6 +67,6 @@ it("opens reported checks without selecting the row and omits the control withou
   await vi.waitFor(() => expect(document.body.textContent).toContain("Unit tests"));
   expect(onSelect).not.toHaveBeenCalled();
 
-  await act(async () => root.render(render(false)));
+  await act(async () => root.rerender(render(false)));
   expect(container.querySelector('[aria-label^="Checks:"]')).toBeNull();
 });

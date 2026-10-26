@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { act, render as renderDom } from "../../../test/render";
 import {
   EnvironmentId,
   ProjectId,
@@ -9,8 +10,7 @@ import {
 import type { AtomCommandResult } from "@elysiatools/client-runtime/state/runtime";
 import * as Cause from "effect/Cause";
 import { AsyncResult } from "effect/reactivity";
-import { act, useSyncExternalStore } from "react";
-import { createRoot, type Root } from "react-dom/client";
+import { useSyncExternalStore } from "react";
 import { afterEach, beforeEach, expect, it, vi } from "vite-plus/test";
 import type { Project } from "../../types";
 
@@ -90,13 +90,11 @@ function project(
     updatedAt: "2026-10-01T09:00:00Z",
   };
 }
-let container: HTMLDivElement;
-let root: Root;
-async function render(environmentIds: ReadonlyArray<EnvironmentId> = [local]) {
-  await act(async () => root.render(<ArchivedAgentsSection environmentIds={environmentIds} />));
+function view(environmentIds: ReadonlyArray<EnvironmentId> = [local]) {
+  return <ArchivedAgentsSection environmentIds={environmentIds} />;
 }
 function restoreButton(name = "Alex") {
-  return container.querySelector<HTMLButtonElement>(`button[aria-label="Restore ${name}"]`);
+  return document.body.querySelector<HTMLButtonElement>(`button[aria-label="Restore ${name}"]`);
 }
 function applyRestore(input: RestoreInput) {
   state.projects = state.projects.map((project) =>
@@ -107,20 +105,14 @@ function applyRestore(input: RestoreInput) {
   for (const listener of state.listeners) listener();
 }
 beforeEach(() => {
-  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   state.projects = [project(local, "Alex"), project(other, "Bob")];
   state.connected = true;
   state.restore.mockReset().mockImplementation(async (input) => {
     applyRestore(input);
     return AsyncResult.success(undefined);
   });
-  container = document.createElement("div");
-  document.body.append(container);
-  root = createRoot(container);
 });
 afterEach(async () => {
-  await act(async () => root.unmount());
-  container.remove();
   vi.unstubAllGlobals();
 });
 
@@ -136,16 +128,16 @@ it("shows only archived agent profiles in the selected environment scope", async
       id: ProjectId.make("ordinary"),
     },
   );
-  await render();
-  expect(container.textContent).toContain("Archived agents");
+  await using screen = await renderDom(view(), { router: false });
+  expect(screen.container.textContent).toContain("Archived agents");
   expect(restoreButton("Alex")).not.toBeNull();
   expect(restoreButton("Bob")).toBeNull();
-  expect(container.textContent).not.toContain("Active");
-  expect(container.textContent).not.toContain("Ordinary");
-  await render([local, other]);
+  expect(screen.container.textContent).not.toContain("Active");
+  expect(screen.container.textContent).not.toContain("Ordinary");
+  await screen.rerender(view([local, other]));
   expect(restoreButton("Bob")).not.toBeNull();
-  await render([]);
-  expect(container.textContent).toContain("No archived agents");
+  await screen.rerender(view([]));
+  expect(screen.container.textContent).toContain("No archived agents");
 });
 
 it("restores the profile once while pending and preserves the conversation, memory workspace and model", async () => {
@@ -160,7 +152,7 @@ it("restores the profile once while pending and preserves the conversation, memo
         };
       }),
   );
-  await render();
+  await using screen = await renderDom(view(), { router: false });
   await act(async () => {
     restoreButton()!.click();
     restoreButton()!.click();
@@ -176,14 +168,14 @@ it("restores the profile once while pending and preserves the conversation, memo
   expect(restored.agentProfile?.conversationThreadId).toBe(profile.conversationThreadId);
   expect(state.projects[1]!.agentProfile?.archived).toBe(true);
   expect(restoreButton()).toBeNull();
-  expect(container.textContent).toContain("No archived agents");
+  expect(screen.container.textContent).toContain("No archived agents");
 });
 
 it("keeps the agent archived after a failed restore and allows retry", async () => {
   state.restore.mockResolvedValueOnce(AsyncResult.failure(Cause.fail(new Error("Disconnected"))));
-  await render();
+  await using screen = await renderDom(view(), { router: false });
   await act(async () => restoreButton()!.click());
-  expect(container.querySelector('[role="alert"]')?.textContent).toBe("Disconnected");
+  expect(screen.container.querySelector('[role="alert"]')?.textContent).toBe("Disconnected");
   expect(state.projects[0]!.agentProfile?.archived).toBe(true);
   expect(restoreButton()!.disabled).toBe(false);
   await act(async () => restoreButton()!.click());
@@ -194,13 +186,18 @@ it("keeps the agent archived after a failed restore and allows retry", async () 
 
 it("keeps disconnected agents visible and waits for reconnection before restoring", async () => {
   state.connected = false;
-  await render();
+  await using screen = await renderDom(view(), { router: false });
   expect(restoreButton()!.disabled).toBe(true);
-  expect(container.textContent).toContain("Reconnect this environment");
+  expect(screen.container.textContent).toContain("Reconnect this environment");
   await act(async () => restoreButton()!.click());
   expect(state.restore).not.toHaveBeenCalled();
   state.connected = true;
-  await render();
+  await screen.rerender(view());
   await act(async () => restoreButton()!.click());
   expect(state.projects[0]!.agentProfile?.archived).toBe(false);
 });
+
+vi.mock("vite-plus/test/browser", () => ({
+  page: { elementLocator: () => ({}) },
+  utils: { getElementLocatorSelectors: () => ({}) },
+}));

@@ -1,56 +1,17 @@
+import { SINGLE_PROVIDER_UI } from "@elysiatools/contracts";
 import type { ReactNode } from "react";
-import {
-  SINGLE_PROVIDER_UI,
-  type PullRequestInvolvement,
-  type PullRequestListState,
-} from "@elysiatools/contracts";
-import {
-  CalendarArrowDownIcon,
-  CalendarArrowUpIcon,
-  ChevronDownIcon,
-  ClockIcon,
-  EyeIcon,
-  LayersIcon,
-  ListChecksIcon,
-  PenLineIcon,
-  Maximize2Icon,
-  Minimize2Icon,
-  UserLockIcon,
-} from "~/icons";
+import { ChevronDownIcon } from "~/icons";
 import { cn } from "~/lib/utils";
 import { Button } from "../ui/button";
+import { Menu, MenuPopup, MenuRadioGroup, MenuRadioItem, MenuTrigger } from "../ui/menu";
 import { RefreshIcon } from "../ui/refresh-icon";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
-import { Menu, MenuTrigger, MenuPopup, MenuRadioGroup, MenuRadioItem } from "../ui/menu";
 import {
   PullRequestFilterOptionIcon,
   type PullRequestFilterOption,
 } from "./PullRequestListFilters";
-import { PullRequestGlyph } from "./pullRequestIcons";
-import type { PullRequestListSort } from "./pullRequestListPreferences";
 
-export const INVOLVEMENT_TABS = [
-  { value: "all", label: "All", Icon: LayersIcon },
-  { value: "reviewing", label: "Reviewing", Icon: EyeIcon },
-  { value: "authored", label: "Authored", Icon: PenLineIcon },
-] as const satisfies ReadonlyArray<PullRequestFilterOption<PullRequestInvolvement>>;
-
-export const STATE_TABS = [
-  { value: "all", label: "All", Icon: LayersIcon },
-  { value: "open", label: "Open", Icon: PullRequestGlyph.pullRequest },
-  { value: "closed", label: "Closed", Icon: PullRequestGlyph.closed },
-  { value: "merged", label: "Merged", Icon: PullRequestGlyph.merged },
-] as const satisfies ReadonlyArray<PullRequestFilterOption<PullRequestListState>>;
-
-export const SORT_OPTIONS = [
-  { value: "ready", label: "Merge readiness", Icon: ListChecksIcon },
-  { value: "blocked", label: "Blocked on me", Icon: UserLockIcon },
-  { value: "updated", label: "Recently updated", Icon: ClockIcon },
-  { value: "newest", label: "Newest shown", Icon: CalendarArrowDownIcon },
-  { value: "oldest", label: "Oldest shown", Icon: CalendarArrowUpIcon },
-  { value: "largest", label: "Largest shown", Icon: Maximize2Icon },
-  { value: "smallest", label: "Smallest shown", Icon: Minimize2Icon },
-] as const satisfies ReadonlyArray<PullRequestFilterOption<PullRequestListSort>>;
+export { INVOLVEMENT_TABS, SORT_OPTIONS, STATE_TABS } from "./pullRequestListOptions";
 
 export function PullRequestRefreshControl({
   compact = false,

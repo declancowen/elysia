@@ -1,6 +1,12 @@
+vi.mock("vite-plus/test/browser", () => ({
+  page: { elementLocator: () => ({}) },
+  utils: { getElementLocatorSelectors: () => ({}) },
+}));
+import { render as renderUi } from "../../test/render";
+import { act } from "../../test/act";
 // @vitest-environment jsdom
-import { act, createRef, Suspense } from "react";
-import { createRoot } from "react-dom/client";
+import { createRef, Suspense } from "react";
+
 import { expect, it, vi } from "vite-plus/test";
 import {
   ComposerPromptEditorTiptap,
@@ -11,7 +17,7 @@ it("preserves the controlled draft when a floating composer suspends and remount
   vi.useFakeTimers();
   const container = document.createElement("div");
   document.body.append(container);
-  const root = createRoot(container);
+  await using root = await renderUi(null, { container: container, router: false });
   const editorRef = createRef<ComposerPromptEditorHandle>();
   let suspended = false;
   const waiting = new Promise<void>(() => {});
@@ -20,7 +26,7 @@ it("preserves the controlled draft when a floating composer suspends and remount
     return null;
   }
   const render = (value: string) =>
-    root.render(
+    root.rerender(
       <Suspense fallback={<p>Loading</p>}>
         <ComposerPromptEditorTiptap
           value={value}

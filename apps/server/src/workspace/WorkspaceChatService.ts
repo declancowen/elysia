@@ -23,6 +23,7 @@ export class WorkspaceChatService extends Context.Service<
     ) => Effect.Effect<{ threadIds: ThreadId[] }, WorkspaceChatError>;
   }
 >()("@elysiatools/server/workspace/WorkspaceChatService") {}
+const isWorkspaceChatError = Schema.is(WorkspaceChatError);
 const make = Effect.gen(function* () {
   const sql = yield* SqlClient.SqlClient;
   const threads = yield* Threads.ThreadManagementService;
@@ -30,7 +31,7 @@ const make = Effect.gen(function* () {
   const wrap = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
     effect.pipe(
       Effect.mapError((cause) =>
-        Schema.is(WorkspaceChatError)(cause)
+        isWorkspaceChatError(cause)
           ? cause
           : new WorkspaceChatError({ message: "Could not access linked chats.", cause }),
       ),
@@ -71,7 +72,7 @@ const make = Effect.gen(function* () {
     );
   return WorkspaceChatService.of({
     list,
-    link: (input) =>
+    link: Effect.fn("WorkspaceChatService.link")((input) =>
       wrap(
         Effect.gen(function* () {
           yield* exists(input.target);
@@ -99,6 +100,7 @@ const make = Effect.gen(function* () {
           return yield* list(input.target);
         }).pipe(sql.withTransaction),
       ),
+    ),
   });
 });
 export const layer = Layer.effect(WorkspaceChatService, make);

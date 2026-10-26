@@ -34,6 +34,8 @@ import * as HttpApiBuilder from "effect/http-api/HttpApiBuilder";
 
 import * as EnvironmentAuth from "./EnvironmentAuth.ts";
 import * as SessionStore from "./SessionStore.ts";
+import * as ServerConfig from "../config.ts";
+import { resolveReusableDevAuth } from "./ReusableDevAuth.ts";
 import { traceAuthenticatedRelayRequest, traceRelayRequest } from "../cloud/traceRelayRequest.ts";
 import { deriveAuthClientMetadata } from "./utils.ts";
 import { verifyRequestDpopProof } from "./dpop.ts";
@@ -166,7 +168,7 @@ export const authenticateMediaRequest =
   Effect.fnUntraced(function* (requiredScope: AuthEnvironmentScope) {
     const request = yield* HttpServerRequest.HttpServerRequest;
     const serverAuth = yield* EnvironmentAuth.EnvironmentAuth;
-    const session = yield* serverAuth.authenticateWebSocketUpgrade(request).pipe(
+    const session = yield* serverAuth.authenticateWebSocketUpgrade(request, "media").pipe(
       Effect.catch((error) =>
         Effect.gen(function* () {
           if (EnvironmentAuth.isServerAuthCredentialError(error)) {
@@ -279,6 +281,7 @@ export const layer = HttpApiBuilder.group(
   Effect.fnUntraced(function* (handlers) {
     const serverAuth = yield* EnvironmentAuth.EnvironmentAuth;
     const sessions = yield* SessionStore.SessionStore;
+    const devAuth = resolveReusableDevAuth(yield* ServerConfig.ServerConfig);
 
     return handlers
       .handle(
@@ -291,15 +294,35 @@ export const layer = HttpApiBuilder.group(
             const credential = EnvironmentAuth.selectRequestCredential(
               request,
               sessions.cookieName,
-              sessions.legacyCookieName,
+              sessions.legacyCookieNames,
             );
+            const legacyDevToken = devAuth ? request.cookies[devAuth.legacyCookieName] : undefined;
+            const migrated =
+              credential?.source === "legacy-cookie"
+                ? {
+                    cookieName: sessions.cookieName,
+                    token: credential.token,
+                    expiresAt: result.expiresAt,
+                  }
+                : credential === undefined &&
+                    request.headers.authorization === undefined &&
+                    devAuth &&
+                    request.cookies[devAuth.cookieName] === undefined &&
+                    legacyDevToken !== undefined &&
+                    devAuth.matches(legacyDevToken)
+                  ? {
+                      cookieName: devAuth.cookieName,
+                      token: legacyDevToken,
+                      expiresAt: DateTime.add(yield* DateTime.now, { days: 30 }),
+                    }
+                  : undefined;
             if (
-              credential?.source === "legacy-cookie" &&
+              migrated &&
               result.authenticated &&
               result.sessionMethod === "browser-session-cookie" &&
-              result.expiresAt
+              migrated.expiresAt
             ) {
-              yield* appendSessionCookie(sessions.cookieName, credential.token, result.expiresAt);
+              yield* appendSessionCookie(migrated.cookieName, migrated.token, migrated.expiresAt);
               yield* appendCredentialResponseHeaders;
             }
             return result;
@@ -318,7 +341,7 @@ export const layer = HttpApiBuilder.group(
             const previousCredential = EnvironmentAuth.selectRequestCredential(
               request,
               sessions.cookieName,
-              sessions.legacyCookieName,
+              sessions.legacyCookieNames,
             );
             const result = yield* serverAuth.createBrowserSession(
               args.payload.credential,
@@ -430,6 +453,20 @@ export const layer = HttpApiBuilder.group(
             const session = yield* EnvironmentAuthenticatedPrincipal;
             yield* appendCredentialResponseHeaders;
             return yield* serverAuth.issueWebSocketTicket(session);
+          },
+          Effect.catchIf(EnvironmentAuth.isServerAuthInternalError, (error) =>
+            failEnvironmentInternal("websocket_ticket_issuance_failed", error),
+          ),
+        ),
+      )
+      .handle(
+        "webSocketTicketFor",
+        Effect.fn("environment.auth.webSocketTicketFor")(
+          function* (args) {
+            yield* annotateEnvironmentRequest(args.endpoint.name);
+            const session = yield* EnvironmentAuthenticatedPrincipal;
+            yield* appendCredentialResponseHeaders;
+            return yield* serverAuth.issueWebSocketTicket(session, { use: args.params.use });
           },
           Effect.catchIf(EnvironmentAuth.isServerAuthInternalError, (error) =>
             failEnvironmentInternal("websocket_ticket_issuance_failed", error),

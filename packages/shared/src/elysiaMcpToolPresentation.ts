@@ -32,6 +32,7 @@ export type ElysiaMcpToolSummaryAction =
   | "thread-wait"
   | "thread-interrupt"
   | "workflow-stop"
+  | "background-wait"
   | "thread-configuration"
   | "thread-configure"
   | "thread-fork"
@@ -173,6 +174,10 @@ const ELYSIA_MCP_TOOLS: Readonly<Record<string, ElysiaMcpToolDefinition>> = {
   elysia_workflow_stop: tool(
     ["Stop", "Stopping", "Requested a stop for", "a workflow"],
     "workflow-stop",
+  ),
+  elysia_background_wait: tool(
+    ["Update", "Updating", "Updated", "background waits"],
+    "background-wait",
   ),
   elysia_thread_interrupt: tool(
     ["Interrupt", "Interrupting", "Requested an interrupt of", "an Elysia chat"],
@@ -392,13 +397,7 @@ function normalizeElysiaMcpToolLabel(value: string): string {
   return value.replace(/\s+(?:complete|completed)\s*$/i, "").trim();
 }
 
-/**
- * ACP agents disagree on how the injected Elysia server prefixes its tools:
- * `mcp__elysia__x` (Claude/Cursor), `elysia.x` (Codex), plus single
- * underscore, colon, slash, dash, and space separators seen from registry
- * agents. The prefix match is deliberately loose because the display-name
- * inventory is the real gate; unknown tools stay on the generic renderer.
- */
+// ACP tool prefixes vary; match loosely but require a known display-name entry.
 function resolveElysiaMcpToolName(value: string): string | null {
   const label = normalizeElysiaMcpToolLabel(value);
   if (Object.hasOwn(ELYSIA_MCP_TOOLS, label)) return label;
@@ -420,9 +419,7 @@ function resolveElysiaMcpToolName(value: string): string | null {
   const prefixed = /^(?:mcp[-_]{1,2})?elysia(?:__|[-_.:/ ])(?<tool>.+)$/i.exec(label);
   const candidate = prefixed?.groups?.tool ?? label;
   if (Object.hasOwn(ELYSIA_MCP_TOOLS, candidate)) return candidate;
-  // OpenCode 2 registers one server per thread, `elysia-<thread>`, and joins
-  // it to the tool with `_`. Thread ids can hold `_` too, so take the longest
-  // known tool name that ends the label.
+  // OpenCode 2 thread prefixes can contain underscores; choose the longest known tool-name suffix.
   if (!/^elysia-/i.test(label)) return null;
   let longest: string | null = null;
   for (const tool of Object.keys(ELYSIA_MCP_TOOLS)) {
@@ -448,10 +445,4 @@ export function resolveElysiaMcpToolPresentation(
 ): ElysiaMcpToolPresentation | null {
   const definition = resolveElysiaMcpToolDefinition(toolName);
   return definition === null ? null : { displayName: definition.displayName, logo: "elysia" };
-}
-
-export function resolveElysiaMcpToolSummaryAction(
-  toolName: string | null | undefined,
-): ElysiaMcpToolSummaryAction | null {
-  return resolveElysiaMcpToolDefinition(toolName)?.summaryAction ?? null;
 }

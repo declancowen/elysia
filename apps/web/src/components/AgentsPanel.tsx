@@ -1,16 +1,5 @@
 import { resolveThreadLineageWindow } from "@elysiatools/client-runtime/state/thread-relationships";
-/**
- * Agents right-panel surface: the fleet view over V2 projected subagents.
- * The chat carries one expandable row per spawn batch and links here.
- *
- * Visualization rules (from live-test feedback):
- * - Spawn order is stable. Activity and completion update rows in place.
- * - Agent rows reserve three fixed lines for identity, activity, and metrics;
- *   changing data must never change their height.
- * - Workflow expansion is presentation state. A live run stays expanded when
- *   it settles; older collapsed runs can still be opened at run granularity.
- * - Static status dots, DOM-write elapsed timers, plain token counters.
- */
+/** Keep spawn order and row heights stable as live subagents report progress. */
 import { useAtomValue } from "@effect/atom-react";
 import type {
   AgentPanelModel,
@@ -89,6 +78,7 @@ function AgentElapsed({ agent }: { agent: RuntimeSubagent }) {
   const live = agent.status === "running" || agent.status === "waiting";
   const startedAt = agent.startedAt;
 
+  // oxlint-disable-next-line elysia/react-effect-budget -- Own the live elapsed-time interval that writes to the DOM without React commits.
   useEffect(() => {
     if (!live || !startedAt) {
       return;
@@ -150,7 +140,7 @@ function AgentRow({ agent }: { agent: RuntimeSubagent }) {
       : agent.role;
   const metadata = [
     modelLabel,
-    agent.usage ? `${formatSubagentTokenCount(agent.usage.totalTokens)} tok` : "— tok",
+    agent.usage ? `${formatSubagentTokenCount(agent.usage.totalTokens)} tok` : "– tok",
     agent.usage?.toolUses !== undefined ? `${agent.usage.toolUses} tools` : null,
     agent.activationCount > 1 ? `run ${agent.activationCount}` : null,
   ].filter((value): value is string => value !== null);
@@ -324,14 +314,12 @@ function PhaseSection({
   defaultOpen?: boolean;
 }) {
   const [open, setOpen] = useState(defaultOpen || phase.state === "running");
-  const previousState = useRef(phase.state);
+  const [previousState, setPreviousState] = useState(phase.state);
 
-  useEffect(() => {
-    if (previousState.current !== "running" && phase.state === "running") {
-      setOpen(true);
-    }
-    previousState.current = phase.state;
-  }, [phase.state]);
+  if (previousState !== phase.state) {
+    setPreviousState(phase.state);
+    if (phase.state === "running") setOpen(true);
+  }
 
   return (
     <div>

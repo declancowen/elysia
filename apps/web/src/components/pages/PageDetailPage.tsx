@@ -106,6 +106,7 @@ function PageDetail({
   const summary = live.data?.pages.find((page) => page.id === pageId);
   const removed = Boolean(live.data && !summary);
   const newer = Boolean(saved && summary && summary.revision > saved.revision);
+  // oxlint-disable-next-line elysia/react-effect-budget -- Publish committed page state to asynchronous saves and navigation guards.
   useLayoutEffect(() => {
     latest.current = { draft, saved, removed, newer };
   }, [draft, saved, removed, newer]);
@@ -114,6 +115,7 @@ function PageDetail({
     setDraft(source);
   }
   const refresh = query.refresh;
+  // oxlint-disable-next-line elysia/react-effect-budget -- Refresh the detail query when the server publishes a newer revision.
   useEffect(() => {
     if (summary && (!source || source.revision < summary.revision)) refresh();
   }, [summary, source, refresh]);
@@ -186,6 +188,7 @@ function PageDetail({
     enableBeforeUnload: () =>
       pageHasUnsavedChanges(latest.current.draft, latest.current.saved) && !leaving.current,
   });
+  // oxlint-disable-next-line elysia/react-effect-budget -- Debounce persistence and cancel the pending save when edits or ownership change.
   useEffect(() => {
     if (!dirty || pending || error || newer || removed || deleteOpen || !draft?.title.trim())
       return;

@@ -1,5 +1,3 @@
-"use client";
-
 import { PlusIcon, XIcon } from "~/icons";
 import { useState } from "react";
 import type { ProviderDriverKind, ServerProviderModel } from "@elysiatools/contracts";

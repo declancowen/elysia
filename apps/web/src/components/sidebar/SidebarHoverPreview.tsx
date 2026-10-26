@@ -114,10 +114,12 @@ export function SidebarHoverPreviewProvider({
       setSection(null);
     }, 150);
   });
+  // oxlint-disable-next-line elysia/react-effect-budget -- Dispose native hover timers when the route, pointer mode or sidebar owner changes.
   useEffect(() => {
     if (preview.scopeKey !== locationKey || !finePointer || sidebarOpen) clearTimers();
     return clearTimers;
   }, [clearTimers, preview.scopeKey, locationKey, finePointer, sidebarOpen]);
+  // oxlint-disable-next-line elysia/react-effect-budget -- Own document pointer and keyboard listeners while the floating sidebar is open.
   useEffect(() => {
     if (!section) return;
     const onKeyDown = (event: KeyboardEvent) => {

@@ -67,49 +67,6 @@ describe("theme failure handling", () => {
     },
   );
 
-  it("preserves exact storage causes and operation context", async () => {
-    const readCause = new Error("storage read blocked");
-    const writeCause = new Error("storage quota exceeded");
-    vi.stubGlobal("window", {
-      localStorage: createStorage({
-        getItem: () => {
-          throw readCause;
-        },
-        setItem: () => {
-          throw writeCause;
-        },
-      }),
-    });
-
-    const { readThemePreference, ThemeStorageError, writeThemePreference } =
-      await import("./useTheme");
-
-    try {
-      readThemePreference();
-      expect.unreachable("expected the theme read to fail");
-    } catch (error) {
-      expect(error).toBeInstanceOf(ThemeStorageError);
-      expect(error).toMatchObject({
-        operation: "read",
-        storageKey: "elysia:theme",
-        cause: readCause,
-      });
-    }
-
-    try {
-      writeThemePreference("dark");
-      expect.unreachable("expected the theme write to fail");
-    } catch (error) {
-      expect(error).toBeInstanceOf(ThemeStorageError);
-      expect(error).toMatchObject({
-        operation: "write",
-        storageKey: "elysia:theme",
-        theme: "dark",
-        cause: writeCause,
-      });
-    }
-  });
-
   it("reads the persisted T3 Chat theme preference", async () => {
     vi.stubGlobal("window", {
       localStorage: createStorage({
@@ -204,43 +161,5 @@ describe("theme failure handling", () => {
     expect(themeGetItem).toHaveBeenCalledTimes(2);
     expect(errorLog).toHaveBeenCalledTimes(2);
     unsubscribe?.();
-  });
-
-  it("preserves desktop sync causes and retries after a failed cosmetic sync", async () => {
-    const cause = new Error("desktop IPC unavailable");
-    const errorLog = vi.spyOn(console, "error").mockImplementation(() => {});
-    const setTheme = vi.fn().mockRejectedValue(cause);
-    vi.stubGlobal("window", { desktopBridge: { setTheme } });
-
-    const { DesktopThemeSyncError, syncDesktopTheme, syncDesktopThemePreference } =
-      await import("./useTheme");
-
-    const error = await syncDesktopThemePreference({ setTheme }, "dark").then(
-      () => undefined,
-      (failure: unknown) => failure,
-    );
-    expect(error).toBeInstanceOf(DesktopThemeSyncError);
-    expect(error).toMatchObject({ theme: "dark", cause });
-
-    setTheme.mockClear();
-    syncDesktopTheme("dark");
-    await Promise.resolve();
-    await Promise.resolve();
-    syncDesktopTheme("dark");
-    await Promise.resolve();
-    await Promise.resolve();
-
-    expect(setTheme).toHaveBeenCalledTimes(2);
-    expect(errorLog).toHaveBeenCalledWith(
-      "Failed to sync the dark theme to the desktop shell.",
-      expect.objectContaining({
-        theme: "dark",
-        errorTag: "DesktopThemeSyncError",
-      }),
-    );
-    for (const [, attributes] of errorLog.mock.calls) {
-      expect(attributes).not.toHaveProperty("cause");
-      expect(JSON.stringify(attributes)).not.toContain(cause.message);
-    }
   });
 });

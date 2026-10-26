@@ -15,6 +15,7 @@ export function useChatHeaderColumn(
   const headerRef = useRef<HTMLDivElement>(null);
   const [mainColumnWidth, setMainColumnWidth] = useState<number | null>(null);
   const [mainColumnHidden, setMainColumnHidden] = useState(false);
+  // oxlint-disable-next-line elysia/react-effect-budget -- Measure the portaled header against DOM columns and own its resize subscriptions.
   useLayoutEffect(() => {
     const header = headerRef.current;
     if (!inlinePanel || !header) {

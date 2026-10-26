@@ -1,6 +1,5 @@
 // @effect-diagnostics nodeBuiltinImport:off
 import * as NodePath from "node:path";
-import * as NodeFSP from "node:fs/promises";
 import * as NodeFS from "node:fs";
 import * as NodeChildProcess from "node:child_process";
 import * as NodeUtil from "node:util";
@@ -25,6 +24,25 @@ function privateEntries(directory: string, publicNames: ReadonlyArray<string>): 
   }
 }
 
+function privatePaths(paths: ReadonlyArray<string>, publicPaths: ReadonlyArray<string>): string[] {
+  return paths.flatMap((value) => {
+    const path = canonicalPath(value);
+    if (publicPaths.some((allowed) => path === allowed || path.startsWith(allowed + NodePath.sep)))
+      return [];
+    if (publicPaths.some((allowed) => allowed.startsWith(path + NodePath.sep))) {
+      try {
+        return privatePaths(
+          NodeFS.readdirSync(path).map((name) => NodePath.join(path, name)),
+          publicPaths,
+        );
+      } catch {
+        return [path];
+      }
+    }
+    return [path];
+  });
+}
+
 /** Enforce protection in the harness, including full-access turns. Prompts are not a boundary. */
 export function elysiaAgentProtection(
   environment: NodeJS.ProcessEnv,
@@ -36,6 +54,14 @@ export function elysiaAgentProtection(
   if (!root) return {};
   const home = environment.ELYSIA_REAL_HOME || process.env.HOME || process.env.USERPROFILE || "";
   const nativeClaudeDir = environment.ELYSIA_NATIVE_CLAUDE_DIR || NodePath.join(home, ".claude");
+  const stateDir = environment.ELYSIA_STATE_DIR;
+  const certificatePaths = [
+    ...new Set(
+      [environment.SSL_CERT_FILE, environment.NODE_EXTRA_CA_CERTS]
+        .filter((path): path is string => Boolean(path))
+        .map(canonicalPath),
+    ),
+  ];
   const protectedPaths = [
     ...privateEntries(root, [".claude", "bin", "runtime", "ca.pem"]),
     ...privateEntries(NodePath.join(root, ".claude"), ["skills", "commands"]),
@@ -47,7 +73,8 @@ export function elysiaAgentProtection(
     NodePath.join(root, ".bashrc"),
     NodePath.join(root, "setup-mac.sh"),
     NodePath.join(root, "setup-windows.cmd"),
-    NodePath.join(home, ".elysia"),
+    // The active app state lives under ~/.elysia too; protect its private leaves below.
+    ...privatePaths([NodePath.join(home, ".elysia")], stateDir ? [canonicalPath(stateDir)] : []),
     ...privateEntries(nativeClaudeDir, ["skills", "commands"]),
     ...["settings.json", "settings.local.json", ".credentials.json"].map((name) =>
       NodePath.join(nativeClaudeDir, name),
@@ -56,24 +83,27 @@ export function elysiaAgentProtection(
     NodePath.join(home, ".zshrc"),
     NodePath.join(home, ".bashrc"),
     NodePath.join(home, "Library", "LaunchAgents"),
-    ...(environment.ELYSIA_STATE_DIR
+    ...(stateDir
       ? [
-          ...["secrets", "settings.json"].map((name) =>
-            NodePath.join(environment.ELYSIA_STATE_DIR!, name),
-          ),
-          ...privateEntries(NodePath.join(environment.ELYSIA_STATE_DIR, "providers"), [
-            NodePath.basename(root),
-          ]),
+          ...privateEntries(stateDir, ["attachments", "agents", "providers"]),
+          ...["secrets", "settings.json"].map((name) => NodePath.join(stateDir, name)),
+          ...privateEntries(NodePath.join(stateDir, "providers"), [NodePath.basename(root)]),
         ]
       : []),
+    ...certificatePaths,
   ].map(canonicalPath);
+  // The CLI's selected CA is public trust material, but agents must never change it.
+  const readProtectedPaths = privatePaths(protectedPaths, certificatePaths);
   const secretNames = Object.keys(environment).filter((name) =>
     /(?:KEY|TOKEN|CUSTOM_HEADERS|EXTRA_HEADERS|SECRET|PASSWORD)$/.test(name),
   );
   return {
     settings: {
       permissions: {
-        deny: protectedPaths.flatMap((path) => ["Read(/" + path + ")", "Read(/" + path + "/**)"]),
+        deny: readProtectedPaths.flatMap((path) => [
+          "Read(/" + path + ")",
+          "Read(/" + path + "/**)",
+        ]),
       },
     },
     sandbox: {
@@ -84,12 +114,12 @@ export function elysiaAgentProtection(
       network: { allowedDomains: ["*"], allowLocalBinding: true },
       filesystem: {
         disabled: false,
-        denyRead: protectedPaths,
+        denyRead: readProtectedPaths,
         denyWrite: protectedPaths,
-        ...(environment.SSL_CERT_FILE ? { allowRead: [environment.SSL_CERT_FILE] } : {}),
+        ...(certificatePaths.length > 0 ? { allowRead: certificatePaths } : {}),
       },
       credentials: {
-        files: protectedPaths.map((path) => ({ path, mode: "deny" })),
+        files: readProtectedPaths.map((path) => ({ path, mode: "deny" })),
         envVars: secretNames.map((name) => ({ name, mode: "deny" })),
       },
     },
@@ -118,26 +148,6 @@ export function elysiaAgentProtection(
                     (nativeCommand[1] === "--compression-stats" && nativeCommand[2] === "--json"))
               ) {
                 try {
-                  if (nativeCommand[1] === "--model") {
-                    const data: unknown = JSON.parse(
-                      await NodeFSP.readFile(
-                        NodePath.join(root, ".claude", "settings.json"),
-                        "utf8",
-                      ),
-                    );
-                    const models =
-                      typeof data === "object" && data !== null && "allowed_models" in data
-                        ? data.allowed_models
-                        : null;
-                    if (!Array.isArray(models) || !models.includes(nativeCommand[2]))
-                      return {
-                        hookSpecificOutput: {
-                          hookEventName: "PreToolUse",
-                          permissionDecision: "deny",
-                          permissionDecisionReason: "Choose an available Elysia model.",
-                        },
-                      };
-                  }
                   const { stdout, stderr } = await NodeUtil.promisify(NodeChildProcess.execFile)(
                     environment.ELYSIA_PYTHON || "python3",
                     [
@@ -188,11 +198,10 @@ export function elysiaAgentProtection(
                 if (typeof value !== "string") continue;
                 const absolute = NodePath.resolve(input.cwd, value.replace(/^~(?=[/\\]|$)/, home));
                 const canonical = canonicalPath(absolute);
-                blocked ||=
-                  canonical !== environment.SSL_CERT_FILE &&
-                  protectedPaths.some(
-                    (path) => canonical === path || canonical.startsWith(path + NodePath.sep),
-                  );
+                const denied = input.tool_name === "Read" ? readProtectedPaths : protectedPaths;
+                blocked ||= denied.some(
+                  (path) => canonical === path || canonical.startsWith(path + NodePath.sep),
+                );
               }
               return blocked
                 ? {

@@ -1,6 +1,12 @@
+vi.mock("vite-plus/test/browser", () => ({
+  page: { elementLocator: () => ({}) },
+  utils: { getElementLocatorSelectors: () => ({}) },
+}));
+import { render as renderUi } from "../../../test/render";
+import { act } from "../../../test/act";
 // @vitest-environment jsdom
-import { act, useState } from "react";
-import { createRoot } from "react-dom/client";
+import { useState } from "react";
+
 import { expect, it, vi } from "vite-plus/test";
 import {
   WorkspaceSidebarContentProvider,
@@ -9,10 +15,9 @@ import {
 } from "./WorkspaceSidebarContent";
 
 it("moves the existing sidebar controls into the hover host and back without losing route state", async () => {
-  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   const host = document.createElement("div");
   document.body.append(host);
-  const root = createRoot(host);
+  await using root = await renderUi(null, { container: host, router: false });
   function Harness({ floating }: { floating: boolean }) {
     const [query, setQuery] = useState("");
     return (
@@ -32,12 +37,12 @@ it("moves the existing sidebar controls into the hover host and back without los
     );
   }
   try {
-    await act(() => root.render(<Harness floating={false} />));
+    await act(() => root.rerender(<Harness floating={false} />));
     await act(() => host.querySelector<HTMLButtonElement>("[data-pinned] button")!.click());
-    await act(() => root.render(<Harness floating />));
+    await act(() => root.rerender(<Harness floating />));
     expect(host.querySelector("[data-pinned] button")).toBeNull();
     expect(host.querySelector("[data-floating] button")?.textContent).toBe("preview");
-    await act(() => root.render(<Harness floating={false} />));
+    await act(() => root.rerender(<Harness floating={false} />));
     expect(host.querySelector("[data-pinned] button")?.textContent).toBe("preview");
   } finally {
     await act(() => root.unmount());

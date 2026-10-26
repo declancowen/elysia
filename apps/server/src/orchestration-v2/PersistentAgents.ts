@@ -451,8 +451,12 @@ const make = Effect.gen(function* () {
   );
   return PersistentAgents.of({
     reset,
-    conversationPreviews: (input) => conversationPreviewsImpl(input).pipe(Effect.provide(context)),
-    create: (input) => createPersistentAgentImpl(input).pipe(Effect.provide(context)),
+    conversationPreviews: Effect.fn("PersistentAgents.conversationPreviews")((input) =>
+      conversationPreviewsImpl(input).pipe(Effect.provide(context)),
+    ),
+    create: Effect.fn("PersistentAgents.create")((input) =>
+      createPersistentAgentImpl(input).pipe(Effect.provide(context)),
+    ),
   });
 });
 export const layer = Layer.effect(PersistentAgents, make).pipe(Layer.provide(Scheduler.layer));

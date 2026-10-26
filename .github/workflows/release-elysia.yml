@@ -175,7 +175,8 @@ jobs:
             src/components/Sidebar.logic.test.ts \
             src/rightPanelStore.test.ts \
             src/components/threadSidebarWidth.test.ts \
-            src/components/chat/OpenInPicker.test.ts \
+            src/components/chat/OpenInPicker.test.tsx \
+            src/components/ThreadNotificationCoordinator.logic.test.ts \
             src/components/usage/ElysiaUsagePage.test.tsx \
             src/components/uploadedSources.test.ts \
             src/components/chat/ModelPickerContent.test.ts \
@@ -187,7 +188,6 @@ jobs:
             src/components/settings/scheduledTasksSettings.logic.test.ts \
             src/state/desktopUpdate.test.ts \
             src/components/desktopUpdate.logic.test.ts \
-            src/components/sidebar/SidebarUpdatePill.test.tsx \
             src/components/chat/channelTimeline.test.ts \
             src/components/chat/MessagesTimeline.test.tsx \
             src/hooks/useArchivedConversationTabs.test.tsx \
@@ -236,12 +236,12 @@ jobs:
         working-directory: apps/web
         run: |
           vp test run --project browser \
+            src/components/sidebar/SidebarUpdatePill.browser.test.tsx \
             src/components/WorkspaceEditorCommands.browser.test.ts \
             src/components/settings/ScheduledTaskPrompt.browser.test.tsx \
             src/components/settings/ProviderSettingsPanel.environment.browser.test.tsx \
             src/components/settings/ProviderSettingsPanel.policy.browser.test.tsx \
             src/components/onboarding/WelcomeWizard.elysia.browser.test.tsx \
-            src/components/ThreadNotificationCoordinator.browser.test.tsx \
             src/components/ThreadNotificationCoordinator.badge.browser.test.tsx
 
       - name: Test desktop stable updater and settings
@@ -280,10 +280,10 @@ jobs:
             apps/server/src/orchestration-v2/ThreadLaunchService.test.ts \
             apps/server/src/scheduledTasks/ScheduledTaskService.test.ts \
             apps/server/src/scheduledTasks/ScheduledTaskService.schedule.test.ts \
-            apps/server/src/scheduling/Scheduler.integration.test.ts \
+            apps/server/src/scheduling/Scheduler.test.ts \
             apps/server/src/orchestration-v2/ProjectionStore.test.ts \
             apps/server/src/orchestration-v2/threadHistoryPaging.test.ts \
-            apps/server/src/orchestration-v2/V1ImportBoundary.test.ts \
+            apps/server/src/orchestration-v2/legacy/LegacyV1Cutover.integration.test.ts \
             apps/server/src/orchestration-v2/legacy/LegacyV1ThreadImporter.test.ts \
             apps/server/src/persistence/reconcileV2PreviewMigration.test.ts \
             apps/server/src/provider/ElysiaAgentProtection.test.ts \

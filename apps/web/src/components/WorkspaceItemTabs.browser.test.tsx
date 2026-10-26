@@ -1,6 +1,8 @@
-import { act, type CSSProperties } from "react";
-import { createRoot, type Root } from "react-dom/client";
-import { afterEach, beforeEach, expect, it, vi } from "vite-plus/test";
+import { render as renderUi, type Screen } from "../../test/render";
+import { act } from "../../test/act";
+import { type CSSProperties } from "react";
+
+import { expect, it, vi } from "vite-plus/test";
 import { page } from "vite-plus/test/browser";
 
 import "~/index.css";
@@ -28,24 +30,26 @@ function FixtureTabs() {
   );
 }
 
-let root: Root;
+let root: Screen;
 let container: HTMLDivElement;
-beforeEach(async () => {
+async function setup() {
+  const resources = new AsyncDisposableStack();
+  resources.defer(async () => {});
+
   await page.viewport(704, 900);
   container = document.createElement("div");
   document.body.append(container);
-  root = createRoot(container);
-});
-afterEach(async () => {
-  await act(async () => root.unmount());
-  container.remove();
-});
+  root = resources.use(await renderUi(null, { container: container, router: false }));
+
+  return resources;
+}
 
 it.each([40, 52])(
   "keeps inline tabs at the %ipx topbar height without consuming the surface",
   async (height) => {
+    await using _fixture = await setup();
     await act(async () =>
-      root.render(
+      root.rerender(
         <main
           style={
             {
@@ -78,8 +82,9 @@ it.each([40, 52])(
 );
 
 it("still shares a bounded horizontal header with other actions", async () => {
+  await using _fixture = await setup();
   await act(async () =>
-    root.render(
+    root.rerender(
       <div style={{ width: 500, "--workspace-topbar-height": "40px" } as CSSProperties}>
         <WorkspacePageHeader>
           <FixtureTabs />

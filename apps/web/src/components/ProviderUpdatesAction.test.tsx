@@ -1,3 +1,4 @@
+import { act } from "../../test/act";
 import {
   EnvironmentId,
   ProviderDriverKind,
@@ -5,7 +6,7 @@ import {
   type ServerProvider,
 } from "@elysiatools/contracts";
 import { AsyncResult } from "effect/reactivity";
-import { act } from "react";
+
 import { create, type ReactTestRenderer } from "react-test-renderer";
 import { afterEach, expect, it, vi } from "vite-plus/test";
 
@@ -99,7 +100,6 @@ afterEach(async () => {
 });
 
 it("confirms distinct CLI updates and dispatches each native update target", async () => {
-  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   const provider = nativeProvider();
   state.providers = [provider];
   const succeeded = {

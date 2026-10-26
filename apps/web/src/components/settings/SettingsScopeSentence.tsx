@@ -4,7 +4,6 @@ import { isScratchProject } from "@elysiatools/client-runtime/state/projects";
 import { useLocation } from "@tanstack/react-router";
 import { ChevronDownIcon, FolderIcon, LayersIcon, MessageCircleIcon } from "~/icons";
 import type { ReactNode } from "react";
-
 import type { SidebarProjectSnapshot } from "../../sidebarProjectGrouping";
 import { useEnvironments, type EnvironmentPresentation } from "../../state/environments";
 import { EnvironmentMachineIcon } from "../EnvironmentMachineIcon";
@@ -40,7 +39,6 @@ export const SETTINGS_DEVICE_ONLY_PATHS: ReadonlySet<string> = new Set([
   "/settings/snap-shot",
   "/settings/connections",
 ]);
-
 interface SettingsScopeMenuProps {
   readonly value: SettingsScopeSearch;
   readonly groups: readonly SidebarProjectSnapshot[];
@@ -55,9 +53,15 @@ interface SettingsScopeMenuProps {
  * the same project on every environment, so the environment alone decides
  * where a project override is written.
  */
-export function SettingsScopeSentence({ compact = false }: { compact?: boolean } = {}) {
+export function SettingsScopeSentence({
+  compact = false,
+}: {
+  compact?: boolean;
+} = {}) {
   const scope = useOptionalSettingsScope();
-  const pathname = useLocation({ select: (location) => location.pathname });
+  const pathname = useLocation({
+    select: (location) => location.pathname,
+  });
   const { environments } = useEnvironments();
   if (scope === null || (!compact && SETTINGS_DEVICE_ONLY_PATHS.has(pathname))) return null;
   const selectedAgent = scope.groups.find(
@@ -97,7 +101,6 @@ export function SettingsScopeSentence({ compact = false }: { compact?: boolean }
     </p>
   );
 }
-
 function ScopeMenu({
   ariaLabel,
   icon,
@@ -132,7 +135,6 @@ function ScopeMenu({
     </Menu>
   );
 }
-
 function ScopeIconSlot({ children }: { children: ReactNode }) {
   return (
     <span className="flex size-4 shrink-0 items-center justify-center [&_svg]:mx-0">
@@ -140,7 +142,6 @@ function ScopeIconSlot({ children }: { children: ReactNode }) {
     </span>
   );
 }
-
 function EnvironmentScopeMenu({
   value,
   groups,
@@ -227,14 +228,15 @@ function EnvironmentScopeMenu({
     </ScopeMenu>
   );
 }
-
 function ProjectScopeMenu({
   value,
   groups,
   environments,
   onChange,
   allProjectsLabel,
-}: SettingsScopeMenuProps & { allProjectsLabel?: string }) {
+}: SettingsScopeMenuProps & {
+  allProjectsLabel?: string;
+}) {
   const selected = groups.find((group) => group.projectKey === value.project);
   const projectIcon = (group: SidebarProjectSnapshot) =>
     group.agentProfile ? (

@@ -1,7 +1,12 @@
+vi.mock("vite-plus/test/browser", () => ({
+  page: { elementLocator: () => ({}) },
+  utils: { getElementLocatorSelectors: () => ({}) },
+}));
+import { render as renderUi } from "../../../test/render";
+import { act } from "../../../test/act";
 // @vitest-environment jsdom
 import * as DateTime from "effect/DateTime";
-import { act } from "react";
-import { createRoot } from "react-dom/client";
+
 import {
   EnvironmentId,
   MessageId,
@@ -57,13 +62,12 @@ import { useThreadOverviewStore } from "../chat/threadOverviewStore";
 import { AgentMentionChip, AgentMessageStatus, SentAgentMentionChip } from "./AgentMentionChip";
 
 it("resolves sent agent mentions to their avatar, retains archived history, and handles a missing agent", async () => {
-  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   const host = document.createElement("div");
   document.body.append(host);
-  const root = createRoot(host);
+  await using root = await renderUi(null, { container: host, router: false });
   const render = async (allowArchived = false, status?: AgentGetDelegationResult["status"]) =>
-    act(async () =>
-      root.render(
+    await act(async () =>
+      root.rerender(
         <AgentMentionChip
           environmentId={EnvironmentId.make("local")}
           contextId="friday"
@@ -101,7 +105,6 @@ it("resolves sent agent mentions to their avatar, retains archived history, and 
 });
 
 it("shows plain clickable agent names and task-specific status in sent messages", async () => {
-  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   state.project = {
     title: "Friday",
     agentProfile: { archived: false, avatar: { preset: "triangle", color: "#EEAF00" } },
@@ -141,9 +144,9 @@ it("shows plain clickable agent names and task-specific status in sent messages"
   const source = { environmentId: EnvironmentId.make("local"), threadId: ThreadId.make("source") };
   const host = document.createElement("div");
   document.body.append(host);
-  const root = createRoot(host);
+  await using root = await renderUi(null, { container: host, router: false });
   const render = (agentProjectId?: ProjectId) =>
-    root.render(
+    root.rerender(
       <>
         <div data-bubble>
           <SentAgentMentionChip

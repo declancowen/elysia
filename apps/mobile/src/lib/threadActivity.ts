@@ -1,52 +1,47 @@
-import {
-  delegatedAgentsFromTurnItems,
-  type DelegatedAgent,
-} from "@elysiatools/shared/agentMentions";
+import { formatSubagentDisplayTitle } from "@elysiatools/client-runtime/state/subagent-display";
+import { isLiveSubagentTurnItem } from "@elysiatools/client-runtime/state/subagentRuntime";
+import type { ThreadCheckpointSummary } from "@elysiatools/client-runtime/state/thread-checkpoints";
 import type {
   ThreadPendingApproval,
   ThreadPendingUserInput,
   ThreadUserInputQuestion,
 } from "@elysiatools/client-runtime/state/thread-requests";
 import { turnItemIsWorkspacePreparation } from "@elysiatools/client-runtime/state/turn-item-presentation";
-import { formatSubagentDisplayTitle } from "@elysiatools/client-runtime/state/subagent-display";
-import { isLiveSubagentTurnItem } from "@elysiatools/client-runtime/state/subagentRuntime";
-import { extractToolActivityPresentation } from "@elysiatools/client-runtime/work-log/tool-presentation";
+import {
+  IDLE_COMPACTING_LABELS,
+  IDLE_COMPACTION_TITLES,
+} from "@elysiatools/client-runtime/user-message";
+import {
+  commandDisplayText,
+  commandProgramName,
+} from "@elysiatools/client-runtime/work-log/command-label";
 import {
   turnItemDetailRevision,
   turnItemHasDetail,
   turnItemNeedsDetailFetch,
 } from "@elysiatools/client-runtime/work-log/item-detail";
 import {
-  commandDisplayText,
-  commandProgramName,
-} from "@elysiatools/client-runtime/work-log/command-label";
-import {
   contextCompactionLabel,
-  liveThoughtLine,
-  toolItemForDisplay,
-  workEntryDisplayIndicatesToolFailure,
   liveActivityToolStatus,
-  toolGroupAction,
+  liveThoughtLine,
   resolveWorkEntryToolPresentation,
   summarizeToolGroup,
+  toolGroupAction,
   toolGroupSummaryKind,
+  toolItemForDisplay,
+  workEntryDisplayIndicatesToolFailure,
   type ToolGroupSummaryKind,
   type WorkLogPresentationEntry,
   type WorkLogToolLifecycleStatus,
 } from "@elysiatools/client-runtime/work-log/presentation";
-import {
-  resolveElysiaMcpToolDefinition,
-  resolveElysiaMcpToolPresentation,
-  type ElysiaMcpToolLogo,
-  type ElysiaMcpToolPresentation,
-} from "@elysiatools/shared/elysiaMcpToolPresentation";
+import { extractToolActivityPresentation } from "@elysiatools/client-runtime/work-log/tool-presentation";
 import type {
   ChatAttachment,
   MessageId,
+  OrchestrationMessageContext,
   OrchestrationV2Actor,
   OrchestrationV2CreationSource,
   OrchestrationV2ExecutionNode,
-  OrchestrationMessageContext,
   OrchestrationV2ProjectedTurnItem,
   OrchestrationV2RunAttempt,
   OrchestrationV2RunStatus,
@@ -56,19 +51,35 @@ import type {
   ScheduledTaskId,
   TurnItemId,
 } from "@elysiatools/contracts";
-import { RunId, ThreadId } from "@elysiatools/contracts";
+import {
+  idleCompactionOf,
+  isCompactionCommandMessage,
+  RunId,
+  ThreadId,
+} from "@elysiatools/contracts";
+import {
+  delegatedAgentsFromTurnItems,
+  type DelegatedAgent,
+} from "@elysiatools/shared/agentMentions";
+import { claudeResumeCompactionAge } from "@elysiatools/shared/claudeCompaction";
+import {
+  resolveElysiaMcpToolDefinition,
+  resolveElysiaMcpToolPresentation,
+  type ElysiaMcpToolLogo,
+  type ElysiaMcpToolPresentation,
+} from "@elysiatools/shared/elysiaMcpToolPresentation";
+import type { HtmlRenderReference } from "@elysiatools/shared/htmlRender";
+import type { McpAppReference } from "@elysiatools/shared/mcpApp";
+import { formatDuration } from "@elysiatools/shared/orchestrationTiming";
+import { truncate } from "@elysiatools/shared/String";
 import {
   classifyToolActivity,
   collectToolFilePaths,
   dynamicToolTitle,
-  isJavaScriptReplTool,
   formatReadToolLabel,
   formatSearchToolLabel,
+  isJavaScriptReplTool,
 } from "@elysiatools/shared/toolActivity";
-import { formatDuration } from "@elysiatools/shared/orchestrationTiming";
-import { truncate } from "@elysiatools/shared/String";
-import type { HtmlRenderReference } from "@elysiatools/shared/htmlRender";
-import type { McpAppReference } from "@elysiatools/shared/mcpApp";
 import {
   compactDynamicToolOutput,
   htmlRenderFromToolItem,
@@ -123,10 +134,7 @@ export interface ThreadFeedActivity {
   readonly workEntry: WorkLogPresentationEntry & { readonly agentDelegation?: DelegatedAgent };
   readonly groupedToolDetail?: boolean;
   readonly live?: boolean;
-  /**
-   * Set on a lone call shown in place of its group header. Carries the header's
-   * label and the group that takes over once a second call joins it.
-   */
+  /** Lone calls carry the group header's label and id until a second call joins. */
   readonly groupStandIn?: { readonly groupId: string; readonly label: string };
   readonly projectedItem: OrchestrationV2ProjectedTurnItem;
 }
@@ -144,11 +152,13 @@ export interface ThreadFeedMessage {
   readonly creationSource?: OrchestrationV2CreationSource;
   readonly scheduledTaskId?: ScheduledTaskId;
   readonly senderThreadId?: ThreadId;
+  readonly idleCompaction?: import("@elysiatools/contracts").OrchestrationV2IdleCompaction;
   readonly visibility: OrchestrationV2ProjectedTurnItem["visibility"];
   readonly sourceThreadId: ThreadId;
   readonly createdAt: string;
   readonly updatedAt: string;
   readonly projectedItem?: OrchestrationV2ProjectedTurnItem;
+  readonly checkpointSummary?: ThreadCheckpointSummary;
 }
 
 export interface LocalThreadMessage {
@@ -195,7 +205,10 @@ type RawThreadFeedEntry =
       readonly app: McpAppReference;
     };
 
-export type ThreadFeedEntry = ThreadFeedEntryContent & { readonly continuesWorkLog?: boolean };
+export type ThreadFeedEntry = ThreadFeedEntryContent & {
+  readonly continuesWorkLog?: boolean;
+  readonly checkpointSummary?: ThreadCheckpointSummary;
+};
 
 type ThreadFeedEntryContent =
   | Extract<RawThreadFeedEntry, { type: "message" | "html-render" | "mcp-app" }>
@@ -260,11 +273,7 @@ export interface AgentSpawnSummary {
   }>;
 }
 
-/**
- * Work-log headers render one line, but Android still lays out and hit-tests
- * the whole string, so a multi-kilobyte heredoc stalls touch dispatch until
- * the app ANRs. Expanded bodies and copy keep the full text.
- */
+/** Long Android headers can ANR despite one-line display; cap labels only, preserving expanded and copied text. */
 const WORK_LOG_LABEL_MAX_LENGTH = 200;
 
 function compactWorkEntryText(value: string): string {
@@ -349,6 +358,49 @@ export function isContextCompactionActivityGroup(entry: ThreadFeedActivityGroup)
   return (
     entry.activities.length === 1 && entry.activities[0]?.projectedItem.item.type === "compaction"
   );
+}
+
+export function threadFeedCompactionLabels(feed: ReadonlyArray<ThreadFeedEntry>) {
+  const labelsByRunId = new Map<RunId, { title: string; compacting: string }>();
+  const labelsByEntryId = new Map<string, { title: string; compacting: string }>();
+  const pendingResumeAgeByRunId = new Map<RunId, string>();
+  for (const entry of feed) {
+    const reason = entry.type === "message" ? idleCompactionOf(entry.message) : undefined;
+    if (entry.type === "message" && entry.message.runId !== null && reason !== undefined) {
+      labelsByRunId.set(entry.message.runId, {
+        title: IDLE_COMPACTION_TITLES[reason],
+        compacting: IDLE_COMPACTING_LABELS[reason],
+      });
+    } else if (entry.type === "activity-group" && entry.runId !== null) {
+      if (isContextCompactionActivityGroup(entry)) {
+        const age = pendingResumeAgeByRunId.get(entry.runId);
+        const labels =
+          labelsByRunId.get(entry.runId) ??
+          (age === undefined
+            ? undefined
+            : {
+                title: `Context compacted after ${age} idle`,
+                compacting: `Compacting after ${age} idle…`,
+              });
+        if (labels) labelsByEntryId.set(entry.id, labels);
+        pendingResumeAgeByRunId.delete(entry.runId);
+      }
+      for (const activity of entry.activities) {
+        const age = activity.workEntry.questionAnswer
+          ? claudeResumeCompactionAge(activity.workEntry.questionAnswer)
+          : null;
+        if (age !== null) pendingResumeAgeByRunId.set(entry.runId, age);
+      }
+    }
+  }
+  return labelsByEntryId;
+}
+
+function isResumeCompactionAnswerGroup(entry: ThreadFeedActivityGroup): boolean {
+  return entry.activities.every((activity) => {
+    const answer = activity.workEntry.questionAnswer;
+    return answer !== undefined && claudeResumeCompactionAge(answer) !== null;
+  });
 }
 
 export function isContextHandoffActivityGroup(entry: ThreadFeedActivityGroup): boolean {
@@ -471,6 +523,7 @@ function itemIsProminent(item: OrchestrationV2TurnItem): boolean {
     item.type === "fork" ||
     item.type === "thread_created" ||
     item.type === "system_notice" ||
+    item.type === "proposed_plan" ||
     item.type === "secret_request"
   );
 }
@@ -829,19 +882,23 @@ function toFeedActivity(
       ? collectToolFilePaths(item)
       : null;
   const getFullDetail = memoizeValue(() =>
-    readPaths
-      ? readPaths.join("\n") || null
-      : item.type === "notification"
-        ? item.detail?.trim() || null
-        : formatItemFullDetail(row, item),
+    item.type === "proposed_plan"
+      ? item.markdown
+      : readPaths
+        ? readPaths.join("\n") || null
+        : item.type === "notification"
+          ? item.detail?.trim() || null
+          : formatItemFullDetail(row, item),
   );
   const getCopyText = memoizeValue(() =>
-    [summary, detail, getFullDetail()]
-      .filter(
-        (value, index, values): value is string =>
-          Boolean(value) && values.indexOf(value) === index,
-      )
-      .join("\n"),
+    item.type === "proposed_plan"
+      ? `${item.markdown.trimEnd()}\n`
+      : [summary, detail, getFullDetail()]
+          .filter(
+            (value, index, values): value is string =>
+              Boolean(value) && values.indexOf(value) === index,
+          )
+          .join("\n"),
   );
   return {
     id: `${row.visibility}:${row.sourceThreadId}:${row.sourceItemId}`,
@@ -969,6 +1026,7 @@ function groupAdjacentActivities(
     }
 
     const isStandaloneActivity =
+      entry.activity.workEntry.questionAnswer !== undefined ||
       entry.activity.projectedItem.item.type === "compaction" ||
       entry.activity.projectedItem.item.type === "handoff" ||
       entry.activity.projectedItem.item.type === "notification";
@@ -1069,13 +1127,34 @@ export function failedFeedRunIds(
   return failed;
 }
 
+/**
+ * The key a run fold uses for the message `entryId`: its run, or for an
+ * imported message with no run, the runless key of the user message before
+ * it. Null for user messages, which never fold.
+ */
+export function messageFoldRunId(
+  feed: ReadonlyArray<ThreadFeedEntry>,
+  entryId: string,
+): RunId | null {
+  let runlessKey: RunId | null = null;
+  for (const entry of feed) {
+    if (entry.type !== "message") continue;
+    if (entry.message.role === "user") {
+      if (entry.id === entryId) return null;
+      runlessKey = entry.message.runId == null ? RunId.make(`runless:${entry.id}`) : null;
+    } else if (entry.id === entryId) {
+      return entry.message.runId ?? runlessKey;
+    }
+  }
+  return null;
+}
+
 function deriveThreadFeedRunFolds(
   feed: ReadonlyArray<ThreadFeedEntry>,
   latestRun: ThreadFeedLatestRun | null,
   runlessWorkActive: boolean,
   feedFailedRunIds: ReadonlySet<RunId>,
 ): ReadonlyMap<string, ThreadFeedRunFold> {
-  const firstAssistantMessageIdByRun = new Map<RunId, string>();
   const terminalAssistantMessageIdByRun = new Map<RunId, string>();
   const interruptedRunIds = new Set<RunId>();
   const failedRunIds = new Set(feedFailedRunIds);
@@ -1115,9 +1194,7 @@ function deriveThreadFeedRunFolds(
           ? (entry.runId ?? runlessKey)
           : null;
     if (!ownRunId) continue;
-    // Resuming a subagent moves its item to the resuming run, but the item
-    // keeps its place in the turn that started it. It folds with that turn,
-    // so the later run's fold still opens under its own prompt.
+    // Resumed subagents keep their original turn position and fold, leaving later run folds under their own prompts.
     const runId =
       responseKey !== null && (promptIndexByRunId.get(ownRunId) ?? -1) > index
         ? responseKey
@@ -1130,9 +1207,6 @@ function deriveThreadFeedRunFolds(
     }
     group.entries.push(entry);
     if (entry.type === "message") {
-      if (!firstAssistantMessageIdByRun.has(runId)) {
-        firstAssistantMessageIdByRun.set(runId, entry.id);
-      }
       terminalAssistantMessageIdByRun.set(runId, entry.id);
     }
     if (entry.type !== "activity-group") continue;
@@ -1162,21 +1236,21 @@ function deriveThreadFeedRunFolds(
     ) {
       continue;
     }
-    const firstAssistantId = firstAssistantMessageIdByRun.get(runId);
     const terminalAssistantId = terminalAssistantMessageIdByRun.get(runId);
     const hiddenEntryIds = new Set(
       group.entries
         .filter(
           (entry) =>
-            entry.id !== firstAssistantId &&
             entry.id !== terminalAssistantId &&
             entry.type !== "html-render" &&
             entry.type !== "mcp-app" &&
+            !(entry.type === "activity-group" && isContextCompactionActivityGroup(entry)) &&
             !(
               entry.type === "activity-group" &&
               entry.activities.some(
                 (activity) =>
                   activity.prominent ||
+                  activity.workEntry.questionAnswer !== undefined ||
                   activity.projectedItem.item.type === "notification" ||
                   activity.projectedItem.item.type === "handoff" ||
                   // A child still working outlives its settled launching run;
@@ -1384,6 +1458,26 @@ export function deriveThreadFeedPresentation(
   const failedRunIds = failedFeedRunIds(sourceFeed, latestRun);
   const activeTailGroup = sourceFeed.at(-1);
   const activeRunId = unsettledRunId(latestRun);
+  // A bare `/compact` turn is the compaction itself: its compaction row stands in for the prompt
+  // and the live activity row. An answered "compact before continuing?" question folds into the
+  // compaction it asked for.
+  const compactionCommandRunIds = new Set<RunId>();
+  const compactionItemRunIds = new Set<RunId>();
+  for (const entry of feed) {
+    if (
+      entry.type === "message" &&
+      entry.message.runId !== null &&
+      isCompactionCommandMessage(entry.message)
+    ) {
+      compactionCommandRunIds.add(entry.message.runId);
+    } else if (
+      entry.type === "activity-group" &&
+      entry.runId !== null &&
+      isContextCompactionActivityGroup(entry)
+    ) {
+      compactionItemRunIds.add(entry.runId);
+    }
+  }
   const isWorking = activeWorkStartedAt !== null && latestRun?.status !== "preparing";
   const foldsByAnchorId = deriveThreadFeedRunFolds(
     sourceFeed,
@@ -1438,6 +1532,18 @@ export function deriveThreadFeedPresentation(
       }
       result.push(row);
     }
+    if (
+      (entry.type === "message" &&
+        entry.message.runId !== null &&
+        compactionItemRunIds.has(entry.message.runId) &&
+        isCompactionCommandMessage(entry.message)) ||
+      (entry.type === "activity-group" &&
+        entry.runId !== null &&
+        compactionItemRunIds.has(entry.runId) &&
+        isResumeCompactionAnswerGroup(entry))
+    ) {
+      continue;
+    }
     if (!collapsedEntryIds.has(entry.id)) {
       if (
         entry.type === "activity-group" &&
@@ -1475,6 +1581,7 @@ export function deriveThreadFeedPresentation(
     isWorking &&
     activeWorkStartedAt !== null &&
     latestRun?.turnEnded !== true &&
+    (activeRunId === null || !compactionCommandRunIds.has(activeRunId)) &&
     !result.some(
       (row) =>
         row.id === LIVE_ACTIVITY_ROW_ID ||
@@ -1485,6 +1592,39 @@ export function deriveThreadFeedPresentation(
     )
   ) {
     result.push(thinkingRow(activeWorkStartedAt, activeRunId));
+  }
+  const checkpointByRunId = new Map<RunId, ThreadCheckpointSummary>();
+  for (const entry of sourceFeed) {
+    if (entry.type === "message" && entry.message.checkpointSummary) {
+      checkpointByRunId.set(entry.message.checkpointSummary.runId, entry.message.checkpointSummary);
+    }
+  }
+  const workRowByRunId = new Map<RunId, number>();
+  for (let index = tailStart; index < result.length; index += 1) {
+    const row = result[index]!;
+    if (
+      (row.type === "run-fold" || row.type === "work-toggle") &&
+      row.runId !== null &&
+      checkpointByRunId.has(row.runId) &&
+      (row.type === "run-fold" || !workRowByRunId.has(row.runId))
+    ) {
+      workRowByRunId.set(row.runId, index);
+    }
+  }
+  for (const [runId, index] of workRowByRunId) {
+    result[index] = { ...result[index]!, checkpointSummary: checkpointByRunId.get(runId)! };
+  }
+  for (let index = tailStart; index < result.length; index += 1) {
+    const row = result[index]!;
+    if (
+      row.type !== "message" ||
+      !row.message.checkpointSummary ||
+      !workRowByRunId.has(row.message.checkpointSummary.runId)
+    )
+      continue;
+    const message = { ...row.message };
+    delete message.checkpointSummary;
+    result[index] = { ...row, message };
   }
   // Reused rows are final: the user message after them never continues a work log.
   for (let index = tailStart; index < result.length; index += 1) {
@@ -1710,9 +1850,7 @@ function appendToolGroupRows(
         ? singleActivity.workEntry.label
         : groupSummary.summary;
   const id = shimmer ? LIVE_ACTIVITY_ROW_ID : `${live ? "work-live" : "work-toggle"}:${groupId}`;
-  // A lone call needs no header. Its own row takes the header's place, label
-  // and identity, and discloses its details directly. A lone thought keeps the
-  // header, whose expansion already shows the text itself.
+  // Lone calls replace the header and disclose directly; lone thoughts retain the header to show text on expansion.
   if (singleActivity !== null && singleActivity.workEntry.itemType !== "reasoning") {
     result.push({
       type: "activity-group",
@@ -1720,8 +1858,7 @@ function appendToolGroupRows(
       createdAt: singleActivity.createdAt,
       runId: singleActivity.runId,
       activities: [{ ...singleActivity, live: shimmer, groupStandIn: { groupId, label: summary } }],
-      // Like the header, the row has no trailing margin, so the Thinking
-      // fallback and a growing group swap in without shifting the feed.
+      // No trailing margin lets Thinking or a growing group replace the row without shifting the feed.
       continuesWorkLog: true,
     });
     return;
@@ -1915,6 +2052,7 @@ interface ThreadFeedBuild {
   readonly rows: ReadonlyArray<OrchestrationV2ProjectedTurnItem>;
   readonly attempts: ReadonlyArray<OrchestrationV2RunAttempt> | undefined;
   readonly nodes: ReadonlyArray<OrchestrationV2ExecutionNode> | undefined;
+  readonly checkpointSummaries: ReadonlyArray<ThreadCheckpointSummary> | undefined;
   readonly foldedAnswerMessageIds: ReadonlySet<string>;
   readonly delegatedChildrenByRun: ReadonlyMap<RunId, ReadonlySet<string>>;
   readonly feed: ReadonlyArray<ThreadFeedEntry>;
@@ -1923,11 +2061,8 @@ interface ThreadFeedBuild {
 }
 
 /**
- * A streamed chunk changes the newest rows of a thread that can hold thousands.
- * A consumer that keeps one cache across renders lets `buildThreadFeed` and
- * `deriveThreadFeedPresentation` keep the unchanged prefix of their last
- * result instead of redoing the whole thread. Each feed on screen owns its
- * cache, so two threads rendering at once never evict each other.
+ * Keep one cache per on-screen feed across renders to reuse unchanged prefixes during streaming.
+ * Sharing it between threads would make their results evict each other.
  */
 export interface ThreadFeedCache {
   feedBuild: ThreadFeedBuild | null;
@@ -1942,6 +2077,30 @@ function setsEqual<T>(left: ReadonlySet<T>, right: ReadonlySet<T>): boolean {
   if (left.size !== right.size) return false;
   for (const value of left) if (!right.has(value)) return false;
   return true;
+}
+
+// Summaries are re-derived whenever messages change, including streamed text,
+// so a new array often holds the same checkpoints.
+function checkpointSummariesEqual(
+  left: ReadonlyArray<ThreadCheckpointSummary> | undefined,
+  right: ReadonlyArray<ThreadCheckpointSummary> | undefined,
+): boolean {
+  if (left === right) return true;
+  if (left === undefined || right === undefined || left.length !== right.length) return false;
+  return left.every((summary, index) => {
+    const other = right[index]!;
+    return (
+      summary.checkpointId === other.checkpointId &&
+      summary.scopeId === other.scopeId &&
+      summary.runId === other.runId &&
+      summary.checkpointTurnCount === other.checkpointTurnCount &&
+      summary.checkpointRef === other.checkpointRef &&
+      summary.completedAt === other.completedAt &&
+      summary.status === other.status &&
+      summary.files === other.files &&
+      summary.assistantMessageId === other.assistantMessageId
+    );
+  });
 }
 
 function setMapsEqual<K, V>(
@@ -1970,6 +2129,7 @@ export function buildThreadFeed(
     readonly anchoredMessages?: ReadonlyArray<LocalThreadMessage>;
     readonly attempts?: ReadonlyArray<OrchestrationV2RunAttempt>;
     readonly nodes?: ReadonlyArray<OrchestrationV2ExecutionNode>;
+    readonly checkpointSummaries?: ReadonlyArray<ThreadCheckpointSummary>;
     readonly cache?: ThreadFeedCache;
   },
 ): ThreadFeedEntry[] {
@@ -2016,6 +2176,7 @@ export function buildThreadFeed(
     anchoredMessages.length === 0 &&
     previous.attempts === options?.attempts &&
     previous.nodes === options?.nodes &&
+    checkpointSummariesEqual(previous.checkpointSummaries, options?.checkpointSummaries) &&
     setsEqual(previous.foldedAnswerMessageIds, foldedAnswerMessageIds) &&
     setMapsEqual(previous.delegatedChildrenByRun, delegatedChildrenByRun)
   ) {
@@ -2106,6 +2267,8 @@ export function buildThreadFeed(
                 createdBy: item.createdBy,
                 creationSource: item.creationSource,
                 ...(item.scheduledTaskId ? { scheduledTaskId: item.scheduledTaskId } : {}),
+                ...(item.senderThreadId ? { senderThreadId: item.senderThreadId } : {}),
+                ...(item.idleCompaction ? { idleCompaction: item.idleCompaction } : {}),
               }
             : {}),
           visibility: row.visibility,
@@ -2170,8 +2333,18 @@ export function buildThreadFeed(
     if (insertionIndex === -1) entries.push(entry);
     else entries.splice(insertionIndex, 0, entry);
   }
+  const checkpointByMessageId = new Map(
+    (options?.checkpointSummaries ?? [])
+      .filter((checkpoint) => checkpoint.status === "ready" && checkpoint.files.length > 0)
+      .map((checkpoint) => [checkpoint.assistantMessageId, checkpoint]),
+  );
   const grouped = groupAdjacentActivities(
-    entries,
+    entries.map((entry) => {
+      if (entry.type !== "message" || entry.message.role !== "assistant") return entry;
+      const checkpointSummary = checkpointByMessageId.get(entry.message.id);
+      if (!checkpointSummary || checkpointSummary.runId !== entry.message.runId) return entry;
+      return { ...entry, message: { ...entry.message, checkpointSummary } };
+    }),
     delegatedChildrenByRun,
     // Anchored messages shift entries away from their rows; such a build is not reused.
     anchoredMessages.length > 0
@@ -2191,6 +2364,7 @@ export function buildThreadFeed(
             rows: visibleTurnItems,
             attempts: options?.attempts,
             nodes: options?.nodes,
+            checkpointSummaries: options?.checkpointSummaries,
             foldedAnswerMessageIds,
             delegatedChildrenByRun,
             feed,

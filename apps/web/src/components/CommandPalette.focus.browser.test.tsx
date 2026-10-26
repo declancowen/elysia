@@ -1,6 +1,6 @@
-import { act, useImperativeHandle, useRef } from "react";
-import { createRoot, type Root } from "react-dom/client";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
+import { act, fakeTimers, render as renderUi, type Screen } from "../../test/render";
+import { useImperativeHandle, useRef } from "react";
+import { describe, expect, it, vi } from "vite-plus/test";
 import { DEFAULT_RESOLVED_KEYBINDINGS, isMacPlatform } from "@elysiatools/shared/keybindings";
 import { CommandPalette } from "./CommandPalette";
 import { useComposerHandleContext } from "../composerHandleContext";
@@ -67,26 +67,23 @@ vi.mock("./settings/useAvailableSettingsSearchItems", () => ({
   useAvailableSettingsSearchItems: () => [],
 }));
 
-let root: Root;
-let container: HTMLDivElement;
+let root: Screen;
+let container: HTMLElement;
 
-beforeEach(() => {
-  vi.useFakeTimers();
-  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+async function setup() {
+  const resources = new AsyncDisposableStack();
+  resources.defer(async () => {
+    vi.unstubAllGlobals();
+  });
+
+  resources.use(fakeTimers());
+
   container = document.createElement("div");
   document.body.append(container);
-  root = createRoot(container);
-});
+  root = resources.use(await renderUi(null, { container: container, router: false }));
 
-afterEach(async () => {
-  await act(async () => {
-    root.unmount();
-    await vi.runOnlyPendingTimersAsync();
-  });
-  container.remove();
-  vi.unstubAllGlobals();
-  vi.useRealTimers();
-});
+  return resources;
+}
 
 async function flushFocus() {
   await act(() => vi.advanceTimersByTimeAsync(0));
@@ -121,8 +118,9 @@ function Composer() {
 
 describe("command palette focus restoration", () => {
   it("returns to the previously focused Settings field when no composer is mounted", async () => {
+    await using _fixture = await setup();
     await act(() =>
-      root.render(
+      root.rerender(
         <CommandPalette>
           <input aria-label="Settings field" />
         </CommandPalette>,
@@ -138,8 +136,9 @@ describe("command palette focus restoration", () => {
   });
 
   it("focuses the replacement command input after leaving the file picker", async () => {
+    await using _fixture = await setup();
     await act(() =>
-      root.render(
+      root.rerender(
         <CommandPalette>
           <input aria-label="Settings field" />
         </CommandPalette>,
@@ -177,8 +176,9 @@ describe("command palette focus restoration", () => {
   });
 
   it("focuses the mounted composer at the end instead of the previous field", async () => {
+    await using _fixture = await setup();
     await act(() =>
-      root.render(
+      root.rerender(
         <CommandPalette>
           <input aria-label="Previous field" />
           <Composer />

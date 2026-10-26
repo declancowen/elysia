@@ -4,7 +4,7 @@ import type {
   ThreadId,
   ThreadPullRequestKey,
 } from "@elysiatools/contracts";
-import { normalizeThreadPullRequestKey } from "@elysiatools/shared/threadPullRequests";
+import { normalizeThreadPullRequestKey } from "./threadPullRequests.ts";
 
 type LinkingCapabilities = Pick<
   ExecutionEnvironmentCapabilities,

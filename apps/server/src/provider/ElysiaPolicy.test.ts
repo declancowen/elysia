@@ -85,6 +85,9 @@ it("blocks connection management while allowing the app's authenticated session"
   expect(UPSTREAM_ANALYTICS_ENABLED).toBe(false);
   expect(isConnectionsRpcMethod("cloud.installRelayClient")).toBe(true);
   expect(isConnectionsHttpPath("/api/connect/link-proof")).toBe(true);
+  expect(isConnectionsRpcMethod("guestShare.create")).toBe(true);
+  expect(isConnectionsHttpPath("/api/guest/session")).toBe(true);
+  expect(isConnectionsHttpPath("/api/guest/messages")).toBe(true);
   expect(isConnectionsHttpPath("/api/auth/pairing-token")).toBe(true);
   expect(isConnectionsHttpPath("/api/auth/browser-session")).toBe(false);
   expect(isConnectionsRpcMethod("orchestration.dispatchCommand")).toBe(false);

@@ -113,6 +113,11 @@ const EMPTY_DRAFT: DraftState = {
   ...WEBHOOK_SIGNATURE_DEFAULTS,
   signatureSecret: "",
   maxDeliveryAgeMinutes: "",
+  replayKey: "",
+  coalesceKey: "",
+  coalesceWindowSeconds: "",
+  filters: [],
+  savedFilters: [],
 };
 
 /** Labelled field: a caption sitting above its control. */
@@ -818,7 +823,7 @@ export function ScheduledTaskEditor({
     </>
   );
   const title = draft.editingId ? "Edit task" : "New task";
-  const description = "Run a prompt automatically — on a schedule or when a webhook arrives.";
+  const description = "Run a prompt automatically on a schedule or when a webhook arrives.";
   if (inline)
     return (
       <section aria-label={title} className="min-h-0 flex-1 overflow-y-auto scrollbar-gutter-both">

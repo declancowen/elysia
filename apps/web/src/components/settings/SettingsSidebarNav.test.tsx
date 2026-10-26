@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
-import { act, type ReactNode } from "react";
-import { createRoot } from "react-dom/client";
+import type { ReactNode } from "react";
+import { act, render } from "../../../test/render";
 import { expect, it, vi } from "vite-plus/test";
 import { SidebarProvider, useSidebar } from "../ui/sidebar";
 import { SettingsSidebarNav } from "./SettingsSidebarNav";
@@ -31,7 +31,6 @@ function SidebarVisibility() {
 }
 
 it("keeps slash search inside the floating Settings sidebar without opening the pinned sidebar", async () => {
-  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   vi.stubGlobal("matchMedia", () => ({
     matches: false,
     addEventListener: vi.fn(),
@@ -44,20 +43,18 @@ it("keeps slash search inside the floating Settings sidebar without opening the 
   });
   const host = document.createElement("div");
   document.body.append(host);
-  const root = createRoot(host);
   try {
-    await act(async () =>
-      root.render(
-        <SidebarProvider defaultOpen={false}>
-          <SidebarVisibility />
-          <div data-pinned>
-            <SettingsSidebarNav pathname="/settings/general" />
-          </div>
-          <div data-floating>
-            <SettingsSidebarNav pathname="/settings/general" preview />
-          </div>
-        </SidebarProvider>,
-      ),
+    await using _screen = await render(
+      <SidebarProvider defaultOpen={false}>
+        <SidebarVisibility />
+        <div data-pinned>
+          <SettingsSidebarNav pathname="/settings/general" />
+        </div>
+        <div data-floating>
+          <SettingsSidebarNav pathname="/settings/general" preview />
+        </div>
+      </SidebarProvider>,
+      { container: host, router: false },
     );
     await act(async () =>
       document.body.dispatchEvent(
@@ -99,11 +96,14 @@ it("keeps slash search inside the floating Settings sidebar without opening the 
         ?.closest("[data-pinned]"),
     ).not.toBeNull();
   } finally {
-    await act(async () => root.unmount());
-    host.remove();
     if (originalScroll)
       Object.defineProperty(HTMLElement.prototype, "scrollIntoView", originalScroll);
     else Reflect.deleteProperty(HTMLElement.prototype, "scrollIntoView");
     vi.unstubAllGlobals();
   }
 });
+
+vi.mock("vite-plus/test/browser", () => ({
+  page: { elementLocator: () => ({}) },
+  utils: { getElementLocatorSelectors: () => ({}) },
+}));

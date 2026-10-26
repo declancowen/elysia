@@ -27,7 +27,8 @@ export function elysiaUsageModelName(
       .map((part, index) => (index === 0 ? "DeepSeek" : part[0]!.toUpperCase() + part.slice(1)))
       .join(" ");
   }
-  return formatModelSlugName(name);
+  const label = formatModelSlugName(name);
+  return /^gpt-\d/i.test(name) ? label.replaceAll("-", " ") : label;
 }
 
 /** Calendar buckets follow the server's reporting day, without shifting time zones twice. */

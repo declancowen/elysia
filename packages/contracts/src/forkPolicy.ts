@@ -9,6 +9,7 @@ export const isEnabledProviderDriver = (driver: string): boolean => driver === "
 
 export const isConnectionsRpcMethod = (method: string): boolean =>
   method.startsWith("cloud.") ||
+  method.startsWith("guestShare.") ||
   method === "subscribeDiscoveredLocalServers" ||
   method === "subscribeAuthAccess";
 
@@ -18,6 +19,8 @@ export const isConnectionsHttpPath = (path: string): boolean =>
   path === "/.well-known/oauth-authorization-server" ||
   path.startsWith("/oauth/mcp/") ||
   path.startsWith("/api/connect/") ||
+  path === "/api/guest" ||
+  path.startsWith("/api/guest/") ||
   path.startsWith("/api/t3-connect/") ||
   path.startsWith("/api/auth/pairing-") ||
   path === "/api/auth/clients" ||

@@ -1,8 +1,9 @@
-import { showContextMenuFallback } from "../contextMenuFallback";
+import { dismissContextMenu, showContextMenuFallback } from "../contextMenuFallback";
 import { useConversationTabNavigation } from "./useConversationTabNavigation";
 import { currentConversationTabsStore } from "../conversationTabsStore";
 import { scopeProjectRef } from "@elysiatools/client-runtime/environment";
 import { requestCustomSnooze } from "../components/CustomSnoozeDialog";
+import { openGuestShareDialog } from "../components/chat/guestShareDialogState";
 import {
   type AtomCommandResult,
   isAtomCommandInterrupted,
@@ -17,7 +18,6 @@ import {
   type ThreadId,
 } from "@elysiatools/contracts";
 import { useRouter } from "@tanstack/react-router";
-
 import { resolveSnoozePresets } from "../components/Sidebar.snooze";
 import {
   buildThreadActionMenuItems,
@@ -50,7 +50,6 @@ import { useCopyToClipboard } from "./useCopyToClipboard";
 import { useNewThreadHandler } from "./useHandleNewThread";
 import { useClientSettings, useCodeWorkspace } from "./useSettings";
 import { useThreadActions } from "./useThreadActions";
-
 function failureToast(title: string, error: unknown) {
   toastManager.add(
     stackedThreadToast({
@@ -61,24 +60,16 @@ function failureToast(title: string, error: unknown) {
   );
 }
 
-/**
- * The per-thread action menu (pin, settle, snooze, rename, copy, delete…) as
- * a self-contained hook, for surfaces other than the sidebar row — today the
- * chat header. Renders through the native context-menu bridge and dispatches
- * through the same mutations the sidebar uses.
- *
- * Unlike the sidebar, settle and snooze here never navigate away: the caller
- * is acting on the thread they are reading, and ChatView's parked-thread
- * banner already offers the way back.
- */
+/** Header actions preserve the current thread when settling or snoozing it. */
 export function useThreadActionMenu(input: {
   readonly threadRef: ScopedThreadRef | null;
   /** Fallback for "Copy path" when the thread has no worktree. */
   readonly projectCwd: string | null;
   readonly projectless?: boolean;
   readonly onStartRename: () => void;
+  readonly canShareWithGuest: boolean;
 }) {
-  const { threadRef, projectCwd, projectless = false, onStartRename } = input;
+  const { threadRef, projectCwd, projectless = false, onStartRename, canShareWithGuest } = input;
   const codeWorkspace = useCodeWorkspace();
   const router = useRouter();
   const navigateTab = useConversationTabNavigation();
@@ -109,29 +100,46 @@ export function useThreadActionMenu(input: {
   const confirmThreadDelete = useClientSettings((s) => s.confirmThreadDelete);
   const confirmThreadArchive = useClientSettings((s) => s.confirmThreadArchive);
   const timestampFormat = useClientSettings((s) => s.timestampFormat);
-  const { copyToClipboard: copyPathToClipboard } = useCopyToClipboard<{ path: string }>({
+  const { copyToClipboard: copyPathToClipboard } = useCopyToClipboard<{
+    path: string;
+  }>({
     onCopy: ({ path }) => {
-      toastManager.add({ type: "success", title: "Path copied", description: path });
+      toastManager.add({
+        type: "success",
+        title: "Path copied",
+        description: path,
+      });
     },
     onError: (error) => failureToast("Failed to copy path", error),
   });
-  const { copyToClipboard: copyBranchToClipboard } = useCopyToClipboard<{ branch: string }>({
+  const { copyToClipboard: copyBranchToClipboard } = useCopyToClipboard<{
+    branch: string;
+  }>({
     target: "branch name",
     onCopy: ({ branch }) => {
-      toastManager.add({ type: "success", title: "Branch copied", description: branch });
+      toastManager.add({
+        type: "success",
+        title: "Branch copied",
+        description: branch,
+      });
     },
     onError: (error) => failureToast("Failed to copy branch", error),
   });
-  const { copyToClipboard: copyThreadIdToClipboard } = useCopyToClipboard<{ threadId: ThreadId }>({
+  const { copyToClipboard: copyThreadIdToClipboard } = useCopyToClipboard<{
+    threadId: ThreadId;
+  }>({
     onCopy: ({ threadId }) => {
-      toastManager.add({ type: "success", title: "Thread ID copied", description: threadId });
+      toastManager.add({
+        type: "success",
+        title: "Thread ID copied",
+        description: threadId,
+      });
     },
     onError: (error) => failureToast("Failed to copy thread ID", error),
   });
-
   const openMenu = (position: { x: number; y: number }) => {
-    if (threadRef === null) return;
-    void (async () => {
+    if (threadRef === null) return Promise.resolve();
+    return (async () => {
       const api = readLocalApi();
       if (!api) return;
       // Snapshot at open time — the menu is modal, so state read now is
@@ -152,7 +160,10 @@ export function useThreadActionMenu(input: {
         canOperate: readEnvironmentScope(threadRef.environmentId, AuthOrchestrationOperateScope),
         openInNewTab:
           SINGLE_PROVIDER_UI &&
-          !currentConversationTabsStore().getState().isOpen({ kind: "server", threadRef }),
+          !currentConversationTabsStore().getState().isOpen({
+            kind: "server",
+            threadRef,
+          }),
         projectless,
         branch: codeWorkspace ? (thread.branch ?? null) : null,
         // The chat header has no project-scoped thread list behind the
@@ -161,12 +172,19 @@ export function useThreadActionMenu(input: {
         isPinned: thread.pinnedAt != null,
         isSettled: supports.settlement && thread.settledOverride === "settled",
         autoSettleEnabled: thread.autoSettleDisabledAt == null,
-        isSnoozed: supports.snooze && effectiveSnoozed(thread, { now: now.toISOString() }),
-        canSnoozeNow: canSnooze(thread, { now: now.toISOString() }),
+        isSnoozed:
+          supports.snooze &&
+          effectiveSnoozed(thread, {
+            now: now.toISOString(),
+          }),
+        canSnoozeNow: canSnooze(thread, {
+          now: now.toISOString(),
+        }),
         isRegeneratingTitle,
         isRunning: !threadRuntimeCanArchive(thread.runtime),
         supports,
         snoozePresets,
+        canShareWithGuest,
       });
       const showMenu = SINGLE_PROVIDER_UI ? showContextMenuFallback : api.contextMenu.show;
       const clicked = await settlePromise(() => showMenu(items, position));
@@ -205,7 +223,10 @@ export function useThreadActionMenu(input: {
       };
       switch (action) {
         case "open-new-tab": {
-          const target = { kind: "server" as const, threadRef };
+          const target = {
+            kind: "server" as const,
+            threadRef,
+          };
           currentConversationTabsStore().getState().open(target, true);
           void navigateTab(target);
           return;
@@ -221,7 +242,9 @@ export function useThreadActionMenu(input: {
             deriveLogicalProjectKeyFromSettings(project, projectGroupingSettings);
           void router.navigate({
             to: "/projects/$projectKey",
-            params: { projectKey },
+            params: {
+              projectKey,
+            },
           });
           return;
         }
@@ -271,12 +294,18 @@ export function useThreadActionMenu(input: {
           await reportFailure("Failed to regenerate thread title", () =>
             updateThreadMetadata({
               environmentId: threadRef.environmentId,
-              input: { threadId: threadRef.threadId, regenerateTitle: true },
+              input: {
+                threadId: threadRef.threadId,
+                regenerateTitle: true,
+              },
             }),
           );
           return;
         case "mark-unread":
           markThreadUnread(threadRef);
+          return;
+        case "share-guest":
+          openGuestShareDialog(threadRef);
           return;
         case "copy-path": {
           const workspacePath = thread.worktreePath ?? projectCwd;
@@ -290,16 +319,22 @@ export function useThreadActionMenu(input: {
             );
             return;
           }
-          copyPathToClipboard(workspacePath, { path: workspacePath });
+          copyPathToClipboard(workspacePath, {
+            path: workspacePath,
+          });
           return;
         }
         case "copy-branch":
           if (thread.branch) {
-            copyBranchToClipboard(thread.branch, { branch: thread.branch });
+            copyBranchToClipboard(thread.branch, {
+              branch: thread.branch,
+            });
           }
           return;
         case "copy-thread-id":
-          copyThreadIdToClipboard(thread.id, { threadId: thread.id });
+          copyThreadIdToClipboard(thread.id, {
+            threadId: thread.id,
+          });
           return;
         case "archive": {
           if (confirmThreadArchive) {
@@ -330,7 +365,9 @@ export function useThreadActionMenu(input: {
                   `Delete thread "${thread.title}"?`,
                   "This permanently clears conversation history for this thread.",
                 ].join("\n"),
-                { variant: "destructive" },
+                {
+                  variant: "destructive",
+                },
               ),
             );
             if (confirmed._tag === "Failure" || !confirmed.value) return;
@@ -339,9 +376,7 @@ export function useThreadActionMenu(input: {
           if (
             deleted._tag === "Failure" &&
             !isAtomCommandInterrupted(deleted) &&
-            // A failure with the thread already gone is worktree cleanup
-            // failing after a successful delete — deleteThread has toasted
-            // that itself, and "Failed to delete thread" would be a lie.
+            // A missing thread means cleanup failed after deletion; deleteThread already toasted that failure.
             readThreadShell(threadRef) !== null
           ) {
             failureToast("Failed to delete thread", squashAtomCommandFailure(deleted));
@@ -353,10 +388,12 @@ export function useThreadActionMenu(input: {
       }
     })();
   };
-
   const closeMenu = () => {
-    void readLocalApi()?.contextMenu.close();
+    if (SINGLE_PROVIDER_UI) dismissContextMenu();
+    else void readLocalApi()?.contextMenu.close();
   };
-
-  return { openMenu, closeMenu };
+  return {
+    openMenu,
+    closeMenu,
+  };
 }

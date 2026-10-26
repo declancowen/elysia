@@ -137,19 +137,29 @@ export function channelConversationItems(
 
 /** Use the accepted member job's status, including failures, rather than guessing from a missing reply. */
 export function channelWorkStartedAt(
-  items: ReadonlyArray<OrchestrationV2ProjectedTurnItem>,
+  items: ReadonlyArray<{
+    readonly item: Pick<OrchestrationV2TurnItem, "id" | "type"> & {
+      readonly startedAt?: DateTime.Utc | null | undefined;
+      readonly updatedAt?: DateTime.Utc | undefined;
+    };
+  }>,
   jobs: ReadonlyArray<{ job: DelegatedAgent; working: boolean }>,
 ): string | null {
   const working = new Set(jobs.filter((job) => job.working).map((job) => job.job.activityId));
   const notice = items.find(
     ({ item }) => item.type === "system_notice" && working.has(EventId.make(item.id)),
   )?.item;
-  return notice ? DateTime.formatIso(notice.startedAt ?? notice.updatedAt) : null;
+  const startedAt = notice?.startedAt ?? notice?.updatedAt;
+  return startedAt ? DateTime.formatIso(startedAt) : null;
 }
 
 /** Keep each delegation linked to the durable notice in its source chat. */
 export function delegatedAgentsFromTurnItems(
-  items: ReadonlyArray<OrchestrationV2TurnItem>,
+  items: ReadonlyArray<
+    Pick<OrchestrationV2TurnItem, "id" | "type"> & {
+      readonly agentDelegation?: AgentDelegationActivityPayload | undefined;
+    }
+  >,
 ): DelegatedAgent[] {
   return items.flatMap((item) =>
     item.type === "system_notice" && item.agentDelegation

@@ -1,5 +1,6 @@
 import { WorkspaceItemContextChip } from "./WorkspaceItemContextChip";
 import ChatMarkdown from "./ChatMarkdown";
+import { isSvgAttachment } from "@elysiatools/shared/image";
 import { ReadOnlySourcePreview } from "./files/AttachmentFilePreview";
 import type { PreviewAnnotationPayload, ThreadContextRecord } from "@elysiatools/contracts";
 import { formatAttachmentSize } from "@elysiatools/client-runtime/state/attachments";
@@ -224,6 +225,15 @@ function FileContextChip(props: {
   return (
     <FileChip
       name={props.record.name}
+      svgPreview={
+        isSvgAttachment(props.record)
+          ? {
+              file: props.record.file,
+              environmentId: props.record.uploadEnvironmentId,
+              attachmentId: props.record.uploadedAttachmentId,
+            }
+          : undefined
+      }
       size={size}
       isVideo={isVideo}
       theme={resolvedTheme}

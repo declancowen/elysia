@@ -1,3 +1,9 @@
+vi.mock("vite-plus/test/browser", () => ({
+  page: { elementLocator: () => ({}) },
+  utils: { getElementLocatorSelectors: () => ({}) },
+}));
+import { render as renderUi, type Screen } from "../../../test/render";
+import { act } from "../../../test/act";
 // @vitest-environment jsdom
 import { makeThreadFixture } from "../../test-fixtures";
 import {
@@ -21,9 +27,9 @@ import {
 } from "@tanstack/react-router";
 import { AsyncResult } from "effect/reactivity";
 import * as Cause from "effect/Cause";
-import { act, useSyncExternalStore, type ReactNode } from "react";
-import { createRoot, type Root } from "react-dom/client";
-import { afterEach, beforeEach, expect, it, vi } from "vite-plus/test";
+import { useSyncExternalStore, type ReactNode } from "react";
+
+import { expect, it, vi } from "vite-plus/test";
 import type { Project, SidebarThreadSummary } from "../../types";
 
 const state = vi.hoisted(() => ({
@@ -255,14 +261,14 @@ function makeRouter(initialEntry: string) {
   });
 }
 
-let root: Root;
+let root: Screen;
 let host: HTMLDivElement;
 let router: ReturnType<typeof makeRouter>;
 async function render(initialEntry = "/settings/general?section=appearance") {
   router = makeRouter(initialEntry);
   await act(async () => {
     await router.load();
-    root.render(<RouterProvider router={router} />);
+    root.rerender(<RouterProvider router={router} />);
   });
 }
 function button(text: string) {
@@ -288,8 +294,15 @@ async function submit() {
       .dispatchEvent(new Event("submit", { bubbles: true, cancelable: true })),
   );
 }
-beforeEach(() => {
-  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+async function setup() {
+  const resources = new AsyncDisposableStack();
+  resources.defer(async () => {
+    closeAgentDialog();
+    Reflect.deleteProperty(Element.prototype, "getAnimations");
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  });
+
   vi.stubGlobal("matchMedia", () => ({
     matches: false,
     addEventListener() {},
@@ -327,18 +340,13 @@ beforeEach(() => {
   closeAgentDialog();
   host = document.createElement("div");
   document.body.append(host);
-  root = createRoot(host);
-});
-afterEach(async () => {
-  await act(async () => root.unmount());
-  host.remove();
-  closeAgentDialog();
-  Reflect.deleteProperty(Element.prototype, "getAnimations");
-  vi.restoreAllMocks();
-  vi.unstubAllGlobals();
-});
+  root = resources.use(await renderUi(null, { container: host, router: false }));
+
+  return resources;
+}
 
 it("opens creation as a main-panel tab and Cancel returns to the exact prior screen", async () => {
+  await using _fixture = await setup();
   await render();
   await act(async () => openAgentDialog());
   expect(router.state.location.pathname).toBe("/agents");
@@ -353,6 +361,7 @@ it("opens creation as a main-panel tab and Cancel returns to the exact prior scr
 });
 
 it("creates through the native command and opens only the returned durable conversation", async () => {
+  await using _fixture = await setup();
   await render();
   await act(async () => openAgentDialog());
   expect(host.querySelector("form button")?.getAttribute("aria-label")).toBe("Color #003CB2");
@@ -386,6 +395,7 @@ it("creates through the native command and opens only the returned durable conve
 });
 
 it("keeps browser access as a create-time draft until the native creation command saves it", async () => {
+  await using _fixture = await setup();
   await render();
   await act(async () => openAgentDialog());
   const browserSwitch = [...host.querySelectorAll<HTMLButtonElement>('[role="switch"]')].find(
@@ -408,6 +418,7 @@ it("keeps browser access as a create-time draft until the native creation comman
 });
 
 it("edits an existing profile and returns to its saved conversation, preserving identity and legacy avatar", async () => {
+  await using _fixture = await setup();
   await render();
   await act(async () => openAgentDialog(scopeProjectRef(environmentId, projectId)));
   expect(router.state.location.search).toEqual({ environmentId, projectId });
@@ -428,6 +439,7 @@ it("edits an existing profile and returns to its saved conversation, preserving 
 });
 
 it("keeps the editor and field values available after a native save failure", async () => {
+  await using _fixture = await setup();
   state.update.mockResolvedValue(AsyncResult.failure(Cause.fail(new Error("Offline"))));
   await render();
   await act(async () => openAgentDialog(scopeProjectRef(environmentId, projectId)));
@@ -444,6 +456,7 @@ it.each([
   [new Error("Native update rejected"), "Native update rejected"],
   ["untyped rejection", "Could not save this agent. Try again."],
 ])("keeps the agent editor retryable after a rejected save (%s)", async (cause, message) => {
+  await using _fixture = await setup();
   state.update.mockRejectedValueOnce(cause);
   await render();
   await act(async () => openAgentDialog(scopeProjectRef(environmentId, projectId)));
@@ -456,6 +469,7 @@ it.each([
 });
 
 it("preserves a newer editor when a previous create response arrives after navigation", async () => {
+  await using _fixture = await setup();
   let complete!: (result: AtomCommandResult<AgentCreateResult, Error>) => void;
   state.create.mockImplementation(
     () =>
@@ -483,6 +497,7 @@ it("preserves a newer editor when a previous create response arrives after navig
 });
 
 it("settles the original save when the same agent editor is reopened without navigating", async () => {
+  await using _fixture = await setup();
   let complete!: (result: AtomCommandResult<void, Error>) => void;
   state.update.mockImplementation(
     () =>
@@ -502,6 +517,7 @@ it("settles the original save when the same agent editor is reopened without nav
 });
 
 it("blocks save while native work is active", async () => {
+  await using _fixture = await setup();
   state.threads = [
     {
       ...thread,
@@ -523,6 +539,7 @@ it("blocks save while native work is active", async () => {
 });
 
 it("does not convert an ordinary project into an agent through a direct editor URL", async () => {
+  await using _fixture = await setup();
   const { agentProfile: _profile, ...ordinary } = project;
   state.projects = [ordinary];
   await render("/agents?environmentId=local&projectId=agent-project");
@@ -531,6 +548,7 @@ it("does not convert an ordinary project into an agent through a direct editor U
 });
 
 it("does not open a different environment's agent with the same project ID", async () => {
+  await using _fixture = await setup();
   state.projects = [{ ...project, environmentId: EnvironmentId.make("other") }];
   await render("/agents?environmentId=local&projectId=agent-project");
   expect(host.textContent).toContain("This agent is no longer available.");
@@ -539,6 +557,7 @@ it("does not open a different environment's agent with the same project ID", asy
 });
 
 it("recovers the same legacy archived backing chat after saving, without creating a replacement", async () => {
+  await using _fixture = await setup();
   state.threads = [{ ...thread, archivedAt: "2026-10-01T10:00:00Z" }];
   await render();
   await act(async () => openAgentDialog(scopeProjectRef(environmentId, projectId)));
@@ -549,6 +568,7 @@ it("recovers the same legacy archived backing chat after saving, without creatin
 });
 
 it("resolves a model after the native catalog arrives on a cold route and preserves subsequent user choices", async () => {
+  await using _fixture = await setup();
   state.catalogAvailable = false;
   await render("/agents");
   await fill('input[placeholder="Alex"]', "Sam");
@@ -581,6 +601,7 @@ it("resolves a model after the native catalog arrives on a cold route and preser
 });
 
 it("edits a channel over the current conversation without navigating the surface behind it", async () => {
+  await using _fixture = await setup();
   const channel = {
     ...project,
     agentProfile: {
@@ -603,6 +624,7 @@ it("edits a channel over the current conversation without navigating the surface
 });
 
 it("preserves the creation draft and selected avatar when switching away and back", async () => {
+  await using _fixture = await setup();
   await render();
   await act(async () => openAgentDialog());
   await fill('input[placeholder="Alex"]', "Sam");

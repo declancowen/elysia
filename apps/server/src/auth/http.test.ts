@@ -1,23 +1,17 @@
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import {
-  AuthSessionId,
   AuthTokenExchangeGrantType,
   AuthEnvironmentBootstrapTokenType,
   AuthAccessTokenType,
-  EnvironmentAuthenticatedAuth,
   EnvironmentHttpApi,
 } from "@elysiatools/contracts";
-import { RelayClientTracer } from "@elysiatools/shared/relayTracing";
 import { expect, it } from "@effect/vitest";
 import * as Context from "effect/Context";
 import * as Crypto from "effect/Crypto";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
-import * as Option from "effect/Option";
 import * as Redacted from "effect/Redacted";
 import * as Schema from "effect/Schema";
-import * as Tracer from "effect/Tracer";
-import { HttpServerRequest } from "effect/http";
 import * as Etag from "effect/http/Etag";
 import * as HttpPlatform from "effect/http/HttpPlatform";
 import * as HttpApiBuilder from "effect/http-api/HttpApiBuilder";
@@ -127,12 +121,12 @@ it.effect("sets the selected browser session cookies through the HTTP route", ()
           expect(await retiredScopeResponse.json()).toMatchObject({ reason: "invalid_scope" });
 
           const devCookies = devResponse.headers.getSetCookie();
-          const devCookie = devCookies.find((cookie) => cookie.startsWith("t3_dev_session_"));
+          const devCookie = devCookies.find((cookie) => cookie.startsWith("elysia_dev_session_"));
           expect(devCookie).toContain("HttpOnly");
           expect(devCookie).not.toContain("Secure");
           expect(devCookie).toContain(`=${DEV_TOKEN};`);
           expect(devCookies).toContainEqual(
-            expect.stringMatching(/^t3_session_[^=]*=;.*Max-Age=0/),
+            expect.stringMatching(/^elysia_session_[^=]*=;.*Max-Age=0/),
           );
           const devCookieHeader = devCookie?.split(";", 1)[0] ?? "";
           const environmentBSession = await environmentB.handler(
@@ -143,6 +137,17 @@ it.effect("sets the selected browser session cookies through the HTTP route", ()
           );
           expect(environmentBSession.status).toBe(200);
           expect(await environmentBSession.json()).toMatchObject({ authenticated: true });
+          const oldDevHeader = devCookieHeader.replace(/^elysia_dev_session_/, "t3_dev_session_");
+          const migratedDev = await environmentA.handler(
+            new Request("http://127.0.0.1/api/auth/session", { headers: { cookie: oldDevHeader } }),
+            requestContext,
+          );
+          expect(await migratedDev.json()).toMatchObject({ authenticated: true });
+          const migratedDevCookies = migratedDev.headers.getSetCookie();
+          expect(migratedDevCookies).toHaveLength(1);
+          expect(migratedDevCookies[0]?.split(";", 1)[0]).toBe(devCookieHeader);
+          expect(migratedDevCookies[0]).toContain("HttpOnly");
+          expect(migratedDev.headers.get("cache-control")).toBe("no-store");
 
           const pairingResponse = await environmentA.handler(
             postJson(
@@ -161,8 +166,19 @@ it.effect("sets the selected browser session cookies through the HTTP route", ()
           expect(restrictedResponse.status).toBe(200);
           const restrictedCookies = restrictedResponse.headers.getSetCookie();
           expect(restrictedCookies).toHaveLength(1);
-          expect(restrictedCookies[0]).toMatch(/^t3_session_/);
-          expect(restrictedCookies[0]).not.toContain("t3_dev_session_");
+          expect(restrictedCookies[0]).toMatch(/^elysia_session_/);
+          expect(restrictedCookies[0]).not.toContain("elysia_dev_session_");
+          const restrictedWithLegacyDev = await environmentA.handler(
+            new Request("http://127.0.0.1/api/auth/session", {
+              headers: { cookie: `${restrictedCookies[0]?.split(";", 1)[0]}; ${oldDevHeader}` },
+            }),
+            requestContext,
+          );
+          expect(await restrictedWithLegacyDev.json()).toMatchObject({
+            authenticated: true,
+            scopes: ["orchestration:read"],
+          });
+          expect(restrictedWithLegacyDev.headers.getSetCookie()).toHaveLength(0);
 
           for (const request of [
             postJson(
@@ -223,103 +239,43 @@ it.effect("migrates a legacy browser cookie without changing its session", () =>
           const cookie = response.headers.getSetCookie()[0]?.split(";", 1)[0] ?? "";
           const token = cookie.slice(cookie.indexOf("=") + 1);
           expect(token).not.toBe("");
-          for (const protocol of ["http", "https"]) {
-            const migrated = await environment.handler(
-              new Request(`${protocol}://127.0.0.1/api/auth/session`, {
-                headers: { cookie: `t3_session=${token}` },
+          const scopedName = cookie.slice(0, cookie.indexOf("="));
+          for (const legacyName of [
+            scopedName.replace(/^elysia_/, "t3_"),
+            "t3_session",
+            "elysia_session",
+          ]) {
+            for (const protocol of ["http", "https"]) {
+              const migrated = await environment.handler(
+                new Request(`${protocol}://127.0.0.1/api/auth/session`, {
+                  headers: { cookie: `${legacyName}=${token}` },
+                }),
+                context,
+              );
+              expect(migrated.status).toBe(200);
+              expect(await migrated.json()).toMatchObject({
+                authenticated: true,
+                sessionMethod: "browser-session-cookie",
+              });
+              const cookies = migrated.headers.getSetCookie();
+              expect(cookies).toHaveLength(1);
+              expect(cookies[0]?.split(";", 1)[0]).toBe(cookie);
+              expect(cookies[0]).toContain("HttpOnly");
+              expect(cookies[0]).toContain("SameSite=Lax");
+              expect(cookies[0]?.includes("Secure")).toBe(protocol === "https");
+              expect(migrated.headers.get("cache-control")).toBe("no-store");
+            }
+            const rejected = await environment.handler(
+              new Request("http://127.0.0.1/api/auth/session", {
+                headers: { cookie: `${legacyName}=invalid` },
               }),
               context,
             );
-            expect(migrated.status).toBe(200);
-            expect(await migrated.json()).toMatchObject({
-              authenticated: true,
-              sessionMethod: "browser-session-cookie",
-            });
-            const cookies = migrated.headers.getSetCookie();
-            expect(cookies).toHaveLength(1);
-            expect(cookies[0]?.split(";", 1)[0]).toBe(cookie);
-            expect(cookies[0]).toContain("HttpOnly");
-            expect(cookies[0]).toContain("SameSite=Lax");
-            expect(cookies[0]?.includes("Secure")).toBe(protocol === "https");
-            expect(migrated.headers.get("cache-control")).toBe("no-store");
+            expect(await rejected.json()).toMatchObject({ authenticated: false });
+            expect(rejected.headers.getSetCookie()).toHaveLength(0);
           }
         }),
       (environment) => Effect.promise(() => environment.dispose()),
     );
   }).pipe(Effect.provide(NodeServices.layer)),
-);
-
-it.effect("exports only verified Elysia Connect requests", () =>
-  Effect.gen(function* () {
-    const productSpans: Array<string> = [];
-    const localSpans: Array<string> = [];
-    const collect = (into: Array<string>) =>
-      Tracer.make({
-        span: (options) => {
-          into.push(options.name);
-          return new Tracer.NativeSpan(options);
-        },
-      });
-    const environmentAuth = {
-      authenticateHttpRequest: (request: HttpServerRequest.HttpServerRequest) =>
-        (request.headers.authorization === "DPoP forged"
-          ? Effect.fail(
-              new EnvironmentAuth.ServerAuthInvalidCredentialError({ diagnostic: "forged" }),
-            )
-          : Effect.succeed({
-              sessionId: AuthSessionId.make("session-1"),
-              subject:
-                request.headers.authorization === "DPoP connect"
-                  ? "cloud-connect"
-                  : "cli-issued-session",
-              method: "bearer-access-token" as const,
-              scopes: ["orchestration:read" as const],
-            })
-        ).pipe(Effect.withSpan("EnvironmentAuth.authenticateHttpRequest")),
-    } as unknown as EnvironmentAuth.EnvironmentAuth["Service"];
-    const middleware = yield* Layer.build(AuthHttp.layerAuthenticatedAuth).pipe(
-      Effect.provideService(EnvironmentAuth.EnvironmentAuth, environmentAuth),
-      Effect.map(Context.get(EnvironmentAuthenticatedAuth)),
-    );
-    const handle = (authorization: string) =>
-      (
-        middleware as unknown as (
-          effect: Effect.Effect<void>,
-        ) => Effect.Effect<void, Error, HttpServerRequest.HttpServerRequest>
-      )(Effect.void.pipe(Effect.withSpan("environment.handler"))).pipe(
-        Effect.ignore,
-        Effect.provideService(
-          HttpServerRequest.HttpServerRequest,
-          HttpServerRequest.fromWeb(
-            new Request("https://environment.example.test/api/orchestration/shell", {
-              headers: {
-                authorization,
-                traceparent: "00-0123456789abcdef0123456789abcdef-0123456789abcdef-01",
-              },
-            }),
-          ),
-        ),
-        Effect.provideService(RelayClientTracer, Option.some(collect(productSpans))),
-        Effect.withTracer(collect(localSpans)),
-      );
-
-    yield* handle("DPoP connect");
-    expect(productSpans).toEqual([
-      "environment.relay.request",
-      "EnvironmentAuth.authenticateHttpRequest",
-      "environment.handler",
-    ]);
-    expect(localSpans).toEqual(["EnvironmentAuth.authenticateHttpRequest"]);
-
-    productSpans.length = 0;
-    localSpans.length = 0;
-    yield* handle("DPoP forged");
-    expect(productSpans).toEqual([]);
-    expect(localSpans).toEqual(["EnvironmentAuth.authenticateHttpRequest"]);
-
-    localSpans.length = 0;
-    yield* handle("Bearer access-token");
-    expect(productSpans).toEqual([]);
-    expect(localSpans).toEqual(["EnvironmentAuth.authenticateHttpRequest", "environment.handler"]);
-  }).pipe(Effect.scoped),
 );

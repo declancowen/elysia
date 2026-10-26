@@ -1,10 +1,6 @@
-"use client";
-
 import { ProviderPackageIcon } from "../chat/ProviderPackageIcon";
-
 import { Spinner } from "~/components/ui/spinner";
 import { RefreshIcon } from "~/components/ui/refresh-icon";
-
 import {
   AlertTriangleIcon,
   CheckIcon,
@@ -34,7 +30,6 @@ import {
   type ServerProvider,
   type ServerProviderModel,
 } from "@elysiatools/contracts";
-
 import {
   type CustomModelDefinition,
   readCustomModelEntries,
@@ -75,9 +70,7 @@ import {
   getProviderSummary,
   getProviderVersionLabel,
 } from "./providerStatus";
-
 const ENVIRONMENT_VARIABLE_NAME_PATTERN = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
-
 function ProviderStatusDiagnostic({
   detail,
   children,
@@ -93,10 +86,8 @@ function ProviderStatusDiagnostic({
     </Tooltip>
   );
 }
-
 let environmentVariableDraftId = 0;
 const nextEnvironmentVariableDraftId = () => `provider-env-${environmentVariableDraftId++}`;
-
 type EnvironmentDraftRow = {
   readonly id: string;
   readonly name: string;
@@ -104,7 +95,6 @@ type EnvironmentDraftRow = {
   readonly sensitive: boolean;
   readonly valueRedacted?: boolean;
 };
-
 function makeEnvironmentDraftRow(
   variable: ProviderInstanceEnvironmentVariable,
   index: number,
@@ -114,10 +104,13 @@ function makeEnvironmentDraftRow(
     name: variable.name,
     value: variable.value,
     sensitive: variable.sensitive,
-    ...(variable.valueRedacted !== undefined ? { valueRedacted: variable.valueRedacted } : {}),
+    ...(variable.valueRedacted !== undefined
+      ? {
+          valueRedacted: variable.valueRedacted,
+        }
+      : {}),
   };
 }
-
 function providerEnvironmentsEqual(
   left: ReadonlyArray<ProviderInstanceEnvironmentVariable>,
   right: ReadonlyArray<ProviderInstanceEnvironmentVariable>,
@@ -136,30 +129,27 @@ function providerEnvironmentsEqual(
     })
   );
 }
-
 function readConfigString(config: unknown, key: string): string | null {
   if (config === null || typeof config !== "object") return null;
   const value = (config as Record<string, unknown>)[key];
   return typeof value === "string" && value.trim().length > 0 ? value.trim() : null;
 }
 
-/**
- * Unlike provider settings field updates, does not drop empty-looking values —
- * the caller is responsible for deciding whether an empty array / empty object
- * should be stored explicitly (e.g. `customModels: []` is a meaningful "user
- * cleared their custom list" state distinct from "driver default").
- */
+/** Preserve explicit empty arrays/objects; clearing a custom list differs from selecting driver defaults. */
 function nextConfigBlobWithValue(
   config: unknown,
   key: string,
   value: unknown,
 ): Record<string, unknown> {
   const base: Record<string, unknown> =
-    config !== null && typeof config === "object" ? { ...(config as Record<string, unknown>) } : {};
+    config !== null && typeof config === "object"
+      ? {
+          ...(config as Record<string, unknown>),
+        }
+      : {};
   base[key] = value;
   return base;
 }
-
 export function deriveProviderModelsForDisplay(input: {
   readonly liveModels: ReadonlyArray<ServerProviderModel> | undefined;
   readonly customModels: ReadonlyArray<CustomModelDefinition>;
@@ -186,11 +176,9 @@ export function deriveProviderModelsForDisplay(input: {
   );
   return [...serverModels, ...customModels];
 }
-
 function ProviderAuthEmail(props: { readonly email: string | undefined }) {
   const email = props.email?.trim();
   if (!email) return null;
-
   return (
     <RedactedSensitiveText
       value={email}
@@ -201,21 +189,18 @@ function ProviderAuthEmail(props: { readonly email: string | undefined }) {
     />
   );
 }
-
-export function readProviderEnvironmentVariable(
+function readProviderEnvironmentVariable(
   environment: ReadonlyArray<ProviderInstanceEnvironmentVariable> | undefined,
   name: string,
 ): ProviderInstanceEnvironmentVariable | undefined {
   return environment?.find((variable) => variable.name === name);
 }
-
-export function providerEnvironmentWithoutNames(
+function providerEnvironmentWithoutNames(
   environment: ReadonlyArray<ProviderInstanceEnvironmentVariable> | undefined,
   names: ReadonlySet<string>,
 ): ReadonlyArray<ProviderInstanceEnvironmentVariable> {
   return (environment ?? []).filter((variable) => !names.has(variable.name));
 }
-
 export function nextProviderEnvironmentWithFieldValue(
   environment: ReadonlyArray<ProviderInstanceEnvironmentVariable> | undefined,
   field: ProviderEnvironmentField,
@@ -224,7 +209,6 @@ export function nextProviderEnvironmentWithFieldValue(
   const trimmed = value.trim();
   const next: ProviderInstanceEnvironmentVariable[] = [];
   let found = false;
-
   for (const variable of environment ?? []) {
     if (variable.name !== field.name) {
       next.push(variable);
@@ -239,7 +223,6 @@ export function nextProviderEnvironmentWithFieldValue(
       });
     }
   }
-
   if (!found && trimmed.length > 0) {
     next.push({
       name: field.name,
@@ -247,10 +230,8 @@ export function nextProviderEnvironmentWithFieldValue(
       sensitive: field.sensitive ?? true,
     });
   }
-
   return next;
 }
-
 function ProviderEnvironmentFieldRow(props: {
   readonly field: ProviderEnvironmentField;
   readonly variable: ProviderInstanceEnvironmentVariable | undefined;
@@ -260,7 +241,6 @@ function ProviderEnvironmentFieldRow(props: {
 }) {
   const inputId = `${props.idPrefix}-environment-${props.field.name}`;
   const value = props.variable?.valueRedacted ? "" : (props.variable?.value ?? "");
-
   return (
     <SettingsRow
       title={<label htmlFor={inputId}>{props.field.label}</label>}
@@ -306,7 +286,6 @@ function ProviderEnvironmentFieldRow(props: {
     />
   );
 }
-
 export function ProviderEnvironmentSection(props: {
   readonly environment: ReadonlyArray<ProviderInstanceEnvironmentVariable>;
   readonly onChange: (environment: ReadonlyArray<ProviderInstanceEnvironmentVariable>) => void;
@@ -318,7 +297,6 @@ export function ProviderEnvironmentSection(props: {
   const lastPublishedEnvironmentRef = useRef<
     ReadonlyArray<ProviderInstanceEnvironmentVariable> | undefined
   >(undefined);
-
   useEffect(() => {
     const previousEnvironment = previousEnvironmentRef.current;
     const lastPublishedEnvironment = lastPublishedEnvironmentRef.current;
@@ -334,7 +312,6 @@ export function ProviderEnvironmentSection(props: {
     }
     setRows(props.environment.map(makeEnvironmentDraftRow));
   }, [props.environment]);
-
   const publishRows = (nextRows: ReadonlyArray<EnvironmentDraftRow>) => {
     const published: ProviderInstanceEnvironmentVariable[] = [];
     for (const row of nextRows) {
@@ -351,32 +328,36 @@ export function ProviderEnvironmentSection(props: {
         continue;
       }
       const { id: _id, ...rest } = row;
-      published.push({ ...rest, name });
+      published.push({
+        ...rest,
+        name,
+      });
     }
     lastPublishedEnvironmentRef.current = published;
     props.onChange(published);
   };
-
   const updateVariable = (id: string, patch: Partial<Omit<EnvironmentDraftRow, "id">>) => {
     const nextRows = rows.map((row) =>
       row.id === id
         ? {
             ...row,
             ...patch,
-            ...(patch.value !== undefined ? { valueRedacted: false } : {}),
+            ...(patch.value !== undefined
+              ? {
+                  valueRedacted: false,
+                }
+              : {}),
           }
         : row,
     );
     setRows(nextRows);
     publishRows(nextRows);
   };
-
   const removeVariable = (id: string) => {
     const nextRows = rows.filter((row) => row.id !== id);
     setRows(nextRows);
     publishRows(nextRows);
   };
-
   const addVariable = () =>
     setRows([
       ...rows,
@@ -387,7 +368,6 @@ export function ProviderEnvironmentSection(props: {
         sensitive: true,
       },
     ]);
-
   return (
     <SettingsRow
       title="Variables"
@@ -408,7 +388,11 @@ export function ProviderEnvironmentSection(props: {
                 font="mono"
                 className="w-full min-w-0 sm:w-44 sm:shrink-0"
                 value={variable.name}
-                onCommit={(name) => updateVariable(variable.id, { name: name.trim() })}
+                onCommit={(name) =>
+                  updateVariable(variable.id, {
+                    name: name.trim(),
+                  })
+                }
                 placeholder="VARIABLE_NAME"
                 spellCheck={false}
                 aria-label={`Environment variable name ${index + 1}`}
@@ -422,7 +406,11 @@ export function ProviderEnvironmentSection(props: {
                   font="mono"
                   className="min-w-0 flex-1"
                   value={variable.valueRedacted ? "" : variable.value}
-                  onCommit={(value) => updateVariable(variable.id, { value })}
+                  onCommit={(value) =>
+                    updateVariable(variable.id, {
+                      value,
+                    })
+                  }
                   placeholder="value"
                   configured={variable.valueRedacted === true}
                   spellCheck={false}
@@ -434,7 +422,11 @@ export function ProviderEnvironmentSection(props: {
                   font="mono"
                   className="min-w-0 flex-1"
                   value={variable.valueRedacted ? "" : variable.value}
-                  onCommit={(value) => updateVariable(variable.id, { value })}
+                  onCommit={(value) =>
+                    updateVariable(variable.id, {
+                      value,
+                    })
+                  }
                   autoComplete="off"
                   placeholder="value"
                   spellCheck={false}
@@ -454,7 +446,9 @@ export function ProviderEnvironmentSection(props: {
                           sensitive,
                           ...(sensitive && variable.valueRedacted === undefined
                             ? {}
-                            : { valueRedacted: sensitive ? variable.valueRedacted : false }),
+                            : {
+                                valueRedacted: sensitive ? variable.valueRedacted : false,
+                              }),
                         });
                       }}
                       aria-pressed={variable.sensitive}
@@ -491,7 +485,6 @@ export function ProviderEnvironmentSection(props: {
     </SettingsRow>
   );
 }
-
 function ProjectOverrideInheritance({
   projectEnabled,
   deviceEnabled,
@@ -500,8 +493,18 @@ function ProjectOverrideInheritance({
   readonly deviceEnabled: boolean;
 }) {
   const layers = [
-    { key: "project", label: "Project", enabled: projectEnabled, effective: true },
-    { key: "device", label: "Device", enabled: deviceEnabled, effective: false },
+    {
+      key: "project",
+      label: "Project",
+      enabled: projectEnabled,
+      effective: true,
+    },
+    {
+      key: "device",
+      label: "Device",
+      enabled: deviceEnabled,
+      effective: false,
+    },
   ];
   return (
     <Popover>
@@ -561,14 +564,12 @@ function ProjectOverrideInheritance({
     </Popover>
   );
 }
-
 interface ProjectOverrideControl {
   readonly value: boolean | undefined;
   readonly effectiveEnabled: boolean;
   readonly onChange: (next: boolean) => void;
   readonly onReset: () => void;
 }
-
 interface ProviderInstanceCardProps {
   readonly instanceId: ProviderInstanceId;
   readonly instance: ProviderInstanceConfig;
@@ -611,19 +612,11 @@ interface ProviderInstanceCardProps {
   readonly onInstallRecommended?: (() => void) | undefined;
   readonly isUpdating?: boolean | undefined;
 }
-
 const NO_CUSTOM_MODELS: ReadonlyArray<CustomModelDefinition> = [];
 
-/**
- * Unknown drivers (`driverOption === undefined`) get a read-only
- *     notice instead of editable fields, so fork instances round-trip
- *     without accidentally destroying their config.
- * With `projectOverride` set, the Switch instead reads and writes
- *     that project's override, leaving the environment's `instance.enabled`
- *     untouched.
- */
+// Unknown drivers stay read-only so their configuration survives round trips.
+// Project switches edit the override, never the environment instance.
 const EMPTY_ACP_PROJECTS: NonNullable<ProviderInstanceCardProps["acpProjects"]> = [];
-
 export function ProviderInstanceCard({
   instanceId,
   instance,
@@ -657,13 +650,20 @@ export function ProviderInstanceCard({
   isUpdating = false,
 }: ProviderInstanceCardProps) {
   const enabled = projectOverride?.effectiveEnabled ?? resolveProviderInstanceEnabled(instance);
-  const effectiveProvider = liveProvider && { ...liveProvider, enabled };
+
+  const effectiveProvider = liveProvider && {
+    ...liveProvider,
+    enabled,
+  };
   const compatibility = enabled ? liveProvider?.compatibilityAdvisory : undefined;
   const statusKey = enabled ? getProviderStatusKey(effectiveProvider) : "disabled";
   const statusStyle = PROVIDER_STATUS_STYLES[statusKey];
   const summary = enabled
     ? getProviderSummary(effectiveProvider)
-    : { headline: "Disabled", detail: null };
+    : {
+        headline: "Disabled",
+        detail: null,
+      };
   const authEmail = liveProvider?.auth.email?.trim();
   const isAuthenticated = enabled && liveProvider?.auth.status === "authenticated";
   const authLabel =
@@ -715,7 +715,10 @@ export function ProviderInstanceCard({
       ? "Elysia"
       : instance.displayName?.trim() || driverOption?.label || String(instance.driver);
   const accentColor = normalizeProviderAccentColor(instance.accentColor);
-  const { copyToClipboard } = useCopyToClipboard<{ providerName: string }>({
+
+  const { copyToClipboard } = useCopyToClipboard<{
+    providerName: string;
+  }>({
     onCopy: ({ providerName }) => {
       toastManager.add({
         type: "success",
@@ -733,12 +736,9 @@ export function ProviderInstanceCard({
       );
     },
   });
-
   const driverKind: ProviderDriverKind | null = isProviderDriverKind(instance.driver)
     ? instance.driver
     : null;
-  // Keyed on the stored list, not the whole instance, so writing another field
-  // leaves the models list (often ~50 rows) with the same props.
   const storedCustomModels =
     instance.config !== null && typeof instance.config === "object"
       ? (instance.config as Record<string, unknown>).customModels
@@ -756,38 +756,46 @@ export function ProviderInstanceCard({
     const { displayName: _omit, ...rest } = instance;
     onUpdate(
       trimmed.length > 0
-        ? ({ ...rest, displayName: trimmed } as ProviderInstanceConfig)
+        ? ({
+            ...rest,
+            displayName: trimmed,
+          } as ProviderInstanceConfig)
         : (rest as ProviderInstanceConfig),
     );
   };
-
   const updateEnabled = (value: boolean) => {
     if (projectOverride) {
       projectOverride.onChange(value);
       return;
     }
-    onUpdate({ ...instance, enabled: value });
+    onUpdate({
+      ...instance,
+      enabled: value,
+    });
   };
-
   const updateAccentColor = (value: string) => {
     const normalized = normalizeProviderAccentColor(value);
     const { accentColor: _omit, ...rest } = instance;
     onUpdate(
       normalized
-        ? ({ ...rest, accentColor: normalized } as ProviderInstanceConfig)
+        ? ({
+            ...rest,
+            accentColor: normalized,
+          } as ProviderInstanceConfig)
         : (rest as ProviderInstanceConfig),
     );
   };
-
   const updateConfig = (nextConfig: Record<string, unknown> | undefined) => {
     const { config: _omit, ...rest } = instance;
     onUpdate(
       nextConfig !== undefined
-        ? ({ ...rest, config: nextConfig } as ProviderInstanceConfig)
+        ? ({
+            ...rest,
+            config: nextConfig,
+          } as ProviderInstanceConfig)
         : (rest as ProviderInstanceConfig),
     );
   };
-
   const updateCustomModels = useStableCallback((next: ReadonlyArray<CustomModelDefinition>) => {
     const nextConfig = nextConfigBlobWithValue(
       instance.config,
@@ -795,15 +803,20 @@ export function ProviderInstanceCard({
       next.map(toCustomModelSetting),
     );
     const { config: _omit, ...rest } = instance;
-    onUpdate({ ...rest, config: nextConfig } as ProviderInstanceConfig);
+    onUpdate({
+      ...rest,
+      config: nextConfig,
+    } as ProviderInstanceConfig);
   });
-
   const updateEnvironment = (environment: ReadonlyArray<ProviderInstanceEnvironmentVariable>) => {
     const cleaned = environment.filter((variable) => variable.name.trim().length > 0);
     const { environment: _omit, ...rest } = instance;
     onUpdate(
       cleaned.length > 0
-        ? ({ ...rest, environment: cleaned } as ProviderInstanceConfig)
+        ? ({
+            ...rest,
+            environment: cleaned,
+          } as ProviderInstanceConfig)
         : (rest as ProviderInstanceConfig),
     );
   };
@@ -827,7 +840,6 @@ export function ProviderInstanceCard({
   const removeEnvironmentField = (field: ProviderEnvironmentField) => {
     updateEnvironment(providerEnvironmentWithoutNames(instance.environment, new Set([field.name])));
   };
-
   const titleIconNode = driverKind ? (
     <ProviderInstanceIcon
       driverKind={driverKind}
@@ -860,15 +872,12 @@ export function ProviderInstanceCard({
       {providerInstanceInitials(displayName)}
     </span>
   );
-
   const titleTailNode = headerAction ? (
     <span className="inline-flex h-5 w-5 shrink-0 items-center justify-center">{headerAction}</span>
   ) : null;
-
   const versionCodeNode = versionLabel ? (
     <code className="text-xs text-muted-foreground">{versionLabel}</code>
   ) : null;
-
   const statusDotNode =
     statusKey === "warning" || statusKey === "error" ? (
       <span className={cn("size-1.5 shrink-0 rounded-full", statusStyle.dot)} aria-hidden />
@@ -914,10 +923,17 @@ export function ProviderInstanceCard({
                   size={mode === "list" ? "icon-micro" : "icon-xs"}
                   variant="ghost-muted"
                   className={mode === "list" ? "pointer-events-auto relative shrink-0" : undefined}
-                  aria-label={`${updateProgress ? "Updating" : versionAdvisory.title} — view details`}
+                  aria-label={`${updateProgress ? "Updating" : versionAdvisory.title}, view details`}
                 >
                   {updateProgress ? (
-                    <Spinner tone="muted" {...(mode === "list" ? { size: "sm" as const } : {})} />
+                    <Spinner
+                      tone="muted"
+                      {...(mode === "list"
+                        ? {
+                            size: "sm" as const,
+                          }
+                        : {})}
+                    />
                   ) : (
                     <VersionAdvisoryIcon
                       className={cn(
@@ -998,7 +1014,11 @@ export function ProviderInstanceCard({
                       size="icon-xs"
                       variant="ghost-muted"
                       className="shrink-0"
-                      onClick={() => copyToClipboard(updateCommand, { providerName: displayName })}
+                      onClick={() =>
+                        copyToClipboard(updateCommand, {
+                          providerName: displayName,
+                        })
+                      }
                       aria-label="Copy update command"
                     >
                       <CopyIcon className="size-3" />
@@ -1013,14 +1033,13 @@ export function ProviderInstanceCard({
       </PopoverPopup>
     </Popover>
   ) : null;
-
   if (mode === "list") {
     return (
       <div
         data-slot="settings-row"
         className={cn(
           "group flex min-h-18 items-center gap-3 px-3 py-3 transition-colors sm:px-4",
-          selected ? "bg-muted/45" : "hover:bg-muted/25",
+          selected ? "bg-muted/45 redesign:bg-foreground/[0.06]" : "hover:bg-muted/25",
         )}
       >
         <div
@@ -1095,7 +1114,6 @@ export function ProviderInstanceCard({
       </div>
     );
   }
-
   const editorHeaderAction = (
     <div className="flex shrink-0 items-center gap-1.5">
       {driverOption?.badgeLabel ? (
@@ -1108,7 +1126,8 @@ export function ProviderInstanceCard({
       <span
         inert={readOnly}
         aria-disabled={readOnly || undefined}
-        className={cn("inline-flex items-center gap-1", readOnly && "opacity-50")}
+        // Empty, it would still add a flex gap and pull the version off the column edge.
+        className={cn("inline-flex items-center gap-1 empty:hidden", readOnly && "opacity-50")}
       >
         {titleTailNode}
         {onDelete ? (
@@ -1146,7 +1165,6 @@ export function ProviderInstanceCard({
       }
     />
   );
-
   return (
     <>
       <SettingsSection

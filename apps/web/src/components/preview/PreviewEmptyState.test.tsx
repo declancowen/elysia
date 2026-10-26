@@ -56,8 +56,8 @@ describe("PreviewEmptyState", () => {
   it("renders a history entry in both groups when its host:port matches a live server", () => {
     mocks.servers = [server(5173)];
     const html = render([
-      { url: "https://myapp.test/admin#users", lastVisitedAt: Date.now(), title: "Admin" },
-      { url: "http://localhost:5173/", lastVisitedAt: Date.now(), title: "Recent Local" },
+      { url: "https://myapp.test/admin#users", lastVisitedAt: 1_769_000_000_000, title: "Admin" },
+      { url: "http://localhost:5173/", lastVisitedAt: 1_769_000_000_000, title: "Recent Local" },
     ]);
     expect(html).toContain("Recently used");
     expect(html).toContain("Local servers");

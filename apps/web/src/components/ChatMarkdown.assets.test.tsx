@@ -1,6 +1,7 @@
+import { act } from "../../test/act";
 import { EnvironmentId, ThreadId } from "@elysiatools/contracts";
 import { AsyncResult } from "effect/reactivity";
-import { act, type ComponentProps, type ReactNode } from "react";
+import { type ComponentProps, type ReactNode } from "react";
 import { create, type ReactTestRenderer } from "react-test-renderer";
 import { expect, it, vi } from "vite-plus/test";
 
@@ -64,7 +65,6 @@ vi.mock("~/lib/openPullRequestLink", () => ({
 import ChatMarkdown from "./ChatMarkdown";
 
 it("opens host media through server authorization before the client grant loads", async () => {
-  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   mint.mockResolvedValue(
     AsyncResult.success({ relativeUrl: "/api/assets/image.png", expiresAt: 1 }),
   );

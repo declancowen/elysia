@@ -6,9 +6,8 @@ import {
   type ServerProvider,
 } from "@elysiatools/contracts";
 import type { Atom } from "effect/reactivity";
-import { act } from "react";
-import { createRoot, type Root } from "react-dom/client";
-import { afterEach, beforeEach, expect, it, vi } from "vite-plus/test";
+import { act, render } from "../../../test/render";
+import { expect, it, vi } from "vite-plus/test";
 
 const state = vi.hoisted(() => ({
   providers: null as unknown as Atom.Writable<ReadonlyArray<ServerProvider>>,
@@ -91,34 +90,18 @@ vi.mock(import("../ui/toast"), async (original) => {
 import { appAtomRegistry } from "../../rpc/atomRegistry";
 import { WelcomeWizard } from "./WelcomeWizard";
 
-let root: Root;
-let container: HTMLDivElement;
-beforeEach(() => {
+function fixtures() {
   vi.clearAllMocks();
-  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   appAtomRegistry.set(state.providers, []);
   state.complete.mockResolvedValue(undefined);
   state.refresh.mockResolvedValue(undefined);
-  container = document.createElement("div");
-  document.body.append(container);
-  root = createRoot(container);
-});
-afterEach(async () => {
-  await act(async () => root.unmount());
-  container.remove();
-  vi.unstubAllGlobals();
-});
-
-async function render(onDone: () => void) {
-  expect(CONNECTIONS_ENABLED).toBe(false);
-  await act(async () =>
-    root.render(
-      <RegistryContext.Provider value={appAtomRegistry}>
-        <WelcomeWizard localAvailable onDone={onDone} />
-      </RegistryContext.Provider>,
-    ),
+}
+function view(onDone: () => void) {
+  return (
+    <RegistryContext.Provider value={appAtomRegistry}>
+      <WelcomeWizard localAvailable onDone={onDone} />
+    </RegistryContext.Provider>
   );
-  expect(document.querySelector('[aria-label="Elysia CLI setup"]')).not.toBeNull();
 }
 async function continueSetup() {
   const button = [...document.querySelectorAll("button")].find(
@@ -129,6 +112,7 @@ async function continueSetup() {
 }
 
 it("finishes Elysia authentication without opening project import", async () => {
+  fixtures();
   appAtomRegistry.set(state.providers, [
     {
       driver: ProviderDriverKind.make("claudeAgent"),
@@ -145,7 +129,9 @@ it("finishes Elysia authentication without opening project import", async () => 
     },
   ]);
   const onDone = vi.fn();
-  await render(onDone);
+  expect(CONNECTIONS_ENABLED).toBe(false);
+  await using _screen = await render(view(onDone));
+  expect(document.querySelector('[aria-label="Elysia CLI setup"]')).not.toBeNull();
   expect(document.body.textContent).not.toContain("Projects");
   await continueSetup();
   expect(onDone).toHaveBeenCalledOnce();
@@ -154,8 +140,11 @@ it("finishes Elysia authentication without opening project import", async () => 
 });
 
 it("keeps Elysia setup open until the native CLI reports authentication", async () => {
+  fixtures();
   const onDone = vi.fn();
-  await render(onDone);
+  expect(CONNECTIONS_ENABLED).toBe(false);
+  await using _screen = await render(view(onDone));
+  expect(document.querySelector('[aria-label="Elysia CLI setup"]')).not.toBeNull();
   await continueSetup();
   expect(onDone).not.toHaveBeenCalled();
   expect(state.complete).not.toHaveBeenCalled();

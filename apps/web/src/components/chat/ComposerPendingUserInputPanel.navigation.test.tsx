@@ -1,5 +1,6 @@
+import { act } from "../../../test/act";
 import { EnvironmentId, RuntimeRequestId, ThreadId } from "@elysiatools/contracts";
-import { act, useState, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { create, type ReactTestRenderer } from "react-test-renderer";
 import { afterEach, beforeEach, expect, it, vi } from "vite-plus/test";
 
@@ -75,7 +76,7 @@ function Questions({ initialIndex = 0 }: { initialIndex?: number }) {
 let renderer: ReactTestRenderer | undefined;
 beforeEach(() => {
   vi.useFakeTimers();
-  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+
   vi.stubGlobal("window", {
     setTimeout: globalThis.setTimeout,
     clearTimeout: globalThis.clearTimeout,

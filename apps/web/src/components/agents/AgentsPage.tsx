@@ -109,6 +109,7 @@ export function AgentsPage({ editingGroupRef }: { editingGroupRef?: ScopedProjec
 function OpenRecentConversation({ agent }: { agent: AgentRosterEntry }) {
   const { openConversation } = useAgentActions(agent);
   const opened = useRef(false);
+  // oxlint-disable-next-line elysia/react-effect-budget -- Apply the recent-conversation route redirect after the router commits this landing page.
   useEffect(() => {
     if (opened.current) return;
     opened.current = true;

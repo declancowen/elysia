@@ -1,48 +1,54 @@
-import { useConversationTabsStore, type ConversationTabTarget } from "../../conversationTabsStore";
-import { useConversationTabNavigation } from "../../hooks/useConversationTabNavigation";
-import { useConversationRowClick } from "../../hooks/useConversationRowClick";
-import { toastManager } from "../ui/toast";
-import { readLocalApi } from "../../localApi";
-import { useConversationSectionNavigation } from "../../hooks/useConversationTabNavigation";
+import { useAtomValue } from "@effect/atom-react";
 import { SINGLE_PROVIDER_UI } from "@elysiatools/contracts";
+import { Link, useLocation, useNavigate, useRouter } from "@tanstack/react-router";
+import type { ReactNode } from "react";
+import { memo } from "react";
 import {
   ArrowLeftIcon,
   BriefcaseIcon,
-  Code2,
-  ChartNoAxesColumnIncreasingIcon,
-  SettingsIcon,
-  Columns2Icon,
-  PanelLeftIcon,
-  SearchIcon,
-  SquarePenIcon,
-  Home,
   BubblesIcon,
+  ChartNoAxesColumnIncreasingIcon,
   ClockIcon,
-  TaskEdit02Icon,
+  Code2,
+  Columns2Icon,
   Files01Icon,
   FolderIcon,
+  Home,
+  PanelLeftIcon,
+  SearchIcon,
+  SettingsIcon,
+  SquarePenIcon,
+  TaskEdit02Icon,
 } from "~/icons";
-import type { ReactNode } from "react";
-import { memo } from "react";
-import { useAtomValue } from "@effect/atom-react";
-import { primaryServerKeybindingsAtom } from "../../state/server";
-import { shortcutLabelForCommand } from "../../keybindings";
-import { Link, useLocation, useNavigate, useRouter } from "@tanstack/react-router";
-
+import { useConversationTabsStore, type ConversationTabTarget } from "../../conversationTabsStore";
+import { useConversationRowClick } from "../../hooks/useConversationRowClick";
 import {
+  useConversationSectionNavigation,
+  useConversationTabNavigation,
+} from "../../hooks/useConversationTabNavigation";
+import { shortcutLabelForCommand } from "../../keybindings";
+import { readLocalApi } from "../../localApi";
+import { primaryServerKeybindingsAtom } from "../../state/server";
+import { toastManager } from "../ui/toast";
+
+import { PullRequestGlyph } from "~/components/pullRequest/pullRequestIcons";
+import { observeResize } from "~/lib/observeResize";
+import { useScratchProject } from "../../hooks/useScratchProject";
+import {
+  getEnvironmentIdentificationMode,
+  updateClientSettings,
   useClientSettings,
   useCodeWorkspace,
-  updateClientSettings,
-  getEnvironmentIdentificationMode,
 } from "../../hooks/useSettings";
 import { cn } from "../../lib/utils";
 import { useEnvironments, usePrimaryEnvironmentId } from "../../state/environments";
-import { useScratchProject } from "../../hooks/useScratchProject";
-import { useRecentThreadsExpansion } from "./RecentThreadsHeader";
-import { CommandDialogTrigger } from "../ui/command";
-import { Button } from "../ui/button";
-import { Kbd } from "../ui/kbd";
+import {
+  agentSidebarActiveForPath,
+  setAgentSidebarActive,
+  useAgentSidebarStore,
+} from "../agents/agentSidebarStore";
 import { ElysiaWordmark } from "../Icons";
+import { readPullRequestListPreferences } from "../pullRequest/pullRequestListPreferences";
 import {
   resolveEnvironmentIdentificationPillLabel,
   resolveSidebarStageBackdropVariant,
@@ -50,6 +56,9 @@ import {
   useEnvironmentStageLabel,
 } from "../SidebarStageBackdrop";
 import { Badge } from "../ui/badge";
+import { Button } from "../ui/button";
+import { CommandDialogTrigger } from "../ui/command";
+import { Kbd } from "../ui/kbd";
 import {
   SidebarFooter,
   SidebarMenu,
@@ -59,19 +68,12 @@ import {
   useSidebar,
 } from "../ui/sidebar";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
-import { readPullRequestListPreferences } from "../pullRequest/pullRequestListPreferences";
 import { isSidebarUtilityPage, useNavigateToMainApp } from "./mainAppLocation";
-import { SidebarThreadUndoNotice } from "./SidebarThreadUndoNotice";
-import { SidebarProviderUpdatePill } from "./SidebarProviderUpdatePill";
-import { SidebarUpdateArchitectureWarning, SidebarUpdatePill } from "./SidebarUpdatePill";
-import {
-  agentSidebarActiveForPath,
-  setAgentSidebarActive,
-  useAgentSidebarStore,
-} from "../agents/agentSidebarStore";
+import { useRecentThreadsExpansion } from "./RecentThreadsHeader";
 import { useSidebarHoverPreview, type SidebarHoverSection } from "./SidebarHoverPreview";
-import { PullRequestGlyph } from "~/components/pullRequest/pullRequestIcons";
-import { observeResize } from "~/lib/observeResize";
+import { SidebarProviderUpdatePill } from "./SidebarProviderUpdatePill";
+import { SidebarThreadUndoNotice } from "./SidebarThreadUndoNotice";
+import { SidebarUpdateArchitectureWarning, SidebarUpdatePill } from "./SidebarUpdatePill";
 
 export const SidebarChromeHeader = memo(function SidebarChromeHeader({
   isElectron,
@@ -413,11 +415,15 @@ export const SidebarUtilityMenu = memo(function SidebarUtilityMenu() {
   );
 });
 
-export const SidebarChromeFooter = memo(function SidebarChromeFooter() {
+export const SidebarChromeFooter = memo(function SidebarChromeFooter({
+  showUndoNotice = true,
+}: {
+  showUndoNotice?: boolean;
+}) {
   const { isMobile } = useSidebar();
   return (
     <SidebarFooter>
-      <SidebarThreadUndoNotice />
+      {showUndoNotice ? <SidebarThreadUndoNotice /> : null}
       {!SINGLE_PROVIDER_UI ? <SidebarProviderUpdatePill /> : null}
       <SidebarUpdateArchitectureWarning />
       {!SINGLE_PROVIDER_UI || isMobile ? <SidebarUtilityMenu /> : null}

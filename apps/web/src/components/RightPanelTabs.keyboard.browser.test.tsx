@@ -1,6 +1,6 @@
-import { act, type ComponentProps } from "react";
-import { createRoot, type Root } from "react-dom/client";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
+import { act, fakeTimers, render as renderUi, type Screen } from "../../test/render";
+import { type ComponentProps } from "react";
+import { describe, expect, it, vi } from "vite-plus/test";
 import {
   compileResolvedKeybindingsConfig,
   DEFAULT_RESOLVED_KEYBINDINGS,
@@ -11,14 +11,20 @@ import { RightPanelTabs } from "./RightPanelTabs";
 vi.mock("~/hooks/useTheme", () => ({ useTheme: () => ({ resolvedTheme: "light" }) }));
 vi.mock("~/browser/browserDefaults", () => ({ useBrowserDefaults: () => ({ profiles: [] }) }));
 
-let root: Root;
-let container: HTMLDivElement;
+let root: Screen;
+let container: HTMLElement;
 const addFiles = vi.fn();
 const noop = () => undefined;
 
-beforeEach(() => {
-  vi.useFakeTimers();
-  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+async function setup() {
+  const resources = new AsyncDisposableStack();
+  resources.defer(async () => {
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  });
+
+  resources.use(fakeTimers());
+
   vi.stubGlobal(
     "ResizeObserver",
     class {
@@ -27,28 +33,19 @@ beforeEach(() => {
       unobserve() {}
     },
   );
-  Object.defineProperty(Element.prototype, "getAnimations", {
-    configurable: true,
-    value: () => [],
-  });
+  vi.spyOn(Element.prototype, "getAnimations").mockReturnValue([]);
   vi.spyOn(navigator, "platform", "get").mockReturnValue("MacIntel");
   addFiles.mockClear();
   container = document.createElement("div");
   document.body.append(container);
-  root = createRoot(container);
-});
+  root = resources.use(await renderUi(null, { container: container, router: false }));
 
-afterEach(async () => {
-  await act(() => root.unmount());
-  container.remove();
-  vi.restoreAllMocks();
-  vi.unstubAllGlobals();
-  vi.useRealTimers();
-});
+  return resources;
+}
 
 async function renderPanel(overrides: Partial<ComponentProps<typeof RightPanelTabs>> = {}) {
   await act(() =>
-    root.render(
+    root.rerender(
       <RightPanelTabs
         mode="inline"
         open
@@ -114,6 +111,7 @@ describe("right panel new-tab shortcut", () => {
   it.each(["MacIntel", "Win32", "Linux x86_64"])(
     "opens the menu on %s and chooses a tab",
     async (platform) => {
+      await using _fixture = await setup();
       vi.spyOn(navigator, "platform", "get").mockReturnValue(platform);
       await renderPanel();
       const event = await press(
@@ -141,6 +139,7 @@ describe("right panel new-tab shortcut", () => {
   );
 
   it("opens Repo while a closed popup remains mounted", async () => {
+    await using _fixture = await setup();
     await renderPanel();
     const popup = document.createElement("div");
     popup.dataset.slot = "menu-popup";
@@ -152,6 +151,7 @@ describe("right panel new-tab shortcut", () => {
   });
 
   it("opens the add-surface menu while a closed popup remains mounted", async () => {
+    await using _fixture = await setup();
     await renderPanel();
     const popup = document.createElement("div");
     popup.dataset.slot = "menu-popup";
@@ -163,6 +163,7 @@ describe("right panel new-tab shortcut", () => {
   });
 
   it("leaves the shortcut alone while the mounted panel is closed", async () => {
+    await using _fixture = await setup();
     await renderPanel({ open: false });
     expect((await press("t", { metaKey: true })).defaultPrevented).toBe(false);
     expect(document.querySelector('[role="menu"]:not([data-closed])')).toBeNull();
@@ -171,6 +172,7 @@ describe("right panel new-tab shortcut", () => {
   it.each(["Win32", "Linux x86_64"])(
     "leaves Ctrl+T for the focused terminal on %s",
     async (platform) => {
+      await using _fixture = await setup();
       vi.spyOn(navigator, "platform", "get").mockReturnValue(platform);
       await renderPanel({
         getShortcutContext: () => ({
@@ -195,6 +197,7 @@ describe("right panel new-tab shortcut", () => {
   );
 
   it("uses a custom binding from a text field and closes on Escape", async () => {
+    await using _fixture = await setup();
     const input = document.createElement("input");
     await renderPanel({
       keybindings: compileResolvedKeybindingsConfig([{ key: "mod+y", command: "rightPanel.new" }]),
@@ -217,6 +220,7 @@ describe("right panel new-tab shortcut", () => {
   });
 
   it("does not open over another popup or during text composition", async () => {
+    await using _fixture = await setup();
     await renderPanel();
     expect((await press("t", { metaKey: true, isComposing: true })).defaultPrevented).toBe(false);
     const dialog = document.createElement("div");
@@ -234,6 +238,7 @@ describe("right panel new-tab shortcut", () => {
   });
 
   it("blocks panel shortcuts until a mounted popup finishes closing", async () => {
+    await using _fixture = await setup();
     await renderPanel();
     const popover = document.createElement("div");
     popover.dataset.slot = "popover-popup";
@@ -263,6 +268,7 @@ describe("right panel new-tab shortcut", () => {
   });
 
   it("supports arrow keys with an existing tab in sheet mode and clears the menu on close", async () => {
+    await using _fixture = await setup();
     const panel = {
       mode: "sheet" as const,
       surfaces: [{ id: "files" as const, kind: "files" as const }],
@@ -285,6 +291,7 @@ describe("right panel new-tab shortcut", () => {
 
 describe("right panel tab middle click", () => {
   it("cancels middle-button defaults and closes once while preserving other buttons", async () => {
+    await using _fixture = await setup();
     const onActivate = vi.fn();
     const onCloseSurface = vi.fn();
     const files = { id: "files" as const, kind: "files" as const };

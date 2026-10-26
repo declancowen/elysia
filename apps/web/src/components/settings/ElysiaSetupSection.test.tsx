@@ -1,6 +1,5 @@
 // @vitest-environment jsdom
-import { act } from "react";
-import { createRoot, type Root } from "react-dom/client";
+import { act, render as renderDom } from "../../../test/render";
 import {
   EnvironmentId,
   ProviderDriverKind,
@@ -60,8 +59,6 @@ function authState(patch: Partial<ProviderAuthState> = {}): ProviderAuthState {
     ...patch,
   };
 }
-let root: Root;
-let container: HTMLDivElement;
 const onContinue = vi.fn();
 beforeEach(() => {
   vi.clearAllMocks();
@@ -69,57 +66,51 @@ beforeEach(() => {
   for (const command of [setup.start, setup.respond, setup.cancel, setup.logout]) {
     command.mockResolvedValue({ _tag: "Success", value: undefined });
   }
-  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
-  container = document.createElement("div");
-  document.body.append(container);
-  root = createRoot(container);
 });
-afterEach(async () => {
-  await act(async () => root.unmount());
-  container.remove();
-});
-async function render(currentProvider = provider, onboarding = true) {
-  await act(async () =>
-    root.render(
-      <ElysiaSetupSection
-        environmentId={EnvironmentId.make("local")}
-        instanceId={instanceId}
-        provider={currentProvider}
-        enabled
-        readOnly={false}
-        onContinue={onboarding ? onContinue : undefined}
-      />,
-    ),
+afterEach(async () => {});
+function view(currentProvider = provider, onboarding = true) {
+  return (
+    <ElysiaSetupSection
+      environmentId={EnvironmentId.make("local")}
+      instanceId={instanceId}
+      provider={currentProvider}
+      enabled
+      readOnly={false}
+      onContinue={onboarding ? onContinue : undefined}
+    />
   );
 }
 function button(label: string) {
-  return [...container.querySelectorAll("button")].find(
+  return [...document.body.querySelectorAll("button")].find(
     (item) => item.textContent?.trim() === label,
   );
 }
 
 it("opens an existing installation without stale cancellation or credential errors", async () => {
   setup.auth = authState({ phase: "cancelled", flowId: "old", message: "Sign-in cancelled." });
-  await render();
-  expect(container.querySelector('section[aria-label="Installed"]')?.textContent).toContain(
+  await using screen = await renderDom(view(), { router: false });
+  expect(screen.container.querySelector('section[aria-label="Installed"]')?.textContent).toContain(
     "Claude Code",
   );
-  expect(container.querySelector('section[aria-label="Not installed"]')).toBeNull();
-  expect(container.textContent).toContain("Claude Code (2.1.285)");
+  expect(screen.container.querySelector('section[aria-label="Not installed"]')).toBeNull();
+  expect(screen.container.textContent).toContain("Claude Code (2.1.285)");
   expect(button("Install Elysia")).toBeUndefined();
   expect(button("Connect Elysia")).toBeUndefined();
-  expect(container.querySelector("progress")).toBeNull();
-  expect(container.textContent).not.toContain("VPN/Zscaler");
-  expect(container.textContent).not.toContain("Sign-in cancelled");
-  expect(container.querySelector('[role="alert"]')).toBeNull();
+  expect(screen.container.querySelector("progress")).toBeNull();
+  expect(screen.container.textContent).not.toContain("VPN/Zscaler");
+  expect(screen.container.textContent).not.toContain("Sign-in cancelled");
+  expect(screen.container.querySelector('[role="alert"]')).toBeNull();
   expect(setup.toast).not.toHaveBeenCalled();
   expect(button("Continue")?.disabled).toBe(false);
 });
 
 it("changes credentials in Settings without repeating onboarding package groups", async () => {
-  await render({ ...provider, status: "ready", auth: { status: "authenticated" } }, false);
-  expect(container.querySelector('section[aria-label="Installed"]')).toBeNull();
-  expect(container.querySelector('section[aria-label="Not installed"]')).toBeNull();
+  await using screen = await renderDom(
+    view({ ...provider, status: "ready", auth: { status: "authenticated" } }, false),
+    { router: false },
+  );
+  expect(screen.container.querySelector('section[aria-label="Installed"]')).toBeNull();
+  expect(screen.container.querySelector('section[aria-label="Not installed"]')).toBeNull();
   expect(button("Disconnect Elysia")).toBeDefined();
   await act(async () => button("Change credentials")!.click());
   expect(setup.start).toHaveBeenCalledOnce();
@@ -132,23 +123,25 @@ it("changes credentials in Settings without repeating onboarding package groups"
       fields: [{ name: "api_key", label: "API key", secret: true }],
     },
   });
-  await render(provider, false);
-  expect(container.querySelector<HTMLInputElement>("input")?.type).toBe("password");
+  await screen.rerender(view(provider, false));
+  expect(screen.container.querySelector<HTMLInputElement>("input")?.type).toBe("password");
   expect(button("Connect")).toBeDefined();
-  expect(container.querySelector('section[aria-label="Installed"]')).toBeNull();
+  expect(screen.container.querySelector('section[aria-label="Installed"]')).toBeNull();
   expect(setup.toast).not.toHaveBeenCalled();
 });
 
 it("offers missing prerequisite installation when Elysia exists but Claude Code does not", async () => {
-  await render({ ...provider, runtimeVersion: null });
-  expect(container.querySelector('section[aria-label="Installed"]')?.textContent).toContain(
+  await using screen = await renderDom(view({ ...provider, runtimeVersion: null }), {
+    router: false,
+  });
+  expect(screen.container.querySelector('section[aria-label="Installed"]')?.textContent).toContain(
     "Elysia CLI",
   );
-  expect(container.querySelector('section[aria-label="Not installed"]')?.textContent).toContain(
-    "Claude Code",
-  );
+  expect(
+    screen.container.querySelector('section[aria-label="Not installed"]')?.textContent,
+  ).toContain("Claude Code");
   expect(button("Install missing prerequisites")).toBeUndefined();
-  expect(container.querySelector("progress")).toBeNull();
+  expect(screen.container.querySelector("progress")).toBeNull();
   await act(async () => button("Continue")!.click());
   expect(setup.start).toHaveBeenCalledOnce();
   expect(onContinue).not.toHaveBeenCalled();
@@ -157,48 +150,57 @@ it("offers missing prerequisite installation when Elysia exists but Claude Code 
 
 it("tracks installation progress and reports only a newly attempted flow's failure", async () => {
   setup.auth = authState({ phase: "failed", flowId: "old", message: "Old failure" });
-  await render({ ...provider, version: null, runtimeVersion: null, installed: false });
+  await using screen = await renderDom(
+    view({ ...provider, version: null, runtimeVersion: null, installed: false }),
+    { router: false },
+  );
   await act(async () => button("Continue")!.click());
   expect(setup.start).toHaveBeenCalledOnce();
-  expect(container.querySelector('[role="alert"]')).toBeNull();
+  expect(screen.container.querySelector('[role="alert"]')).toBeNull();
   expect(setup.toast).not.toHaveBeenCalled();
   setup.auth = authState({
     phase: "starting",
     flowId: "new",
     message: "3/4 · Installing Claude Code…",
   });
-  await render({ ...provider, version: null, runtimeVersion: null, installed: false });
-  expect(container.querySelector("progress")?.value).toBe(50);
-  expect(container.textContent).toContain("50%");
+  await screen.rerender(
+    view({ ...provider, version: null, runtimeVersion: null, installed: false }),
+  );
+  expect(screen.container.querySelector("progress")?.value).toBe(50);
+  expect(screen.container.textContent).toContain("50%");
   setup.auth = authState({
     phase: "waiting",
     flowId: "new",
     message: "Enter company credentials.",
   });
-  await render({ ...provider, version: null, runtimeVersion: null, installed: false });
-  expect(container.querySelector("progress")).toBeNull();
-  expect(container.querySelector('section[aria-label="Installed"]')?.textContent).toContain(
+  await screen.rerender(
+    view({ ...provider, version: null, runtimeVersion: null, installed: false }),
+  );
+  expect(screen.container.querySelector("progress")).toBeNull();
+  expect(screen.container.querySelector('section[aria-label="Installed"]')?.textContent).toContain(
     "Elysia CLI",
   );
-  expect(container.querySelector('section[aria-label="Not installed"]')).toBeNull();
+  expect(screen.container.querySelector('section[aria-label="Not installed"]')).toBeNull();
   expect(button("Install Elysia")).toBeUndefined();
   expect(button("Cancel setup")).toBeDefined();
   setup.auth = authState({ phase: "failed", flowId: "new", message: "Company connection failed." });
-  await render();
-  expect(container.querySelector('[role="alert"]')?.textContent).toBe("Company connection failed.");
+  await screen.rerender(view());
+  expect(screen.container.querySelector('[role="alert"]')?.textContent).toBe(
+    "Company connection failed.",
+  );
   expect(setup.toast).toHaveBeenCalledWith(
     expect.objectContaining({ type: "error", description: "Company connection failed." }),
   );
 });
 
 it("allows entry and marks the company connection active only after verified authentication", async () => {
-  await render();
-  expect(container.textContent).not.toContain("VPN/Zscaler");
+  await using screen = await renderDom(view(), { router: false });
+  expect(screen.container.textContent).not.toContain("VPN/Zscaler");
   await act(async () => button("Continue")!.click());
   expect(onContinue).not.toHaveBeenCalled();
-  await render({ ...provider, status: "ready", auth: { status: "authenticated" } });
-  expect(container.textContent).not.toContain("VPN/Zscaler");
-  expect(container.querySelector("progress")).toBeNull();
+  await screen.rerender(view({ ...provider, status: "ready", auth: { status: "authenticated" } }));
+  expect(screen.container.textContent).not.toContain("VPN/Zscaler");
+  expect(screen.container.querySelector("progress")).toBeNull();
   await act(async () => button("Continue")!.click());
   expect(onContinue).toHaveBeenCalledOnce();
 });
@@ -212,10 +214,10 @@ it.each(["throw", "reject"] as const)(
         throw diagnostic;
       });
     else setup.start.mockRejectedValueOnce(diagnostic);
-    await render();
+    await using screen = await renderDom(view(), { router: false });
     await act(async () => button("Continue")!.click());
     expect(button("Continue")?.disabled).toBe(false);
-    expect(container.querySelector('[role="alert"]')?.textContent).toBe(
+    expect(screen.container.querySelector('[role="alert"]')?.textContent).toBe(
       "Elysia could not complete the request. Check the setup status and retry.",
     );
     expect(setup.toast).toHaveBeenCalledWith({
@@ -223,11 +225,11 @@ it.each(["throw", "reject"] as const)(
       title: "Could not connect Elysia",
       description: "Check the setup status and retry.",
     });
-    expect(container.textContent).not.toContain(diagnostic.message);
+    expect(screen.container.textContent).not.toContain(diagnostic.message);
     expect(onContinue).not.toHaveBeenCalled();
     await act(async () => button("Continue")!.click());
     expect(setup.start).toHaveBeenCalledTimes(2);
-    expect(container.querySelector('[role="alert"]')).toBeNull();
+    expect(screen.container.querySelector('[role="alert"]')).toBeNull();
     expect(button("Continue")?.disabled).toBe(false);
   },
 );
@@ -245,10 +247,10 @@ it("submits credentials from the single footer button, then gates entry on verif
       ],
     },
   });
-  await render();
+  await using screen = await renderDom(view(), { router: false });
   expect(button("Connect Elysia")).toBeUndefined();
   expect(button("Continue")).toBeUndefined();
-  const fields = container.querySelectorAll("input");
+  const fields = screen.container.querySelectorAll("input");
   expect(fields[1]?.type).toBe("password");
   expect(fields[1]?.placeholder).toBe("****");
   await act(async () => button("Connect")!.click());
@@ -272,14 +274,21 @@ it("submits credentials from the single footer button, then gates entry on verif
     }),
   );
   setup.auth = { ...setup.auth!, phase: "verifying" };
-  await render();
+  await screen.rerender(view());
   expect(button("Connect")).toBeUndefined();
   expect(button("Connecting…")?.disabled).toBe(true);
   expect(onContinue).not.toHaveBeenCalled();
   setup.auth = authState({ phase: "succeeded", flowId: "credentials" });
-  await render({ ...provider, status: "ready", auth: { status: "authenticated" } });
+  await screen.rerender(view({ ...provider, status: "ready", auth: { status: "authenticated" } }));
   await act(async () => button("Continue")!.click());
   expect(onContinue).toHaveBeenCalledOnce();
-  await render({ ...provider, status: "ready", auth: { status: "authenticated" } }, false);
-  expect(container.textContent).toContain("Company connection: managed by the Elysia CLI.");
+  await screen.rerender(
+    view({ ...provider, status: "ready", auth: { status: "authenticated" } }, false),
+  );
+  expect(screen.container.textContent).toContain("Company connection: managed by the Elysia CLI.");
 });
+
+vi.mock("vite-plus/test/browser", () => ({
+  page: { elementLocator: () => ({}) },
+  utils: { getElementLocatorSelectors: () => ({}) },
+}));

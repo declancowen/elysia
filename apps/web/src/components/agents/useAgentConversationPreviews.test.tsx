@@ -1,3 +1,4 @@
+import { act } from "../../../test/act";
 import { RegistryContext } from "@effect/atom-react";
 import {
   EnvironmentId,
@@ -5,7 +6,7 @@ import {
   ThreadId,
   type AgentConversationPreviewsResult,
 } from "@elysiatools/contracts";
-import { act } from "react";
+
 import { create, type ReactTestRenderer } from "react-test-renderer";
 import { afterAll, afterEach, expect, it, vi } from "vite-plus/test";
 import type { AgentRosterEntry } from "./useAgents";
@@ -83,7 +84,6 @@ afterEach(async () => {
 afterAll(() => appAtomRegistry.dispose());
 
 it("bounds reads by environment and keeps equivalent roster renders on the same subscriptions", async () => {
-  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   state.load.mockResolvedValue([]);
   const agents = [
     ...Array.from({ length: 101 }, (_, index) => agent(`agent-${index}`)),

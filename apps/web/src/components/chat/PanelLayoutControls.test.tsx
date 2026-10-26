@@ -1,17 +1,21 @@
+vi.mock("vite-plus/test/browser", () => ({
+  page: { elementLocator: () => ({}) },
+  utils: { getElementLocatorSelectors: () => ({}) },
+}));
+import { render as renderUi } from "../../../test/render";
+import { act } from "../../../test/act";
 // @vitest-environment jsdom
-import { act } from "react";
-import { createRoot } from "react-dom/client";
+
 import { expect, it, vi } from "vite-plus/test";
 
 import { PanelLayoutControls } from "./PanelLayoutControls";
 
 it("hides terminal access in Work and restores its open state when returning to Code", async () => {
-  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   const container = document.createElement("div");
   document.body.append(container);
-  const root = createRoot(container);
+  await using root = await renderUi(null, { container: container, router: false });
   const render = (showTerminalControl: boolean) =>
-    root.render(
+    root.rerender(
       <PanelLayoutControls
         showTerminalControl={showTerminalControl}
         terminalAvailable

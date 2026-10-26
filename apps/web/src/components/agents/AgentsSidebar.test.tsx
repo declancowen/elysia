@@ -1,7 +1,13 @@
+vi.mock("vite-plus/test/browser", () => ({
+  page: { elementLocator: () => ({}) },
+  utils: { getElementLocatorSelectors: () => ({}) },
+}));
+import { render as renderUi } from "../../../test/render";
+import { act } from "../../../test/act";
 // @vitest-environment jsdom
 import { EnvironmentId, ProjectId, ThreadId } from "@elysiatools/contracts";
-import { act, type ReactNode } from "react";
-import { createRoot } from "react-dom/client";
+import { type ReactNode } from "react";
+
 import { expect, it, vi } from "vite-plus/test";
 import { makeThreadFixture } from "../../test-fixtures";
 import type { AgentRosterEntry } from "./useAgents";
@@ -114,7 +120,6 @@ function agent(name: string): AgentRosterEntry {
 }
 
 it("opens an agent or group from the conversation roster, filters roles and creates from one New menu", async () => {
-  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   vi.stubGlobal(
     "ResizeObserver",
     class {
@@ -167,14 +172,14 @@ it("opens an agent or group from the conversation roster, filters roles and crea
   });
   const host = document.createElement("div");
   document.body.append(host);
-  const root = createRoot(host);
-  const render = () =>
-    act(async () => {
+  await using root = await renderUi(null, { container: host, router: false });
+  const render = async () =>
+    await act(async () => {
       state.agents = [...state.agents];
-      root.render(<AgentsSidebar />);
+      root.rerender(<AgentsSidebar />);
     });
-  const click = (label: string) =>
-    act(async () => {
+  const click = async (label: string) =>
+    await act(async () => {
       const target = [...document.querySelectorAll<HTMLElement>('button, [role="menuitem"]')].find(
         (el) => el.getAttribute("aria-label") === label || el.textContent?.trim() === label,
       )!;

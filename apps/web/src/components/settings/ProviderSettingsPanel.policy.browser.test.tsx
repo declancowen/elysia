@@ -1,6 +1,6 @@
 import { DEFAULT_UNIFIED_SETTINGS, EnvironmentId } from "@elysiatools/contracts";
-import { act, type ReactNode } from "react";
-import { createRoot } from "react-dom/client";
+import type { ReactNode } from "react";
+import { render } from "../../../test/render";
 import { expect, it, vi } from "vite-plus/test";
 
 // Keep the real fork policy: additional provider accounts are unavailable in Elysia.
@@ -84,20 +84,17 @@ import { EnvironmentProviderSettings } from "./ProviderSettingsPanel";
 it.each([true, false])(
   "keeps provider accounts native-only with manage permission=%s",
   async (allowed) => {
-    vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
     state.allowed = allowed;
     state.mutate.mockClear();
     const container = document.body.appendChild(document.createElement("div"));
-    const root = createRoot(container);
     try {
-      await act(async () =>
-        root.render(
-          <EnvironmentProviderSettings
-            environmentId={EnvironmentId.make("native-policy-fixture")}
-            environmentLabel="Elysia"
-            readOnly={!allowed}
-          />,
-        ),
+      await using _screen = await render(
+        <EnvironmentProviderSettings
+          environmentId={EnvironmentId.make("native-policy-fixture")}
+          environmentLabel="Elysia"
+          readOnly={!allowed}
+        />,
+        { container: container, router: false },
       );
       expect(container.querySelector('button[aria-label="Add provider"]')).toBeNull();
       expect(container.querySelector('[role="dialog"]')).toBeNull();
@@ -105,8 +102,6 @@ it.each([true, false])(
       expect(container.querySelector('input[placeholder="codex"]')).toBeNull();
       expect(state.mutate).not.toHaveBeenCalled();
     } finally {
-      await act(async () => root.unmount());
-      container.remove();
       vi.unstubAllGlobals();
     }
   },

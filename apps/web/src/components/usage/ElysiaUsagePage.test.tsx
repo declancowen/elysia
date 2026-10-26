@@ -1,5 +1,6 @@
 import { RegistryContext } from "@effect/atom-react";
 import { AtomRegistry } from "effect/reactivity";
+// eslint-disable-next-line elysia/require-disposable-render -- This React Test Renderer unit suite cannot import the browser harness; afterEach unmounts and disposes its registry.
 import { act } from "react";
 import { create, type ReactTestRenderer } from "react-test-renderer";
 import { USAGE_CONTRACT_VERSION, UsageDay, type UsageSummary } from "@elysiatools/contracts";
@@ -69,6 +70,7 @@ const available: ElysiaStatsSnapshot = {
 };
 
 beforeEach(() => {
+  // eslint-disable-next-line elysia/require-disposable-render -- The unit renderer needs act state; afterEach restores it even if unmount fails.
   vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   registry = AtomRegistry.make();
   state.load.mockReset();
@@ -150,11 +152,14 @@ beforeEach(() => {
   vi.setSystemTime(new Date("2026-10-04T12:00:00Z"));
 });
 afterEach(async () => {
-  await act(() => renderer?.unmount());
-  renderer = null;
-  registry.dispose();
-  vi.useRealTimers();
-  vi.unstubAllGlobals();
+  try {
+    await act(() => renderer?.unmount());
+  } finally {
+    renderer = null;
+    registry.dispose();
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+  }
 });
 const mount = async () => {
   await act(async () => {

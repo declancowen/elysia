@@ -1,3 +1,4 @@
+import PauseIconAsset from "@hugeicons/core-free-icons/PauseIcon";
 import DashboardSquare02IconAsset from "@hugeicons/core-free-icons/DashboardSquare02Icon";
 import InboxIconAsset from "@hugeicons/core-free-icons/InboxIcon";
 import WorkflowIconAsset from "@hugeicons/core-free-icons/WorkflowIcon";
@@ -709,3 +710,15 @@ export const InboxIcon = createIcon(InboxIconAsset, "inbox");
 export const WorkflowIcon = createIcon(WorkflowIconAsset, "workflow");
 export const RouteIcon = createIcon(RouteIconAsset, "route");
 export const TargetIcon = createIcon(TargetIconAsset, "target");
+
+export const PauseIcon = /* @__PURE__ */ createIcon(PauseIconAsset, "pause");
+export {
+  CopyIcon as Copy,
+  ChevronUpIcon as ChevronUp,
+  Maximize2Icon as Maximize2,
+  Maximize as MaximizeIcon,
+  Minimize2Icon as Minimize2,
+  UserRoundIcon as UserIcon,
+  BubblesIcon as BotIcon,
+  CircleDashedIcon as CircleDotDashedIcon,
+};

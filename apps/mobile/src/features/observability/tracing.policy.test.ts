@@ -33,7 +33,7 @@ it.effect(
         tracesDataset: "fixture",
         tracesToken: "fixture-token",
       },
-      { appVariant: "test" },
+      { appVariant: "test", serviceInstanceId: "mobile-test" },
     ).pipe(Layer.provide(layerRemoteHttpClient(fetchFn)));
     return Effect.void.pipe(
       Effect.withSpan("mobile.disabled-relay"),

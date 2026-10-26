@@ -1,7 +1,7 @@
-import { act, useState } from "react";
+import { useState } from "react";
+import { act, render } from "../../../test/render";
 import { userEvent } from "vite-plus/test/browser";
-import { createRoot, type Root } from "react-dom/client";
-import { afterEach, beforeEach, expect, it, vi } from "vite-plus/test";
+import { expect, it, vi } from "vite-plus/test";
 import { EnvironmentId, ProjectId, ThreadId } from "@elysiatools/contracts";
 import type { EnvironmentProject } from "@elysiatools/client-runtime/state/shell";
 import { mentionedAgentProjectIds } from "@elysiatools/shared/agentMentions";
@@ -48,8 +48,6 @@ const channel: EnvironmentProject = {
     group: { memberProjectIds: [agent.id], leadProjectId: agent.id },
   },
 };
-let host: HTMLDivElement;
-let root: Root;
 function Form({ project = agent }: { project?: EnvironmentProject }) {
   const [value, setValue] = useState("");
   return (
@@ -66,14 +64,13 @@ function Form({ project = agent }: { project?: EnvironmentProject }) {
     />
   );
 }
-const editor = () => host.querySelector<HTMLElement>('[role="textbox"]')!;
+const editor = () => document.body.querySelector<HTMLElement>('[role="textbox"]')!;
 async function typeAtEnd(text: string) {
   await act(async () => editor().focus());
-  await act(async () => userEvent.keyboard(text));
+  await userEvent.keyboard(text);
 }
 
-beforeEach(() => {
-  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+function fixtures() {
   state.changed.mockClear();
   state.projects = [
     agent,
@@ -91,24 +88,17 @@ beforeEach(() => {
       environmentId: EnvironmentId.make("other"),
     },
   ];
-  host = document.createElement("div");
-  document.body.append(host);
-  root = createRoot(host);
-});
-afterEach(async () => {
-  await act(async () => root.unmount());
-  host.remove();
-  vi.unstubAllGlobals();
-});
+}
 
 it("inserts an agent suggestion as a readable avatar tag with its durable identity", async () => {
-  await act(async () => root.render(<Form />));
-  expect(host.querySelector("button")).toBeNull();
+  fixtures();
+  await using screen = await render(<Form />);
+  expect(screen.container.querySelector("button")).toBeNull();
   await typeAtEnd("@Friday");
   await vi.waitFor(() =>
-    expect(host.querySelector('[data-composer-item-id="friday"]')).not.toBeNull(),
+    expect(screen.container.querySelector('[data-composer-item-id="friday"]')).not.toBeNull(),
   );
-  const option = host.querySelector<HTMLElement>('[data-composer-item-id="friday"]')!;
+  const option = screen.container.querySelector<HTMLElement>('[data-composer-item-id="friday"]')!;
   expect(option.querySelector("svg")).not.toBeNull();
   await act(async () => option.click());
   expect(mentionedAgentProjectIds(state.changed.mock.lastCall![0])).toEqual([agent.id]);
@@ -119,10 +109,11 @@ it("inserts an agent suggestion as a readable avatar tag with its durable identi
 });
 
 it("filters typed @ suggestions and replaces the token with a keyboard-selected channel tag", async () => {
-  await act(async () => root.render(<Form />));
+  fixtures();
+  await using screen = await render(<Form />);
   await typeAtEnd("Review @Launch");
-  expect(host.querySelector('[role="listbox"]')?.textContent).toContain("Launch team");
-  expect(host.querySelector('[role="listbox"]')?.textContent).not.toContain("Friday");
+  expect(screen.container.querySelector('[role="listbox"]')?.textContent).toContain("Launch team");
+  expect(screen.container.querySelector('[role="listbox"]')?.textContent).not.toContain("Friday");
   await act(async () =>
     editor().dispatchEvent(
       new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }),
@@ -130,20 +121,23 @@ it("filters typed @ suggestions and replaces the token with a keyboard-selected 
   );
   expect(mentionedAgentProjectIds(state.changed.mock.lastCall![0])).toEqual([channel.id]);
   expect(editor().textContent).toContain("Review Launch team");
-  expect(host.querySelector('[role="listbox"]')).toBeNull();
+  expect(screen.container.querySelector('[role="listbox"]')).toBeNull();
 });
 
 it("limits a channel prompt to its active members and lets Escape dismiss suggestions", async () => {
-  await act(async () => root.render(<Form project={channel} />));
-  expect(host.querySelector("button")).toBeNull();
+  fixtures();
+  await using screen = await render(<Form project={channel} />);
+  expect(screen.container.querySelector("button")).toBeNull();
   await typeAtEnd("@");
-  expect(host.querySelector('[role="listbox"]')?.textContent).toContain("Friday");
-  expect(host.querySelector('[role="listbox"]')?.textContent).not.toContain("Launch team");
+  expect(screen.container.querySelector('[role="listbox"]')?.textContent).toContain("Friday");
+  expect(screen.container.querySelector('[role="listbox"]')?.textContent).not.toContain(
+    "Launch team",
+  );
   await act(async () =>
     editor().dispatchEvent(
       new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }),
     ),
   );
-  expect(host.querySelector('[role="listbox"]')).toBeNull();
+  expect(screen.container.querySelector('[role="listbox"]')).toBeNull();
   expect(state.changed.mock.lastCall![0]).toBe("@");
 });

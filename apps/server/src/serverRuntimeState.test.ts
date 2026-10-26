@@ -1,15 +1,15 @@
+import * as Logger from "effect/Logger";
+import * as References from "effect/References";
+import * as Schema from "effect/Schema";
 import { assert, describe, it } from "@effect/vitest";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import * as HostProcess from "@elysiatools/shared/HostProcess";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Layer from "effect/Layer";
-import * as Logger from "effect/Logger";
 import * as Option from "effect/Option";
 import * as Path from "effect/Path";
-import * as References from "effect/References";
 import * as Runtime from "effect/Runtime";
-import * as Schema from "effect/Schema";
 import * as ChildProcessSpawner from "effect/process/ChildProcessSpawner";
 
 import { renderBootServicePlist, renderBootServiceUnit } from "./cloud/bootService.ts";
@@ -20,6 +20,10 @@ import * as ServerOwnership from "./serverOwnership.ts";
 import * as ServerRuntimeState from "./serverRuntimeState.ts";
 
 const isServerRuntimeStateError = Schema.is(ServerRuntimeState.ServerRuntimeStateError);
+interface CapturedLog {
+  readonly message: unknown;
+  readonly annotations: Readonly<Record<string, unknown>>;
+}
 
 const startBesideBootService = Effect.fn("test.startBesideBootService")(function* (input: {
   readonly platform: "darwin" | "linux";
@@ -31,6 +35,8 @@ const startBesideBootService = Effect.fn("test.startBesideBootService")(function
   readonly missingServiceState?: boolean;
   readonly environment?: NodeJS.ProcessEnv;
   readonly connected?: boolean;
+  readonly serverOwnership?: "sqlite-v1";
+  readonly ownershipRuntimeSource?: string;
 }) {
   const fs = yield* FileSystem.FileSystem;
   const path = yield* Path.Path;
@@ -45,7 +51,11 @@ const startBesideBootService = Effect.fn("test.startBesideBootService")(function
   if (!input.missingServiceState) {
     yield* fs.writeFileString(
       path.join(serviceHome, "runtime", "service-state.json"),
-      JSON.stringify({ protocol: input.npmRuntime ? 2 : 3, activeVersion }),
+      JSON.stringify({
+        protocol: input.npmRuntime ? 2 : 3,
+        activeVersion,
+        ...(input.serverOwnership ? { serverOwnership: input.serverOwnership } : {}),
+      }),
     );
   }
   if (input.npmRuntime) {
@@ -53,6 +63,18 @@ const startBesideBootService = Effect.fn("test.startBesideBootService")(function
     const entryPath = path.join(versionDir, "node_modules", "t3", "dist", "bin.mjs");
     yield* fs.makeDirectory(path.dirname(entryPath), { recursive: true });
     yield* fs.writeFileString(entryPath, "");
+  }
+
+  if (input.ownershipRuntimeSource !== undefined) {
+    const entry = path.join(
+      serviceHome,
+      "runtime",
+      "versions",
+      activeVersion,
+      ...(input.npmRuntime ? ["node_modules", "t3", "dist", "bin.mjs"] : ["t3"]),
+    );
+    yield* fs.makeDirectory(path.dirname(entry), { recursive: true });
+    yield* fs.writeFileString(entry, input.ownershipRuntimeSource);
   }
 
   if (input.restartPending) {
@@ -132,11 +154,6 @@ const startBesideBootService = Effect.fn("test.startBesideBootService")(function
   return { result, t3Home };
 });
 
-interface CapturedLog {
-  readonly message: unknown;
-  readonly annotations: Readonly<Record<string, unknown>>;
-}
-
 describe("server ownership", () => {
   // An empty home, so no boot service unit installed on this machine is read.
   const layerOwnership = Layer.mergeAll(
@@ -206,8 +223,8 @@ describe("server ownership", () => {
       const state = yield* makeState;
       yield* ServerRuntimeState.persistServerRuntimeState({
         path: statePath,
-        // @effect-diagnostics-next-line globalDateInEffect:off - Legacy identity uses the real process start time, not TestClock.
-        state: { ...state, startedAt: new Date().toISOString() },
+        // Any record time after this process started proves the PID was not reused.
+        state: { ...state, startedAt: "2100-01-01T00:00:00.000Z" },
       });
       const refused = yield* Effect.scoped(ServerOwnership.acquireServerOwnership(statePath)).pipe(
         Effect.flip,
@@ -347,6 +364,89 @@ describe("server ownership", () => {
         ] as const) {
           const { result } = yield* startBesideBootService({ ...fixture, activeVersion: "0.1.0" });
           assert.equal(result._tag, "Success");
+        }
+      }).pipe(Effect.provide(NodeServices.layer)),
+    );
+
+    it.effect(
+      "recognizes lock-aware fork releases without relying on upstream version numbers",
+      () =>
+        Effect.gen(function* () {
+          for (const platform of ["darwin", "linux"] as const) {
+            const outputs =
+              platform === "darwin"
+                ? { "launchctl print": { code: 0 } }
+                : { "systemctl is-active": { code: 0, stdout: "active\n" } };
+            const fixture = { platform, outputs, activeVersion: "0.0.40" };
+            const unmarked = yield* startBesideBootService(fixture);
+            assert.equal(
+              unmarked.result._tag === "Failure" && unmarked.result.failure._tag,
+              "OlderBootServiceError",
+            );
+            const marked = yield* startBesideBootService({
+              ...fixture,
+              serverOwnership: "sqlite-v1",
+            });
+            assert.equal(marked.result._tag, "Success");
+            const pending = yield* startBesideBootService({
+              ...fixture,
+              serverOwnership: "sqlite-v1",
+              restartPending: true,
+            });
+            assert.equal(
+              pending.result._tag === "Failure" && pending.result.failure._tag,
+              "OlderBootServiceError",
+            );
+          }
+        }).pipe(Effect.provide(NodeServices.layer)),
+    );
+
+    it.effect("recognizes an existing lock-aware Elysia runtime without executing it", () =>
+      Effect.gen(function* () {
+        for (const platform of ["darwin", "linux"] as const) {
+          const outputs =
+            platform === "darwin"
+              ? { "launchctl print": { code: 0 } }
+              : { "systemctl is-active": { code: 0, stdout: "active\n" } };
+          const fixture = { platform, outputs, activeVersion: "0.0.40" };
+          const source =
+            'throw new Error("must not execute");' +
+            " ".repeat(65500) +
+            " /* Elysia server already owns server-owner.sqlite BEGIN EXCLUSIVE */";
+          const lockAware = yield* startBesideBootService({
+            ...fixture,
+            ownershipRuntimeSource: source,
+          });
+          assert.equal(lockAware.result._tag, "Success");
+          const npm = yield* startBesideBootService({
+            ...fixture,
+            npmRuntime: true,
+            ownershipRuntimeSource: source,
+          });
+          assert.equal(npm.result._tag, "Success");
+          for (const missing of [
+            "Elysia server already owns",
+            "server-owner.sqlite",
+            "BEGIN EXCLUSIVE",
+          ]) {
+            const unknown = yield* startBesideBootService({
+              ...fixture,
+              ownershipRuntimeSource: source.replace(missing, "unknown"),
+            });
+            assert.equal(
+              unknown.result._tag === "Failure" && unknown.result.failure._tag,
+              "OlderBootServiceError",
+            );
+          }
+          const pending = yield* startBesideBootService({
+            ...fixture,
+            ownershipRuntimeSource: source,
+            restartPending: true,
+          });
+          assert.equal(
+            pending.result._tag === "Failure" && pending.result.failure._tag,
+            "OlderBootServiceError",
+          );
         }
       }).pipe(Effect.provide(NodeServices.layer)),
     );

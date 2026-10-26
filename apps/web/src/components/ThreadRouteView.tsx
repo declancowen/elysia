@@ -3,10 +3,10 @@ import type { ScopedThreadRef } from "@elysiatools/contracts";
 import { SINGLE_PROVIDER_UI } from "@elysiatools/contracts";
 import { useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-
 import ChatView from "./ChatView";
 import { useConversationTabNavigation } from "../hooks/useConversationTabNavigation";
 import { currentConversationTabsStore } from "../conversationTabsStore";
+import { BackgroundThreadContext } from "./chat/backgroundThread";
 import { resolveDraftPromotionNavigationTarget, threadHasStarted } from "./ChatView.logic";
 import { waitForDraftHeroTransition } from "./chat/draftHeroTransition";
 import { SidebarInset } from "./ui/sidebar";
@@ -33,11 +33,16 @@ import {
 } from "../threadRoutes";
 
 /**
- * Plain server threads are unkeyed, so navigating between them reuses one instance as ChatView
- * expects. Rendered by the `_chat` layout rather than by the two leaf routes, since an element
- * only survives a route swap when the same parent renders it.
+ * Render in the shared layout to retain ChatView across route swaps; plain server threads remain unkeyed.
+ * `background` keeps the thread mounted, inert and in place under Settings or Usage.
  */
-export function ThreadRouteView({ target }: { target: ThreadRouteTarget }) {
+export function ThreadRouteView({
+  target,
+  background = false,
+}: {
+  target: ThreadRouteTarget;
+  background?: boolean;
+}) {
   const navigate = useNavigate();
   const navigateTab = useConversationTabNavigation();
   const draftId = target.kind === "draft" ? target.draftId : null;
@@ -73,7 +78,6 @@ export function ThreadRouteView({ target }: { target: ThreadRouteTarget }) {
           backgroundSubmissionPending,
         })
       : null;
-
   const shellStatus = useEnvironmentShellStatus(serverThreadRef?.environmentId ?? null);
   const serverThreadShell = serverThread;
   const environmentThreadRefs = useEnvironmentThreadRefs(serverThreadRef?.environmentId ?? null);
@@ -84,10 +88,11 @@ export function ThreadRouteView({ target }: { target: ThreadRouteTarget }) {
   const promotedDraftId = useComposerDraftStore((store) =>
     target.kind === "server" ? store.getDraftIdByRef(target.threadRef) : null,
   );
-  // The draft record is removed once the promoted thread has started, which
-  // is after the route swap. Latch the key so the element that carried the
-  // draft keeps its identity for as long as this thread stays on screen.
-  const [chatViewKey, setChatViewKey] = useState<{ threadKey: string; key: string } | null>(null);
+  // Latch the key through promotion because the draft record disappears after the route swap.
+  const [chatViewKey, setChatViewKey] = useState<{
+    threadKey: string;
+    key: string;
+  } | null>(null);
   const serverThreadKey = target.kind === "server" ? scopedThreadKey(target.threadRef) : null;
   const nextChatViewKey =
     serverThreadKey === null
@@ -95,7 +100,10 @@ export function ThreadRouteView({ target }: { target: ThreadRouteTarget }) {
       : chatViewKey?.threadKey === serverThreadKey
         ? chatViewKey
         : promotedDraftId
-          ? { threadKey: serverThreadKey, key: promotedDraftId }
+          ? {
+              threadKey: serverThreadKey,
+              key: promotedDraftId,
+            }
           : null;
   if (nextChatViewKey !== chatViewKey) {
     setChatViewKey(nextChatViewKey);
@@ -123,33 +131,41 @@ export function ThreadRouteView({ target }: { target: ThreadRouteTarget }) {
   });
   const serverThreadStarted = threadHasStarted(serverThreadShell);
   const environmentHasAnyThreads = environmentThreadRefs.length > 0 || environmentHasDraftThreads;
-
+  // oxlint-disable-next-line elysia/react-effect-budget -- Synchronize browser route changes with the retained conversation-tab store.
   useEffect(() => {
     if (!SINGLE_PROVIDER_UI) return;
     const tabs = currentConversationTabsStore().getState();
     if (target.kind === "draft") {
       if (canonicalThreadRef) {
-        const promoted = { kind: "server" as const, threadRef: canonicalThreadRef };
+        const promoted = {
+          kind: "server" as const,
+          threadRef: canonicalThreadRef,
+        };
         tabs.retarget(target, promoted);
         tabs.open(promoted);
       } else if (draftSession) {
         tabs.open(target);
       }
     } else if (renderState !== "missing" && !archived) {
-      if (promotedDraftId) tabs.retarget({ kind: "draft", draftId: promotedDraftId }, target);
+      if (promotedDraftId)
+        tabs.retarget(
+          {
+            kind: "draft",
+            draftId: promotedDraftId,
+          },
+          target,
+        );
       tabs.open(target);
     }
   }, [canonicalThreadRef, draftSession, promotedDraftId, renderState, target, archived]);
-
   useEffect(() => {
     if (!inferredThreadRef || draftSession?.promotedTo) {
       return;
     }
     markPromotedDraftThreadByRef(inferredThreadRef);
   }, [draftSession?.promotedTo, inferredThreadRef]);
-
   useEffect(() => {
-    if (!canonicalThreadRef) {
+    if (!canonicalThreadRef || background) {
       return;
     }
     let cancelled = false;
@@ -166,10 +182,9 @@ export function ThreadRouteView({ target }: { target: ThreadRouteTarget }) {
     return () => {
       cancelled = true;
     };
-  }, [canonicalThreadRef, navigate]);
-
+  }, [background, canonicalThreadRef, navigate]);
   useEffect(() => {
-    if (target.kind !== "draft" || draftSession || canonicalThreadRef) {
+    if (background || target.kind !== "draft" || draftSession || canonicalThreadRef) {
       return;
     }
     const next = SINGLE_PROVIDER_UI
@@ -178,10 +193,12 @@ export function ThreadRouteView({ target }: { target: ThreadRouteTarget }) {
     if (next) {
       void navigateTab(next, true);
     } else {
-      void navigate({ to: "/", replace: true });
+      void navigate({
+        to: "/",
+        replace: true,
+      });
     }
-  }, [canonicalThreadRef, draftSession, navigate, navigateTab, target]);
-
+  }, [background, canonicalThreadRef, draftSession, navigate, navigateTab, target]);
   useEffect(() => {
     if (target.kind !== "server" || !bootstrapComplete) {
       return;
@@ -192,21 +209,31 @@ export function ThreadRouteView({ target }: { target: ThreadRouteTarget }) {
       const next = SINGLE_PROVIDER_UI
         ? currentConversationTabsStore().getState().forget(target)
         : null;
+      if (background) return;
       if (next) {
         void navigateTab(next, true);
       } else if (SINGLE_PROVIDER_UI || environmentHasAnyThreads) {
-        void navigate({ to: "/", replace: true });
+        void navigate({
+          to: "/",
+          replace: true,
+        });
       }
     }
-  }, [bootstrapComplete, environmentHasAnyThreads, navigate, navigateTab, renderState, target]);
-
+  }, [
+    background,
+    bootstrapComplete,
+    environmentHasAnyThreads,
+    navigate,
+    navigateTab,
+    renderState,
+    target,
+  ]);
   useEffect(() => {
     if (target.kind !== "server" || !serverThreadStarted || !draftThread) {
       return;
     }
     finalizePromotedDraftThreadByRef(target.threadRef);
   }, [draftThread, serverThreadStarted, target]);
-
   let view: React.ReactNode = null;
   if (target.kind === "draft") {
     if (draftSession) {
@@ -231,13 +258,13 @@ export function ThreadRouteView({ target }: { target: ThreadRouteTarget }) {
       />
     );
   }
-
   return (
     <SidebarInset
       variant="split"
       className="h-svh min-h-0 overflow-hidden overscroll-y-none md:h-dvh"
+      inert={background}
     >
-      {view}
+      <BackgroundThreadContext value={background}>{view}</BackgroundThreadContext>
     </SidebarInset>
   );
 }

@@ -2,8 +2,8 @@ import { describe, expect, it } from "vite-plus/test";
 
 import {
   deriveAuthClientMetadata,
-  isRemoteReachableHost,
   resolveSessionCookieName,
+  resolveLegacySessionCookieNames,
 } from "./utils.ts";
 
 describe("deriveAuthClientMetadata", () => {
@@ -76,11 +76,12 @@ describe("session cookie isolation", () => {
       development: true,
     });
 
-    expect(first).toMatch(/^t3_session_5775_[a-f0-9]{12}$/);
-    expect(second).toMatch(/^t3_session_5775_[a-f0-9]{12}$/);
+    expect(first).toMatch(/^elysia_session_5775_[a-f0-9]{12}$/);
+    expect(second).toMatch(/^elysia_session_5775_[a-f0-9]{12}$/);
     expect(first).not.toBe(second);
   });
 
+  // regression: #8085 isolate remote web session cookies
   it("isolates remote web servers by server state", () => {
     const first = resolveSessionCookieName({
       mode: "web",
@@ -99,8 +100,8 @@ describe("session cookie isolation", () => {
       development: false,
     });
 
-    expect(first).toMatch(/^t3_session_[a-f0-9]{12}$/);
-    expect(second).toMatch(/^t3_session_[a-f0-9]{12}$/);
+    expect(first).toMatch(/^elysia_session_[a-f0-9]{12}$/);
+    expect(second).toMatch(/^elysia_session_[a-f0-9]{12}$/);
     expect(first).not.toBe(second);
   });
 
@@ -124,39 +125,32 @@ describe("session cookie isolation", () => {
 
     expect(first).toBe(second);
   });
+});
 
-  it("retains desktop port scoping", () => {
+describe("legacy browser cookie migration", () => {
+  it("reads only the old scoped names appropriate for this server", () => {
+    const input = {
+      mode: "web",
+      port: 5775,
+      host: "127.0.0.1",
+      instanceKey: "/tmp/elysia-one",
+      environmentId: "environment-one",
+      development: true,
+    } as const;
+    expect(resolveLegacySessionCookieNames(input)).toEqual([
+      resolveSessionCookieName(input).replace(/^elysia_/, "t3_"),
+    ]);
+    expect(resolveLegacySessionCookieNames({ ...input, mode: "desktop" })).toEqual([
+      "t3_session_5775",
+    ]);
+    const remote = { ...input, host: "0.0.0.0", development: false };
+    expect(resolveLegacySessionCookieNames(remote)).toEqual([
+      resolveSessionCookieName(remote).replace(/^elysia_/, "t3_"),
+      "t3_session",
+      "elysia_session",
+    ]);
     expect(
-      resolveSessionCookieName({
-        mode: "desktop",
-        port: 3773,
-        host: "127.0.0.1",
-        instanceKey: "/tmp/desktop",
-        environmentId: "environment-one",
-        development: true,
-      }),
-    ).toBe("t3_session_3773");
-  });
-
-  it("isolates development servers even when they bind a wildcard host", () => {
-    expect(
-      resolveSessionCookieName({
-        mode: "web",
-        port: 5775,
-        host: "0.0.0.0",
-        instanceKey: "/tmp/t3-wildcard-dev",
-        environmentId: "environment-one",
-        development: true,
-      }),
-    ).toMatch(/^t3_session_5775_[a-f0-9]{12}$/);
-  });
-
-  it("classifies loopback aliases separately from remotely reachable hosts", () => {
-    expect(isRemoteReachableHost(undefined)).toBe(false);
-    expect(isRemoteReachableHost("localhost")).toBe(false);
-    expect(isRemoteReachableHost("127.12.0.1")).toBe(false);
-    expect(isRemoteReachableHost("[::1]")).toBe(false);
-    expect(isRemoteReachableHost("0.0.0.0")).toBe(true);
-    expect(isRemoteReachableHost("192.168.1.50")).toBe(true);
+      resolveLegacySessionCookieNames({ ...input, instanceKey: "/tmp/elysia-two" }),
+    ).not.toEqual(resolveLegacySessionCookieNames(input));
   });
 });

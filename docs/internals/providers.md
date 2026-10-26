@@ -1,6 +1,6 @@
 # Provider constraints
 
-Elysia exposes only the native Elysia CLI/Claude Code driver. The CLI owns authentication, TLS trust, saved credentials, model context and managed plugins. Read or reuse its existing sign-in; do not add separate gateway probes or authentication requirements. The other provider implementations described below remain dormant behind the fork policy.
+Elysia exposes only the native Elysia CLI/Claude Code driver. The CLI owns authentication, TLS trust, saved credentials, model context and managed plugins. Read or reuse its existing sign-in; do not add separate gateway probes or authentication requirements. The other provider implementations described below remain dormant behind the fork policy. See the [integration decisions](elysia-integration-decisions.md) for the reasons and update criteria.
 
 Orchestration records intent and state without knowing which provider runs a thread. Provider
 protocols, account ownership, permissions, and capabilities belong at the

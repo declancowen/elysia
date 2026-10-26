@@ -10,7 +10,6 @@ import {
 import * as Effect from "effect/Effect";
 import * as DateTime from "effect/DateTime";
 import * as Layer from "effect/Layer";
-import * as Option from "effect/Option";
 import * as Ref from "effect/Ref";
 import * as Stream from "effect/Stream";
 import * as TestClock from "effect/testing/TestClock";
@@ -111,21 +110,19 @@ it.effect(
         Scheduler.layer,
         Layer.mock(Projects.ProjectStoreV2)({
           get: (id) =>
-            Effect.succeed(
-              Option.some(
-                project(
-                  id,
-                  id === channelId
-                    ? {
-                        ...profile,
-                        conversationThreadId: ThreadId.make("channel-thread"),
-                        group: {
-                          memberProjectIds: [agentId, ProjectId.make("task-other-agent")],
-                          leadProjectId: agentId,
-                        },
-                      }
-                    : profile,
-                ),
+            Effect.succeedSome(
+              project(
+                id,
+                id === channelId
+                  ? {
+                      ...profile,
+                      conversationThreadId: ThreadId.make("channel-thread"),
+                      group: {
+                        memberProjectIds: [agentId, ProjectId.make("task-other-agent")],
+                        leadProjectId: agentId,
+                      },
+                    }
+                  : profile,
               ),
             ),
         }),
@@ -211,7 +208,7 @@ it.effect(
         NodeCrypto.layer,
         Scheduler.layer,
         Layer.mock(Projects.ProjectStoreV2)({
-          get: (id) => Effect.succeed(Option.some(project(id, profile))),
+          get: (id) => Effect.succeedSome(project(id, profile)),
         }),
         Layer.mock(Delegation.AgentDelegation)({}),
         Layer.mock(Threads.ThreadManagementService)({

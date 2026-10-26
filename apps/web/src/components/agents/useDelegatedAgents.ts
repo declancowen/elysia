@@ -69,6 +69,7 @@ export function useDelegatedAgents(
     ),
   );
   const revisions = useRef(new Map<string, { value: string | undefined; dirty: boolean }>());
+  // oxlint-disable-next-line elysia/react-effect-budget -- Refresh the delegation RPC lease when externally pushed thread shells change.
   useEffect(() => {
     jobs.forEach((job, index) => {
       const query = queries[index];

@@ -1,6 +1,12 @@
+vi.mock("vite-plus/test/browser", () => ({
+  page: { elementLocator: () => ({}) },
+  utils: { getElementLocatorSelectors: () => ({}) },
+}));
+import { render as renderUi } from "../../../test/render";
+import { act } from "../../../test/act";
 // @vitest-environment jsdom
-import { act, useState } from "react";
-import { createRoot } from "react-dom/client";
+import { useState } from "react";
+
 import { expect, it, vi } from "vite-plus/test";
 import {
   Menu,
@@ -12,7 +18,6 @@ import {
 } from "./menu";
 
 it("shows the current choice and moves its tick when a menu option changes", async () => {
-  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
   function Options() {
     const [size, setSize] = useState("small");
     const [properties, setProperties] = useState(false);
@@ -41,9 +46,9 @@ it("shows the current choice and moves its tick when a menu option changes", asy
   }
   const host = document.createElement("div");
   document.body.append(host);
-  const root = createRoot(host);
+  await using root = await renderUi(null, { container: host, router: false });
   try {
-    await act(async () => root.render(<Options />));
+    await act(async () => root.rerender(<Options />));
     expect(document.documentElement.style.overflowY).not.toBe("hidden");
     expect(document.body.style.overflowY).not.toBe("hidden");
     const radios = () => [...document.querySelectorAll<HTMLElement>('[role="menuitemradio"]')];

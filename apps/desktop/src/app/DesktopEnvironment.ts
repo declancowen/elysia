@@ -67,6 +67,9 @@ export class DesktopEnvironment extends Context.Service<
     readonly otlpTracesUrl: Option.Option<string>;
     readonly otlpMetricsUrl: Option.Option<string>;
     readonly otlpLogsUrl: Option.Option<string>;
+    readonly otlpTracesVariable?: string | undefined;
+    readonly otlpMetricsVariable?: string | undefined;
+    readonly otlpLogsVariable?: string | undefined;
     readonly otlpExportIntervalMs: number;
     readonly otlpHeaders: Option.Option<Record<string, string>>;
     readonly otlpProtocol: OtlpProtocol;
@@ -76,6 +79,7 @@ export class DesktopEnvironment extends Context.Service<
     readonly linuxDesktopEntryName: string;
     readonly linuxWmClass: string;
     readonly linuxApplicationsDir: string;
+    readonly desktopLauncherPath: Option.Option<string>;
     readonly appImagePath: Option.Option<string>;
     readonly defaultDesktopSettings: DesktopAppSettings.DesktopSettings;
     readonly runtimeInfo: DesktopRuntimeInfo;
@@ -219,6 +223,9 @@ const make = Effect.fn("desktop.environment.make")(function* (
     configuredBackendPort: config.configuredBackendPort,
     commitHashOverride: config.commitHashOverride,
     otlpTracesUrl: config.otlpTracesUrl,
+    otlpTracesVariable: config.otlpTracesVariable,
+    otlpMetricsVariable: config.otlpMetricsVariable,
+    otlpLogsVariable: config.otlpLogsVariable,
     otlpMetricsUrl: config.otlpMetricsUrl,
     otlpLogsUrl: config.otlpLogsUrl,
     otlpExportIntervalMs: config.otlpExportIntervalMs,
@@ -232,6 +239,7 @@ const make = Effect.fn("desktop.environment.make")(function* (
     linuxDesktopEntryName: resolveLinuxDesktopEntryName(isDevelopment),
     linuxWmClass: isDevelopment ? "elysia-dev" : "elysia",
     linuxApplicationsDir,
+    desktopLauncherPath: config.desktopLauncherPath,
     appImagePath: config.appImagePath,
     defaultDesktopSettings: DesktopAppSettings.resolveDefaultDesktopSettings(input.appVersion),
     runtimeInfo: resolveDesktopRuntimeInfo({

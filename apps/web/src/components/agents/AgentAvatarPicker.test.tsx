@@ -1,7 +1,13 @@
+vi.mock("vite-plus/test/browser", () => ({
+  page: { elementLocator: () => ({}) },
+  utils: { getElementLocatorSelectors: () => ({}) },
+}));
+import { render as renderUi, type Screen } from "../../../test/render";
+import { act } from "../../../test/act";
 // @vitest-environment jsdom
-import { act, useState } from "react";
-import { createRoot, type Root } from "react-dom/client";
-import { afterEach, beforeEach, expect, it, vi } from "vite-plus/test";
+import { useState } from "react";
+
+import { expect, it, vi } from "vite-plus/test";
 import {
   AGENT_AVATAR_COLORS,
   AgentAvatar,
@@ -10,7 +16,7 @@ import {
 } from "./AgentAvatar";
 import { AgentAvatarPicker } from "./AgentAvatarPicker";
 
-let root: Root;
+let root: Screen;
 let host: HTMLDivElement;
 function Editor({ initial }: { initial: AgentAvatarValue }) {
   const [avatar, setAvatar] = useState(initial);
@@ -23,20 +29,22 @@ function Editor({ initial }: { initial: AgentAvatarValue }) {
     </>
   );
 }
-beforeEach(() => {
-  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+async function setup() {
+  const resources = new AsyncDisposableStack();
+  resources.defer(async () => {
+    vi.unstubAllGlobals();
+  });
+
   host = document.createElement("div");
   document.body.append(host);
-  root = createRoot(host);
-});
-afterEach(async () => {
-  await act(async () => root.unmount());
-  host.remove();
-  vi.unstubAllGlobals();
-});
+  root = resources.use(await renderUi(null, { container: host, router: false }));
+
+  return resources;
+}
 
 it("offers the 15 supplied swatches and applies shape/color changes to the avatar", async () => {
-  await act(async () => root.render(<Editor initial={{ preset: "robot", color: "#28B4FF" }} />));
+  await using _fixture = await setup();
+  await act(async () => root.rerender(<Editor initial={{ preset: "robot", color: "#28B4FF" }} />));
   const swatches = [...host.querySelectorAll<HTMLButtonElement>('[aria-label^="Color "]')];
   expect(swatches.map((button) => button.getAttribute("aria-label")!.slice(6))).toEqual([
     "#003CB2",
@@ -77,7 +85,8 @@ it("offers the 15 supplied swatches and applies shape/color changes to the avata
 });
 
 it("maps legacy records to characters without rewriting their stored named color", async () => {
-  await act(async () => root.render(<Editor initial={{ preset: "brain", color: "violet" }} />));
+  await using _fixture = await setup();
+  await act(async () => root.rerender(<Editor initial={{ preset: "brain", color: "violet" }} />));
   expect(host.querySelector("[data-preview] path")!.getAttribute("fill")).toBe("#9423FC");
   expect(host.querySelector('[aria-label="Bean"]')!.getAttribute("aria-pressed")).toBe("true");
   expect(host.querySelector('[aria-label="Avatar color"] [aria-pressed="true"]')).toBeNull();
@@ -88,7 +97,8 @@ it("maps legacy records to characters without rewriting their stored named color
 });
 
 it("offers twelve characters and changes eye variants", async () => {
-  await act(async () => root.render(<Editor initial={{ preset: "square", color: "#28B4FF" }} />));
+  await using _fixture = await setup();
+  await act(async () => root.rerender(<Editor initial={{ preset: "square", color: "#28B4FF" }} />));
   expect(host.querySelectorAll('[aria-label="Avatar shape"] button')).toHaveLength(12);
   const body = host.querySelector("[data-preview] path")!.getAttribute("d");
   const eyeHeight = host.querySelector("[data-preview] rect")!.getAttribute("height");
@@ -102,7 +112,8 @@ it("offers twelve characters and changes eye variants", async () => {
   ).toBe("true");
 });
 
-it("maintains accessible glyph contrast across every supplied background", () => {
+it("maintains accessible glyph contrast across every supplied background", async () => {
+  await using _fixture = await setup();
   function luminance(hex: string) {
     const channels = [1, 3, 5].map((offset) => {
       const channel = Number.parseInt(hex.slice(offset, offset + 2), 16) / 255;

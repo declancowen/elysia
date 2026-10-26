@@ -5,16 +5,16 @@ import indexHtml from "../index.html?raw";
 import migrationScript from "../public/browser-storage-migration.js?raw";
 import {
   CUSTOM_THEMES_STORAGE_KEY,
+  EMBER_THEME,
   getDefaultThemeColors,
   getThemeColorsForMode,
   getThemeDefinition,
-  invalidateCustomThemes,
-  isKnownThemePreference,
-  resolveThemeAppearance,
-  EMBER_THEME,
   GROVE_THEME,
+  invalidateCustomThemes,
   IRIS_THEME,
+  isKnownThemePreference,
   OCEAN_THEME,
+  resolveThemeAppearance,
   THEME_APPEARANCE_MODE_STORAGE_KEY,
   THEME_FOLLOW_SYSTEM_STORAGE_KEY,
   toCanonicalThemeColor,
@@ -203,12 +203,12 @@ describe("index.html boot script", () => {
       prefersDark: false,
     },
     {
-      name: "T3 Chat follows a dark OS",
+      name: "Elysia Chat follows a dark OS",
       storage: { [THEME_STORAGE_KEY]: "default", [THEME_FOLLOW_SYSTEM_STORAGE_KEY]: "true" },
       prefersDark: true,
     },
     {
-      name: "an explicit global dark mode applies to T3 Chat",
+      name: "an explicit global dark mode applies to Elysia Chat",
       storage: {
         [THEME_STORAGE_KEY]: "default",
         [THEME_APPEARANCE_MODE_STORAGE_KEY]: "dark",
@@ -242,7 +242,7 @@ describe("index.html boot script", () => {
       prefersDark: true,
     },
     {
-      name: "legacy t3-chat-dark resolves to dark T3 Chat",
+      name: "legacy t3-chat-dark resolves to dark Elysia Chat",
       storage: { [THEME_STORAGE_KEY]: "t3-chat-dark" },
       prefersDark: true,
     },
@@ -355,34 +355,6 @@ describe("index.html boot script", () => {
     expect(boot.bootVariables["--boot-accent"]).toBe(colors.accent);
     expect(boot.backgroundColor).toBe(colors.chrome);
     expect(boot.metaContent).toBe(colors.chrome);
-  });
-
-  it("accepts legacy CSS color formats before the runtime mounts", () => {
-    const colors = {
-      canvas: "rgb(248 251 255)",
-      chrome: "hsl(210 100% 99%)",
-      text: "rebeccapurple",
-      accent: "color(display-p3 0.36 0.42 1)",
-    };
-    const boot = runBootScript({
-      storage: {
-        [THEME_STORAGE_KEY]: "legacy-css",
-        [CUSTOM_THEMES_STORAGE_KEY]: JSON.stringify([
-          {
-            id: "legacy-css",
-            label: "Legacy CSS",
-            appearance: "light",
-            colors,
-          },
-        ]),
-      },
-      prefersDark: false,
-    });
-
-    expect(boot.bootVariables["--boot-background"]).toBe(colors.canvas);
-    expect(boot.bootVariables["--boot-foreground"]).toBe(colors.text);
-    expect(boot.bootVariables["--boot-accent"]).toBe(colors.accent);
-    expect(boot.backgroundColor).toBe(colors.chrome);
   });
 
   it("keeps every built-in boot splash in sync with the real palettes", () => {

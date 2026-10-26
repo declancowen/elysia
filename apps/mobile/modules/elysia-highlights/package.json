@@ -1,0 +1,17 @@
+{
+  "name": "@elysiatools/mobile-highlights-native",
+  "version": "0.0.0",
+  "private": true,
+  "expo-module": {
+    "ios": {
+      "modules": [
+        "ElysiaHighlightsModule"
+      ]
+    },
+    "android": {
+      "modules": [
+        "expo.modules.elysiahighlights.ElysiaHighlightsModule"
+      ]
+    }
+  }
+}

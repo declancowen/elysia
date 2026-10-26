@@ -1,4 +1,4 @@
-import { mediaKindFromPath } from "@elysiatools/shared/filePreview";
+import { mediaKindFromPath } from "@elysiatools/shared/mediaPreview";
 import { mediaUrlReference } from "@elysiatools/client-runtime/media-reference";
 import type { ExpandedImageItem, ExpandedImagePreview } from "./ExpandedImagePreview";
 import { resolveExternalWebLinkHost } from "./externalLinkContextMenu";

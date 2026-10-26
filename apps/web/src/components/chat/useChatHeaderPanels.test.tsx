@@ -1,7 +1,12 @@
+vi.mock("vite-plus/test/browser", () => ({
+  page: { elementLocator: () => ({}) },
+  utils: { getElementLocatorSelectors: () => ({}) },
+}));
+import { render as renderUi, type Screen } from "../../../test/render";
+import { act } from "../../../test/act";
 // @vitest-environment jsdom
-import { act } from "react";
-import { createRoot, type Root } from "react-dom/client";
-import { afterEach, beforeEach, expect, it, vi } from "vite-plus/test";
+
+import { expect, it, vi } from "vite-plus/test";
 import { EnvironmentId, ProjectId, ThreadId } from "@elysiatools/contracts";
 import { scopeProjectRef } from "@elysiatools/client-runtime/environment";
 
@@ -71,7 +76,7 @@ function Panels() {
   );
 }
 let host: HTMLDivElement;
-let root: Root;
+let root: Screen;
 async function click(label: string) {
   const button = document.querySelector<HTMLButtonElement>(`[aria-label="${label}"]`);
   expect(button).not.toBeNull();
@@ -81,10 +86,16 @@ async function click(label: string) {
     button!.click();
   });
 }
-beforeEach(() => {
+async function setup() {
+  const resources = new AsyncDisposableStack();
+  resources.defer(async () => {
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  });
+
   state.wide = false;
   state.docked.mockClear();
-  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+
   vi.stubGlobal(
     "ResizeObserver",
     class {
@@ -101,16 +112,14 @@ beforeEach(() => {
   host = document.createElement("div");
   host.setAttribute("data-chat-header", "");
   document.body.append(host);
-  root = createRoot(host);
-});
-afterEach(async () => {
-  await act(async () => root.unmount());
-  host.remove();
-  vi.restoreAllMocks();
-  vi.unstubAllGlobals();
-});
+  root = resources.use(await renderUi(null, { container: host, router: false }));
+
+  return resources;
+}
+
 it("replaces panels in overflow and puts clearing only in agent/channel details", async () => {
-  await act(async () => root.render(<Panels />));
+  await using _fixture = await setup();
+  await act(async () => root.rerender(<Panels />));
   await click("Thread overview");
   expect(document.body.textContent).toContain("Sources");
   expect(document.querySelector('[aria-label="Reset channel"]')).toBeNull();
@@ -126,8 +135,9 @@ it("replaces panels in overflow and puts clearing only in agent/channel details"
 it.each([false, true])(
   "temporarily hides the overview and restores it when details dismiss (wide=%s)",
   async (wide) => {
+    await using _fixture = await setup();
     state.wide = wide;
-    await act(async () => root.render(<Panels />));
+    await act(async () => root.rerender(<Panels />));
     await click("Thread overview");
     await click("Manage Design");
     expect(document.body.textContent).not.toContain("Sources");

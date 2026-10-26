@@ -1,67 +1,71 @@
-import { useMediaQuery } from "~/hooks/useMediaQuery";
-import { useCodeWorkspace } from "~/hooks/useSettings";
-import {
-  SINGLE_PROVIDER_UI,
-  AuthOrchestrationOperateScope,
-  type EnvironmentId,
-  type EditorId,
-  type ProjectScript,
-  type ResolvedKeybindingsConfig,
-  type ThreadId,
-} from "@elysiatools/contracts";
+import { useAtomValue } from "@effect/atom-react";
 import { scopeProjectRef, scopeThreadRef } from "@elysiatools/client-runtime/environment";
 import { isScratchProject } from "@elysiatools/client-runtime/state/projects";
-import { useAtomValue } from "@effect/atom-react";
-import { serverEnvironment } from "../../state/server";
-import type { EnvironmentProject } from "@elysiatools/client-runtime/state/shell";
 import {
   isAtomCommandInterrupted,
   squashAtomCommandFailure,
 } from "@elysiatools/client-runtime/state/runtime";
-import { ChevronDownIcon, FolderClosedIcon, MessageCircleIcon, ChannelIcon } from "~/icons";
+import type { EnvironmentProject } from "@elysiatools/client-runtime/state/shell";
+import {
+  AuthOrchestrationOperateScope,
+  SINGLE_PROVIDER_UI,
+  type EditorId,
+  type EnvironmentId,
+  type ProjectScript,
+  type ResolvedKeybindingsConfig,
+  type ThreadId,
+} from "@elysiatools/contracts";
 import {
   memo,
   useEffect,
   useRef,
   useState,
-  type ReactNode,
   type KeyboardEvent as ReactKeyboardEvent,
   type MouseEvent as ReactMouseEvent,
+  type ReactNode,
 } from "react";
-import GitActionsControl from "../GitActionsControl";
-import { isTrailingDoubleClick } from "../Sidebar.logic";
 import { type DraftId } from "~/composerDraftStore";
-import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
-import { toastManager } from "../ui/toast";
+import { useElysiaProjectFileScripts } from "~/hooks/useElysiaProjectFileScripts";
+import { useMediaQuery } from "~/hooks/useMediaQuery";
+import { useCodeWorkspace } from "~/hooks/useSettings";
+import { useThreadActionMenu } from "~/hooks/useThreadActionMenu";
+import { ChannelIcon, ChevronDownIcon, FolderClosedIcon, MessageCircleIcon } from "~/icons";
+import { cn } from "~/lib/utils";
+import { readLocalApi } from "~/localApi";
+import { textDirection } from "~/textDirection";
+import { showContextMenuFallback } from "../../contextMenuFallback";
+import { useRemoteOpenState } from "../../remoteOpen";
+import { usePrimaryEnvironmentId } from "../../state/environments";
+import { serverEnvironment } from "../../state/server";
+import { readEnvironmentScope, useEnvironmentScope } from "../../state/session";
+import { threadEnvironment } from "../../state/threads";
+import { useOrchestrationCommand } from "../../state/use-orchestration-command";
+import GitActionsControl from "../GitActionsControl";
+import { ProjectFavicon } from "../ProjectFavicon";
 import ProjectScriptsControl, {
   type NewProjectScriptInput,
   type ProjectScriptActionResult,
 } from "../ProjectScriptsControl";
-import { OpenInPicker } from "./OpenInPicker";
-import { shouldShowOpenInPicker } from "./OpenInPicker.logic";
-import { useRemoteOpenState } from "../../remoteOpen";
-import { usePrimaryEnvironmentId } from "../../state/environments";
-import { useElysiaProjectFileScripts } from "~/hooks/useElysiaProjectFileScripts";
-import { useThreadActionMenu } from "~/hooks/useThreadActionMenu";
-import { readLocalApi } from "~/localApi";
-import { threadEnvironment } from "../../state/threads";
-import { useOrchestrationCommand } from "../../state/use-orchestration-command";
-import { readEnvironmentScope, useEnvironmentScope } from "../../state/session";
-import { ProjectFavicon } from "../ProjectFavicon";
+import { isTrailingDoubleClick } from "../Sidebar.logic";
+import {
+  WorkspaceBreadcrumb,
+  WorkspaceBreadcrumbItem,
+  WorkspaceBreadcrumbSeparator,
+  WorkspaceBreadcrumbText,
+} from "../WorkspaceBreadcrumb";
 import { AgentAvatar } from "../agents/AgentAvatar";
 import { AgentDetailsPopover } from "../agents/AgentDetailsPopover";
 import { showAgentContextMenu } from "../agents/agentContextMenu";
 import { openAgentDialog } from "../agents/agentDialogStore";
-import {
-  WorkspaceBreadcrumb,
-  WorkspaceBreadcrumbItem,
-  WorkspaceBreadcrumbText,
-} from "../WorkspaceBreadcrumb";
-import { cn } from "~/lib/utils";
-import { ThreadOverviewPanel, type ThreadOverviewPanelProps } from "./ThreadOverviewPanel";
+import { toastManager } from "../ui/toast";
+import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
 import { ConversationTabs } from "./ConversationTabs";
-import { useChatHeaderPanels } from "./useChatHeaderPanels";
+import { OpenInPicker } from "./OpenInPicker";
+import { shouldShowOpenInPicker } from "./OpenInPicker.logic";
+import { ThreadOverviewPanel, type ThreadOverviewPanelProps } from "./ThreadOverviewPanel";
+import { canShareWithGuestAtom } from "./guestShareAvailability";
 import { useChatHeaderColumn } from "./useChatHeaderColumn";
+import { useChatHeaderPanels } from "./useChatHeaderPanels";
 
 interface ChatHeaderProps {
   activeThreadEnvironmentId: EnvironmentId;
@@ -76,6 +80,8 @@ interface ChatHeaderProps {
   preferredScriptId: string | null;
   keybindings: ResolvedKeybindingsConfig;
   availableEditors: ReadonlyArray<EditorId>;
+  parentThreadLink?: { threadId: ThreadId; title: string } | null;
+  onOpenThread?: (threadId: ThreadId) => void;
   rightPanelOpen: boolean;
   gitCwd: string | null;
   overview?: ThreadOverviewPanelProps;
@@ -96,11 +102,7 @@ interface ChatHeaderProps {
   onDeleteProjectScript: (scriptId: string) => Promise<ProjectScriptActionResult>;
 }
 
-/**
- * Rename commit rule shared with the sidebar's inline rename: trim, reject
- * empty (the caller toasts), and skip the mutation when nothing changed.
- */
-export function resolveRenameCommit(input: {
+function resolveRenameCommit(input: {
   readonly title: string;
   readonly originalTitle: string;
 }): { action: "commit"; title: string } | { action: "reject-empty" } | { action: "noop" } {
@@ -110,12 +112,7 @@ export function resolveRenameCommit(input: {
   return { action: "commit", title: trimmed };
 }
 
-// How long a click on the thread title waits before opening the action menu,
-// so a double-click-to-rename can cancel it first. Only the native desktop
-// menu needs this: it swallows input while open, so the wait must cover the
-// OS double-click interval. The browser fallback menu keeps seeing DOM
-// events (the second click dismisses it and dblclick still fires), so it
-// opens immediately.
+// Delay the input-swallowing native menu through the double-click rename interval.
 const TITLE_MENU_OPEN_DELAY_MS = 500;
 
 export const ChatHeader = memo(function ChatHeader({
@@ -130,6 +127,8 @@ export const ChatHeader = memo(function ChatHeader({
   preferredScriptId,
   keybindings,
   availableEditors,
+  parentThreadLink,
+  onOpenThread,
   rightPanelOpen,
   gitCwd,
   overview,
@@ -178,6 +177,7 @@ export const ChatHeader = memo(function ChatHeader({
     activeThreadEnvironmentId,
     AuthOrchestrationOperateScope,
   );
+  const canShareWithGuest = useAtomValue(canShareWithGuestAtom(activeThreadEnvironmentId));
   const updateThreadMetadata = useOrchestrationCommand(threadEnvironment.updateMetadata, {
     reportFailure: false,
   });
@@ -245,6 +245,7 @@ export const ChatHeader = memo(function ChatHeader({
     projectCwd: activeProjectCwd,
     projectless,
     onStartRename: startRename,
+    canShareWithGuest,
   });
   const titleButtonRef = useRef<HTMLButtonElement | null>(null);
   const titleMenuTimerRef = useRef<number | null>(null);
@@ -320,23 +321,21 @@ export const ChatHeader = memo(function ChatHeader({
     if (!isServerThread) {
       const api = readLocalApi();
       if (!api) return;
-      void api.contextMenu
-        .show(
-          [
-            {
-              id: "project-settings",
-              label: projectless ? "Chat settings" : "Project settings",
-              icon: "settings",
-            },
-          ],
+      void (SINGLE_PROVIDER_UI ? showContextMenuFallback : api.contextMenu.show)(
+        [
           {
-            x: event.clientX,
-            y: event.clientY,
+            id: "project-settings",
+            label: projectless ? "Chat settings" : "Project settings",
+            icon: "settings",
           },
-        )
-        .then((action) => {
-          if (action === "project-settings") onOpenProjectSettings?.();
-        });
+        ],
+        {
+          x: event.clientX,
+          y: event.clientY,
+        },
+      ).then((action) => {
+        if (action === "project-settings") onOpenProjectSettings?.();
+      });
       return;
     }
     openMenu({ x: event.clientX, y: event.clientY });
@@ -456,6 +455,35 @@ export const ChatHeader = memo(function ChatHeader({
               mainColumnHidden && "hidden",
             )}
           >
+            {parentThreadLink && onOpenThread && !activeProject?.agentProfile ? (
+              <>
+                <WorkspaceBreadcrumbItem className="min-w-0 shrink">
+                  <Tooltip>
+                    <TooltipTrigger
+                      render={
+                        <button
+                          type="button"
+                          aria-label={`Open parent thread: ${parentThreadLink.title}`}
+                          onClick={() => onOpenThread(parentThreadLink.threadId)}
+                          className="inline-flex min-w-0 max-w-full cursor-pointer items-center rounded-sm text-muted-foreground hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+                        />
+                      }
+                    >
+                      <WorkspaceBreadcrumbText
+                        className="max-w-40"
+                        dir={textDirection(parentThreadLink.title)}
+                      >
+                        {parentThreadLink.title}
+                      </WorkspaceBreadcrumbText>
+                    </TooltipTrigger>
+                    <TooltipPopup side="top">{parentThreadLink.title}</TooltipPopup>
+                  </Tooltip>
+                </WorkspaceBreadcrumbItem>
+                <WorkspaceBreadcrumbSeparator>
+                  <WorkspaceBreadcrumbText>/</WorkspaceBreadcrumbText>
+                </WorkspaceBreadcrumbSeparator>
+              </>
+            ) : null}
             {activeProject?.agentProfile ? (
               <WorkspaceBreadcrumbItem current className="min-w-0 flex-1">
                 <button
@@ -479,6 +507,7 @@ export const ChatHeader = memo(function ChatHeader({
                 {renamingTitle !== null ? (
                   <input
                     autoFocus
+                    dir="auto"
                     aria-label="Thread title"
                     className="min-w-0 flex-1 rounded-sm bg-transparent text-sm font-medium text-foreground outline-none ring-1 ring-ring/50 focus:ring-ring"
                     defaultValue={renamingTitle}
@@ -512,7 +541,7 @@ export const ChatHeader = memo(function ChatHeader({
                         />
                       }
                     >
-                      <h2 className="min-w-0">
+                      <h2 className="min-w-0" dir={textDirection(activeThreadTitle)}>
                         <WorkspaceBreadcrumbText>{activeThreadTitle}</WorkspaceBreadcrumbText>
                       </h2>
                       <ChevronDownIcon
@@ -526,7 +555,13 @@ export const ChatHeader = memo(function ChatHeader({
                 ) : (
                   <Tooltip>
                     <TooltipTrigger
-                      render={<h2 aria-label={activeThreadTitle} className="min-w-0 flex-1" />}
+                      render={
+                        <h2
+                          aria-label={activeThreadTitle}
+                          className="min-w-0 flex-1"
+                          dir={textDirection(activeThreadTitle)}
+                        />
+                      }
                     >
                       <WorkspaceBreadcrumbText>{activeThreadTitle}</WorkspaceBreadcrumbText>
                     </TooltipTrigger>

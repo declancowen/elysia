@@ -1,6 +1,12 @@
+vi.mock("vite-plus/test/browser", () => ({
+  page: { elementLocator: () => ({}) },
+  utils: { getElementLocatorSelectors: () => ({}) },
+}));
+import { render as renderUi } from "../../test/render";
+import { act } from "../../test/act";
 // @vitest-environment jsdom
-import { act, useEffect } from "react";
-import { createRoot } from "react-dom/client";
+import { useEffect } from "react";
+
 import { expect, it, vi } from "vite-plus/test";
 import { useRegularProjects } from "./useRegularProjects";
 
@@ -23,7 +29,7 @@ vi.mock("../state/environments", () => ({
 
 it("excludes internal scratch and agent workspaces while preserving real projects with the same name or path in another environment", async () => {
   const host = document.createElement("div");
-  const root = createRoot(host);
+  await using root = await renderUi(null, { container: host, router: false });
   let projects: ReturnType<typeof useRegularProjects> = [];
   let chatProjects: ReturnType<typeof useRegularProjects> = [];
   function Harness() {
@@ -36,7 +42,7 @@ it("excludes internal scratch and agent workspaces while preserving real project
     return null;
   }
   try {
-    await act(async () => root.render(<Harness />));
+    await act(async () => root.rerender(<Harness />));
     expect(projects.map((project) => project.id)).toEqual(["real", "other"]);
     expect(chatProjects.map((project) => project.id)).toEqual(["scratch", "real", "other"]);
   } finally {

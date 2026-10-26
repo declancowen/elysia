@@ -1,7 +1,9 @@
 import { afterEach, describe, expect, it } from "vite-plus/test";
 
-import { OCEAN_THEME_ID, ELYSIA_CHAT_THEME_ID } from "../../themePalette";
+import { OCEAN_THEME, ELYSIA_CHAT_THEME_ID } from "../../themePalette";
 import { toggleThemeEditorForTheme, useThemeEditorStore } from "./themeEditorStore";
+
+const OCEAN_THEME_ID = OCEAN_THEME.id;
 
 afterEach(() => {
   useThemeEditorStore.getState().closeThemeEditor();

@@ -351,9 +351,11 @@ const make = Effect.gen(function* () {
           );
         }),
       ),
-    get: (input) => wrap(read(numberOf(input.id)).pipe(Effect.map((task) => ({ task })))),
+    get: Effect.fn("TaskService.get")((input) =>
+      wrap(read(numberOf(input.id)).pipe(Effect.map((task) => ({ task })))),
+    ),
     save,
-    delete: (input) =>
+    delete: Effect.fn("TaskService.delete")((input) =>
       wrap(
         lock
           .withPermit(
@@ -378,6 +380,7 @@ const make = Effect.gen(function* () {
           )
           .pipe(Effect.tap(() => notify)),
       ),
+    ),
   });
 });
 export const layer = Layer.effect(TaskService, make).pipe(Layer.provide(CommandReceipts.layer));

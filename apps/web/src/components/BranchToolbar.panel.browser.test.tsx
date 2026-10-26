@@ -1,7 +1,7 @@
+import { act, render as renderUi } from "../../test/render";
 import { EnvironmentId, ProjectId, ThreadId } from "@elysiatools/contracts";
-import { act, type ComponentProps } from "react";
-import { createRoot, type Root } from "react-dom/client";
-import { afterEach, beforeEach, expect, it, vi } from "vite-plus/test";
+import { type ComponentProps } from "react";
+import { expect, it, vi } from "vite-plus/test";
 import { page, userEvent } from "vite-plus/test/browser";
 
 import "~/index.css";
@@ -44,29 +44,14 @@ import { BranchToolbar } from "./BranchToolbar";
 import { ComposerSurface } from "./chat/ComposerSurface";
 import type { ServerUpdateTarget } from "./ServerUpdateAction";
 
-let root: Root;
-let container: HTMLDivElement;
-
-beforeEach(() => {
-  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+async function setup() {
   state.worktreePath = "/tmp/worktree";
   state.showContextMenu.mockReset().mockResolvedValue("copy-path");
   state.writeTextToClipboard.mockReset().mockResolvedValue(true);
   state.openLink.mockReset().mockResolvedValue(undefined);
-  container = document.createElement("div");
-  document.body.append(container);
-  root = createRoot(container);
-});
-
-afterEach(async () => {
-  await act(async () => root.unmount());
-  container.remove();
-  vi.unstubAllGlobals();
-});
-
-function render(props: Partial<ComponentProps<typeof BranchToolbar>>) {
-  return act(async () =>
-    root.render(
+  const screen = await renderUi(null);
+  function render(props: Partial<ComponentProps<typeof BranchToolbar>>) {
+    return screen.rerender(
       <ComposerSurface.Shell>
         <BranchToolbar
           layout="panel"
@@ -85,11 +70,15 @@ function render(props: Partial<ComponentProps<typeof BranchToolbar>>) {
           {...props}
         />
       </ComposerSurface.Shell>,
-    ),
-  );
+    );
+  }
+  return Object.assign(screen, { render });
 }
 
 it("keeps machine choices usable when the combined row's workspace is locked", async () => {
+  await using fixture = await setup();
+  const { container, render } = fixture;
+
   const onEnvironmentChange = vi.fn();
   await render({
     onEnvironmentChange,
@@ -120,6 +109,9 @@ it("keeps machine choices usable when the combined row's workspace is locked", a
 });
 
 it("shows a started thread's primary machine as a static label in the composer", async () => {
+  await using fixture = await setup();
+  const { container, render } = fixture;
+
   await render({
     layout: "composer",
     showGitControls: false,
@@ -143,6 +135,9 @@ it.each([
 ] as const)(
   "copies only an existing workspace path with mode %s and worktree %s",
   async (envMode, worktreePath, copiedPath) => {
+    await using fixture = await setup();
+    const { container, render } = fixture;
+
     state.worktreePath = worktreePath;
     await render({ envMode });
     const event = new MouseEvent("contextmenu", { bubbles: true, cancelable: true });
@@ -168,6 +163,9 @@ it.each([
 ])(
   "opens the pending Elysia release from the $layout composer chip",
   async ({ width, showGitControls }) => {
+    await using fixture = await setup();
+    const { container, render } = fixture;
+
     await page.viewport(1000, 700);
     container.style.width = `${width}px`;
     container.style.setProperty("--chat-content-max-width", `${width}px`);

@@ -1,12 +1,12 @@
+import { act, render as renderUi, type Screen } from "../../../test/render";
 import {
   EnvironmentId,
   ProjectId,
   ThreadId,
   type ThreadPullRequestLink,
 } from "@elysiatools/contracts";
-import { act, type ComponentProps } from "react";
-import { createRoot, type Root } from "react-dom/client";
-import { afterEach, beforeEach, expect, it, vi } from "vite-plus/test";
+import { type ComponentProps } from "react";
+import { expect, it, vi } from "vite-plus/test";
 import { page, userEvent } from "vite-plus/test/browser";
 import "~/index.css";
 
@@ -126,44 +126,43 @@ const bottom = link(1, "layer-one", "main", "2026-01-01T00:00:10.000Z");
 const top = link(2, "layer-two", "layer-one", "2026-01-01T00:00:20.000Z");
 const other = link(3, "unrelated", "main", "2026-01-01T00:00:05.000Z");
 
-let root: Root;
-let container: HTMLDivElement;
-beforeEach(() => {
-  vi.stubGlobal("IS_REACT_ACT_ENVIRONMENT", true);
+let root: Screen;
+let container: HTMLElement;
+async function setup() {
+  const resources = new AsyncDisposableStack();
+  resources.defer(async () => {
+    vi.unstubAllGlobals();
+    fixture.realRows = false;
+  });
+
   container = document.createElement("div");
   document.body.append(container);
-  root = createRoot(container);
-});
-afterEach(() => {
-  act(() => root.unmount());
-  container.remove();
-  vi.unstubAllGlobals();
-  fixture.realRows = false;
-});
+  root = resources.use(await renderUi(null, { container: container, router: false }));
 
-function render(links: ReadonlyArray<ThreadPullRequestLink>, current: ThreadPullRequestLink) {
-  act(() => {
-    root.render(
-      <ThreadDetailsPrRows
-        threadRef={{
-          environmentId: EnvironmentId.make("environment"),
-          threadId: ThreadId.make("thread"),
-        }}
-        links={links}
-        currentLink={current}
-        onOpenLink={vi.fn()}
-        environmentId={EnvironmentId.make("environment")}
-        pr={null}
-        number={current.number}
-        reference={current}
-        status={null}
-        project={null}
-        label={`#${current.number}`}
-        openAriaLabel="Open pull request"
-        onOpen={vi.fn()}
-      />,
-    );
-  });
+  return resources;
+}
+
+async function render(links: ReadonlyArray<ThreadPullRequestLink>, current: ThreadPullRequestLink) {
+  await root.rerender(
+    <ThreadDetailsPrRows
+      threadRef={{
+        environmentId: EnvironmentId.make("environment"),
+        threadId: ThreadId.make("thread"),
+      }}
+      links={links}
+      currentLink={current}
+      onOpenLink={vi.fn()}
+      environmentId={EnvironmentId.make("environment")}
+      pr={null}
+      number={current.number}
+      reference={current}
+      status={null}
+      project={null}
+      label={`#${current.number}`}
+      openAriaLabel="Open pull request"
+      onOpen={vi.fn()}
+    />,
+  );
 }
 
 const rows = () =>
@@ -174,31 +173,34 @@ const toggleButton = () =>
   );
 const toggleLabel = () => toggleButton()?.textContent?.trim();
 
-function toggle() {
-  act(() => toggleButton()!.click());
+async function toggle() {
+  await act(() => toggleButton()!.click());
 }
 
-it("shows only the current pull request until the rest are asked for", () => {
-  render([other, bottom, top], top);
+it("shows only the current pull request until the rest are asked for", async () => {
+  await using _fixture = await setup();
+  await render([other, bottom, top], top);
   expect(rows()).toEqual(["2"]);
   expect(toggleLabel()).toBe("Show 2 more");
 
-  toggle();
+  await toggle();
   expect(rows()).toEqual(["2", "1", "3"]);
   expect(toggleLabel()).toBe("Show less");
 
-  toggle();
+  await toggle();
   expect(rows()).toEqual(["2"]);
   expect(toggleLabel()).toBe("Show 2 more");
 });
 
-it("keeps the single row untouched when the thread links one pull request", () => {
-  render([bottom], bottom);
+it("keeps the single row untouched when the thread links one pull request", async () => {
+  await using _fixture = await setup();
+  await render([bottom], bottom);
   expect(rows()).toEqual(["1"]);
   expect(toggleLabel()).toBeUndefined();
 });
 
-it("lets only watched pull requests stop their watch", () => {
+it("lets only watched pull requests stop their watch", async () => {
+  await using _fixture = await setup();
   const watched: ThreadPullRequestLink = {
     ...bottom,
     watch: {
@@ -213,8 +215,8 @@ it("lets only watched pull requests stop their watch", () => {
       wakes: 0,
     },
   };
-  render([other, watched, top], top);
-  toggle();
+  await render([other, watched, top], top);
+  await toggle();
   const stopButtons = [...container.querySelectorAll("button")].filter((button) =>
     button.textContent?.startsWith("Stop watching"),
   );
@@ -234,10 +236,11 @@ it("lets only watched pull requests stop their watch", () => {
 });
 
 it("keeps workspace controls after expanding and collapsing 70 linked pull requests", async () => {
+  await using _fixture = await setup();
   fixture.realRows = true;
   container.style.cssText = "position:relative;width:1800px;height:500px";
   await act(async () => {
-    root.render(
+    root.rerender(
       <ThreadDetailsPanel
         {...threadRef}
         projectId={ProjectId.make("project")}
@@ -280,10 +283,6 @@ it("keeps workspace controls after expanding and collapsing 70 linked pull reque
   const extraRows = () =>
     container.querySelectorAll('[aria-label^="https://github.com/pingdotgg/t3code/pull/"]');
   expect(extraRows()).toHaveLength(69);
-  // Let native ResizeObserver deliver the expanded content size before collapsing it.
-  await act(async () => {
-    await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
-  });
   await userEvent.click(page.getByRole("button", { name: "Show less" }));
   await expect.element(page.getByRole("button", { name: "Show 69 more" })).toBeVisible();
   expect(extraRows()).toHaveLength(0);

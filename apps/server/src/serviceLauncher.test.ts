@@ -15,7 +15,6 @@ import {
   Launcher,
   main,
   readServiceEnvironment,
-  PREPARED_TIMEOUT_MS,
   type BackupSpaceProbe,
   readServiceState,
   writeServiceState,
@@ -167,9 +166,9 @@ it.layer(NodeServices.layer)("service state persistence", (it) => {
             "T3CODE_HOME=/bad",
             "t3code_home=/bad",
             "T3_BOOT_SERVICE_UNIT=bad",
-            "t3_boot_service_unit=bad",
+            "elysia_boot_service_unit=bad",
             "T3_SERVICE_LAUNCHER_CONTEXT=bad",
-            "t3_service_launcher_context=bad",
+            "elysia_service_launcher_context=bad",
           ].join("\n"),
         );
         assert.deepEqual(yield* Effect.promise(() => readServiceEnvironment(root, inherited)), {
@@ -344,6 +343,7 @@ if (context.update?.status === "pending") {
         writeServiceState(statePath, {
           protocol: SERVICE_LAUNCHER_PROTOCOL,
           activeVersion: "1.0.0",
+          serverOwnership: "sqlite-v1",
         }),
       );
 
@@ -358,6 +358,7 @@ if (context.update?.status === "pending") {
       const state = yield* Effect.promise(() => readServiceState(statePath));
       assert.equal(state.activeVersion, "1.1.0");
       assert.equal(state.update?.status, "committed");
+      assert.equal(state.serverOwnership, "sqlite-v1");
     }),
   );
 
@@ -500,7 +501,7 @@ setInterval(() => {}, 1_000);
         );
         yield* Effect.promise(() => vi.advanceTimersByTimeAsync(121_000));
         if (prepares) spawnedChildren.at(-1)!.send({ type: "test-prepare" });
-        else yield* Effect.promise(() => vi.advanceTimersByTimeAsync(PREPARED_TIMEOUT_MS));
+        else yield* Effect.promise(() => vi.advanceTimersByTimeAsync(30 * 60_000));
         yield* Effect.promise(() => running);
 
         const state = yield* Effect.promise(() => readServiceState(statePath));

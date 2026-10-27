@@ -16,12 +16,8 @@ import {
 import { normalizeProjectPathForComparison } from "./path.ts";
 import { fallbackTextGenerationModelSelection } from "./serverSettings.ts";
 
-/**
- * Where a project-scoped value came from. The order is the priority order:
- * a project override, then the environment value, then the repository's
- * elysia.json for keys in `PROJECT_FILE_BACKED_SETTINGS`, then the built-in
- * default (reported as "environment", since that is what the environment
- * value is when nothing set it).
+/** Source priority: project override, environment, repository elysia.json, then built-in default.
+ * Built-in defaults are reported as environment values.
  */
 export type ProjectSettingSource = "environment" | "project" | "elysia.json";
 

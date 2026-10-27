@@ -23,7 +23,6 @@ import { useNewThreadHandler } from "../hooks/useHandleNewThread";
 import {
   readProject,
   useAllEnvironmentShellsBootstrapped,
-  useProjects,
   useThreadShells,
 } from "../state/entities";
 import { useEnvironments } from "../state/environments";

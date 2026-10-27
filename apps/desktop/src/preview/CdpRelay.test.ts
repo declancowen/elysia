@@ -15,7 +15,7 @@ const makeTarget = (
 });
 
 // Each relay reply resolves after a few microtasks; one macrotask lets them all land.
-// oxlint-disable-next-line t3code/no-real-time-wait-in-tests -- a zero-delay macrotask boundary, not a wait for time
+// oxlint-disable-next-line elysia/no-real-time-wait-in-tests -- a zero-delay macrotask boundary, not a wait for time
 const settle = () => new Promise<void>((resolve) => setImmediate(resolve));
 
 describe("CDP relay", () => {
@@ -110,11 +110,11 @@ describe("CDP relay", () => {
         id: 1,
         method: "Emulation.setFocusEmulationEnabled",
         params: { enabled: true },
-        sessionId: "t3-preview-page",
+        sessionId: "elysia-preview-page",
       }),
     );
     await settle();
-    expect(written).toEqual([{ id: 1, result: {}, sessionId: "t3-preview-page" }]);
+    expect(written).toEqual([{ id: 1, result: {}, sessionId: "elysia-preview-page" }]);
     expect(send).not.toHaveBeenCalled();
   });
 

@@ -113,11 +113,8 @@ function EnvironmentSelector({
     </>
   );
 
-  // The static label carries the xs control's height (h-7 sm:h-6) as well as
-  // its padding: the composer context strip has no min-height of its own, and
-  // the glass seam joining it to the composer assumes a fixed strip height, so
-  // a shorter label would drag the seam out of line whenever this label is the
-  // only thing in the strip.
+  // The glass seam assumes the xs control height, even when this static label
+  // is the only element keeping the composer context strip open.
   if (envLocked || (onEnvironmentChange === undefined && onAddToMachine === undefined)) {
     const lockedRow = updateControl ? (
       <ComposerControl

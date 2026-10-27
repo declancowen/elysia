@@ -10,11 +10,10 @@ import {
   type ScopedThreadRef,
   type ThreadGuestShare,
 } from "@elysiatools/contracts";
-import { CheckIcon, CopyIcon, UserIcon } from "~/icons";
+import { CheckIcon, CopyIcon } from "~/icons";
 import { useState } from "react";
 
 import { useCopyToClipboard } from "~/hooks/useCopyToClipboard";
-import { useNowMinute } from "~/hooks/useNowMinute";
 import { appAtomRegistry } from "~/rpc/atomRegistry";
 import { useQuietThreadProjection } from "~/state/entities";
 import { serverEnvironment } from "~/state/server";
@@ -170,46 +169,6 @@ function GuestShareDialog({
         </DialogFooter>
       </DialogPopup>
     </Dialog>
-  );
-}
-
-/** Header status for a shared thread, with the way to end the share. */
-export function GuestShareIndicator({ threadRef }: { readonly threadRef: ScopedThreadRef }) {
-  const share = useThreadGuestShare(threadRef);
-  const closeGuestShare = useOrchestrationCommand(threadEnvironment.closeGuestShare, {
-    label: "stop guest share",
-  });
-  const [closing, setClosing] = useState(false);
-  if (share === null) return null;
-  return (
-    <div className="flex shrink-0 items-center gap-1 text-muted-foreground text-xs">
-      <UserIcon aria-hidden className="size-3.5" />
-      <GuestShareStatus share={share} />
-      <Button
-        size="xs"
-        variant="ghost-muted"
-        disabled={closing}
-        onClick={async () => {
-          setClosing(true);
-          await closeGuestShare({
-            environmentId: threadRef.environmentId,
-            input: { threadId: threadRef.threadId },
-          });
-          setClosing(false);
-        }}
-      >
-        Stop sharing
-      </Button>
-    </div>
-  );
-}
-
-function GuestShareStatus({ share }: { readonly share: ThreadGuestShare }) {
-  const nowMinute = useNowMinute();
-  // The share stays on the thread after it expires, until the owner clears it.
-  if (share.expiresAt.slice(0, 16) <= nowMinute) return <span>Guest link expired</span>;
-  return (
-    <span>{share.guestName !== null ? `${share.guestName} is a guest` : "Guest link active"}</span>
   );
 }
 

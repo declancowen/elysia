@@ -16,7 +16,6 @@ import {
   type VcsRef,
   type ThreadId,
 } from "@elysiatools/contracts";
-import { type LegendListRef } from "@legendapp/list/react";
 import { ChevronDownIcon, GitBranchIcon } from "~/icons";
 import {
   useDeferredValue,

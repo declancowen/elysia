@@ -1,4 +1,4 @@
-import React, { type SVGProps, useId } from "react";
+import React, { useId } from "react";
 import { cn } from "~/lib/utils";
 export type Icon = React.FC<{
   className?: string | undefined;

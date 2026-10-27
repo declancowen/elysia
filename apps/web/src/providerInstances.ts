@@ -1,18 +1,5 @@
 import { isEnabledProviderDriver } from "@elysiatools/contracts";
-/**
- * Instance-aware view over the wire `ServerProvider[]`.
- *
- * The wire carries one `ServerProvider` per *configured instance* — the
- * default built-in codex instance, a user-authored `codex_personal`, an
- * unavailable shadow for a fork driver, etc. Legacy UI code collapsed these
- * into a single bucket per built-in driver via `.find((p) => p.driver === kind)`,
- * which silently dropped every custom instance after the first. This module
- * replaces that pattern with `ProviderInstanceEntry[]`, keyed on
- * `ProviderInstanceId`, so the model picker, settings list, and composer
- * can treat built-in and custom instances uniformly.
- *
- * @module providerInstances
- */
+// Key configured providers by instance ID: collapsing on driver drops custom instances.
 import {
   DEFAULT_MODEL_BY_PROVIDER,
   defaultInstanceIdForDriver,

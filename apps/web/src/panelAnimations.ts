@@ -12,7 +12,7 @@ export function usePanelNavigationSuppression(navigationKey: string): boolean {
   const [paintedNavigationKey, setPaintedNavigationKey] = useState<string | null>(null);
   const suppressed = paintedNavigationKey !== navigationKey;
 
-  // oxlint-disable-next-line t3code/react-effect-budget -- Wait two browser frames so the new route paints before panel animations are re-enabled; cancel the frames on change or unmount.
+  // oxlint-disable-next-line elysia/react-effect-budget -- Wait two browser frames so the new route paints before panel animations are re-enabled; cancel the frames on change or unmount.
   useEffect(() => {
     if (!suppressed) return;
     let releaseFrame = 0;
@@ -69,7 +69,7 @@ export function usePanelPresence<T>(
     }
   }, [animated, open, retained, scopeKey, value]);
 
-  // oxlint-disable-next-line t3code/react-effect-budget -- Keep the closing panel mounted for its CSS exit transition, then unmount it; the timer is cleared on reopen or unmount.
+  // oxlint-disable-next-line elysia/react-effect-budget -- Keep the closing panel mounted for its CSS exit transition, then unmount it; the timer is cleared on reopen or unmount.
   useEffect(() => {
     if (open || !animated) return;
     const timeout = window.setTimeout(() => {

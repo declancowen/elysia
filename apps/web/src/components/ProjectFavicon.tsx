@@ -22,9 +22,8 @@ import {
   ServerIcon,
   SmartphoneIcon,
 } from "~/icons";
-import type { IconName } from "../projectIcons";
 import type { ComponentType } from "react";
-import { createElement, lazy, Suspense, useState } from "react";
+import { lazy, Suspense, useState } from "react";
 import { useAtomValue } from "@effect/atom-react";
 import { projectFaviconUrlAtom } from "../state/assets";
 import { projectIconColorClassName } from "../projectIconColors";

@@ -19,6 +19,8 @@ import { useWorkspaceTabs } from "./WorkspaceTabsContext";
 import { useCompactWorkspaceTabs, useSidebarWorkspaceTabs } from "./useSystemWorkspaceTabBar";
 import { WorkspaceTabToolbarButtons } from "./WorkspaceSectionToolbar";
 
+import { useHomeListFilterMenu } from "../home/use-home-list-filter-menu";
+
 const SEARCH_LABELS = {
   threads: "Search threads",
   pullRequests: "Search pull requests",
@@ -30,6 +32,7 @@ export function WorkspaceToolbar(props: {
   readonly sidebar?: boolean;
 }) {
   const workspace = useWorkspaceTabs()!;
+  const threadFilters = useHomeListFilterMenu();
   const activeNewTask = useActiveNewTask();
   const deviceType = useDeviceType();
   const sidebarTabs = useSidebarWorkspaceTabs();
@@ -189,6 +192,46 @@ export function WorkspaceToolbar(props: {
       {workspace.settingsOpen && !foldedSearch ? null : (
         <Toolbar placement="right">
           {searchButton}
+          {selectedTab === "threads" ? (
+            <Toolbar.Menu
+              identifier="workspace-thread-filters"
+              accessibilityLabel={
+                threadFilters.label ? `Filter threads: ${threadFilters.label}` : "Filter threads"
+              }
+              title={threadFilters.title}
+              icon={
+                threadFilters.label
+                  ? "line.3.horizontal.decrease.circle.fill"
+                  : "line.3.horizontal.decrease"
+              }
+            >
+              {threadFilters.items.map((section) =>
+                section.type === "submenu" ? (
+                  <Toolbar.Menu key={section.id} title={section.title}>
+                    {section.items.map((item) => (
+                      <Toolbar.MenuAction
+                        key={item.id}
+                        isOn={item.state === "on"}
+                        subtitle={item.subtitle}
+                        onPress={item.onPress}
+                      >
+                        {item.title}
+                      </Toolbar.MenuAction>
+                    ))}
+                  </Toolbar.Menu>
+                ) : (
+                  <Toolbar.MenuAction
+                    key={section.id}
+                    isOn={section.state === "on"}
+                    subtitle={section.subtitle}
+                    onPress={section.onPress}
+                  >
+                    {section.title}
+                  </Toolbar.MenuAction>
+                ),
+              )}
+            </Toolbar.Menu>
+          ) : null}
           {nativeToolbarCompose && foldedSearch ? <Toolbar.Spacer width={8} /> : null}
           {composeButton}
           {selectedTab !== "threads" ||

@@ -230,7 +230,10 @@ const steps = [
     name: "format",
     args: ["fmt", "--check", "--no-error-on-unmatched-pattern", ...present],
   },
-  code.length > 0 && { name: "lint", args: ["lint", ...code] },
+  code.length > 0 && {
+    name: "lint",
+    args: ["lint", "--report-unused-disable-directives", ...code],
+  },
   ...(runKnip ? knipPasses : []),
   ...graphql.map((dir) => ({
     name: `graphql (${dir})`,

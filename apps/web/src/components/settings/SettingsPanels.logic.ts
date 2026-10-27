@@ -30,18 +30,6 @@ export function sortArchivedThreads<
   });
 }
 
-export function isProjectGroupingEnabled(mode: SidebarProjectGroupingMode): boolean {
-  return mode !== "separate";
-}
-
-export function projectGroupingModeFromToggle(
-  enabled: boolean,
-  lastEnabledMode: SidebarProjectGroupingMode = "repository",
-): SidebarProjectGroupingMode {
-  if (!enabled) return "separate";
-  return lastEnabledMode === "repository_path" ? "repository_path" : "repository";
-}
-
 const LAST_ENABLED_PROJECT_GROUPING_MODE_KEY = "elysia:last-enabled-project-grouping-mode";
 
 export function readLastEnabledProjectGroupingMode(): SidebarProjectGroupingMode {

@@ -718,7 +718,5 @@ export {
   Maximize2Icon as Maximize2,
   Maximize as MaximizeIcon,
   Minimize2Icon as Minimize2,
-  UserRoundIcon as UserIcon,
   BubblesIcon as BotIcon,
-  CircleDashedIcon as CircleDotDashedIcon,
 };

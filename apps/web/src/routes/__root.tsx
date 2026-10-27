@@ -1,3 +1,5 @@
+import { BackgroundThreadAnnouncer } from "../components/BackgroundThreadAnnouncer";
+import { ProviderUpdateLaunchNotification } from "../components/ProviderUpdateLaunchNotification";
 import { type ServerLifecycleWelcomePayload } from "@elysiatools/contracts";
 import { scopedProjectKey, scopeProjectRef } from "@elysiatools/client-runtime/environment";
 import {
@@ -202,6 +204,8 @@ function RootRouteBranch() {
         <ConnectOnboardingDialog />
         <SshPasswordPromptDialog />
         <SnapShotCoordinator />
+        <BackgroundThreadAnnouncer />
+        {primaryEnvironmentAuthenticated ? <ProviderUpdateLaunchNotification /> : null}
         <ReopenClosedViewShortcut />
         <ConfirmDialogHost />
         <CustomSnoozeDialogHost />

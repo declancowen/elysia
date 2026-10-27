@@ -4,7 +4,6 @@ import {
   type EnvironmentId,
   type ProjectScript,
   type ElysiaProjectFileScript,
-  type ResolvedKeybindingsConfig,
 } from "@elysiatools/contracts";
 import { useAtomValue } from "@effect/atom-react";
 import { DEFAULT_RESOLVED_KEYBINDINGS } from "@elysiatools/shared/keybindings";

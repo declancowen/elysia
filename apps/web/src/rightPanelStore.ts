@@ -81,11 +81,7 @@ export type RightPanelSurface =
   | { id: "pull-requests"; kind: "pull-requests" };
 
 const RIGHT_PANEL_STORAGE_KEY = "elysia:right-panel-state:v2";
-// v9 removed the "plan" surface kind (plans render inline in the transcript).
-// v10 keys pull-request surfaces by reference instead of a singleton tab.
-// v11 stops persisting the pull-request list's shared panel, so a restart opens the page fresh.
-// v12 adds the device surface.
-// v14 upstream removed agents; Elysia retains the agent surface.
+// Preserve Elysia’s agent surfaces while adopting the upstream persistence schema.
 const RIGHT_PANEL_STORAGE_VERSION = 14;
 
 export const PULL_REQUESTS_PANEL_REF = scopeThreadRef(

@@ -634,7 +634,7 @@ function QuestionAnswerHistory({
   );
 }
 
-export function WorkEntryLogRow(props: WorkEntryRowProps) {
+function WorkEntryLogRow(props: WorkEntryRowProps) {
   const { workEntry } = props;
   if (workEntry.agentDelegation)
     return <AgentDelegationRow delegation={workEntry.agentDelegation} />;

@@ -9,6 +9,7 @@ import { describe, expect, it } from "vite-plus/test";
 import {
   collectComposerContextReferences,
   formatComposerContextHref,
+  formatComposerContextReference,
   isImageReferencesOnly,
   parseComposerContextHref,
   projectComposerContextForProvider,

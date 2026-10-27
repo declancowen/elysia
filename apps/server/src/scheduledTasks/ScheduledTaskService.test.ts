@@ -1,4 +1,3 @@
-import * as Option from "effect/Option";
 import * as ProjectStore from "../orchestration-v2/ProjectStore.ts";
 import * as AgentDelegation from "../orchestration-v2/AgentDelegation.ts";
 import * as Scheduler from "../scheduling/Scheduler.ts";

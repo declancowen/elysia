@@ -114,7 +114,7 @@ export const WEBHOOK_SIGNATURE_DEFAULTS = {
   signaturePrefix: "sha256=",
 } as const;
 
-export function webhookDraftErrors(draft: DraftState) {
+function webhookDraftErrors(draft: DraftState) {
   if (draft.scheduleMode !== "webhook") return [];
   if (parseMaxDeliveryAge(draft.maxDeliveryAgeMinutes) === undefined)
     return [

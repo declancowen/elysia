@@ -1,13 +1,5 @@
-/**
- * Remote open-in-editor: when this client is not on the environment's
- * machine, "Open" must hand the OS a `vscode://vscode-remote/ssh-remote+…`
- * deep link (local editor connects over SSH) instead of exec'ing an editor
- * on the environment host.
- *
- * Host precedence: a desktop-SSH environment's real `~/.ssh/config` alias
- * beats server-advertised names; among advertised names the tailnet MagicDNS
- * name beats mDNS `<hostname>.local` (server sends them in that order).
- */
+// Remote editor opens run on the client through SSH links, never on the environment host.
+// Prefer the configured SSH alias, then the server’s advertised tailnet/mDNS order.
 import type { ConnectionTarget } from "@elysiatools/client-runtime/connection";
 import {
   REMOTE_CAPABLE_EDITOR_IDS,

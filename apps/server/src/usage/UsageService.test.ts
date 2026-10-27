@@ -72,6 +72,7 @@ vi.mock("../provider/builtInDrivers.ts", async (importOriginal) => ({
     (await import("../provider/Drivers/ClaudeDriver.ts")).ClaudeDriver,
     (await import("../provider/Drivers/CodexDriver.ts")).CodexDriver,
     (await import("@elysiatools/provider-grok/server")).GrokDriver,
+    (await import("@elysiatools/provider-muse/server")).MuseDriver,
     (await import("@elysiatools/provider-pi/server")).PiDriver,
     (await import("@elysiatools/provider-opencode/server")).OpenCodeDriver,
     (await import("../provider/Drivers/AntigravityDriver.ts")).AntigravityDriver,

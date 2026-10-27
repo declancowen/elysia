@@ -12,6 +12,7 @@ export interface HomeListFilterMenuProject {
 
 type HomeListFilterMenuAction = {
   readonly type: "action";
+  readonly id: string;
   readonly title: string;
   readonly subtitle?: string;
   readonly state?: "on" | "off";
@@ -20,6 +21,7 @@ type HomeListFilterMenuAction = {
 
 type HomeListFilterMenuSubmenu = {
   readonly type: "submenu";
+  readonly id: string;
   readonly title: string;
   readonly items: HomeListFilterMenuAction[];
 };
@@ -41,10 +43,12 @@ export function buildHomeListFilterMenu(props: {
 
   items.push({
     type: "submenu",
+    id: "environment",
     title: "Environment",
     items: [
       {
         type: "action",
+        id: "environment:all",
         title: "All environments",
         subtitle: "Show threads from every environment",
         state: props.selectedEnvironmentId === null ? "on" : "off",
@@ -52,6 +56,7 @@ export function buildHomeListFilterMenu(props: {
       },
       ...props.environments.map((environment) => ({
         type: "action" as const,
+        id: `environment:${environment.environmentId}`,
         title: environment.label,
         state:
           props.selectedEnvironmentId === environment.environmentId
@@ -65,10 +70,12 @@ export function buildHomeListFilterMenu(props: {
   if (props.projects.length > 0) {
     items.push({
       type: "submenu",
+      id: "project",
       title: "Project",
       items: [
         {
           type: "action",
+          id: "project:all",
           title: "All projects",
           subtitle: "Show threads from every project",
           state: props.selectedProjectKey === null ? "on" : "off",
@@ -76,6 +83,7 @@ export function buildHomeListFilterMenu(props: {
         },
         ...props.projects.map((project) => ({
           type: "action" as const,
+          id: `project:${project.key}`,
           title: project.label,
           state: props.selectedProjectKey === project.key ? ("on" as const) : ("off" as const),
           onPress: () => props.onProjectChange(project.key),

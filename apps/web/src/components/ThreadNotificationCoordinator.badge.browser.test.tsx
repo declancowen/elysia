@@ -1,10 +1,12 @@
-import { act, render as renderUi, type Screen } from "../../test/render";
-import { RegistryContext } from "@effect/atom-react";
+import { WORKING_EXIT_GRACE_MS } from "@elysiatools/client-runtime/state/thread-inbox";
+import type { AnyRouter } from "@tanstack/react-router";
 import { EnvironmentId } from "@elysiatools/contracts";
 import * as DateTime from "effect/DateTime";
 import * as Option from "effect/Option";
 import { Atom, AtomRegistry } from "effect/reactivity";
 import { expect, it, vi } from "vite-plus/test";
+
+import { fakeTimers, stubGlobal } from "../../test/render";
 
 const state = vi.hoisted(() => ({
   mode: "notifications",
@@ -14,12 +16,7 @@ const state = vi.hoisted(() => ({
   navigate: vi.fn(),
   sound: vi.fn(),
   badge: vi.fn(),
-  environmentIds: ["one", "two"],
-}));
-vi.mock(import("@tanstack/react-router"), async (original) => ({
-  ...(await original()),
-  useNavigate: (() => state.navigate) as never,
-  useParams: (() => ({})) as never,
+  settingsListeners: new Set<() => void>(),
 }));
 vi.mock(import("./ui/toast"), async (original) => {
   const actual = await original();
@@ -35,16 +32,29 @@ vi.mock(import("../state/shell"), async (original) => {
     },
   };
 });
-vi.mock(import("../state/environments"), async (original) => ({
-  ...(await original()),
-  useEnvironmentIds: (() => state.environmentIds) as never,
-}));
+vi.mock(import("../state/presentation"), async (original) => {
+  const actual = await original();
+  return {
+    ...actual,
+    environmentSummaries: {
+      ...actual.environmentSummaries,
+      // Read lazily: the factory runs before this module's own bindings exist.
+      get environmentIdsAtom() {
+        return environmentIdsAtom as never;
+      },
+    },
+  };
+});
 vi.mock(import("../hooks/useSettings"), async (original) => ({
   ...(await original()),
-  useClientSettings: ((
-    select: (settings: { notificationMode: string; inAppNotificationsEnabled: boolean }) => unknown,
-  ) => select({ notificationMode: state.mode, inAppNotificationsEnabled: state.inApp })) as never,
-  getClientSettings: (() => ({ notificationMode: state.mode })) as never,
+  subscribeClientSettings: ((listener: () => void) => {
+    state.settingsListeners.add(listener);
+    return () => state.settingsListeners.delete(listener);
+  }) as never,
+  getClientSettings: (() => ({
+    notificationMode: state.mode,
+    inAppNotificationsEnabled: state.inApp,
+  })) as never,
 }));
 vi.mock(import("../threadNotifications"), async (original) => ({
   ...(await original()),
@@ -53,10 +63,11 @@ vi.mock(import("../threadNotifications"), async (original) => ({
   setNotificationBadge: state.badge,
 }));
 
-import { ThreadNotificationCoordinator } from "./ThreadNotificationCoordinator";
+import { startThreadNotifications } from "./ThreadNotificationCoordinator";
 
 let registry: AtomRegistry.AtomRegistry;
 const shellAtom = Atom.family((_id: string) => Atom.make<unknown>(null));
+const environmentIdsAtom = Atom.make<ReadonlyArray<string>>([]);
 state.shells = { set: (id, value) => registry.set(shellAtom(id), value) };
 
 class TestNotification extends EventTarget {
@@ -77,7 +88,6 @@ class TestNotification extends EventTarget {
 
 const thread = {
   id: "thread",
-  projectId: "project",
   title: "Test thread",
   archivedAt: null as string | null,
   hasPendingApprovals: false,
@@ -85,7 +95,6 @@ const thread = {
   session: null as { status: string } | null,
   latestTurn: { turnId: "turn", state: "running", completedAt: null as string | null },
 };
-let root: Screen;
 let focused = false;
 let visibility = "visible";
 
@@ -149,7 +158,6 @@ function shell(overrides: Partial<typeof thread> = {}, ...others: Partial<typeof
   return {
     status: "live",
     snapshot: Option.some({
-      projects: [],
       threads: [overrides, ...others].map((override) =>
         toV2ThreadShell({ ...thread, ...override }),
       ),
@@ -162,52 +170,64 @@ function complete(environment = "one", completedAt = "2026-09-13T08:00:00Z") {
     shell({ latestTurn: { turnId: "turn", state: "completed", completedAt } }),
   );
 }
-async function render() {
-  await act(async () =>
-    root.rerender(
-      <RegistryContext.Provider value={registry}>
-        <ThreadNotificationCoordinator />
-      </RegistryContext.Provider>,
-    ),
-  );
+
+async function settleCompletions() {
+  await vi.advanceTimersByTimeAsync(WORKING_EXIT_GRACE_MS);
 }
 
-async function setup() {
-  const resources = new AsyncDisposableStack();
-  resources.defer(async () => {
-    delete window.desktopBridge;
-    registry.dispose();
-    vi.restoreAllMocks();
-    vi.unstubAllGlobals();
-  });
-
+function setup() {
   vi.clearAllMocks();
+  const resources = new AsyncDisposableStack();
   registry = AtomRegistry.make();
+  const testRegistry = registry;
+  resources.defer(() => testRegistry.dispose());
+  resources.defer(() => {
+    delete window.desktopBridge;
+  });
+  resources.use(fakeTimers());
   state.mode = "notifications";
   state.inApp = false;
-  state.environmentIds = ["one", "two"];
+  state.settingsListeners.clear();
+  registry.set(environmentIdsAtom, ["one", "two"]);
   state.shells.set("one", shell());
   state.shells.set("two", shell());
   focused = false;
   visibility = "visible";
   TestNotification.permission = "granted";
   TestNotification.sent = [];
-
-  vi.stubGlobal("Notification", TestNotification);
-  vi.spyOn(window, "focus").mockImplementation(() => undefined);
-  vi.spyOn(document, "hasFocus").mockImplementation(() => focused);
-  vi.spyOn(document, "visibilityState", "get").mockImplementation(
-    () => visibility as DocumentVisibilityState,
+  resources.use(stubGlobal("Notification", TestNotification));
+  resources.use(vi.spyOn(window, "focus").mockImplementation(() => undefined));
+  resources.use(vi.spyOn(document, "hasFocus").mockImplementation(() => focused));
+  resources.use(
+    vi
+      .spyOn(document, "visibilityState", "get")
+      .mockImplementation(() => visibility as DocumentVisibilityState),
   );
-  root = resources.use(
-    await renderUi(null, { container: document.createElement("div"), router: false }),
-  );
-
-  return resources;
+  const router = {
+    state: { matches: [{ params: {} }] },
+    navigate: state.navigate,
+  } as unknown as AnyRouter;
+  let stopService: (() => void) | undefined;
+  const stop = () => {
+    stopService?.();
+    stopService = undefined;
+  };
+  resources.defer(stop);
+  return {
+    start: () => {
+      stopService = startThreadNotifications(testRegistry, router);
+    },
+    stop,
+    setEnvironmentIds: (ids: ReadonlyArray<string>) => testRegistry.set(environmentIdsAtom, ids),
+    changeSettings: () => {
+      for (const listener of state.settingsListeners) listener();
+    },
+    [Symbol.asyncDispose]: () => resources.disposeAsync(),
+  };
 }
 
 it("uses bounded tags across threads and environments, replaces repeat alerts, and clears on focus", async () => {
-  await using _fixture = await setup();
+  await using app = setup();
   const environmentId = "fd6fff30-f90b-4ee7-9812-4cf497791b90";
   const otherEnvironmentId = "25b62992-b996-4ee3-8d82-d988840e45c1";
   const threadId = "a8395a98-a186-4fe7-9d4c-fb8ba63b7588";
@@ -216,22 +236,22 @@ it("uses bounded tags across threads and environments, replaces repeat alerts, a
     id,
     latestTurn: { turnId: "turn", state: "completed", completedAt },
   });
-  state.environmentIds = [environmentId, otherEnvironmentId];
+  app.setEnvironmentIds([environmentId, otherEnvironmentId]);
   state.shells.set(environmentId, shell({ id: threadId }, { id: otherThreadId }));
   state.shells.set(otherEnvironmentId, shell({ id: threadId }));
-  await render();
+  app.start();
   state.shells.set(environmentId, shell(completed(threadId), { id: otherThreadId }));
-  await render();
+  await settleCompletions();
   expect(state.badge).toHaveBeenLastCalledWith(1);
   state.shells.set(environmentId, shell(completed(threadId), completed(otherThreadId)));
   state.shells.set(otherEnvironmentId, shell(completed(threadId)));
-  await render();
+  await settleCompletions();
   expect(state.badge).toHaveBeenLastCalledWith(3);
   state.shells.set(
     environmentId,
     shell(completed(threadId, "2026-09-13T08:01:00Z"), completed(otherThreadId)),
   );
-  await render();
+  await settleCompletions();
   expect(state.badge).toHaveBeenLastCalledWith(3);
   expect(TestNotification.sent).toHaveLength(4);
   const [first, otherThread, otherEnvironment, replacement] = TestNotification.sent;
@@ -252,45 +272,45 @@ it("uses bounded tags across threads and environments, replaces repeat alerts, a
   ).toBe(true);
   focused = false;
   state.shells.set(otherEnvironmentId, shell(completed(threadId, "2026-09-13T08:02:00Z")));
-  await render();
+  await settleCompletions();
   expect(state.badge).toHaveBeenLastCalledWith(1);
 });
 
 it("does not badge old completions on first load or reconnect", async () => {
-  await using _fixture = await setup();
+  await using app = setup();
   complete();
-  await render();
+  app.start();
   state.shells.set("one", { status: "connecting", snapshot: Option.none() });
-  await render();
+  await settleCompletions();
   complete("one", "2026-09-13T08:01:00Z");
-  await render();
+  await settleCompletions();
   expect(TestNotification.sent).toHaveLength(0);
   expect(state.badge.mock.calls.every(([count]) => count === 0)).toBe(true);
 });
 
 it("removes alerts only from environments that leave the client", async () => {
-  await using _fixture = await setup();
-  await render();
+  await using app = setup();
+  app.start();
   complete("one");
   complete("two");
-  await render();
+  await settleCompletions();
   expect(state.badge).toHaveBeenLastCalledWith(2);
   const [removed, retained] = TestNotification.sent;
-  state.environmentIds = ["two"];
-  await render();
+  app.setEnvironmentIds(["two"]);
+  await settleCompletions();
   expect(state.badge).toHaveBeenLastCalledWith(1);
   expect(removed!.close).toHaveBeenCalledOnce();
   expect(retained!.close).not.toHaveBeenCalled();
-  await render();
+  app.setEnvironmentIds(["two"]);
   expect(removed!.close).toHaveBeenCalledOnce();
-  state.environmentIds = [];
-  await render();
+  app.setEnvironmentIds([]);
+  await settleCompletions();
   expect(state.badge).toHaveBeenLastCalledWith(0);
   expect(retained!.close).toHaveBeenCalledOnce();
 });
 
 it("starts a fresh count after another native app window gains focus", async () => {
-  await using _fixture = await setup();
+  await using app = setup();
   let clear: (() => void) | undefined;
   const unsubscribe = vi.fn();
   Object.assign(window, {
@@ -301,15 +321,15 @@ it("starts a fresh count after another native app window gains focus", async () 
       },
     },
   });
-  await render();
+  app.start();
   complete();
-  await render();
+  await settleCompletions();
   clear!();
   expect(state.badge).toHaveBeenLastCalledWith(0);
   complete("two");
-  await render();
+  await settleCompletions();
   expect(state.badge).toHaveBeenLastCalledWith(1);
-  await act(async () => root.unmount());
+  app.stop();
   expect(unsubscribe).toHaveBeenCalledOnce();
   expect(state.badge).toHaveBeenLastCalledWith(0);
 });
@@ -317,11 +337,11 @@ it("starts a fresh count after another native app window gains focus", async () 
 it.each(["off", "sound", "focused", "denied", "archived"])(
   "does not show visual alerts when %s",
   async (condition) => {
-    await using _fixture = await setup();
+    await using app = setup();
     if (condition === "off" || condition === "sound") state.mode = condition;
     if (condition === "focused") focused = true;
     if (condition === "denied") TestNotification.permission = "denied";
-    await render();
+    app.start();
     complete();
     if (condition === "archived")
       state.shells.set(
@@ -331,7 +351,7 @@ it.each(["off", "sound", "focused", "denied", "archived"])(
           hasPendingApprovals: true,
         }),
       );
-    await render();
+    await settleCompletions();
     expect(TestNotification.sent).toHaveLength(0);
     expect(state.badge.mock.calls.every(([count]) => count === 0)).toBe(true);
   },
@@ -340,10 +360,10 @@ it.each(["off", "sound", "focused", "denied", "archived"])(
 it.each(["hasPendingApprovals", "hasPendingUserInput"] as const)(
   "badges %s and clears when notifications are disabled",
   async (flag) => {
-    await using _fixture = await setup();
-    await render();
+    await using app = setup();
+    app.start();
     state.shells.set("one", shell({ [flag]: true }));
-    await render();
+    await settleCompletions();
     expect(state.badge).toHaveBeenLastCalledWith(1);
     const notification = TestNotification.sent[0]!;
     notification.dispatchEvent(new Event("click"));
@@ -352,30 +372,30 @@ it.each(["hasPendingApprovals", "hasPendingUserInput"] as const)(
       params: { environmentId: EnvironmentId.make("one"), threadId: "thread" },
     });
     state.mode = "sound";
-    await render();
+    app.changeSettings();
     expect(state.badge).toHaveBeenLastCalledWith(0);
     expect(notification.close).toHaveBeenCalled();
   },
 );
 
 it("shows in-app alerts without adding a badge while focused", async () => {
-  await using _fixture = await setup();
+  await using app = setup();
   state.inApp = true;
   focused = true;
-  await render();
+  app.start();
   complete();
-  await render();
+  await settleCompletions();
   expect(state.toast).toHaveBeenCalledOnce();
   expect(TestNotification.sent).toHaveLength(0);
   expect(state.badge.mock.calls.every(([count]) => count === 0)).toBe(true);
 });
 
 it("badges background failures with in-app notifications enabled", async () => {
-  await using _fixture = await setup();
+  await using app = setup();
   state.inApp = true;
-  await render();
+  app.start();
   state.shells.set("one", shell({ latestTurn: { ...thread.latestTurn, state: "error" } }));
-  await render();
+  await settleCompletions();
   expect(TestNotification.sent[0]?.title).toBe("Thread failed");
   expect(state.badge).toHaveBeenLastCalledWith(1);
   expect(state.toast).not.toHaveBeenCalled();

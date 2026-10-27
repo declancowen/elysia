@@ -965,16 +965,19 @@ export const layerQueryRunner: Layer.Layer<
           const privateSettings = yield* writeElysiaQuerySettings({
             environment: inputOptions.env ?? {},
             ...(inputOptions.settings === undefined ? {} : { settings: inputOptions.settings }),
+            ...(inputOptions.sandbox === undefined ? {} : { sandbox: inputOptions.sandbox }),
           }).pipe(
             Effect.provideService(FileSystem.FileSystem, fileSystem),
             Scope.provide(settingsScope),
             Effect.mapError((cause) => queryRunnerError(cause, "settings")),
             Effect.onError(() => releaseSettings),
           );
+          // The SDK rejects a settings path combined with its separate sandbox option.
+          const { sandbox: _sandbox, ...settingsFileOptions } = inputOptions;
           const queryOptions =
             privateSettings === undefined
               ? inputOptions
-              : { ...inputOptions, settings: privateSettings };
+              : { ...settingsFileOptions, settings: privateSettings };
           // The SDK can prepend a scope wrapper to native binaries; script entries run through node.
           const binaryPath = queryOptions.pathToClaudeCodeExecutable;
           const launch =

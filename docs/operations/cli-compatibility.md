@@ -92,6 +92,12 @@ Released on 2026-10-27 as [Elysia v0.0.41](https://github.com/declancowen/elysia
 
 Scoped native bridge/catalog/driver, query-settings, pricing and text-generation tests passed. These fixture checks and the local Claude subprocess are separate from a native CLI installation. Live company authentication, native 0.3.11 fresh initialization/update/adoption against company services, and execution on a Windows host: **Not verified**. The release workflow built macOS and Windows installers for ARM64 and x64; both macOS apps passed signing and notarization verification. Publication readback confirmed all 17 assets, SHA-256 checksums against GitHub asset digests, and updater entries for both architectures. These packaging checks do not certify a live company session.
 
+## App v0.0.42 provider startup repair
+
+Pending publication. Claude Agent SDK 0.3.276 remains unchanged. The reported app 0.0.41 failure occurred before launching Claude: the SDK rejects a settings-file path alongside its separate sandbox option. The complete sandbox policy now lives in the private per-query settings file, preserving native routing, credential protection and the saved CLI default. No new authentication or certificate checks were added.
+
+The regression reproduced the reported SDK error before the fix. Afterward, the real SDK completed initialization and MCP registration for DeepSeek, GPT-6.1 Sol and Claude Sonnet with a controlled subprocess. All 270 focused adapter, settings, protection and text-generation tests passed; those suites now gate release publication. The maintainer's terminal reports native CLI 0.3.8 and Claude Code 2.1.311; that observation does not verify the app's managed installation. Live company requests and execution on a Windows host remain **Not verified**.
+
 ## CLI 0.3.9 review
 
 Release notes and the native 0.3.9 ZIP supplied by the maintainer on 2026-10-08. Package SHA-256: `56027c720207be2707129a7941040da344a8d938417d7ef0f6720005db993631`. The supplied setup implementation was exercised on macOS in temporary managed profiles. Gateway/CA requests, the update download and Claude marketplace commands used controlled substitutes; no live search, routed delegation, company authentication, or Windows runtime was tested. This establishes setup integration, not live-service certification.

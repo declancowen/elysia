@@ -1,5 +1,6 @@
 // @effect-diagnostics nodeBuiltinImport:off -- native profile paths belong to the server host.
 import * as NodePath from "node:path";
+import type { Options } from "@anthropic-ai/claude-agent-sdk";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Schema from "effect/Schema";
@@ -37,6 +38,7 @@ export const writeElysiaQuerySettings = Effect.fn("ElysiaQuerySettings.write")(
   function* (input: {
     readonly environment: NodeJS.ProcessEnv;
     readonly settings?: object | string;
+    readonly sandbox?: Options["sandbox"];
   }) {
     const root = input.environment.ELYSIA_PROFILE_ROOT;
     if (!root || !input.environment.ELYSIA_ACTIVE_MODEL) return undefined;
@@ -64,6 +66,7 @@ export const writeElysiaQuerySettings = Effect.fn("ElysiaQuerySettings.write")(
         : {};
     const content = yield* encodeSettings({
       ...settings,
+      ...(input.sandbox === undefined ? {} : { sandbox: input.sandbox }),
       env: { ...settingsEnvironment, ...environment },
     });
     yield* fs.writeFileString(file, content, { flag: "wx", mode: 0o600 });

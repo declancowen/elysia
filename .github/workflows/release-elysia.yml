@@ -137,6 +137,11 @@ jobs:
         run: |
           vp test run --config vite.config.ts \
             apps/server/src/provider/ElysiaCli.test.ts \
+            apps/server/src/provider/ElysiaQuerySettings.test.ts \
+            apps/server/src/provider/ElysiaAgentProtection.test.ts \
+            apps/server/src/orchestration-v2/Adapters/ClaudeAdapterV2.test.ts \
+            apps/server/src/orchestration-v2/Adapters/ElysiaAdapterV2.test.ts \
+            apps/server/src/textGeneration/ClaudeTextGeneration.test.ts \
             apps/server/src/provider/Drivers/ElysiaDriver.test.ts \
             apps/server/src/provider/ElysiaPolicy.test.ts \
             apps/server/src/provider/ElysiaNativeSessions.test.ts \

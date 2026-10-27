@@ -87,6 +87,7 @@ import { WorktreeToolkit } from "../../mcp/toolkits/worktree/tools.ts";
 import { ThreadToolkit } from "../../mcp/toolkits/thread/tools.ts";
 import { OrchestratorToolkit } from "../../mcp/toolkits/orchestrator/tools.ts";
 import { ClaudeExecutableFileCheck } from "../../provider/Drivers/ClaudeExecutable.ts";
+import { elysiaModelCatalog } from "../../provider/ElysiaModelCatalog.ts";
 import * as ProviderEventLoggers from "@elysiatools/provider-core/server/ProviderEventLoggers";
 import * as ProviderAdapter from "@elysiatools/provider-core/server/ProviderAdapter";
 import type * as ProviderContinuationRequests from "@elysiatools/provider-core/server/ProviderContinuationRequests";
@@ -2202,12 +2203,13 @@ describe("ClaudeAdapterV2 native fork", () => {
   );
 });
 
-function makeFakeClaudeCli(answerSetServers = true) {
+function makeFakeClaudeCli(answerSetServers = true, onSpawn?: (options: SpawnOptions) => void) {
   const spawns: Array<SpawnOptions> = [];
   const controlRequests: Array<object> = [];
   const stdins: Array<NodeStream.PassThrough> = [];
   const spawn = (options: SpawnOptions): SpawnedProcess => {
     spawns.push(options);
+    onSpawn?.(options);
     const stdin = new NodeStream.PassThrough();
     const stdout = new NodeStream.PassThrough();
     stdins.push(stdin);
@@ -2259,6 +2261,7 @@ describe("ClaudeAdapterV2 MCP credential channel", () => {
   const openWith = (
     cli: ReturnType<typeof makeFakeClaudeCli>,
     native?: ProviderEventLoggers.EventNdjsonLogger,
+    queryOptions?: ClaudeAdapterV2.ClaudeAgentSdkQueryOptions,
   ) =>
     Effect.gen(function* () {
       const runner = yield* ClaudeAdapterV2.ClaudeAgentSdkQueryRunner;
@@ -2266,14 +2269,15 @@ describe("ClaudeAdapterV2 MCP credential channel", () => {
         threadId: ThreadId.make("thread-claude-mcp-channel"),
         providerSessionId: ProviderSessionId.make("provider-session-claude-mcp-channel"),
         options: {
-          ...ClaudeAdapterV2.makeClaudeQueryOptions({
-            modelSelection: CLAUDE_TEST_MODEL_SELECTION,
-            nativeThreadId: "native-thread-claude-mcp-channel",
-            resume: false,
-            cwd: null,
-            environment: { PATH: "/usr/bin" },
-            mcpServers: { "elysia-code": elysiaMcpServer },
-          }),
+          ...(queryOptions ??
+            ClaudeAdapterV2.makeClaudeQueryOptions({
+              modelSelection: CLAUDE_TEST_MODEL_SELECTION,
+              nativeThreadId: "native-thread-claude-mcp-channel",
+              resume: false,
+              cwd: null,
+              environment: { PATH: "/usr/bin" },
+              mcpServers: { "elysia-code": elysiaMcpServer },
+            })),
           pathToClaudeCodeExecutable: "/opt/claude/cli.js",
           spawnClaudeCodeProcess: cli.spawn,
         },
@@ -2286,6 +2290,74 @@ describe("ClaudeAdapterV2 MCP credential channel", () => {
       }),
       Effect.provide(NodeServices.layer),
     );
+
+  it.effect(
+    "opens routed models through the real SDK with sandbox policy in private settings",
+    () =>
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        const path = yield* Path.Path;
+        const root = yield* fs.makeTempDirectoryScoped({ prefix: "elysia-sdk-settings-" });
+        const savedSettings = JSON.stringify({
+          env: { ANTHROPIC_CUSTOM_HEADERS: "saved-default" },
+        });
+        yield* fs.makeDirectory(path.join(root, ".claude"));
+        yield* fs.writeFileString(path.join(root, ".claude", "settings.json"), savedSettings);
+        for (const model of ["deepseek-v4.1-flash", "gpt-6.1-sol", "claude-sonnet-5-5"]) {
+          let settingsFile = "";
+          let serializedSettings = "";
+          const cli = makeFakeClaudeCli(true, (options) => {
+            settingsFile = options.args[options.args.indexOf("--settings") + 1]!;
+            serializedSettings = NodeFS.readFileSync(settingsFile, "utf8");
+          });
+          const session = yield* openWith(
+            cli,
+            undefined,
+            ClaudeAdapterV2.makeClaudeQueryOptions({
+              modelSelection: { instanceId: ProviderInstanceId.make("claudeAgent"), model },
+              modelCatalog: elysiaModelCatalog([model], model),
+              nativeThreadId: "native-thread-elysia-sdk-settings",
+              resume: false,
+              cwd: root,
+              environment: {
+                PATH: "/usr/bin",
+                ELYSIA_PROFILE_ROOT: root,
+                ELYSIA_REAL_HOME: root,
+                ELYSIA_STATE_DIR: path.join(root, "userdata"),
+                ANTHROPIC_MODEL: model,
+                ANTHROPIC_CUSTOM_HEADERS: "x-portkey-api-key: fixture-private-key",
+              },
+              mcpServers: { "elysia-code": elysiaMcpServer },
+            }),
+          );
+          const args = cli.spawns[0]!.args;
+          assert.isTrue(settingsFile.endsWith("settings.json"));
+          const settings = JSON.parse(serializedSettings);
+          assert.equal(settings.env.ANTHROPIC_MODEL, model);
+          assert.equal(
+            settings.env.ANTHROPIC_CUSTOM_HEADERS,
+            "x-portkey-api-key: fixture-private-key",
+          );
+          assert.isTrue(settings.sandbox.enabled);
+          assert.isTrue(settings.sandbox.failIfUnavailable);
+          assert.include(
+            settings.sandbox.filesystem.denyRead,
+            path.join(NodeFS.realpathSync(root), ".elysia"),
+          );
+          assert.isFalse(args.some((arg) => arg.includes("fixture-private-key")));
+          assert.isTrue(
+            cli.controlRequests.some(
+              (request) => "subtype" in request && request.subtype === "mcp_set_servers",
+            ),
+          );
+          yield* session.close;
+          assert.equal(
+            yield* fs.readFileString(path.join(root, ".claude", "settings.json")),
+            savedSettings,
+          );
+        }
+      }).pipe(Effect.provide(NodeServices.layer)),
+  );
 
   it.effect("commits queued delivery before interruptible protocol logging", () =>
     Effect.gen(function* () {

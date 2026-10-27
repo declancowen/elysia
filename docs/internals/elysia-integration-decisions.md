@@ -20,6 +20,8 @@ The installed CLI determines available models, model-specific headers, context l
 
 Claude's saved `settings.env` overrides the process environment. A process environment override alone therefore leaves stale routing headers active. [Query settings](../../apps/server/src/provider/ElysiaQuerySettings.ts) place the native model overrides in a private highest-precedence settings file, with cleanup tied to the child process lifetime. Private headers must not be placed in command arguments. A controlled run of the bundled native Claude runtime verified the Sol header is present for Sol and absent for DeepSeek despite stale Sol settings, without changing saved settings. This is transport verification, not live company authentication.
 
+The SDK rejects a settings-file path together with its top-level `sandbox` option. Serialize the complete per-query sandbox policy into the private settings file before handing it to the SDK; omit only the redundant SDK option. The startup regression in app 0.0.41 occurred before the CLI launched. Regression proof must exercise the real SDK with the complete production query options, including protection, rather than testing native routing and sandbox settings separately.
+
 Revisit if the CLI exposes a supported per-session configuration interface or the native runtime changes settings precedence. Preserve isolation, private-file protection and child-lifetime cleanup in any replacement.
 
 ## CLI-003: Account totals and model estimates have different evidence

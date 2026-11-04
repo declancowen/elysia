@@ -24,6 +24,7 @@ export function useAgentOpenedPreviews(input: {
   // Baseline sessions to preserve dismissals on reload; missing device summaries must remain eligible to open
   // later.
   const previousDeviceSessions = useRef(new Map<string, Set<string>>());
+  // oxlint-disable-next-line elysia/no-unreasoned-state-sync -- Synchronizes device-session discovery with the imperative preview stores while preserving previews the user already dismissed.
   useEffect(() => {
     if (!threadRef || !deviceStateLoaded) return;
     const threadKey = `${threadRef.environmentId}:${threadRef.threadId}`;
@@ -74,6 +75,7 @@ export function useAgentOpenedPreviews(input: {
     deviceState.sessions,
     deviceState.devices,
   ]);
+  // oxlint-disable-next-line elysia/no-unreasoned-state-sync -- Closes the imperative floating device preview when its external device session disappears.
   useEffect(() => {
     if (!threadRef || !deviceStateLoaded) return;
     const source = miniPlayerSource;

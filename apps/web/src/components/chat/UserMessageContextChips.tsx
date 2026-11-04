@@ -1,7 +1,7 @@
 import { WorkspaceItemContextChip } from "../WorkspaceItemContextChip";
 import { SentAgentMentionChip } from "../agents/AgentMentionChip";
 import { type MessageId } from "@elysiatools/contracts";
-import { documentIconColorForFileName, documentChipKindForFileName } from "~/pierre-icons";
+import { documentChipKindForFileName } from "~/pierre-icons";
 import { isSvgAttachment } from "@elysiatools/shared/image";
 import { useRenderedAppearance } from "../../hooks/useTheme";
 import { PullRequestGlyph } from "../pullRequest/pullRequestIcons";

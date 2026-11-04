@@ -1,6 +1,6 @@
 import type { EnvironmentId } from "@elysiatools/contracts";
 import { ChevronDownIcon, GitBranchIcon } from "~/icons";
-import { useDeferredValue, useState } from "react";
+import { useState } from "react";
 
 import { usePaginatedBranches } from "../state/queries";
 import { useEnvironmentQuery } from "../state/query";

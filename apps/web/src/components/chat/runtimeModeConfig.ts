@@ -1,4 +1,4 @@
-import { type LucideIcon, LockIcon, LockOpenIcon, PenLineIcon, SparklesIcon } from "~/icons";
+import { type LucideIcon, LockIcon, PenLineIcon, SparklesIcon } from "~/icons";
 import {
   managedRuntimeModeDenial,
   type ManagedPolicySummary,

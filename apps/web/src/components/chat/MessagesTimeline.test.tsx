@@ -10,6 +10,8 @@ import {
   MessageId,
   ProjectId,
   RunId,
+  RuntimeRequestId,
+  TurnItemId,
 } from "@elysiatools/contracts";
 import {
   createRef,
@@ -24,6 +26,12 @@ import { shouldUseRestingComposerLayout } from "../composerFooterLayout";
 import { useComposerFocusState } from "./useComposerFocusState";
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 import type { LegendListRef } from "@legendapp/list/react";
+
+import { makeStreamingTimelineFixture } from "../../test-fixtures";
+import {
+  deriveTimelineEntriesFromVisibleTurnItems,
+  type PendingApproval,
+} from "../../session-logic";
 
 const activityTestState = vi.hoisted(() => ({
   expanded: false,
@@ -596,6 +604,71 @@ function buildSnapShotTimelineEntry(previewUrl?: string) {
     },
   };
 }
+
+it.each(["command", "permission"] as const)(
+  "keeps a standalone pending %s approval actionable until it settles",
+  async (requestKind) => {
+    const fixture = makeStreamingTimelineFixture();
+    const source = fixture.visibleTurnItems[4]!;
+    if (source.item.type !== "dynamic_tool") throw new Error("Expected fixture tool");
+    const requestId = RuntimeRequestId.make(`pending-${requestKind}`);
+    const approval: PendingApproval = {
+      requestId,
+      requestKind,
+      createdAt: fixture.time(6),
+      detail: "Needs permission",
+      responseCapability: "live",
+      options: [{ decision: "accept", label: "Approve" }],
+    };
+    const entries = deriveTimelineEntriesFromVisibleTurnItems({
+      visibleTurnItems: [
+        {
+          ...source,
+          sourceItemId: TurnItemId.make("pending-approval"),
+          item: {
+            ...source.item,
+            id: TurnItemId.make("pending-approval"),
+            type: "approval_request",
+            status: "waiting",
+            requestId,
+            requestKind,
+            prompt: approval.detail,
+          },
+        },
+      ],
+      optimisticMessages: [],
+    });
+    const respond = vi.fn(async () => {});
+    const props = buildProps();
+    const label = requestKind === "command" ? "Command approval" : "App permission approval";
+    const ui = (pending: ReadonlyArray<PendingApproval>) => (
+      <MessagesTimeline
+        {...props}
+        timelineEntries={entries}
+        pendingApprovals={pending}
+        canOperateThread
+        onRespondToApproval={respond}
+      />
+    );
+    let renderer: ReactTestRenderer | undefined;
+    try {
+      await act(() => {
+        renderer = create(ui([approval]));
+      });
+      expect(renderer!.root.findByProps({ role: "group", "aria-label": label })).toBeDefined();
+      const approve = renderer!.root
+        .findAllByType("button")
+        .find((button) => button.findAll((node) => node.props.children === "Approve").length > 0);
+      expect(approve).toBeDefined();
+      await act(async () => approve!.props.onClick());
+      expect(respond).toHaveBeenCalledExactlyOnceWith(requestId, "accept");
+      await act(() => renderer!.update(ui([])));
+      expect(renderer!.root.findAllByProps({ role: "group", "aria-label": label })).toHaveLength(0);
+    } finally {
+      await act(() => renderer?.unmount());
+    }
+  },
+);
 
 describe("MessagesTimeline", () => {
   it("shows dynamic tool input without cached output when the row is expanded", async () => {

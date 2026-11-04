@@ -4,7 +4,7 @@ import {
 } from "@elysiatools/client-runtime/state/thread-execution";
 import { isOrchestrationV2WorkActive } from "@elysiatools/contracts";
 import { ArrowUpLeftIcon } from "~/icons";
-import { useLayoutEffect, useRef } from "react";
+
 import type { ReactNode } from "react";
 
 import { tickTextContent } from "~/lib/tickTextContent";

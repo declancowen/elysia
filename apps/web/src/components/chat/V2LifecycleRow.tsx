@@ -45,8 +45,6 @@ import {
   ArrowRightIcon,
   GitForkIcon,
   MessageSquareIcon,
-  MinusIcon,
-  XIcon,
 } from "~/icons";
 
 import { Tooltip, TooltipTrigger, TooltipPopup } from "../ui/tooltip";

@@ -16,7 +16,6 @@ import {
 } from "@elysiatools/client-runtime/state/runtime";
 import { AsyncResult, Atom } from "effect/reactivity";
 import { AppText as Text } from "../../components/ui/AppText";
-import { useProjects } from "../../state/entities";
 import { appAtomRegistry } from "../../state/atom-registry";
 import { rootNavigationRef } from "../../lib/rootNavigation";
 import { threadSelectionDeferral } from "../layout/deferred-navigation";

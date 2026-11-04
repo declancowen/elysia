@@ -52,6 +52,7 @@ export function useThreadFamily(
   environmentId: EnvironmentId | null,
   rootThreadId: ThreadId | null,
 ): void {
+  // oxlint-disable-next-line elysia/no-unreasoned-state-sync -- Holds a thread-family registry lease while this surface displays it and releases the subscription on unmount.
   useEffect(() => {
     if (environmentId === null || rootThreadId === null) return;
     return threadFamilies.mount(appAtomRegistry, environmentId, rootThreadId);

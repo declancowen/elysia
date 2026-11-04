@@ -13,6 +13,7 @@ export function useEscapeToGoBack(onEscape?: () => void) {
     else if (canGoBack) window.history.back();
     else void navigate({ to: "/" });
   });
+  // oxlint-disable-next-line elysia/no-unreasoned-state-sync -- Registers the window Escape listener for this mounted navigation surface and removes it on unmount.
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => handleEscape(event);
     window.addEventListener("keydown", onKeyDown);

@@ -2,7 +2,7 @@ import { ActiveNewTaskContext } from "../../state/active-new-task";
 import { resolveNewThreadModelSelection } from "@elysiatools/shared/usageLimits";
 import { useNowMinuteMs } from "../../lib/clock";
 import * as Dialog from "../../components/ui/Dialog";
-import React, { useEffect, useRef, useState, useMemo } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   type EnvironmentId,
   type ModelSelection,
@@ -15,13 +15,11 @@ import {
   MessageId,
   repositoryGroupingKeyOf,
   ThreadId,
-  ELYSIA_PROJECT_FILE_NAME,
-  LEGACY_PROJECT_FILE_NAME,
 } from "@elysiatools/contracts";
 import { threadContextsOutsideEnvironment } from "@elysiatools/shared/composerContextReferences";
 import * as Arr from "effect/Array";
 import { pipe } from "effect/Function";
-import { useProjects, useServerConfigs, useThreadShells } from "../../state/entities";
+import { useServerConfigs } from "../../state/entities";
 import type { TurnCommandMetadata } from "../../lib/commandMetadata";
 import type { DraftComposerAttachment } from "../../lib/composerImages";
 import {
@@ -108,12 +106,6 @@ import {
 } from "./new-task-flow-state";
 import { useEnvironmentShellReadiness } from "../../state/shell";
 import { useConnectionsReady, useWorkspaceEnvironments } from "../../state/workspace";
-import {
-  isMissingProjectFileError,
-  parseElysiaProjectFile,
-} from "@elysiatools/shared/elysiaProjectFile";
-import * as Cause from "effect/Cause";
-import { Atom } from "effect/reactivity";
 import { useAgentCatalog } from "../agents/use-agent-catalog";
 
 type WorkspaceMode = "local" | "worktree";

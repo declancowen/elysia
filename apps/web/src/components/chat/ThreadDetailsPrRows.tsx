@@ -7,7 +7,7 @@ import {
   threadPullRequestKeyOf,
   visibleThreadPullRequests,
 } from "@elysiatools/client-runtime/thread-pull-requests";
-import { ChevronDown, ChevronUp, Minus, Plus } from "~/icons";
+import { ChevronDown, ChevronUp } from "~/icons";
 import { useState, type ComponentProps, type MouseEvent as ReactMouseEvent } from "react";
 
 import { sourceControlClients } from "@elysiatools/client-runtime/source-control-clients";

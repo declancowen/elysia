@@ -1,7 +1,7 @@
 import { settlePromise } from "@elysiatools/client-runtime/state/runtime";
 import { AsyncResult } from "effect/reactivity";
 import { PlayIcon, RotateCwIcon, TriangleAlertIcon } from "~/icons";
-import { useEffect, useState, type CSSProperties } from "react";
+import { useState, type CSSProperties } from "react";
 
 import { observeIntersection } from "../../lib/observeIntersection";
 import { cn } from "../../lib/utils";

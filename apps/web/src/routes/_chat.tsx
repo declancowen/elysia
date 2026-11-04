@@ -67,6 +67,7 @@ function ChatRouteGlobalShortcuts() {
       ? selectActiveRightPanel(state.byThreadKey, routeThreadRef) === "preview"
       : false,
   );
+  // oxlint-disable-next-line elysia/no-unreasoned-state-sync -- Registers route-aware window shortcuts and removes the listener when the mounted route or its action context changes.
   useEffect(() => {
     const onWindowKeyDown = (event: KeyboardEvent) => {
       if (event.defaultPrevented) return;

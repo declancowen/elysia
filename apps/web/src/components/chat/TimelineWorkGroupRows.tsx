@@ -76,12 +76,17 @@ export const WorkGroupSection = memo(function WorkGroupSection({
   isExpandedToolGroup: boolean;
   displayLabel?: string | undefined;
 }) {
-  const { workspaceRoot, routeThreadKey, onToggleWorkEntry } = use(TimelineRowCtx);
+  const { workspaceRoot, routeThreadKey, onToggleWorkEntry, pendingApprovals } =
+    use(TimelineRowCtx);
   const onToggleStandaloneEntry = (collapsed: boolean) =>
     onToggleWorkEntry(disclosureAnchorKey, collapsed);
-  const nonEmptyEntries = groupedEntries.filter((entry) =>
-    workEntryIsVisibleInGroup(entry, isExpandedToolGroup),
-  );
+  const nonEmptyEntries = groupedEntries.filter((entry) => {
+    const item = entry.projectedItem?.item;
+    return (
+      (item?.type === "approval_request" && pendingApprovals.has(item.requestId)) ||
+      workEntryIsVisibleInGroup(entry, isExpandedToolGroup)
+    );
+  });
   if (nonEmptyEntries.length === 0) return null;
   if (isExpandedToolGroup && nonEmptyEntries.every((entry) => entry.itemType === "reasoning")) {
     return <ReasoningTraceContent entries={nonEmptyEntries} />;
@@ -116,6 +121,7 @@ function WorkingTimer({ createdAt }: { createdAt: string }) {
   const textRef = useRef<HTMLSpanElement>(null);
   const initialText = formatWorkingTimerNow(createdAt);
 
+  // oxlint-disable-next-line elysia/no-unreasoned-state-sync -- Own the interval that writes elapsed time directly into the timer DOM without rerendering the timeline.
   useEffect(() => {
     const updateText = () => {
       if (textRef.current) {
@@ -226,6 +232,7 @@ function ExpandedWorkGroupEntries({
     }
     setRestoringPosition(false);
   };
+  // oxlint-disable-next-line elysia/no-unreasoned-state-sync -- Measure the nested work-list DOM scroll fades and own its resize subscriptions while mounted.
   useLayoutEffect(() => {
     const element = listRef.current?.getScrollableNode();
     if (!element) return;
@@ -248,6 +255,7 @@ function ExpandedWorkGroupEntries({
     }
     setExpandedContentHeight(height);
   };
+  // oxlint-disable-next-line elysia/no-unreasoned-state-sync -- Read the committed imperative LegendList size cache to reserve measured space for expanded work entries.
   useLayoutEffect(updateExpandedContentHeight, [entries, updateExpandedContentHeight]);
   return (
     <WorkGroupViewCtx value={groupView}>

@@ -13,8 +13,6 @@ import {
   resolveScratchProjectScopeKey,
 } from "@elysiatools/client-runtime/state/project-grouping";
 import { NativeStackScreenOptions } from "../../native/StackHeader";
-import { useProjects } from "../../state/entities";
-import { environmentThreadShells } from "../../state/threads";
 import { usePendingNewTasks } from "../../state/use-pending-new-tasks";
 import { useWorkspaceState } from "../../state/workspace";
 import { useSavedRemoteConnections } from "../../state/use-remote-environment-registry";
@@ -26,7 +24,7 @@ import { AndroidHomeFabLayout } from "./AndroidHomeFab";
 import { HomeScreen } from "./HomeScreen";
 import { HomeHeader } from "./HomeHeader";
 import { useHomeListOptions } from "./home-list-options";
-import { useAtomValueWhileVisible, useHomeRouteVisible } from "./home-route-visibility";
+import { useHomeRouteVisible } from "./home-route-visibility";
 import { buildHomeProjectScopes } from "./homeThreadList";
 import { usePendingTaskListActions } from "./usePendingTaskListActions";
 import { useThreadListActions } from "./useThreadListActions";

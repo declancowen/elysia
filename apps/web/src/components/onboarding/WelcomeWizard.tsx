@@ -147,6 +147,7 @@ export function WelcomeWizard({
   const finishingPromiseRef = useRef<Promise<boolean> | null>(null);
   const completionErrorToastIdRef = useRef<ReturnType<typeof toastManager.add> | null>(null);
   const primaryEnvironment = usePrimaryEnvironment();
+  // oxlint-disable-next-line elysia/no-unreasoned-state-sync -- Reconciles newly discovered computers with the mounted onboarding selection registry once, preserving explicit user opt-outs.
   useEffect(() => {
     const newComputers = environments.filter(
       (environment) => !autoSelectedComputers.has(environment.environmentId),
@@ -358,6 +359,7 @@ function ConnectionStep({
     .filter((environment) => skippedIds.includes(environment.environmentId))
     .map((environment) => environment.label);
   const continueRef = useRef<HTMLButtonElement>(null);
+  // oxlint-disable-next-line elysia/no-unreasoned-state-sync -- Moves DOM focus to Continue when connection discovery becomes ready without stealing focus from an active field.
   useEffect(() => {
     if (
       ready &&
@@ -592,6 +594,7 @@ function PairingForm({
   const [errorMessage, setErrorMessage] = useState("");
   const mountedRef = useRef(true);
 
+  // oxlint-disable-next-line elysia/no-unreasoned-state-sync -- Tracks the mounted pairing request lifetime so a completed connection cannot update a dismissed form.
   useEffect(() => {
     mountedRef.current = true;
     return () => {
@@ -785,6 +788,7 @@ function ConnectedAgentsStep({
   } | null>(null);
   const canOperateTerminal = useEnvironmentScope(environmentId, AuthTerminalOperateScope);
 
+  // oxlint-disable-next-line elysia/no-unreasoned-state-sync -- Refreshes external CLI installation and sign-in discovery when this environment enters agent setup.
   useEffect(() => {
     void refreshProviders({ environmentId, input: {} });
   }, [environmentId, refreshProviders]);
@@ -1115,6 +1119,7 @@ function AgentInstallTerminal({
 
   // StrictMode can finish a cancelled open after replacement setup; it must not close or pre-type into that
   // session.
+  // oxlint-disable-next-line elysia/no-unreasoned-state-sync -- Owns the setup PTY generation and serial open/write/close lifecycle, disposing its terminal when the setup surface unmounts.
   useEffect(() => {
     const generation = setupGenerationRef.current + 1;
     setupGenerationRef.current = generation;
@@ -1279,6 +1284,7 @@ function ImportStep({
   );
   const importGenerationRef = useRef(0);
 
+  // oxlint-disable-next-line elysia/no-unreasoned-state-sync -- Invalidates in-flight project import completions when this import surface unmounts.
   useEffect(() => {
     importGenerationRef.current += 1;
     return () => {
@@ -1286,6 +1292,7 @@ function ImportStep({
     };
   }, []);
 
+  // oxlint-disable-next-line elysia/no-unreasoned-state-sync -- Waits for the imported project subscription before navigating to its thread, so the router can resolve the destination record.
   useEffect(() => {
     if (
       landingProject !== null &&

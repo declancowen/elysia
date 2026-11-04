@@ -113,17 +113,6 @@ export function formatShortTimestamp(isoDate: string, timestampFormat: Timestamp
   return getTimestampFormatter(timestampFormat, false).format(date);
 }
 
-const numericDateOptions: Intl.DateTimeFormatOptions = { month: "numeric", day: "numeric" };
-const numericDateWithYearOptions: Intl.DateTimeFormatOptions = {
-  ...numericDateOptions,
-  year: "numeric",
-};
-const numericDateFormatter = new Intl.DateTimeFormat(timestampLocale, numericDateOptions);
-const numericDateWithYearFormatter = new Intl.DateTimeFormat(
-  timestampLocale,
-  numericDateWithYearOptions,
-);
-
 interface CalendarDay {
   year: number;
   /** Days since the epoch, so differences are whole days across DST shifts. */
@@ -145,16 +134,6 @@ function calendarDay(date: Date, timeZone: string | undefined): CalendarDay {
     Number(parts.find((entry) => entry.type === type)?.value);
   const year = part("year");
   return { year, index: Date.UTC(year, part("month") - 1, part("day")) / 86_400_000 };
-}
-
-function formatNumericDate(date: Date, sameYear: boolean, timeZone: string | undefined): string {
-  if (!timeZone) {
-    return (sameYear ? numericDateFormatter : numericDateWithYearFormatter).format(date);
-  }
-  return new Intl.DateTimeFormat(timestampLocale, {
-    ...(sameYear ? numericDateOptions : numericDateWithYearOptions),
-    timeZone,
-  }).format(date);
 }
 
 export function formatDayAwareTimestamp(

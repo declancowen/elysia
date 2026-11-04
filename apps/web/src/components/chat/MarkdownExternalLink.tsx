@@ -1,6 +1,6 @@
 import { faviconUrlForOrigin } from "@elysiatools/shared/favicon";
 import { GlobeIcon } from "~/icons";
-import { Children, Fragment, memo, useState, type ReactNode } from "react";
+import { Children, memo, useState, type ReactNode } from "react";
 
 import { sourceControlClients } from "@elysiatools/client-runtime/source-control-clients";
 

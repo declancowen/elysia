@@ -57,6 +57,7 @@ function IndexDraftLanding() {
     sortScopedProjectsForSidebar(projects, threads, "updated_at")[0] ?? null;
   const attempt = startState.retryRequest;
 
+  // oxlint-disable-next-line elysia/no-unreasoned-state-sync -- Synchronizes the index route with the asynchronously discovered project by opening its draft through the router, without replacing navigation away.
   useEffect(() => {
     // Starting a draft after the user has left would replace the page they picked.
     if (mostRecentProject === null || startedAttemptRef.current === attempt || !isStillOnIndex()) {

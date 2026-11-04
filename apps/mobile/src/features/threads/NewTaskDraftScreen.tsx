@@ -56,7 +56,7 @@ import { SymbolView } from "../../components/ui/AppSymbol";
 import { AppText as Text } from "../../components/ui/AppText";
 import { threadContextsOutsideEnvironment } from "@elysiatools/shared/composerContextReferences";
 import { makeTurnCommandMetadata } from "../../lib/commandMetadata";
-import { useEnvironmentServerConfig, useProjects } from "../../state/entities";
+import { useEnvironmentServerConfig } from "../../state/entities";
 import { useProjectClone } from "../../state/projectClones";
 import { projectEnvironment } from "../../state/projects";
 import { sourceControlEnvironment } from "../../state/sourceControl";

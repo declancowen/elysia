@@ -1,5 +1,5 @@
-import { Check, Copy, Maximize2, Minimize2 } from "~/icons";
-import { useRef, useState, type ComponentProps } from "react";
+import { Check, Copy } from "~/icons";
+import { useRef, type ComponentProps } from "react";
 
 import { useCopyToClipboard } from "../../hooks/useCopyToClipboard";
 import {

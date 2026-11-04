@@ -2348,6 +2348,7 @@ function OpenCommandPaletteDialog(props: {
     return useMetaForMod ? event.metaKey && !event.ctrlKey : event.ctrlKey && !event.metaKey;
   }
   function handleKeyDown(event: KeyboardEvent<HTMLInputElement>): void {
+    if (event.nativeEvent.isComposing || event.keyCode === 229) return;
     const command = resolveShortcutCommand(event, keybindings, {
       platform: navigator.platform,
       context: {

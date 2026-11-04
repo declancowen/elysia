@@ -10,7 +10,7 @@ import {
 } from "@elysiatools/client-runtime/work-log/item-detail";
 import { formatDiffCount } from "@elysiatools/client-runtime/diff-count";
 import { isJavaScriptReplTool } from "@elysiatools/shared/toolActivity";
-import { ExternalLinkIcon, GitBranchIcon, RotateCcwIcon } from "~/icons";
+import { ExternalLinkIcon } from "~/icons";
 import { memo, type ReactNode, Suspense, use } from "react";
 
 import { useRenderedAppearance } from "../../hooks/useTheme";

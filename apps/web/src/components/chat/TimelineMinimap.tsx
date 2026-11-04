@@ -61,6 +61,7 @@ export function TimelineMinimap({
   };
   const pressedOnStripRef = useRef(false);
   const [passThrough, setPassThrough] = useState(false);
+  // oxlint-disable-next-line elysia/no-unreasoned-state-sync -- Watch native mouse-button release while a drag passes through the minimap, then release the listener.
   useEffect(() => {
     if (!passThrough) return;
     return onMouseButtonsReleased(() => setPassThrough(false));

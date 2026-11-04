@@ -286,6 +286,7 @@ function ModelPickerList({
     setShowBottomScrollFade(itemKeys.length > 5);
   }
   const measureScrollFades = useEffectEvent(updateScrollFades);
+  // oxlint-disable-next-line elysia/no-unreasoned-state-sync -- Measure the committed virtual model-list DOM after its browser layout frames, cancelling pending measurements when the list changes.
   useLayoutEffect(() => {
     let nestedFrame = 0;
     const frame = window.requestAnimationFrame(() => {
@@ -335,6 +336,7 @@ function ModelPickerList({
 // Capture gives picker shortcuts priority over the composer.
 function WindowKeyDownListener({ onKeyDown }: { onKeyDown: (event: KeyboardEvent) => void }) {
   const handleKeyDown = useEffectEvent(onKeyDown);
+  // oxlint-disable-next-line elysia/no-unreasoned-state-sync -- Register the native capture-phase key listener for this picker and release it when the listener owner unmounts.
   useEffect(() => {
     const listener = (event: KeyboardEvent) => handleKeyDown(event);
     window.addEventListener("keydown", listener, true);

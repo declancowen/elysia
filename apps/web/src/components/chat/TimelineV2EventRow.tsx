@@ -7,7 +7,7 @@ import {
   summarizeSubagentStatuses,
 } from "@elysiatools/client-runtime/state/subagent-display";
 import { memo, use, useState } from "react";
-import ChatMarkdown from "../ChatMarkdown";
+
 import { ChevronDownIcon } from "~/icons";
 import { cn } from "~/lib/utils";
 import { Collapsible, CollapsibleTrigger, CollapsiblePanel } from "../ui/collapsible";
@@ -28,7 +28,7 @@ export function V2EventTimelineRow({
   >;
 }) {
   const ctx = use(TimelineRowCtx);
-  const { item, visibility, sourceThreadId } = row.projectedItem;
+  const { item, visibility } = row.projectedItem;
   if (ctx.channel && item.type === "handoff") return null;
   if (item.type === "subagent" && (row.subagents?.length ?? 1) > 1) {
     return <V2SubagentGroup key={row.id} row={row} />;

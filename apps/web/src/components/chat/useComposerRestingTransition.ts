@@ -90,6 +90,7 @@ export function useComposerRestingTransition(
     clearOverlayPin();
   };
 
+  // oxlint-disable-next-line elysia/no-unreasoned-state-sync -- Publish the committed collapse target to the ResizeObserver and asynchronous native animation callbacks.
   useLayoutEffect(() => {
     isCollapsedRef.current = isCollapsed;
   });
@@ -434,6 +435,7 @@ export function useComposerRestingTransition(
     };
   };
 
+  // oxlint-disable-next-line elysia/no-unreasoned-state-sync -- Measure committed composer geometry and start its DOM FLIP transition before paint, invalidating superseded layout requests.
   useLayoutEffect(() => {
     const requestId = transitionLayoutRequestRef.current + 1;
     transitionLayoutRequestRef.current = requestId;
@@ -452,6 +454,7 @@ export function useComposerRestingTransition(
     };
   }, [isCollapsed, transitionToCurrentGeometry]);
 
+  // oxlint-disable-next-line elysia/no-unreasoned-state-sync -- Publish the committed overlay DOM height to the separate pane owner when resting mode changes outside an active animation.
   useLayoutEffect(() => {
     if (previousRestingRef.current === isResting) return;
     previousRestingRef.current = isResting;
@@ -460,6 +463,7 @@ export function useComposerRestingTransition(
     if (overlay) onOverlayHeightChange(overlay.getBoundingClientRect().height);
   }, [isResting, onOverlayHeightChange]);
 
+  // oxlint-disable-next-line elysia/no-unreasoned-state-sync -- Observe the composer DOM and body sizes to reconcile native animation geometry and release the observer on teardown.
   useLayoutEffect(() => {
     const element = elementRef.current;
     if (!element) return;
@@ -504,6 +508,7 @@ export function useComposerRestingTransition(
     });
   }, [restingControlsRef, transitionToCurrentGeometry]);
 
+  // oxlint-disable-next-line elysia/no-unreasoned-state-sync -- Own the mounted composer animation lifetime, cancelling native animations and timers and restoring DOM styles on teardown.
   useEffect(() => {
     hasCompletedInitialLayoutRef.current = true;
     return () => {

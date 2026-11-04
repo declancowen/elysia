@@ -18,7 +18,7 @@ import {
   cloneUrlProtocol,
 } from "@elysiatools/shared/cloneUrl";
 import { ArrowRightIcon } from "~/icons";
-import { useEffect, useId, useState } from "react";
+import { useId, useState } from "react";
 import { create } from "zustand";
 
 import { type DraftId, useComposerDraftStore } from "../composerDraftStore";

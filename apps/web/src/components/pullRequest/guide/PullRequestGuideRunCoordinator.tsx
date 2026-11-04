@@ -1,6 +1,5 @@
 import type { AnyRouter } from "@tanstack/react-router";
 import type { PullRequestReviewGuideResult } from "@elysiatools/contracts";
-import * as Option from "effect/Option";
 import { CircleAlertIcon, CircleCheckIcon } from "~/icons";
 import { AsyncResult, type AtomRegistry } from "effect/reactivity";
 

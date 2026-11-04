@@ -137,7 +137,6 @@ export const ChatHeader = memo(function ChatHeader({
   layoutControls,
   onTabBarHostChange,
   inlinePanel = false,
-  onOpenPullRequest,
   onNewThreadInProject,
   onOpenProjectSettings,
   onRunProjectScript,
@@ -256,6 +255,7 @@ export const ChatHeader = memo(function ChatHeader({
   };
   // Drop a pending menu-open when the thread changes or the header unmounts,
   // so it can never fire for a thread the user already left.
+  // oxlint-disable-next-line elysia/no-unreasoned-state-sync -- Cancel the pending title-menu timer when its thread header changes ownership or unmounts.
   useEffect(
     () => () => {
       if (titleMenuTimerRef.current === null) return;

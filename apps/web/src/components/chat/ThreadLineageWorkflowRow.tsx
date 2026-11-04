@@ -7,7 +7,7 @@ import type {
   ProviderInstanceId,
   ServerProvider,
 } from "@elysiatools/contracts";
-import { ChevronDownIcon, LoaderCircleIcon, SquareIcon } from "~/icons";
+import { ChevronDownIcon, SquareIcon } from "~/icons";
 import { useState, type ReactNode } from "react";
 
 import { AgentElapsed } from "./AgentElapsed";

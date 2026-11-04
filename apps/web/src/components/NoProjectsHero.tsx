@@ -1,6 +1,5 @@
 import { MessageCircleIcon, PlusIcon } from "~/icons";
 import { workspaceAreaProps } from "../lib/workspaceFocus";
-import { MessageSquareDashedIcon } from "lucide-react";
 
 import { openCommandPalette } from "../commandPaletteBus";
 import { isElectron } from "../env";

@@ -334,7 +334,6 @@ export const ProviderModelPicker = memo(function ProviderModelPicker(props: {
                 props.compact
                   ? "max-w-42 shrink-0"
                   : !props.isComposerOwned && "max-w-48 sm:max-w-56",
-                props.triggerClassName,
               )}
               disabled={props.disabled}
             />

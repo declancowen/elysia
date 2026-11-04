@@ -15,7 +15,7 @@ import {
   type OrchestrationV2DomainEvent,
 } from "@elysiatools/contracts";
 import * as DateTime from "effect/DateTime";
-import * as Crypto from "effect/Crypto";
+import * as SecureRandom from "effect/crypto/SecureRandom";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Fiber from "effect/Fiber";
@@ -27,6 +27,7 @@ import * as Stream from "effect/Stream";
 import * as ScheduledTaskService from "../scheduledTasks/ScheduledTaskService.ts";
 import * as ProjectStore from "./ProjectStore.ts";
 import * as AgentDelegation from "./AgentDelegation.ts";
+import * as ManagedPolicy from "../policy/ManagedPolicy.ts";
 import * as SecretRequests from "../secrets/SecretRequests.ts";
 import * as ManagedProjectFolders from "../project/ManagedProjectFolders.ts";
 import * as Scheduler from "../scheduling/Scheduler.ts";
@@ -76,7 +77,7 @@ const batch = frame({
       ...statusIds.map((id) => ({
         type: "tool_use",
         id,
-        name: "mcp__t3-code__task_status",
+        name: "mcp__elysia__task_status",
         input: { taskId: id },
       })),
     ],
@@ -150,7 +151,7 @@ it.effect.each(deliveries)(
           attachmentsDir: cwd,
           fileSystem: yield* FileSystem.FileSystem,
           path: yield* Path.Path,
-          crypto: yield* Crypto.Crypto,
+          random: yield* SecureRandom.SecureRandom,
           idAllocator: yield* IdAllocator.IdAllocatorV2,
           queryRunner: {
             allocateSessionId: Effect.succeed(sessionId),
@@ -333,6 +334,7 @@ it.effect.each(deliveries)(
                     }),
                   ),
                   Layer.provide(Layer.mock(ThreadLaunchService.ThreadLaunchService)({})),
+                  Layer.provide(ManagedPolicy.layerTest()),
                   Layer.provide(
                     Layer.mock(ManagedProjectFolders.ManagedProjectFolders)({
                       namedProjectsRoot: "/projects",
@@ -484,7 +486,12 @@ it.effect.each(deliveries)(
         );
       }).pipe(
         Effect.provide(
-          Layer.mergeAll(IdAllocator.layer, McpProviderSessions.layer, NodeServices.layer),
+          Layer.mergeAll(
+            IdAllocator.layer,
+            McpProviderSessions.layer,
+            NodeServices.layer,
+            NodeCrypto.layer,
+          ),
         ),
       ),
     ),

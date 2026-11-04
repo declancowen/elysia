@@ -1,74 +1,61 @@
+import { SessionPermissions } from "./SessionPermissions";
+import { ChevronRightIcon, EllipsisIcon } from "~/icons";
 import { useAtomValue } from "@effect/atom-react";
+import { useState } from "react";
 import {
-  isAtomCommandInterrupted,
-  settlePromise,
-  squashAtomCommandFailure,
-} from "@elysiatools/client-runtime/state/runtime";
-import {
+  CONNECTIONS_ENABLED,
   AuthAccessReadScope,
   AuthAccessWriteScope,
   AuthEnvironmentMaintainScope,
   AuthRelayReadScope,
   AuthRelayWriteScope,
-  CONNECTIONS_ENABLED,
-  resolveEnvironmentMachineKind,
-  type AdvertisedEndpoint,
   type AuthClientSession,
-  type AuthPairingCredentialResult,
   type AuthPairingLink,
+  type AuthPairingCredentialResult,
+  type AdvertisedEndpoint,
   type DesktopServerExposureState,
   type DesktopWslState,
   type EnvironmentId,
+  managedCapabilityDenial,
+  resolveEnvironmentMachineKind,
 } from "@elysiatools/contracts";
+import {
+  isAtomCommandInterrupted,
+  settlePromise,
+  squashAtomCommandFailure,
+} from "@elysiatools/client-runtime/state/runtime";
 import * as Cause from "effect/Cause";
-import { useState } from "react";
-import { ChevronRightIcon, EllipsisIcon } from "~/icons";
-import { SessionPermissions } from "./SessionPermissions";
 
-import { hasCloudPublicConfig } from "~/cloud/publicConfig";
-import { requestConfirmDialog } from "~/confirmDialog";
-import { environmentCatalog } from "~/connection/catalog";
-import { isDesktopLocalConnectionTarget } from "~/connection/desktopLocal";
-import {
-  revokeOtherServerClientSessions,
-  revokeServerClientSession,
-  revokeServerPairingLink,
-  usePrimarySessionState,
-  type ServerClientSessionRecord,
-} from "~/environments/primary";
-import { authEnvironment } from "~/state/auth";
-import {
-  desktopNetworkAccessStateAtom,
-  refreshDesktopNetworkAccessState,
-} from "~/state/desktopNetworkAccess";
-import { useDesktopUpdateState } from "~/state/desktopUpdate";
-import { desktopWslStateAtom, refreshDesktopWslState } from "~/state/desktopWslState";
-import { environmentIdsKey } from "~/state/environmentAtomList";
-import {
-  useEnvironments,
-  usePrimaryEnvironment,
-  type EnvironmentPresentation,
-} from "~/state/environments";
-import { useEnvironmentQuery } from "~/state/query";
-import { environmentUpdateStatesAtom, serverEnvironment } from "~/state/server";
-import { readEnvironmentScope, useEnvironmentScope } from "~/state/session";
-import { useUiStateStore } from "~/uiStateStore";
-import {
-  resolveServerConfigVersionMismatch,
-  resolveServerSelfUpdateCapability,
-  supportsDesktopAppUpdate,
-  supportsServerUpdateThreadContinuation,
-} from "~/versionSkew";
 import { isLocalEnvironmentDisabled } from "../../localEnvironment";
-import { useAtomCommand } from "../../state/use-atom-command";
-import { RemoveElysiaConnectEnvironmentDialog } from "../clerk/RemoveElysiaConnectEnvironmentDialog";
-import { EnvironmentMachineIcon } from "../EnvironmentMachineIcon";
 import {
-  ServerUpdateAction,
-  ServerUpdateProgress,
-  ServerUpdatesAction,
-  type ServerUpdateTarget,
-} from "../ServerUpdateAction";
+  applyWslEnableSelection,
+  isWslSettingsRowVisible,
+  missingTailscaleEndpointDescription,
+  resolveLocalVersionStatusLabel,
+  resolveTailscaleServeBaseUrl,
+} from "./ConnectionsSettings.logic";
+import { SettingsPageContainer, SettingsRow, SettingsSection } from "./settingsLayout";
+import { ManagedByOrganization } from "../ManagedPolicy";
+import { LocalEnvironmentSetting } from "./LocalEnvironmentSetting";
+import { searchableSetting } from "./settingsSearch";
+import { EnvironmentIconMenu } from "./EnvironmentIconPicker";
+import { FoldedSettingsSection } from "./FoldedSettingsSection";
+import { LinkedEnvironmentsSettings } from "./LinkedEnvironmentsSettings";
+import { usePeerLinkHosts } from "~/state/peerLinks";
+import { LoadBalancingSettings } from "./LoadBalancingSettings";
+import { PullRequestRoutingSettings } from "./PullRequestRoutingSettings";
+import { Input } from "../ui/input";
+import {
+  Dialog,
+  DialogClose,
+  DialogFooter,
+  DialogDescription,
+  DialogHeader,
+  DialogPanel,
+  DialogPopup,
+  DialogTitle,
+} from "../ui/dialog";
+import { ScrollArea } from "../ui/scroll-area";
 import {
   AlertDialog,
   AlertDialogClose,
@@ -78,60 +65,78 @@ import {
   AlertDialogPopup,
   AlertDialogTitle,
 } from "../ui/alert-dialog";
-import { Button } from "../ui/button";
-import {
-  Dialog,
-  DialogClose,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogPanel,
-  DialogPopup,
-  DialogTitle,
-} from "../ui/dialog";
-import { Input } from "../ui/input";
-import { Menu, MenuPopup, MenuTrigger } from "../ui/menu";
-import { ScrollArea } from "../ui/scroll-area";
-import { Select, SelectItem, SelectPopup, SelectTrigger, SelectValue } from "../ui/select";
 import { Spinner } from "../ui/spinner";
+import { Select, SelectItem, SelectPopup, SelectTrigger, SelectValue } from "../ui/select";
+import { Menu, MenuPopup, MenuTrigger } from "../ui/menu";
 import { Switch } from "../ui/switch";
 import { stackedThreadToast, toastManager } from "../ui/toast";
 import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
-import { AddEnvironmentDialog } from "./AddEnvironmentDialog";
+import { Button } from "../ui/button";
+import { EnvironmentMachineIcon } from "../EnvironmentMachineIcon";
 import {
-  accessRowClassName,
+  revokeOtherServerClientSessions,
+  revokeServerClientSession,
+  revokeServerPairingLink,
+  usePrimarySessionState,
+  type ServerClientSessionRecord,
+} from "~/environments/primary";
+import { isDesktopLocalConnectionTarget } from "~/connection/desktopLocal";
+import { useUiStateStore } from "~/uiStateStore";
+import {
+  resolveServerConfigVersionMismatch,
+  resolveServerSelfUpdateCapability,
+  supportsDesktopAppUpdate,
+} from "~/versionSkew";
+import { hasCloudPublicConfig } from "~/cloud/publicConfig";
+import { RemoveElysiaConnectEnvironmentDialog } from "../clerk/RemoveElysiaConnectEnvironmentDialog";
+import { authEnvironment } from "~/state/auth";
+import { environmentCatalog } from "~/connection/catalog";
+import { readEnvironmentScope, useEnvironmentScope } from "~/state/session";
+import { useEnvironmentQuery } from "~/state/query";
+import {
+  desktopNetworkAccessStateAtom,
+  refreshDesktopNetworkAccessState,
+} from "~/state/desktopNetworkAccess";
+import { desktopWslStateAtom, refreshDesktopWslState } from "~/state/desktopWslState";
+import { useDesktopUpdateState } from "~/state/desktopUpdate";
+import {
+  type EnvironmentPresentation,
+  useEnvironments,
+  usePrimaryEnvironment,
+} from "~/state/environments";
+import { requestConfirmDialog } from "~/confirmDialog";
+import { useAtomCommand } from "../../state/use-atom-command";
+import { environmentIdsKey } from "~/state/environmentAtomList";
+import { environmentUpdateStatesAtom, serverEnvironment } from "~/state/server";
+import {
+  ServerUpdateAction,
+  ServerUpdateProgress,
+  ServerUpdatesAction,
+  type ServerUpdateTarget,
+} from "../ServerUpdateAction";
+import {
+  sortDesktopPairingLinks,
+  summarizeAuthorizedClients,
+  sortDesktopClientSessions,
+  toDesktopPairingLinkRecord,
+  toDesktopClientSessionRecord,
+  selectPairingEndpoint,
+  isTailscaleHttpsEndpoint,
+  endpointDefaultPreferenceKey,
+} from "./ConnectionsSettings.logic";
+import {
   AdvertisedEndpointListRow,
   AuthorizedClientsHeaderAction,
   NetworkAccessDescription,
   PairingClientsList,
-  type AccessSectionPresentation,
 } from "./AuthorizedClientsSettings";
-import {
-  applyWslEnableSelection,
-  endpointDefaultPreferenceKey,
-  isTailscaleHttpsEndpoint,
-  isWslSettingsRowVisible,
-  missingTailscaleEndpointDescription,
-  resolveLocalVersionStatusLabel,
-  selectPairingEndpoint,
-  sortDesktopClientSessions,
-  sortDesktopPairingLinks,
-  summarizeAuthorizedClients,
-  toDesktopClientSessionRecord,
-  toDesktopPairingLinkRecord,
-} from "./ConnectionsSettings.logic";
-import { EnvironmentIconMenu } from "./EnvironmentIconPicker";
-import { FoldedSettingsSection } from "./FoldedSettingsSection";
-import { LoadBalancingSettings } from "./LoadBalancingSettings";
-import { LocalEnvironmentSetting } from "./LocalEnvironmentSetting";
-import { PullRequestRoutingSettings } from "./PullRequestRoutingSettings";
+import { ITEM_ROW_CLASSNAME } from "./itemRows";
 import {
   CloudLinkRow,
   CloudRemoteEnvironmentRows,
   SavedBackendListRow,
 } from "./SavedEnvironmentRows";
-import { SettingsPageContainer, SettingsRow, SettingsSection } from "./settingsLayout";
-import { searchableSetting } from "./settingsSearch";
+import { AddEnvironmentDialog } from "./AddEnvironmentDialog";
 
 const DEFAULT_TAILSCALE_SERVE_PORT = 443;
 const EMPTY_ADVERTISED_ENDPOINTS: ReadonlyArray<AdvertisedEndpoint> = [];
@@ -150,9 +155,12 @@ function LocalVersionStatusLabel() {
   );
 }
 
-export function ConnectionsSettings() {
+/** Environments lists the machines this app connects to; access covers who may reach this one. */
+export function ConnectionsSettings({
+  view = "environments",
+}: { readonly view?: "environments" | "access" } = {}) {
   return CONNECTIONS_ENABLED ? (
-    <EnabledConnectionsSettings />
+    <EnabledConnectionsSettings view={view} />
   ) : (
     <SettingsPageContainer>
       <SettingsSection title="Connections">
@@ -164,11 +172,11 @@ export function ConnectionsSettings() {
     </SettingsPageContainer>
   );
 }
-
-function EnabledConnectionsSettings() {
+function EnabledConnectionsSettings({ view }: { readonly view: "environments" | "access" }) {
   const desktopBridge = window.desktopBridge;
   const { environments } = useEnvironments();
   const primaryEnvironment = usePrimaryEnvironment();
+  const peerLinkHosts = usePeerLinkHosts();
   const removeEnvironment = useAtomCommand(environmentCatalog.remove, { reportFailure: false });
   const setEnvironmentEnabled = useAtomCommand(environmentCatalog.setEnabled, {
     reportFailure: false,
@@ -217,9 +225,6 @@ function EnabledConnectionsSettings() {
           selfUpdate,
           installation: environment.serverConfig?.environment.capabilities.serverInstallation,
           desktopAppUpdate,
-          threadContinuation: supportsServerUpdateThreadContinuation(environment.serverConfig),
-          continueThreadsAfterServerUpdate:
-            environment.serverConfig?.settings.continueThreadsAfterServerUpdate ?? false,
           targetVersion: mismatch.clientVersion,
         },
       ];
@@ -238,8 +243,10 @@ function EnabledConnectionsSettings() {
   const [createdPairingCredentials, setCreatedPairingCredentials] = useState<
     ReadonlyMap<string, string>
   >(() => new Map());
+  const [newestPairingLinkId, setNewestPairingLinkId] = useState<string | null>(null);
   const handlePairingLinkCreated = (created: AuthPairingCredentialResult) => {
     setCreatedPairingCredentials((current) => new Map(current).set(created.id, created.credential));
+    setNewestPairingLinkId(created.id);
   };
   const [revokingDesktopPairingLinkId, setRevokingDesktopPairingLinkId] = useState<string | null>(
     null,
@@ -282,6 +289,9 @@ function EnabledConnectionsSettings() {
     DesktopServerExposureState["mode"] | null
   >(null);
   const primaryServerConfig = primaryEnvironment?.serverConfig ?? null;
+  const primaryManagedPolicy = primaryServerConfig?.managedPolicy;
+  // Turning remote access off stays possible; only the way in is managed.
+  const remoteClientsDenial = managedCapabilityDenial(primaryManagedPolicy, "remoteClients");
   const primaryVersionMismatch = resolveServerConfigVersionMismatch(primaryServerConfig);
   const primaryServerUpdateState = useAtomValue(
     serverEnvironment.updateStateAtom(primaryEnvironmentId),
@@ -299,8 +309,9 @@ function EnabledConnectionsSettings() {
   const canMaintain = useEnvironmentScope(primaryEnvironmentId, AuthEnvironmentMaintainScope);
   const canManageRelay = useEnvironmentScope(primaryEnvironmentId, AuthRelayWriteScope);
   const canManageLocalBackend = !isLocalEnvironmentDisabled() && canMaintain;
+  const showsAccess = view === "access";
   const authAccessChanges = useEnvironmentQuery(
-    canReadAccess && primaryEnvironmentId !== null
+    showsAccess && canReadAccess && primaryEnvironmentId !== null
       ? authEnvironment.accessChanges({
           environmentId: primaryEnvironmentId,
           input: null,
@@ -308,10 +319,10 @@ function EnabledConnectionsSettings() {
       : null,
   );
   const desktopNetworkAccess = useEnvironmentQuery(
-    canManageLocalBackend && desktopBridge ? desktopNetworkAccessStateAtom : null,
+    showsAccess && canManageLocalBackend && desktopBridge ? desktopNetworkAccessStateAtom : null,
   );
   const desktopWsl = useEnvironmentQuery(
-    canManageLocalBackend && desktopBridge ? desktopWslStateAtom : null,
+    showsAccess && canManageLocalBackend && desktopBridge ? desktopWslStateAtom : null,
   );
   const desktopWslState = desktopWsl.data;
   const desktopWslError = desktopWslMutationError ?? desktopWsl.error;
@@ -354,20 +365,11 @@ function EnabledConnectionsSettings() {
     parsedTailscaleServePort >= 1 &&
     parsedTailscaleServePort <= 65_535;
 
-  const pendingTailscaleServeBaseUrl = (() => {
-    if (!pendingTailscaleServeEndpoint) return null;
-    if (!isTailscaleServePortValid) return pendingTailscaleServeEndpoint.httpBaseUrl;
-    if (parsedTailscaleServePort === DEFAULT_TAILSCALE_SERVE_PORT) {
-      return pendingTailscaleServeEndpoint.httpBaseUrl;
-    }
-    try {
-      const url = new URL(pendingTailscaleServeEndpoint.httpBaseUrl);
-      url.port = String(parsedTailscaleServePort);
-      return url.toString().replace(/\/$/u, "");
-    } catch {
-      return pendingTailscaleServeEndpoint.httpBaseUrl;
-    }
-  })();
+  const pendingTailscaleServeBaseUrl = resolveTailscaleServeBaseUrl(
+    pendingTailscaleServeEndpoint,
+    parsedTailscaleServePort,
+    isTailscaleServePortValid,
+  );
 
   const handleDesktopServerExposureChange = async (checked: boolean) => {
     if (
@@ -606,7 +608,7 @@ function EnabledConnectionsSettings() {
     }
   };
 
-  // Removing a Elysia Connect route preserves account registration; use a separate dialog pointing to
+  // Removing a T3 Connect route preserves account registration; use a separate dialog pointing to
   // deregistration.
   const [pendingElysiaConnectRemoval, setPendingElysiaConnectRemoval] =
     useState<EnvironmentPresentation | null>(null);
@@ -657,7 +659,7 @@ function EnabledConnectionsSettings() {
       aria-label="Enable network access"
     />
   );
-  const renderEndpointRows = (presentation: AccessSectionPresentation) =>
+  const renderEndpointRows = () =>
     isAdvertisedEndpointListExpanded
       ? visibleDesktopNetworkAdvertisedEndpoints.map((endpoint) => {
           const endpointKey = endpointDefaultPreferenceKey(endpoint);
@@ -666,7 +668,6 @@ function EnabledConnectionsSettings() {
               key={endpoint.id}
               endpoint={endpoint}
               isDefault={endpointKey === defaultDesktopAdvertisedEndpointKey}
-              presentation={presentation}
               onSetDefault={handleSetDefaultAdvertisedEndpoint}
               onSetupTailscaleServe={handleStartTailscaleServeSetup}
               onDisableTailscaleServe={handleStartTailscaleServeDisable}
@@ -943,30 +944,40 @@ function EnabledConnectionsSettings() {
           />
         ) : null
       }
+      managed={tailscaleHttpsEndpoint?.status === "available" ? undefined : remoteClientsDenial}
     />
   );
-  const renderAuthorizedClients = (presentation: AccessSectionPresentation) => (
+  const newestPairingLink = visibleDesktopPairingLinks.find(
+    (pairingLink) => pairingLink.id === newestPairingLinkId,
+  );
+  const renderPairingClientsList = (
+    pairingLinks: typeof visibleDesktopPairingLinks,
+    clientSessions: typeof desktopClientSessions,
+  ) => (
+    <PairingClientsList
+      endpointUrl={desktopServerExposureState?.endpointUrl}
+      endpoints={visibleDesktopAdvertisedEndpoints}
+      defaultEndpointKey={defaultDesktopAdvertisedEndpointKey}
+      isLoading={isLoadingDesktopAccessManagement}
+      pairingLinks={pairingLinks}
+      createdPairingCredentials={createdPairingCredentials}
+      sharedPairingLinkId={newestPairingLinkId}
+      clientSessions={clientSessions}
+      revokingPairingLinkId={revokingDesktopPairingLinkId}
+      revokingClientSessionId={revokingDesktopClientSessionId}
+      onRevokePairingLink={handleRevokeDesktopPairingLink}
+      onRevokeClientSession={handleRevokeDesktopClientSession}
+      canRevoke={canWriteAccess}
+    />
+  );
+  const renderAuthorizedClients = () => (
     <>
       {desktopAccessManagementError ? (
-        <div className={accessRowClassName(presentation)}>
+        <div className={ITEM_ROW_CLASSNAME}>
           <p className="text-xs text-destructive">{desktopAccessManagementError}</p>
         </div>
       ) : null}
-      <PairingClientsList
-        endpointUrl={desktopServerExposureState?.endpointUrl}
-        endpoints={visibleDesktopAdvertisedEndpoints}
-        defaultEndpointKey={defaultDesktopAdvertisedEndpointKey}
-        presentation={presentation}
-        isLoading={isLoadingDesktopAccessManagement}
-        pairingLinks={visibleDesktopPairingLinks}
-        createdPairingCredentials={createdPairingCredentials}
-        clientSessions={desktopClientSessions}
-        revokingPairingLinkId={revokingDesktopPairingLinkId}
-        revokingClientSessionId={revokingDesktopClientSessionId}
-        onRevokePairingLink={handleRevokeDesktopPairingLink}
-        onRevokeClientSession={handleRevokeDesktopClientSession}
-        canRevoke={canWriteAccess}
-      />
+      {renderPairingClientsList(visibleDesktopPairingLinks, desktopClientSessions)}
     </>
   );
   const renderNetworkAccessRow = () => (
@@ -999,6 +1010,7 @@ function EnabledConnectionsSettings() {
         ) : null
       }
       control={renderNetworkAccessToggle()}
+      managed={isLocalBackendNetworkAccessible ? undefined : remoteClientsDenial}
     />
   );
   const renderDisabledNetworkAccessRow = () => (
@@ -1083,7 +1095,11 @@ function EnabledConnectionsSettings() {
               ) : null
             }
           >
-            <LocalEnvironmentSetting />
+            {primaryManagedPolicy ? (
+              <div className="px-3 py-2 sm:px-4">
+                <ManagedByOrganization policy={primaryManagedPolicy} />
+              </div>
+            ) : null}
             {canManageLocalBackend ? (
               <SettingsRow
                 title="Version"
@@ -1114,9 +1130,6 @@ function EnabledConnectionsSettings() {
                         primaryServerConfig?.environment.capabilities.serverInstallation
                       }
                       desktopAppUpdate={supportsDesktopAppUpdate(primaryServerConfig)}
-                      threadContinuation={supportsServerUpdateThreadContinuation(
-                        primaryServerConfig,
-                      )}
                       targetVersion={primaryVersionMismatch.clientVersion}
                       label={
                         primaryServerUpdateState.status === "failed"
@@ -1133,7 +1146,7 @@ function EnabledConnectionsSettings() {
             {canManageLocalBackend && desktopBridge ? (
               <>
                 {renderNetworkAccessRow()}
-                {renderEndpointRows("endpoint-rail")}
+                {renderEndpointRows()}
                 {renderTailscaleRow()}
                 {renderWslRow()}
                 {canReadRelay || canManageRelay ? (
@@ -1169,6 +1182,11 @@ function EnabledConnectionsSettings() {
             <FoldedSettingsSection
               id="authorized-clients"
               title="Authorized clients"
+              collapsedContent={
+                canReadAccess && newestPairingLink
+                  ? renderPairingClientsList([newestPairingLink], [])
+                  : undefined
+              }
               summary={summarizeAuthorizedClients(
                 desktopClientSessions,
                 visibleDesktopPairingLinks,
@@ -1198,7 +1216,7 @@ function EnabledConnectionsSettings() {
                 data-testid="authorized-clients-scroll-area"
               >
                 {canReadAccess ? (
-                  renderAuthorizedClients("current")
+                  renderAuthorizedClients()
                 ) : (
                   <p className="px-4 py-3 text-xs text-muted-foreground">
                     This connection can create access links but cannot view authorized clients.
@@ -1224,7 +1242,7 @@ function EnabledConnectionsSettings() {
                 <AlertDialogDescription>
                   {pendingDesktopServerExposureMode === "network-accessible"
                     ? "Let your other devices connect to Elysia over the network. Pair devices to give them access. Elysia will restart."
-                    : "Devices connected over your local network will disconnect. Existing tunnels, such as Connections or Tailscale HTTPS, keep working. Elysia will restart."}
+                    : "Devices connected over your local network will disconnect. Existing tunnels, such as T3 Connect or Tailscale HTTPS, keep working. Elysia will restart."}
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
@@ -1480,7 +1498,6 @@ function EnabledConnectionsSettings() {
             title="No environment selected"
             description="Connect an environment to view its settings and access."
           />
-          <LocalEnvironmentSetting />
           {canReadRelay || canManageRelay ? (
             <CloudLinkRow canReadRelay={canReadRelay} canManageRelay={canManageRelay} />
           ) : null}
@@ -1489,9 +1506,15 @@ function EnabledConnectionsSettings() {
     </>
   );
 
+  if (showsAccess) return <SettingsPageContainer>{primarySettings}</SettingsPageContainer>;
+
   return (
     <SettingsPageContainer>
-      {primarySettings}
+      {desktopBridge ? (
+        <SettingsSection id="this-app" title="This app">
+          <LocalEnvironmentSetting />
+        </SettingsSection>
+      ) : null}
       <SettingsSection
         {...searchableSetting("remote-environments")}
         title="Environments"
@@ -1533,6 +1556,7 @@ function EnabledConnectionsSettings() {
       {hasCloudPublicConfig() ? (
         <RemoveElysiaConnectEnvironmentDialog
           environmentLabel={pendingElysiaConnectRemoval?.label ?? null}
+          environmentId={pendingElysiaConnectRemoval?.environmentId ?? null}
           onCancel={() => setPendingElysiaConnectRemoval(null)}
           onConfirm={() => {
             if (!pendingElysiaConnectRemoval) return;
@@ -1541,6 +1565,14 @@ function EnabledConnectionsSettings() {
           }}
         />
       ) : null}
+      {peerLinkHosts.map((environment, index) => (
+        <LinkedEnvironmentsSettings
+          key={environment.environmentId}
+          environmentId={environment.environmentId}
+          environmentLabel={peerLinkHosts.length > 1 ? environment.label : null}
+          isSearchTarget={index === 0}
+        />
+      ))}
       <LoadBalancingSettings environments={loadBalancingEnvironments} />
       <PullRequestRoutingSettings environments={loadBalancingEnvironments} />
     </SettingsPageContainer>

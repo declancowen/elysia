@@ -1,6 +1,8 @@
 /** Work mode filters presentation only; switching back to Code restores saved settings. */
 const CODE_SETTINGS_PATHS = new Set([
   "/settings/projects",
+  "/settings/worktrees",
+  "/settings/merge",
   "/settings/source-control",
   "/settings/integrations",
 ]);

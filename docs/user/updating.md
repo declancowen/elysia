@@ -8,7 +8,7 @@ Connect to the company network or VPN before updating the provider. Finish activ
 
 Other provider installers, update checks and notifications are disabled in this company build.
 
-**Settings → General → Continue threads after restarts** is on by default.
+**Settings → Maintenance → Continue threads after restarts** is on by default.
 It resumes supported active threads after an update, crash, or machine
 restart. Changes are saved to connected environments that support this setting;
 update older servers first. If a supported environment was offline or has a
@@ -73,6 +73,7 @@ update can roll back to the previous version. If the update still fails:
 2. Check that you updated the server's machine, not only the device you are using.
 3. For a command-line server, stop it and relaunch the exact version shown in the notice.
 
+Only one server can use an Elysia home directory at a time. If startup reports that another server owns it, stop that server before retrying.
 ## Mobile updates
 
 This release does not publish App Store or Google Play builds. The native clients remain in the repository for development and server-contract compatibility; use the mobile development runbook for private builds.

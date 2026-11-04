@@ -70,6 +70,7 @@ function scheduleTimeZoneLabel(timeZone: string | undefined) {
 
 export function scheduleLabel(schedule: ScheduledTaskSchedule, timeZone?: string): string {
   if (schedule.type === "webhook") return "On webhook";
+  if (schedule.type === "once") return `Once at ${new Date(schedule.runAt).toLocaleString()}`;
   if (schedule.type === "interval") {
     const minutes = schedule.everyMs / 60_000;
     return Number.isInteger(minutes)
@@ -244,6 +245,7 @@ function ScheduledTasksWorkspace(target: ScheduledTasksTarget) {
     state.retarget({ kind: "scheduled", selection: previous }, { kind: "scheduled", selection });
   const activeTab = tabs.find((tab) => tab.id === activeId);
   const editor = activeTab?.target.selection.kind === "task" ? activeTab.target.selection : null;
+  // oxlint-disable-next-line elysia/no-unreasoned-state-sync -- Registers the scheduled route in the shared conversation-tab store when it has no active scheduled tab.
   useEffect(() => {
     const store = useConversationTabsStore.getState();
     if (store.tabs.find((tab) => tab.id === store.activeId)?.target.kind === "scheduled") return;
@@ -281,6 +283,7 @@ function ScheduledTasksWorkspace(target: ScheduledTasksTarget) {
     open({ kind: "task", environmentId: defaultEnvironment.environmentId, task: null });
     if (isMobile) setOpenMobile(false);
   };
+  // oxlint-disable-next-line elysia/no-unreasoned-state-sync -- Opens a requested scheduled-task deep link once its remote record arrives.
   useEffect(() => {
     if (
       linkedTask &&
@@ -442,7 +445,7 @@ function ScheduledTaskEnvironmentList({
   const linkedState = states.find((state) => state.environment.environmentId === environmentId);
   const linkedTask = linkedState?.tasks?.find((task) => task.id === taskId);
   const openedLink = useRef(false);
-  // oxlint-disable-next-line elysia/react-effect-budget -- Open a deep-linked task once its asynchronous environment query resolves.
+  // oxlint-disable-next-line elysia/no-unreasoned-state-sync -- Open a deep-linked task once its asynchronous environment query resolves.
   useEffect(() => {
     if (!openedLink.current && environmentId && linkedTask) {
       openedLink.current = true;
@@ -587,7 +590,7 @@ export function ScheduledTaskEnvironmentSection({
   );
   const linkedTask = tasksQuery.data?.tasks.find((task) => task.id === taskId);
   const openedLink = useRef(false);
-  // oxlint-disable-next-line elysia/react-effect-budget -- Resolve the incoming task link after the live task snapshot arrives.
+  // oxlint-disable-next-line elysia/no-unreasoned-state-sync -- Resolve the incoming task link after the live task snapshot arrives.
   useEffect(() => {
     if (!compact && !openedLink.current && linkedTask) {
       openedLink.current = true;

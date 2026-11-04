@@ -29,6 +29,7 @@ const subscribe = (listener: () => void) => {
   return () => state.listeners.delete(listener);
 };
 vi.mock("../../state/entities", () => ({
+  useServerConfigs: () => new Map(),
   useProjects: () => useSyncExternalStore(subscribe, () => state.projects),
 }));
 vi.mock("../../state/environments", () => ({

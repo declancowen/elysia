@@ -311,13 +311,12 @@ function SidebarControl({ disabled = false }: { disabled?: boolean }) {
   const { toggleSidebar } = useSidebar();
   const isSidebarVisible = useSidebarVisibility();
   const environmentIdentificationMode = getEnvironmentIdentificationMode();
-  const stageBackdropVariant = useSidebarStageBackdropVariant(
-    environmentIdentificationMode === "artwork",
-  );
+  const stageBackdropVariant = useSidebarStageBackdropVariant(environmentIdentificationMode);
   const shortcutLabel = shortcutLabelForCommand(keybindings, "sidebar.toggle", {
     context: { usagePageOpen },
   });
 
+  // oxlint-disable-next-line elysia/no-unreasoned-state-sync -- Keeps the window sidebar shortcut listener installed while this layout is active.
   useEffect(() => {
     if (disabled) return;
     const onKeyDown = (event: KeyboardEvent) => {
@@ -416,6 +415,7 @@ export function AppSidebarLayout({ children }: { children: ReactNode }) {
   const pathname = useLocation({ select: (location) => location.pathname });
   const panelAnimationsSuppressed = usePanelNavigationSuppression(pathname);
   const routePanelAnimationsActive = panelAnimationsActive && !panelAnimationsSuppressed;
+  // oxlint-disable-next-line elysia/no-unreasoned-state-sync -- Keeps the document animation duration aligned with the mounted workspace layout.
   useLayoutEffect(() => {
     const root = document.documentElement;
     const previous = root.style.getPropertyValue("--panel-animation-duration");
@@ -446,6 +446,7 @@ export function AppSidebarLayout({ children }: { children: ReactNode }) {
   const agentSidebarSelected = useAgentSidebarStore((state) => state.active);
   const showAgentsSidebar =
     SINGLE_PROVIDER_UI && agentSidebarActiveForPath(pathname, agentSidebarSelected, editingAgent);
+  // oxlint-disable-next-line elysia/no-unreasoned-state-sync -- Keeps the external agent-sidebar selection aligned with router navigation, including history.
   useEffect(() => {
     if (!SINGLE_PROVIDER_UI) return;
     if (editingAgent) return;

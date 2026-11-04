@@ -66,13 +66,6 @@ export function ProjectFavicon(input: {
   fallbackIcon?: ComponentType<{ className?: string }>;
 }) {
   const { project } = input;
-  const src = useAtomValue(
-    projectFaviconUrlAtom({
-      environmentId: project.environmentId,
-      cwd: project.workspaceRoot,
-      faviconPath: project.faviconPath,
-    }),
-  );
   if (project.projectIcon?.kind === "monogram") {
     return (
       <ProjectMonogram
@@ -109,6 +102,18 @@ export function ProjectFavicon(input: {
       </span>
     );
   }
+  return <AutomaticProjectFavicon {...input} />;
+}
+
+function AutomaticProjectFavicon(input: Parameters<typeof ProjectFavicon>[0]) {
+  const { project } = input;
+  const src = useAtomValue(
+    projectFaviconUrlAtom({
+      environmentId: project.environmentId,
+      cwd: project.workspaceRoot,
+      faviconPath: project.faviconPath,
+    }),
+  );
   const FallbackIcon =
     input.fallbackIcon ?? AUTOMATIC_PROJECT_ICONS[resolveAutomaticProjectIcon(project.title).name];
 

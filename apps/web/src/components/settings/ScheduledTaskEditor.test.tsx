@@ -388,6 +388,39 @@ it("saves project tasks without a dedicated thread so each run starts its own th
   expect(state.close).toHaveBeenCalledOnce();
 });
 
+it("saves a one-time task from its date and local time", async () => {
+  await using _screen = await renderDom(view(), { router: false });
+  await fillDetails();
+  await click(button("Once"));
+  const runAt = document.querySelector<HTMLInputElement>('input[type="datetime-local"]');
+  expect(runAt).not.toBeNull();
+  await act(async () => {
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")!.set!.call(
+      runAt,
+      "2027-01-15T09:30",
+    );
+    runAt!.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+  await click(button("Create task"));
+  expect(state.save).toHaveBeenCalledWith({
+    environmentId,
+    input: expect.objectContaining({
+      schedule: { type: "once", runAt: new Date("2027-01-15T09:30").toISOString() },
+    }),
+  });
+  expect(state.close).toHaveBeenCalledOnce();
+});
+
+it("keeps a one-time draft open until its run time is valid", async () => {
+  await using _screen = await renderDom(view(), { router: false });
+  await fillDetails();
+  await click(button("Once"));
+  await click(button("Create task"));
+  expect(state.save).not.toHaveBeenCalled();
+  expect(state.close).not.toHaveBeenCalled();
+  expect(state.toast).toHaveBeenCalledWith(expect.objectContaining({ title: "Invalid run time" }));
+});
+
 vi.mock("vite-plus/test/browser", () => ({
   page: { elementLocator: () => ({}) },
   utils: { getElementLocatorSelectors: () => ({}) },

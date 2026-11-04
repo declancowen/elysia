@@ -1,3 +1,4 @@
+import { resolveSidebarProjectScopeKeys } from "../sidebarProjectGrouping";
 import {
   buildBulkUnpinContextMenuItem,
   buildBulkTitleRegenerationContextMenuItem,
@@ -943,7 +944,7 @@ describe("sortSidebarV2ProjectGroups", () => {
     ];
 
     expect(
-      sortSidebarV2ProjectGroups(projects, threads, "updated_at").map(
+      sortSidebarV2ProjectGroups(projects, threads, "updated_at", new Set()).map(
         (project) => project.projectKey,
       ),
     ).toEqual(["logical-newer", "logical-older"]);
@@ -1388,6 +1389,26 @@ describe("resolveSidebarRouteReveal", () => {
   const hiddenKey = "environment-test:thread-test";
   const findThread = (key: string) => (key === hiddenKey ? hidden : undefined);
 
+  it("does not erase an imported multi-project scope when history opens one of its projects", () => {
+    const savedKeys = ["environment-test:project-scoped", "environment-test:project-other"];
+    const resolved = resolveSidebarProjectScopeKeys({ groups: [], keys: savedKeys });
+    const singleScope = savedKeys.length === 1 ? new Set(resolved) : null;
+    expect(
+      resolveSidebarRouteReveal({
+        reveal: { observedKey: "environment-test:other", pendingKey: null },
+        routeKey: hiddenKey,
+        isSearching: false,
+        scopedProjectKeys: singleScope,
+        delegatedUnderParent: new Set(),
+        findThread,
+      }),
+    ).toEqual({ pendingKey: hiddenKey, widensScope: false });
+    expect(savedKeys).toEqual([
+      "environment-test:project-scoped",
+      "environment-test:project-other",
+    ]);
+  });
+
   it("widens the scope for a newly opened thread the scope hides", () => {
     expect(
       resolveSidebarRouteReveal({
@@ -1395,6 +1416,7 @@ describe("resolveSidebarRouteReveal", () => {
         routeKey: hiddenKey,
         isSearching: false,
         scopedProjectKeys,
+        delegatedUnderParent: new Set(),
         findThread,
       }),
     ).toEqual({ pendingKey: hiddenKey, widensScope: true });
@@ -1408,6 +1430,7 @@ describe("resolveSidebarRouteReveal", () => {
         routeKey: hiddenKey,
         isSearching: false,
         scopedProjectKeys,
+        delegatedUnderParent: new Set(),
         findThread,
       }),
     ).toEqual({ pendingKey: null, widensScope: false });
@@ -1423,6 +1446,7 @@ describe("resolveSidebarRouteReveal", () => {
         routeKey,
         isSearching: false,
         scopedProjectKeys,
+        delegatedUnderParent: new Set(),
         findThread,
       });
     resolve("environment-test:unlisted");
@@ -1436,6 +1460,7 @@ describe("resolveSidebarRouteReveal", () => {
         routeKey: hiddenKey,
         isSearching: true,
         scopedProjectKeys,
+        delegatedUnderParent: new Set(),
         findThread,
       }),
     ).toEqual({ pendingKey: hiddenKey, widensScope: false });

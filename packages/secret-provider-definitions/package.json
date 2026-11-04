@@ -1,0 +1,18 @@
+{
+  "name": "@elysiatools/secret-provider-definitions",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./registry": {
+      "types": "./src/registry.ts",
+      "import": "./src/registry.ts"
+    }
+  },
+  "scripts": {
+    "typecheck": "effect-tsgo tsrs --noEmit"
+  },
+  "dependencies": {
+    "@elysiatools/secret-provider-core": "workspace:*",
+    "@elysiatools/secret-provider-onepassword": "workspace:*"
+  }
+}

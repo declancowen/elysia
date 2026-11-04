@@ -1,3 +1,4 @@
+import * as NodeCrypto from "@effect/platform-node/NodeCrypto";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { assert, it } from "@effect/vitest";
 import {
@@ -143,8 +144,10 @@ it.effect.each(["agent", "channel", "linked-memory", "failed-detach", "failed-li
       const recovered = yield* Deferred.make<void>();
       const dependencies = Layer.mergeAll(
         NodeServices.layer,
+
+        NodeCrypto.layer,
         ServerConfig.layerTest(process.cwd(), { prefix: "agent-reset-config-" }).pipe(
-          Layer.provide(NodeServices.layer),
+          Layer.provide(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer)),
         ),
         Layer.mock(ProviderRegistry)({}),
         Layer.mock(ServerSettingsService)({}),
@@ -267,8 +270,12 @@ it.effect.each(["agent", "channel", "linked-memory", "failed-detach", "failed-li
     }).pipe(
       Effect.provide(
         Layer.mergeAll(
-          SqlitePersistence.layerMemory.pipe(Layer.provide(NodeServices.layer)),
+          SqlitePersistence.layerMemory.pipe(
+            Layer.provide(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer)),
+          ),
           NodeServices.layer,
+
+          NodeCrypto.layer,
         ),
       ),
     );

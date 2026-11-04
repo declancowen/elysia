@@ -1,3 +1,4 @@
+import { readBoundedDocument } from "./readBoundedDocument";
 import { useStableCallback } from "~/hooks/useStableCallback";
 import type { OfficePreviewKind } from "@elysiatools/shared/filePreview";
 import { lazy, Suspense, useEffect, useState } from "react";
@@ -10,28 +11,6 @@ import { OFFICE_PREVIEW_MAX_BYTES, type OfficeWorkerResult } from "./officePrevi
 const WordDocument = lazy(() => import("./office/WordDocument"));
 const Spreadsheet = lazy(() => import("./office/Spreadsheet"));
 const Presentation = lazy(() => import("./office/Presentation"));
-async function readOfficeFile(src: string, signal: AbortSignal) {
-  const response = await fetch(src, { signal });
-  if (!response.ok) throw new Error("The file could not be loaded. Close it and try again.");
-  if (Number(response.headers.get("content-length")) > OFFICE_PREVIEW_MAX_BYTES)
-    throw new Error("Preview limited to files under 50 MB.");
-  const reader = response.body?.getReader();
-  if (!reader) throw new Error("The file is unavailable.");
-  const chunks: Uint8Array<ArrayBuffer>[] = [];
-  let size = 0;
-  try {
-    while (true) {
-      const { value, done } = await reader.read();
-      if (done) break;
-      size += value.length;
-      if (size > OFFICE_PREVIEW_MAX_BYTES) throw new Error("Preview limited to files under 50 MB.");
-      chunks.push(value);
-    }
-  } finally {
-    await reader.cancel();
-  }
-  return new Blob(chunks).arrayBuffer();
-}
 
 export default function OfficeViewer(props: {
   readonly src: string;
@@ -45,7 +24,7 @@ export default function OfficeViewer(props: {
   const fail = useStableCallback((cause: unknown) =>
     setError(cause instanceof Error ? cause.message : "Could not render this Office document."),
   );
-  // oxlint-disable-next-line elysia/react-effect-budget -- Own the Open XML fetch, preparation worker, and timeout for this source and release them on cleanup.
+  // oxlint-disable-next-line elysia/no-unreasoned-state-sync -- Own the Open XML fetch, preparation worker, and timeout for this source and release them on cleanup.
   useEffect(() => {
     if ((props.sizeBytes ?? 0) > OFFICE_PREVIEW_MAX_BYTES) {
       // Metadata bounds are checked before fetching or starting an engine.
@@ -79,7 +58,7 @@ export default function OfficeViewer(props: {
         worker.terminate();
       }
     });
-    void readOfficeFile(props.src, controller.signal)
+    void readBoundedDocument(props.src, controller.signal, OFFICE_PREVIEW_MAX_BYTES)
       .then((bytes) => {
         if (!controller.signal.aborted)
           worker.postMessage({ type: "open", kind: props.kind, bytes }, [bytes]);

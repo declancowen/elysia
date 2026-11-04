@@ -32,6 +32,8 @@ const project = (id: ProjectId, agentProfile: AgentProfile | null) => ({
   workspaceRoot: "/tmp",
   defaultModelSelection: null,
   defaultThreadEnvMode: null,
+  pinnedAt: null,
+  archivedAt: null,
   autoPull: false,
   faviconPath: null,
   projectIcon: null,

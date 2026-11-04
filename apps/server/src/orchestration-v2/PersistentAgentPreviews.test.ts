@@ -1,3 +1,4 @@
+import * as NodeCrypto from "@effect/platform-node/NodeCrypto";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { assert, it } from "@effect/vitest";
 import {
@@ -45,8 +46,9 @@ const dependencies = Layer.mergeAll(
   stores,
   EventSink.layerFromStores.pipe(Layer.provide(stores)),
   NodeServices.layer,
+  NodeCrypto.layer,
   ServerConfig.layerTest(process.cwd(), { prefix: "agent-preview-test-" }).pipe(
-    Layer.provide(NodeServices.layer),
+    Layer.provide(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer)),
   ),
   Layer.mock(ProviderRegistry)({ getProviders: Effect.die("Read started provider lookup") }),
   Layer.mock(ServerSettingsService)({}),

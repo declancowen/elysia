@@ -29,6 +29,9 @@ vi.mock("../../../../packages/contracts/src/forkPolicy.ts", async (importOrigina
 
 vi.mock("../provider/builtInDrivers.ts", async (importOriginal) => {
   const { MuseDriver } = await import("@elysiatools/provider-muse/server");
+  const { FxDriver } = await import("@elysiatools/provider-fx/server");
+  const { KiroDriver } = await import("@elysiatools/provider-kiro/server");
+  const { AcpRegistryDriver } = await import("@elysiatools/provider-acp-registry/server");
   const [codex, claude, cursor, grok, openCode, antigravity, pi] = await Promise.all([
     import("../provider/Drivers/CodexDriver.ts"),
     import("../provider/Drivers/ClaudeDriver.ts"),
@@ -45,6 +48,9 @@ vi.mock("../provider/builtInDrivers.ts", async (importOriginal) => {
       claude.ClaudeDriver,
       cursor.CursorDriver,
       grok.GrokDriver,
+      FxDriver,
+      KiroDriver,
+      AcpRegistryDriver,
       openCode.OpenCodeDriver,
       antigravity.AntigravityDriver,
       MuseDriver,

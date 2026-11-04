@@ -1,3 +1,7 @@
+import * as NodeCrypto from "@effect/platform-node/NodeCrypto";
+import { EnvironmentSigningKey } from "./cloud/environmentKeys.ts";
+import * as ManagedPolicy from "./policy/ManagedPolicy.ts";
+import * as ServerConfig from "./config.ts";
 import { assert, describe, it } from "@effect/vitest";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { CONNECTIONS_ENABLED, ThreadId } from "@elysiatools/contracts";
@@ -58,6 +62,8 @@ describe("Elysia background connections policy", () => {
         Effect.provide(
           Layer.mergeAll(
             NodeServices.layer,
+            NodeCrypto.layer,
+            Layer.mock(EnvironmentSigningKey)({ publicKey: "unused-disabled-key" }),
             secrets,
             Layer.mock(ServerEnvironment.ServerEnvironment)({}),
             Layer.mock(ThreadManagement.ThreadManagementService)({}),
@@ -84,6 +90,12 @@ describe("Elysia background connections policy", () => {
       }).pipe(
         Effect.provide(
           Layer.mergeAll(
+            NodeServices.layer,
+            ManagedPolicy.layerTest(),
+            secrets,
+            ServerConfig.layerTest(process.cwd(), { prefix: "disabled-connections-" }).pipe(
+              Layer.provide(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer)),
+            ),
             Layer.succeed(
               ChildProcessSpawner.ChildProcessSpawner,
               ChildProcessSpawner.make(() =>

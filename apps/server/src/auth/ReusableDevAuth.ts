@@ -1,6 +1,7 @@
-// @effect-diagnostics-next-line nodeBuiltinImport:off -- Effect's Crypto has no timingSafeEqual.
+// @effect-diagnostics-next-line nodeBuiltinImport:off -- Effect's Digest is effectful; this resolves the dev token synchronously at startup.
 import * as NodeCrypto from "node:crypto";
 import { AuthSessionId } from "@elysiatools/contracts";
+import * as Mac from "effect/crypto/Mac";
 import * as DateTime from "effect/DateTime";
 import * as Redacted from "effect/Redacted";
 
@@ -28,6 +29,6 @@ export function resolveReusableDevAuth(
     cookieName: `elysia_dev_session_${tokenId}`,
     legacyCookieName: `t3_dev_session_${tokenId}`,
     matches: (credential: string) =>
-      NodeCrypto.timingSafeEqual(hash, NodeCrypto.createHash("sha256").update(credential).digest()),
+      Mac.timingSafeEqual(hash, NodeCrypto.createHash("sha256").update(credential).digest()),
   };
 }

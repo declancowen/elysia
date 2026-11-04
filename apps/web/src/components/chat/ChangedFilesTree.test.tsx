@@ -9,6 +9,7 @@ describe("ChangedFilesCard", () => {
     const markup = renderToStaticMarkup(
       <ChangedFilesCard
         runId={RunId.make("run-1")}
+        totals={{ count: 1, additions: 2, deletions: 1 }}
         files={[{ path: "README.md", kind: "modified", additions: 2, deletions: 1 }]}
         allDirectoriesExpanded
         resolvedTheme="light"
@@ -28,6 +29,7 @@ describe("ChangedFilesCard", () => {
     const markup = renderToStaticMarkup(
       <ChangedFilesCard
         runId={RunId.make("run-1")}
+        totals={{ count: 4, additions: 168, deletions: 26 }}
         files={[
           { path: "apps/web/src/App.tsx", kind: "modified", additions: 120, deletions: 20 },
           { path: "apps/web/src/App.test.tsx", kind: "modified", additions: 30, deletions: 2 },
@@ -61,6 +63,7 @@ describe("ChangedFilesCard", () => {
     const markup = renderToStaticMarkup(
       <ChangedFilesCard
         runId={RunId.make("run-1")}
+        totals={{ count: 1, additions: 120, deletions: 20 }}
         files={[{ path: "apps/web/src/App.tsx", kind: "modified", additions: 120, deletions: 20 }]}
         allDirectoriesExpanded={false}
         resolvedTheme="light"

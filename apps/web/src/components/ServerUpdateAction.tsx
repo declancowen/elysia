@@ -1,8 +1,13 @@
+import { useManagedPolicy } from "../state/managedPolicy";
+import { environmentPresentations } from "../state/presentation";
+import { ManagedControl } from "./ManagedPolicy";
 import { useAtomValue } from "@effect/atom-react";
 import {
   AuthEnvironmentMaintainScope,
   type AuthSessionState,
+  type DesktopUpdateChannel,
   sessionGrantsScope,
+  managedUpdatesDenial,
 } from "@elysiatools/contracts";
 import type { AsyncResult } from "effect/reactivity";
 import { environmentSession } from "~/state/session";
@@ -50,8 +55,11 @@ export interface ServerUpdateTarget {
   readonly selfUpdate: ServerSelfUpdateCapability | null;
   readonly installation?: ServerInstallation | undefined;
   readonly desktopAppUpdate?: boolean;
-  readonly threadContinuation?: boolean;
+  readonly threadContinuation?: boolean | undefined;
   readonly targetVersion: string;
+  readonly channel?: DesktopUpdateChannel;
+  readonly targetDatabaseMigration?: number;
+  readonly trackOnly?: boolean;
   readonly continueThreadsAfterServerUpdate?: boolean;
 }
 export type PendingServerUpdate = Omit<ServerUpdateTarget, "continueThreadsAfterServerUpdate"> & {
@@ -90,6 +98,19 @@ export function useServerUpdate() {
     } = {},
   ): Promise<ServerUpdateOutcome> => {
     const { environmentId, serverLabel, selfUpdate, targetVersion } = target;
+    const denial = managedUpdatesDenial(
+      appAtomRegistry.get(environmentPresentations.serverConfigsAtom).get(environmentId)
+        ?.managedPolicy,
+    );
+    if (denial !== undefined) {
+      if (!quiet)
+        toastManager.add({
+          type: "error",
+          title: `${serverLabel} not updated`,
+          description: denial,
+        });
+      return { status: "failed", message: denial };
+    }
     if (
       !canUpdateServer(appAtomRegistry.get(environmentSession.sessionStateAtom(environmentId))) ||
       pendingUpdateEnvironmentIds.has(environmentId)
@@ -102,6 +123,10 @@ export function useServerUpdate() {
       environmentId,
       input: {
         targetVersion,
+        ...(target.channel === undefined ? {} : { channel: target.channel }),
+        ...(target.targetDatabaseMigration === undefined
+          ? {}
+          : { targetDatabaseMigration: target.targetDatabaseMigration }),
         ...(target.threadContinuation && target.continueThreadsAfterServerUpdate
           ? {
               continueRunningThreads: true,
@@ -236,6 +261,9 @@ export function ServerUpdateAction({
   desktopAppUpdate = false,
   threadContinuation = false,
   targetVersion,
+  channel,
+  targetDatabaseMigration,
+  trackOnly,
   label = "Update",
   variant = "outline",
   size = "xs",
@@ -250,6 +278,7 @@ export function ServerUpdateAction({
   const unsupportedDesktopUpdate = isDesktopAppUpdate && !desktopAppUpdate;
   const sessionStateAtom = environmentSession.sessionStateAtom(environmentId);
   const canUpdate = canUpdateServer(useAtomValue(sessionStateAtom));
+  const updatesDenial = managedUpdatesDenial(useManagedPolicy(environmentId));
   const continueThreadsAfterServerUpdate = useEnvironmentSettings(
     environmentId,
     (settings) => settings.continueThreadsAfterServerUpdate,
@@ -282,6 +311,9 @@ export function ServerUpdateAction({
       threadContinuation,
       targetVersion,
       continueThreadsAfterServerUpdate,
+      ...(channel === undefined ? {} : { channel }),
+      ...(targetDatabaseMigration === undefined ? {} : { targetDatabaseMigration }),
+      ...(trackOnly === undefined ? {} : { trackOnly }),
     });
   };
   const manualUrl = selfUpdate === null ? manualServerUpdateUrl(targetVersion) : null;
@@ -301,7 +333,8 @@ export function ServerUpdateAction({
             }),
           )
       : () => void handleUpdate();
-  const disabled = unsupportedDesktopUpdate || (manualUrl === null && !canUpdate);
+  const disabled =
+    updatesDenial !== undefined || unsupportedDesktopUpdate || (manualUrl === null && !canUpdate);
   if (render)
     return render({
       label: actionLabel,
@@ -332,20 +365,22 @@ export function ServerUpdateAction({
         >
           <CircleArrowUpIcon className="size-3.5" />
         </TooltipTrigger>
-        <TooltipPopup side="top">{actionLabel}</TooltipPopup>
+        <TooltipPopup side="top">{updatesDenial ?? actionLabel}</TooltipPopup>
       </Tooltip>
     );
   }
   return (
-    <Button
-      size={size}
-      variant={variant}
-      className={className}
-      disabled={disabled}
-      onClick={onClick}
-    >
-      {actionLabel}
-    </Button>
+    <ManagedControl reason={updatesDenial}>
+      <Button
+        size={size}
+        variant={variant}
+        className={className}
+        disabled={disabled}
+        onClick={onClick}
+      >
+        {actionLabel}
+      </Button>
+    </ManagedControl>
   );
 }
 

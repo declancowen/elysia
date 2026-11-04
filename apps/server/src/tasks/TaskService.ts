@@ -9,7 +9,7 @@ import {
   type WorkTaskMutationResult,
 } from "@elysiatools/contracts";
 import * as Context from "effect/Context";
-import * as Crypto from "effect/Crypto";
+import * as SecureRandom from "effect/crypto/SecureRandom";
 import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -51,7 +51,7 @@ const numberOf = (id: WorkTaskLookupInput["id"]) => Number(id.slice(5));
 
 const make = Effect.gen(function* () {
   const sql = yield* SqlClient.SqlClient;
-  const crypto = yield* Crypto.Crypto;
+  const crypto = yield* SecureRandom.SecureRandom;
   const projects = yield* ProjectStore.ProjectStoreV2;
   const threads = yield* ThreadManagement.ThreadManagementService;
   const delegation = yield* AgentDelegation.AgentDelegation;
@@ -321,7 +321,7 @@ const make = Effect.gen(function* () {
                 (previous?.status !== "in_progress" ||
                   previous.assigneeProjectId !== task.assigneeProjectId)
               ) {
-                const commandId = `work-task:${task.id}:${yield* crypto.randomUUIDv4()}`;
+                const commandId = `work-task:${task.id}:${yield* crypto.uuidV4()}`;
                 yield* sql`INSERT INTO work_task_starts VALUES (${number}, ${commandId}, ${task.assigneeProjectId}) ON CONFLICT(task_number) DO UPDATE SET command_id = excluded.command_id, assignee_project_id = excluded.assignee_project_id`;
               }
               return task;

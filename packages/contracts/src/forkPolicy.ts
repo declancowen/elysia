@@ -9,6 +9,7 @@ export const isEnabledProviderDriver = (driver: string): boolean => driver === "
 
 export const isConnectionsRpcMethod = (method: string): boolean =>
   method.startsWith("cloud.") ||
+  method.startsWith("peerLinks.") ||
   method.startsWith("guestShare.") ||
   method === "subscribeDiscoveredLocalServers" ||
   method === "subscribeAuthAccess";

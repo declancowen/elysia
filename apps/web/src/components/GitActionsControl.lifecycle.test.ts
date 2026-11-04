@@ -68,7 +68,7 @@ vi.mock("~/composerDraftStore", () => ({
       setDraftThreadContext: () => {},
     }),
 }));
-vi.mock("~/lib/sourceControlActions", () => ({
+vi.mock("~/state/sourceControlActions", () => ({
   useSourceControlActionRunning: () => false,
   useVcsInitAction: () => ({}),
   useVcsPullAction: () => ({}),

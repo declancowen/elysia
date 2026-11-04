@@ -390,7 +390,6 @@ export const ChatHeader = memo(function ChatHeader({
       ) : null}
       {showOpenInPicker && showWorkspaceFiles ? (
         <OpenInPicker
-          displayMode="panel"
           environmentId={activeThreadEnvironmentId}
           keybindings={keybindings}
           availableEditors={availableEditors}
@@ -403,7 +402,6 @@ export const ChatHeader = memo(function ChatHeader({
       !activeProject?.agentProfile &&
       activeProjectScripts ? (
         <ProjectScriptsControl
-          displayMode="panel"
           scripts={activeProjectScripts}
           fileScripts={fileScripts}
           environmentId={activeThreadEnvironmentId}
@@ -421,10 +419,8 @@ export const ChatHeader = memo(function ChatHeader({
       <div className="flex min-w-0 flex-col gap-1">
         {workspaceBranchControls}
         <GitActionsControl
-          displayMode="panel"
           gitCwd={gitCwd}
           activeThreadRef={activeThreadRef}
-          onOpenPullRequest={onOpenPullRequest}
           {...(overview ? { onOpenChanges: overview.onToggleChanges } : {})}
           {...(draftId ? { draftId } : {})}
         />

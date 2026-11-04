@@ -9,7 +9,7 @@ An Elysia Connect connection goes through four parts, in this order:
 3. **The host's tunnel** (cloudflared on the host) carries the request to the host.
 4. **Elysia on the host** answers.
 
-When a connection fails, open **Settings > Connections**, find the environment,
+When a connection fails, open **Settings > Environments**, find the environment,
 and select **Details**. The first part marked as failed is the cause. Find its
 section below.
 
@@ -101,7 +101,8 @@ Fix:
 
 ## Sign-in, account, or link problems
 
-Elysia Connect does not have an active link between your account and the host.
+This device's Elysia Connect sign-in is not ready yet, or Elysia Connect does not have
+an active link between your account and the host.
 
 - **The host is linked to a different account.** Sign in to the same Elysia Connect
   account on this device and on the host. On the host, run `elysia connect logout`,
@@ -113,6 +114,9 @@ Elysia Connect does not have an active link between your account and the host.
   `elysia service restart` on the host, or restart `elysia serve`.
 - **This device's sign-in expired, or the host no longer accepts this
   device.** Sign out of Elysia Connect and sign in again.
+- **This device is still loading its Elysia Connect sign-in.** Wait a moment;
+  Elysia retries on its own. If it keeps waiting, reload or restart Elysia on
+  this device.
 - **Your account reached its tunnel limit.** Remove an environment you do not
   use from your Elysia account's Elysia Connect page, then restart Elysia on the host.
 
@@ -151,3 +155,7 @@ If none of this helps, open an issue on
 - The text from **Copy diagnostics** in the environment's **Details**.
 - The output of `elysia connect status` on the host.
 - The trace ID, if one is shown.
+- If the tunnel dropped earlier, the host's tunnel log, `relay-client.ndjson`
+  in the logs folder (`~/.t3/userdata/logs` by default). It records when the
+  tunnel connected, warned, exited, and restarted, with the tunnel token
+  removed.

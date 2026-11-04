@@ -13,7 +13,6 @@ import { SidebarInset } from "./ui/sidebar";
 import {
   finalizePromotedDraftThreadByRef,
   markPromotedDraftThreadByRef,
-  useBackgroundDraftSubmissionPending,
   useComposerDraftStore,
 } from "../composerDraftStore";
 import { useSidebarPendingFileDropStore } from "../sidebarPendingFileDropStore";
@@ -67,9 +66,7 @@ export function ThreadRouteView({
       : null,
   );
   const archived = serverThread?.archivedAt != null || project?.agentProfile?.archived === true;
-  const backgroundSubmissionPending = useBackgroundDraftSubmissionPending(
-    target.kind === "draft" ? serverThreadRef : null,
-  );
+  const backgroundSubmissionPending = useComposerDraftStore(store => serverThreadRef !== null && store.backgroundSubmissionThreadKeys[scopedThreadKey(serverThreadRef)] === true);
   const canonicalThreadRef =
     target.kind === "draft"
       ? resolveDraftPromotionNavigationTarget({

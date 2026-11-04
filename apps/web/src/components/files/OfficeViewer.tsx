@@ -1,3 +1,4 @@
+import { readBoundedDocument } from "./readBoundedDocument";
 /* oxlint-disable react/no-array-index-key -- Spreadsheet rows and columns retain their source positions. */
 import { formatAttachmentSize } from "@elysiatools/client-runtime/state/attachments";
 import type { OfficePreviewKind } from "@elysiatools/shared/filePreview";
@@ -23,29 +24,6 @@ const NotebookPreview = lazy(() => import("./NotebookPreview"));
 type Workbook = Extract<OfficeWorkerResult, { type: "ods" }>;
 
 const OpenXmlOfficeViewer = lazy(() => import("./OpenXmlOfficeViewer"));
-
-async function readOfficeFile(src: string, signal: AbortSignal) {
-  const response = await fetch(src, { signal });
-  if (!response.ok) throw new Error("The file could not be loaded. Close it and try again.");
-  if (Number(response.headers.get("content-length")) > OFFICE_PREVIEW_MAX_BYTES)
-    throw new Error("Preview limited to files under 50 MB.");
-  const reader = response.body?.getReader();
-  if (!reader) throw new Error("The file is unavailable.");
-  const chunks: Uint8Array<ArrayBuffer>[] = [];
-  let size = 0;
-  try {
-    while (true) {
-      const { value, done } = await reader.read();
-      if (done) break;
-      size += value.length;
-      if (size > OFFICE_PREVIEW_MAX_BYTES) throw new Error("Preview limited to files under 50 MB.");
-      chunks.push(value);
-    }
-  } finally {
-    await reader.cancel();
-  }
-  return new Blob(chunks).arrayBuffer();
-}
 
 export default function OfficeViewer(props: {
   readonly src: string;
@@ -85,7 +63,7 @@ function ExtendedOfficeViewer(props: {
   const [page, setPage] = useState(0);
   const workerRef = useRef<Worker | null>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // oxlint-disable-next-line elysia/react-effect-budget -- Own the Office fetch, preparation worker, and timeout for this source and release them on cleanup.
+  // oxlint-disable-next-line elysia/no-unreasoned-state-sync -- Own the Office fetch, preparation worker, and timeout for this source and release them on cleanup.
   useEffect(() => {
     const controller = new AbortController();
     if ((props.sizeBytes ?? 0) > OFFICE_PREVIEW_MAX_BYTES) {
@@ -136,7 +114,7 @@ function ExtendedOfficeViewer(props: {
         });
       }
     });
-    void readOfficeFile(props.src, controller.signal)
+    void readBoundedDocument(props.src, controller.signal, OFFICE_PREVIEW_MAX_BYTES)
       .then((bytes) => {
         if (!controller.signal.aborted) {
           setFileSize(bytes.byteLength);

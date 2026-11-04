@@ -37,7 +37,7 @@ vi.mock("./ThreadDetailsCard", () => ({
     children("full"),
 }));
 
-import { ThreadDetailsPanel, type ThreadDetailsPanelProps } from "./ThreadDetailsPanel";
+import { ThreadDetailsPanel } from "./ThreadDetailsPanel";
 
 describe("ThreadDetailsPanel", () => {
   beforeEach(() => {
@@ -57,10 +57,10 @@ describe("ThreadDetailsPanel", () => {
     ] satisfies ReadonlyArray<ElysiaProjectFileScript>;
     testState.useElysiaProjectFileScripts.mockReturnValue(fileScripts);
 
-    const props: ThreadDetailsPanelProps = {
+    const props: React.ComponentProps<typeof ThreadDetailsPanel> = {
+      usage: { providerInstanceId: null, providers: [], sources: [], contextWindow: null },
       anchor: { current: null },
       handle: PopoverCreateHandle(),
-      onPresentationChange: vi.fn(),
       environmentId,
       threadId: "thread:thread-details" as ThreadId,
       projectId: "project:thread-details" as ProjectId,
@@ -84,9 +84,9 @@ describe("ThreadDetailsPanel", () => {
       onStartFromOriginChange: vi.fn(),
       onComposerFocusRequest: vi.fn(),
       onRunProjectScript: vi.fn(),
-      onAddProjectScript: vi.fn() as ThreadDetailsPanelProps["onAddProjectScript"],
-      onUpdateProjectScript: vi.fn() as ThreadDetailsPanelProps["onUpdateProjectScript"],
-      onDeleteProjectScript: vi.fn() as ThreadDetailsPanelProps["onDeleteProjectScript"],
+      onAddProjectScript: vi.fn() as React.ComponentProps<typeof ThreadDetailsPanel>["onAddProjectScript"],
+      onUpdateProjectScript: vi.fn() as React.ComponentProps<typeof ThreadDetailsPanel>["onUpdateProjectScript"],
+      onDeleteProjectScript: vi.fn() as React.ComponentProps<typeof ThreadDetailsPanel>["onDeleteProjectScript"],
     };
 
     renderToStaticMarkup(<ThreadDetailsPanel {...props} />);

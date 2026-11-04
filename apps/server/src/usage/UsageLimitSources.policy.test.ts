@@ -1,3 +1,4 @@
+import * as SecretResolver from "@elysiatools/secret-provider-core/server/SecretResolver";
 import * as NodeCrypto from "@effect/platform-node/NodeCrypto";
 import { expect, it } from "@effect/vitest";
 import { UsageLimitSourceId } from "@elysiatools/contracts";
@@ -38,6 +39,9 @@ it.effect("keeps configured external usage hubs dormant under the Elysia policy"
     expect(yield* Ref.get(requests)).toBe(0);
   }).pipe(
     Effect.provide([
+      Layer.mock(SecretResolver.SecretResolver)({
+        read: () => Effect.die("Disabled external sources must not resolve credentials"),
+      }),
       ServerSettings.layerTest({
         usageLimitSources: {
           [UsageLimitSourceId.make("configured-hub")]: {

@@ -34,7 +34,7 @@ import { projectLocationFlags, resolveCliAuthConfig } from "./config.ts";
 
 /**
  * Short enough that a run which stops to ask the user something is noticed
- * soon, since `t3_thread_wait` only returns on a terminal run.
+ * soon, since `elysia_thread_wait` only returns on a terminal run.
  */
 const WAIT_SLICE_MS = 15_000;
 const READ_PAGE_LIMIT = 100;
@@ -221,6 +221,7 @@ const withThreadTools = Effect.fn("cli.thread.withThreadTools")(function* <A, E,
         // The CLI runs as the machine's owner. New threads still start at
         // the project's default mode, never at this ceiling by default.
         access: "full-access",
+        peerLink: false,
         client: { deviceType: "bot" },
       }),
       (session) =>
@@ -261,7 +262,7 @@ const listAllProjects = Effect.fn("cli.thread.listAllProjects")(function* (tools
   let cursor: number | null = 0;
   while (cursor !== null) {
     const page: typeof ProjectListResult.Type = yield* tools.call(
-      "t3_project_list",
+      "elysia_project_list",
       { cursor, limit: 100 },
       ProjectListResult,
     );
@@ -316,7 +317,7 @@ const readTimeline = Effect.fn("cli.thread.readTimeline")(function* (
   let page: OrchestratorMcpThreadReadResult;
   do {
     page = yield* tools.call(
-      "t3_thread_read",
+      "elysia_thread_read",
       {
         threadId,
         view,
@@ -332,6 +333,63 @@ const readTimeline = Effect.fn("cli.thread.readTimeline")(function* (
   return { thread: page.thread, items };
 });
 
+/**
+ * The latest `count` user and assistant messages, oldest first. Positions
+ * count every timeline item, so the read starts near the end and widens
+ * backward only while tool and plan items leave too few messages.
+ */
+export const readLatestMessages = Effect.fn("cli.thread.readLatestMessages")(function* (
+  tools: ThreadTools,
+  threadId: ThreadId,
+  count: number,
+) {
+  let { thread } = yield* tools.call(
+    "elysia_thread_read",
+    { threadId, limit: 1, runLimit: 1 },
+    OrchestratorMcpThreadReadResult,
+  );
+  let messages: Array<OrchestratorMcpThreadTimelineItem> = [];
+  // The newest window has no upper bound, so items added since the first
+  // read are still shown.
+  let before: number | undefined;
+  let start = thread.itemCount;
+  let span = Math.max(count, READ_PAGE_LIMIT);
+  do {
+    const end = before;
+    start = Math.max(0, start - span);
+    const window: Array<OrchestratorMcpThreadTimelineItem> = [];
+    let afterPosition = start - 1;
+    let page: OrchestratorMcpThreadReadResult;
+    do {
+      page = yield* tools.call(
+        "elysia_thread_read",
+        {
+          threadId,
+          view: "messages",
+          limit: READ_PAGE_LIMIT,
+          runLimit: 1,
+          ...(afterPosition < 0 ? {} : { afterPosition }),
+        },
+        OrchestratorMcpThreadReadResult,
+      );
+      window.push(
+        ...page.items.filter(
+          (item) =>
+            (item.type === "user_message" || item.type === "assistant_message") &&
+            (end === undefined || item.position < end),
+        ),
+      );
+      afterPosition = page.nextPosition ?? Number.POSITIVE_INFINITY;
+    } while (page.hasMore && afterPosition < (end ?? Number.POSITIVE_INFINITY) - 1);
+    thread = page.thread;
+    // A window can hold the whole --messages count, too many to spread as arguments.
+    messages = window.concat(messages);
+    before = start;
+    span *= 2;
+  } while (messages.length < count && start > 0);
+  return { thread, messages: messages.slice(Math.max(0, messages.length - count)) };
+});
+
 /** Item text past the read's per-item cap. */
 const readFullText = Effect.fn("cli.thread.readFullText")(function* (
   tools: ThreadTools,
@@ -342,7 +400,7 @@ const readFullText = Effect.fn("cli.thread.readFullText")(function* (
   let nextTextOffset = item.textTruncated ? (item.nextTextOffset ?? null) : null;
   while (nextTextOffset !== null) {
     const page = yield* tools.call(
-      "t3_thread_read",
+      "elysia_thread_read",
       { threadId, itemId: item.itemId, textOffset: nextTextOffset, runLimit: 1 },
       OrchestratorMcpThreadReadResult,
     );
@@ -388,7 +446,11 @@ export const waitForRun = Effect.fn("cli.thread.waitForRun")(function* (
   runId: RunId,
 ) {
   const waitSlice = (timeoutMs: number) =>
-    tools.call("t3_thread_wait", { threadId, runId, timeoutMs }, OrchestratorMcpThreadWaitResult);
+    tools.call(
+      "elysia_thread_wait",
+      { threadId, runId, timeoutMs },
+      OrchestratorMcpThreadWaitResult,
+    );
   const ended = (waited: OrchestratorMcpThreadWaitResult) =>
     ({ type: "ended", runId: waited.runId, status: waited.status }) satisfies WaitOutcome;
   while (true) {
@@ -397,7 +459,7 @@ export const waitForRun = Effect.fn("cli.thread.waitForRun")(function* (
     // A pending request on this run, or on an earlier run this one is queued
     // behind, blocks it until someone answers.
     const { thread } = yield* tools.call(
-      "t3_thread_read",
+      "elysia_thread_read",
       { threadId, limit: 1, runLimit: 1 },
       OrchestratorMcpThreadReadResult,
     );
@@ -450,11 +512,16 @@ const finishRun = Effect.fn("cli.thread.finishRun")(function* (
   }
 });
 
-const titleFromMessage = (message: string) => {
+export const titleFromMessage = (message: string) => {
   const firstLine = message.trim().split("\n")[0]?.trim() ?? "";
-  return firstLine.length > TITLE_MAX_CHARS
-    ? `${firstLine.slice(0, TITLE_MAX_CHARS - 1).trimEnd()}…`
-    : firstLine;
+  if (firstLine.length <= TITLE_MAX_CHARS) return firstLine;
+  let end = TITLE_MAX_CHARS - 1;
+  const previous = firstLine.charCodeAt(end - 1);
+  const next = firstLine.charCodeAt(end);
+  if (previous >= 0xd800 && previous <= 0xdbff && next >= 0xdc00 && next <= 0xdfff) {
+    end -= 1;
+  }
+  return `${firstLine.slice(0, end).trimEnd()}…`;
 };
 
 const launchWorkspaceStrategy = (input: {
@@ -514,7 +581,7 @@ const threadListCommand = Command.make("list", {
         let cursor: number | null = 0;
         while (cursor !== null) {
           const page: OrchestratorMcpThreadListResult = yield* tools.call(
-            "t3_thread_list",
+            "elysia_thread_list",
             { projectId: project.id, includeSubagents: false, limit: 100, cursor },
             OrchestratorMcpThreadListResult,
           );
@@ -579,7 +646,7 @@ const threadStartCommand = Command.make("start", {
         Effect.fn("cli.thread.start")(function* (tools) {
           const project = yield* resolveProject(tools, flags.project);
           const launched = yield* tools.call(
-            "t3_thread_launch",
+            "elysia_thread_launch",
             {
               projectId: project.id,
               title,
@@ -629,7 +696,7 @@ const threadSendCommand = Command.make("send", {
         flags,
         Effect.fn("cli.thread.send")(function* (tools) {
           const sent = yield* tools.call(
-            "t3_thread_send",
+            "elysia_thread_send",
             { threadId, message, mode: "queue" },
             OrchestratorMcpThreadSendResult,
           );
@@ -661,11 +728,11 @@ const threadShowCommand = Command.make("show", {
       yield* withThreadTools(
         flags,
         Effect.fn("cli.thread.show")(function* (tools) {
-          const { thread, items } = yield* readTimeline(tools, threadId, "messages");
-          const conversation = items.filter(
-            (item) => item.type === "user_message" || item.type === "assistant_message",
+          const { thread, messages: latest } = yield* readLatestMessages(
+            tools,
+            threadId,
+            flags.messages,
           );
-          const latest = conversation.slice(Math.max(0, conversation.length - flags.messages));
           const messages = yield* Effect.forEach(latest, (item) =>
             readFullText(tools, threadId, item).pipe(
               Effect.map((text) => ({

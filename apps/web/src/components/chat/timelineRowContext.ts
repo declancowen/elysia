@@ -1,7 +1,12 @@
 import type { ChatMessage } from "../../types";
 import type { AgentAvatarValue } from "../agents/AgentAvatar";
 import type { taskLinksByReply } from "./MessagesTimeline.logic";
-import type { WorktreeSetupSnapshot } from "@elysiatools/contracts";
+import type {
+  WorktreeSetupSnapshot,
+  ProviderApprovalDecision,
+  RuntimeRequestId,
+} from "@elysiatools/contracts";
+import type { ToolCallDiffTarget } from "../../diffPanelStore";
 import {
   type EnvironmentId,
   type MessageId,
@@ -19,6 +24,7 @@ import type { WorkflowOpening } from "@elysiatools/client-runtime/state/subagent
 import { createContext, type MouseEvent, type ReactNode } from "react";
 import { type LegendListRef } from "@legendapp/list/react";
 import type { CodexArtifactTemplate } from "@elysiatools/shared/codexArtifactTemplates";
+import type { PendingApproval } from "../../session-logic";
 import { type ChatFileAttachment } from "../../types";
 import { ExpandedImagePreview } from "./ExpandedImagePreview";
 import { type AssistantCitationTarget } from "./AssistantCitationSource";
@@ -44,6 +50,12 @@ export interface TimelineRowSharedState {
   channel: boolean;
   onReply: ((message: ChatMessage) => void) | undefined;
   agentAvatar: AgentAvatarValue | undefined;
+  pendingApprovals: ReadonlyMap<RuntimeRequestId, PendingApproval>;
+  respondingRequestIds: ReadonlyArray<RuntimeRequestId>;
+  canOperateThread: boolean;
+  onRespondToApproval:
+    | ((requestId: RuntimeRequestId, decision: ProviderApprovalDecision) => Promise<unknown>)
+    | undefined;
   citationRequest: AssistantCitationTarget | null;
   listRef: React.RefObject<LegendListRef | null>;
   timestampFormat: TimestampFormat;
@@ -52,7 +64,7 @@ export interface TimelineRowSharedState {
   markdownCwd: string | undefined;
   resolvedTheme: "light" | "dark";
   workspaceRoot: string | undefined;
-  skills: ReadonlyArray<Pick<ServerProviderSkill, "name" | "displayName">>;
+  skills: ReadonlyArray<ServerProviderSkill>;
   runs: ReadonlyArray<HandoffTimelineRun>;
   activeThreadEnvironmentId: EnvironmentId;
   onRevertToTurnCount: (targetTurnCount: number, messageId: MessageId) => void;
@@ -63,6 +75,7 @@ export interface TimelineRowSharedState {
   findActive: boolean;
   onImageExpand: (preview: ExpandedImagePreview) => void;
   displayThreadKey?: string;
+  onOpenToolDiff: ((target: ToolCallDiffTarget) => void) | undefined;
   /** Unset where there is no diff to open, so the timeline shows no "Open diff" button. */
   onOpenTurnDiff: ((runId: RunId, filePath?: string) => void) | undefined;
   /**
@@ -78,10 +91,6 @@ export interface TimelineRowSharedState {
   onForkFromRun:
     | ((input: { readonly sourceThreadId: ThreadId; readonly runId: RunId }) => Promise<void>)
     | undefined;
-  onRollbackCheckpoint: (input: {
-    readonly checkpointId: string;
-    readonly scopeId: string;
-  }) => void;
   onToggleTurnFold: (runId: RunId) => void;
   onToggleAttemptFold: (attemptId: RunAttemptId) => void;
   onFileOpen: (attachment: ChatFileAttachment) => void;
@@ -102,7 +111,6 @@ export interface TimelineRowActivityState {
   isWorking: boolean;
   isCompacting: boolean;
   isRevertingCheckpoint: boolean;
-  activeTurnInProgress: boolean;
   awaitingUser: boolean;
   isPreparingWorktree: boolean;
   latestRunId: RunId | null;

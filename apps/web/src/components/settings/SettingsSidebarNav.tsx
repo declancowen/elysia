@@ -11,7 +11,7 @@ import {
   type KeyboardEvent,
   type ReactNode,
 } from "react";
-import { isElectron } from "~/env";
+import { isElectron, isSecretsFeatureEnabled } from "~/env";
 import { useCodeWorkspace } from "~/hooks/useSettings";
 import {
   ArchiveIcon,
@@ -85,12 +85,20 @@ const SETTINGS_SECTION_ICONS: Readonly<
   "/settings/keybindings": KeyboardIcon,
   "/settings/snap-shot": SnapShotIcon,
   "/settings/providers": BubblesIcon,
-  "/settings/integrations": BlocksIcon,
+  "/settings/browser": BlocksIcon,
+  "/settings/devices": BlocksIcon,
   "/settings/scheduled-tasks": ClockIcon,
   "/settings/source-control": GitBranchIcon,
-  "/settings/storage": HardDriveIcon,
+  "/settings/worktrees": HardDriveIcon,
+  "/settings/maintenance": HardDriveIcon,
   "/settings/connections": Link2Icon,
-  "/settings/beta": FlaskConicalIcon,
+  "/settings/labs": FlaskConicalIcon,
+  "/settings/about": Settings2Icon,
+  "/settings/chat": BubblesIcon,
+  "/settings/threads": BubblesIcon,
+  "/settings/diffs": PanelsTopLeftIcon,
+  "/settings/access": Link2Icon,
+  "/settings/secrets": Link2Icon,
   "/settings/archived": ArchiveIcon,
 };
 
@@ -178,7 +186,8 @@ export function SettingsSidebarNav({
   });
   const navItems = SETTINGS_NAV_ITEMS.filter(
     (item) =>
-      item.to !== "/settings/connections" &&
+      (CONNECTIONS_ENABLED || !["/settings/connections", "/settings/access"].includes(item.to)) &&
+      (isSecretsFeatureEnabled || item.to !== "/settings/secrets") &&
       (!SINGLE_PROVIDER_UI || item.to !== "/settings/scheduled-tasks") &&
       isSettingsPathVisibleInWorkspace(item.to, codeWorkspace) &&
       (item.to !== "/settings/projects" || isSettingsOverviewVisible(scopeSearch)),
@@ -199,6 +208,7 @@ export function SettingsSidebarNav({
     setActiveResultIndex(maxResultIndex);
   }
 
+  // oxlint-disable-next-line elysia/no-unreasoned-state-sync -- Keeps the keyboard-selected settings search row visible in the DOM scroll container.
   useEffect(() => {
     const result = results[activeResultIndex];
     if (!result) return;
@@ -207,6 +217,7 @@ export function SettingsSidebarNav({
       ?.scrollIntoView({ block: "nearest" });
   }, [activeResultIndex, results, searchId]);
 
+  // oxlint-disable-next-line elysia/no-unreasoned-state-sync -- Owns the document keyboard listener that opens and focuses the sidebar search.
   useEffect(() => {
     const handleKeyDown = (event: globalThis.KeyboardEvent) => {
       if (event.defaultPrevented || event.isComposing || (!preview && !sidebarVisible)) return;

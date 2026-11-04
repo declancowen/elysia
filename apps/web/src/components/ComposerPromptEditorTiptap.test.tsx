@@ -1,3 +1,4 @@
+import { isMacPlatform } from "../lib/utils";
 vi.mock("vite-plus/test/browser", () => ({
   page: { elementLocator: () => ({}) },
   utils: { getElementLocatorSelectors: () => ({}) },
@@ -68,5 +69,65 @@ it("preserves the controlled draft when a floating composer suspends and remount
     await act(async () => root.unmount());
     container.remove();
     vi.useRealTimers();
+  }
+});
+
+it("formats a selected word once and leaves an empty bold shortcut unarmed", async () => {
+  const container = document.createElement("div");
+  document.body.append(container);
+  await using root = await renderUi(null, { container, router: false });
+  const onChange = vi.fn();
+  try {
+    await root.rerender(
+      <ComposerPromptEditorTiptap
+        value="ship it"
+        cursor={7}
+        contextRecords={new Map()}
+        skills={[]}
+        disabled={false}
+        richTextEnabled
+        editorRef={createRef<ComposerPromptEditorHandle>()}
+        placeholder="Message"
+        ariaLabel="Message"
+        onChange={onChange}
+        onPaste={() => {}}
+      />,
+    );
+    const element = container.querySelector<
+      HTMLElement & { editor: import("@tiptap/core").Editor }
+    >(".tiptap")!;
+    const editor = element.editor;
+    const pressBold = () =>
+      element.dispatchEvent(
+        new KeyboardEvent("keydown", {
+          key: "b",
+          code: "KeyB",
+          ctrlKey: !isMacPlatform(navigator.platform),
+          metaKey: isMacPlatform(navigator.platform),
+          bubbles: true,
+          cancelable: true,
+        }),
+      );
+    await act(async () => {
+      editor.commands.setTextSelection(8);
+      pressBold();
+    });
+    expect(editor.state.storedMarks?.some((mark) => mark.type.name === "bold") ?? false).toBe(
+      false,
+    );
+    await act(async () => {
+      editor.commands.setTextSelection({ from: 1, to: 5 });
+      pressBold();
+    });
+    const boldText: string[] = [];
+    editor.state.doc.descendants((node) => {
+      if (node.isText && node.marks.some((mark) => mark.type.name === "bold"))
+        boldText.push(node.textContent);
+    });
+    expect(boldText).toEqual(["ship"]);
+    expect(onChange.mock.calls.at(-1)?.[0]).toBe("**ship** it");
+  } finally {
+    await root.unmount();
+    container.remove();
   }
 });

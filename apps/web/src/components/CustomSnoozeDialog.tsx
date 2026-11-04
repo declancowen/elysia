@@ -1,5 +1,6 @@
 import { formatCalendarDate } from "@elysiatools/shared/dateFormat";
 import { useEffect, useId, useState } from "react";
+import { useNavigate } from "@tanstack/react-router";
 import { create } from "zustand";
 import {
   localSnoozeDate,
@@ -8,7 +9,7 @@ import {
   type CustomSnoozeInput,
 } from "@elysiatools/client-runtime/state/thread-settled";
 import { Button } from "./ui/button";
-import { CalendarIcon } from "~/icons";
+import { CalendarIcon, Settings2Icon } from "~/icons";
 import { Calendar } from "./ui/calendar";
 import { weekStartsOn } from "../timestampFormat";
 import { useNowMinute } from "../hooks/useNowMinute";
@@ -57,12 +58,14 @@ function startOfLocalDay(ms: number) {
 
 export function CustomSnoozeDialogHost() {
   const request = useRequest((state) => state.request);
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- resolves any pending snooze request promise with null when the dialog host unmounts
   useEffect(() => () => finish(null), []);
   return request ? <CustomSnoozeDialog /> : null;
 }
 
 function CustomSnoozeDialog() {
   const id = useId();
+  const navigate = useNavigate();
   const [initial] = useState(() => new Date(Date.now() + 3_600_000));
   const nowMinute = useNowMinute();
   // Follows the clock so a dialog left open past midnight stops offering yesterday.
@@ -122,7 +125,7 @@ function CustomSnoozeDialog() {
               <div className="flex flex-col gap-4">
                 {mode === "date" ? (
                   <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                    <div className="flex min-w-0 flex-col gap-1.5">
+                    <div className="flex min-w-0 flex-col gap-2">
                       <Label htmlFor={`${id}-date`}>Date</Label>
                       <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
                         <PopoverTrigger
@@ -221,6 +224,21 @@ function CustomSnoozeDialog() {
             )}
           </DialogPanel>
           <DialogFooter>
+            <Button
+              type="button"
+              variant="ghost-muted"
+              className="sm:mr-auto"
+              onClick={() => {
+                finish(null);
+                void navigate({
+                  to: "/settings/threads",
+                  hash: "snooze-options",
+                });
+              }}
+            >
+              <Settings2Icon />
+              Edit snooze options
+            </Button>
             <Button type="button" variant="outline" onClick={() => finish(null)}>
               Cancel
             </Button>

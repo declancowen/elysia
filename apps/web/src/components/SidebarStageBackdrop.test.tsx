@@ -9,7 +9,7 @@ describe("SidebarStageBackdrop", () => {
   it("resolves stage artwork only when enabled", () => {
     expect(resolveSidebarStageBackdropVariant("Dev")).toBe("dev");
     expect(resolveSidebarStageBackdropVariant("Nightly")).toBe("nightly");
-    expect(resolveSidebarStageBackdropVariant("Dev", false)).toBeNull();
+    expect(resolveSidebarStageBackdropVariant("Dev", "none")).toBeNull();
     expect(resolveSidebarStageBackdropVariant("Alpha")).toBeNull();
   });
 

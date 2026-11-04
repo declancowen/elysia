@@ -1,5 +1,6 @@
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { afterEach, beforeEach, expect, it } from "@effect/vitest";
+import * as HostProcess from "@elysiatools/shared/HostProcess";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Option from "effect/Option";
@@ -137,6 +138,14 @@ it.layer(NodeServices.layer)("DesktopCliCommand", (it) => {
       yield* command.uninstall;
       expect(yield* fs.readFileString(theirs)).toBe("npm's elysia\n");
       expect(yield* fs.readLink(path.join(home, "bin", "elysia"))).toBe(path.join(home, "gone"));
+
+      const launcher = path.join(home, ".elysia", "bin", "elysia");
+      yield* fs.writeFileString(launcher, "npm's elysia\n");
+      process.env.PATH = path.dirname(launcher);
+      expect(yield* command.state).toMatchObject({ onPath: false, shadowedBy: launcher });
+      expect((yield* Effect.flip(command.install)).message).toContain("Could not set up");
+      yield* command.uninstall;
+      expect(yield* fs.readFileString(launcher)).toBe("npm's elysia\n");
     }).pipe(Effect.scoped),
   );
 
@@ -199,6 +208,67 @@ it.layer(NodeServices.layer)("DesktopCliCommand", (it) => {
         installedPath: path.join(home, ".local", "bin", "elysia"),
       });
       expect(installed.shadowedBy).toBeUndefined();
+    }).pipe(Effect.scoped),
+  );
+
+  it.effect.skipIf(HostProcess.Platform.defaultValue() === "win32")(
+    "skips a elysia directory or a file this user cannot execute",
+    () =>
+      Effect.gen(function* () {
+        const fs = yield* FileSystem.FileSystem;
+        const path = yield* Path.Path;
+        const home = yield* fs.makeTempDirectoryScoped();
+        const folder = path.join(home, "folder");
+        const plain = path.join(home, "plain");
+        const shadow = path.join(home, "shadow");
+        yield* fs.makeDirectory(path.join(folder, "elysia"), { recursive: true });
+        yield* fs.makeDirectory(plain);
+        yield* fs.writeFileString(path.join(plain, "elysia"), "notes\n");
+        // Root can execute mode 0o601; other users must honor the owner permissions.
+        yield* fs.chmod(path.join(plain, "elysia"), process.getuid?.() === 0 ? 0o600 : 0o601);
+        yield* fs.makeDirectory(shadow);
+        yield* fs.writeFileString(path.join(shadow, "elysia"), "#!/bin/sh\n", { mode: 0o755 });
+        process.env.PATH = [folder, plain, shadow, path.join(home, ".local", "bin")].join(":");
+
+        const command = yield* commandIn({ home });
+        expect((yield* command.state).shadowedBy).toBe(path.join(shadow, "elysia"));
+
+        const error = yield* Effect.flip(command.install);
+        expect(error.message).toContain(path.join(shadow, "elysia"));
+
+        yield* fs.remove(shadow, { recursive: true });
+        expect(yield* command.install).toMatchObject({
+          onPath: true,
+          installedPath: path.join(home, ".local", "bin", "elysia"),
+        });
+      }).pipe(Effect.scoped),
+  );
+
+  it.effect("does not treat its own launcher as another elysia when its folder is first on PATH", () =>
+    Effect.gen(function* () {
+      const fs = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+      const home = yield* fs.makeTempDirectoryScoped();
+      const launcher = path.join(home, ".elysia", "bin", "elysia");
+      process.env.PATH = [path.dirname(launcher), path.join(home, ".local", "bin")].join(":");
+
+      const command = yield* commandIn({ home });
+      const installed = yield* command.install;
+
+      expect(yield* fs.exists(launcher)).toBe(true);
+      expect(installed).toMatchObject({
+        onPath: true,
+        installedPath: path.join(home, ".local", "bin", "elysia"),
+      });
+      expect(installed.shadowedBy).toBeUndefined();
+      expect(yield* command.state).toEqual(installed);
+
+      const removed = yield* command.uninstall;
+      expect(removed.installedPath).toBeNull();
+      expect(removed.onPath).toBe(true);
+      expect(yield* command.state).toEqual(removed);
+      expect(yield* fs.exists(installed.installedPath!)).toBe(false);
+      expect(yield* fs.exists(launcher)).toBe(true);
     }).pipe(Effect.scoped),
   );
 

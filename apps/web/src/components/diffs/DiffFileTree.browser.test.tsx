@@ -38,6 +38,7 @@ describe("diff tree file activation", () => {
     const targets: CodeViewScrollTarget[] = [];
     const viewer = {
       getInstance: () => viewer,
+      getItem: () => ({}),
       scrollTo: (target: CodeViewScrollTarget) => targets.push(target),
     };
 
@@ -50,14 +51,15 @@ describe("diff tree file activation", () => {
       selectedPath?: string | null;
       revealRequestId?: number;
     }) {
-      const reveal = useCodeViewFileReveal(viewer, "working-tree");
+      const reveal = useCodeViewFileReveal();
+      reveal.attach(viewer);
       return (
         <DiffFileTree
           entries={files}
           ariaLabel="Working tree files"
           selectedPath={selectedPath}
           revealRequestId={revealRequestId}
-          onSelectFile={(path) => reveal(`${path}\0${path}`)}
+          onSelectFile={(path) => reveal.request(`${path}\0${path}`)}
         />
       );
     }

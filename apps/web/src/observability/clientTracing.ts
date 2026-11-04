@@ -76,8 +76,8 @@ const layerDelegateRuntime = Layer.mergeAll(
 let activeRuntime: ManagedRuntime.ManagedRuntime<never, never> | null = null;
 let activeScope: Scope.Closeable | null = null;
 let activeConfigKey: string | null = null;
-let configurationGeneration = 0;
 let pendingConfiguration = Promise.resolve();
+let configurationGeneration = 0;
 export interface ClientTracingConfig {
   readonly exportIntervalMs?: number;
 }
@@ -90,7 +90,7 @@ export function configureClientTracing(config: ClientTracingConfig = {}): Promis
 }
 async function applyClientTracingConfig(config: ClientTracingConfig): Promise<void> {
   const otlpTracesUrl = resolvePrimaryEnvironmentHttpUrl("/api/observability/v1/traces");
-  const exportIntervalMs = Math.max(10, config.exportIntervalMs ?? DEFAULT_EXPORT_INTERVAL_MS);
+  const exportIntervalMs = config.exportIntervalMs ?? DEFAULT_EXPORT_INTERVAL_MS;
   const nextConfigKey = `${otlpTracesUrl}|${exportIntervalMs}`;
   if (activeConfigKey === nextConfigKey && ClientTracer.hasDelegate()) {
     return;

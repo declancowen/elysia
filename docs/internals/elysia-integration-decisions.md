@@ -22,6 +22,8 @@ Claude's saved `settings.env` overrides the process environment. A process envir
 
 The SDK rejects a settings-file path together with its top-level `sandbox` option. Serialize the complete per-query sandbox policy into the private settings file before handing it to the SDK; omit only the redundant SDK option. The startup regression in app 0.0.41 occurred before the CLI launched. Regression proof must exercise the real SDK with the complete production query options, including protection, rather than testing native routing and sandbox settings separately.
 
+Elysia model changes use a fresh native session with a portable handoff, including switches back to a model used earlier in the thread. The adapter must publish this capability on the opened session as well as its static metadata: the switch service reads session capabilities, and generic Claude defaults previously bypassed this safeguard. Active steering must follow the same rule rather than finding and resuming a historical session. Existing session metadata must not override the native Elysia restriction.
+
 Revisit if the CLI exposes a supported per-session configuration interface or the native runtime changes settings precedence. Preserve isolation, private-file protection and child-lifetime cleanup in any replacement.
 
 ## CLI-003: Account totals and model estimates have different evidence

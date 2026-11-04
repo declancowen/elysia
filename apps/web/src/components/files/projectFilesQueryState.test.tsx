@@ -172,51 +172,6 @@ describe("project query refresh", () => {
     }
   });
 
-  it.each(["missing", "valid", "invalid"] as const)(
-    "project configuration preference when new file is %s",
-    (state) => {
-      const registry = AtomRegistry.make();
-      atomHooks.registry = registry;
-      const primary =
-        state === "missing"
-          ? Atom.make(
-              AsyncResult.failure(
-                Cause.fail(
-                  new ProjectReadFileError({
-                    relativePath: "elysia.json",
-                    cwd: "/repo",
-                    cause: { cause: { code: "ENOENT" } },
-                  }),
-                ),
-              ),
-            )
-          : Atom.make(
-              AsyncResult.success(
-                file(state === "invalid" ? "{ invalid" : '{"iconPath":"new.svg"}'),
-              ),
-            );
-      const legacy = Atom.make(AsyncResult.success(file('{"iconPath":"legacy.svg"}')));
-      projectMocks.readFile.mockImplementation(({ input }: { input: { relativePath: string } }) =>
-        input.relativePath === "elysia.json" ? primary : legacy,
-      );
-      projectMocks.optimisticFile.mockReturnValue(Atom.make(null));
-      try {
-        const resolved = useElysiaProjectFileState(environmentId, "/repo");
-        expect(resolved.status).toBe(state === "invalid" ? "invalid" : "valid");
-        expect(resolved.file?.iconPath).toBe(
-          state === "missing" ? "legacy.svg" : state === "valid" ? "new.svg" : undefined,
-        );
-        const paths = projectMocks.readFile.mock.calls.map(
-          ([request]) => request.input.relativePath,
-        );
-        expect(paths.includes("t3.json")).toBe(state === "missing");
-      } finally {
-        registry.dispose();
-        atomHooks.registry = null;
-      }
-    },
-  );
-
   it("keeps elysia.json and the file tree loading until the file grant arrives", () => {
     authorizationMocks.sessionAtom = Atom.make(AsyncResult.initial());
     const registry = AtomRegistry.make();

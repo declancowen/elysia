@@ -8,7 +8,7 @@ import {
 import * as Cache from "effect/Cache";
 import * as Deferred from "effect/Deferred";
 import * as Duration from "effect/Duration";
-import * as Crypto from "effect/Crypto";
+import * as SecureRandom from "effect/crypto/SecureRandom";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
@@ -51,7 +51,7 @@ import {
   makeProviderMaintenanceCapabilities,
   resolveProviderMaintenanceCapabilitiesEffect,
 } from "@elysiatools/provider-core/server/maintenanceResolver";
-import { CLAUDE_RUNTIME_UPDATE } from "./ClaudeDriver.ts";
+import { CLAUDE_RUNTIME_UPDATE } from "./ClaudeMaintenance.ts";
 import {
   haveProviderSnapshotSettingsChanged,
   makeProviderSnapshotSettingsSource,
@@ -83,7 +83,7 @@ export type ElysiaDriverEnv =
   | IdAllocatorV2
   | BackgroundPolicy.BackgroundPolicy
   | ChildProcessSpawner.ChildProcessSpawner
-  | Crypto.Crypto
+  | SecureRandom.SecureRandom
   | FileSystem.FileSystem
   | HttpClient.HttpClient
   | Path.Path
@@ -223,7 +223,7 @@ export const ElysiaDriver: ProviderDriver<ClaudeSettings, ElysiaDriverEnv> = {
       authorizeModel: authorize,
       resolveEnvironment: elysia.modelEnvironment,
       attachmentsDir: (yield* ServerConfig).attachmentsDir,
-      crypto: yield* Crypto.Crypto,
+      random: yield* SecureRandom.SecureRandom,
       fileSystem: fs,
       path,
       idAllocator: yield* IdAllocatorV2,

@@ -65,7 +65,7 @@ import { useShallow } from "zustand/react/shallow";
 import { PullRequestGlyph } from "~/components/pullRequest/pullRequestIcons";
 import { Spinner } from "~/components/ui/spinner";
 import { useCopyToClipboard } from "~/hooks/useCopyToClipboard";
-import { useIsMobile } from "~/hooks/useMediaQuery";
+import { useMediaQuery } from "~/hooks/useMediaQuery";
 import {
   getClientSettings,
   updateClientSettings,
@@ -89,7 +89,7 @@ import { cn } from "~/lib/utils";
 import { selectNonAgentProjectItems, selectRegularProjects } from "../agentPresentation";
 import { isCommandPaletteOpen, openCommandPalette } from "../commandPaletteBus";
 import { useComposerDraftStore } from "../composerDraftStore";
-import { isDesktopLocalConnectionTarget, isWslConnectionTarget } from "../connection/desktopLocal";
+import { isDesktopLocalConnectionTarget, desktopLocalBackendId } from "../connection/desktopLocal";
 import { useDesktopLocalBootstraps } from "../connection/useDesktopLocalBootstraps";
 import { showContextMenuFallback } from "../contextMenuFallback";
 import { currentConversationTabsStore } from "../conversationTabsStore";
@@ -118,7 +118,6 @@ import { isMacPlatform } from "../lib/utils";
 import { ensureLocalApi, readLocalApi } from "../localApi";
 import {
   derivePhysicalProjectKey,
-  deriveProjectGroupingOverrideKey,
   getProjectOrderKey,
   selectProjectGroupingSettings,
 } from "../logicalProject";
@@ -134,14 +133,19 @@ import {
 } from "../sidebarProjectGrouping";
 import { useDesktopUpdateState } from "../state/desktopUpdate";
 import {
-  readEnvironmentSupportsPinning,
   readThreadShell,
+  useDelegatedUnderParent,
   useProjects,
   useThreadShells,
   useThreadShellsForProjectRefs,
   waitForProjectRemoval,
 } from "../state/entities";
-import { useEnvironment, useEnvironments, usePrimaryEnvironmentId } from "../state/environments";
+import {
+  readEnvironment,
+  useEnvironment,
+  useEnvironments,
+  usePrimaryEnvironmentId,
+} from "../state/environments";
 import { readUnloadedThreadCount } from "../state/olderSettledShelf";
 import { previewEnvironment } from "../state/preview";
 import { projectEnvironment } from "../state/projects";
@@ -459,7 +463,7 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: SidebarThreadRowP
     environmentId: thread.environmentId,
     threadId: thread.id,
   });
-  const isMobile = useIsMobile();
+  const isMobile = useMediaQuery("max-md");
   const discoveredPorts = useThreadDiscoveredPorts({
     environmentId: thread.environmentId,
     threadId: thread.id,
@@ -864,7 +868,8 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: SidebarThreadRowP
           >
             {!isConfirmingArchive &&
               !isThreadRunning &&
-              readEnvironmentSupportsPinning(thread.environmentId) && (
+              readEnvironment(thread.environmentId)?.serverConfig?.environment.capabilities
+                .threadPinning === true && (
                 <div className="pointer-events-none absolute top-1/2 right-6.5 -translate-y-1/2 opacity-0 transition-opacity duration-150 max-sm:pointer-events-auto max-sm:opacity-100 group-hover/menu-sub-item:pointer-events-auto group-hover/menu-sub-item:opacity-100 group-focus-within/menu-sub-item:pointer-events-auto group-focus-within/menu-sub-item:opacity-100">
                   <Tooltip>
                     <TooltipTrigger
@@ -1251,6 +1256,7 @@ function resolveProjectThreadStatus(
 // SidebarProjectItem frozen: inline, its later calls made the compiler fuse the
 // ordered keys with the route-dependent panel, handing every row a new array.
 function useProjectThreads(project: SidebarProjectSnapshot, pinnedOnly: boolean) {
+  const delegatedUnderParent = useDelegatedUnderParent();
   const threadSortOrder = useClientSettings<SidebarThreadSortOrder>(
     (settings) => settings.sidebarThreadSortOrder,
   );
@@ -1299,7 +1305,7 @@ function useProjectThreads(project: SidebarProjectSnapshot, pinnedOnly: boolean)
     ]),
   );
   const manualThreadOrder = useUiStateStore((state) => state.sidebarThreadOrder);
-  const visible = filterSidebarV2VisibleThreads(sidebarThreads, null).filter(
+  const visible = filterSidebarV2VisibleThreads(sidebarThreads, null, delegatedUnderParent).filter(
     (thread) => pinnedOnly === (thread.pinnedAt != null),
   );
   const sortedThreads = pinnedOnly
@@ -1588,7 +1594,7 @@ const SidebarProjectItem = memo(function SidebarProjectItem(props: SidebarProjec
     setProjectRenameTitle(member.title);
   };
   const openProjectGroupingDialog = (member: SidebarProjectGroupMember) => {
-    const overrideKey = deriveProjectGroupingOverrideKey(member);
+    const overrideKey = derivePhysicalProjectKey(member);
     setProjectGroupingTarget(member);
     setProjectGroupingSelection(
       projectGroupingSettings.sidebarProjectGroupingOverrides?.[overrideKey] ?? "inherit",
@@ -2187,7 +2193,14 @@ const SidebarProjectItem = memo(function SidebarProjectItem(props: SidebarProjec
   };
   const toggleThreadPin = async (threadRef: ScopedThreadRef) => {
     const thread = readSidebarThreadByKey().get(scopedThreadKey(threadRef));
-    if (!thread || !readEnvironmentSupportsPinning(thread.environmentId)) return;
+    if (
+      !thread ||
+      !(
+        readEnvironment(thread.environmentId)?.serverConfig?.environment.capabilities
+          .threadPinning === true
+      )
+    )
+      return;
     const result = await (thread.pinnedAt == null
       ? pinThread(threadRef)
       : confirmAndUnpinThread(threadRef));
@@ -2320,7 +2333,7 @@ const SidebarProjectItem = memo(function SidebarProjectItem(props: SidebarProjec
     if (!projectGroupingTarget) {
       return;
     }
-    const overrideKey = deriveProjectGroupingOverrideKey(projectGroupingTarget);
+    const overrideKey = derivePhysicalProjectKey(projectGroupingTarget);
     const nextOverrides = {
       ...projectGroupingSettings.sidebarProjectGroupingOverrides,
     };
@@ -2385,7 +2398,8 @@ const SidebarProjectItem = memo(function SidebarProjectItem(props: SidebarProjec
             : []),
           ...buildThreadPinMenuItems(
             thread.pinnedAt != null,
-            readEnvironmentSupportsPinning(thread.environmentId),
+            readEnvironment(thread.environmentId)?.serverConfig?.environment.capabilities
+              .threadPinning === true,
           ).map((item) => ({
             ...item,
             disabled: !canOperateThread,
@@ -3408,7 +3422,10 @@ function useLegacySidebarProjects() {
   );
   const wslEnvironmentIds = new Set(
     environments
-      .filter((environment) => isWslConnectionTarget(environment.entry.target))
+      .filter(
+        (environment) =>
+          desktopLocalBackendId(environment.entry.target)?.startsWith("wsl:") === true,
+      )
       .map((environment) => environment.environmentId),
   );
   const orderedProjects = orderItemsByPreferredIds({
@@ -3462,6 +3479,7 @@ function useSortedLegacySidebarProjects(input: {
     sidebarProjectSortOrder,
   } = input;
   const allProjects = useProjects();
+  const delegatedUnderParent = useDelegatedUnderParent();
   const sidebarThreads = selectNonAgentProjectItems(useThreadShells(), allProjects);
   const sidebarProjectByKey = new Map(
     sidebarProjects.map((project) => [project.projectKey, project] as const),
@@ -3470,7 +3488,11 @@ function useSortedLegacySidebarProjects(input: {
     ...project,
     id: project.projectKey,
   }));
-  const sortableThreads = filterSidebarV2VisibleThreads(sidebarThreads, null).map((thread) => {
+  const sortableThreads = filterSidebarV2VisibleThreads(
+    sidebarThreads,
+    null,
+    delegatedUnderParent,
+  ).map((thread) => {
     const physicalKey =
       projectPhysicalKeyByScopedRef.get(
         scopedProjectKey(scopeProjectRef(thread.environmentId, thread.projectId)),
@@ -3520,6 +3542,7 @@ function useLegacySidebarThreads(input: {
     expandedThreadListsByProject,
   } = input;
   const allProjects = useProjects();
+  const delegatedUnderParent = useDelegatedUnderParent();
   const sidebarThreads = selectNonAgentProjectItems(useThreadShells(), allProjects);
   const projectExpandedById = useUiStateStore((store) => store.projectExpandedById);
   const sidebarThreadByKey = new Map(
@@ -3540,7 +3563,7 @@ function useLegacySidebarThreads(input: {
     ? logicalProjectKeyForThread(activeRouteThread)
     : null;
   const threadsByProjectKey = new Map<string, SidebarThreadSummary[]>();
-  for (const thread of sidebarThreads) {
+  for (const thread of filterSidebarV2VisibleThreads(sidebarThreads, null, delegatedUnderParent)) {
     const logicalKey = logicalProjectKeyForThread(thread);
     const existing = threadsByProjectKey.get(logicalKey);
     if (existing) {
@@ -3847,6 +3870,7 @@ export default function LegacySidebar({
     event.stopPropagation();
     navigateToThread(scopeThreadRef(targetThread.environmentId, targetThread.id));
   });
+  // oxlint-disable-next-line elysia/no-unreasoned-state-sync -- Installs project-sidebar keyboard navigation on the window for its mounted lifetime.
   useEffect(() => {
     const handleWindowKeyDown = (event: globalThis.KeyboardEvent) => onWindowKeyDown(event);
     window.addEventListener("keydown", handleWindowKeyDown);
@@ -3855,6 +3879,7 @@ export default function LegacySidebar({
     };
   }, []);
   // A window listener whose lifetime is the sidebar's: no element owns outside clicks.
+  // oxlint-disable-next-line elysia/no-unreasoned-state-sync -- Clears the sidebar selection from window clicks outside its rows while mounted.
   useEffect(() => {
     if (preview) return;
     const onMouseDown = (event: globalThis.MouseEvent) => {

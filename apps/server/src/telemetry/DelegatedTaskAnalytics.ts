@@ -4,8 +4,8 @@
  * @module DelegatedTaskAnalytics
  */
 import type { OrchestrationV2DomainEvent } from "@elysiatools/contracts";
-import * as DateTime from "effect/DateTime";
 import * as Context from "effect/Context";
+import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Stream from "effect/Stream";
@@ -86,8 +86,6 @@ const make = Effect.gen(function* () {
       event.type === "subagent.updated" ? onSubagent(event) : Effect.void,
     ),
   );
-
-  return DelegatedTaskAnalytics.of({ onSubagent });
 });
 
-export const layer = Layer.effect(DelegatedTaskAnalytics, make);
+export const layer = Layer.effectDiscard(make);

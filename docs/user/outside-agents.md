@@ -10,7 +10,7 @@ in once, and you choose what it may do.
 
 ## Get the MCP URL
 
-In **Settings → Connections**, open a saved environment's menu and choose
+In **Settings → Environments**, open a saved environment's menu and choose
 **Copy MCP URL**. The URL is the environment's address followed by `/mcp`, for
 example:
 
@@ -118,6 +118,6 @@ result that always includes the thread id.
 
 ## Remove an agent
 
-Approved agents appear under **Settings → Connections** like other clients.
+Approved agents appear under **Settings → Sharing & access** like other clients.
 Revoke one there to cut off its access immediately. A sign-in lasts 30 days;
 after that the agent asks you to approve it again.

@@ -2,6 +2,7 @@ import { RegistryContext } from "@effect/atom-react";
 import {
   AuthSessionState,
   type EnvironmentId,
+  type ManagedPolicySummary,
   type ServerInstallation,
 } from "@elysiatools/contracts";
 import * as Cause from "effect/Cause";
@@ -21,6 +22,8 @@ const testState = vi.hoisted(() => ({
   openLink: vi.fn(),
   continueThreadsAfterServerUpdate: false,
   sessionAtom: null as unknown,
+  managedPolicy: undefined as ManagedPolicySummary | undefined,
+  managedConfigsAtom: null as unknown,
 }));
 
 vi.mock(import("~/browser/useOpenLink"), async (original) => ({
@@ -36,6 +39,15 @@ vi.mock(import("~/hooks/useSettings"), async (original) => ({
     selector({
       continueThreadsAfterServerUpdate: testState.continueThreadsAfterServerUpdate,
     })) as never,
+}));
+vi.mock("~/state/managedPolicy", () => ({ useManagedPolicy: () => testState.managedPolicy }));
+vi.mock("~/state/presentation", async (original) => ({
+  ...(await original<typeof import("~/state/presentation")>()),
+  environmentPresentations: {
+    get serverConfigsAtom() {
+      return testState.managedConfigsAtom;
+    },
+  },
 }));
 vi.mock(import("~/state/session"), async (original) => {
   const actual = await original();
@@ -95,6 +107,21 @@ const success = (method: "boot-service" | "desktop-app" = "boot-service", versio
   AsyncResult.success({ targetVersion: version, method });
 
 let sessionAtom: Atom.Writable<SessionResult>;
+let managedConfigsAtom: Atom.Writable<
+  ReadonlyMap<EnvironmentId, { managedPolicy?: ManagedPolicySummary }>
+>;
+const updatesOff: ManagedPolicySummary = {
+  organization: "Example company",
+  lockedSettings: [],
+  limits: { updates: { mode: "off" } },
+};
+function setManagedPolicy(policy: ManagedPolicySummary | undefined) {
+  testState.managedPolicy = policy;
+  appAtomRegistry.set(
+    managedConfigsAtom,
+    new Map([["env-test" as EnvironmentId, policy === undefined ? {} : { managedPolicy: policy }]]),
+  );
+}
 
 function setSession(session: SessionResult) {
   appAtomRegistry.set(sessionAtom, session);
@@ -105,6 +132,11 @@ function setup(): Disposable {
   testState.toast.mockReset();
   testState.openLink.mockReset().mockResolvedValue(undefined);
   testState.continueThreadsAfterServerUpdate = false;
+  managedConfigsAtom = Atom.make<
+    ReadonlyMap<EnvironmentId, { managedPolicy?: ManagedPolicySummary }>
+  >(new Map());
+  testState.managedConfigsAtom = managedConfigsAtom;
+  setManagedPolicy(undefined);
   sessionAtom = Atom.make<SessionResult>(AsyncResult.success(currentSession));
   testState.sessionAtom = sessionAtom;
   resetConfirmDialogForTests();
@@ -179,6 +211,35 @@ describe("ServerUpdateAction", () => {
       expect(testState.updateServer).toHaveBeenCalledTimes(allowed ? 1 : 0);
     },
   );
+
+  it("disables the existing update control when the company turns updates off", async () => {
+    using _state = setup();
+    setManagedPolicy(updatesOff);
+    await using screen = await renderAction();
+    expect(button(screen, "Update")!.disabled).toBe(true);
+    await click(screen, "Update");
+    expect(testState.updateServer).not.toHaveBeenCalled();
+  });
+
+  it("rechecks current company policy after desktop confirmation", async () => {
+    using _state = setup();
+    using _host = { [Symbol.dispose]: subscribeConfirmDialogHost(() => {}) };
+    await using screen = await renderAction({
+      selfUpdate: "desktop-managed",
+      desktopAppUpdate: true,
+    });
+    await click(screen, "Update");
+    expect(readConfirmDialogState().status).toBe("confirming");
+    setManagedPolicy(updatesOff);
+    await act(async () => respondToConfirmDialog(true));
+    expect(testState.updateServer).not.toHaveBeenCalled();
+    expect(testState.toast).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: "Test server not updated",
+        description: expect.stringContaining("Example company"),
+      }),
+    );
+  });
 
   it("keeps a known grant usable while the session refreshes", async () => {
     using _state = setup();

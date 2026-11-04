@@ -1,61 +1,73 @@
-import { useAtomValue } from "@effect/atom-react";
-import { resolveScratchProjectScopeKey } from "@elysiatools/client-runtime/state/project-grouping";
+import { useActiveNewTask } from "../../state/active-new-task";
+import { ThreadUndoNotice } from "../home/ThreadUndoNotice";
+import { useAndroidControlSizing } from "../../components/ui/useAndroidControlSizing";
+import {
+  pickableProjectGroups,
+  resolveScratchProjectScopeKey,
+} from "@elysiatools/client-runtime/state/project-grouping";
+import {
+  useAppearancePreferences,
+  useAndroidFloatingTabs,
+} from "../settings/appearance/AppearancePreferencesProvider";
 import type {
   EnvironmentProject,
   EnvironmentThreadShell,
 } from "@elysiatools/client-runtime/state/shell";
 import { threadSearchMatchKey } from "@elysiatools/client-runtime/state/thread-search";
 import { AnimatedLegendList } from "@legendapp/list/reanimated";
+import { THREAD_SIDEBAR_ROW_LAYOUT } from "./threadListAnimations";
 import type { MenuAction } from "@react-native-menu/menu";
-import { useEffect, useMemo, useRef, useState } from "react";
-import type { LayoutChangeEvent, TextInputInstance } from "react-native";
-import { Platform, StyleSheet, TextInput, View } from "react-native";
+import { useAtomValue } from "@effect/atom-react";
+import { useMemo, useRef, useState } from "react";
+import {
+  type LayoutChangeEvent,
+  type TextInputInstance,
+  Platform,
+  StyleSheet,
+  TextInput,
+  View,
+} from "react-native";
 import { GestureDetector, useNativeGesture } from "react-native-gesture-handler";
 import type { SwipeableMethods } from "react-native-gesture-handler/ReanimatedSwipeable";
+import { FLOATING_TABS } from "../workspace/floating-workspace-tabs";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { SearchBarCommands } from "react-native-screens";
-import { useAndroidControlSizing } from "../../components/ui/useAndroidControlSizing";
-import { useActiveNewTask } from "../../state/active-new-task";
-import { ThreadUndoNotice } from "../home/ThreadUndoNotice";
-import { useAppearancePreferences } from "../settings/appearance/AppearancePreferencesProvider";
-import { THREAD_SIDEBAR_ROW_LAYOUT } from "./threadListAnimations";
-
-import { CompactBrandTitle } from "../../components/CompactBrandTitle";
-import { SymbolView } from "../../components/ui/AppSymbol";
 import { AppText as Text } from "../../components/ui/AppText";
+import { CompactBrandTitle } from "../../components/CompactBrandTitle";
 import { Menu } from "../../components/ui/Menu";
-import { useToolbarLayout } from "../../components/ui/useToolbarLayout";
-import { scopedProjectKey, scopedThreadKey } from "../../lib/scopedEntities";
+import { SymbolView } from "../../components/ui/AppSymbol";
 import { NATIVE_LIQUID_GLASS_SUPPORTED } from "../../native/native-glass";
-import { NativeScrollView } from "../../native/NativeScrollViewMarker";
 import { NativeStackScreenOptions } from "../../native/StackHeader";
+import { scopedProjectKey, scopedThreadKey } from "../../lib/scopedEntities";
+import { useProjects, useNavigationThreadShells } from "../../state/entities";
 import { useThreadSearch } from "../../state/queries";
-import { threadListEnvironmentsAtom } from "../../state/server";
+import { useThreadListV2ShelfPreferences } from "./use-thread-list-v2-shelf-preferences";
+import { useThreadListNow } from "./use-thread-list-now";
 import { usePendingThreadOrder } from "../../state/thread-order";
-import type { ThreadPrPresentation } from "../../state/thread-pr-presentation";
+import { threadListEnvironmentsAtom } from "../../state/presentation";
 import { usePendingNewTasks, type PendingNewTask } from "../../state/use-pending-new-tasks";
-import { useSavedRemoteConnections } from "../../state/use-remote-environment-registry";
 import { useQueuedThreadKeys } from "../../state/use-thread-outbox";
 import { useWorkspaceState } from "../../state/workspace";
-import { AgentRoster } from "../agents/AgentRoster";
-import { useAgentCatalog, useRegularProjectItems } from "../agents/use-agent-catalog";
-import { useFabScroll } from "../home/FabScrollContext";
-import { buildHomeListFilterMenu } from "../home/home-list-filter-menu";
+import { useSavedRemoteConnections } from "../../state/use-remote-environment-registry";
+import { useHardwareKeyboardCommand } from "../keyboard/hardwareKeyboardCommands";
+import { useThreadListV2 } from "./useThreadListV2";
+import { useThreadJumpShortcuts } from "../keyboard/threadKeyboardShortcuts";
+import { requestThreadMessageJump } from "./threadMessageJump";
+import { useThreadListSearchMatches } from "./useThreadListSearchMatches";
 import { useHomeListOptions } from "../home/home-list-options";
+import { buildHomeListFilterMenu } from "../home/home-list-filter-menu";
 import { buildHomeProjectScopes } from "../home/homeThreadList";
 import { SwipeableScrollGateProvider, useSwipeableScrollGate } from "../home/thread-swipe-actions";
-import { ThreadListToolbar } from "../home/ThreadListToolbar";
 import { usePendingTaskListActions } from "../home/usePendingTaskListActions";
 import { useThreadListActions } from "../home/useThreadListActions";
 import {
   getConnectionAwareBrandHeaderOptions,
   WorkspaceConnectionTitle,
 } from "../home/WorkspaceConnectionTitle";
-import { useHardwareKeyboardCommand } from "../keyboard/hardwareKeyboardCommands";
-import { useThreadJumpShortcuts } from "../keyboard/threadKeyboardShortcuts";
-import { useSelectWorkspaceDetail } from "../workspace/useSelectWorkspaceDetail";
-import { SidebarFilterButton } from "./sidebar-filter-button";
 import { SidebarHeaderActions } from "./sidebar-header-actions";
+import { ThreadListToolbar } from "../home/ThreadListToolbar";
+import { useFabScroll } from "../home/FabScrollContext";
+import { SidebarFilterButton } from "./sidebar-filter-button";
 import { createSidebarHeaderItems } from "./sidebar-native-header-items";
 import { SidebarNavigationShell } from "./sidebar-navigation-shell";
 import {
@@ -67,17 +79,19 @@ import {
   ThreadListV2WorkingShelfHeader,
 } from "./thread-list-v2-items";
 import { useThreadRowProviderInstanceResolver } from "./thread-provider-instance";
+import type { ThreadPrPresentation } from "../../state/thread-pr-presentation";
+import { ThreadPrDemandProvider } from "../../state/thread-pr-demand";
 import {
   isThreadListV2ListItem,
+  threadListV2ListItemsAreEqual,
   THREAD_LIST_V2_SETTLED_INITIAL_COUNT,
   THREAD_LIST_V2_SETTLED_PAGE_COUNT,
-  threadListV2ListItemsAreEqual,
   type ThreadListV2ListItem,
 } from "./threadListV2";
-import { requestThreadMessageJump } from "./threadMessageJump";
-import { useThreadListV2ShelfPreferences } from "./use-thread-list-v2-shelf-preferences";
-import { useThreadListSearchMatches } from "./useThreadListSearchMatches";
-import { useThreadListV2 } from "./useThreadListV2";
+import { useSelectWorkspaceDetail } from "../workspace/useSelectWorkspaceDetail";
+import { NativeScrollView } from "../../native/NativeScrollViewMarker";
+import { AgentRoster } from "../agents/AgentRoster";
+import { useAgentCatalog, useRegularProjectItems } from "../agents/use-agent-catalog";
 
 type SidebarListItem =
   | ThreadListV2ListItem
@@ -110,10 +124,15 @@ interface ThreadNavigationSidebarProps {
 }
 
 export function ThreadNavigationSidebar(props: ThreadNavigationSidebarProps) {
-  if (Platform.OS !== "ios") {
-    return <ThreadNavigationSidebarPane {...props} nativeChrome={false} />;
-  }
-  return <NativeSidebarContainer {...props} />;
+  return (
+    <ThreadPrDemandProvider visible={props.visible}>
+      {Platform.OS !== "ios" ? (
+        <ThreadNavigationSidebarPane {...props} nativeChrome={false} />
+      ) : (
+        <NativeSidebarContainer {...props} />
+      )}
+    </ThreadPrDemandProvider>
+  );
 }
 
 function NativeSidebarContainer(props: ThreadNavigationSidebarProps) {
@@ -133,11 +152,12 @@ function NativeSidebarContainer(props: ThreadNavigationSidebarProps) {
 function ThreadNavigationSidebarPane(
   props: ThreadNavigationSidebarProps & { readonly nativeChrome: boolean },
 ) {
+  const floatingTabsEnabled = useAndroidFloatingTabs();
   const { themeVariables: materialTheme } = useAppearancePreferences();
   const drawerColor = materialTheme["--color-drawer"];
 
   const insets = useSafeAreaInsets();
-  const { fabClearance } = useAndroidControlSizing();
+  const { fabClearance, fabSize } = useAndroidControlSizing();
   const { projects, threads, agents } = useAgentCatalog();
   const { environments: workspaceEnvironments, state: catalogState } = useWorkspaceState();
   const { savedConnectionsById } = useSavedRemoteConnections();
@@ -189,16 +209,12 @@ function ThreadNavigationSidebarPane(
           )
         ? [options.selectedEnvironmentId]
         : [];
-  const projectScopeKey = options.selectedProjectKey;
-  const resolvedProjectKey = resolveScratchProjectScopeKey(projectScopeKey, projects, {
+  // A legacy per-environment scratch key resolves here on every render; the stored
+  // value is only rewritten when the user picks a filter.
+  const resolvedProjectKey = resolveScratchProjectScopeKey(options.selectedProjectKey, projects, {
     sidebarProjectGroupingMode: options.projectGroupingMode,
     sidebarProjectGroupingOverrides: {},
   });
-  useEffect(() => {
-    if (resolvedProjectKey !== projectScopeKey) {
-      setSelectedProjectKey(resolvedProjectKey);
-    }
-  }, [projectScopeKey, resolvedProjectKey, setSelectedProjectKey]);
   const projectScopes = useMemo(
     () =>
       buildHomeProjectScopes({
@@ -208,7 +224,7 @@ function ThreadNavigationSidebarPane(
       }),
     [projects, options.selectedEnvironmentId, options.projectGroupingMode],
   );
-  const projectFilterOptions = projectScopes.map((scope) => ({
+  const projectFilterOptions = pickableProjectGroups(projectScopes).map((scope) => ({
     key: scope.key,
     label: scope.title,
   }));
@@ -227,8 +243,9 @@ function ThreadNavigationSidebarPane(
       ),
     [projectScopes],
   );
+  // An archived project's filter reads as all projects, matching the filter menu.
   const selectedProjectScope =
-    projectScopes.find((scope) => scope.key === resolvedProjectKey) ?? null;
+    pickableProjectGroups(projectScopes).find((scope) => scope.key === resolvedProjectKey) ?? null;
   const threadSearch = useThreadSearch(
     searchEnvironmentIds,
     props.searchQuery,
@@ -269,22 +286,14 @@ function ThreadNavigationSidebarPane(
     toggleSnoozedShelf,
     toggleWorkingShelf,
   } = useThreadListV2ShelfPreferences();
-  // Keep time in state; the compiler would cache a render-time new Date().
-  const [now, setNow] = useState(() => new Date().toISOString());
-  const nowMinute = now.slice(0, 16);
-  const [snoozeWakeTick, bumpSnoozeWakeTick] = useState(0);
-  useEffect(() => {
-    // oxlint-disable-next-line react/set-state-in-effect -- Refreshes the minute clock when the minute interval starts.
-    setNow(new Date().toISOString());
-    const id = setInterval(() => setNow(new Date().toISOString()), 60_000);
-    return () => clearInterval(id);
-  }, []);
+  const now = useThreadListNow(threads);
   const listEnvironments = useAtomValue(threadListEnvironmentsAtom);
   const {
     providersByEnvironmentId,
     machineByEnvironmentId,
     settlementEnvironmentIds,
     snoozeEnvironmentIds,
+    snoozePresetsByEnvironmentId,
     pinningEnvironmentIds,
     autoSettleOptOutEnvironmentIds,
     pinReorderEnvironmentIds,
@@ -292,7 +301,7 @@ function ThreadNavigationSidebarPane(
     titleRegenerationEnvironmentIds,
   } = listEnvironments;
   const resolveProviderInstance = useThreadRowProviderInstanceResolver(providersByEnvironmentId);
-  const pendingOrder = usePendingThreadOrder(nowMinute, snoozeWakeTick);
+  const pendingOrder = usePendingThreadOrder();
   const {
     layout: threadListV2Layout,
     items: threadListV2Items,
@@ -320,19 +329,6 @@ function ThreadNavigationSidebarPane(
     settledShelfExpanded,
     selectedThreadKey: props.selectedThreadKey ?? null,
   });
-  const nextSnoozeWakeAt = threadListV2Layout.nextSnoozeWakeAt;
-  useEffect(() => {
-    if (nextSnoozeWakeAt === null) return;
-    const wakeAtMs = Date.parse(nextSnoozeWakeAt);
-    if (Number.isNaN(wakeAtMs)) return;
-    const delayMs = Math.min(Math.max(0, wakeAtMs - Date.now()) + 50, 2_147_483_647);
-    const id = setTimeout(() => {
-      setNow(new Date().toISOString());
-      bumpSnoozeWakeTick((tick) => tick + 1);
-    }, delayMs);
-    return () => clearTimeout(id);
-    // oxlint-disable-next-line react/exhaustive-effect-dependencies -- snoozeWakeTick re-arms clamped timers even when the wake date exceeds 32-bit setTimeout and stays unchanged.
-  }, [nextSnoozeWakeAt, snoozeWakeTick]);
   const listItems: readonly SidebarListItem[] =
     settledShelfExpanded && threadListV2Layout.hiddenSettledCount > 0
       ? [
@@ -423,12 +419,7 @@ function ThreadNavigationSidebarPane(
   };
 
   const [measuredHeaderHeight, setMeasuredHeaderHeight] = useState<number | null>(null);
-  const { height, paddingTop, paddingBottom } = useToolbarLayout();
-  const stickyHeaderHeight =
-    measuredHeaderHeight ??
-    (Platform.OS === "android"
-      ? paddingTop + height + paddingBottom
-      : insets.top + SIDEBAR_STICKY_HEADER_HEIGHT);
+  const stickyHeaderHeight = measuredHeaderHeight ?? insets.top + SIDEBAR_STICKY_HEADER_HEIGHT;
   const topListInset = stickyHeaderHeight + 6;
   const handleStickyHeaderLayout = (event: LayoutChangeEvent) => {
     const nextHeight = event.nativeEvent.layout.height;
@@ -605,6 +596,7 @@ function ThreadNavigationSidebarPane(
             settlementSupported={settlementEnvironmentIds.has(thread.environmentId)}
             onSettleThread={settleThread}
             snoozeSupported={snoozeEnvironmentIds.has(thread.environmentId)}
+            snoozePresets={snoozePresetsByEnvironmentId.get(thread.environmentId)}
             pinningSupported={pinningEnvironmentIds.has(thread.environmentId)}
             autoSettleOptOutSupported={autoSettleOptOutEnvironmentIds.has(thread.environmentId)}
             reorderSupported={
@@ -808,7 +800,6 @@ function ThreadNavigationSidebarPane(
         style={
           Platform.OS === "android"
             ? {
-                marginTop: stickyHeaderHeight,
                 marginHorizontal: 4,
                 paddingBottom: insets.bottom,
                 backgroundColor: drawerColor,
@@ -841,7 +832,9 @@ function ThreadNavigationSidebarPane(
                   {
                     paddingBottom:
                       Platform.OS === "android"
-                        ? Math.max(insets.bottom, 16) + fabClearance - insets.bottom
+                        ? floatingTabsEnabled
+                          ? FLOATING_TABS.bottom + FLOATING_TABS.edge + fabSize
+                          : Math.max(insets.bottom, 16) + fabClearance - insets.bottom
                         : 16 + insets.bottom,
                     paddingTop: Platform.OS === "android" ? 6 : topListInset,
                   },
@@ -863,13 +856,11 @@ function ThreadNavigationSidebarPane(
 
       {Platform.OS === "android" ? (
         <ThreadListToolbar
-          sidebar
-          onLayout={handleStickyHeaderLayout}
           searchQuery={props.searchQuery}
           onSearchQueryChange={props.onSearchQueryChange}
           filterActions={listMenuActions}
           filterCustomized={filterCustomized}
-          onFilterAction={handleListMenuAction}
+          onFilterSelect={(event) => handleListMenuAction({ nativeEvent: { event } })}
           onOpenEnvironments={props.onOpenEnvironmentSettings}
           onRequestVisibility={props.onRequestVisibility}
         />

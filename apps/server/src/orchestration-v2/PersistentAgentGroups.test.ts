@@ -1,3 +1,4 @@
+import * as NodeCrypto from "@effect/platform-node/NodeCrypto";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { assert, it } from "@effect/vitest";
 import { ProjectId, ThreadId, ProviderInstanceId } from "@elysiatools/contracts";
@@ -57,6 +58,8 @@ it.effect.each([
         Layer.provideMerge(
           Layer.mergeAll(
             NodeServices.layer,
+
+            NodeCrypto.layer,
             Layer.mock(ProviderSessions.ProviderSessionManagerV2)({}),
             SqlitePersistence.layerMemory,
             Layer.mock(ProviderRegistry)({
@@ -66,7 +69,7 @@ it.effect.each([
               updateSettings: () => Effect.die("Invalid group reached settings writes"),
             }),
             ServerConfig.layerTest(process.cwd(), { prefix: "elysia-invalid-group-" }).pipe(
-              Layer.provide(NodeServices.layer),
+              Layer.provide(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer)),
             ),
             Layer.mock(Projects.ProjectService)({
               create: () => Effect.die("Invalid group reached project creation"),
@@ -85,6 +88,8 @@ it.effect.each([
                         workspaceRoot: "/tmp/member",
                         defaultModelSelection: null,
                         defaultThreadEnvMode: null,
+                        pinnedAt: null,
+                        archivedAt: null,
                         autoPull: false,
                         faviconPath: null,
                         projectIcon: null,

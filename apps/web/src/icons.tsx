@@ -1,3 +1,4 @@
+import StopCircleIconAsset from "@hugeicons/core-free-icons/StopCircleIcon";
 import PauseIconAsset from "@hugeicons/core-free-icons/PauseIcon";
 import DashboardSquare02IconAsset from "@hugeicons/core-free-icons/DashboardSquare02Icon";
 import InboxIconAsset from "@hugeicons/core-free-icons/InboxIcon";
@@ -720,3 +721,6 @@ export {
   Minimize2Icon as Minimize2,
   BubblesIcon as BotIcon,
 };
+
+export const CircleStopIcon = createIcon(StopCircleIconAsset, "circle-stop");
+export const FlaskConicalOffIcon = FlaskConicalIcon;

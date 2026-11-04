@@ -15,10 +15,10 @@ import {
   resolveEffectiveDefaultModelSelection,
 } from "../../modelSelection";
 import {
+  resolveDefaultProviderModelSelection,
+  providerInstanceEntriesFor,
   applyProviderInstanceSettings,
   deriveProviderInstanceEntries,
-  resolveDefaultProviderModelSelection,
-  sortProviderInstanceEntries,
 } from "../../providerInstances";
 import { useEnvironmentProviders, useEnvironments } from "../../state/environments";
 import { EMPTY_SERVER_PROVIDERS } from "../../state/server";
@@ -70,13 +70,7 @@ export function ProjectDefaultsSettings({ category }: { category: ProjectSetting
   const selection = storedSelection
     ? resolveEffectiveDefaultModelSelection(settings, providers, storedSelection)
     : null;
-  const entries = sortProviderInstanceEntries(
-    applyProviderInstanceSettings(
-      deriveProviderInstanceEntries(providers),
-      settings,
-      target?.projectId ?? null,
-    ),
-  );
+  const entries = providerInstanceEntriesFor(providers, settings, target?.projectId ?? null);
   const modelOptions = getCustomModelOptionsByInstance(
     settings,
     providers,
@@ -88,7 +82,6 @@ export function ProjectDefaultsSettings({ category }: { category: ProjectSetting
   const mixedPermissions = useScopedSettingsMixed(["defaultRuntimeMode"]);
   const PermissionIcon = runtimeModeConfig[settings.defaultRuntimeMode].icon;
   const mixedWorkspace = useScopedSettingsMixed(["defaultThreadEnvMode"]);
-  const mixedSubmodules = useScopedSettingsMixed(["worktreeSubmodules"]);
   const mixedBrowser = useScopedSettingsMixed(["enableAgentBrowserAccess"]);
   const mixedAutoPull = useScopedSettingsMixed(["defaultAutoPull"]);
   const mixedAgentCredits = useScopedSettingsMixed(["removeAgentCreditsOnMerge"]);
@@ -373,61 +366,7 @@ export function ProjectDefaultsSettings({ category }: { category: ProjectSetting
             }
           />
           {!isChatScope && workspaceRow}
-          {!isChatScope && (
-            <SettingsRow
-              serverScoped
-              settingKeys={["worktreeSubmodules"]}
-              mixed={mixedSubmodules}
-              {...searchableSetting("worktree-submodules")}
-              description={
-                isProjectScope
-                  ? "How new worktrees in this project populate git submodules."
-                  : "How new worktrees populate git submodules. Projects and their elysia.json can override it."
-              }
-              resetAction={
-                !isProjectScope && settings.worktreeSubmodules !== null ? (
-                  <SettingResetButton
-                    label="worktree submodules"
-                    onClick={() =>
-                      updateSettings({
-                        worktreeSubmodules: null,
-                      })
-                    }
-                  />
-                ) : null
-              }
-              control={
-                <Select
-                  value={mixedSubmodules ? null : (effective?.worktreeSubmodules ?? null)}
-                  onValueChange={(value) => {
-                    if (isWorktreeSubmodules(value))
-                      updateSettings({
-                        worktreeSubmodules: value,
-                      });
-                  }}
-                >
-                  <SelectTrigger size="sm" aria-label="Worktree submodules">
-                    <SelectValue>
-                      {(value: string | null) =>
-                        isWorktreeSubmodules(value)
-                          ? WORKTREE_SUBMODULES_LABELS[value]
-                          : unavailable
-                            ? "Unavailable"
-                            : "Mixed"
-                      }
-                    </SelectValue>
-                  </SelectTrigger>
-                  <SelectPopup align="end" alignItemWithTrigger={false}>
-                    {WORKTREE_SUBMODULES_OPTIONS.map((option) => (
-                      <SelectItem key={option} value={option}>
-                        {WORKTREE_SUBMODULES_LABELS[option]}
-                      </SelectItem>
-                    ))}
-                  </SelectPopup>
-                </Select>
-              }
-            />
-          )}
+          {!isChatScope && <WorktreeSubmodulesRow />}
         </>
       ) : category === "source-control" ? (
         <>
@@ -602,5 +541,66 @@ export function ProjectDefaultsSettings({ category }: { category: ProjectSetting
         </>
       )}
     </SettingsSection>
+  );
+}
+
+export function WorktreeSubmodulesRow() {
+  const mixedSubmodules = useScopedSettingsMixed(["worktreeSubmodules"]);
+  const { scope, target, connectedEnvironments } = useSettingsScope();
+  const settings = useScopedSettings();
+  const updateSettings = useUpdateScopedSettings();
+  const isProjectScope = scope.kind === "project" || scope.kind === "checkout";
+  const unavailable = connectedEnvironments.length === 0;
+  const effective = target
+    ? resolveProjectSettings(target.settings, null, null, null).settings
+    : null;
+
+  return (
+    <SettingsRow
+      serverScoped
+      settingKeys={["worktreeSubmodules"]}
+      mixed={mixedSubmodules}
+      {...searchableSetting("worktree-submodules")}
+      description={
+        isProjectScope
+          ? "How new worktrees in this project populate git submodules."
+          : "How new worktrees populate git submodules. Projects and their elysia.json can override it."
+      }
+      resetAction={
+        !isProjectScope && settings.worktreeSubmodules !== null ? (
+          <SettingResetButton
+            label="worktree submodules"
+            onClick={() => updateSettings({ worktreeSubmodules: null })}
+          />
+        ) : null
+      }
+      control={
+        <Select
+          value={mixedSubmodules ? null : (effective?.worktreeSubmodules ?? null)}
+          onValueChange={(value) => {
+            if (isWorktreeSubmodules(value)) updateSettings({ worktreeSubmodules: value });
+          }}
+        >
+          <SelectTrigger size="sm" aria-label="Worktree submodules">
+            <SelectValue>
+              {(value: string | null) =>
+                isWorktreeSubmodules(value)
+                  ? WORKTREE_SUBMODULES_LABELS[value]
+                  : unavailable
+                    ? "Unavailable"
+                    : "Mixed"
+              }
+            </SelectValue>
+          </SelectTrigger>
+          <SelectPopup align="end" alignItemWithTrigger={false}>
+            {WORKTREE_SUBMODULES_OPTIONS.map((option) => (
+              <SelectItem key={option} value={option}>
+                {WORKTREE_SUBMODULES_LABELS[option]}
+              </SelectItem>
+            ))}
+          </SelectPopup>
+        </Select>
+      }
+    />
   );
 }

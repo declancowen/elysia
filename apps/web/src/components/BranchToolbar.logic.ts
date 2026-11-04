@@ -1,3 +1,4 @@
+import { workspaceRelativeFilePath } from "@elysiatools/shared/path";
 import type {
   EnvironmentId,
   EnvironmentMachineKind,
@@ -242,6 +243,7 @@ export function resolveLocalCheckoutBranchMismatch(input: {
 }
 export function resolveBranchSelectionTarget(input: {
   activeProjectCwd: string;
+  activeProjectCheckoutRoot?: string | undefined;
   activeWorktreePath: string | null;
   refName: Pick<VcsRef, "isDefault" | "worktreePath">;
 }): {
@@ -250,21 +252,30 @@ export function resolveBranchSelectionTarget(input: {
   reuseExistingWorktree: boolean;
 } {
   const { activeProjectCwd, activeWorktreePath, refName } = input;
+
   if (refName.worktreePath) {
+    // Until the project's checkout root loads, a checkout containing the project counts as its own.
+    const isProjectCheckout =
+      input.activeProjectCheckoutRoot === undefined
+        ? workspaceRelativeFilePath(activeProjectCwd, refName.worktreePath) !== null
+        : workspaceRelativeFilePath(input.activeProjectCheckoutRoot, refName.worktreePath) === ".";
     return {
       checkoutCwd: refName.worktreePath,
-      nextWorktreePath: refName.worktreePath === activeProjectCwd ? null : refName.worktreePath,
+      nextWorktreePath: isProjectCheckout ? null : refName.worktreePath,
       reuseExistingWorktree: true,
     };
   }
+
   const nextWorktreePath =
     activeWorktreePath !== null && refName.isDefault ? null : activeWorktreePath;
+
   return {
     checkoutCwd: nextWorktreePath ?? activeProjectCwd,
     nextWorktreePath,
     reuseExistingWorktree: false,
   };
 }
+
 export function shouldIncludeBranchPickerItem(input: {
   itemValue: string;
   normalizedQuery: string;

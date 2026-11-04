@@ -26,7 +26,7 @@ import {
 import { agentGroupResponder } from "@elysiatools/shared/agentMentions";
 import * as FileSystem from "effect/FileSystem";
 import * as ServerConfig from "../config.ts";
-import * as Crypto from "effect/Crypto";
+import * as Digest from "effect/crypto/Digest";
 import * as DateTime from "effect/DateTime";
 import * as Hex from "effect/encoding/Hex";
 import * as Effect from "effect/Effect";
@@ -113,7 +113,7 @@ const delegateToPersistentAgentImpl = Effect.fn("delegateToPersistentAgent")(fun
   | FileSystem.FileSystem
   | DocumentText.DocumentText
   | ServerConfig.ServerConfig
-  | Crypto.Crypto
+  | Digest.Digest
   | SqlClient.SqlClient
 > {
   const projects = yield* ProjectStore.ProjectStoreV2;
@@ -593,8 +593,8 @@ const delegateToPersistentAgentImpl = Effect.fn("delegateToPersistentAgent")(fun
 });
 
 const yieldCryptoDigest = Effect.fnUntraced(function* (encoded: string) {
-  return yield* (yield* Crypto.Crypto)
-    .digest("SHA-256", new TextEncoder().encode(encoded))
+  return yield* (yield* Digest.Digest)
+    .digest(Digest.sha256, new TextEncoder().encode(encoded))
     .pipe(Effect.map(Hex.encode));
 });
 

@@ -1,3 +1,7 @@
+import { usePreparedConnection } from "../../state/session";
+import { useLinkedEnvironments } from "../../state/peerLinks";
+import { threadContextRecord } from "@elysiatools/shared/composerContextReferences";
+import type { PendingUserInputDraftAnswer } from "@elysiatools/client-runtime/state/pending-user-input";
 import { ComposerContextId } from "@elysiatools/contracts";
 import { formatComposerContextReference } from "@elysiatools/shared/composerContextReferences";
 import { useComposerTypingGuard } from "./useComposerTypingGuard";
@@ -183,7 +187,6 @@ import {
   reviewCommentContextRecord,
   terminalContextReference,
   terminalContextRecord,
-  threadContextRecord,
   threadContextReference,
 } from "~/lib/composerContextRecords";
 import { rememberCopiedComposerAttachments } from "~/lib/copiedComposerAttachments";
@@ -252,15 +255,9 @@ import { proposedPlanTitle } from "@elysiatools/shared/proposedPlanText";
 import { hasProviderSetup } from "./ProviderStatusBanner";
 import { type AppModelOption, getAppModelOptionsForInstance } from "../../modelSelection";
 import type { UnifiedSettings } from "@elysiatools/contracts/settings";
-import {
-  isVideoAttachment,
-  type ChatMessage,
-  type SessionPhase,
-  type Thread,
-  type ThreadShell,
-} from "../../types";
+import { isVideoAttachment, type SessionPhase, type Thread, type ThreadShell } from "../../types";
 import { type ComposerPromptHistoryPosition } from "./composerPromptHistory";
-import type { PendingUserInputDraftAnswer } from "../../pendingUserInput";
+
 import type {
   LatestProposedPlanState,
   PendingApproval,
@@ -360,6 +357,7 @@ export interface ChatComposerHandle {
     previewAnnotations: PreviewAnnotationPayload[];
     reviewComments: ReviewCommentContext[];
     threadContexts: ThreadContextRecord[];
+    environmentContexts: import("@elysiatools/contracts").EnvironmentContextRecord[];
     selectedPromptEffort: string | null;
     selectedModelOptionsForDispatch: unknown;
     selectedModelSelection: ModelSelection;
@@ -399,7 +397,7 @@ export interface ChatComposerProps {
   activeThreadShell: ThreadShell | null;
   persistentAgent?: boolean;
   /** Timeline messages including optimistic sends, for ArrowUp prompt recall. */
-  promptHistoryMessages: ReadonlyArray<ChatMessage>;
+  promptHistoryEntries: ReadonlyArray<import("../../session-logic").TimelineEntry>;
   isServerThread: boolean;
   isLocalDraftThread: boolean;
   forceExpandedOnMobile: boolean;
@@ -555,7 +553,7 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
     activeThreadId,
     activeThreadEnvironmentId: _activeThreadEnvironmentId,
     activeThread,
-    promptHistoryMessages,
+    promptHistoryEntries,
     isServerThread: _isServerThread,
     isLocalDraftThread: _isLocalDraftThread,
     forceExpandedOnMobile,
@@ -645,6 +643,7 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
     onRemoveEditingQueuedAttachment,
   } = props;
   const primaryEnvironmentId = usePrimaryEnvironmentId();
+  const preparedConnection = usePreparedConnection(environmentId);
   const composerDraftTargetKey = composerTargetKey(composerDraftTarget);
   const {
     heldRequestIds,
@@ -673,6 +672,7 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
   const isEditingQueuedMessage = editingQueuedAttachments !== null;
   const composerDraft = useComposerThreadDraft(composerDraftTarget);
   const composerDraftTargetKeyRef = useRef("");
+  // oxlint-disable-next-line elysia/no-unreasoned-state-sync -- keeps asynchronous upload handlers scoped to the committed composer target
   useLayoutEffect(() => {
     composerDraftTargetKeyRef.current = composerDraftTargetKey;
   });
@@ -693,6 +693,7 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
     !activePendingIsResponding;
   const questionRequest = pendingUserInputs[0];
   // Publish eligibility before async captures can observe a question the UI has already closed.
+  // oxlint-disable-next-line elysia/no-unreasoned-state-sync -- registers the mounted question attachment target with native screenshot delivery
   useLayoutEffect(() => {
     if (!questionAttachmentTarget || !questionRequest || !questionTakesSnapShots) return;
     return trackOpenQuestionAttachmentDraft(routeThreadRef, {
@@ -717,6 +718,7 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
   const attachmentTargetKey = composerTargetKey(attachmentDraftTarget);
   // Reject async imports after a draft switch.
   const attachmentTargetKeyRef = useRef(attachmentTargetKey);
+  // oxlint-disable-next-line elysia/no-unreasoned-state-sync -- keeps asynchronous attachment intake scoped to the committed draft target
   useLayoutEffect(() => {
     attachmentTargetKeyRef.current = attachmentTargetKey;
   });
@@ -855,6 +857,7 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
     (store) => store.syncPersistedAttachments,
   );
   const getComposerDraft = useComposerDraftStore((store) => store.getComposerDraft);
+  // oxlint-disable-next-line elysia/no-unreasoned-state-sync -- reconciles the imperative upload queue with the current draft and server upload capability
   useEffect(() => {
     if (!attachmentUploadsCapabilityKnown) {
       return;
@@ -902,6 +905,7 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
     maxFileAttachmentBytes,
     supportsAttachmentUploads,
   ]);
+  // oxlint-disable-next-line elysia/no-unreasoned-state-sync -- starts pending file uploads in the shared upload queue while their draft is mounted
   useEffect(() => {
     for (const file of composerFiles) {
       if (
@@ -1003,11 +1007,12 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
   const selectedProviderSlashCommands = selectedProviderStatus
     ? resolveProviderSlashCommandsForCwd(selectedProviderStatus, gitCwd)
     : NO_PROVIDER_SLASH_COMMANDS;
-  const refreshWorkspaceSnapshotOnTyping = useProviderWorkspaceSnapshotRefresh({
-    environmentId,
-    gitCwd,
-    instanceId: selectedProviderEntry?.instanceId,
-  });
+  const { refresh: refreshWorkspaceSnapshotOnTyping, scanning: workspaceSkillsScanning } =
+    useProviderWorkspaceSnapshotRefresh({
+      environmentId,
+      gitCwd,
+      instanceId: selectedProviderEntry?.instanceId,
+    });
   const selectedPromptEffort = composerProviderState.promptEffort;
   const selectedModelOptionsForDispatch = composerProviderState.modelOptionsForDispatch;
   const { enabled: planModeUiEnabled, interactionMode } = resolveComposerInteractionMode({
@@ -1122,9 +1127,11 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
   const composerScrollGestureRef = useRef(createComposerScrollGestureState());
   const pendingThreadImportsRef = useRef<Map<string, number>>(new Map());
   const isRevertingCheckpointRef = useRef(isRevertingCheckpoint);
+  // oxlint-disable-next-line elysia/no-unreasoned-state-sync -- keeps asynchronous file intake from mutating a draft while a checkpoint restore runs
   useLayoutEffect(() => {
     isRevertingCheckpointRef.current = isRevertingCheckpoint;
   });
+  // oxlint-disable-next-line elysia/no-unreasoned-state-sync -- subscribes the mounted editor to native paste-as-text and keyboard events
   useEffect(() => {
     const armPasteAsTextShortcut = () => {
       // Electron's menu action can precede paste; browsers deliver keydown first.
@@ -1182,11 +1189,17 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
     composerTerminalContexts.length === 0 &&
     composerPreviewAnnotations.length === 0 &&
     composerReviewComments.length === 0;
+  const linkedEnvironments = useLinkedEnvironments(environmentId);
   const {
     items: composerMenuItems,
     isLoading: isComposerMenuLoading,
     emptyState: composerMenuEmptyState,
   } = useComposerMenuItems({
+    linkedEnvironments,
+    sideChatAvailable: false,
+    sideChatDisabledReason: null,
+    workspaceSkillsScanning,
+    questionAttachmentTarget,
     composerTrigger,
     environmentId,
     isServerThread: props.isServerThread,
@@ -1215,6 +1228,7 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
   });
   const activeComposerMenuItem =
     composerMenuItems.find((item) => item.id === activeComposerMenuItemId) ?? null;
+  // oxlint-disable-next-line elysia/no-unreasoned-state-sync -- publishes committed menu state for the editor imperative keyboard handler
   useLayoutEffect(() => {
     composerMenuOpenRef.current = composerMenuOpen;
     composerMenuItemsRef.current = composerMenuItems;
@@ -1412,6 +1426,8 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
     importContextFragmentStable,
   } = useComposerContextImport({
     environmentId,
+    linkedEnvironments,
+    promptRef,
     activeThread,
     activeThreadId,
     composerDraftTarget,
@@ -1426,6 +1442,7 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
     pendingThreadImportsRef,
     addComposerFilesToDraft,
   });
+  // oxlint-disable-next-line elysia/no-unreasoned-state-sync -- keeps the imperative editor prompt ref in step with its committed draft
   useEffect(() => {
     if (isLiteralPendingAnswer) return;
     promptRef.current = prompt;
@@ -1466,12 +1483,15 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
     setProviderInputValidatedFor(providerInputInputs);
     setProviderInputSubmissionError(null);
   }
+  // oxlint-disable-next-line elysia/no-unreasoned-state-sync -- publishes committed image attachments to the asynchronous send handler
   useEffect(() => {
     composerImagesRef.current = composerImages;
   }, [composerImages, composerImagesRef]);
+  // oxlint-disable-next-line elysia/no-unreasoned-state-sync -- publishes committed file attachments to the asynchronous send handler
   useEffect(() => {
     composerFilesRef.current = composerFiles;
   }, [composerFiles, composerFilesRef]);
+  // oxlint-disable-next-line elysia/no-unreasoned-state-sync -- publishes committed terminal context to the asynchronous send handler
   useEffect(() => {
     composerTerminalContextsRef.current = composerTerminalContexts;
   }, [composerTerminalContexts, composerTerminalContextsRef]);
@@ -1487,6 +1507,7 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
     requestId: string | null;
     questionId: string | null;
   } | null>(null);
+  // oxlint-disable-next-line elysia/no-unreasoned-state-sync -- loads an externally updated provider question into the imperative editor prompt and cursor
   useEffect(() => {
     const nextCustomAnswer = activePendingProgress?.customAnswer;
     if (typeof nextCustomAnswer !== "string") {
@@ -1544,6 +1565,7 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
     setIsDragOverComposer(false);
     setIsComposerScrollCollapsed(false);
   }
+  // oxlint-disable-next-line elysia/no-unreasoned-state-sync -- measures mounted composer DOM width and observes resizing for compact controls
   useLayoutEffect(() => {
     const composerForm = composerFormRef.current;
     if (!composerForm) return;
@@ -1578,6 +1600,7 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
       );
     });
   }, [composerFooterHasWideActions]);
+  // oxlint-disable-next-line elysia/no-unreasoned-state-sync -- persists mounted image File contents for restoring the draft after a restart
   useEffect(() => {
     let cancelled = false;
     void (async () => {
@@ -2252,7 +2275,7 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
       planModeUiEnabled,
       isLiteralPendingAnswer,
       pendingUserInputs,
-      promptHistoryMessages,
+      promptHistoryEntries,
       promptHistoryPositionRef,
       composerDraftTarget,
       promptRef,
@@ -2381,14 +2404,17 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
   if (composerControlsHidden && isComposerModelPickerOpen) {
     setIsComposerModelPickerOpen(false);
   }
+  // oxlint-disable-next-line elysia/no-unreasoned-state-sync -- keeps the topbar portal host visibility in step with the mounted composer controls
   useLayoutEffect(() => {
     onRestingControlsVisibilityChange(composerControlsVisibleInStrip);
   }, [composerControlsVisibleInStrip, onRestingControlsVisibilityChange]);
+  // oxlint-disable-next-line elysia/no-unreasoned-state-sync -- keeps the parent overlay DOM reservation in step with the mounted composer layout
   useLayoutEffect(() => {
     onRestingChange(isComposerResting);
   }, [isComposerResting, onRestingChange]);
   const [restingActionsElement, setRestingActionsElement] = useState<HTMLDivElement | null>(null);
   const [restingActionsWidth, setRestingActionsWidth] = useState<number | null>(null);
+  // oxlint-disable-next-line elysia/no-unreasoned-state-sync -- measures the resting action DOM width while its strip is visible
   useLayoutEffect(() => {
     if (!isComposerResting || !restingActionsElement) return;
     const measure = () => setRestingActionsWidth(restingActionsElement.offsetWidth);
@@ -2433,16 +2459,16 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
     !composerHasExpandedChrome &&
     !showInlineTasksBadge;
   const composerScrollCollapseEligible = canScrollCollapseComposer && !isComposerResting;
+  // oxlint-disable-next-line elysia/no-unreasoned-state-sync -- publishes committed collapse eligibility to native scroll gesture handlers
   useLayoutEffect(() => {
     composerScrollCollapseEligibleRef.current = composerScrollCollapseEligible;
   });
-  useEffect(() => {
-    if (!canScrollCollapseComposer) {
-      setIsComposerScrollCollapsed(false);
-    }
-  }, [canScrollCollapseComposer, setIsComposerScrollCollapsed]);
+  if (!canScrollCollapseComposer && isComposerScrollCollapsed) {
+    setIsComposerScrollCollapsed(false);
+  }
 
   // Window activation re-fires focus; ignore that frame to keep the composer collapsed.
+  // oxlint-disable-next-line elysia/no-unreasoned-state-sync -- ignores native window-activation focus events while the composer is collapsed
   useEffect(() => {
     if (!isComposerScrollCollapsed) return;
     let frame: number | null = null;
@@ -2461,6 +2487,7 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
       windowRefocusInFlightRef.current = false;
     };
   }, [isComposerScrollCollapsed]);
+  // oxlint-disable-next-line elysia/no-unreasoned-state-sync -- subscribes the active composer to native scroll gesture completion
   useEffect(() => {
     if (!canTrackComposerScrollGesture) return;
     const finishScrollGesture = () => {
@@ -2719,7 +2746,6 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
       pendingUserInputs,
       supportsQuestionAttachments,
       isLiteralPendingAnswer,
-      isConnecting,
       projectSelectionRequired,
       questionAttachmentTarget,
       attachmentTargetKey,
@@ -2755,6 +2781,8 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
       localEnvironmentDisabled: isLocalEnvironmentDisabled(),
       environmentId,
       primaryEnvironmentId,
+      connection: preparedConnection._tag === "Some" ? preparedConnection.value : null,
+      isDesktopRenderer: window.desktopBridge !== undefined,
     });
     if (target === "remote") {
       toastManager.add({
@@ -2831,6 +2859,7 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
   const setContextInsertionHandler = useComposerDraftStore(
     (store) => store.setContextInsertionHandler,
   );
+  // oxlint-disable-next-line elysia/no-unreasoned-state-sync -- registers the mounted editor caret insertion handler for external context actions
   useEffect(() => {
     return setContextInsertionHandler(composerDraftTarget, insertContextReferencesAtCaretStable);
   }, [composerDraftTarget, insertContextReferencesAtCaretStable, setContextInsertionHandler]);
@@ -2979,6 +3008,7 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
   };
 
   // Escape can cancel without dragleave; clear highlights on bubbling dragend.
+  // oxlint-disable-next-line elysia/no-unreasoned-state-sync -- clears the composer drag overlay when a native window drag ends
   useEffect(() => {
     if (!isDragOverComposer) return;
     const onWindowDragEnd = () => {
@@ -3029,10 +3059,12 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
 
   // Question dismissal unmounts focused controls without firing blur.
   const activePendingUserInputRequestId = activePendingUserInput?.requestId ?? null;
+  // oxlint-disable-next-line elysia/no-unreasoned-state-sync -- remeasures DOM focus after a provider question closes to restore collapsed editor presentation
   useEffect(() => {
     if (activePendingUserInputRequestId !== null) return;
     scheduleComposerCollapseCheckStable();
   }, [activePendingUserInputRequestId, scheduleComposerCollapseCheckStable]);
+  // oxlint-disable-next-line elysia/no-unreasoned-state-sync -- cancels pending editor focus and collapse animation frames when the composer unmounts
   useEffect(() => {
     return () => {
       if (composerBlurFrameRef.current !== null) {
@@ -3262,6 +3294,7 @@ export const ChatComposer = memo(function ChatComposer(props: ChatComposerProps)
         previewAnnotations: composerPreviewAnnotations,
         reviewComments: composerReviewComments,
         threadContexts: composerThreadContexts,
+        environmentContexts: composerDraft.environmentContexts,
         selectedPromptEffort,
         selectedModelOptionsForDispatch,
         selectedModelSelection,

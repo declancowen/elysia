@@ -219,6 +219,12 @@ function contrastRatio(
   );
 }
 
+export function themeColorContrastRatio(first: string, second: string): number {
+  const firstChannels = rgbChannels(first);
+  const secondChannels = rgbChannels(second);
+  return firstChannels && secondChannels ? contrastRatio(firstChannels, secondChannels) : 1;
+}
+
 export function themeColorWithContrast(
   accent: string,
   surface: string | ReadonlyArray<string>,
@@ -454,10 +460,6 @@ export function createMobileThemeVariables(
     "--color-chevron": withAlpha(c.textMuted, 0.42),
   };
 }
-
-export const MOBILE_THEME_VARIABLE_NAMES = Object.keys(
-  createMobileThemeVariables(ELYSIA_LIGHT_THEME_COLORS, "light"),
-) as ReadonlyArray<MobileThemeVariable>;
 
 export function getMobileThemeColors(
   themeId: SharedMobileThemeId,

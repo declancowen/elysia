@@ -35,6 +35,8 @@ import { useScopedSettings, useUpdateScopedSettings } from "./useScopedSettings"
 
 const ENVIRONMENT_IDENTIFICATION_LABELS: Record<EnvironmentIdentificationMode, string> = {
   artwork: "Artwork",
+  "dev-artwork": "Development artwork",
+  "nightly-artwork": "Nightly artwork",
   pill: "Version pill",
   none: "None",
 };

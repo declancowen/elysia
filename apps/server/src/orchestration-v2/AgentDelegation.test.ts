@@ -1,3 +1,4 @@
+import * as NodeCrypto from "@effect/platform-node/NodeCrypto";
 import * as DocumentText from "../provider/DocumentText.ts";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { assert, describe, it } from "@effect/vitest";
@@ -151,7 +152,7 @@ const dependencies = Layer.mergeAll(
   threads,
   ThreadCommandExecutor.layer,
   ServerConfig.layerTest(process.cwd(), { prefix: "elysia-agent-delegation-v2-" }),
-).pipe(Layer.provideMerge(NodeServices.layer));
+).pipe(Layer.provideMerge(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer)));
 
 const testLayer = delegationLayer.pipe(Layer.provideMerge(dependencies));
 

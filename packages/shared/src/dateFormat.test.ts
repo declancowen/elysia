@@ -14,3 +14,10 @@ it("uses padded day/month/year for local dates and date-only buckets without shi
   expect(formatCalendarDate("invalid")).toBe("");
   expect(formatCalendarDateTime("invalid")).toBe("");
 });
+
+it("formats the calendar day in an explicit zone across midnight", () => {
+  const instant = "2026-03-04T00:30:00Z";
+  expect(formatCalendarDate(instant, "UTC")).toBe("04/03/2026");
+  expect(formatCalendarDate(instant, "America/Los_Angeles")).toBe("03/03/2026");
+  expect(formatCalendarDate("invalid", "UTC")).toBe("");
+});

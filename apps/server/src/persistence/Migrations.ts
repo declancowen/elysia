@@ -79,6 +79,17 @@ import Migration0074 from "./Migrations/074_WebhookDedupe.ts";
 import Migration0075 from "./Migrations/075_ShellStopRequestIndex.ts";
 import Migration0076 from "./Migrations/076_ThreadMessageSearch.ts";
 
+import Migration0077 from "./Migrations/077_PeerLinks.ts";
+import Migration0078 from "./Migrations/078_PeerLinkFence.ts";
+import Migration0079 from "./Migrations/079_WaitingLinkRequestIndex.ts";
+import Migration0080 from "./Migrations/080_ActiveTurnItemIndexes.ts";
+import Migration0081 from "./Migrations/081_ExcludeAttachmentPlaceholdersFromSearch.ts";
+import Migration0082 from "./Migrations/082_SubagentDeliveryState.ts";
+import Migration0083 from "./Migrations/083_ProjectionProjectsPinArchive.ts";
+import Migration0084 from "./Migrations/084_RepairBooleanSettledOverride.ts";
+import Migration0085 from "./Migrations/085_DropOrchestrationEventCorrelationIndex.ts";
+import Migration0086 from "./Migrations/086_DelegatedRecoveryIndexes.ts";
+
 const migrationEntries = [
   [1, "OrchestrationEvents", Migration0001],
   [2, "OrchestrationCommandReceipts", Migration0002],
@@ -158,6 +169,16 @@ const migrationEntries = [
   [74, "WebhookDedupe", Migration0074],
   [75, "ShellStopRequestIndex", Migration0075],
   [76, "ThreadMessageSearch", Migration0076],
+  [77, "PeerLinks", Migration0077],
+  [78, "PeerLinkFence", Migration0078],
+  [79, "WaitingLinkRequestIndex", Migration0079],
+  [80, "ActiveTurnItemIndexes", Migration0080],
+  [81, "ExcludeAttachmentPlaceholdersFromSearch", Migration0081],
+  [82, "SubagentDeliveryState", Migration0082],
+  [83, "ProjectionProjectsPinArchive", Migration0083],
+  [84, "RepairBooleanSettledOverride", Migration0084],
+  [85, "DropOrchestrationEventCorrelationIndex", Migration0085],
+  [86, "DelegatedRecoveryIndexes", Migration0086],
 ] as const;
 
 export const migrationManifest = migrationEntries.map(([id, name]) => [id, name] as const);

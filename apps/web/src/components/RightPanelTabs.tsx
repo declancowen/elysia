@@ -61,6 +61,7 @@ import { isElectron } from "~/env";
 import type { DesktopPreviewOverlay } from "~/previewStateStore";
 import type { RightPanelSurface } from "~/rightPanelStore";
 import { cn } from "~/lib/utils";
+import { surfaceShortcutKey } from "~/lib/surfaceShortcutKey";
 import { resolveShortcutCommand, type ShortcutMatchContext } from "~/keybindings";
 import { readLocalApi } from "~/localApi";
 import { useStableCallback } from "~/hooks/useStableCallback";
@@ -258,17 +259,17 @@ function tabAudioState(overlay: DesktopPreviewOverlay | null): TabAudioState {
 type SurfaceShortcutEvent = Pick<
   KeyboardEvent,
   "altKey" | "ctrlKey" | "defaultPrevented" | "isComposing" | "key" | "metaKey"
->;
+> &
+  Partial<Pick<KeyboardEvent, "code" | "getModifierState">>;
 
 export function surfaceShortcutActionForKey<
   const Action extends { available: boolean; shortcut: string },
 >(actions: readonly Action[], event: SurfaceShortcutEvent): Action | null {
   if (event.defaultPrevented || event.isComposing) return null;
   if (event.metaKey || event.ctrlKey || event.altKey) return null;
+  const key = surfaceShortcutKey(event);
   return (
-    actions.find(
-      (action) => action.available && action.shortcut.toLowerCase() === event.key.toLowerCase(),
-    ) ?? null
+    actions.find((action) => action.available && action.shortcut.toLowerCase() === key) ?? null
   );
 }
 
@@ -440,6 +441,7 @@ function RightPanelEmptyState(props: {
     event.stopPropagation();
     action.onClick();
   });
+  // oxlint-disable-next-line elysia/no-unreasoned-state-sync -- Installs the surface-picker window shortcut listener for its mounted lifetime.
   useEffect(() => {
     const handler = (event: KeyboardEvent) => handleShortcut(event);
     window.addEventListener("keydown", handler, true);
@@ -616,6 +618,8 @@ function surfaceTitle(
       return "Pull requests";
     case "agents":
       return "Agents";
+    case "side-chat":
+      return "Chat";
     case "device":
       return surface.title ?? surface.target?.name ?? "Device";
     case "preview": {
@@ -1051,6 +1055,7 @@ export function RightPanelTabs(props: RightPanelTabsProps) {
     return container;
   });
   const localTabBarHost = useRef<HTMLDivElement>(null);
+  // oxlint-disable-next-line elysia/no-unreasoned-state-sync -- Attaches the portal DOM container to its current tab host and removes it on unmount.
   useLayoutEffect(() => {
     const host = props.tabBarHost ?? localTabBarHost.current;
     if (host && tabBarContainer) {
@@ -1085,6 +1090,7 @@ export function RightPanelTabs(props: RightPanelTabsProps) {
       setAddSurfaceMenuOpen(true);
     }
   });
+  // oxlint-disable-next-line elysia/no-unreasoned-state-sync -- Installs the document new-surface shortcut listener only while the panel is open.
   useEffect(() => {
     if (props.open === false) return;
     document.addEventListener("keydown", onNewSurfaceKeyDown, true);

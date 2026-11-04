@@ -55,6 +55,24 @@ vi.mock("../../state/session", async (importOriginal) => {
 
 vi.mock("../ui/toast", () => ({ toastManager: { add: actions.toast } }));
 
+vi.mock("./AcpRegistrySearchStep", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("./AcpRegistrySearchStep")>()),
+  useAcpRegistrySearch: () => ({
+    query: "",
+    search: { data: null, isPending: false, error: null, refresh: vi.fn() },
+    preparingId: null,
+    prepareError: null,
+    type: vi.fn(),
+    submit: vi.fn(),
+    prepare: vi.fn(),
+  }),
+}));
+vi.mock("./SecretSourceInput", () => ({ useSecretSources: () => [] }));
+vi.mock("../../state/managedPolicy", () => ({
+  useManagedPolicy: () => undefined,
+  managedInstanceLocks: () => undefined,
+}));
+
 import { AddProviderInstanceDialog } from "./AddProviderInstanceDialog";
 
 const remoteEnvironmentId = EnvironmentId.make("remote-device");

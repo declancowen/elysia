@@ -1,3 +1,10 @@
+import { createChatCanvasStore } from "./chat/canvasStore";
+import {
+  applyOptimisticUserMessagesAction,
+  createOptimisticBlobPreviews,
+  emptyOptimisticUserMessages,
+  reconcileOptimisticUserMessages,
+} from "./chat/optimisticUserMessages";
 import { usePreviewSession } from "./preview/usePreviewSession";
 import { channelReplyTarget } from "@elysiatools/shared/channelReplies";
 import { ChannelReplyPreview } from "./chat/ChannelReplyPreview";
@@ -167,7 +174,10 @@ import {
 } from "../rightPanelStore";
 import { isPreviewSupportedInRuntime, useThreadPreviewState } from "../previewStateStore";
 import { previewRuntimeTabId } from "../browser/previewRuntimeTabId";
-import { ThreadPreviewMiniPlayer } from "./preview/ThreadPreviewMiniPlayer";
+import {
+  ThreadPreviewMiniPlayer,
+  useThreadPreviewCanvasSource,
+} from "./preview/ThreadPreviewMiniPlayer";
 import { getConfiguredPreviewUrls } from "./preview/previewEmptyStateLogic";
 import {
   previewMiniPlayerSourceKey,
@@ -196,11 +206,9 @@ import { projectScriptIdFromCommand } from "~/projectScripts";
 import { WorkspaceItemContextChip } from "./WorkspaceItemContextChip";
 import { newMessageId } from "~/lib/utils";
 import {
-  applyProviderInstanceSettings,
-  deriveProviderInstanceEntries,
   NO_PROVIDER_MODEL_SELECTION,
   shouldShowInstanceBadge,
-  sortProviderInstanceEntries,
+  providerInstanceEntriesFor,
 } from "../providerInstances";
 import {
   useClientSettings,
@@ -336,7 +344,6 @@ import {
 } from "./chat/draftHeroTransition";
 import {
   buildLocalDraftThread,
-  collectUserMessageBlobPreviewUrls,
   deriveCommittedServerUserMessageIds,
   dismissBranchMismatchForSession,
   shouldShowPlanFollowUpPrompt,
@@ -347,7 +354,6 @@ import {
   resolveComposerProviderSelection,
   resolveThreadMetadataUpdateForNextTurn,
   resolveSendEnvMode,
-  revokeUserMessagePreviewUrls,
   startNewThreadForProject,
   codexArtifactTemplatePromptToAppend,
   shouldRefocusComposerOnWindowFocus,
@@ -389,7 +395,7 @@ const EMPTY_PROVIDER_SKILLS: ServerProvider["skills"] = [];
 const EMPTY_AUTO_UPDATE_ENVIRONMENTS: ReadonlyArray<EnvironmentPresentation> = [];
 const EMPTY_PENDING_FILE_SURFACE_IDS: ReadonlySet<string> = new Set();
 type ChatViewProps = {
-  embedded?: boolean;
+  embedded?: boolean | import("../lib/sideChatPane").SideChatParentPanel;
   workspaceContext?: {
     kind: "task" | "page";
     id: string;
@@ -428,8 +434,10 @@ export default function ChatView(props: ChatViewProps) {
     routeKind,
     onDiffPanelOpen,
     forceExpandedMobileComposer = false,
-    embedded = false,
+    embedded: embeddedTarget = false,
   } = props;
+  const embedded = Boolean(embeddedTarget);
+  const parentPanel = typeof embeddedTarget === "object" ? embeddedTarget : null;
   const canOperateThread = useEnvironmentScope(environmentId, AuthOrchestrationOperateScope);
   const canOperateTerminal = useEnvironmentScope(environmentId, AuthTerminalOperateScope);
   const draftId = routeKind === "draft" ? props.draftId : null;
@@ -437,6 +445,7 @@ export default function ChatView(props: ChatViewProps) {
   const routeThreadRef = scopeThreadRef(environmentId, threadId);
   const routeThreadKey = scopedThreadKey(routeThreadRef);
   const currentRouteThreadKeyRef = useRef<string | null>(routeThreadKey);
+  // oxlint-disable-next-line elysia/no-unreasoned-state-sync -- keeps the committed route key available to in-flight send handlers and clears it on unmount
   useLayoutEffect(() => {
     currentRouteThreadKeyRef.current = routeThreadKey;
     return () => {
@@ -662,8 +671,28 @@ export default function ChatView(props: ChatViewProps) {
     return inserted;
   };
   const citeAssistantTextStable = useStableCallback(citeAssistantText);
+  const [chatCanvasStore] = useState(createChatCanvasStore);
   const [isWorkspaceFileDragActive, setIsWorkspaceFileDragActive] = useState(false);
-  const [optimisticUserMessages, setOptimisticUserMessages] = useState<ChatMessage[]>([]);
+  const [optimisticBlobPreviews] = useState(createOptimisticBlobPreviews);
+  const [heldOptimisticUserMessages, setHeldOptimisticUserMessages] = useState(() =>
+    emptyOptimisticUserMessages(threadId),
+  );
+  // Acknowledged messages leave the timeline in the same render the server's copy enters it.
+  const optimisticState = reconcileOptimisticUserMessages(
+    heldOptimisticUserMessages,
+    threadId,
+    serverAcknowledgedUserMessageIds,
+  );
+  if (optimisticState !== heldOptimisticUserMessages) {
+    // Idempotent, and a discarded render only delays revocation to the thread's end.
+    optimisticBlobPreviews.handOff(optimisticState);
+    setHeldOptimisticUserMessages(optimisticState);
+  }
+  const optimisticUserMessages = optimisticState.messages;
+  const setOptimisticUserMessages = (action: SetStateAction<ChatMessage[]>) =>
+    setHeldOptimisticUserMessages((state) =>
+      applyOptimisticUserMessagesAction(state, threadId, action),
+    );
   // Draft ids survive promotion and expire on navigation, keeping the pending resend scoped correctly.
   const [workLocallyResendDraftId, setWorkLocallyResendDraftId] = useState<DraftId | null>(null);
   const [feedbackSubmissionsByThreadKey, setFeedbackSubmissionsByThreadKey] = useState<
@@ -690,6 +719,7 @@ export default function ChatView(props: ChatViewProps) {
     setWorkspaceFileDragRoute(workspaceFileDragRouteKey);
     setIsWorkspaceFileDragActive(false);
   }
+  // oxlint-disable-next-line elysia/no-unreasoned-state-sync -- clears the workspace drag overlay when the native window drag ends
   useEffect(() => {
     if (!isWorkspaceFileDragActive) return;
     const clearWorkspaceFileDrag = () => setIsWorkspaceFileDragActive(false);
@@ -805,6 +835,7 @@ export default function ChatView(props: ChatViewProps) {
   const isServerThread = serverThread !== null;
   const activeThread = isServerThread ? serverThread : localDraftThread;
   const chatHeaderPresent = activeThread !== null;
+  // oxlint-disable-next-line elysia/no-unreasoned-state-sync -- mounts the persistent chat header DOM node in the active topbar host
   useLayoutEffect(() => {
     const host =
       topbarHost && !isTopbarMobileViewport ? topbarHost : localChatHeaderHostRef.current;
@@ -994,6 +1025,7 @@ export default function ChatView(props: ChatViewProps) {
   );
   const diffOpen = activeRightPanelKind === "diff";
   const explicitDiffOpenRef = useRef<ScopedThreadRef | null>(null);
+  // oxlint-disable-next-line elysia/no-unreasoned-state-sync -- reconciles the imperative diff-panel selection when a thread mounts
   useLayoutEffect(() => {
     const explicitThreadRef = explicitDiffOpenRef.current;
     explicitDiffOpenRef.current = null;
@@ -1049,6 +1081,10 @@ export default function ChatView(props: ChatViewProps) {
   const previewMiniPlayerVisible = shouldRenderPreviewMiniPlayer(
     activePreviewMiniPlayer?.source ?? null,
     renderedRightPanelSurface,
+  );
+  const canvasPreview = useThreadPreviewCanvasSource(
+    activeThreadRef,
+    previewMiniPlayerVisible ? activePreviewMiniPlayer : null,
   );
   const canMaximizeRightPanel = rightPanelOpen && !shouldUsePlanSidebarSheet;
   const rightPanelMaximized = canMaximizeRightPanel && rightPanelState.maximized === true;
@@ -1178,6 +1214,7 @@ export default function ChatView(props: ChatViewProps) {
   };
   const handleFilePendingChangeStable = useStableCallback(handleFilePendingChange);
   const configuredPreviewUrls = getConfiguredPreviewUrls(activeProjectScripts);
+  // oxlint-disable-next-line elysia/no-unreasoned-state-sync -- reconciles persisted file-panel surfaces after the environment project snapshot arrives
   useEffect(() => {
     if (!activeThreadRef || !activeEnvironmentBootstrapComplete) return;
     useRightPanelStore.getState().reconcileFileSurfaces(activeThreadRef, activeProject !== null);
@@ -1303,12 +1340,10 @@ export default function ChatView(props: ChatViewProps) {
       activeEnvironment: activeEnvironmentOption,
       canPickEnvironment: hasMultipleEnvironments,
     });
-  const providerInstanceEntries = sortProviderInstanceEntries(
-    applyProviderInstanceSettings(
-      deriveProviderInstanceEntries(providerStatuses),
-      settings,
-      activeProject?.id ?? null,
-    ),
+  const providerInstanceEntries = providerInstanceEntriesFor(
+    providerStatuses,
+    settings,
+    activeProject?.id ?? null,
   );
   const activeThreadModelInstanceId = activeThread?.modelSelection.instanceId;
   const { selectedProviderEntry, requestedDriverKind } = resolveComposerProviderSelection({
@@ -1527,12 +1562,14 @@ export default function ChatView(props: ChatViewProps) {
     }
   };
   const openFileAttachmentStable = useStableCallback(openFileAttachment);
-  const { handoffAttachmentPreviewsStable, timelineAttachmentUrlById } =
-    useAttachmentPreviewHandoff({
-      environmentId,
-      serverVisibleTurnItems,
-      optimisticUserMessages,
-    });
+  const { timelineAttachmentUrlById } = useAttachmentPreviewHandoff({
+    environmentId,
+    threadId,
+    serverVisibleTurnItems,
+    handoff: optimisticState.handoff,
+    blobPreviews: optimisticBlobPreviews,
+    setOptimisticUserMessages: setHeldOptimisticUserMessages,
+  });
   const anchoredTimelineMessages = feedbackSubmissions.flatMap((submission) =>
     submission.status === "interrupted"
       ? []
@@ -1756,6 +1793,7 @@ export default function ChatView(props: ChatViewProps) {
         },
       })),
   );
+  // oxlint-disable-next-line elysia/no-unreasoned-state-sync -- persists the provider-reported compaction dismissal in the existing client preference store
   useEffect(() => {
     if (nativeResumeCompactionDismissed && !resumeCompactionPermanentlyDismissed) {
       setResumeCompactionPermanentlyDismissed(true);
@@ -1788,6 +1826,7 @@ export default function ChatView(props: ChatViewProps) {
   const activeTerminalLaunchContext =
     terminalUiLaunchContext?.threadId === activeThreadId ? terminalUiLaunchContext : null;
   const liveIsGitRepo = gitStatusQuery.data?.isRepo;
+  // oxlint-disable-next-line elysia/no-unreasoned-state-sync -- records a confirmed repository result in the checkout cache used while reconnecting
   useEffect(() => {
     if (gitStatusCwd !== null && liveIsGitRepo !== undefined) {
       rememberCheckoutIsRepo(environmentId, gitStatusCwd, liveIsGitRepo);
@@ -1815,7 +1854,7 @@ export default function ChatView(props: ChatViewProps) {
     (model) => model.slug === providerSubagentModelSlug,
   );
   const providerSubagentModelLabel = providerSubagentCatalogModel
-    ? getTriggerDisplayModelName(providerSubagentCatalogModel)
+    ? getTriggerDisplayModelName(providerSubagentCatalogModel, selectedProviderEntry?.driverKind)
     : formatModelSlugName(activeThread?.modelSelection.model ?? "");
   const providerSubagentEffortLabel =
     activeThread === undefined
@@ -1931,6 +1970,7 @@ export default function ChatView(props: ChatViewProps) {
     }
   };
   const onInterruptStable = useStableCallback(onInterrupt);
+  // oxlint-disable-next-line elysia/no-unreasoned-state-sync -- subscribes the mounted composer to native screenshot focus requests
   useEffect(() => subscribeSnapShotComposerFocus(focusComposerStable), [focusComposerStable]);
   const scheduleComposerFocus = () => {
     window.requestAnimationFrame(() => {
@@ -2092,6 +2132,7 @@ export default function ChatView(props: ChatViewProps) {
     visiblePullRequestCount,
     onDiffPanelOpen,
   });
+  // oxlint-disable-next-line elysia/no-unreasoned-state-sync -- consumes the imperative panel maximize request once the mounted panel can honor it
   useEffect(() => {
     if (!canMaximizeRightPanel) return;
     if (useRightPanelStore.getState().consumeMaximizeRequest(routeThreadRef)) {
@@ -2185,14 +2226,13 @@ export default function ChatView(props: ChatViewProps) {
     scrollToEnd,
     onTimelineAnchorReadyStable,
     onTimelineAnchorSizeChangedStable,
-    onToolOutputCollapsedAtEndStable,
+    onTimelineFooterGrowStable,
     onIsAtEndChangeStable,
     anchorNewTurn,
     attachTimelineViewport,
     attachComposerOverlay: attachFollowComposerOverlay,
   } = useTimelineFollow({
     legendListRef,
-    composerRef,
     composerTimelineInset,
     routeThreadKey,
     activeThreadKey,
@@ -2205,6 +2245,7 @@ export default function ChatView(props: ChatViewProps) {
     timelineAnchorMessageId,
     setTimelineAnchor,
   });
+  // oxlint-disable-next-line elysia/no-unreasoned-state-sync -- focuses the mounted composer DOM node after opening a thread with its terminal closed
   useEffect(() => {
     if (!activeThread?.id || terminalUiState.terminalOpen) return;
     const frame = window.requestAnimationFrame(() => {
@@ -2214,6 +2255,7 @@ export default function ChatView(props: ChatViewProps) {
       window.cancelAnimationFrame(frame);
     };
   }, [activeThread?.id, focusComposerStable, terminalUiState.terminalOpen]);
+  // oxlint-disable-next-line elysia/no-unreasoned-state-sync -- restores editor focus after native window activation while preserving terminal focus
   useEffect(() => {
     if (!activeThread?.id || terminalUiState.terminalOpen || isMobileViewport) return;
     let frame: number | null = null;
@@ -2234,57 +2276,6 @@ export default function ChatView(props: ChatViewProps) {
       if (frame !== null) window.cancelAnimationFrame(frame);
     };
   }, [activeThread?.id, focusComposerStable, isMobileViewport, terminalUiState.terminalOpen]);
-  useEffect(() => {
-    if (!activeThread?.id) return;
-    if (activeMessageCount === 0) {
-      return;
-    }
-    const removedMessages = optimisticUserMessages.filter((message) =>
-      serverAcknowledgedUserMessageIds.has(message.id),
-    );
-    if (removedMessages.length === 0) {
-      return;
-    }
-    const timer = window.setTimeout(() => {
-      setOptimisticUserMessages((existing) =>
-        existing.filter((message) => !serverAcknowledgedUserMessageIds.has(message.id)),
-      );
-    }, 0);
-    for (const removedMessage of removedMessages) {
-      const previewUrls = collectUserMessageBlobPreviewUrls(removedMessage);
-      if (previewUrls.length > 0) {
-        handoffAttachmentPreviewsStable(removedMessage.id, previewUrls);
-        continue;
-      }
-      revokeUserMessagePreviewUrls(removedMessage);
-    }
-    return () => {
-      window.clearTimeout(timer);
-    };
-  }, [
-    activeMessageCount,
-    activeThread?.id,
-    serverAcknowledgedUserMessageIds,
-    handoffAttachmentPreviewsStable,
-    optimisticUserMessages,
-  ]);
-
-  // Promotion drops draftId while a send may still be dispatching, so key by thread.
-  const [optimisticThreadId, setOptimisticThreadId] = useState(threadId);
-  const [retiredOptimisticMessages, setRetiredOptimisticMessages] = useState<
-    ReadonlyArray<ChatMessage>
-  >([]);
-  if (optimisticThreadId !== threadId) {
-    setOptimisticThreadId(threadId);
-    setRetiredOptimisticMessages(optimisticUserMessages);
-    setOptimisticUserMessages([]);
-    resetLocalDispatch();
-  }
-  useEffect(() => {
-    for (const message of retiredOptimisticMessages) {
-      revokeUserMessagePreviewUrls(message);
-    }
-  }, [retiredOptimisticMessages]);
   const activeWorktreePath = activeThread?.worktreePath ?? null;
   const derivedEnvMode: DraftThreadEnvMode = resolveEffectiveEnvMode({
     activeWorktreePath,
@@ -2431,6 +2422,7 @@ export default function ChatView(props: ChatViewProps) {
     composerRestingRef.current = resting;
   };
   const onComposerRestingChangeStable = useStableCallback(onComposerRestingChange);
+  // oxlint-disable-next-line elysia/no-unreasoned-state-sync -- measures the mounted composer overlay DOM height for timeline clearance
   useLayoutEffect(() => {
     if (!composerOverlayElement) return;
     composerTimelineInsetRef.current = 0;
@@ -2439,6 +2431,7 @@ export default function ChatView(props: ChatViewProps) {
     publishComposerOverlayHeightStable(composerOverlayElement.getBoundingClientRect().height);
     // oxlint-disable-next-line react/exhaustive-effect-dependencies -- A thread switch must re-measure the overlay for the new timeline.
   }, [activeThreadKey, composerOverlayElement, publishComposerOverlayHeightStable]);
+  // oxlint-disable-next-line elysia/no-unreasoned-state-sync -- measures the mounted composer overlay DOM height for timeline clearance
   useLayoutEffect(() => {
     if (!composerOverlayElement) return;
     const updateHeight = () => {
@@ -2460,6 +2453,7 @@ export default function ChatView(props: ChatViewProps) {
     // oxlint-disable-next-line react/exhaustive-effect-dependencies -- The scroll-to-bottom button changes the overlay's height without resizing the observed node first.
     showScrollToBottom,
   ]);
+  // oxlint-disable-next-line elysia/no-unreasoned-state-sync -- remeasures composer overlay clearance when the native subagent bar replaces its DOM
   useLayoutEffect(() => {
     if (composerMountedRef.current === composerMounted) return;
     composerMountedRef.current = composerMounted;
@@ -2474,7 +2468,8 @@ export default function ChatView(props: ChatViewProps) {
     activeThreadId === null || !isServerThread
       ? null
       : resolveThreadReferenceCopyTarget({
-          threadId: activeThreadId,
+          threadRef: scopeThreadRef(environmentId, activeThreadId),
+          title: activeThread?.title ?? "Thread",
           openPanelPullRequestUrl,
           pullRequests: activeThread?.pullRequests,
           linkedPullRequestUrl: linkedThreadPullRequest?.url ?? null,
@@ -2523,6 +2518,7 @@ export default function ChatView(props: ChatViewProps) {
     createBrowserSurface,
     createBrowserSurfaceStable,
     moveRightPanelSurfaceStable,
+    onOpenToolDiffStable,
     onOpenTurnDiffStable,
     openFileSurfaceStable,
     toggleRightPanelMaximizedStable,
@@ -2534,6 +2530,8 @@ export default function ChatView(props: ChatViewProps) {
     activeRightPanelSurface,
     activePreviewState,
     deviceState,
+    deviceStateLoaded,
+    embedded,
     pullRequestPanelTarget,
     isServerThread,
     isGitRepo,
@@ -2557,9 +2555,9 @@ export default function ChatView(props: ChatViewProps) {
   const {
     acknowledgeActiveThreadWoke,
     activeBranchMismatchKey,
-    backgroundWorkBanner,
-    childInputBanner,
-    goalBanner,
+    workNow: backgroundWorkBanner,
+    attentionNow: childInputBanner,
+    goalNow: goalBanner,
     handleSwitchCheckoutToThread,
     handleSwitchCheckoutToThreadStable,
     isRestoringThreadBranch,
@@ -2579,6 +2577,7 @@ export default function ChatView(props: ChatViewProps) {
     activeThread,
     activeThreadId,
     activeThreadRef,
+    threadDetailRef: routeThreadDetailRef,
     activeThreadKey,
     activeThreadShell,
     activeLatestRun,
@@ -2587,6 +2586,7 @@ export default function ChatView(props: ChatViewProps) {
     runtimeMode,
     isWorking,
     pendingBackgroundTasks,
+    turnItems: serverProjection?.turnItems ?? [],
     activePendingApproval,
     activePendingUserInput,
     localCheckoutBranchMismatch,
@@ -2600,7 +2600,6 @@ export default function ChatView(props: ChatViewProps) {
     clearUsageLimitsFor,
     beginLocalDispatch,
     resetLocalDispatch,
-    scheduleComposerFocus,
     scrollToEnd,
     persistThreadSettingsForNextTurn,
   });
@@ -2729,9 +2728,9 @@ export default function ChatView(props: ChatViewProps) {
       : null;
   const composerBannerItems = (() => {
     const limitRecoveryItems = limitRecoveryBanner === null ? [] : [limitRecoveryBanner];
-    const backgroundWorkItems = [childInputBanner, goalBanner, backgroundWorkBanner].filter(
-      (item) => item !== null,
-    );
+    const backgroundWorkItems = [childInputBanner, goalBanner, backgroundWorkBanner]
+      .filter((item) => item !== null)
+      .map((item) => ({ ...item, priority: "activity" as const, variant: "default" as const }));
     const usageLimitsItems = usageLimitsBanner === null ? [] : [usageLimitsBanner];
     const projectCloneItems = projectCloneBannerItem === null ? [] : [projectCloneBannerItem];
     if (!localCheckoutBranchMismatch || !showBranchMismatchBanner || !activeBranchMismatchKey) {
@@ -2783,6 +2782,7 @@ export default function ChatView(props: ChatViewProps) {
   // Entering a thread with its drawer open focuses the drawer terminal; opening
   // it from a handler requests focus there. A closed drawer leaves focus to the
   // composer effect above.
+  // oxlint-disable-next-line elysia/no-unreasoned-state-sync -- registers terminal DOM focus restoration for the active mounted thread
   useEffect(() => {
     if (activeThreadRef) return focusTerminalOnThreadEnter(activeThreadRef);
   }, [activeThreadRef]);
@@ -2872,6 +2872,7 @@ export default function ChatView(props: ChatViewProps) {
   });
 
   // A focused desktop browser page forwards these chords as menu actions.
+  // oxlint-disable-next-line elysia/no-unreasoned-state-sync -- subscribes the main chat to native desktop menu actions while mounted
   useEffect(() => {
     if (embedded) return;
     return window.desktopBridge?.onMenuAction((action) => {
@@ -2880,32 +2881,26 @@ export default function ChatView(props: ChatViewProps) {
     });
   }, [embedded, toggleRightPanelStable, toggleRightPanelMaximizedStable]);
   usePasteToFocusComposer(activeThreadId, composerRef, embedded ? embeddedRootRef : undefined);
-  const {
-    onConfirmRevertStable,
-    onForkFromRunStable,
-    onRevertTimelineTurnStable,
-    onTimelineRollbackCheckpointStable,
-  } = useTimelineRewind({
-    environmentId,
-    routeThreadRef,
-    routeThreadKey,
-    currentRouteThreadKeyRef,
-    serverProjection,
-    activeThread,
-    timelineMessages,
-    paintOnlyDisplayedTimeline,
-    phase,
-    isConnecting,
-    isSendBusy,
-    isRevertingCheckpoint,
-    supportsConversationRollback,
-    activeEnvironmentUnavailable,
-    activeEnvironmentUnavailableLabel,
-    promptRef,
-    composerRef,
-    composerDraftTarget,
-    setThreadError,
-  });
+  const { onConfirmRevertStable, onForkFromRunStable, onRevertTimelineTurnStable } =
+    useTimelineRewind({
+      environmentId,
+      routeThreadRef,
+      routeThreadKey,
+      currentRouteThreadKeyRef,
+      serverProjection,
+      activeThread,
+      timelineMessages,
+      phase,
+      isSendBusy,
+      isRevertingCheckpoint,
+      supportsConversationRollback,
+      activeEnvironmentUnavailable,
+      activeEnvironmentUnavailableLabel,
+      promptRef,
+      composerRef,
+      composerDraftTarget,
+      setThreadError,
+    });
   const onCompactContext = () => {
     if (compactDisabled) return;
     void sendStandaloneCommand("/compact", "Failed to compact context.");
@@ -2951,7 +2946,6 @@ export default function ChatView(props: ChatViewProps) {
     resumableRunId,
     hasHeldQueuedRuns,
     isSendBusy,
-    isConnecting,
     isRevertingCheckpoint,
     threadDetailLoading,
     activeEnvironmentUnavailable,
@@ -2972,7 +2966,6 @@ export default function ChatView(props: ChatViewProps) {
     activeProposedPlan,
     isServerThread,
     isSendBusy,
-    isConnecting,
     composerRef,
     beginLocalDispatch,
     resetLocalDispatch,
@@ -2981,6 +2974,7 @@ export default function ChatView(props: ChatViewProps) {
     defaultRuntimeMode,
   });
   const { onSend } = useComposerSend({
+    sideChatDisabledReason: "Side chats are not available in this view.",
     environmentId,
     routeThreadKey,
     currentRouteThreadKeyRef,
@@ -3020,7 +3014,6 @@ export default function ChatView(props: ChatViewProps) {
     composerTerminalContextsRef,
     feedbackUploadsInFlightRef,
     queuedRunEdit,
-    isConnecting,
     isRevertingCheckpoint,
     threadDetailLoading,
     activeEnvironmentUnavailable,
@@ -3051,6 +3044,10 @@ export default function ChatView(props: ChatViewProps) {
     setDockedDraftHeroThreadKey,
     setSetupQueueSendThreadKey,
     setOptimisticUserMessages,
+    optimisticBlobPreviews: {
+      track: (message) => optimisticBlobPreviews.track(threadId, message),
+      release: (message) => optimisticBlobPreviews.release(threadId, message),
+    },
     setFeedbackSubmissionsByThreadKey,
     setThreadError,
     setKeepFullHistory,
@@ -3094,6 +3091,7 @@ export default function ChatView(props: ChatViewProps) {
     threadKey: routeThreadKey,
     key: pendingGuestMessageKey,
   });
+  // oxlint-disable-next-line elysia/no-unreasoned-state-sync -- scrolls the imperative timeline when newly delivered guest messages arrive while following
   useEffect(() => {
     const previous = previousPendingGuestMessagesRef.current;
     previousPendingGuestMessagesRef.current = {
@@ -3132,6 +3130,13 @@ export default function ChatView(props: ChatViewProps) {
           editingRunId={queuedRunEdit.editingRunId}
           onEditQueuedRun={queuedRunEdit.beginEdit}
           onCancelEdit={queuedRunEdit.cancelEdit}
+          editBlockedReason={
+            activePendingApproval || activePendingUserInput
+              ? "Answer the pending request before editing a queued message."
+              : null
+          }
+          timestampFormat={timestampFormat}
+          onOpenThread={onOpenRelatedThreadStable}
         />
       </>
     ) : null;
@@ -3153,6 +3158,7 @@ export default function ChatView(props: ChatViewProps) {
     !activeEnvironmentUnavailable &&
     !activePendingProgress &&
     !feedbackUploading;
+  // oxlint-disable-next-line elysia/no-unreasoned-state-sync -- resubmits the held draft after the external worktree setup switches back to the local workspace
   useEffect(() => {
     if (
       !workLocallyResendReady ||
@@ -3187,6 +3193,7 @@ export default function ChatView(props: ChatViewProps) {
   const consumePendingFileDrop = useSidebarPendingFileDropStore(
     (state) => state.consumePendingFileDrop,
   );
+  // oxlint-disable-next-line elysia/no-unreasoned-state-sync -- delivers pending sidebar file drops into the newly mounted thread composer
   useEffect(() => {
     if (pendingSidebarFileDrops.length === 0) return;
     if (
@@ -3278,6 +3285,10 @@ export default function ChatView(props: ChatViewProps) {
       />
     ) : (
       <RightPanelSurfaceContent
+        sideChatParentPanel={{
+          openToolDiff: onOpenToolDiffStable,
+          runShellCommand: runShellCommandStable,
+        }}
         surface={renderedRightPanelSurface}
         activeSurfaceId={activeRightPanelSurface?.id ?? null}
         threadRef={activeThreadRef}
@@ -3518,6 +3529,9 @@ export default function ChatView(props: ChatViewProps) {
         >
           <div className="flex min-h-0 min-w-0 flex-1" data-chat-content>
             <ThreadFindCanvas
+              store={chatCanvasStore}
+              threadRef={activeThreadRef}
+              preview={canvasPreview}
               findOptions={{
                 skills: timelineSkills,
                 progressive: serverConfig?.threadFindProgressive === true,
@@ -3535,6 +3549,7 @@ export default function ChatView(props: ChatViewProps) {
               <ThreadFind onClose={focusComposerStable} />
               {isWorkspaceFileDragActive ? <WorkspaceFileDropOverlay /> : null}
               <ChatBannerLane
+                environmentId={environmentId}
                 providerStatus={visibleProviderStatus}
                 providerStatusBannerKey={providerStatusBannerKey}
                 setDismissedProviderStatusBannerKey={setDismissedProviderStatusBannerKey}
@@ -3591,7 +3606,8 @@ export default function ChatView(props: ChatViewProps) {
                         onCiteAssistantText: citeAssistantTextStable,
                         ...(activeProject
                           ? {
-                              onRunShellCommand: runShellCommandStable,
+                              onRunShellCommand:
+                                parentPanel?.runShellCommand ?? runShellCommandStable,
                             }
                           : {}),
                       }
@@ -3600,9 +3616,7 @@ export default function ChatView(props: ChatViewProps) {
                   runlessWorkActive={
                     runlessWorkStartedAt !== null || channelWorkingStartedAt !== null
                   }
-                  activeTurnInProgress={
-                    !paintOnlyDisplayedTimeline && (isWorking || !latestRunSettled)
-                  }
+
                   isCompacting={!paintOnlyDisplayedTimeline && isCompacting}
                   awaitingUser={
                     paintOnlyDisplayedTimeline
@@ -3695,11 +3709,11 @@ export default function ChatView(props: ChatViewProps) {
                   onOpenTurnDiff={
                     paintOnlyDisplayedTimeline ? noopHeldTurnDiff : onOpenTurnDiffStable
                   }
+                  onOpenToolDiff={parentPanel?.openToolDiff ?? onOpenToolDiffStable}
                   onOpenThread={onOpenRelatedThreadStable}
                   parentThreadLink={paintOnlyDisplayedTimeline ? null : parentThreadLink}
                   workflowOpening={paintOnlyDisplayedTimeline ? null : workflowOpening}
                   onForkFromRun={paintOnlyDisplayedTimeline ? async () => {} : onForkFromRunStable}
-                  onRollbackCheckpoint={onTimelineRollbackCheckpointStable}
                   supportsConversationRollback={
                     !paintOnlyDisplayedTimeline && supportsConversationRollback
                   }
@@ -3742,7 +3756,10 @@ export default function ChatView(props: ChatViewProps) {
                   liveFollowEnabled={!paintOnlyDisplayedTimeline && timelineLiveFollowEnabled}
                   onIsAtEndChange={onIsAtEndChangeStable}
                   onContentOverflowChange={setTimelineOverflows}
-                  onToolOutputCollapsedAtEnd={onToolOutputCollapsedAtEndStable}
+                  onToolOutputCollapsedAtEnd={() =>
+                    composerRef.current?.restoreAfterTimelineReachedEnd()
+                  }
+                  onFooterGrow={onTimelineFooterGrowStable}
                   onViewportAttach={attachTimelineViewport}
                   hideEmptyPlaceholder={isDraftHeroState || threadDetailLoading}
                   emptyPlaceholderInset={composerReservedHeight}
@@ -3756,6 +3773,7 @@ export default function ChatView(props: ChatViewProps) {
 
                 {showScrollToBottom && !isThreadFindActive && (
                   <ScrollToEndButton
+                    summary={null}
                     bottom={(embedded ? 0 : scrollToEndClearance) + 4}
                     onScrollToEnd={() => {
                       composerRef.current?.restoreAfterTimelineReachedEnd();
@@ -3903,7 +3921,7 @@ export default function ChatView(props: ChatViewProps) {
                                 activeThreadEnvironmentId={activeThread?.environmentId}
                                 activeThread={activeThread}
                                 activeThreadShell={activeThreadShell}
-                                promptHistoryMessages={timelineMessages}
+                                promptHistoryEntries={timelineEntries}
                                 isServerThread={isServerThread}
                                 isLocalDraftThread={isLocalDraftThread}
                                 forceExpandedOnMobile={

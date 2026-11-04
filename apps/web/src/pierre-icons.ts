@@ -5,6 +5,9 @@ import {
 } from "@pierre/trees";
 import { VIDEO_FILE_EXTENSIONS } from "@elysiatools/shared/video";
 import { fileIconPathForMimeType } from "@elysiatools/shared/mediaPreview";
+
+import type { ContextChipAccentKind } from "~/lib/contextChipAccents";
+
 export interface PierreIconResolution {
   name: string;
   token?: string;
@@ -42,7 +45,7 @@ const ELYSIA_FILE_ICON_SPRITE = `<svg xmlns="http://www.w3.org/2000/svg" width="
   </symbol>
   <!-- Lucide File Type, File Text, File Spreadsheet, Presentation and Book Open icons, ISC license. -->
   <symbol id="elysia-file-icon-pdf" viewBox="0 0 24 24">
-    <g fill="none" style="stroke: ${DOCUMENT_ICON_COLORS["elysia-file-icon-pdf"]}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <g fill="none" style="stroke: var(--document-icon-stroke, ${DOCUMENT_ICON_COLORS["elysia-file-icon-pdf"]})" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
       <path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z" />
       <path d="M14 2v5a1 1 0 0 0 1 1h5" />
       <path d="M11 18h2" />
@@ -51,7 +54,7 @@ const ELYSIA_FILE_ICON_SPRITE = `<svg xmlns="http://www.w3.org/2000/svg" width="
     </g>
   </symbol>
   <symbol id="elysia-file-icon-word" viewBox="0 0 24 24">
-    <g fill="none" style="stroke: ${DOCUMENT_ICON_COLORS["elysia-file-icon-word"]}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <g fill="none" style="stroke: var(--document-icon-stroke, ${DOCUMENT_ICON_COLORS["elysia-file-icon-word"]})" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
       <path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z" />
       <path d="M14 2v5a1 1 0 0 0 1 1h5" />
       <path d="M10 9H8" />
@@ -60,7 +63,7 @@ const ELYSIA_FILE_ICON_SPRITE = `<svg xmlns="http://www.w3.org/2000/svg" width="
     </g>
   </symbol>
   <symbol id="elysia-file-icon-spreadsheet" viewBox="0 0 24 24">
-    <g fill="none" style="stroke: ${DOCUMENT_ICON_COLORS["elysia-file-icon-spreadsheet"]}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <g fill="none" style="stroke: var(--document-icon-stroke, ${DOCUMENT_ICON_COLORS["elysia-file-icon-spreadsheet"]})" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
       <path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z" />
       <path d="M14 2v5a1 1 0 0 0 1 1h5" />
       <path d="M8 13h2" />
@@ -70,14 +73,14 @@ const ELYSIA_FILE_ICON_SPRITE = `<svg xmlns="http://www.w3.org/2000/svg" width="
     </g>
   </symbol>
   <symbol id="elysia-file-icon-slides" viewBox="0 0 24 24">
-    <g fill="none" style="stroke: ${DOCUMENT_ICON_COLORS["elysia-file-icon-slides"]}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <g fill="none" style="stroke: var(--document-icon-stroke, ${DOCUMENT_ICON_COLORS["elysia-file-icon-slides"]})" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
       <path d="M2 3h20" />
       <path d="M21 3v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V3" />
       <path d="m7 21 5-5 5 5" />
     </g>
   </symbol>
   <symbol id="elysia-file-icon-epub" viewBox="0 0 24 24">
-    <g fill="none" style="stroke: ${DOCUMENT_ICON_COLORS["elysia-file-icon-epub"]}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+    <g fill="none" style="stroke: var(--document-icon-stroke, ${DOCUMENT_ICON_COLORS["elysia-file-icon-epub"]})" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
       <path d="M12 7v14" />
       <path d="M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z" />
     </g>
@@ -175,6 +178,7 @@ export const ELYSIA_PIERRE_ICONS = {
     kt: "elysia-file-icon-kotlin",
     kts: "elysia-file-icon-kotlin",
     lua: "elysia-file-icon-lua",
+    luau: "elysia-file-icon-lua",
     php: "elysia-file-icon-php",
     ps1: "elysia-file-icon-powershell",
     psm1: "elysia-file-icon-powershell",
@@ -183,6 +187,9 @@ export const ELYSIA_PIERRE_ICONS = {
     scala: "elysia-file-icon-scala",
     toml: "elysia-file-icon-toml",
     xml: "elysia-file-icon-xml",
+    xsd: "elysia-file-icon-xml",
+    xsl: "elysia-file-icon-xml",
+    xslt: "elysia-file-icon-xml",
   },
 } satisfies FileTreeIcons;
 const completeIconResolver = createFileTreeIconResolver(ELYSIA_PIERRE_ICONS);
@@ -248,6 +255,19 @@ function isSpecificIcon(icon: PierreIconResolution | null): boolean {
 export function documentIconColorForFileName(fileName: string) {
   const icon = resolvePierreIconForEntry(fileName, "file");
   return icon ? DOCUMENT_ICON_COLORS[icon.name] : undefined;
+}
+
+const DOCUMENT_CHIP_KINDS: Readonly<Record<string, ContextChipAccentKind>> = {
+  "elysia-file-icon-pdf": "doc-pdf",
+  "elysia-file-icon-word": "doc-word",
+  "elysia-file-icon-spreadsheet": "doc-spreadsheet",
+  "elysia-file-icon-slides": "doc-slides",
+  "elysia-file-icon-epub": "doc-epub",
+};
+
+export function documentChipKindForFileName(fileName: string) {
+  const icon = resolvePierreIconForEntry(fileName, "file");
+  return icon ? DOCUMENT_CHIP_KINDS[icon.name] : undefined;
 }
 export function hasSpecificPierreIconForFileName(fileName: string): boolean {
   return isSpecificIcon(resolvePierreIconForEntry(fileName, "file"));

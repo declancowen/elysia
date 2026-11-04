@@ -4,6 +4,9 @@ const forkPolicy = vi.hoisted(() => ({ elysia: false }));
 vi.mock("../../../../packages/contracts/src/forkPolicy.ts", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../../../../packages/contracts/src/forkPolicy.ts")>()),
   isEnabledProviderDriver: (driver: string) => !forkPolicy.elysia || driver === "claudeAgent",
+  get SINGLE_PROVIDER_UI() {
+    return forkPolicy.elysia;
+  },
 }));
 beforeEach(() => {
   forkPolicy.elysia = false;
@@ -933,6 +936,59 @@ describe("synchronized mobile model visibility", () => {
     expect(
       buildModelOptions(cleared, null, provider, null).map((option) => option.selection.model),
     ).toEqual(["hidden", "first", "second", "custom"]);
+  });
+
+  describe("managed provider policy", () => {
+    const config = {
+      providers: [
+        {
+          instanceId: "codex",
+          driver: "codex",
+          enabled: true,
+          installed: true,
+          auth: { status: "authenticated" },
+          models: [{ slug: "gpt-5.6-sol", name: "GPT", isCustom: false, capabilities: null }],
+        },
+        {
+          instanceId: "claudeAgent",
+          driver: "claudeAgent",
+          enabled: true,
+          installed: true,
+          auth: { status: "authenticated" },
+          models: [
+            { slug: "claude-sonnet-5", name: "Sonnet", isCustom: false, capabilities: null },
+          ],
+        },
+      ],
+      managedPolicy: {
+        organization: "Example Corp",
+        lockedSettings: [],
+        limits: { providers: { allowedDrivers: [ProviderDriverKind.make("codex")] } },
+      },
+    } as unknown as ServerConfig;
+    const disallowed = {
+      instanceId: ProviderInstanceId.make("claudeAgent"),
+      model: "claude-sonnet-5",
+    };
+
+    it("leaves drivers the policy does not allow out of the picker", () => {
+      expect(
+        buildModelOptions(config, null, undefined, null).map((option) => option.providerKey),
+      ).toEqual(["codex"]);
+    });
+
+    it("marks a thread's selection on a disallowed driver unavailable with the policy reason", () => {
+      expect(
+        buildModelOptions(config, disallowed, undefined, null).find(
+          (option) => option.providerKey === "claudeAgent",
+        )?.isUnavailable,
+      ).toBe(true);
+      expect(isModelSelectionUnavailable(config, disallowed, null)).toBe(true);
+      expect(describeUnavailableModelSelection(config, disallowed, null)).toEqual({
+        title: "Provider not allowed",
+        detail: "Example Corp's policy does not allow the Elysia provider. Choose another model.",
+      });
+    });
   });
 });
 

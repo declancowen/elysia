@@ -1,3 +1,4 @@
+import { useDelegatedUnderParent } from "../state/entities";
 import { showContextMenuFallback, ContextMenuButton } from "../contextMenuFallback";
 import {
   scopedThreadKey,
@@ -83,6 +84,7 @@ export function ProjectsPage() {
   useEscapeToGoBack();
   const groups = useSettingsProjectGroups();
   const threads = useThreadShells();
+  const delegatedUnderParent = useDelegatedUnderParent();
   const manualThreadOrder = useUiStateStore((state) => state.sidebarThreadOrder);
   const projectsReady = useAllEnvironmentProjectSnapshotsReady();
   const serverConfigs = useServerConfigs();
@@ -99,6 +101,7 @@ export function ProjectsPage() {
     search,
     scratchWorkspaceRootFor,
     manualThreadOrder,
+    delegatedUnderParent,
   );
 
   const newChat = (project: SidebarProjectSnapshot) => {

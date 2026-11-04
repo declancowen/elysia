@@ -1,3 +1,4 @@
+import * as NodeCrypto from "@effect/platform-node/NodeCrypto";
 import * as NodeServices from "@effect/platform-node/NodeServices";
 import { assert, it } from "@effect/vitest";
 import {
@@ -41,7 +42,7 @@ vi.mock("../ClaudeProvider.ts", { spy: true });
 const baseTestLayer = ServerConfig.layerTest(process.cwd(), {
   prefix: "elysia-startup-test-",
 }).pipe(
-  Layer.provideMerge(NodeServices.layer),
+  Layer.provideMerge(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer)),
   Layer.provideMerge(IdAllocator.layer),
   Layer.provideMerge(ProviderContinuationRequests.layer),
   Layer.provideMerge(McpProviderSessions.layer),
@@ -65,6 +66,7 @@ const baseTestLayer = ServerConfig.layerTest(process.cwd(), {
 const testLayer = ProviderHostLive.layer.pipe(
   Layer.provideMerge(ServerSecretStore.layer),
   Layer.provideMerge(baseTestLayer),
+  Layer.provideMerge(NodeCrypto.layer),
 );
 
 it.layer(testLayer)("Elysia startup", (it) => {

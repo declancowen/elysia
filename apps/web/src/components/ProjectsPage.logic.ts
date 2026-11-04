@@ -18,11 +18,12 @@ export function buildProjectsPageRows(
   search: string,
   scratchWorkspaceRootFor: (environmentId: EnvironmentId) => string | null,
   manualThreadOrder: readonly string[] = [],
+  delegatedUnderParent: ReadonlySet<string> = new Set(),
 ) {
   const query = search.trim().toLocaleLowerCase();
   const ranks = new Map(manualThreadOrder.map((key, index) => [key, index]));
   const threadsByProject = new Map<string, ThreadShell[]>();
-  for (const thread of filterSidebarV2VisibleThreads(threads, null)) {
+  for (const thread of filterSidebarV2VisibleThreads(threads, null, delegatedUnderParent)) {
     const key = scopedProjectKey({
       environmentId: thread.environmentId,
       projectId: thread.projectId,

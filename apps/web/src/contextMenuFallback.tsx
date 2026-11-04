@@ -184,7 +184,10 @@ function ContextMenuItems<T extends string>({
   );
 }
 
-let activeContextMenu: { dismiss: () => void; previousFocus: HTMLElement | null } | null = null;
+let activeContextMenu: {
+  dismiss: (restoreFocus?: boolean) => void;
+  previousFocus: HTMLElement | null;
+} | null = null;
 
 const contextMenuListeners = new Set<() => void>();
 function getActiveContextMenu() {
@@ -204,8 +207,14 @@ export function isContextMenuOpen(): boolean {
   return activeContextMenu !== null;
 }
 
-export function dismissContextMenu(): void {
-  activeContextMenu?.dismiss();
+export function dismissContextMenu(restoreFocus = true): void {
+  activeContextMenu?.dismiss(restoreFocus);
+}
+
+function deepestFocusedElement(): Element | null {
+  let element = document.activeElement;
+  while (element?.shadowRoot?.activeElement) element = element.shadowRoot.activeElement;
+  return element;
 }
 
 /** Imperative entry point using the same menu primitives as button menus. */
@@ -213,9 +222,10 @@ export function showContextMenuFallback<T extends string>(
   items: readonly ContextMenuItem<T>[],
   position = { x: 0, y: 0 },
 ): Promise<T | null> {
+  const focusedElement = deepestFocusedElement();
   const previousFocus =
     activeContextMenu?.previousFocus ??
-    (document.activeElement instanceof HTMLElement ? document.activeElement : null);
+    (focusedElement instanceof HTMLElement ? focusedElement : null);
   dismissContextMenu();
   return new Promise((resolve) => {
     const host = document.createElement("div");
@@ -227,16 +237,18 @@ export function showContextMenuFallback<T extends string>(
     };
     let disposed = false;
     let canSelect = false;
-    const cleanup = (result: T | null) => {
+    const cleanup = (result: T | null, restoreFocusRequested = true) => {
       if (disposed) return;
       disposed = true;
       if (activeContextMenu?.dismiss === dismiss) {
         activeContextMenu = null;
         notifyContextMenuChange();
       }
+      const focusedElement = deepestFocusedElement();
       const restoreFocus =
-        document.activeElement === document.body ||
-        [...popups].some((popup) => popup.contains(document.activeElement));
+        restoreFocusRequested &&
+        (focusedElement === document.body ||
+          [...popups].some((popup) => popup.contains(focusedElement)));
       // Closing can be requested by a menu effect; unmount outside React's commit.
       queueMicrotask(() => {
         root.unmount();
@@ -246,7 +258,7 @@ export function showContextMenuFallback<T extends string>(
         resolve(result);
       });
     };
-    const dismiss = () => cleanup(null);
+    const dismiss = (restoreFocus = true) => cleanup(null, restoreFocus);
     activeContextMenu = { dismiss, previousFocus };
     notifyContextMenuChange();
     flushSync(() =>

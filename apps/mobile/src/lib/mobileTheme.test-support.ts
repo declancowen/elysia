@@ -2,10 +2,17 @@ import * as NodeFS from "node:fs";
 import generatedVariables from "../../generated-uniwind-default-theme-variables.json";
 
 import {
-  MOBILE_THEME_VARIABLE_NAMES,
+  createMobileThemeVariables,
+  type MobileThemeVariable,
   type MobileThemeAppearance,
   type MobileThemeVariables,
 } from "./mobileTheme";
+
+import { ELYSIA_CHAT_THEME } from "@elysiatools/shared/themePalettes";
+
+const MOBILE_THEME_VARIABLE_NAMES = Object.keys(
+  createMobileThemeVariables(ELYSIA_CHAT_THEME.colors, "light"),
+) as ReadonlyArray<MobileThemeVariable>;
 
 export function readDefaultMobileThemeVariables(
   appearance: MobileThemeAppearance,

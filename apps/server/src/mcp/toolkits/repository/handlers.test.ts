@@ -34,7 +34,7 @@ import * as NodeServices from "@effect/platform-node/NodeServices";
 import { VcsProvisioningService } from "../../../vcs/VcsProvisioningService.ts";
 import { VcsStatusBroadcaster } from "../../../vcs/VcsStatusBroadcaster.ts";
 import * as McpInvocationContext from "../../McpInvocationContext.ts";
-import { layerRepositoryToolkit } from "../../McpHttpServer.ts";
+import { layerRepositoryToolkit, layerInProcessMcpServer } from "../../McpHttpServer.ts";
 import { HandlersLayer } from "../../McpToolAccess.ts";
 import * as ThreadManagement from "../../../orchestration-v2/ThreadManagementService.ts";
 import { liveThreadShell } from "../../McpToolAccess.testkit.ts";
@@ -175,6 +175,8 @@ const makeHarness = Effect.fn("makeRepositoryToolkitHarness")(function* (
                   ...value,
                   projectId: value.id,
                   defaultThreadEnvMode: null,
+                  pinnedAt: null,
+                  archivedAt: null,
                   autoPull: false,
                   faviconPath: null,
                   projectIcon: null,
@@ -449,7 +451,7 @@ describe("repository toolkit", () => {
           Effect.provide(
             layerRepositoryToolkit.pipe(
               Layer.provide(RepositoryInitialization.layer),
-              Layer.provideMerge(McpServer.McpServer.layer),
+              Layer.provideMerge(layerInProcessMcpServer),
               Layer.provide(harness.dependencies),
             ),
           ),

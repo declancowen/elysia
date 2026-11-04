@@ -68,10 +68,11 @@ export function classifyReachability(
   const restart = "Restart Elysia. If it stays, run `elysia connect` again.";
 
   if (!facts.managedTunnelConfigured) {
+    // A running server reads the link `t3 connect` stores only at startup.
     return fail(
       "not_linked",
-      "The server has not set up a Elysia Connect tunnel.",
-      "Run `elysia connect`, then restart the server (`t3 service restart`) so it applies the link.",
+      "The server has not set up a T3 Connect tunnel.",
+      "Run `elysia connect`, then restart Elysia so it applies the link.",
     );
   }
   if (connector === null) {

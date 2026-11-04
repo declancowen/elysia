@@ -17,7 +17,7 @@ import type {
   PullRequestListState,
   PullRequestState,
 } from "@elysiatools/contracts";
-import { toSortableTimestamp } from "../../lib/threadSort";
+import { toSortableTimestamp } from "@elysiatools/client-runtime/state/thread-sort";
 import type { PullRequestListSort } from "./pullRequestListPreferences";
 export interface EnvironmentPullRequestEntry extends PullRequestListEntry {
   readonly environmentId: EnvironmentId;
@@ -453,21 +453,17 @@ export function partitionPullRequestsWithPriority<Entry extends PullRequestListE
       others.push(entry);
     }
   }
-  const byRecency = (left: Entry, right: Entry) => right.updatedAt.localeCompare(left.updatedAt);
   return (
     [
       {
         key: "authored",
-        entries: [...authoredByKey.values()].toSorted(byRecency),
+        entries: [...authoredByKey.values()].toSorted(comparePullRequestsByRecency),
       },
       {
         key: "reviewRequested",
-        entries: [...reviewByKey.values()].toSorted(byRecency),
+        entries: [...reviewByKey.values()].toSorted(comparePullRequestsByRecency),
       },
-      {
-        key: "others",
-        entries: others,
-      },
+      { key: "others", entries: others },
     ] as const
   )
     .filter((group) => group.entries.length > 0)
@@ -569,7 +565,7 @@ export function mergePullRequestLists(
   return {
     viewers,
     providers: [...providers.values()],
-    entries: entries.toSorted((left, right) => right.updatedAt.localeCompare(left.updatedAt)),
+    entries: entries.toSorted(comparePullRequestsByRecency),
     errors,
     truncated,
     nextCursors,
@@ -672,7 +668,7 @@ export function rankPullRequestMatches<Entry extends PullRequestListEntry>(
   if (query.trim().length === 0) return entries;
   return entries.toSorted((left, right) => {
     const byScore = scorePullRequestMatch(right, query) - scorePullRequestMatch(left, query);
-    return byScore !== 0 ? byScore : right.updatedAt.localeCompare(left.updatedAt);
+    return byScore !== 0 ? byScore : comparePullRequestsByRecency(left, right);
   });
 }
 export function rankPullRequestsByMergeReadiness<Entry extends PullRequestListEntry>(
@@ -692,23 +688,29 @@ export function rankPullRequestsByMergeReadiness<Entry extends PullRequestListEn
     if (byTier !== 0) return byTier;
     const measured = Number(hasMeasuredSize(right)) - Number(hasMeasuredSize(left));
     const sized = left.additions + left.deletions - (right.additions + right.deletions);
-    return measured || sized || right.updatedAt.localeCompare(left.updatedAt);
+    return measured || sized || comparePullRequestsByRecency(left, right);
   });
 }
+
+export function comparePullRequestsByRecency(
+  left: PullRequestListEntry,
+  right: PullRequestListEntry,
+) {
+  const leftUpdated = toSortableTimestamp(left.updatedAt);
+  const rightUpdated = toSortableTimestamp(right.updatedAt);
+  const measured = Number(leftUpdated === null) - Number(rightUpdated === null);
+  if (measured !== 0) return measured;
+  if (leftUpdated === null || rightUpdated === null) return 0;
+  return rightUpdated - leftUpdated;
+}
+
 function rankByTierThenRecency<Entry extends PullRequestListEntry>(
   entries: ReadonlyArray<Entry>,
   tier: (entry: Entry) => number,
 ): ReadonlyArray<Entry> {
-  const timestamp = (entry: Entry) => toSortableTimestamp(entry.updatedAt);
   return entries.toSorted((left, right) => {
     const byTier = tier(left) - tier(right);
-    if (byTier !== 0) return byTier;
-    const leftUpdated = timestamp(left);
-    const rightUpdated = timestamp(right);
-    const measured = Number(leftUpdated === null) - Number(rightUpdated === null);
-    if (measured !== 0) return measured;
-    if (leftUpdated === null || rightUpdated === null) return 0;
-    return rightUpdated - leftUpdated;
+    return byTier !== 0 ? byTier : comparePullRequestsByRecency(left, right);
   });
 }
 export function rankPullRequestsBlockedOnAuthor<Entry extends PullRequestListEntry>(

@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { act } from "../../../test/act";
 import {
   DEFAULT_CLIENT_SETTINGS,
@@ -31,7 +32,7 @@ vi.mock("../ui/tooltip", () => ({
 vi.mock("../preview/previewBridge", () => ({
   previewBridge: { listBrowserImportSources },
 }));
-vi.mock("../../env", () => ({ isElectron: true }));
+vi.mock("../../env", () => ({ isElectron: true, isSecretsFeatureEnabled: false }));
 vi.mock("../../state/environments", () => ({
   useEnvironments: () => ({ environments: [], isReady: true }),
   usePrimaryEnvironment: () => null,
@@ -68,12 +69,17 @@ vi.mock("./SettingsScopeContext", () => ({
   useOptionalSettingsScope: () => null,
 }));
 
-import { IntegrationsSettingsPanel } from "./IntegrationsSettings";
+import { BrowserSettingsPanel } from "./IntegrationsSettings";
 import { platformSetupStatus } from "../device/DeviceSetup";
 
 let renderer: ReactTestRenderer | undefined;
 
 beforeEach(() => {
+  vi.stubGlobal("matchMedia", () => ({
+    matches: false,
+    addEventListener: vi.fn(),
+    removeEventListener: vi.fn(),
+  }));
   listBrowserImportSources.mockClear();
 });
 
@@ -84,7 +90,7 @@ afterEach(async () => {
 
 async function openSettings() {
   const router = createRouter({
-    routeTree: createRootRoute({ component: IntegrationsSettingsPanel }),
+    routeTree: createRootRoute({ component: BrowserSettingsPanel }),
     history: createMemoryHistory(),
   });
   await router.load();
@@ -95,7 +101,7 @@ async function openSettings() {
       </StrictMode>,
     );
   });
-  expect(renderer!.root.findByType(IntegrationsSettingsPanel)).toBeDefined();
+  expect(renderer!.root.findByType(BrowserSettingsPanel)).toBeDefined();
 }
 
 describe("Integrations browser discovery", () => {
@@ -106,15 +112,6 @@ describe("Integrations browser discovery", () => {
     await act(() => renderer?.unmount());
     await openSettings();
     expect(listBrowserImportSources).not.toHaveBeenCalled();
-  });
-
-  it("places device settings directly after browser settings", async () => {
-    await openSettings();
-    const sections = renderer!.root
-      .findAll((node) => node.type === "section")
-      .map((node) => node.props.id)
-      .filter(Boolean);
-    expect(sections.indexOf("devices")).toBeGreaterThan(sections.indexOf("browser"));
   });
 });
 

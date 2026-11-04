@@ -5,7 +5,9 @@ import {
 import { isOrchestrationV2WorkActive } from "@elysiatools/contracts";
 import { ArrowUpLeftIcon } from "~/icons";
 import { useLayoutEffect, useRef } from "react";
+import type { ReactNode } from "react";
 
+import { tickTextContent } from "~/lib/tickTextContent";
 import type { ProviderInstanceEntry } from "../../providerInstances";
 import { Button } from "../ui/button";
 import { ProviderInstanceIcon } from "./ProviderInstanceIcon";
@@ -17,8 +19,8 @@ export function ProviderSubagentBar(props: {
   readonly effortLabel: string | null;
   readonly status: ProviderSubagentStatus | null;
   readonly onOpenParent: (() => void) | null;
+  readonly actions?: ReactNode;
 }) {
-  const statusRef = useRef<HTMLSpanElement>(null);
   const { status } = props;
   const live = status !== null && isOrchestrationV2WorkActive(status.status);
   const modelDescription =
@@ -27,19 +29,6 @@ export function ProviderSubagentBar(props: {
     status === null ? null : { ...status, startedAt: null },
     0,
   );
-
-  // Write timer labels to the DOM to avoid chat renders on each tick.
-  useLayoutEffect(() => {
-    const update = () => {
-      if (statusRef.current) {
-        statusRef.current.textContent = formatProviderSubagentStatus(status, Date.now());
-      }
-    };
-    update();
-    if (!live) return;
-    const id = setInterval(update, 1_000);
-    return () => clearInterval(id);
-  }, [live, status]);
 
   // Sized by the composer, not the viewport: a docked side panel narrows the
   // chat column on a wide window, and one row there squeezes out the model
@@ -67,7 +56,7 @@ export function ProviderSubagentBar(props: {
           )}
         </span>
         <span
-          ref={statusRef}
+          ref={tickTextContent((nowMs) => formatProviderSubagentStatus(status, nowMs), live)}
           aria-hidden
           className="min-w-0 max-w-full truncate text-muted-foreground tabular-nums @max-[560px]/composer-surface:text-xs"
         />
@@ -78,6 +67,7 @@ export function ProviderSubagentBar(props: {
       <span className="shrink-0 text-muted-foreground @max-[640px]/composer-surface:sr-only">
         Runs on its own
       </span>
+      {props.actions}
       {props.onOpenParent ? (
         <Button size="sm" variant="ghost" onClick={props.onOpenParent}>
           <ArrowUpLeftIcon />

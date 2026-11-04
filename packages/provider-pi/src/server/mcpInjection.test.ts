@@ -80,7 +80,6 @@ describe("pi Elysia MCP injection", () => {
       "--extension",
       "/tmp/cache/pi-elysia-mcp-extension.ts",
     ]);
-    assert.isFalse(permissionOnly.hasElysiaMcp);
     assert.isUndefined(permissionOnly.env[ELYSIA_MCP_URL_ENV]);
     assert.isUndefined(permissionOnly.env[ELYSIA_MCP_BEARER_ENV]);
     assert.equal(permissionOnly.env[ELYSIA_PI_RUNTIME_MODE_ENV], "auto-accept-edits");
@@ -106,6 +105,7 @@ describe("pi Elysia MCP injection", () => {
       extensionPath: "/tmp/cache/pi-elysia-mcp-extension.ts",
       sessionPath: "/fake/persisted.jsonl",
       ephemeral: true,
+      shortLived: true,
       disableExtensions: true,
       disableTools: true,
     });
@@ -115,10 +115,19 @@ describe("pi Elysia MCP injection", () => {
       "--no-session",
       "--provider",
       "anthropic",
+      "--offline",
       "--no-extensions",
       "--no-tools",
     ]);
-    assert.isFalse(launch.hasElysiaMcp);
+    const alreadyOffline = buildPiRpcLaunch({
+      launchArgs: ["--offline"],
+      environment: {},
+      mcpSession: undefined,
+      extensionPath: undefined,
+      ephemeral: true,
+      shortLived: true,
+    });
+    assert.deepEqual(alreadyOffline.args, ["--mode", "rpc", "--no-session", "--offline"]);
     assert.deepInclude(resolvePiLaunchArgs("--mode text"), {
       ok: false,
       message: "Pi launch argument '--mode' is controlled by Elysia and cannot be overridden.",

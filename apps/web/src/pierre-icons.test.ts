@@ -1,11 +1,6 @@
 import { assert, describe, it } from "vite-plus/test";
 
-import {
-  ELYSIA_PIERRE_ICONS,
-  hasSpecificPierreIconForFileName,
-  resolvePierreIconForEntry,
-  syntheticFileNameForLanguageId,
-} from "./pierre-icons";
+import { ELYSIA_PIERRE_ICONS, hasSpecificPierreIconForFileName, resolvePierreIconForEntry, syntheticFileNameForLanguageId } from "./pierre-icons";
 
 describe("Pierre file icons", () => {
   it.each(["photo.heic", "photo.heif", "PHOTO.HEIC", "folder/photo.HEIF"])(
@@ -110,5 +105,23 @@ describe("Pierre file icons", () => {
     "xml",
   ])("gives a %s fence a language icon", (language) => {
     assert.isTrue(hasSpecificPierreIconForFileName(syntheticFileNameForLanguageId(language)));
+  });
+
+  it.each([
+    ["luau", "lua"],
+    ["xsd", "xml"],
+    ["xsl", "xml"],
+    ["xslt", "xml"],
+  ])("gives %s files and fences the %s icon", (dialect, base) => {
+    const baseIcon = resolvePierreIconForEntry(`file.${base}`, "file")?.name;
+    assert.equal(baseIcon, `elysia-file-icon-${base}`);
+    for (const path of [`src/init.${dialect}`, `src/INIT.${dialect.toUpperCase()}`]) {
+      assert.equal(resolvePierreIconForEntry(path, "file")?.name, baseIcon);
+      assert.isTrue(hasSpecificPierreIconForFileName(path));
+    }
+    assert.equal(
+      resolvePierreIconForEntry(syntheticFileNameForLanguageId(dialect), "file")?.name,
+      baseIcon,
+    );
   });
 });

@@ -1,7 +1,10 @@
+import type { PluggableList } from "unified";
 import type { Root, RootContent } from "mdast";
-import { resolveWorkEntryToolPresentation } from "@elysiatools/client-runtime/work-log/presentation";
+import {
+  resolveWorkEntryToolPresentation,
+  toolGroupAction,
+} from "@elysiatools/client-runtime/work-log/presentation";
 import { isJavaScriptReplTool } from "@elysiatools/shared/toolActivity";
-import { toolGroupAction } from "./MessagesTimeline.logic";
 import { formatWorkspaceRelativePath } from "../../filePathDisplay";
 import { type TimelineWorkEntry, type TimelineRow } from "./timelineRowContext";
 import { type WorkEntryIconName } from "./TimelineToolActivityIcon";
@@ -172,6 +175,7 @@ export function workEntryIconName(workEntry: TimelineWorkEntry): WorkEntryIconNa
   if (workEntry.itemType === "user_input_request" || workEntry.itemType === "approval_request") {
     return "message-circle";
   }
+  if (workEntry.itemType === "todo_list") return "list-todo";
   if (workEntry.toolSurface) return workEntry.toolSurface;
   if (
     workEntry.structuredPayload?.type === "dynamic_tool" &&
@@ -253,3 +257,6 @@ export function remarkThoughtPreview(fallback: string) {
         ];
   };
 }
+
+export const THOUGHT_PREVIEW_PLUGINS: PluggableList = [[remarkThoughtPreview, "Thought"]];
+export const THINKING_PREVIEW_PLUGINS: PluggableList = [[remarkThoughtPreview, "Thinking"]];

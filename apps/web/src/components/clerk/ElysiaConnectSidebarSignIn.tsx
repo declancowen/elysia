@@ -28,7 +28,8 @@ function ConfiguredElysiaConnectSidebarAvatar() {
       appearance={{
         elements: {
           avatarBox: "size-7",
-          userButtonTrigger: "rounded-lg p-1 hover:bg-sidebar-row-hover",
+          // Clerk's unlayered trigger reset (padding, radius, background) beats layered utilities.
+          userButtonTrigger: "mb-1! rounded-lg! p-1! hover:bg-sidebar-row-hover!",
         },
       }}
     >
@@ -48,7 +49,7 @@ function ConfiguredElysiaConnectSidebarAvatar() {
 
 function ConfiguredElysiaConnectSidebarSignIn() {
   const { isLoaded, isSignedIn } = useAuth();
-  const { authPrompt, openAuthPrompt } = useElysiaConnectAuthPrompt();
+  const { openAuthPrompt } = useElysiaConnectAuthPrompt();
 
   if (!isLoaded || isSignedIn) return null;
 
@@ -62,7 +63,6 @@ function ConfiguredElysiaConnectSidebarSignIn() {
           </SidebarMenuButton>
         </SidebarMenuItem>
       </SidebarMenu>
-      {authPrompt}
     </>
   );
 }

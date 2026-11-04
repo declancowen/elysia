@@ -1,3 +1,5 @@
+import { appAtomRegistry } from "../rpc/atomRegistry";
+import { createChildThreadApprovalsAtom } from "@elysiatools/client-runtime/state/thread-requests";
 import { useAtomValue } from "@effect/atom-react";
 import { enabledEnvironmentIds } from "@elysiatools/client-runtime/state/connections";
 import { arrayElementsEqual } from "@elysiatools/client-runtime/state/entities";
@@ -17,7 +19,7 @@ import { AsyncResult, Atom } from "effect/reactivity";
 import { useEffect } from "react";
 import { environmentCatalog } from "../connection/catalog";
 import { connectionAtomRuntime } from "../connection/runtime";
-import { appAtomRegistry } from "../rpc/atomRegistry";
+import { serverEnvironment } from "./server";
 import { environmentShell } from "./shell";
 export const threadFamilies = createThreadFamilyAtoms(
   connectionAtomRuntime,
@@ -38,6 +40,11 @@ export const environmentThreadDetails = createEnvironmentThreadDetailAtoms(
 export const environmentThreadShells = createEnvironmentThreadShellAtoms({
   catalogValueAtom: environmentCatalog.catalogValueAtom,
   snapshotAtom: threadEnvironment.snapshotAtom,
+  hiddenThreadTagsAtom: serverEnvironment.hiddenThreadTagsAtom,
+});
+export const childThreadApprovalsAtom = createChildThreadApprovalsAtom({
+  childThreadInputsAtom: environmentThreadShells.childThreadInputsAtom,
+  pendingRequestsAtom: environmentThreadDetails.pendingRequestsAtom,
 });
 
 /** Keeps the subagent tree under `rootThreadId` in the thread list while the caller shows it. */
@@ -62,10 +69,7 @@ export function useEnvironmentThread(
       ? environmentThreads.stateAtom(environmentId, threadId)
       : EMPTY_THREAD_STATE_ATOM,
   );
-  const state = Option.getOrElse(
-    AsyncResult.value(result),
-    () => EMPTY_ENVIRONMENT_THREAD_STATE,
-  ) as EnvironmentThreadState;
+  const state = AsyncResult.getOrElse(result, () => EMPTY_ENVIRONMENT_THREAD_STATE);
   return state;
 }
 const isRunning = (status: string) =>

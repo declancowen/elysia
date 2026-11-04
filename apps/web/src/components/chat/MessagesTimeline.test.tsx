@@ -424,7 +424,7 @@ describe("timeline tooltip scroll dismissal", () => {
 function buildProps() {
   return {
     isWorking: false,
-    activeTurnInProgress: false,
+
     listRef: createRef<LegendListRef | null>(),
     latestRun: null,
     turnDiffSummaries: [],
@@ -914,7 +914,6 @@ describe("MessagesTimeline", () => {
     function ChatProbe() {
       const follow = useTimelineFollow({
         legendListRef: props.listRef,
-        composerRef: createRef(),
         composerTimelineInset: 0,
         routeThreadKey: props.routeThreadKey,
         activeThreadKey: props.routeThreadKey,
@@ -1595,7 +1594,7 @@ describe("MessagesTimeline", () => {
       <MessagesTimeline
         {...buildProps()}
         isWorking
-        activeTurnInProgress
+
         latestRun={{
           runId,
           status: "running",
@@ -1743,7 +1742,6 @@ describe("MessagesTimeline", () => {
         {...buildProps()}
         timelineEntries={[]}
         parentThreadLink={{
-          threadId: ThreadId.make("thread-parent"),
           title: "Architecture audit",
         }}
       />,
@@ -2537,7 +2535,7 @@ describe("MessagesTimeline", () => {
       <MessagesTimeline
         {...buildProps()}
         isWorking
-        activeTurnInProgress
+
         latestRun={{
           runId: RunId.make("run-1"),
           status: "running",

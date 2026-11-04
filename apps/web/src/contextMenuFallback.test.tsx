@@ -231,6 +231,44 @@ describe("shared row menus", () => {
     expect(isContextMenuOpen()).toBe(false);
   });
 
+  it("restores the invoker inside a shadow root when dismissed", async () => {
+    const host = document.createElement("div");
+    const shadow = host.attachShadow({ mode: "open" });
+    const invoker = document.createElement("button");
+    shadow.append(invoker);
+    document.body.append(host);
+    try {
+      invoker.focus();
+      const { selection } = await open([{ id: "rename", label: "Rename" }]);
+      await act(async () => item("Rename").focus());
+      await act(async () => dismissContextMenu());
+      await expect(selection).resolves.toBeNull();
+      expect(shadow.activeElement).toBe(invoker);
+    } finally {
+      host.remove();
+    }
+  });
+
+  it("keeps workspace navigation focus when dismissed without restoration", async () => {
+    const invoker = document.createElement("button");
+    const destination = document.createElement("button");
+    document.body.append(invoker, destination);
+    try {
+      invoker.focus();
+      const { selection } = await open([{ id: "rename", label: "Rename" }]);
+      await act(async () => item("Rename").focus());
+      await act(async () => {
+        dismissContextMenu(false);
+        destination.focus();
+      });
+      await expect(selection).resolves.toBeNull();
+      expect(document.activeElement).toBe(destination);
+    } finally {
+      invoker.remove();
+      destination.remove();
+    }
+  });
+
   it("returns focus to the original invoker after replacing a menu", async () => {
     const invoker = document.createElement("button");
     document.body.append(invoker);

@@ -70,6 +70,16 @@ describe("V2 preview upgrade", () => {
         [74, "WebhookDedupe"],
         [75, "ShellStopRequestIndex"],
         [76, "ThreadMessageSearch"],
+        [77, "PeerLinks"],
+        [78, "PeerLinkFence"],
+        [79, "WaitingLinkRequestIndex"],
+        [80, "ActiveTurnItemIndexes"],
+        [81, "ExcludeAttachmentPlaceholdersFromSearch"],
+        [82, "SubagentDeliveryState"],
+        [83, "ProjectionProjectsPinArchive"],
+        [84, "RepairBooleanSettledOverride"],
+        [85, "DropOrchestrationEventCorrelationIndex"],
+        [86, "DelegatedRecoveryIndexes"],
       ]);
       assert.deepStrictEqual(
         yield* sql`SELECT agent_profile_json FROM projection_projects WHERE project_id = 'agent'`,
@@ -108,6 +118,16 @@ describe("V2 preview upgrade", () => {
         [74, "WebhookDedupe"],
         [75, "ShellStopRequestIndex"],
         [76, "ThreadMessageSearch"],
+        [77, "PeerLinks"],
+        [78, "PeerLinkFence"],
+        [79, "WaitingLinkRequestIndex"],
+        [80, "ActiveTurnItemIndexes"],
+        [81, "ExcludeAttachmentPlaceholdersFromSearch"],
+        [82, "SubagentDeliveryState"],
+        [83, "ProjectionProjectsPinArchive"],
+        [84, "RepairBooleanSettledOverride"],
+        [85, "DropOrchestrationEventCorrelationIndex"],
+        [86, "DelegatedRecoveryIndexes"],
       ]);
       assert.deepStrictEqual(yield* runMigrations(), []);
       assert.deepStrictEqual(yield* sql`SELECT * FROM orchestration_v2_legacy_imports`, imports);
@@ -207,6 +227,16 @@ describe("V2 preview upgrade", () => {
         [74, "WebhookDedupe"],
         [75, "ShellStopRequestIndex"],
         [76, "ThreadMessageSearch"],
+        [77, "PeerLinks"],
+        [78, "PeerLinkFence"],
+        [79, "WaitingLinkRequestIndex"],
+        [80, "ActiveTurnItemIndexes"],
+        [81, "ExcludeAttachmentPlaceholdersFromSearch"],
+        [82, "SubagentDeliveryState"],
+        [83, "ProjectionProjectsPinArchive"],
+        [84, "RepairBooleanSettledOverride"],
+        [85, "DropOrchestrationEventCorrelationIndex"],
+        [86, "DelegatedRecoveryIndexes"],
       ]);
     }).pipe(Effect.provide(NodeSqliteClient.layer({ filename: ":memory:" }))),
   );

@@ -1,17 +1,24 @@
 import { SINGLE_PROVIDER_UI } from "@elysiatools/contracts";
+import type { ComponentProps } from "react";
 import type { ResizableWidthHandlers } from "~/hooks/useResizableWidth";
 import { cn } from "~/lib/utils";
 
-interface Props {
+interface Props extends Pick<
+  ComponentProps<"div">,
+  "tabIndex" | "onKeyDown" | "aria-valuenow" | "aria-valuemin" | "aria-valuemax"
+> {
   handlers: ResizableWidthHandlers;
   className?: string;
+  label?: string;
 }
 
-export function RightPanelResizeHandle({ handlers, className }: Props) {
+export function RightPanelResizeHandle({ handlers, className, label, ...separatorProps }: Props) {
   return (
     <div
       role="separator"
+      aria-label={label}
       aria-orientation="vertical"
+      {...separatorProps}
       className={cn(
         "group absolute inset-y-0 z-20 w-2 cursor-col-resize select-none",
         SINGLE_PROVIDER_UI ? "-left-2" : "-left-1",

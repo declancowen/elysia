@@ -74,7 +74,7 @@ export function ElysiaSetupSection({
     attemptedSetup && auth?.phase === "failed" && auth.flowId !== ignoredFlowId
       ? auth.message
       : null;
-  // oxlint-disable-next-line elysia/react-effect-budget -- Publish asynchronous native CLI setup failures through the imperative toast manager.
+  // oxlint-disable-next-line elysia/no-unreasoned-state-sync -- Publish asynchronous native CLI setup failures through the imperative toast manager.
   useEffect(() => {
     if (
       !attemptedSetup ||

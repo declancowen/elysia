@@ -1,45 +1,47 @@
-import { availableScratchWorkspaceRoot } from "@elysiatools/client-runtime/operations/projects";
-import { isScratchProject } from "@elysiatools/client-runtime/state/projects";
-import {
-  isAtomCommandInterrupted,
-  squashAtomCommandFailure,
-} from "@elysiatools/client-runtime/state/runtime";
-import type { EnvironmentProject } from "@elysiatools/client-runtime/state/shell";
-import { CONNECTIONS_ENABLED } from "@elysiatools/contracts";
+import { isDraftThreadRoute } from "./thread-route-state";
+import * as Dialog from "../../components/ui/Dialog";
+import { AppActivityIndicator } from "../../components/ui/AppActivityIndicator";
+import { NavigationRow } from "../../components/ui/NavigationRow";
+import { AppBar } from "../../components/ui/AppBar";
 import {
   StackActions,
   useIsFocused,
   useNavigation,
   type StaticScreenProps,
 } from "@react-navigation/native";
+import { SymbolView } from "../../components/ui/AppSymbol";
+import { pickableProjectGroups } from "@elysiatools/client-runtime/state/project-grouping";
+import { isScratchProject } from "@elysiatools/client-runtime/state/projects";
+import {
+  isAtomCommandInterrupted,
+  squashAtomCommandFailure,
+} from "@elysiatools/client-runtime/state/runtime";
+import type { EnvironmentProject } from "@elysiatools/client-runtime/state/shell";
 import { useEffect, useRef, useState } from "react";
 import { Platform, Pressable, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { ProjectFavicon } from "../../components/ProjectFavicon";
-import { AppActivityIndicator } from "../../components/ui/AppActivityIndicator";
-import { AppBar } from "../../components/ui/AppBar";
-import { SymbolView } from "../../components/ui/AppSymbol";
-import { AppText as Text } from "../../components/ui/AppText";
-import { Button } from "../../components/ui/Button";
-import * as Dialog from "../../components/ui/Dialog";
-import { NavigationRow } from "../../components/ui/NavigationRow";
-import { ScreenContent } from "../../components/ui/ScreenContent";
-import { ScreenScrollView as ScrollView } from "../../components/ui/ScreenScrollView";
 import { cn } from "../../lib/cn";
-import { useServerConfigs } from "../../state/entities";
+import { ScreenContent } from "../../components/ui/ScreenContent";
+import { Button } from "../../components/ui/Button";
+import { ScreenScrollView as ScrollView } from "../../components/ui/ScreenScrollView";
+import { AppText as Text } from "../../components/ui/AppText";
+import { ProjectFavicon } from "../../components/ProjectFavicon";
+import { useProjects, useServerConfigs } from "../../state/entities";
 import { projectEnvironment } from "../../state/projects";
 import { useAtomCommand } from "../../state/use-atom-command";
 import { useRemoteConnectionStatus } from "../../state/use-remote-environment-registry";
-import { useWorkspaceState } from "../../state/workspace";
 import type { WorkspaceState } from "../../state/workspaceModel";
-import { useRegularProjects } from "../agents/use-agent-catalog";
-import { isDraftThreadRoute } from "./thread-route-state";
-
-import { usePromptLinkResolver } from "../prompt-links/usePromptLinkResolver";
+import { useWorkspaceState } from "../../state/workspace";
 import { useIncomingShare } from "../sharing/IncomingShareProvider";
-import { useSelectWorkspaceDetail } from "../workspace/useSelectWorkspaceDetail";
 import { useNewTaskFlow } from "./new-task-flow-provider";
-import { filterProjectScopes, getProjectScopeSelectionTarget } from "./new-task-project-selection";
+import {
+  filterProjectScopes,
+  getProjectScopeSelectionTarget,
+  resolveNewTaskScratchOption,
+} from "./new-task-project-selection";
+import { useSelectWorkspaceDetail } from "../workspace/useSelectWorkspaceDetail";
+import { CONNECTIONS_ENABLED } from "@elysiatools/contracts";
+import { useRegularProjects } from "../agents/use-agent-catalog";
 
 type NewTaskRouteParams = {
   readonly incomingShareId?: string | string[];
@@ -126,7 +128,6 @@ function NewTaskHeader(props: {
       <AppBar
         title={props.title}
         subtitle={props.subtitle ?? undefined}
-        sidebar={false}
         options={{ headerBackVisible: true }}
         hideBottomBorder
         onBack={goBack}
@@ -161,7 +162,6 @@ export function NewTaskRouteScreen({ route }: StaticScreenProps<NewTaskRoutePara
   const isFocused = useIsFocused();
   const insets = useSafeAreaInsets();
   const { getShare, releaseShareReservation } = useIncomingShare();
-  usePromptLinkResolver(route.params);
   const routeShareId = Array.isArray(route.params?.incomingShareId)
     ? route.params.incomingShareId[0]
     : route.params?.incomingShareId;
@@ -176,7 +176,7 @@ export function NewTaskRouteScreen({ route }: StaticScreenProps<NewTaskRoutePara
   const screenTitle = incomingShare ? "Start a task" : "Choose project";
   const projectEmptyState = deriveProjectEmptyState(catalogState);
   const serverConfigs = useServerConfigs();
-  const listScopes = projectScopes.filter(
+  const listScopes = pickableProjectGroups(projectScopes).filter(
     (scope) =>
       !scope.projects.every((project) =>
         isScratchProject(project, serverConfigs.get(project.environmentId)?.scratchWorkspaceRoot),
@@ -192,23 +192,23 @@ export function NewTaskRouteScreen({ route }: StaticScreenProps<NewTaskRoutePara
       ) ?? null)
     : null;
   const { connectedEnvironments } = useRemoteConnectionStatus();
+  const connectedEnvironmentIds = new Set(
+    connectedEnvironments
+      .filter((environment) => environment.connectionState === "connected")
+      .map((environment) => environment.environmentId),
+  );
   const openScratch = useAtomCommand(projectEnvironment.openScratch, {
     reportFailure: false,
   });
-  const scratchEnvironments = connectedEnvironments.filter(
-    (environment) =>
-      availableScratchWorkspaceRoot(
-        environment.connectionState,
-        serverConfigs.get(environment.environmentId),
-      ) !== null,
-  );
-  const scratchEnvironment =
-    scratchEnvironments.find(
-      (environment) => environment.environmentId === selectedEnvironmentId,
-    ) ??
-    scratchEnvironments[0] ??
-    null;
-  const canStartScratch = scratchEnvironment !== null && reservedDestinationProject === null;
+  const scratchOption =
+    reservedDestinationProject === null
+      ? resolveNewTaskScratchOption({
+          environments: connectedEnvironments,
+          serverConfigs,
+          selectedEnvironmentId,
+        })
+      : null;
+  const canStartScratch = scratchOption?.ready === true;
   const scratchStartInFlightRef = useRef(false);
 
   async function selectProject(project: EnvironmentProject): Promise<void> {
@@ -248,8 +248,8 @@ export function NewTaskRouteScreen({ route }: StaticScreenProps<NewTaskRoutePara
   }
 
   async function startScratch(): Promise<void> {
-    if (!scratchEnvironment || scratchStartInFlightRef.current) return;
-    const environmentId = scratchEnvironment.environmentId;
+    if (!canStartScratch || !scratchOption || scratchStartInFlightRef.current) return;
+    const environmentId = scratchOption.environmentId;
     scratchStartInFlightRef.current = true;
     const result = await openScratch({ environmentId, input: {} });
     if (result._tag === "Failure") {
@@ -270,6 +270,7 @@ export function NewTaskRouteScreen({ route }: StaticScreenProps<NewTaskRoutePara
     scratchStartInFlightRef.current = false;
   }
 
+  // oxlint-disable-next-line elysia/no-unreasoned-state-sync -- navigates to the incoming share's reserved destination draft once its project loads and the screen is focused
   useEffect(() => {
     const destination = incomingShare?.destination;
     if (!destination) {
@@ -329,13 +330,14 @@ export function NewTaskRouteScreen({ route }: StaticScreenProps<NewTaskRoutePara
               : {}),
           }}
         >
-          {canStartScratch && listScopes.length > 0 ? (
+          {scratchOption !== null && listScopes.length > 0 ? (
             Platform.OS === "android" ? (
               <View collapsable={false} className="overflow-hidden rounded-[28px] bg-grouped-card">
                 <NavigationRow
                   className="bg-grouped-card"
                   title="No project"
                   subtitle="Start a task without a project"
+                  disabled={!canStartScratch}
                   onPress={() => void startScratch()}
                   leading={
                     <SymbolView
@@ -352,8 +354,12 @@ export function NewTaskRouteScreen({ route }: StaticScreenProps<NewTaskRoutePara
                 <Pressable
                   accessibilityRole="button"
                   accessibilityLabel="No project"
+                  disabled={!canStartScratch}
                   onPress={() => void startScratch()}
-                  className="flex-row items-center gap-3 bg-grouped-card px-4 py-3.5"
+                  className={cn(
+                    "flex-row items-center gap-3 bg-grouped-card px-4 py-3.5",
+                    !canStartScratch && "opacity-45",
+                  )}
                 >
                   <View className="h-7 w-7 items-center justify-center">
                     <SymbolView
@@ -468,6 +474,7 @@ export function NewTaskRouteScreen({ route }: StaticScreenProps<NewTaskRoutePara
                 const selectionTarget = getProjectScopeSelectionTarget(
                   scope,
                   selectedEnvironmentId,
+                  connectedEnvironmentIds,
                 );
                 if (Platform.OS === "android") {
                   return (

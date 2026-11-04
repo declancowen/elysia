@@ -116,7 +116,7 @@ import {
 } from "./ThreadStatusIndicators";
 import { ProviderInstanceIcon } from "./chat/ProviderInstanceIcon";
 import { ThreadContextDragGhost } from "./chat/ThreadContextDragGhost";
-import { getTriggerDisplayModelLabel } from "./chat/providerIconUtils";
+import { getTriggerDisplayModelName } from "./chat/providerIconUtils";
 import {
   dropThreadContext,
   endThreadContextDrag,
@@ -161,7 +161,6 @@ import {
   AlarmClockOffIcon,
   ArrowRightLeftIcon,
   CheckIcon,
-  ChevronDownIcon,
   CircleAlertIcon,
   CircleCheckIcon,
   CircleDashedIcon,
@@ -238,13 +237,14 @@ import { useSidebarPendingFileDropStore } from "../sidebarPendingFileDropStore";
 import {
   getSidebarProjectSettingsKey,
   projectGroupsSpanEnvironments,
-  resolveSidebarProjectScopeKey,
+  resolveSidebarProjectScopeKeys,
   type SidebarProjectSnapshot,
 } from "../sidebarProjectGrouping";
 import {
   readThreadShell,
   useAllEnvironmentProjectSnapshotsReady,
   useProjects,
+  useDelegatedUnderParent,
   useQuietThreadShells,
   useServerConfigs,
 } from "../state/entities";
@@ -316,7 +316,12 @@ import {
 } from "./Sidebar.logic";
 import { createSidebarListMotion } from "./Sidebar.motion";
 import { SidebarPointerSensor } from "./Sidebar.pointer";
-import { resolveSnoozePresets, snoozeWakeLabel, type SnoozePreset } from "./Sidebar.snooze";
+import {
+  pickSnoozePreset,
+  resolveSnoozePresets,
+  snoozeWakeLabel,
+  type SnoozePreset,
+} from "./Sidebar.snooze";
 import { AgentRoster } from "./agents/AgentRoster";
 import { canShareWithGuestAtom } from "./chat/guestShareAvailability";
 import { openGuestShareDialog } from "./chat/guestShareDialogState";
@@ -444,6 +449,7 @@ type SidebarOptimisticDrop = {
 interface SidebarThreadPartitionInput {
   readonly threads: readonly EnvironmentThreadShell[];
   readonly scopedProjectKeys: ReadonlySet<string> | null;
+  readonly delegatedUnderParent: ReadonlySet<string>;
   readonly serverConfigs: ReadonlyMap<EnvironmentId, EnvironmentServerConfig>;
   readonly optimisticDrop: SidebarOptimisticDrop | null;
   readonly workingShelfEnabled: boolean;
@@ -505,6 +511,7 @@ function routeThreadOnly(
 function useSidebarThreads(input: {
   readonly projectScopeKey: string | null;
   readonly scopedProjectKeys: ReadonlySet<string> | null;
+  readonly delegatedUnderParent: ReadonlySet<string>;
   readonly serverConfigs: ReadonlyMap<EnvironmentId, EnvironmentServerConfig>;
   readonly optimisticDrop: SidebarOptimisticDrop | null;
   readonly threads: readonly EnvironmentThreadShell[];
@@ -513,6 +520,7 @@ function useSidebarThreads(input: {
   const {
     projectScopeKey,
     scopedProjectKeys,
+    delegatedUnderParent,
     serverConfigs,
     optimisticDrop,
     threads,
@@ -556,6 +564,7 @@ function useSidebarThreads(input: {
   const partition = partitionSidebarThreads({
     threads,
     scopedProjectKeys,
+    delegatedUnderParent,
     serverConfigs,
     optimisticDrop,
     workingShelfEnabled,
@@ -658,9 +667,16 @@ function useSidebarThreads(input: {
   };
 }
 function partitionSidebarThreads(input: SidebarThreadPartitionInput) {
-  const { threads, scopedProjectKeys, serverConfigs, optimisticDrop, workingShelfEnabled } = input;
+  const {
+    threads,
+    scopedProjectKeys,
+    delegatedUnderParent,
+    serverConfigs,
+    optimisticDrop,
+    workingShelfEnabled,
+  } = input;
   const preciseNow = new Date().toISOString();
-  const visible = filterSidebarV2VisibleThreads(threads, scopedProjectKeys);
+  const visible = filterSidebarV2VisibleThreads(threads, scopedProjectKeys, delegatedUnderParent);
   const inboxObservation = inboxReturns.observe(workingShelfEnabled ? threads : null);
   const pinned: EnvironmentThreadShell[] = [];
   const active: EnvironmentThreadShell[] = [];
@@ -1135,10 +1151,11 @@ function SnoozeMenuButton(props: {
   onOpenChange: (open: boolean) => void;
   onSnooze: (preset: Pick<SnoozePreset, "snoozedUntil">) => void;
   timestampFormat: TimestampFormat;
+  environmentId: EnvironmentId;
 }) {
-  const { open, onOpenChange, onSnooze, timestampFormat } = props;
+  const { open, onOpenChange, onSnooze, timestampFormat, environmentId } = props;
   // oxlint-disable-next-line react/purity -- Each menu opening needs fresh time for its relative wake presets.
-  const presets = open ? resolveSnoozePresets(new Date(), timestampFormat) : [];
+  const presets = open ? resolveSnoozePresets(new Date(), timestampFormat, environmentId) : [];
   return (
     <Menu open={open} onOpenChange={onOpenChange}>
       <Tooltip>
@@ -1167,7 +1184,8 @@ function SnoozeMenuButton(props: {
             key={preset.id}
             onClick={(event) => {
               event.stopPropagation();
-              onSnooze(preset);
+              const picked = pickSnoozePreset(presets, preset.id, timestampFormat, environmentId);
+              if (picked) onSnooze(picked);
             }}
           >
             {preset.label}
@@ -1360,7 +1378,9 @@ function SidebarSectionHeader(props: {
       className={cn("relative mx-0.5 h-8", props.className)}
     >
       {props.hostsUndoNotice ? (
-        <SidebarThreadUndoNotice className="absolute inset-x-0 bottom-full bg-sidebar surface-grain" />
+        <div className="absolute inset-x-0 bottom-full bg-sidebar surface-grain">
+          <SidebarThreadUndoNotice />
+        </div>
       ) : null}
       <CollapsibleSectionHeader
         onClick={props.toggle.onToggle}
@@ -1746,9 +1766,6 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: SidebarThreadRowP
   const threadRef = scopeThreadRef(thread.environmentId, thread.id);
   const threadKey = scopedThreadKey(threadRef);
   const canOperateThread = useEnvironmentScope(thread.environmentId, AuthOrchestrationOperateScope);
-  useEffect(() => {
-    if (!canOperateThread && isRenaming) onCancelRename();
-  }, [canOperateThread, isRenaming, onCancelRename]);
   const { leaseLiveStatus, rowRef: leaseRowRef } = useSidebarRowSubscriptionLease(props.isActive);
   const rowRef = (row: HTMLElement | null) => {
     if (row !== null) props.revealRef?.(row, threadKey);
@@ -1884,7 +1901,7 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: SidebarThreadRowP
     (model) => model.slug === thread.modelSelection.model,
   );
   const modelLabel = selectedModel
-    ? getTriggerDisplayModelLabel(selectedModel)
+    ? getTriggerDisplayModelName(selectedModel, providerEntry?.driverKind ?? null)
     : thread.modelSelection.model;
   const isRemote = thread.environmentId !== props.currentEnvironmentId;
   const detailsTooltip = (
@@ -1965,9 +1982,6 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: SidebarThreadRowP
       })
     : null;
   const renameCommittedRef = useRef(false);
-  useEffect(() => {
-    if (isRenaming) renameCommittedRef.current = false;
-  }, [isRenaming]);
   const handleRenameKeyDown = (event: ReactKeyboardEvent<HTMLInputElement>) => {
     event.stopPropagation();
     if (event.nativeEvent.isComposing || event.keyCode === 229) return;
@@ -2135,7 +2149,10 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: SidebarThreadRowP
         value={renamingTitle}
         aria-label="Thread title"
         onChange={(event) => onRenameTitleChange(event.target.value)}
-        onFocus={(event) => event.currentTarget.select()}
+        onFocus={(event) => {
+          renameCommittedRef.current = false;
+          event.currentTarget.select();
+        }}
         onKeyDown={handleRenameKeyDown}
         onBlur={handleRenameBlur}
         onClick={(event) => event.stopPropagation()}
@@ -2565,6 +2582,7 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: SidebarThreadRowP
                           onOpenChange={setSnoozeMenuOpen}
                           onSnooze={handleSnoozePreset}
                           timestampFormat={props.timestampFormat}
+                          environmentId={thread.environmentId}
                         />
                       ) : null}
                       {props.settlementSupported ? (
@@ -2736,7 +2754,7 @@ const SidebarSearchResultRow = memo(function SidebarSearchResultRow(props: {
     (model) => model.slug === thread.modelSelection.model,
   );
   const modelLabel = selectedModel
-    ? getTriggerDisplayModelLabel(selectedModel)
+    ? getTriggerDisplayModelName(selectedModel, providerEntry?.driverKind ?? null)
     : thread.modelSelection.model;
   const runningTerminalIds = useThreadRunningTerminalIds({
     environmentId: thread.environmentId,
@@ -2752,6 +2770,7 @@ const SidebarSearchResultRow = memo(function SidebarSearchResultRow(props: {
     },
     addFolders: () => {},
   });
+  // oxlint-disable-next-line elysia/no-unreasoned-state-sync -- Clears the drag overlay from the browser dragend event, including drops outside this row.
   useEffect(() => {
     if (!isFileDragOver) return;
     const clearFileDrag = () => setIsFileDragOver(false);
@@ -2876,6 +2895,7 @@ export default function Sidebar({
   const { expanded: pinnedExpanded, setExpanded: setPinnedExpanded } =
     useSidebarSectionExpansion("sidebar-pinned");
   const allProjects = useProjects();
+  const delegatedUnderParent = useDelegatedUnderParent();
   const agentProjectKeys = new Set(
     allProjects.filter(isAgentProject).map((project) => `${project.environmentId}:${project.id}`),
   );
@@ -2993,8 +3013,8 @@ export default function Sidebar({
   );
   const environmentMachineById = useEnvironmentMachines();
   const projectGroupsRef = useRef(projectGroups);
-  const persistedProjectScopeKey = useUiStateStore((store) => store.sidebarProjectScopeKey);
-  const setPersistedProjectScopeKey = useUiStateStore((store) => store.setSidebarProjectScopeKey);
+  const persistedProjectScopeKeys = useUiStateStore((store) => store.sidebarProjectScopeKeys);
+  const setPersistedProjectScopeKeys = useUiStateStore((store) => store.setSidebarProjectScopeKeys);
   const [projectScopeMenuState, dispatchProjectScopeMenu] = useReducer(
     reduceSidebarProjectScopeMenuState,
     {
@@ -3062,16 +3082,19 @@ export default function Sidebar({
   // A selection made under one scope can hold threads the next scope hides.
   const setProjectScopeKey = (key: string | null) => {
     clearSelection();
-    setPersistedProjectScopeKey(key);
+    setPersistedProjectScopeKeys(key === null ? [] : [key]);
   };
   // A scope whose project is gone reads as all projects once every snapshot has
   // loaded. The stored key is left alone, so the scope returns with its project.
-  const chosenProjectScopeKey = resolveSidebarProjectScopeKey({
+  const resolvedProjectScopeKeys = resolveSidebarProjectScopeKeys({
     groups: projectGroups,
-    key: persistedProjectScopeKey,
+    keys: persistedProjectScopeKeys,
     settings: projectGroupingSettings,
     canClearMissingScope: allProjectSnapshotsReady && allProjectConfigsReady,
   });
+  // The Elysia picker selects one project; preserve imported multi-project preferences until an explicit pick.
+  const chosenProjectScopeKey =
+    persistedProjectScopeKeys.length === 1 ? (resolvedProjectScopeKeys[0] ?? null) : null;
   const chosenProjectGroup =
     chosenProjectScopeKey === null
       ? null
@@ -3109,6 +3132,7 @@ export default function Sidebar({
     routeKey: routeRowThreadKey,
     isSearching: isSearchingThreads,
     scopedProjectKeys: chosenScopeProjectKeys,
+    delegatedUnderParent,
     findThread: (key) => threads.find((candidate) => threadShellKey(candidate) === key),
   });
   const projectScopeKey = revealWidensScope ? null : chosenProjectScopeKey;
@@ -3116,11 +3140,12 @@ export default function Sidebar({
   // scope. Route changes arrive from history, links and the palette, and only this
   // component holds the project groups that decide a widening, so no single
   // navigation handler can make the write.
+  // oxlint-disable-next-line elysia/no-unreasoned-state-sync -- Persists route-driven widening after history or external links reveal a hidden row.
   useEffect(() => {
     if (!revealWidensScope) return;
     clearSelection();
-    setPersistedProjectScopeKey(null);
-  }, [clearSelection, revealWidensScope, setPersistedProjectScopeKey]);
+    setPersistedProjectScopeKeys([]);
+  }, [clearSelection, revealWidensScope, setPersistedProjectScopeKeys]);
   const revealActiveRow = useActiveRowReveal(routeReveal, routeRowThreadKey);
   const showProjectEnvironments = projectGroupsSpanEnvironments(projectGroups);
   const scratchMachineLabelFor = (
@@ -3248,6 +3273,7 @@ export default function Sidebar({
   } = useSidebarThreads({
     projectScopeKey,
     scopedProjectKeys,
+    delegatedUnderParent,
     serverConfigs,
     optimisticDrop,
     threads,
@@ -3333,6 +3359,7 @@ export default function Sidebar({
     activeSearchResult === undefined
       ? null
       : scopedThreadKey(scopeThreadRef(activeSearchResult.environmentId, activeSearchResult.id));
+  // oxlint-disable-next-line elysia/no-unreasoned-state-sync -- Scrolls the matching DOM row into view when the active search result changes.
   useEffect(() => {
     if (activeSearchResultKey === null) return;
     document
@@ -3570,6 +3597,7 @@ export default function Sidebar({
       }
     })();
   };
+  // oxlint-disable-next-line elysia/no-unreasoned-state-sync -- Registers this sidebar with the external settle-and-advance command registry.
   useEffect(() => registerSettleAndAdvance(attemptSettle), [attemptSettle]);
   const settleThreads = (threadKeys: readonly string[]) => {
     const coSettlingKeys = new Set(threadKeys);
@@ -3703,6 +3731,7 @@ export default function Sidebar({
   };
   const dndSensors = useSensors(useSensor(SidebarPointerSensor, pointerSensorOptions));
   const sectionByThreadKeyRef = useRef(sectionByThreadKey);
+  // oxlint-disable-next-line elysia/no-unreasoned-state-sync -- Publishes committed row maps to the imperative drag sensor without restarting a drag on streamed updates.
   useLayoutEffect(() => {
     projectGroupsRef.current = projectGroups;
     orderedThreadKeysRef.current = orderedThreadKeys;
@@ -3925,6 +3954,7 @@ export default function Sidebar({
     // Update the local list too; threadByKey already omits rows moved into collapsed shelves.
     sidebarListItems = sidebarListItemsFresh;
   }
+  // oxlint-disable-next-line elysia/no-unreasoned-state-sync -- Cancels the imperative pointer drag if its active DOM row disappears.
   useEffect(() => {
     if (
       dragState !== null &&
@@ -3943,6 +3973,7 @@ export default function Sidebar({
     dragState === null && sidebarListItems.length + visibleDraftSessionCount > 0;
   // Cache on both fields so layout-key changes trigger the effect even when animate is unchanged.
   const listMotionPass = { layoutKey: listMotionLayoutKey, animate: listMotionAnimate };
+  // oxlint-disable-next-line elysia/no-unreasoned-state-sync -- Updates the imperative DOM motion controller after list layout commits.
   useLayoutEffect(() => {
     listMotionRef.current?.update(listMotionPass.animate);
   }, [listMotionPass]);
@@ -4289,7 +4320,9 @@ export default function Sidebar({
       const unpinMenuItem = buildBulkUnpinContextMenuItem({
         pinnedCount: pinnedSelectedThreads.length,
       });
-      const snoozePresets = resolveSnoozePresets(new Date(), timestampFormat);
+      const snoozeEnvironmentId = selectedThreads[0]?.environmentId;
+      if (snoozeEnvironmentId === undefined) return;
+      const snoozePresets = resolveSnoozePresets(new Date(), timestampFormat, snoozeEnvironmentId);
       const clicked = await settlePromise(() =>
         (SINGLE_PROVIDER_UI ? showContextMenuFallback : api.contextMenu.show)(
           [
@@ -4380,7 +4413,12 @@ export default function Sidebar({
         const preset =
           clicked.value === "snooze:custom"
             ? await requestCustomSnooze()
-            : snoozePresets.find((candidate) => `snooze:${candidate.id}` === clicked.value);
+            : pickSnoozePreset(
+                snoozePresets,
+                clicked.value.slice("snooze:".length),
+                timestampFormat,
+                snoozeEnvironmentId,
+              );
         if (preset) {
           const coSnoozingKeys = new Set(threadKeys);
           clearSelection();
@@ -4624,7 +4662,11 @@ export default function Sidebar({
         const isSettled = settledThreadKeysRef.current.has(threadKey);
         const isSnoozed = snoozedThreadKeysRef.current.has(threadKey);
         const isPinned = thread.pinnedAt != null;
-        const snoozePresets = resolveSnoozePresets(new Date(), timestampFormat);
+        const snoozePresets = resolveSnoozePresets(
+          new Date(),
+          timestampFormat,
+          thread.environmentId,
+        );
         const threadProjectGroup =
           projectGroupsRef.current.find((project) =>
             project.memberProjectRefs.some(
@@ -4685,7 +4727,12 @@ export default function Sidebar({
           const preset =
             clicked.value === "snooze:custom"
               ? await requestCustomSnooze()
-              : snoozePresets.find((candidate) => `snooze:${candidate.id}` === clicked.value);
+              : pickSnoozePreset(
+                  snoozePresets,
+                  clicked.value.slice("snooze:".length),
+                  timestampFormat,
+                  thread.environmentId,
+                );
           if (preset) attemptSnooze(threadRef, preset);
           return;
         }
@@ -4894,6 +4941,7 @@ export default function Sidebar({
       ? selectThreadTerminalUiState(state.terminalUiStateByThreadKey, routeThreadRef).terminalOpen
       : false,
   );
+  // oxlint-disable-next-line elysia/no-unreasoned-state-sync -- Installs sidebar keyboard navigation on the window for the mounted active sidebar.
   useEffect(() => {
     if (preview) return;
     const onWindowKeyDown = (event: KeyboardEvent) => {
@@ -5547,12 +5595,7 @@ export default function Sidebar({
                           }}
                           className="flex h-9 w-full cursor-pointer items-center gap-2.5 rounded-md px-2.5 text-left text-sm text-sidebar-foreground hover:bg-sidebar-row-hover hover:text-sidebar-foreground"
                         >
-                          {/* The New design keeps plus for "add" and uses a chevron to reveal more. */}
-                          <PlusIcon aria-hidden className="size-4 shrink-0 redesign:hidden" />
-                          <ChevronDownIcon
-                            aria-hidden
-                            className="hidden size-4 shrink-0 redesign:block"
-                          />
+                          <PlusIcon aria-hidden className="size-4 shrink-0" />
                           {olderSettledShelf.loading
                             ? "Loading"
                             : olderSettledShelf.failed

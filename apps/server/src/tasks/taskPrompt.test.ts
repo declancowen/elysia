@@ -12,5 +12,5 @@ it("sends readable task content while preserving entities, paragraphs, links and
   );
   expect(prompt("2 < 3\nLeave <file> alone")).toContain("2 < 3\nLeave <file> alone");
   expect(prompt("<p></p>")).not.toContain("\n\n\n");
-  expect(prompt(html)).not.toContain("t3_task_");
+  expect(prompt(html)).not.toContain("elysia_task_");
 });

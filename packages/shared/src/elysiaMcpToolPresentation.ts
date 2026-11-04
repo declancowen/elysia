@@ -61,6 +61,9 @@ export type ElysiaMcpToolSummaryAction =
   | "project-delete"
   | "project-clone"
   | "environment-read"
+  | "environment-links"
+  | "environment-link"
+  | "environment-unlink"
   | "environment-update"
   | "attachment-prepare"
   | "attachment-discard"
@@ -93,7 +96,8 @@ function tool(
   return { displayName, labels, icon, summaryAction };
 }
 
-const ELYSIA_MCP_SERVER_ALIASES = new Set(["elysia"]);
+// Direct tools stay out of Code Mode in providers that support it.
+const ELYSIA_MCP_SERVER_ALIASES = new Set(["elysia", "elysia-direct", "elysia_direct"]);
 
 const ELYSIA_MCP_TOOLS: Readonly<Record<string, ElysiaMcpToolDefinition>> = {
   elysia_task_list: tool(["List", "Listing", "Listed", "tasks"], "work-task-list"),
@@ -111,8 +115,18 @@ const ELYSIA_MCP_TOOLS: Readonly<Record<string, ElysiaMcpToolDefinition>> = {
     "link-pr",
     "pull-request",
   ),
+  link_pull_requests: tool(
+    ["Link", "Linking", "Linked", "pull requests"],
+    "link-pr",
+    "pull-request",
+  ),
   unlink_pull_request: tool(
     ["Unlink", "Unlinking", "Unlinked", "a pull request"],
+    "unlink-pr",
+    "pull-request",
+  ),
+  unlink_pull_requests: tool(
+    ["Unlink", "Unlinking", "Unlinked", "pull requests by state"],
     "unlink-pr",
     "pull-request",
   ),
@@ -151,10 +165,7 @@ const ELYSIA_MCP_TOOLS: Readonly<Record<string, ElysiaMcpToolDefinition>> = {
     ["Cancel", "Canceling", "Requested cancellation of", "a delegated task"],
     "task-cancel",
   ),
-  schedule_task: tool(
-    ["Schedule", "Scheduling", "Scheduled", "a recurring task"],
-    "schedule-create",
-  ),
+  schedule_task: tool(["Schedule", "Scheduling", "Scheduled", "a task"], "schedule-create"),
   list_scheduled_tasks: tool(["List", "Listing", "Listed", "scheduled tasks"], "schedule-list"),
   update_scheduled_task: tool(
     ["Update", "Updating", "Updated", "a scheduled task"],
@@ -213,6 +224,7 @@ const ELYSIA_MCP_TOOLS: Readonly<Record<string, ElysiaMcpToolDefinition>> = {
     "browser",
     "Snapshot the preview page",
   ),
+  preview_act: tool(["Use", "Using", "Used", "the preview browser"], "browser", "browser"),
   preview_click: tool(
     ["Click", "Clicking", "Clicked", "in the preview browser"],
     "browser",
@@ -295,6 +307,11 @@ const ELYSIA_MCP_TOOLS: Readonly<Record<string, ElysiaMcpToolDefinition>> = {
     ["Run", "Running", "Requested a run of", "a scheduled task"],
     "schedule-run",
   ),
+  elysia_queue: tool(["Manage", "Managing", "Managed", "queued messages"], "queue-edit"),
+  elysia_pending_request: tool(
+    ["Handle", "Handling", "Handled", "pending questions"],
+    "question-respond",
+  ),
   elysia_queue_list: tool(["List", "Listing", "Listed", "queued messages"], "queue-list"),
   elysia_queue_read: tool(["Read", "Reading", "Read", "a queued message"], "queue-read"),
   elysia_queue_edit: tool(["Edit", "Editing", "Edited", "a queued message"], "queue-edit"),
@@ -326,7 +343,11 @@ const ELYSIA_MCP_TOOLS: Readonly<Record<string, ElysiaMcpToolDefinition>> = {
     ["Read", "Reading", "Read", "thread configuration"],
     "thread-configuration",
   ),
-  elysia_thread_configure: tool(["Set", "Setting", "Set", "thread model"], "thread-configure"),
+  elysia_thread_configure: tool(
+    ["Use", "Using", "Used", "thread model settings"],
+    "thread-configure",
+  ),
+  elysia_thread_transfer: tool(["Use", "Using", "Used", "thread transfers"], "thread-fork"),
   elysia_thread_fork: tool(
     ["Fork", "Forking", "Requested a fork of", "this thread"],
     "thread-fork",
@@ -357,6 +378,18 @@ const ELYSIA_MCP_TOOLS: Readonly<Record<string, ElysiaMcpToolDefinition>> = {
   elysia_environment_read: tool(
     ["Read", "Reading", "Read", "environment preferences"],
     "environment-read",
+  ),
+  elysia_environment_links: tool(
+    ["List", "Listing", "Listed", "linked environments"],
+    "environment-links",
+  ),
+  elysia_environment_link: tool(
+    ["Ask to link", "Asking to link", "Asked to link", "an environment"],
+    "environment-link",
+  ),
+  elysia_environment_unlink: tool(
+    ["Forget", "Forgetting", "Forgot", "a linked environment"],
+    "environment-unlink",
   ),
   elysia_environment_preferences_update: tool(
     ["Update", "Updating", "Updated", "environment preferences"],
@@ -397,8 +430,24 @@ function normalizeElysiaMcpToolLabel(value: string): string {
   return value.replace(/\s+(?:complete|completed)\s*$/i, "").trim();
 }
 
-// ACP tool prefixes vary; match loosely but require a known display-name entry.
+// Timelines resolve every work row's tool name on each update; names repeat across updates.
+// ACP titles can carry whole commands, so long labels are parsed but not kept.
+const toolNameCache = new Map<string, string | null>();
+const TOOL_NAME_CACHE_LIMIT = 10_000;
+const TOOL_NAME_CACHE_MAX_KEY_LENGTH = 256;
+
 function resolveElysiaMcpToolName(value: string): string | null {
+  if (value.length > TOOL_NAME_CACHE_MAX_KEY_LENGTH) return parseElysiaMcpToolName(value);
+  const cached = toolNameCache.get(value);
+  if (cached !== undefined) return cached;
+  const name = parseElysiaMcpToolName(value);
+  if (toolNameCache.size >= TOOL_NAME_CACHE_LIMIT) toolNameCache.clear();
+  toolNameCache.set(value, name);
+  return name;
+}
+
+// ACP tool prefixes vary; match loosely but require a known display-name entry.
+function parseElysiaMcpToolName(value: string): string | null {
   const label = normalizeElysiaMcpToolLabel(value);
   if (Object.hasOwn(ELYSIA_MCP_TOOLS, label)) return label;
   const mcpMatch = /^mcp__(?<server>.+?)__(?<tool>.+)$/i.exec(label);
@@ -411,7 +460,9 @@ function resolveElysiaMcpToolName(value: string): string | null {
       : null;
   }
 
-  const namespaceMatch = /^(?<server>elysia)(?:[.:/]|\s*·\s*)(?<tool>.+)$/i.exec(label);
+  const namespaceMatch = /^(?<server>elysia(?:[-_]direct)?)(?:[.:/]|\s*·\s*)(?<tool>.+)$/i.exec(
+    label,
+  );
   if (namespaceMatch?.groups) {
     return namespaceMatch.groups.tool ?? null;
   }
@@ -433,16 +484,63 @@ export function resolveElysiaMcpToolId(toolName: string | null | undefined): str
   return name !== null && Object.hasOwn(ELYSIA_MCP_TOOLS, name) ? name : null;
 }
 
+type SummaryInput = Readonly<Record<string, unknown>>;
+
+const asSummaryInput = (input: unknown): SummaryInput | undefined =>
+  typeof input === "object" && input !== null ? (input as SummaryInput) : undefined;
+
+/** Action tools present each call as the single-purpose tool its action replaced. */
+const ACTION_TOOLS: Readonly<Record<string, (action: string) => string | undefined>> = {
+  preview_act: (action) => `preview_${action}`,
+  elysia_queue: (action) => `elysia_queue_${action}`,
+  elysia_pending_request: (action) => `elysia_pending_request_${action}`,
+  elysia_thread_transfer: (action) =>
+    ({
+      fork: "elysia_thread_fork",
+      merge_back: "elysia_thread_merge_back",
+      status: "elysia_thread_transfers",
+    })[action],
+};
+
+/** Pass the call's input so an action tool resolves to the labels and summary of its action. */
 export function resolveElysiaMcpToolDefinition(
   toolName: string | null | undefined,
+  input?: unknown,
 ): ElysiaMcpToolDefinition | null {
   const name = toolName == null ? null : resolveElysiaMcpToolName(toolName);
-  return name !== null && Object.hasOwn(ELYSIA_MCP_TOOLS, name) ? ELYSIA_MCP_TOOLS[name]! : null;
+  if (name === null || !Object.hasOwn(ELYSIA_MCP_TOOLS, name)) return null;
+  const action = asSummaryInput(input)?.action;
+  const actionTool = typeof action === "string" ? ACTION_TOOLS[name]?.(action) : undefined;
+  return actionTool !== undefined && Object.hasOwn(ELYSIA_MCP_TOOLS, actionTool)
+    ? ELYSIA_MCP_TOOLS[actionTool]!
+    : ELYSIA_MCP_TOOLS[name]!;
+}
+
+/** Tools whose summary depends on which fields a call sets. */
+const ACTION_SUMMARIES: Readonly<
+  Record<string, (input: SummaryInput) => ElysiaMcpToolSummaryAction | undefined>
+> = {
+  elysia_thread_configure: ({ modelSelection }) =>
+    modelSelection === undefined ? "thread-configuration" : "thread-configure",
+  schedule_task: ({ scheduledTaskId }) =>
+    scheduledTaskId === undefined ? "schedule-create" : "schedule-update",
+};
+
+export function resolveElysiaMcpSummaryAction(
+  toolName: string | null | undefined,
+  input: unknown,
+): ElysiaMcpToolSummaryAction | null {
+  const definition = resolveElysiaMcpToolDefinition(toolName, input);
+  if (definition === null) return null;
+  const summarize = ACTION_SUMMARIES[resolveElysiaMcpToolName(toolName!) ?? ""];
+  const fields = asSummaryInput(input);
+  return (fields && summarize?.(fields)) ?? definition.summaryAction;
 }
 
 export function resolveElysiaMcpToolPresentation(
   toolName: string | null | undefined,
+  input?: unknown,
 ): ElysiaMcpToolPresentation | null {
-  const definition = resolveElysiaMcpToolDefinition(toolName);
+  const definition = resolveElysiaMcpToolDefinition(toolName, input);
   return definition === null ? null : { displayName: definition.displayName, logo: "elysia" };
 }

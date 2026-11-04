@@ -6,6 +6,7 @@ import type { Project } from "../types";
 import {
   buildCommandPaletteProjectMetadata,
   buildProjectActionItems,
+  type CommandPaletteItemPin,
   type CommandPaletteProject,
   ITEM_ICON_CLASS,
 } from "./CommandPalette.logic";
@@ -31,6 +32,7 @@ interface ProjectItemsInput {
   readonly locationByEnvironmentId: ReadonlyMap<EnvironmentId, CommandPaletteProjectLocation>;
   readonly runProject: (project: CommandPaletteProject) => Promise<void>;
   readonly isScratch?: (project: CommandPaletteProject) => boolean;
+  readonly pin?: (project: CommandPaletteProject) => CommandPaletteItemPin | null;
 }
 
 function projectFaviconIcon(project: Project) {
@@ -73,6 +75,7 @@ export function buildProjectSearchItems(input: ProjectItemsInput) {
         projectFaviconIcon(project)
       ),
     runProject: input.runProject,
+    ...(input.pin ? { pin: input.pin } : {}),
   });
 }
 
@@ -97,6 +100,7 @@ export function buildNewThreadInProjectItems(input: ProjectItemsInput) {
     ),
     icon: projectFaviconIcon,
     runProject: input.runProject,
+    ...(input.pin ? { pin: input.pin } : {}),
   });
 }
 

@@ -242,13 +242,13 @@ it("keeps workspace controls after expanding and collapsing 70 linked pull reque
   await act(async () => {
     root.rerender(
       <ThreadDetailsPanel
+        usage={{ providerInstanceId: null, providers: [], sources: [], contextWindow: null }}
         {...threadRef}
         projectId={ProjectId.make("project")}
         worktreePath={null}
         isServerThread
         anchor={{ current: null }}
         handle={PopoverCreateHandle()}
-        onPresentationChange={vi.fn()}
         activeProjectName={undefined}
         activeProjectScripts={undefined}
         preferredScriptId={null}

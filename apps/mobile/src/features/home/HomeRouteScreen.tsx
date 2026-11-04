@@ -1,39 +1,41 @@
-import { useNavigation } from "@react-navigation/native";
+import { uuidv4 } from "../../lib/uuid";
+import { ThreadUndoNotice } from "./ThreadUndoNotice";
+import { Toolbar } from "../../components/ui/Toolbar";
+import { use, useMemo, useState } from "react";
+import { NativePrimaryColumnContext } from "../../native/v5-workspace-context";
 import * as Arr from "effect/Array";
 import * as Order from "effect/Order";
-import { use, useCallback, useEffect, useMemo, useState } from "react";
+import { useNavigation } from "@react-navigation/native";
 import { Platform, useWindowDimensions } from "react-native";
-import { Toolbar } from "../../components/ui/Toolbar";
-import { uuidv4 } from "../../lib/uuid";
-import { NativePrimaryColumnContext } from "../../native/v5-workspace-context";
-import { ThreadUndoNotice } from "./ThreadUndoNotice";
-
-import { resolveScratchProjectScopeKey } from "@elysiatools/client-runtime/state/project-grouping";
 import type { EnvironmentThreadShell } from "@elysiatools/client-runtime/state/shell";
-
-import { AndroidScreenHeader } from "../../components/ui/AndroidScreenHeader";
-import { useDeviceType, useNativeColumnLayoutMetrics } from "../../native/native-layout-metrics";
+import {
+  pickableProjectGroups,
+  resolveScratchProjectScopeKey,
+} from "@elysiatools/client-runtime/state/project-grouping";
 import { NativeStackScreenOptions } from "../../native/StackHeader";
+import { useProjects } from "../../state/entities";
+import { environmentThreadShells } from "../../state/threads";
 import { usePendingNewTasks } from "../../state/use-pending-new-tasks";
-import { useSavedRemoteConnections } from "../../state/use-remote-environment-registry";
 import { useWorkspaceState } from "../../state/workspace";
-import { useAgentCatalog, useRegularProjectItems } from "../agents/use-agent-catalog";
+import { useSavedRemoteConnections } from "../../state/use-remote-environment-registry";
 import { useAdaptiveWorkspaceLayout } from "../layout/AdaptiveWorkspaceLayout";
+import { useDeviceType, useNativeColumnLayoutMetrics } from "../../native/native-layout-metrics";
 import { WorkspaceEmptyDetail } from "../layout/WorkspaceEmptyDetail";
-import { openSettings } from "../settings/settings-navigation";
-import { checkForAppUpdateOnLaunch, startAppUpdateForegroundRecheck } from "../updates/app-updates";
-import { useSelectWorkspaceDetail } from "../workspace/useSelectWorkspaceDetail";
-import { useSelectWorkspaceTab } from "../workspace/useSelectWorkspaceTab";
-import { useWorkspaceTabs } from "../workspace/WorkspaceTabsContext";
+import { AppBar } from "../../components/ui/AppBar";
 import { AndroidHomeFabLayout } from "./AndroidHomeFab";
-import { useHomeListOptions } from "./home-list-options";
-import { useHomeRouteVisible } from "./home-route-visibility";
-import { HomeHeader } from "./HomeHeader";
 import { HomeScreen } from "./HomeScreen";
+import { HomeHeader } from "./HomeHeader";
+import { useHomeListOptions } from "./home-list-options";
+import { useAtomValueWhileVisible, useHomeRouteVisible } from "./home-route-visibility";
 import { buildHomeProjectScopes } from "./homeThreadList";
 import { usePendingTaskListActions } from "./usePendingTaskListActions";
 import { useThreadListActions } from "./useThreadListActions";
 import { getConnectionAwareBrandHeaderOptions } from "./WorkspaceConnectionTitle";
+import { useWorkspaceTabs } from "../workspace/WorkspaceTabsContext";
+import { openSettings } from "../settings/settings-navigation";
+import { useSelectWorkspaceTab } from "../workspace/useSelectWorkspaceTab";
+import { useSelectWorkspaceDetail } from "../workspace/useSelectWorkspaceDetail";
+import { useAgentCatalog, useRegularProjectItems } from "../agents/use-agent-catalog";
 
 export function HomeRouteScreen() {
   const { width: windowWidth } = useWindowDimensions();
@@ -61,37 +63,24 @@ export function HomeRouteScreen() {
     else if (workspace) workspace.dispatch({ type: "query", query, tab: "threads" });
     else setLocalSearchQuery(query);
   };
-  const handleSelectThread = useCallback(
-    (thread: EnvironmentThreadShell) =>
-      selectDetail({
-        name: "Thread",
-        params: { environmentId: String(thread.environmentId), threadId: String(thread.id) },
-      }),
-    [selectDetail],
-  );
-  const selectThreadRoute = useCallback(
-    (params: ReactNavigation.RootParamList["Thread"]) => selectDetail({ name: "Thread", params }),
-    [selectDetail],
-  );
-  const handleNewThreadOnBranch = useCallback(
-    (thread: EnvironmentThreadShell) => {
-      selectThreadRoute({
-        draft: {
-          requestId: uuidv4(),
-          environmentId: String(thread.environmentId),
-          projectId: String(thread.projectId),
-          branch: thread.branch,
-          worktreePath: thread.worktreePath,
-        },
-      });
-    },
-    [selectThreadRoute],
-  );
-
-  useEffect(() => {
-    void checkForAppUpdateOnLaunch();
-    startAppUpdateForegroundRecheck();
-  }, []);
+  const handleSelectThread = (thread: EnvironmentThreadShell) =>
+    selectDetail({
+      name: "Thread",
+      params: { environmentId: String(thread.environmentId), threadId: String(thread.id) },
+    });
+  const selectThreadRoute = (params: ReactNavigation.RootParamList["Thread"]) =>
+    selectDetail({ name: "Thread", params });
+  const handleNewThreadOnBranch = (thread: EnvironmentThreadShell) => {
+    selectThreadRoute({
+      draft: {
+        requestId: uuidv4(),
+        environmentId: String(thread.environmentId),
+        projectId: String(thread.projectId),
+        branch: thread.branch,
+        worktreePath: thread.worktreePath,
+      },
+    });
+  };
 
   const {
     archiveThread,
@@ -110,22 +99,19 @@ export function HomeRouteScreen() {
   const pendingTasks = useRegularProjectItems(usePendingNewTasks());
   const { openPendingTask, confirmDeletePendingTask } =
     usePendingTaskListActions(selectThreadRoute);
-  const environments = useMemo(() => {
-    const connectionStateByEnvironmentId = new Map(
-      workspaceEnvironments.map(
-        (environment) => [environment.environmentId, environment.connectionState] as const,
-      ),
-    );
-    return Arr.sort(
-      Object.values(savedConnectionsById).map((connection) => ({
-        environmentId: connection.environmentId,
-        label: connection.environmentLabel,
-        connectionState:
-          connectionStateByEnvironmentId.get(connection.environmentId) ?? "available",
-      })),
-      Order.mapInput(Order.String, (environment: { readonly label: string }) => environment.label),
-    );
-  }, [savedConnectionsById, workspaceEnvironments]);
+  const connectionStateByEnvironmentId = new Map(
+    workspaceEnvironments.map(
+      (environment) => [environment.environmentId, environment.connectionState] as const,
+    ),
+  );
+  const environments = Arr.sort(
+    Object.values(savedConnectionsById).map((connection) => ({
+      environmentId: connection.environmentId,
+      label: connection.environmentLabel,
+      connectionState: connectionStateByEnvironmentId.get(connection.environmentId) ?? "available",
+    })),
+    Order.mapInput(Order.String, (environment: { readonly label: string }) => environment.label),
+  );
   const availableEnvironmentIds = useMemo(
     () => new Set(environments.map((environment) => environment.environmentId)),
     [environments],
@@ -136,23 +122,25 @@ export function HomeRouteScreen() {
     setSelectedProjectKey,
   } = useHomeListOptions(availableEnvironmentIds);
   const selectedEnvironmentId = listOptions.selectedEnvironmentId;
-  const projectScopeKey = listOptions.selectedProjectKey;
-  const resolvedProjectKey = resolveScratchProjectScopeKey(projectScopeKey, projects, {
-    sidebarProjectGroupingMode: listOptions.projectGroupingMode,
-    sidebarProjectGroupingOverrides: {},
-  });
-  useEffect(() => {
-    if (resolvedProjectKey !== projectScopeKey) {
-      setSelectedProjectKey(resolvedProjectKey);
-    }
-  }, [projectScopeKey, resolvedProjectKey, setSelectedProjectKey]);
+  // A legacy per-environment scratch key resolves here on every render; the stored
+  // value is only rewritten when the user picks a filter.
+  const resolvedProjectKey = resolveScratchProjectScopeKey(
+    listOptions.selectedProjectKey,
+    projects,
+    {
+      sidebarProjectGroupingMode: listOptions.projectGroupingMode,
+      sidebarProjectGroupingOverrides: {},
+    },
+  );
   const projectFilterOptions = useMemo(
     () =>
-      buildHomeProjectScopes({
-        projects,
-        environmentId: selectedEnvironmentId,
-        projectGroupingMode: listOptions.projectGroupingMode,
-      }).map((scope) => ({
+      pickableProjectGroups(
+        buildHomeProjectScopes({
+          projects,
+          environmentId: selectedEnvironmentId,
+          projectGroupingMode: listOptions.projectGroupingMode,
+        }),
+      ).map((scope) => ({
         key: scope.key,
         label: scope.title,
       })),
@@ -190,7 +178,7 @@ export function HomeRouteScreen() {
             />
           </Toolbar>
         ) : null}
-        {Platform.OS === "android" ? <AndroidScreenHeader title="Threads" /> : null}
+        {Platform.OS === "android" ? <AppBar embedded title="Threads" /> : null}
         <WorkspaceEmptyDetail
           onAddConnection={
             Platform.OS === "android" && !catalogState.hasConnections

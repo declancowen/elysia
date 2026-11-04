@@ -4,6 +4,7 @@ import { threadRuntimeIsActive } from "@elysiatools/client-runtime/state/shell";
 import type { ThreadCheckpointSummary } from "@elysiatools/client-runtime/state/thread-checkpoints";
 import {
   deriveProviderSubagentStatus,
+  deriveResumableRunId,
   deriveRunlessWorkStartedAt,
   deriveThreadActivityRun,
   deriveThreadRuntime,
@@ -23,29 +24,24 @@ import { useDelegatedAgents } from "../features/agents/useDelegatedAgents";
 import { readEnvironmentScope } from "./session";
 import { useComposerAttachmentActions } from "./use-composer-attachment-actions";
 
-import { clampFileAttachmentUploadBytes } from "@elysiatools/client-runtime/state/attachments";
-import { resolveThreadWorkingStartedAt } from "@elysiatools/client-runtime/state/models";
-import {
-  parseCodexFeedbackCommand,
-  submitCodexFeedback,
-  type CodexFeedbackSubmission,
-} from "@elysiatools/client-runtime/state/threads";
-import {
-  nextPastedTextFileName,
-  pastedTextDisposition,
-} from "@elysiatools/client-runtime/text-paste";
 import {
   CommandId,
   DEFAULT_PROVIDER_INTERACTION_MODE,
   MessageId,
   PROVIDER_SEND_TURN_MAX_ATTACHMENTS,
-  PROVIDER_SEND_TURN_MAX_INPUT_CHARS,
   type EnvironmentId,
   type ModelSelection,
   type ProviderInteractionMode,
   type ServerProvider,
   type ThreadId,
 } from "@elysiatools/contracts";
+
+import {
+  parseCodexFeedbackCommand,
+  submitCodexFeedback,
+  type CodexFeedbackSubmission,
+} from "@elysiatools/client-runtime/state/threads";
+import { resolveThreadWorkingStartedAt } from "@elysiatools/client-runtime/state/models";
 import { upgradeLegacyContextMessage } from "@elysiatools/shared/composerContextLegacy";
 import { composerAgentMentionItems } from "../features/threads/composerAgentMentions";
 import { agentMentionInputError, createAgentMentionHandoff } from "../lib/agentMentionHandoff";
@@ -55,6 +51,7 @@ import {
   reidentifyComposerContext,
   uploadedComposerContext,
 } from "../lib/composerContext";
+import { restoreAttachmentOnlyBootstrapPrompt } from "@elysiatools/shared/composerContextReferences";
 import { uuidv4 } from "../lib/uuid";
 
 import {
@@ -69,11 +66,6 @@ import {
 } from "../features/threads/pending-thread-feed";
 import { makeQueuedMessageMetadata } from "../lib/commandMetadata";
 import type { DraftComposerImageAttachment } from "../lib/composerImages";
-import {
-  createPastedTextComposerAttachment,
-  pasteComposerClipboard,
-  removePersistedComposerAttachmentFile,
-} from "../lib/composerImages";
 import { DEFAULT_FOLLOW_UP_BEHAVIOR } from "../lib/followUpBehavior";
 import {
   describeUnavailableModelSelection,
@@ -108,15 +100,12 @@ import { environmentThreadDetails, threadEnvironment } from "./threads";
 import { useAtomCommand } from "./use-atom-command";
 import {
   appendComposerDraftAttachments,
-  captureComposerDraftInsertion,
   clearComposerDraft,
   clearComposerDraftContent,
   composerContextImportsAtom,
-  countComposerDraftAttachmentsAfterSelection,
   flushComposerDrafts,
   getComposerDraftSnapshot,
   insertComposerDraftContext,
-  insertComposerDraftText,
   mergeComposerDraftContent,
   removeComposerDraftAttachment,
   retainComposerDraftAttachments,
@@ -139,6 +128,7 @@ const EMPTY_QUEUE_WORKFLOW_ATOM = Atom.make<null>(null).pipe(
   Atom.withLabel("mobile-thread-queue-workflow:empty"),
 );
 const EMPTY_CHECKPOINT_SUMMARIES_ATOM = Atom.make<ReadonlyArray<ThreadCheckpointSummary>>([]);
+const EMPTY_THREAD_SEQUENCE_ATOM = Atom.make(0);
 
 export function appendReviewCommentToDraft(input: {
   readonly environmentId: EnvironmentId;
@@ -191,6 +181,7 @@ export function useThreadDraftForThread(input: {
 
   return {
     draftMessage: draft.text,
+    draftContext: draft.context,
     draftAttachments: draft.attachments,
   };
 }
@@ -284,20 +275,6 @@ export function useThreadComposerState() {
   });
   const [isSavingQueuedEdit, setIsSavingQueuedEdit] = useState(false);
   const savingQueuedEditRef = useRef(false);
-  const pastedTextFileNamesRef = useRef<{ threadKey: string | null; names: Set<string> }>({
-    threadKey: null,
-    names: new Set(),
-  });
-  const reservePastedTextFileName = (threadKey: string, existingNames: ReadonlyArray<string>) => {
-    if (pastedTextFileNamesRef.current.threadKey !== threadKey) {
-      pastedTextFileNamesRef.current = { threadKey, names: new Set() };
-    }
-    const names = pastedTextFileNamesRef.current.names;
-    for (const name of existingNames) names.add(name);
-    const nextName = nextPastedTextFileName([...names]);
-    names.add(nextName);
-    return nextName;
-  };
 
   const selectedThreadKey = selectedThreadShell
     ? scopedThreadKey(selectedThreadShell.environmentId, selectedThreadShell.id)
@@ -320,6 +297,11 @@ export function useThreadComposerState() {
   const selectedThreadMessages = selectedThreadProjection?.projection.messages;
   const selectedThreadAttempts = selectedThreadProjection?.projection.attempts;
   const selectedThreadNodes = selectedThreadProjection?.projection.nodes;
+  const selectedThreadSequence = useAtomValue(
+    selectedThreadDetailRef === null
+      ? EMPTY_THREAD_SEQUENCE_ATOM
+      : environmentThreadDetails.sequenceAtom(selectedThreadDetailRef),
+  );
   const checkpointSummaries = useAtomValue(
     selectedThreadDetailRef === null
       ? EMPTY_CHECKPOINT_SUMMARIES_ATOM
@@ -347,6 +329,7 @@ export function useThreadComposerState() {
     const pendingAcknowledgments = selectPendingAcknowledgedMessages(acknowledgedMessages, {
       threadKey: selectedThreadKey,
       queuedMessages: selectedThreadQueuedMessages,
+      sequence: selectedThreadSequence,
       projectedMessages: selectedThreadMessages,
     });
     if (pendingAcknowledgments.length === 0) return feed;
@@ -445,6 +428,9 @@ export function useThreadComposerState() {
   // A stop or a restart holds the queue, completion wakes included, until it
   // is resumed; the queue sheet lists only the user's own messages.
   const queueHeld = queueWorkflow?.isHeld === true;
+  const resumableRunId = selectedThreadProjection
+    ? deriveResumableRunId(selectedThreadProjection.projection, selectedThreadRuntime)
+    : null;
 
   const runlessWorkStartedAt = selectedThreadProjection
     ? deriveRunlessWorkStartedAt(selectedThreadProjection.projection)
@@ -491,7 +477,11 @@ export function useThreadComposerState() {
     if (edit === null) return;
     const draft = getComposerDraftSnapshot(queuedEditDraftKey(threadKey, edit.runId));
     const text = draft.text.trim();
-    if (text.length === 0) {
+    if (
+      text.length === 0 &&
+      edit.existingAttachments.length === 0 &&
+      draft.attachments.length === 0
+    ) {
       Dialog.alert("Add a message", "A queued message cannot be left empty.");
       return;
     }
@@ -514,7 +504,7 @@ export function useThreadComposerState() {
       prepareTurnAttachments({
         environmentId: thread.environmentId,
         attachments: draft.attachments,
-        supportsImageUploads: capabilities?.attachmentUploads === true,
+        supportsImageUploads: capabilities !== undefined,
       }),
     );
     if (AsyncResult.isFailure(prepared)) {
@@ -545,7 +535,7 @@ export function useThreadComposerState() {
       input: {
         threadId: thread.id,
         runId: edit.runId,
-        text,
+        text: restoreAttachmentOnlyBootstrapPrompt(text, payload.attachments.length > 0),
         edit: {
           messageId: edit.messageId,
           attachments: payload.attachments,
@@ -579,6 +569,7 @@ export function useThreadComposerState() {
       text: string,
       hasAttachmentsOrContext: boolean,
     ) => Promise<boolean | "responded">,
+    onWillEnqueue?: () => void,
   ) => {
     if (
       selectedThreadShell &&
@@ -858,6 +849,7 @@ export function useThreadComposerState() {
 
     const metadata = makeQueuedMessageMetadata();
     const messageId = MessageId.make(metadata.messageId);
+    onWillEnqueue?.();
     clearThreadComposerError(threadKey);
     const enqueuePromise = enqueueThreadOutboxMessage({
       environmentId: selectedThreadShell.environmentId,
@@ -911,95 +903,6 @@ export function useThreadComposerState() {
       serverConfig: selectedEnvironmentRuntime?.serverConfig,
     });
 
-  const onPasteIntoDraft = async () => {
-    if (!selectedThreadShell) {
-      return;
-    }
-
-    const threadKey = activeComposerDraftKey(selectedThreadShell);
-    const insertion = captureComposerDraftInsertion(threadKey);
-    const result = await pasteComposerClipboard({
-      existingCount: countComposerDraftAttachmentsAfterSelection(threadKey, insertion),
-    });
-    const rejectedPasteCount = appendComposerDraftAttachments(threadKey, result.images, {
-      appendReference: true,
-      insertion,
-    });
-    if (result.text) {
-      const currentDraft = getComposerDraftSnapshot(threadKey);
-      const currentAttachments = currentDraft.attachments;
-      const capabilities = selectedEnvironmentRuntime?.serverConfig?.environment.capabilities;
-      const advertisedMax =
-        capabilities?.attachmentUploads === true
-          ? capabilities.fileAttachments?.maxUploadBytes
-          : undefined;
-      const maxBytes =
-        advertisedMax === undefined ? null : clampFileAttachmentUploadBytes(advertisedMax);
-      const wouldExceedInputLimit =
-        currentDraft.text.length -
-          (currentDraft.text === insertion.text
-            ? Math.max(0, insertion.end - insertion.start)
-            : 0) +
-          result.text.length >
-        PROVIDER_SEND_TURN_MAX_INPUT_CHARS;
-      const shouldFold =
-        pastedTextDisposition({
-          text: result.text,
-          wouldExceedInputLimit,
-          canAttach: true,
-        }) === "attachment";
-      const canAttach =
-        maxBytes !== null &&
-        countComposerDraftAttachmentsAfterSelection(threadKey, insertion) <
-          PROVIDER_SEND_TURN_MAX_ATTACHMENTS &&
-        new TextEncoder().encode(result.text).byteLength <= maxBytes;
-      if (shouldFold && canAttach && maxBytes !== null) {
-        try {
-          const attachment = await createPastedTextComposerAttachment({
-            text: result.text,
-            name: reservePastedTextFileName(
-              threadKey,
-              currentAttachments.map((item) => item.name),
-            ),
-            maxBytes,
-          });
-          if (
-            appendComposerDraftAttachments(threadKey, [attachment], {
-              appendReference: true,
-              insertion,
-            }) > 0
-          ) {
-            await removePersistedComposerAttachmentFile(attachment.fileUri);
-            setPendingConnectionError(
-              `You can attach up to ${PROVIDER_SEND_TURN_MAX_ATTACHMENTS} files per message.`,
-            );
-          }
-        } catch (error) {
-          setPendingConnectionError(
-            error instanceof Error ? error.message : "Could not attach pasted text.",
-          );
-        }
-      } else if (shouldFold && !wouldExceedInputLimit) {
-        insertComposerDraftText(threadKey, result.text, insertion);
-      } else if (shouldFold) {
-        setPendingConnectionError(
-          wouldExceedInputLimit
-            ? "Pasted text is too large for this message. Remove some text or an attachment, then paste again."
-            : "Could not attach pasted text. Remove an attachment or use a smaller paste, then try again.",
-        );
-      } else {
-        insertComposerDraftText(threadKey, result.text, insertion);
-      }
-    }
-    if (result.error) {
-      setPendingConnectionError(result.error);
-    } else if (rejectedPasteCount > 0) {
-      setPendingConnectionError(
-        `You can attach up to ${PROVIDER_SEND_TURN_MAX_ATTACHMENTS} files per message.`,
-      );
-    }
-  };
-
   const onRemoveDraftImage = (imageId: string) => {
     if (!selectedThreadShell) {
       return;
@@ -1039,6 +942,7 @@ export function useThreadComposerState() {
     followUpBehavior,
     canSteerActiveTurn,
     queueHeld,
+    resumableRunId,
     queuedRunEdit,
     isSavingQueuedEdit,
     cancelQueuedRunEdit,
@@ -1053,7 +957,6 @@ export function useThreadComposerState() {
     onChangeDraftMessage,
     onPickDraftMedia,
     onPickDraftFiles,
-    onPasteIntoDraft,
     onNativePasteImages,
     onNativePasteText,
     onRemoveDraftImage,

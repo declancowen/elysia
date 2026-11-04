@@ -105,10 +105,6 @@ export function manualServerUpdateUrl(targetVersion: string): string {
   return `https://github.com/declancowen/elysia/releases/tag/v${encodeURIComponent(targetVersion)}`;
 }
 
-export function serverUpdateGuidance(capability: ServerSelfUpdateCapability): string {
-  return capability === "desktop-managed" ? "Update the desktop app" : "Update to stay in sync";
-}
-
 export function buildVersionMismatchDismissalKey(
   environmentId: EnvironmentId,
   mismatch: Pick<VersionMismatch, "clientVersion" | "serverVersion">,

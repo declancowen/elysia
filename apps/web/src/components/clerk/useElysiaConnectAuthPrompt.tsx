@@ -8,5 +8,5 @@ export function useElysiaConnectAuthPrompt() {
   const openAuthPrompt = () => {
     clerk.openSignIn(resolveClerkSignInProps(window.location.href, isElectron));
   };
-  return { authPrompt: null, openAuthPrompt };
+  return { openAuthPrompt };
 }

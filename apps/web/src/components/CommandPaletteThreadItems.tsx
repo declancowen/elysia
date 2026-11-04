@@ -27,7 +27,7 @@ import {
   deriveProviderInstanceEntries,
   type ProviderInstanceEntry,
 } from "../providerInstances";
-import { useThreadShells } from "../state/entities";
+import { useVisibleThreadShells } from "../state/entities";
 import {
   useEnvironmentProviders,
   useEnvironments,
@@ -103,7 +103,7 @@ export function useCommandPaletteThreadItems(input: {
 }) {
   const { activeThread, threadSearchQuery } = input;
   const navigate = useNavigate();
-  const threads = selectNonAgentProjectItems(useThreadShells(), useProjects()).filter(
+  const threads = selectNonAgentProjectItems(useVisibleThreadShells(), useProjects()).filter(
     (thread) => thread.lineage.relationshipToParent !== "subagent",
   );
   const { scratchWorkspaceRootFor } = useScratchProject();

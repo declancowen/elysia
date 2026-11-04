@@ -11,7 +11,7 @@ vi.mock("@tanstack/react-router", () => ({
     select({ hash: "", search: {} }),
 }));
 vi.mock("~/hooks/useSettings", () => ({ useCodeWorkspace: () => false }));
-vi.mock("~/env", () => ({ isElectron: false }));
+vi.mock("~/env", () => ({ isElectron: false, isSecretsFeatureEnabled: false }));
 vi.mock("../../hooks/useConversationTabNavigation", () => ({
   useConversationTabNavigation: () => vi.fn(),
 }));

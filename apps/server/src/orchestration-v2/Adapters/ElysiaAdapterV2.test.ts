@@ -15,7 +15,8 @@ import { describe, it } from "@effect/vitest";
 import { expect } from "vite-plus/test";
 import * as Schema from "effect/Schema";
 import * as NodeServices from "@effect/platform-node/NodeServices";
-import * as Crypto from "effect/Crypto";
+import * as NodeCrypto from "@effect/platform-node/NodeCrypto";
+import * as SecureRandom from "effect/crypto/SecureRandom";
 import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
@@ -56,7 +57,7 @@ describe("Elysia V2 runtime boundary", () => {
                 : "x-portkey-config: fixture";
             let openedOptions: ClaudeAgentSdkQueryOptions | undefined;
             const adapter = yield* makeClaudeAdapterV2({
-              crypto: yield* Crypto.Crypto,
+              random: yield* SecureRandom.SecureRandom,
               instanceId,
               settings: decodeClaudeSettings({ homePath: profile }),
               environment: {
@@ -111,6 +112,10 @@ describe("Elysia V2 runtime boundary", () => {
               modelSelection,
               runtimePolicy,
             });
+            expect(runtime.providerSession.capabilities).toEqual(yield* adapter.getCapabilities());
+            expect(runtime.providerSession.capabilities.sessions.supportsModelSwitchInSession).toBe(
+              false,
+            );
             const providerThread = yield* runtime.ensureThread({
               threadId,
               modelSelection,
@@ -175,7 +180,12 @@ describe("Elysia V2 runtime boundary", () => {
           }
         }).pipe(
           Effect.provide(
-            Layer.mergeAll(NodeServices.layer, IdAllocator.layer, McpProviderSessions.layer),
+            Layer.mergeAll(
+              NodeServices.layer,
+              NodeCrypto.layer,
+              IdAllocator.layer,
+              McpProviderSessions.layer,
+            ),
           ),
         ),
       ),
@@ -198,7 +208,7 @@ describe("Elysia V2 runtime boundary", () => {
             interactionMode: "default",
           } as const;
           const adapter = yield* makeClaudeAdapterV2({
-            crypto: yield* Crypto.Crypto,
+            random: yield* SecureRandom.SecureRandom,
             instanceId,
             settings: decodeClaudeSettings({ homePath: profile }),
             environment: { ELYSIA_PROFILE_ROOT: profile },
@@ -226,7 +236,7 @@ describe("Elysia V2 runtime boundary", () => {
                 sessions: { ...capabilities.sessions, supportsModelSwitchInSession: true },
               },
             });
-            expect(native.type).toBe("apply_on_next_turn");
+            expect(native.type).toBe("create_with_handoff");
           }
           const runtime = yield* adapter.openSession({
             threadId,
@@ -254,6 +264,7 @@ describe("Elysia V2 runtime boundary", () => {
           Effect.provide(
             Layer.mergeAll(
               NodeServices.layer,
+              NodeCrypto.layer,
               IdAllocator.layer,
               McpProviderSessions.layer,
               Layer.mock(ClaudeAgentSdkQueryRunner)({
@@ -276,6 +287,8 @@ describe("Elysia V2 runtime boundary", () => {
         },
         modelCatalog,
         nativeThreadId: "native-thread",
+        deviceToolsAvailable: true,
+        mcpServers: { elysia: { type: "http", url: "http://127.0.0.1:43123/mcp" } },
         resume: false,
         cwd: "/tmp/elysia-agent-workspace",
         permissionMode: "bypassPermissions",
@@ -303,6 +316,8 @@ describe("Elysia V2 runtime boundary", () => {
           channel ? "independent channel conversation" : "/memory/session-handoff.md",
         ),
       });
+      expect(options.hooks?.SubagentStart).toHaveLength(1);
+      expect(options.hooks?.PreToolUse).toHaveLength(1);
       expect(options.model).toBe("gpt-5-4");
       expect(options.effort).toBe("xhigh");
       expect(options.pathToClaudeCodeExecutable).toBe("/tmp/native-claude");
@@ -438,7 +453,7 @@ describe("Elysia V2 runtime boundary", () => {
     Effect.gen(function* () {
       const instanceId = ProviderInstanceId.make("claudeAgent");
       const adapter = yield* makeClaudeAdapterV2({
-        crypto: yield* Crypto.Crypto,
+        random: yield* SecureRandom.SecureRandom,
         instanceId,
         settings: decodeClaudeSettings({}),
         environment: { ELYSIA_PROFILE_ROOT: "/tmp/elysia-v2-profile" },
@@ -461,12 +476,14 @@ describe("Elysia V2 runtime boundary", () => {
           hasStrongNativeSource: true,
           sourceRunStatus: "completed",
           fromSpecificTurn: true,
+          sourceBusy: false,
         }),
       ).toBe("portable_context");
     }).pipe(
       Effect.provide(
         Layer.mergeAll(
           NodeServices.layer,
+          NodeCrypto.layer,
           IdAllocator.layer,
           McpProviderSessions.layer,
           CommandPolicy.layer,

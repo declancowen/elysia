@@ -35,11 +35,13 @@ const variantColors: Record<ComposerBannerVariant, string> = {
 
 function Surface({
   placement = "attached",
+  detached = false,
   variant = "default",
   className,
   ...props
 }: ComponentProps<"div"> & {
   placement?: "attached" | "floating";
+  detached?: boolean;
   variant?: ComposerBannerVariant;
 }) {
   return (
@@ -51,7 +53,7 @@ function Surface({
         "relative isolate border-0 bg-transparent shadow-none [--chat-composer-attached-tint:transparent]",
         variantColors[variant],
         // Bleed the mask 1px past the seam to cover Chromium's fractional-pixel backdrop loss.
-        placement === "attached"
+        placement === "attached" && !detached
           ? "[--chat-composer-attachment-overlap:calc(1rem+1px)] before:rounded-t-2xl before:mask-t-from-transparent before:mask-t-from-4 before:mask-t-to-black before:mask-t-to-4"
           : "[--chat-composer-attachment-overlap:0px] before:rounded-2xl",
         "before:pointer-events-none before:absolute before:inset-0 before:-z-1 before:border before:border-(--chat-composer-attached-outline)",
@@ -142,12 +144,14 @@ function Root({
   className,
   density = "default",
   placement = "attached",
+  detached = false,
   variant = "default",
   width = "fill",
   ...props
 }: ComponentProps<"div"> & {
   density?: "default" | "comfortable" | "spacious";
   placement?: "attached" | "floating";
+  detached?: boolean;
   variant?: ComposerBannerVariant;
   width?: "fill" | "content";
 }) {
@@ -173,7 +177,7 @@ function Root({
         className,
       )}
       data-slot="composer-banner"
-      placement={placement}
+      placement={detached ? "floating" : placement}
       data-composer-banner-width={width}
       variant={variant}
       {...props}

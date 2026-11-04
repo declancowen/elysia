@@ -3,7 +3,7 @@ import type { ScopedThreadRef } from "@elysiatools/contracts";
 import { type ComponentProps, useLayoutEffect } from "react";
 import { useIncrementalTimelineEntries } from "../../hooks/useIncrementalTimelineEntries";
 import type { TimelineEntriesInput, TimelineEntry } from "../../session-logic";
-import { useThreadVisibleTurnItems } from "../../state/entities";
+import { useTimelineVisibleTurnItems } from "../../state/entities";
 import {
   peekRememberedThreadTimeline,
   rememberReadyThreadTimeline,
@@ -15,7 +15,8 @@ import { MessagesTimeline } from "./MessagesTimeline";
 /**
  * The timeline with the streamed text. ChatView reads the thread through its quiet
  * atoms, which hold through text deltas; this reads the live turn items, so a
- * delta re-renders the timeline without re-rendering ChatView.
+ * reasoning delta re-renders the timeline without re-rendering ChatView. Streamed
+ * assistant text reaches only its own row, through useAssistantMessageText.
  */
 export function ThreadTimeline({
   threadDetailRef,
@@ -41,7 +42,7 @@ export function ThreadTimeline({
   readyWorkspaceRoot: string | null;
   channelMembers?: Parameters<typeof channelConversationItems>[2];
 }) {
-  const visibleTurnItems = useThreadVisibleTurnItems(threadDetailRef);
+  const visibleTurnItems = useTimelineVisibleTurnItems(threadDetailRef);
   const serverEntries = useIncrementalTimelineEntries(activeThreadKey, {
     ...entriesInput,
     visibleTurnItems: channelConversationItems(
@@ -51,22 +52,18 @@ export function ThreadTimeline({
     ),
   });
   const entries = draftEntries ?? serverEntries;
-  const displayed = resolveThreadSwitchTimeline({
+  const displayedEntries = resolveThreadSwitchTimeline({
     loading: entries.length === 0 && syncing,
     activeThreadKey,
     nextEntries: entries,
     rememberedForActive: peekRememberedThreadTimeline<typeof entries>(activeThreadKey),
   });
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- stores the committed ready timeline in the module-level cache used during thread switches
   useLayoutEffect(() => {
     if (detailLoading || entries.length === 0 || timelineHasEphemeralPreviewUrls(entries)) {
       return;
     }
-    rememberReadyThreadTimeline({
-      threadKey: activeThreadKey,
-      entries,
-      markdownCwd: readyMarkdownCwd,
-      workspaceRoot: readyWorkspaceRoot,
-    });
-  }, [activeThreadKey, detailLoading, entries, readyMarkdownCwd, readyWorkspaceRoot]);
-  return <MessagesTimeline {...timelineProps} timelineEntries={displayed.entries} />;
+    rememberReadyThreadTimeline({ threadKey: activeThreadKey, entries });
+  }, [activeThreadKey, detailLoading, entries]);
+  return <MessagesTimeline {...timelineProps} timelineEntries={displayedEntries.entries} />;
 }

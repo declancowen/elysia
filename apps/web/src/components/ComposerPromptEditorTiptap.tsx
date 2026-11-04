@@ -1,4 +1,4 @@
-import { documentIconColorForFileName } from "~/pierre-icons";
+import { documentChipKindForFileName } from "~/pierre-icons";
 import { isProviderSkillUserInvocable } from "@elysiatools/client-runtime/providerSkills";
 import { formatProviderSkillDisplayName } from "@elysiatools/shared/inlineSkills";
 import {
@@ -46,7 +46,6 @@ import {
   useLayoutEffect,
   useRef,
   useState,
-  type CSSProperties,
   type KeyboardEvent as ReactKeyboardEvent,
   type RefObject,
 } from "react";
@@ -73,7 +72,9 @@ import {
   ComposerBoldSelectionOnlyExtension,
   convertBulletItemToTask,
   ComposerCodeExtension,
+  ComposerBoldExtension,
   ComposerItalicExtension,
+  ComposerStrikeExtension,
   ComposerTaskItemExtension,
   ComposerTaskListExtension,
   flatToMarkdown,
@@ -107,11 +108,9 @@ import { cn, isMacPlatform } from "~/lib/utils";
 import { basenameOfPath } from "~/pierre-icons";
 import { WorkspaceEntryTooltip } from "./chat/WorkspaceEntryIcon";
 import { FileTagChipContent } from "./chat/FileTagChip";
-import { SkillChipIcon } from "./chat/SkillInlineText";
+import { SkillChipPopover, skillPopoverDescription } from "./chat/SkillInlineText";
 import { AssistantCitationChip } from "./chat/AssistantCitationChip";
 import { getTimelinePageScrollKey } from "./chat/pageScrollController";
-import { ContextChipPopover } from "./contextChipParts";
-import { Button } from "./ui/button";
 import { ContextChip } from "./ContextChip";
 import {
   ComposerContextActionsContext,
@@ -269,17 +268,10 @@ const ComposerMentionExtension = Node.create({
 function ComposerMentionNodeView({ node }: NodeViewProps) {
   const actions = use(ComposerContextActionsContext);
   const path = (node.attrs.path as string) ?? "";
-  const accent = documentIconColorForFileName(path);
   const chip = (
     <ContextChip
-      kind="mention"
-      style={
-        accent
-          ? ({
-              "--context-chip-accent": accent,
-            } as CSSProperties)
-          : undefined
-      }
+      kind={documentChipKindForFileName(path) ?? "mention"}
+
       dir="ltr"
       render={<button type="button" />}
       onClick={() => actions.openMention(path)}
@@ -375,31 +367,19 @@ function ComposerSkillNodeView({ node }: NodeViewProps) {
   const skill = skills.find(
     (candidate) => candidate.name === skillName && isProviderSkillUserInvocable(candidate),
   );
-  const description = skill
-    ? skill.description?.trim() || skill.shortDescription?.trim()
-    : skillDescription;
   // The node outlives a provider switch, so its stored label can be another provider's.
   const skillLabel = skill
     ? formatProviderSkillDisplayName(skill)
     : (node.attrs.skillLabel as string) || skillName;
   return (
     <NodeViewWrapper as="span" className={CHIP_NODE_SELECTION_CLASS_NAME}>
-      <ContextChipPopover
-        kind="skill"
-        icon={<SkillChipIcon />}
+      <SkillChipPopover
         label={skillLabel}
-        accessibleLabel={`Skill ${skillLabel}`}
-      >
-        <div className="space-y-3 p-2 text-sm">
-          <p className="font-medium">{skillLabel}</p>
-          <p>{description || "No description is available for this skill."}</p>
-          {skill?.path && actions.environmentId ? (
-            <Button variant="outline" size="sm" onClick={() => actions.openMention(skill.path)}>
-              View instructions
-            </Button>
-          ) : null}
-        </div>
-      </ContextChipPopover>
+        description={skill ? skillPopoverDescription(skill) : skillDescription}
+        onViewInstructions={
+          skill?.path && actions.environmentId ? () => actions.openMention(skill.path) : undefined
+        }
+      />
     </NodeViewWrapper>
   );
 }
@@ -499,7 +479,7 @@ function ComposerCitationNodeView({ node, editor, getPos }: NodeViewProps) {
   return (
     <NodeViewWrapper
       as="span"
-      className={cn(CHIP_NODE_SELECTION_CLASS_NAME, "min-w-0 max-w-full")}
+      className={CHIP_NODE_SELECTION_CLASS_NAME}
       contentEditable={false}
       spellCheck={false}
       data-composer-citation-chip="true"
@@ -947,12 +927,8 @@ function createComposerExtensions(richText: boolean) {
         newGroupDelay: COMPOSER_UNDO_GROUP_DELAY,
       },
       italic: false,
-      ...(richText
-        ? {}
-        : {
-            bold: false,
-            strike: false,
-          }),
+      bold: false,
+      strike: false,
     }),
     ComposerUndoGroupingExtension,
     ComposerTextDirectionExtension,
@@ -965,6 +941,8 @@ function createComposerExtensions(richText: boolean) {
       ? [
           ComposerBoldSelectionOnlyExtension,
           ComposerItalicExtension,
+          ComposerBoldExtension,
+          ComposerStrikeExtension,
           ComposerCodeExtension,
           ComposerCodeBlockExtension.extend({
             addNodeView() {
@@ -1142,7 +1120,7 @@ function ComposerPromptEditorTiptapInner(
     // Mounting a new view emits its default caret before the controlled selection lands.
     if (!hasAppliedControlledSelectionRef.current) return;
     const map = serializeEditorDoc(updated.state.doc);
-    const contextIds = literalText ? [] : map.contextIds;
+    const contextIds = literalText ? [] : [...map.contextIds];
     const { from, to } = updated.state.selection;
     const fromFlat = pmToFlat(map, from);
     const toFlat = pmToFlat(map, to);
@@ -1202,7 +1180,7 @@ function ComposerPromptEditorTiptapInner(
   };
   const editorAttributes = {
     class: cn(
-      "composer-tiptap -m-1 block max-h-52 min-h-19.5 redesign:min-h-12 overflow-y-auto p-1 whitespace-pre-wrap wrap-break-word bg-transparent leading-relaxed text-foreground focus:outline-none",
+      "composer-tiptap -m-1 block max-h-52 min-h-[calc(2lh+--spacing(2))] overflow-y-auto p-1 whitespace-pre-wrap wrap-break-word bg-transparent leading-relaxed text-foreground focus:outline-none",
       className,
     ),
     "data-testid": "composer-editor",
@@ -1585,11 +1563,14 @@ function ComposerPromptEditorTiptapInner(
     },
     [],
   );
+
+  // oxlint-disable-next-line elysia/react-effect-budget -- pushes the disabled prop into the imperative Tiptap editor via setEditable
   useEffect(() => {
     editor?.setEditable(!disabled);
   }, [disabled, editor]);
 
   // Push attributes before layout measurements; Tiptap updates them later in a passive effect.
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- pushes DOM attributes into the ProseMirror view before layout measurements read them
   useLayoutEffect(() => {
     if (!editor?.isInitialized) return;
     editor.view.setProps({
@@ -1608,7 +1589,7 @@ function ComposerPromptEditorTiptapInner(
       value: map.value,
       cursor: collapseExpandedComposerCursor(map.value, expandedCursor, literalText),
       expandedCursor,
-      contextIds: literalText ? [] : map.contextIds,
+      contextIds: literalText ? [] : [...map.contextIds],
     };
     const toFlat = pmToFlat(map, to);
     selectionRangeRef.current = {
@@ -1652,6 +1633,7 @@ function ComposerPromptEditorTiptapInner(
 
   // The one place the controlled value reaches the editor. Imperative handlers compare against
   // the committed value, so it is recorded here even before the editor exists.
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- writes the controlled value and cursor into the Tiptap document before paint
   useLayoutEffect(() => {
     latestValueRef.current = value;
     if (!editor?.isInitialized) return;
@@ -1746,6 +1728,7 @@ function ComposerPromptEditorTiptapInner(
   ]);
 
   // Reconcile loaded or switched provider skills without rebuilding citation node views.
+  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- replaces skill chip nodes in the Tiptap document when the provider skill list loads or changes
   useEffect(() => {
     if (!editor || literalText) return;
     const replacements = skillChipReplacements(editor.state.doc, (name) =>
@@ -1753,6 +1736,8 @@ function ComposerPromptEditorTiptapInner(
     );
     if (replacements.length > 0) replaceSkillChips(editor, replacements);
   }, [editor, literalText, skills]);
+
+  // oxlint-disable-next-line elysia/react-effect-budget -- restores ProseMirror focus and caret scroll when the keyed editor remounts, capturing focus on teardown
   useLayoutEffect(() => {
     if (!editor) return;
     if (restoreFocusRef.current) {

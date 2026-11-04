@@ -3,23 +3,26 @@ import {
   type ProviderSkillSourceKind,
 } from "@elysiatools/client-runtime/providerSkills";
 import type {
-  AgentProfile,
-  ProjectId,
+  EnvironmentId,
+  EnvironmentMachineKind,
   PullRequestContextMetadata,
   ScopedThreadRef,
   ServerProviderSkill,
   ServerProviderSlashCommand,
+  AgentProfile,
+  ProjectId,
 } from "@elysiatools/contracts";
 import type { ComposerTriggerKind } from "@elysiatools/shared/composerTrigger";
-import { Fragment, memo } from "react";
+import { memo, Fragment } from "react";
 import { Pressable, ScrollView, StyleSheet, View, type ViewStyle } from "react-native";
-
 import { SymbolView, type AppSymbolName } from "../../components/ui/AppSymbol";
 import { AppText as Text } from "../../components/ui/AppText";
+import { ENVIRONMENT_MACHINE_SYMBOLS } from "../../components/EnvironmentMachineSymbol";
 import { GlassSurface } from "../../components/ui/GlassSurface";
 import { PierreEntryIcon } from "../../components/PierreEntryIcon";
-import { AgentAvatar } from "../agents/AgentAvatar";
 import { pullRequestStatus } from "../pull-requests/pullRequestStatus";
+import { AgentAvatar } from "../agents/AgentAvatar";
+
 export type ComposerCommandItem =
   | {
       readonly id: string;
@@ -49,6 +52,14 @@ export type ComposerCommandItem =
       readonly id: string;
       readonly type: "thread";
       readonly thread: ScopedThreadRef;
+      readonly label: string;
+      readonly description: string;
+    }
+  | {
+      readonly id: string;
+      readonly type: "environment";
+      readonly environmentId: EnvironmentId;
+      readonly machine: EnvironmentMachineKind;
       readonly label: string;
       readonly description: string;
     }
@@ -123,6 +134,8 @@ function itemIcon(item: ComposerCommandItem): AppSymbolName | null {
       return null;
     case "thread":
       return "text.bubble";
+    case "environment":
+      return ENVIRONMENT_MACHINE_SYMBOLS[item.machine];
   }
 }
 

@@ -28,11 +28,7 @@ import {
 } from "@elysiatools/client-runtime/state/runtime";
 import { useCodeWorkspace, useEnvironmentSettings } from "../../hooks/useSettings";
 import { getCustomModelOptionsByInstance } from "../../modelSelection";
-import {
-  applyProviderInstanceSettings,
-  deriveProviderInstanceEntries,
-  sortProviderInstanceEntries,
-} from "../../providerInstances";
+import { providerInstanceEntriesFor } from "../../providerInstances";
 import { useEnvironment } from "../../state/environments";
 import { useProjects, useThreadShell } from "../../state/entities";
 import { useEnvironmentQuery } from "../../state/query";
@@ -47,6 +43,7 @@ import {
   WEEKDAY_LABELS,
   WEBHOOK_SIGNATURE_DEFAULTS,
   scheduleFromDraft,
+  scheduleDraftErrors,
   matchesScheduledTaskScope,
   scheduledTaskDefaultModel,
   scheduledTaskWorkspaceStrategy,
@@ -96,6 +93,8 @@ const EMPTY_DRAFT: DraftState = {
   prompt: "",
   enabled: true,
   scheduleMode: "fixed",
+  runAt: "",
+  savedRunAt: "",
   intervalMinutes: "15",
   timeOfDay: "09:00",
   weekdays: new Set([1, 2, 3, 4, 5]),
@@ -221,12 +220,10 @@ export function ScheduledTaskEditor({
     projects[0]?.id ||
     "";
   const selectedProject = projects.find((project) => project.id === selectedProjectId);
-  const instanceEntries = sortProviderInstanceEntries(
-    applyProviderInstanceSettings(
-      deriveProviderInstanceEntries(providers),
-      settings,
-      selectedProject?.id ?? null,
-    ),
+  const instanceEntries = providerInstanceEntriesFor(
+    providers,
+    settings,
+    selectedProject?.id ?? null,
   );
   const projectGroups = [
     {
@@ -298,6 +295,11 @@ export function ScheduledTaskEditor({
       selection === null
     ) {
       reportFailure("Scheduled task is incomplete", "Add a title, prompt, project, and model.");
+      return;
+    }
+    const scheduleErrors = scheduleDraftErrors(draft);
+    if (scheduleErrors.length > 0) {
+      for (const error of scheduleErrors) reportFailure(error.title, error.description);
       return;
     }
     const schedule = scheduleFromDraft(draft);
@@ -594,7 +596,7 @@ export function ScheduledTaskEditor({
             value={[draft.scheduleMode]}
             onValueChange={(values) => {
               const mode = values[0];
-              if (mode === "fixed" || mode === "interval" || mode === "webhook")
+              if (mode === "fixed" || mode === "once" || mode === "interval" || mode === "webhook")
                 setDraft((current) => ({
                   ...current,
                   scheduleMode: mode,
@@ -605,6 +607,7 @@ export function ScheduledTaskEditor({
                 }));
             }}
           >
+            <Toggle value="once">Once</Toggle>
             <Toggle value="fixed">At a time</Toggle>
             <Toggle value="interval">Every interval</Toggle>
             <Toggle value="webhook">On webhook</Toggle>
@@ -723,6 +726,19 @@ export function ScheduledTaskEditor({
               </div>
             ) : null}
           </div>
+        ) : draft.scheduleMode === "once" ? (
+          <Field label="Run once at" htmlFor={`${formId}-scheduled-task-once`}>
+            <Input
+              type="datetime-local"
+              id={`${formId}-scheduled-task-once`}
+              nativeInput
+              value={draft.runAt}
+              onChange={(event) =>
+                setDraft((current) => ({ ...current, runAt: event.target.value }))
+              }
+            />
+            <p className="text-xs text-muted-foreground">Uses your browser's time zone.</p>
+          </Field>
         ) : draft.scheduleMode === "fixed" ? (
           <div className="flex items-center justify-between gap-4">
             <Label className="shrink-0" htmlFor={`${formId}-scheduled-task-time`}>

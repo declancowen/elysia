@@ -3,7 +3,7 @@ import type {
   ResourceTelemetrySourceStatus,
 } from "@elysiatools/contracts";
 
-function processIdentityKey(process: ResourceTelemetryProcess): string {
+export function processIdentityKey(process: Pick<ResourceTelemetryProcess, "identity">): string {
   return `${process.identity.pid}:${process.identity.startTimeMs}`;
 }
 

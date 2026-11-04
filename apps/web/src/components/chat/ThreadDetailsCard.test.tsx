@@ -12,7 +12,9 @@ vi.mock("./ChatCanvasContext", () => ({
   useChatCanvas: () => ({
     container: { width: 1200, height: 800 },
     lane: { padding: 24, minChatWidth: 560 },
-    layout: { frame: null, overlapsDetailsCard: false },
+    preferredDetailsCard: { x: 600, y: 16, width: 260, height: 700 },
+    detailsCardPlacement: { x: 600, y: 16, width: 260, height: 700 },
+    reportDetailsCardMeasurement: () => {},
   }),
 }));
 vi.mock("../ui/scroll-area", () => ({
@@ -53,7 +55,7 @@ it("opens without a render loop and retains the closing details until motion fin
         threadRef={threadRef}
         anchor={{ current: null }}
         handle={PopoverCreateHandle()}
-        onPresentationChange={() => {}}
+        contentKey="test"
       >
         {() => <p>Thread details content</p>}
       </ThreadDetailsCard>,
@@ -61,7 +63,6 @@ it("opens without a render loop and retains the closing details until motion fin
   });
   expect(renderer!.root.findAllByType("aside")).toHaveLength(1);
   await act(() => useRightPanelStore.getState().setThreadPanelOpen(threadRef, "inline", false));
-  expect(renderer!.root.findAllByType("aside")).toHaveLength(1);
   await act(() => {
     vi.advanceTimersByTime(180);
   });

@@ -8,7 +8,7 @@ import {
   type PageSaveInput,
 } from "@elysiatools/contracts";
 import * as Context from "effect/Context";
-import * as Crypto from "effect/Crypto";
+import * as SecureRandom from "effect/crypto/SecureRandom";
 import * as DateTime from "effect/DateTime";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -36,7 +36,7 @@ const decodePage = Schema.decodeUnknownEffect(Page);
 const decodeList = Schema.decodeUnknownEffect(PageListResult);
 const make = Effect.gen(function* () {
   const sql = yield* SqlClient.SqlClient;
-  const crypto = yield* Crypto.Crypto;
+  const crypto = yield* SecureRandom.SecureRandom;
   const projects = yield* ProjectStore.ProjectStoreV2;
   const changes = yield* PubSub.sliding<void>(1);
   const lock = yield* Semaphore.make(1);
@@ -150,8 +150,7 @@ const make = Effect.gen(function* () {
               const timestamp = DateTime.formatIso(yield* DateTime.now);
               const page = yield* decodePage({
                 id:
-                  previous?.id ??
-                  PageId.make(`page-${yield* crypto.randomUUIDv4().pipe(Effect.orDie)}`),
+                  previous?.id ?? PageId.make(`page-${yield* crypto.uuidV4().pipe(Effect.orDie)}`),
                 title: input.title ?? previous?.title,
                 kind,
                 parentFolderId,

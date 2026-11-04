@@ -327,7 +327,7 @@ export function WorkingTimelineRow({
   const label = isPreparingWorktree ? (
     "Setting up worktree…"
   ) : compacting !== undefined ? (
-    <CompactingLabel label={compacting} />
+    <CompactingLabel label={typeof compacting === "string" ? compacting : "Compacting…"} />
   ) : row.createdAt ? (
     <>
       Working for <WorkingTimer createdAt={row.createdAt} />

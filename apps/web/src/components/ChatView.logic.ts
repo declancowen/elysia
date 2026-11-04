@@ -29,6 +29,7 @@ import {
   type ChatFileAttachment,
   type CommandId,
   type EnvironmentId,
+  type EnvironmentContextRecord,
   isProviderDriverKind,
   ProjectId,
   type MessageId,
@@ -94,7 +95,6 @@ import {
   reviewCommentContextLabel,
   terminalContextReference,
 } from "../lib/composerContextRecords";
-import { serializeLegacyContextMessage } from "@elysiatools/shared/composerContextLegacySend";
 import type { ComposerDispatchMode } from "@elysiatools/client-runtime/state/composer-dispatch";
 import type { DraftThreadEnvMode } from "../composerDraftStore";
 import { collapseExpandedComposerCursor, type ComposerSubmissionIntent } from "../composer-logic";
@@ -306,10 +306,7 @@ export function shouldReleaseTimelineAnchorForToolActivity(input: {
     );
   });
 }
-export {
-  findRecordedWorktreeSetup,
-  resolveVisibleWorktreeSetup,
-} from "@elysiatools/client-runtime/worktree-setup";
+export { resolveVisibleWorktreeSetup } from "@elysiatools/client-runtime/worktree-setup";
 export function resolveWorktreeSetupProgress(input: {
   threadId: ThreadId;
   localPreparing: boolean;
@@ -607,6 +604,7 @@ export function resolveComposerProviderSelection(input: {
       : requestedInstanceId;
   return {
     selectedProviderEntry,
+    requestedInstanceId,
     requestedDriverKind,
     lockedContinuationGroupKey,
     unavailableProviderInstanceId,
@@ -878,12 +876,18 @@ export function buildExpiredTerminalContextToastCopy(
   if (variant === "empty") {
     return {
       title: `${noun} won't be sent`,
-      description: "Remove it or re-add it to include terminal output.",
+      description:
+        count === 1
+          ? "Remove it or re-add it to include terminal output."
+          : "Remove them or re-add them to include terminal output.",
     };
   }
   return {
     title: `${noun} omitted from message`,
-    description: "Re-add it if you want that terminal output included.",
+    description:
+      count === 1
+        ? "Re-add it if you want that terminal output included."
+        : "Re-add them if you want that terminal output included.",
   };
 }
 export function branchMismatchKey(
@@ -1208,7 +1212,10 @@ export function hasServerAcknowledgedLocalDispatch(input: {
     return true;
   }
   if (input.phase === "connecting" || derivePhase(input.runtime ?? null) === "connecting") {
-    return false;
+    return (
+      input.runtime?.status === "queued" &&
+      input.localDispatch.latestUserMessageId !== (input.latestUserMessageId ?? null)
+    );
   }
   const latestRun = input.latestRun ?? null;
   const runtime = input.runtime ?? null;
@@ -1275,25 +1282,34 @@ export interface PlanFollowUpComposerSnapshot {
   readonly reviewComments: ReadonlyArray<ReviewCommentContext>;
   readonly previewAnnotations: ReadonlyArray<PreviewAnnotationPayload>;
   readonly threadContexts: ReadonlyArray<ThreadContextRecord>;
+  readonly environmentContexts: ReadonlyArray<EnvironmentContextRecord>;
 }
 export function restorePlanFollowUpComposer(input: {
   readonly snapshot: PlanFollowUpComposerSnapshot;
+  readonly draftHasUserContent: boolean;
+  readonly routeIsCurrent: boolean;
+  readonly writeComposerRefs: (snapshot: PlanFollowUpComposerSnapshot) => void;
   readonly writePrompt: (prompt: string) => void;
   readonly writeTerminalContexts: (contexts: ReadonlyArray<TerminalContextDraft>) => void;
   readonly writeReviewComments: (comments: ReadonlyArray<ReviewCommentContext>) => void;
   readonly writePreviewAnnotations: (annotations: ReadonlyArray<PreviewAnnotationPayload>) => void;
   readonly writeThreadContexts: (records: ReadonlyArray<ThreadContextRecord>) => void;
+  readonly writeEnvironmentContexts: (records: ReadonlyArray<EnvironmentContextRecord>) => void;
   readonly resetCursor: (options: {
     cursor: number;
     prompt: string;
     detectTrigger: boolean;
   }) => void;
 }): void {
+  if (input.draftHasUserContent) return;
+  if (input.routeIsCurrent) input.writeComposerRefs(input.snapshot);
   input.writePrompt(input.snapshot.prompt);
   input.writeTerminalContexts(input.snapshot.terminalContexts);
   input.writeReviewComments(input.snapshot.reviewComments);
   input.writePreviewAnnotations(input.snapshot.previewAnnotations);
   input.writeThreadContexts(input.snapshot.threadContexts);
+  input.writeEnvironmentContexts(input.snapshot.environmentContexts);
+  if (!input.routeIsCurrent) return;
   input.resetCursor({
     cursor: collapseExpandedComposerCursor(input.snapshot.prompt, input.snapshot.prompt.length),
     prompt: input.snapshot.prompt,
@@ -1477,6 +1493,7 @@ export interface ComposerSendContents {
   readonly previewAnnotations: ReadonlyArray<PreviewAnnotationPayload>;
   readonly reviewComments: ReadonlyArray<ReviewCommentContext>;
   readonly threadContexts: ReadonlyArray<ThreadContextRecord>;
+  readonly environmentContexts: ReadonlyArray<EnvironmentContextRecord>;
 }
 
 /**
@@ -1496,6 +1513,7 @@ export function snapshotComposerSend(contents: ComposerSendContents) {
     previewAnnotations: [...contents.previewAnnotations],
     reviewComments: [...contents.reviewComments],
     threadContexts: [...contents.threadContexts],
+    environmentContexts: [...contents.environmentContexts],
     messageText: contents.terminalContexts
       .filter((context) => !terminalContexts.includes(context))
       .reduce(
@@ -1565,36 +1583,14 @@ export function boundAttachmentIds(
   );
 }
 
-/**
- * The message text and context a turn sends. Servers from before inline
- * context drop the records and forward the links as literal text, so their
- * turns carry the payload the legacy way.
- */
+/** The message text and inline context records the current server protocol sends. */
 export function withMessageContext(input: {
   readonly text: string;
   readonly context: OrchestrationMessageContext | undefined;
-  readonly supportsInlineMessageContext: boolean;
-}): {
-  readonly text: string;
-  readonly context?: OrchestrationMessageContext;
-} {
+}): { readonly text: string; readonly context?: OrchestrationMessageContext } {
   const { text, context } = input;
-  if (context === undefined)
-    return {
-      text,
-    };
-  if (!input.supportsInlineMessageContext) {
-    return {
-      text: serializeLegacyContextMessage({
-        text,
-        records: context.records,
-      }),
-    };
-  }
-  return {
-    text,
-    context,
-  };
+  if (context === undefined) return { text };
+  return { text, context };
 }
 
 /** The attachments the optimistic user row shows before the server echoes the message. */

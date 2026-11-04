@@ -1,3 +1,5 @@
+import type { ScheduledTaskId } from "@elysiatools/contracts";
+import { ModelSwitchRow } from "./V2LifecycleRow";
 import { ChannelReplyAction } from "./TimelineRowParts";
 import { agentTaskHandoff } from "@elysiatools/shared/agentMentions";
 import { AgentAvatar } from "../agents/AgentAvatar";
@@ -138,7 +140,21 @@ function UserVideoAttachment({ file }: { readonly file: ChatFileAttachment }) {
   );
 }
 
-export function UserMessageRow({
+export function UserMessageRow({ row }: { row: Extract<TimelineRow, { kind: "message" }> }) {
+  const ctx = use(TimelineRowCtx);
+  const item = row.projectedItem?.item;
+  const modelSwitch = item?.type === "user_message" ? item.modelSwitch : undefined;
+  return (
+    <>
+      {modelSwitch ? (
+        <ModelSwitchRow environmentId={ctx.activeThreadEnvironmentId} modelSwitch={modelSwitch} />
+      ) : null}
+      <UserMessageContent row={row} />
+    </>
+  );
+}
+
+function UserMessageContent({
   row,
 }: {
   row: Extract<
@@ -254,7 +270,7 @@ function AutomationMessageRow({ row }: { row: Extract<TimelineRow, { kind: "mess
   );
 }
 
-function FoldedMessageHeader(props: {
+export function FoldedMessageHeader(props: {
   icon: LucideIcon;
   label: string;
   summary: string;
@@ -813,7 +829,7 @@ const COLLAPSED_USER_MESSAGE_FADE_MASK = `linear-gradient(to bottom, black calc(
 const CollapsibleUserMessageBody = memo(function CollapsibleUserMessageBody(props: {
   text: string;
   renderContextReference: (reference: ChatMarkdownContextReference) => ReactNode;
-  skills: ReadonlyArray<Pick<ServerProviderSkill, "name" | "displayName">>;
+  skills: ReadonlyArray<ServerProviderSkill>;
   markdownCwd: string | undefined;
   collapsible?: boolean;
   footer?: ReactNode;
@@ -892,7 +908,7 @@ const CollapsibleUserMessageBody = memo(function CollapsibleUserMessageBody(prop
 const UserMessageBody = memo(function UserMessageBody(props: {
   text: string;
   renderContextReference?: (reference: ChatMarkdownContextReference) => ReactNode;
-  skills: ReadonlyArray<Pick<ServerProviderSkill, "name" | "displayName">>;
+  skills: ReadonlyArray<ServerProviderSkill>;
   markdownCwd: string | undefined;
 }) {
   const ctx = use(TimelineRowCtx);
@@ -937,4 +953,14 @@ function AgentTaskReceivedHeading({
       </Link>
     </p>
   );
+}
+
+export function useScheduledTaskTitle(
+  environmentId: EnvironmentId,
+  scheduledTaskId: ScheduledTaskId | undefined,
+): string | undefined {
+  const tasksQuery = useEnvironmentQuery(
+    scheduledTaskId ? serverEnvironment.scheduledTasksLive({ environmentId, input: {} }) : null,
+  );
+  return tasksQuery.data?.tasks.find((task) => task.id === scheduledTaskId)?.title;
 }

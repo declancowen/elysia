@@ -74,6 +74,8 @@ function UpdateHarness() {
   const updates = useProviderUpdates();
   const plan = describeUpdateEverything({
     localVersion: null,
+    localMachines: [],
+    skipped: [],
     servers: [],
     providerMachines: updates.machines.map((machine) => ({
       environmentId: machine.environmentId,
@@ -85,7 +87,7 @@ function UpdateHarness() {
     <>
       <p>
         {plan.summary}
-        {plan.lines.join("\n")}
+        {plan.rows.map(row => row.label).join("\n")}
       </p>
       <button onClick={() => updates.updateAll({ quiet: true })}>Update</button>
     </>

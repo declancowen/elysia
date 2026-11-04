@@ -180,7 +180,7 @@ for (const [platform, scenario] of [
           ? [...command.command.matchAll(/\^"(.*?)\^"(?:\s|$)/g)].map((match) =>
               match[1]!.replace(/\^(.)/g, "$1"),
             )
-          : [command.command, ...command.args];
+          : [command.command, ...command.args.map(String)];
         const binary = invocation[0]!;
         const args = invocation.slice(1);
         if (platform === "win32" && binary === "npm.cmd") expect(command.options.shell).toBe(true);

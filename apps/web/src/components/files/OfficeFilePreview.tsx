@@ -27,7 +27,7 @@ export default function LegacyOfficeFilePreview(props: {
   const [sheet, setSheet] = useState(0);
   const [revision, setRevision] = useState(0);
   const { src, format, refresh } = props;
-  // oxlint-disable-next-line elysia/react-effect-budget -- Each source owns an abortable file fetch and discards its previous spreadsheet preview.
+  // oxlint-disable-next-line elysia/no-unreasoned-state-sync -- Each source owns an abortable file fetch and discards its previous spreadsheet preview.
   useEffect(() => {
     const controller = new AbortController();
     // oxlint-disable-next-line react/set-state-in-effect -- Each external file invalidates its previous preview.
@@ -55,7 +55,7 @@ export default function LegacyOfficeFilePreview(props: {
     });
     return () => controller.abort();
   }, [src, format, refresh, revision]);
-  // oxlint-disable-next-line elysia/react-effect-budget -- The imperative spreadsheet renderer must follow iframe and sheet changes and dispose its previous DOM.
+  // oxlint-disable-next-line elysia/no-unreasoned-state-sync -- The imperative spreadsheet renderer must follow iframe and sheet changes and dispose its previous DOM.
   useEffect(() => {
     const target = frameDocument;
     if (!document || !target) return;

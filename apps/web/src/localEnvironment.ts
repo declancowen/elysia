@@ -7,5 +7,9 @@ import { CONNECTIONS_ENABLED } from "@elysiatools/contracts";
  * desktop builds predating the setting, and forks that require a local server.
  */
 export function isLocalEnvironmentDisabled(): boolean {
-  return CONNECTIONS_ENABLED && window.desktopBridge?.getLocalEnvironmentEnabled?.() === false;
+  return (
+    CONNECTIONS_ENABLED &&
+    typeof window !== "undefined" &&
+    window.desktopBridge?.getLocalEnvironmentEnabled?.() === false
+  );
 }

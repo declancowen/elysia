@@ -3,6 +3,7 @@ import {
   resolveProviderInstanceDisplayName,
   shouldShowInstanceBadge,
 } from "@elysiatools/client-runtime/state/provider-instance-display";
+
 import type {
   ServerConfig as ElysiaServerConfig,
   ModelCapabilities,
@@ -12,17 +13,22 @@ import type {
 } from "@elysiatools/contracts";
 import {
   isEnabledProviderDriver,
+  SINGLE_PROVIDER_UI,
+  disallowedProviderMessage,
+  isManagedDriverAllowed,
+  isProviderDriverKind,
   resolveProjectProviderInstanceEnabled,
 } from "@elysiatools/contracts";
 import {
   buildExplicitProviderOptionSelectionsFromDescriptors,
   getProviderOptionDescriptors,
 } from "@elysiatools/shared/model";
-import type { MenuAction } from "@react-native-menu/menu";
+import { resolveModelShortName } from "@elysiatools/client-runtime/provider-clients";
 
 export type ModelOption = {
   readonly key: string;
   readonly label: string;
+  readonly shortName?: string;
   readonly subtitle: string;
   readonly providerKey: string;
   readonly providerLabel: string;
@@ -111,6 +117,28 @@ function isDisabledForProject(
   return provider !== undefined && !isProviderEnabledForProject(config, provider, projectId);
 }
 
+function selectionDriver(
+  config: ElysiaServerConfig | null | undefined,
+  instanceId: ModelSelection["instanceId"],
+): string | undefined {
+  return (
+    config?.providers.find((candidate) => candidate.instanceId === instanceId)?.driver ??
+    config?.settings?.providerInstances[instanceId]?.driver
+  );
+}
+
+/** Whether the environment's managed policy leaves this driver out; the server refuses its turns. */
+function isDriverDisallowed(
+  config: ElysiaServerConfig | null | undefined,
+  driver: string | undefined,
+) {
+  return (
+    driver !== undefined &&
+    isProviderDriverKind(driver) &&
+    !isManagedDriverAllowed(config?.managedPolicy, driver)
+  );
+}
+
 function normalizeSelectionOptions(
   selection: ModelSelection,
   capabilities: ModelCapabilities | null,
@@ -153,8 +181,11 @@ export function isModelSelectionUnavailable(
   }
   const driver =
     provider?.driver ?? config.settings?.providerInstances[selection.instanceId]?.driver;
+  if (isDriverDisallowed(config, driver)) {
+    return true;
+  }
   return (
-    driver === "antigravity" &&
+    (driver === "antigravity" || (SINGLE_PROVIDER_UI && driver === "claudeAgent")) &&
     (!provider ||
       !isEnabledProviderDriver(provider.driver) ||
       !provider.installed ||
@@ -172,14 +203,34 @@ export function describeUnavailableModelSelection(
   const provider = config?.providers.find(
     (candidate) => candidate.instanceId === selection.instanceId,
   );
+  const driver = selectionDriver(config, selection.instanceId);
+  if (isDriverDisallowed(config, driver)) {
+    const label = providerDisplayLabel({
+      driver: driver ?? selection.instanceId,
+      displayName:
+        provider?.displayName ??
+        config?.settings?.providerInstances[selection.instanceId]?.displayName,
+      instanceId: selection.instanceId,
+    });
+    return {
+      title: "Provider not allowed",
+      detail: `${disallowedProviderMessage(config?.managedPolicy?.organization, label)} Choose another model.`,
+    };
+  }
   return isDisabledForProject(config, provider, selection.instanceId, projectId)
     ? {
         title: "Model turned off for this project",
         detail: "Turn it back on from web or desktop, or choose another model.",
       }
     : {
-        title: "Antigravity model unavailable",
-        detail: "Set up Antigravity on web or desktop, or choose another model.",
+        title:
+          SINGLE_PROVIDER_UI && driver === "claudeAgent"
+            ? "Model unavailable"
+            : "Antigravity model unavailable",
+        detail:
+          SINGLE_PROVIDER_UI && driver === "claudeAgent"
+            ? "This model is no longer available. Choose another model."
+            : "Set up Antigravity on web or desktop, or choose another model.",
       };
 }
 
@@ -199,6 +250,12 @@ export function resolveSelectableModelSelection(
   if (driver === "antigravity") {
     return isProjectDisabledOverride(config, selection.instanceId, projectId) ? null : selection;
   }
+  if (
+    SINGLE_PROVIDER_UI &&
+    driver === "claudeAgent" &&
+    isModelSelectionUnavailable(config, selection, projectId)
+  )
+    return null;
   return provider &&
     isProviderEnabledForProject(config, provider, projectId) &&
     provider.installed &&
@@ -301,6 +358,7 @@ export function buildModelOptions(
     if (
       !isEnabledProviderDriver(provider.driver) ||
       !matchesLockedProvider(provider) ||
+      isDriverDisallowed(config, provider.driver) ||
       !isProviderEnabledForProject(config, provider, projectId) ||
       !provider.installed ||
       provider.auth.status === "unauthenticated" ||
@@ -324,9 +382,11 @@ export function buildModelOptions(
       models.sort((a, b) => (order.get(a.slug) ?? Infinity) - (order.get(b.slug) ?? Infinity));
     for (const model of models) {
       const key = `${provider.instanceId}:${model.slug}`;
+      const shortName = resolveModelShortName(model, provider.driver);
       options.set(key, {
         key,
         label: model.name,
+        ...(shortName ? { shortName } : {}),
         subtitle: model.subProvider ?? "",
         providerKey: provider.instanceId,
         providerLabel,
@@ -396,9 +456,13 @@ export function buildModelOptions(
         displayName: provider?.displayName ?? instanceConfig?.displayName,
         instanceId: fallbackModelSelection.instanceId,
       });
+      const shortName = model
+        ? resolveModelShortName(model, isProviderDriverKind(providerDriver) ? providerDriver : null)
+        : undefined;
       options.set(key, {
         key,
         label: model?.name ?? fallbackModelSelection.model,
+        ...(shortName ? { shortName } : {}),
         subtitle: model?.subProvider ?? "",
         providerKey: fallbackModelSelection.instanceId,
         providerLabel,
@@ -449,54 +513,4 @@ export function groupByProvider(options: ReadonlyArray<ModelOption>): ReadonlyAr
     models: group.models,
     ...(group.updateRequired ? { updateRequired: group.updateRequired } : {}),
   }));
-}
-
-function modelMenuAction(option: ModelOption, selectedModel: ModelSelection | null): MenuAction {
-  return {
-    id: `model:${option.key}`,
-    title: option.label,
-    state:
-      option.selection.instanceId === selectedModel?.instanceId &&
-      option.selection.model === selectedModel.model
-        ? "on"
-        : undefined,
-  };
-}
-
-export function buildModelMenuActions(
-  groups: ReadonlyArray<ProviderGroup>,
-  selectedModel: ModelSelection | null,
-): MenuAction[] {
-  return groups.flatMap((group) => {
-    const currentModels = group.models.filter((model) => !model.isLegacy);
-    const legacyModels = group.models.filter((model) => model.isLegacy);
-    const selected = group.models.find(
-      (model) =>
-        model.selection.instanceId === selectedModel?.instanceId &&
-        model.selection.model === selectedModel.model,
-    );
-
-    return [
-      ...(currentModels.length > 0
-        ? [
-            {
-              id: `provider:${group.providerKey}`,
-              title: group.providerLabel,
-              subtitle: selected && !selected.isLegacy ? selected.label : undefined,
-              subactions: currentModels.map((option) => modelMenuAction(option, selectedModel)),
-            },
-          ]
-        : []),
-      ...(legacyModels.length > 0
-        ? [
-            {
-              id: `legacy-models:${group.providerKey}`,
-              title: `${group.providerLabel} legacy models`,
-              subtitle: selected?.isLegacy ? selected.label : undefined,
-              subactions: legacyModels.map((option) => modelMenuAction(option, selectedModel)),
-            },
-          ]
-        : []),
-    ];
-  });
 }

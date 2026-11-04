@@ -2,6 +2,8 @@ import { describe, expect, it } from "vite-plus/test";
 
 import {
   ELYSIA_MCP_TOOL_NAMES,
+  resolveElysiaMcpToolDefinition,
+  resolveElysiaMcpSummaryAction,
   resolveElysiaMcpToolPresentation,
   resolveElysiaMcpToolId,
 } from "./elysiaMcpToolPresentation.ts";
@@ -12,6 +14,8 @@ describe("resolveElysiaMcpToolPresentation", () => {
       const presentation = resolveElysiaMcpToolPresentation(tool);
       for (const prefix of [
         "mcp__elysia__",
+        "elysia-direct.",
+        "mcp__elysia_direct__",
         "Elysia.",
         "elysia.",
         "elysia/",
@@ -107,5 +111,38 @@ describe("resolveElysiaMcpToolPresentation", () => {
   it("keeps unknown MCP tools on the generic renderer path", () => {
     expect(resolveElysiaMcpToolPresentation("mcp__github__search_issues")).toBeNull();
     expect(resolveElysiaMcpToolPresentation("elysia.not_a_real_tool")).toBeNull();
+  });
+});
+
+describe("resolveElysiaMcpToolDefinition", () => {
+  it("labels an action tool call as the action it ran", () => {
+    expect(
+      resolveElysiaMcpToolDefinition("mcp__elysia__preview_act", { action: "type" })?.labels,
+    ).toEqual(resolveElysiaMcpToolDefinition("preview_type")?.labels);
+    expect(
+      resolveElysiaMcpToolDefinition("elysia_thread_transfer", { action: "fork" })?.displayName,
+    ).toBe(resolveElysiaMcpToolDefinition("elysia_thread_fork")?.displayName);
+    expect(resolveElysiaMcpToolDefinition("preview_act", { action: "unknown" })?.labels[2]).toBe(
+      "Used",
+    );
+  });
+});
+
+describe("resolveElysiaMcpSummaryAction", () => {
+  it("summarizes an action tool by the action each call ran", () => {
+    expect(resolveElysiaMcpSummaryAction("mcp__elysia__elysia_queue", { action: "list" })).toBe(
+      "queue-list",
+    );
+    expect(resolveElysiaMcpSummaryAction("elysia_queue", { action: "edit" })).toBe("queue-edit");
+    expect(resolveElysiaMcpSummaryAction("elysia_thread_transfer", { action: "status" })).toBe(
+      "thread-transfers",
+    );
+    expect(resolveElysiaMcpSummaryAction("elysia_thread_configure", {})).toBe(
+      "thread-configuration",
+    );
+    expect(resolveElysiaMcpSummaryAction("schedule_task", { scheduledTaskId: "task-1" })).toBe(
+      "schedule-update",
+    );
+    expect(resolveElysiaMcpSummaryAction("delegate_task", { task: "x" })).toBe("delegate");
   });
 });

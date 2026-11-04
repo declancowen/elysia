@@ -13,7 +13,6 @@ const row = (
   kind: "message",
   id,
   createdAt: "2026-10-04T00:00:00Z",
-  durationStart: "2026-10-04T00:00:00Z",
   showAssistantMeta: false,
   showAssistantCopyButton: false,
   assistantCopyStreaming: false,

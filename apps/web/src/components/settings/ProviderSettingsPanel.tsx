@@ -103,6 +103,7 @@ import { readCodexSetupMode } from "./CodexSetupSection.logic";
 import { ExpandableText } from "./ExpandableText";
 import { ProviderAuthenticationSection } from "./ProviderAuthenticationSection";
 import { ProviderInstanceCard } from "./ProviderInstanceCard";
+import { useSecretSources } from "./SecretSourceInput";
 import {
   buildProviderEnvironmentOptions,
   buildProviderInstanceOverridePatch,
@@ -1271,6 +1272,7 @@ function ProviderInstanceRow({
   readonly actions: ProviderInstanceRowActions;
 }) {
   const allProjects = useProjects();
+  const secretSources = useSecretSources(environmentId);
   const acpProjects =
     mode === "editor" && liveProvider?.driver === "acpRegistry"
       ? allProjects.filter((project) => project.environmentId === environmentId)
@@ -1313,6 +1315,7 @@ function ProviderInstanceRow({
     <ProviderInstanceCard
       environmentId={environmentId}
       acpProjects={acpProjects}
+      secretSources={secretSources}
       projectOverride={projectOverride}
       onAcceptUrlAuth={
         readOnly ? undefined : (action) => actions.acceptUrlAuthentication(instanceId, action)

@@ -32,7 +32,7 @@ export function ChannelReplyPreview({
     // Expanding grows upward over the timeline; its reserved height stays fixed.
     <div className="relative mb-2 h-18">
       <ComposerBanner.Root
-        placement="floating"
+        detached
         density="comfortable"
         className="absolute inset-x-0 bottom-0 z-20 max-h-[50dvh]"
         role="region"

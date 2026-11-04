@@ -18,38 +18,38 @@ import {
   type ThreadId,
 } from "@elysiatools/contracts";
 import { useRouter } from "@tanstack/react-router";
-import { resolveSnoozePresets } from "../components/Sidebar.snooze";
+import { resolveSnoozePresets, pickSnoozePreset } from "../components/Sidebar.snooze";
 import {
   buildThreadActionMenuItems,
   threadActionRequiresOperate,
   type ThreadActionMenuId,
 } from "../components/threadActionMenu.logic";
 import { stackedThreadToast, toastManager } from "../components/ui/toast";
+import { copyThreadReference } from "../lib/copyThreadReference";
+import { threadChipCopyTarget } from "@elysiatools/client-runtime/thread-reference";
 import { threadEnvironment } from "../state/threads";
 import { useOrchestrationCommand } from "../state/use-orchestration-command";
 import { readEnvironmentScope } from "../state/session";
 import {
+  readEnvironmentServerConfigLoaded,
   readEnvironmentSupportsAutoSettleOptOut,
-  readEnvironmentSupportsPinning,
-  readEnvironmentSupportsSettlement,
-  readEnvironmentSupportsSnooze,
-  readEnvironmentSupportsTitleRegeneration,
   readThreadShell,
   useProjects,
 } from "../state/entities";
 import { usePrimaryEnvironmentId } from "../state/environments";
 import { readLocalApi } from "../localApi";
+import { configuredHostedAppUrl } from "../hostedPairing";
 import {
   deriveLogicalProjectKeyFromSettings,
   derivePhysicalProjectKey,
   selectProjectGroupingSettings,
-} from "../logicalProject";
+} from "@elysiatools/client-runtime/state/project-grouping";
 import { buildPhysicalToLogicalProjectKeyMap } from "../sidebarProjectGrouping";
 import { threadRuntimeCanArchive } from "@elysiatools/client-runtime/state/models";
 import { useCopyToClipboard } from "./useCopyToClipboard";
 import { useNewThreadHandler } from "./useHandleNewThread";
 import { useClientSettings, useCodeWorkspace } from "./useSettings";
-import { useThreadActions } from "./useThreadActions";
+import { useThreadActions, canTurnThreadIntoProject } from "./useThreadActions";
 function failureToast(title: string, error: unknown) {
   toastManager.add(
     stackedThreadToast({
@@ -67,9 +67,17 @@ export function useThreadActionMenu(input: {
   readonly projectCwd: string | null;
   readonly projectless?: boolean;
   readonly onStartRename: () => void;
+  readonly onFind?: ((threadRef: ScopedThreadRef) => void) | undefined;
   readonly canShareWithGuest: boolean;
 }) {
-  const { threadRef, projectCwd, projectless = false, onStartRename, canShareWithGuest } = input;
+  const {
+    threadRef,
+    projectCwd,
+    projectless = false,
+    onStartRename,
+    onFind,
+    canShareWithGuest,
+  } = input;
   const codeWorkspace = useCodeWorkspace();
   const router = useRouter();
   const navigateTab = useConversationTabNavigation();
@@ -92,6 +100,7 @@ export function useThreadActionMenu(input: {
     archiveThread,
     deleteThread,
     markThreadUnread,
+    turnThreadIntoProject,
   } = useThreadActions();
   const updateThreadMetadata = useOrchestrationCommand(threadEnvironment.updateMetadata, {
     reportFailure: false,
@@ -147,27 +156,24 @@ export function useThreadActionMenu(input: {
       const thread = readThreadShell(threadRef);
       if (!thread) return;
       const now = new Date();
+      const configLoaded = readEnvironmentServerConfigLoaded(threadRef.environmentId);
       const supports = {
-        settlement: readEnvironmentSupportsSettlement(threadRef.environmentId),
+        settlement: configLoaded,
         autoSettleOptOut: readEnvironmentSupportsAutoSettleOptOut(threadRef.environmentId),
-        snooze: readEnvironmentSupportsSnooze(threadRef.environmentId),
-        pinning: readEnvironmentSupportsPinning(threadRef.environmentId),
-        titleRegeneration: readEnvironmentSupportsTitleRegeneration(threadRef.environmentId),
+        snooze: configLoaded,
+        pinning: configLoaded,
+        titleRegeneration: configLoaded,
       };
       const isRegeneratingTitle = thread.titleRegeneration != null;
-      const snoozePresets = resolveSnoozePresets(now, timestampFormat);
+      const snoozePresets = resolveSnoozePresets(now, timestampFormat, threadRef.environmentId);
       const items = buildThreadActionMenuItems({
         canOperate: readEnvironmentScope(threadRef.environmentId, AuthOrchestrationOperateScope),
         openInNewTab:
           SINGLE_PROVIDER_UI &&
-          !currentConversationTabsStore().getState().isOpen({
-            kind: "server",
-            threadRef,
-          }),
+          !currentConversationTabsStore().getState().isOpen({ kind: "server", threadRef }),
         projectless,
+        canFind: onFind !== undefined,
         branch: codeWorkspace ? (thread.branch ?? null) : null,
-        // The chat header has no project-scoped thread list behind the
-        // menu, so the "Filter by project" affordance is sidebar-only.
         projectFilter: null,
         isPinned: thread.pinnedAt != null,
         isSettled: supports.settlement && thread.settledOverride === "settled",
@@ -185,6 +191,7 @@ export function useThreadActionMenu(input: {
         supports,
         snoozePresets,
         canShareWithGuest,
+        canTurnIntoProject: canTurnThreadIntoProject(threadRef),
       });
       const showMenu = SINGLE_PROVIDER_UI ? showContextMenuFallback : api.contextMenu.show;
       const clicked = await settlePromise(() => showMenu(items, position));
@@ -204,7 +211,12 @@ export function useThreadActionMenu(input: {
         const preset =
           action === "snooze:custom"
             ? await requestCustomSnooze()
-            : snoozePresets.find((candidate) => `snooze:${candidate.id}` === action);
+            : pickSnoozePreset(
+                snoozePresets,
+                action.slice("snooze:".length),
+                timestampFormat,
+                threadRef.environmentId,
+              );
         if (!preset) return;
         const result = await snoozeThread(threadRef, preset.snoozedUntil);
         if (result._tag === "Failure" && !isAtomCommandInterrupted(result)) {
@@ -231,6 +243,9 @@ export function useThreadActionMenu(input: {
           void navigateTab(target);
           return;
         }
+        case "find":
+          onFind?.(threadRef);
+          return;
         case "project-settings": {
           const project = projects.find(
             (candidate) =>
@@ -307,6 +322,19 @@ export function useThreadActionMenu(input: {
         case "share-guest":
           openGuestShareDialog(threadRef);
           return;
+        case "turn-into-project": {
+          const result = await turnThreadIntoProject(threadRef);
+          if (result._tag === "Success") {
+            toastManager.add({
+              type: "success",
+              title: "Project created",
+              description: thread.title,
+            });
+          } else if (!isAtomCommandInterrupted(result)) {
+            failureToast("Could not turn thread into a project", squashAtomCommandFailure(result));
+          }
+          return;
+        }
         case "copy-path": {
           const workspacePath = thread.worktreePath ?? projectCwd;
           if (!workspacePath) {
@@ -330,6 +358,11 @@ export function useThreadActionMenu(input: {
               branch: thread.branch,
             });
           }
+          return;
+        case "copy-thread":
+          void copyThreadReference(
+            threadChipCopyTarget(threadRef, thread.title, configuredHostedAppUrl()),
+          );
           return;
         case "copy-thread-id":
           copyThreadIdToClipboard(thread.id, {

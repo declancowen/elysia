@@ -41,6 +41,7 @@ import * as IpcChannels from "../ipc/channels.ts";
 import * as DesktopAppSettings from "../settings/DesktopAppSettings.ts";
 import * as DesktopUpdatePolicy from "./DesktopUpdatePolicy.ts";
 import { normalizeDesktopUpdateReleaseNotes } from "./releaseNotes.ts";
+import { resolveDesktopReleaseChannel } from "./updateChannels.ts";
 import { desktopUpdateChannelOf } from "@elysiatools/shared/cliRelease";
 import { compareSemverVersions } from "@elysiatools/shared/semver";
 import {
@@ -399,7 +400,7 @@ export const make = Effect.gen(function* () {
     Ref.get(releaseFloorRef).pipe(
       Effect.map(
         (floor) =>
-          desktopUpdateChannelOf(version) === state.channel &&
+          resolveDesktopReleaseChannel(version) === state.channel &&
           (Option.isSome(floor)
             ? compareSemverVersions(version, floor.value) >= 0
             : desktopUpdateChannelOf(environment.appVersion) === state.channel),

@@ -1,6 +1,6 @@
 import type { DesktopUpdateChannel, DesktopUpdateReleaseNote } from "@elysiatools/contracts";
 
-import { desktopUpdateChannelOf } from "@elysiatools/shared/cliRelease";
+import { resolveDesktopReleaseChannel } from "./updateChannels.ts";
 
 interface ElectronReleaseNoteInfo {
   readonly version: string;
@@ -184,7 +184,7 @@ export function normalizeDesktopUpdateReleaseNotes(
       : Array.isArray(releaseNotes)
         ? releaseNotes.filter(isElectronReleaseNoteInfo)
         : []
-  ).filter((entry) => desktopUpdateChannelOf(entry.version) === channel);
+  ).filter((entry) => resolveDesktopReleaseChannel(entry.version) === channel);
 
   const normalizedNotes = rawNotes.flatMap((entry) => {
     const note = extractReleaseNoteItems(entry.note);

@@ -188,6 +188,9 @@ describe("normalizeDesktopUpdateReleaseNotes", () => {
       [
         { version: "0.0.42", note: "- Stable change" },
         { version: "0.0.42-nightly.20260915.1710", note: "- Nightly change" },
+        { version: "0.0.42-preview.20260915.1710", note: "- Preview change" },
+        { version: "0.0.42-rc.1", note: "- Release candidate change" },
+        { version: "invalid-version", note: "- Invalid version change" },
       ],
       "0.0.42",
       "latest",

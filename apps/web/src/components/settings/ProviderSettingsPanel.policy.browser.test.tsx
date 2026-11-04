@@ -13,6 +13,7 @@ vi.mock("@effect/atom-react", async (original) => ({
 vi.mock("../../state/server", async (original) => ({
   ...(await original<typeof import("../../state/server")>()),
   EMPTY_SERVER_PROVIDERS: [],
+  useServerConfigs: () => new Map<EnvironmentId, never>(),
   providersIgnoringCheckedAtAtom: () => "providers",
   serverEnvironment: {
     providersValueAtom: () => "providers",

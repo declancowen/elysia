@@ -1,6 +1,7 @@
 export type ThreadNotificationKind = "input" | "completion";
 
 export interface ThreadNotificationObservation {
+  readonly runId: string | null;
   /** Run and status key while the thread needs attention, otherwise null. */
   readonly attention: string | null;
   /** The thread is idle and its latest run completed. */
@@ -22,11 +23,21 @@ export function createThreadNotificationGate<Key>(
       key: Key,
       prior: ThreadNotificationObservation | undefined,
       next: ThreadNotificationObservation,
-      options: { readonly archived: boolean; readonly quiet: boolean },
+      options: {
+        readonly archived: boolean;
+        readonly quiet: boolean;
+        readonly reconnecting?: boolean;
+      },
     ): void {
-      // The first sighting, archived threads, and stopped or silent runs never notify completion.
-      if (!prior || options.archived || options.quiet) skip(key, next.completedAt);
-      if (!prior || options.archived) return;
+      // A reconnect can correct a settled run's timestamp without producing a new completion.
+      const baseline =
+        !prior ||
+        (options.reconnecting === true &&
+          prior.settled &&
+          next.settled &&
+          prior.runId === next.runId);
+      if (baseline || options.archived || options.quiet) skip(key, next.completedAt);
+      if (baseline || options.archived) return;
       if (next.attention && next.attention !== prior.attention) {
         notify(key, "input");
         return;

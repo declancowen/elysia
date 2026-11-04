@@ -1,5 +1,9 @@
 import { useEffect } from "react";
-import { type ComposerContextRecord, ComposerContextId, EnvironmentId } from "@elysiatools/contracts";
+import {
+  type ComposerContextRecord,
+  ComposerContextId,
+  EnvironmentId,
+} from "@elysiatools/contracts";
 import { expect, it, vi } from "vite-plus/test";
 
 import { act, render, stubGlobal } from "../../../test/render";

@@ -20,7 +20,6 @@ const state = vi.hoisted(() => ({
   openUrl: vi.fn(),
   setPreferred: vi.fn(),
   markHintSeen: vi.fn(),
-  keydown: null as ((event: KeyboardEvent) => void) | null,
   listeners: new Set<() => void>(),
 }));
 
@@ -125,7 +124,6 @@ beforeEach(() => {
   state.openUrl.mockReset().mockResolvedValue(true);
   state.setPreferred.mockReset();
   state.markHintSeen.mockReset();
-  state.keydown = null;
   state.listeners.clear();
 
   vi.stubGlobal("navigator", { platform: "Linux" });
@@ -140,11 +138,9 @@ beforeEach(() => {
     dispatchEvent: (event: Event) => events.dispatchEvent(event),
     addEventListener: (type: string, callback: EventListener) => {
       events.addEventListener(type, callback);
-      if (type === "keydown") state.keydown = callback;
     },
     removeEventListener: (type: string, callback: EventListener) => {
       events.removeEventListener(type, callback);
-      if (state.keydown === callback) state.keydown = null;
     },
   });
 });
@@ -175,10 +171,6 @@ async function renderPicker(availableEditors: readonly EditorId[] = editors, pan
 
 function primaryButton() {
   return renderer!.root.findByProps({ "aria-label": "Open file in preferred editor" });
-}
-
-function keyboardEvent() {
-  return { preventDefault: vi.fn() } as unknown as KeyboardEvent;
 }
 
 it.each(["local-exec", "remote-links"] as const)(
@@ -213,26 +205,21 @@ it.each(["local-exec", "remote-links"] as const)(
 );
 
 describe("host editor access", () => {
-  it("uses the selected grant for both the button and a retained shortcut", async () => {
+  it("rechecks the selected grant when a retained button handler runs", async () => {
     state.allowed.add(selected);
     await renderPicker();
     const open = primaryButton().props.onClick;
-    const keydown = state.keydown!;
     state.allowed.delete(selected);
     state.allowed.add(primary);
-    const event = keyboardEvent();
     await act(async () => {
       open();
-      keydown(event);
     });
     expect(state.run).not.toHaveBeenCalled();
     expect(state.setPreferred).not.toHaveBeenCalled();
-    expect(event.preventDefault).not.toHaveBeenCalled();
 
     await renderPicker();
     expect(primaryButton().props.disabled).toBe(true);
     expect(renderer!.root.findByProps({ "aria-label": "Choose editor" }).props.disabled).toBe(true);
-    expect(state.keydown).toBeNull();
   });
 
   it("closes an open picker on revocation and launches only after a fresh grant", async () => {
@@ -274,10 +261,8 @@ describe("client editor links", () => {
     state.remote = { mode: "remote-links", host: { kind: "ssh-alias", host: "test-host" } };
     state.openUrl.mockResolvedValue(false);
     await renderPicker();
-    const event = keyboardEvent();
-    await act(async () => state.keydown!(event));
+    await act(async () => primaryButton().props.onClick());
     expect(state.openUrl).toHaveBeenCalledOnce();
-    expect(event.preventDefault).toHaveBeenCalledOnce();
     expect(state.run).not.toHaveBeenCalled();
     expect(state.setPreferred).not.toHaveBeenCalled();
     expect(state.markHintSeen).not.toHaveBeenCalled();

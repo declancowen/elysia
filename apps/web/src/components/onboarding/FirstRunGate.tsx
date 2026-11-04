@@ -157,7 +157,7 @@ export function FirstRunGate({
     if (transitioned !== gateState) setGateState(transitioned);
   }
 
-  // oxlint-disable-next-line elysia/react-effect-budget -- persists onboarding completion to settings once the gate settles on skipping the wizard
+  // oxlint-disable-next-line elysia/no-unreasoned-state-sync -- persists onboarding completion to settings once the gate settles on skipping the wizard
   useEffect(() => {
     if ((CONNECTIONS_ENABLED && decision === "wizard") || !hydrated) return;
     if (persistCompletion && onboardingCompletedAt === null) {
@@ -174,6 +174,7 @@ export function FirstRunGate({
   // A stalled server read gets a recovery screen, but never mounts the app.
   // The timer starts after settings hydrate so slow local hydration does not
   // show a false connection failure.
+  // oxlint-disable-next-line elysia/no-unreasoned-state-sync -- Own the wall-clock recovery timer while the hydrated first-run gate awaits server evidence.
   useEffect(() => {
     if (!enabled || decision !== "pending" || !hydrated) return;
     const timer = window.setTimeout(
@@ -191,7 +192,7 @@ export function FirstRunGate({
   // Setup opens by itself only from the home route. A direct link, such as
   // Settings, opens as asked so setup can never lock a user out of the app.
   const wizardOwnsRoute = pathname === "/";
-  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- navigates from the home route to /welcome when the gate decides on the wizard
+  // oxlint-disable-next-line elysia/no-unreasoned-state-sync -- navigates from the home route to /welcome when the gate decides on the wizard
   useEffect(() => {
     if (decision === "wizard" && wizardOwnsRoute) {
       void navigate({

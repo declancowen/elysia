@@ -1,13 +1,6 @@
 import type { EnvironmentId, PullRequestContextMetadata } from "@elysiatools/contracts";
 import { CircleDashedIcon, FilmIcon, ImageIcon } from "~/icons";
-import {
-  useEffect,
-  useState,
-  type ComponentProps,
-  type CSSProperties,
-  type MouseEvent,
-  type ReactNode,
-} from "react";
+import { useEffect, useState, type ComponentProps, type MouseEvent, type ReactNode } from "react";
 import { useAssetUrlState } from "~/assets/assetUrls";
 import { documentChipKindForFileName } from "~/pierre-icons";
 
@@ -261,7 +254,7 @@ function SvgFileChip(props: ComponentProps<typeof FileChip>) {
         }
       : null,
   );
-  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- creates an object URL for the local SVG file and revokes it on cleanup
+  // oxlint-disable-next-line elysia/no-unreasoned-state-sync -- creates an object URL for the local SVG file and revokes it on cleanup
   useEffect(() => {
     const file = preview?.file;
     if (!file) return;

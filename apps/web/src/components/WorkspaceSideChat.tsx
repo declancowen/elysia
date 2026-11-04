@@ -69,7 +69,7 @@ export function useWorkspaceSideChat({
   const [error, setError] = useState<string | null>(null);
   const [draft, setDraft] = useState<{ id: ThreadId; draftId: DraftId } | null>(null);
   const currentTargetKey = useRef(targetKey);
-  // oxlint-disable-next-line elysia/react-effect-budget -- Publish the committed target identity so pending RPC completions cannot reopen an old surface.
+  // oxlint-disable-next-line elysia/no-unreasoned-state-sync -- Publish the committed target identity so pending RPC completions cannot reopen an old surface.
   useLayoutEffect(() => {
     currentTargetKey.current = targetKey;
   }, [targetKey]);

@@ -302,7 +302,7 @@ export function TasksPage() {
     onOpen: () => setPanelOpen(false),
   });
   const refreshSelected = selectedQuery.refresh;
-  // oxlint-disable-next-line elysia/react-effect-budget -- Invalidate the selected detail RPC lease when its live task summary advances.
+  // oxlint-disable-next-line elysia/no-unreasoned-state-sync -- Invalidate the selected detail RPC lease when its live task summary advances.
   useEffect(() => {
     if (
       summary &&
@@ -1438,7 +1438,7 @@ function TaskEditor({
     setDescription(task.description);
     setReady(true);
   }
-  // oxlint-disable-next-line elysia/react-effect-budget -- Reconcile externally updated task revisions with the local unsaved draft and conflict baseline.
+  // oxlint-disable-next-line elysia/no-unreasoned-state-sync -- Reconcile externally updated task revisions with the local unsaved draft and conflict baseline.
   useEffect(() => {
     if (initializing.current) {
       if (task.revision < initialRevision) return;
@@ -1511,7 +1511,7 @@ function TaskEditor({
       return flush();
     return result;
   });
-  // oxlint-disable-next-line elysia/react-effect-budget -- Own the cancellable debounce that saves the editor draft through the server command.
+  // oxlint-disable-next-line elysia/no-unreasoned-state-sync -- Own the cancellable debounce that saves the editor draft through the server command.
   useEffect(() => {
     if (error || (title === saved.current.title && description === saved.current.description))
       return;

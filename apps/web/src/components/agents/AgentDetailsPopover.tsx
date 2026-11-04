@@ -156,7 +156,7 @@ function AgentDetails({ agent, onClose }: { agent: AgentRosterEntry; onClose: ()
   const grouping = useClientSettings(selectProjectGroupingSettings);
   const labelRef = useRef<HTMLDivElement>(null);
   const [avatarSize, setAvatarSize] = useState(profile.title ? 34 : 14);
-  // oxlint-disable-next-line elysia/react-effect-budget -- Match the avatar to the committed label DOM height and own its resize observation.
+  // oxlint-disable-next-line elysia/no-unreasoned-state-sync -- Match the avatar to the committed label DOM height and own its resize observation.
   useLayoutEffect(() => {
     const label = labelRef.current;
     if (!label) return;

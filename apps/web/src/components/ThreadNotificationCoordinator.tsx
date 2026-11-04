@@ -226,6 +226,7 @@ export function startThreadNotifications(
     threads: ReadonlyArray<OrchestrationV2ThreadShell>,
   ) => {
     const previous = entry.previous;
+    const reconnecting = entry.reconnecting;
     const next = new Map<ThreadId, NotificationState>();
     // A parent here also hears of what its tasks on linked environments ask.
     const subagentRequests = registry.get(
@@ -271,6 +272,7 @@ export function startThreadNotifications(
       const completedAt = Date.parse(thread.latestRun?.completedAt ?? "");
       const settled = status === "ready" && thread.latestRun?.status === "completed";
       const state = {
+        runId: rawThread.latestRunId,
         raw: rawThread,
         subagentRequest,
         thread,
@@ -288,6 +290,7 @@ export function startThreadNotifications(
     for (const [prior, state] of changed) {
       entry.gate.observe(state.thread.id, prior, state, {
         archived: state.thread.archivedAt !== null,
+        reconnecting,
         quiet: state.raw.latestRunStopRequested === true,
       });
     }

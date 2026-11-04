@@ -1374,17 +1374,17 @@ describe("extractMcpToolCallIdentity", () => {
     }
   });
 
-  it("recovers T3 identity from Kiro's @-scoped titles", () => {
+  it("recovers Elysia identity from Kiro's @-scoped titles", () => {
     for (const tool of ["html_render", "elysia_thread_read", "delegate_task"]) {
       const toolCall = toolCallFromUpdate({
         sessionUpdate: "tool_call",
         toolCallId: "kiro-1",
         kind: "other",
-        title: `@t3-code/${tool}`,
+        title: `@elysia/${tool}`,
         status: "pending",
-        rawInput: { tool_id: `t3-code::${tool}`, arguments: { threadId: "thread-1" } },
+        rawInput: { tool_id: `elysia::${tool}`, arguments: { threadId: "thread-1" } },
       });
-      expect(extractMcpToolCallIdentity(toolCall), tool).toEqual({ server: "t3-code", tool });
+      expect(extractMcpToolCallIdentity(toolCall), tool).toEqual({ server: "elysia", tool });
     }
   });
 

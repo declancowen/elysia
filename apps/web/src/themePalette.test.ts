@@ -4,7 +4,49 @@ import { BUILT_IN_THEMES } from "@elysiatools/shared/themePalettes";
 
 import { CONTEXT_CHIP_ACCENTS, contextChipColorVariable } from "./lib/contextChipAccents";
 
-import { CUSTOM_THEMES_STORAGE_KEY, ELYSIA_CHAT_THEME, EMBER_THEME, GROVE_THEME, IRIS_THEME, OCEAN_THEME, THEME_FILE_VERSION, applyThemeColorPreview, applyThemePalette, canonicalThemePreference, createVividThemeColors, contextChipVariables, getThemeColorsForMode, getThemeModes, getCustomThemes, getDefaultThemeColors, getStandardThemeColors, getStoredCustomThemeCollection, getThemeDefinition, getThemePreferenceMode, getThemePreviewSidebarArtwork, getWorkspaceThemeColors, installCustomTheme, invalidateCustomThemes, isKnownThemePreference, parseThemeFile, parseThemeHalves, removeCustomTheme, replaceCustomThemeCollection, resolveDesktopTheme, resolveThemeAppearance, serializeThemeFile, singleAppearanceOf, subscribeToCustomThemes, subscribeToThemePreview, themeAllowsSidebarArtwork, themeColorToHex, toCanonicalThemeColor, updateCustomTheme, updateThemeColorFamily } from "./themePalette";
+import {
+  CUSTOM_THEMES_STORAGE_KEY,
+  ELYSIA_CHAT_THEME,
+  EMBER_THEME,
+  GROVE_THEME,
+  IRIS_THEME,
+  OCEAN_THEME,
+  THEME_FILE_VERSION,
+  applyThemeColorPreview,
+  applyThemePalette,
+  canonicalThemePreference,
+  createVividThemeColors,
+  contextChipVariables,
+  getThemeColorsForMode,
+  getThemeModes,
+  getCustomThemes,
+  getDefaultThemeColors,
+  getStandardThemeColors,
+  getStandardPaintedThemeColors,
+  getStoredCustomThemeCollection,
+  getThemeDefinition,
+  getThemePreferenceMode,
+  getThemePreviewSidebarArtwork,
+  getWorkspaceThemeColors,
+  installCustomTheme,
+  invalidateCustomThemes,
+  isKnownThemePreference,
+  parseThemeFile,
+  parseThemeHalves,
+  removeCustomTheme,
+  replaceCustomThemeCollection,
+  resolveDesktopTheme,
+  resolveThemeAppearance,
+  serializeThemeFile,
+  singleAppearanceOf,
+  subscribeToCustomThemes,
+  subscribeToThemePreview,
+  themeAllowsSidebarArtwork,
+  themeColorToHex,
+  toCanonicalThemeColor,
+  updateCustomTheme,
+  updateThemeColorFamily,
+} from "./themePalette";
 function expectThemeColors(
   colors: Readonly<Record<string, string>>,
   expected: Readonly<Record<string, string>>,
@@ -15,8 +57,6 @@ function expectThemeColors(
 }
 
 import { DEFAULT_THEME, ELYSIA_THEMES } from "@elysiatools/shared/themePalettes";
-
-
 
 function asHex(value: string): string {
   const hex = themeColorToHex(value);
@@ -942,11 +982,7 @@ describe("context chip colors", () => {
     }
   });
 
-  it("reads at 5:1 on the standard surfaces as index.css paints them", () => {
-    const painted = {
-      light: ["#fcfcfc", "#ffffff", "#ebebed"],
-      dark: ["#000000", "#0a0a0a", "#111111", "#141414", "#1e1e1e"],
-    } as const;
+  it.each(["system", "missing-palette"])("reads at 5:1 on the selected %s surfaces", (theme) => {
     const properties = new Map<string, string>();
     vi.stubGlobal("window", { localStorage: { getItem: () => null } });
     vi.stubGlobal("document", {
@@ -961,11 +997,21 @@ describe("context chip colors", () => {
     invalidateCustomThemes();
     try {
       for (const appearance of ["light", "dark"] as const) {
-        applyThemePalette("system", appearance);
+        applyThemePalette(theme, appearance);
+        const colors =
+          theme === "system"
+            ? getStandardThemeColors(appearance)
+            : getStandardPaintedThemeColors(appearance);
+        const painted = [
+          colors.canvas,
+          colors.surface,
+          colors.surfaceRaised,
+          colors.messageSurface,
+        ];
         for (const kind of Object.keys(CONTEXT_CHIP_ACCENTS) as Array<
           keyof typeof CONTEXT_CHIP_ACCENTS
         >) {
-          for (const surface of painted[appearance]) {
+          for (const surface of painted) {
             expect(
               contrastRatio(properties.get(contextChipColorVariable(kind))!, surface),
             ).toBeGreaterThanOrEqual(5);

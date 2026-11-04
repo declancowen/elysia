@@ -10,7 +10,6 @@ import {
   MessageId,
   ProjectId,
   RunId,
-  ThreadId,
 } from "@elysiatools/contracts";
 import {
   createRef,
@@ -210,7 +209,7 @@ vi.mock("@legendapp/list/react", async () => {
     );
   };
 
-  return { LegendList };
+  return { LegendList, useSyncLayout: () => () => {} };
 });
 
 async function renderCommittedMarkup(element: ReactElement) {
@@ -784,7 +783,7 @@ describe("MessagesTimeline", () => {
   );
 
   it.each([true, false])(
-    "keeps the end in view when tool output toggles only at the end: %s",
+    "preserves the disclosure anchor while tool output resizes, initially at end: %s",
     async (isAtEnd) => {
       const frames = new Map<number, FrameRequestCallback>();
       let nextFrame = 0;
@@ -838,11 +837,11 @@ describe("MessagesTimeline", () => {
           // The rows grow or shrink once the list measures them.
           viewport.scrollHeight = scrollHeight;
           await flushFrame();
-          expect(viewport.scrollTop).toBe(isAtEnd ? scrollHeight : 400);
-          // Tool output that renders late is pinned before the next frame.
+          expect(viewport.scrollTop).toBe(400);
+          // Late tool layout keeps the same disclosure anchor instead of jumping to the end.
           viewport.scrollHeight = scrollHeight + 200;
           await act(() => list.props.onItemSizeChanged());
-          expect(viewport.scrollTop).toBe(isAtEnd ? scrollHeight + 200 : 400);
+          expect(viewport.scrollTop).toBe(400);
           await flushFrame();
           await flushFrame();
           viewport.scrollTop = 400;
@@ -1743,6 +1742,7 @@ describe("MessagesTimeline", () => {
         timelineEntries={[]}
         parentThreadLink={{
           title: "Architecture audit",
+          open: () => {},
         }}
       />,
     );

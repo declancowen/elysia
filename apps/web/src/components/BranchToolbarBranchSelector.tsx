@@ -16,7 +16,7 @@ import {
   type VcsRef,
   type ThreadId,
 } from "@elysiatools/contracts";
-import { ChevronDownIcon, GitBranchIcon } from "~/icons";
+import { GitBranchIcon } from "~/icons";
 import {
   useEffect,
   useImperativeHandle,
@@ -488,7 +488,7 @@ export function BranchToolbarBranchSelector({
 
   // The server sets started threads' branches; defaulting here would detach the agent from its worktree.
   const threadStarted = serverSession !== null;
-  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- writes a default base branch to the server thread or draft once branches load for a new worktree thread
+  // oxlint-disable-next-line elysia/no-unreasoned-state-sync -- writes a default base branch to the server thread or draft once branches load for a new worktree thread
   useEffect(() => {
     if (
       threadStarted ||

@@ -11,7 +11,7 @@ it.live("enables CLI caching while respecting overrides and unavailable storage"
   Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
-    const root = yield* fs.makeTempDirectoryScoped({ prefix: "t3-cli-cache-test-" });
+    const root = yield* fs.makeTempDirectoryScoped({ prefix: "elysia-cli-cache-test-" });
     const report = `import { getCompileCacheDir, registerHooks } from 'node:module'; registerHooks({ resolve(specifier, context, nextResolve) { if (specifier === './binCli.ts') console.error('CACHE=' + (getCompileCacheDir() ?? 'disabled')); return nextResolve(specifier, context); } });`;
     const run = Effect.fn("cliCompileCache.test.run")(function* (env: Record<string, string>) {
       const child = yield* spawner.spawn(
@@ -48,9 +48,9 @@ it.live("enables CLI caching while respecting overrides and unavailable storage"
     const normal = yield* run({});
     expect(normal.exitCode).toBe(0);
     expect(normal.stderr.replaceAll("\\", "/")).toContain(
-      `CACHE=${root}/cache/t3code/compile-cache`.replaceAll("\\", "/"),
+      `CACHE=${root}/cache/elysia/compile-cache`.replaceAll("\\", "/"),
     );
-    const appImage = yield* run({ APPIMAGE: `${root}/T3Code.AppImage` });
+    const appImage = yield* run({ APPIMAGE: `${root}/Elysia.AppImage` });
     expect(appImage.exitCode).toBe(0);
     expect(appImage.stderr).toContain("CACHE=disabled");
     const existing = yield* run({ NODE_COMPILE_CACHE: `${root}/explicit` });

@@ -65,12 +65,35 @@ layer("070_DropUnusedV1Projections", (it) => {
       yield* sql`INSERT INTO work_tasks (number, data_json) VALUES (42, '{"title":"Keep this task","projectId":"project-1","threadId":"thread-1"}')`;
       const pagesBefore = yield* sql`SELECT * FROM pages ORDER BY id`;
       const tasksBefore = yield* sql`SELECT * FROM work_tasks ORDER BY number`;
+      const ledgerBefore = yield* sql`
+        SELECT migration_id, name FROM effect_sql_migrations ORDER BY migration_id
+      `;
       assert.deepEqual(yield* runMigrations(), [
         [70, "DropUnusedV1Projections"],
         [71, "CanonicalizeThreadPullRequestLinks"],
         [72, "CodexUsageNativeTurnIndex"],
         [73, "RepairClientSettlementTimestamps"],
+        [74, "WebhookDedupe"],
+        [75, "ShellStopRequestIndex"],
+        [76, "ThreadMessageSearch"],
+        [77, "PeerLinks"],
+        [78, "PeerLinkFence"],
+        [79, "WaitingLinkRequestIndex"],
+        [80, "ActiveTurnItemIndexes"],
+        [81, "ExcludeAttachmentPlaceholdersFromSearch"],
+        [82, "SubagentDeliveryState"],
+        [83, "ProjectionProjectsPinArchive"],
+        [84, "RepairBooleanSettledOverride"],
+        [85, "DropOrchestrationEventCorrelationIndex"],
+        [86, "DelegatedRecoveryIndexes"],
       ]);
+      assert.deepEqual(
+        yield* sql`
+          SELECT migration_id, name FROM effect_sql_migrations
+          WHERE migration_id <= 69 ORDER BY migration_id
+        `,
+        ledgerBefore,
+      );
       assert.deepEqual(yield* sql`SELECT * FROM pages ORDER BY id`, pagesBefore);
       assert.deepEqual(yield* sql`SELECT * FROM work_tasks ORDER BY number`, tasksBefore);
       assert.deepEqual(yield* runMigrations(), []);

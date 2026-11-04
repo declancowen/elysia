@@ -6,11 +6,13 @@ import {
 } from "./ThreadNotificationCoordinator.logic";
 
 const working: ThreadNotificationObservation = {
+  runId: "run-1",
   attention: null,
   settled: false,
   completedAt: null,
 };
-const completed = (at: number): ThreadNotificationObservation => ({
+const completed = (at: number, runId = "run-1"): ThreadNotificationObservation => ({
+  runId,
   attention: null,
   settled: true,
   completedAt: at,
@@ -57,7 +59,12 @@ describe("createThreadNotificationGate", () => {
   it("notifies attention once and still notifies the subsequent completion", () => {
     const { notify, observe } = harness();
     observe(working);
-    const attention = { attention: "run-1:approval", settled: false, completedAt: null };
+    const attention = {
+      runId: "run-1",
+      attention: "run-1:approval",
+      settled: false,
+      completedAt: null,
+    };
     observe(attention);
     expect(notify.mock.calls).toEqual([["thread", "input"]]);
     observe({ ...attention });
@@ -74,7 +81,7 @@ describe("createThreadNotificationGate", () => {
     const { notify, observe } = harness();
     observe(working);
     observe(completed(1));
-    observe({ attention: "run-1:limited", settled: false, completedAt: null });
+    observe({ runId: "run-1", attention: "run-1:limited", settled: false, completedAt: null });
     observe(completed(1));
     expect(notify.mock.calls).toEqual([
       ["thread", "completion"],
@@ -95,6 +102,30 @@ describe("createThreadNotificationGate", () => {
     observe(working);
     observe(completed(4));
     expect(notify.mock.calls).toEqual([["thread", "completion"]]);
+  });
+
+  it("rebases a settled run's corrected timestamp on reconnect without replaying it", () => {
+    const notify = vi.fn();
+    const gate = createThreadNotificationGate<string>(notify);
+    gate.observe("thread", undefined, completed(1), visible);
+    gate.observe("thread", completed(1), completed(2), { ...visible, reconnecting: true });
+    gate.observe("thread", working, completed(2), visible);
+    expect(notify).not.toHaveBeenCalled();
+    gate.observe("thread", working, completed(3, "run-2"), visible);
+    expect(notify.mock.calls).toEqual([["thread", "completion"]]);
+  });
+
+  it.each([
+    { prior: working, next: completed(1), kind: "completion" },
+    { prior: completed(1), next: completed(2, "run-2"), kind: "completion" },
+    { prior: working, next: { ...working, attention: "run-1:approval" }, kind: "input" },
+  ])("preserves an offline $kind transition for $next.runId", ({ prior, next, kind }) => {
+    const notify = vi.fn();
+    const gate = createThreadNotificationGate<string>(notify);
+    gate.observe("thread", undefined, prior, visible);
+    gate.observe("thread", prior, next, { ...visible, reconnecting: true });
+    gate.observe("thread", next, next, { ...visible, reconnecting: true });
+    expect(notify.mock.calls).toEqual([["thread", kind]]);
   });
 
   it("forgets handled completions when a thread is removed or the gate is cleared", () => {

@@ -1,5 +1,9 @@
 import { threadChipCopyTarget } from "@elysiatools/client-runtime/thread-reference";
-import { type ComposerContextClipboardFragment, EnvironmentId, ThreadId } from "@elysiatools/contracts";
+import {
+  type ComposerContextClipboardFragment,
+  EnvironmentId,
+  ThreadId,
+} from "@elysiatools/contracts";
 import {
   COMPOSER_CONTEXT_CLIPBOARD_MIME,
   encodeComposerContextFragment,

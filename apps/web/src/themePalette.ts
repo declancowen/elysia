@@ -407,18 +407,25 @@ function legacyThemeMode(theme: ThemePreference): ThemeAppearance | null {
 
 export function getStandardThemeColors(appearance: ThemeAppearance): ThemeColors {
   if (appearance === "dark") {
-    return (standardDarkThemeColors ??= decodeThemeColors({
-      ...ELYSIA_DARK_THEME_COLORS,
-      canvas: "#000000",
-    }));
+    return (standardDarkThemeColors ??= decodeThemeColors(ELYSIA_DARK_THEME_COLORS));
   }
   return (standardLightThemeColors ??= decodeThemeColors(ELYSIA_LIGHT_THEME_COLORS));
 }
 
-// index.css paints the light bubble a step darker than the shared palette mobile uses.
+// Unthemed index.css fallback surfaces differ from the selected Elysia palette.
 const STANDARD_WEB_PAINTED_COLORS: Record<ThemeAppearance, Partial<ThemeColors>> = {
-  light: { messageSurface: "#ebebed" },
-  dark: { canvas: "#000000", messageSurface: "#1e1e1e" },
+  light: {
+    canvas: "#fcfcfc",
+    surface: "#ffffff",
+    surfaceRaised: "#fdfdfd",
+    messageSurface: "#ebebed",
+  },
+  dark: {
+    canvas: "#000000",
+    surface: "#111111",
+    surfaceRaised: "#111111",
+    messageSurface: "#1e1e1e",
+  },
 };
 
 /** The standard theme as index.css paints it, for solves that measure the page. */

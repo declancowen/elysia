@@ -74,6 +74,7 @@ update can roll back to the previous version. If the update still fails:
 3. For a command-line server, stop it and relaunch the exact version shown in the notice.
 
 Only one server can use an Elysia home directory at a time. If startup reports that another server owns it, stop that server before retrying.
+
 ## Mobile updates
 
 This release does not publish App Store or Google Play builds. The native clients remain in the repository for development and server-contract compatibility; use the mobile development runbook for private builds.

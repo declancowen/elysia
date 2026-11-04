@@ -15,8 +15,7 @@ import { registerCommands } from "../../shortcuts/dispatcher";
 import { shellEnvironment } from "../../state/shell";
 import { useAtomCommand } from "../../state/use-atom-command";
 
-/** Marks an OpenInPicker's primary button as the target of `editor.openFavorite`. */
-export const OPEN_FAVORITE_EDITOR_ATTRIBUTE = "data-open-favorite-editor";
+import { OPEN_FAVORITE_EDITOR_ATTRIBUTE } from "./OpenInPicker.logic";
 
 /**
  * `editor.openFavorite` presses the marked OpenInPicker primary button, so the shortcut opens
@@ -61,7 +60,7 @@ export function useOpenFavoriteEditorShortcut({
     remote.mode === "local-exec" ? availableEditors : remoteCapableEditors,
   );
 
-  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- subscribes a window keydown listener for the open-in-editor shortcut while enabled
+  // oxlint-disable-next-line elysia/no-unreasoned-state-sync -- subscribes a window keydown listener for the open-in-editor shortcut while enabled
   useEffect(() => {
     if (!enabled || remote.mode === "remote-unavailable") return;
     const handler = (event: globalThis.KeyboardEvent) => {

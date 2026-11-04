@@ -57,7 +57,7 @@ function dismissNotice() {
 export function NightlyMobileBetaNotice() {
   const navigate = useNavigate();
 
-  // oxlint-disable-next-line elysia/react-effect-budget -- Publish a one-time compatibility notice through the imperative toast manager.
+  // oxlint-disable-next-line elysia/no-unreasoned-state-sync -- Publish a one-time compatibility notice through the imperative toast manager.
   useEffect(() => {
     if (!CONNECTIONS_ENABLED || !IS_NIGHTLY_BUILD || noticeShown || isNoticeDismissed()) return;
     noticeShown = true;

@@ -1,4 +1,7 @@
-vi.mock("../ui/toast", async original => ({ ...await original<typeof import("../ui/toast")>(), toastManager: { add: mocks.toast } }));
+vi.mock("../ui/toast", async (original) => ({
+  ...(await original<typeof import("../ui/toast")>()),
+  toastManager: { add: mocks.toast },
+}));
 import {
   BUILT_IN_BROWSER_PROFILES,
   DEFAULT_BROWSER_PROFILE_ID,

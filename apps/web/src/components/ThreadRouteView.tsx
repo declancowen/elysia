@@ -66,7 +66,11 @@ export function ThreadRouteView({
       : null,
   );
   const archived = serverThread?.archivedAt != null || project?.agentProfile?.archived === true;
-  const backgroundSubmissionPending = useComposerDraftStore(store => serverThreadRef !== null && store.backgroundSubmissionThreadKeys[scopedThreadKey(serverThreadRef)] === true);
+  const backgroundSubmissionPending = useComposerDraftStore(
+    (store) =>
+      serverThreadRef !== null &&
+      store.backgroundSubmissionThreadKeys[scopedThreadKey(serverThreadRef)] === true,
+  );
   const canonicalThreadRef =
     target.kind === "draft"
       ? resolveDraftPromotionNavigationTarget({
@@ -128,7 +132,7 @@ export function ThreadRouteView({
   });
   const serverThreadStarted = threadHasStarted(serverThreadShell);
   const environmentHasAnyThreads = environmentThreadRefs.length > 0 || environmentHasDraftThreads;
-  // oxlint-disable-next-line elysia/react-effect-budget -- Synchronize browser route changes with the retained conversation-tab store.
+  // oxlint-disable-next-line elysia/no-unreasoned-state-sync -- Synchronize browser route changes with the retained conversation-tab store.
   useEffect(() => {
     if (!SINGLE_PROVIDER_UI) return;
     const tabs = currentConversationTabsStore().getState();
@@ -155,12 +159,14 @@ export function ThreadRouteView({
       tabs.open(target);
     }
   }, [canonicalThreadRef, draftSession, promotedDraftId, renderState, target, archived]);
+  // oxlint-disable-next-line elysia/no-unreasoned-state-sync -- Acknowledge the server-created thread in the shared draft registry while its promotion awaits the route swap.
   useEffect(() => {
     if (!inferredThreadRef || draftSession?.promotedTo) {
       return;
     }
     markPromotedDraftThreadByRef(inferredThreadRef);
   }, [draftSession?.promotedTo, inferredThreadRef]);
+  // oxlint-disable-next-line elysia/no-unreasoned-state-sync -- Navigate the browser after the external draft-hero animation settles, cancelling stale route work on cleanup.
   useEffect(() => {
     if (!canonicalThreadRef || background) {
       return;
@@ -180,6 +186,7 @@ export function ThreadRouteView({
       cancelled = true;
     };
   }, [background, canonicalThreadRef, navigate]);
+  // oxlint-disable-next-line elysia/no-unreasoned-state-sync -- Remove a deleted draft from the shared conversation-tab store and navigate the browser to the next surviving tab.
   useEffect(() => {
     if (background || target.kind !== "draft" || draftSession || canonicalThreadRef) {
       return;
@@ -196,6 +203,7 @@ export function ThreadRouteView({
       });
     }
   }, [background, canonicalThreadRef, draftSession, navigate, navigateTab, target]);
+  // oxlint-disable-next-line elysia/no-unreasoned-state-sync -- Reconcile authoritative server deletion with pending drop and conversation-tab registries, then update the browser route.
   useEffect(() => {
     if (target.kind !== "server" || !bootstrapComplete) {
       return;
@@ -225,6 +233,7 @@ export function ThreadRouteView({
     renderState,
     target,
   ]);
+  // oxlint-disable-next-line elysia/no-unreasoned-state-sync -- Release the shared draft registry entry after the server confirms that the promoted thread has started.
   useEffect(() => {
     if (target.kind !== "server" || !serverThreadStarted || !draftThread) {
       return;

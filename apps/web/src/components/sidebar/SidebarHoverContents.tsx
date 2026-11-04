@@ -160,7 +160,7 @@ export function CollectionSidebar({ kind }: { kind: "tasks" | "pages" }) {
     if (folderHoverTimer.current) clearTimeout(folderHoverTimer.current);
     folderHoverTimer.current = null;
   };
-  // oxlint-disable-next-line elysia/react-effect-budget -- Cancel the pending folder-hover timer when its sidebar owner unmounts.
+  // oxlint-disable-next-line elysia/no-unreasoned-state-sync -- Cancel the pending folder-hover timer when its sidebar owner unmounts.
   useEffect(
     () => () => {
       if (folderHoverTimer.current) clearTimeout(folderHoverTimer.current);

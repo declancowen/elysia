@@ -277,7 +277,7 @@ export function useClientSettingsHydrated(): boolean {
 /** Keep the selected sidebar mounted only after its saved preference is available. */
 export function useLegacySidebarEnabled(): boolean {
   const hydrated = useClientSettingsHydrated();
-  const enabled = useClientSettings(settings => settings.legacySidebarEnabled);
+  const enabled = useClientSettings((settings) => settings.legacySidebarEnabled);
   return hydrated && enabled;
 }
 
@@ -380,19 +380,6 @@ export function useMergedSettings<T = UnifiedSettings>(
     const merged = mergeEnvironmentSettings(serverSettings, clientSettings);
     return selector ? selector(merged) : (merged as T);
   });
-}
-
-function resolveEnvironmentIdentificationMode(input: {
-  mode: EnvironmentIdentificationMode;
-  settingsHydrated: boolean;
-  paletteThemeActive?: boolean;
-  paletteThemeAllowsArtwork?: boolean;
-}): EnvironmentIdentificationMode {
-  if (!input.settingsHydrated) return "none";
-  const isArtwork = input.mode !== "pill" && input.mode !== "none";
-  return input.paletteThemeActive && !input.paletteThemeAllowsArtwork && isArtwork
-    ? "pill"
-    : input.mode;
 }
 
 export function useCodeWorkspace(): boolean {

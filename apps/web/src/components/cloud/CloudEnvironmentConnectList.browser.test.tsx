@@ -80,15 +80,28 @@ async function setup() {
   discovery.state = {
     environments: new Map(),
     refreshing: false,
-    offline: false, listed: true,
+    offline: false,
+    listed: true,
     error: Option.none(),
   };
   discovery.listEnvironments.mockReset().mockResolvedValue(new Map());
   discovery.register.mockReset().mockResolvedValue(AsyncResult.success(undefined));
   discovery.refresh.mockReset().mockImplementation(async () => {
-    publish({ environments: new Map(), refreshing: true, offline: false, listed: true, error: Option.none() });
+    publish({
+      environments: new Map(),
+      refreshing: true,
+      offline: false,
+      listed: true,
+      error: Option.none(),
+    });
     const environments = await discovery.listEnvironments();
-    publish({ environments, refreshing: false, offline: false, listed: true, error: Option.none() });
+    publish({
+      environments,
+      refreshing: false,
+      offline: false,
+      listed: true,
+      error: Option.none(),
+    });
     return AsyncResult.success(undefined);
   });
 
@@ -177,7 +190,8 @@ describe("cloud environment offline reasons", () => {
       publish({
         environments: new Map([[newMachineId, offlineEntry("tunnel_released")]]),
         refreshing: false,
-        offline: false, listed: true,
+        offline: false,
+        listed: true,
         error: Option.none(),
       });
     });

@@ -2,6 +2,7 @@ import { AcpRegistryOperationError, ProviderInstanceId } from "@elysiatools/cont
 import { AcpRegistrySettings } from "../settings.ts";
 import { describe, expect, it } from "@effect/vitest";
 import * as NodeServices from "@effect/platform-node/NodeServices";
+import * as NodeCrypto from "@effect/platform-node/NodeCrypto";
 import * as Layer from "effect/Layer";
 import * as TestProviderHost from "@elysiatools/provider-testing/TestProviderHost";
 import * as IdAllocator from "@elysiatools/provider-core/server/IdAllocator";
@@ -484,7 +485,7 @@ it.effect(
           IdAllocator.layer,
           McpProviderSessions.layer,
           TestProviderHost.layer({ runBackgroundWork: false }),
-        ).pipe(Layer.provideMerge(NodeServices.layer)),
+        ).pipe(Layer.provideMerge(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer))),
       ),
       Effect.scoped,
     ),

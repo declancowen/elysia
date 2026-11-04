@@ -1074,7 +1074,7 @@ export default function GitActionsControl({
     activeDraftThread?.envMode === "worktree" &&
     activeDraftThread.worktreePath === null;
 
-  // oxlint-disable-next-line t3code/no-unreasoned-state-sync -- persists the draft thread branch when the live git status subscription reports a different branch
+  // oxlint-disable-next-line elysia/no-unreasoned-state-sync -- persists the draft thread branch when the live git status subscription reports a different branch
   useEffect(() => {
     if (isGitActionRunning || isSelectingWorktreeBase || activeServerThread) {
       return;
@@ -1493,10 +1493,7 @@ export default function GitActionsControl({
           disabled={!canWriteSourceControl || initAction.isPending}
           onClick={initializeGit}
         >
-          <GitBranchPlusIcon
-            className={"size-3.5"}
-            aria-hidden
-          />
+          <GitBranchPlusIcon className={"size-3.5"} aria-hidden />
           <span className={"ml-0.5"}>
             {initAction.isPending ? "Initializing..." : "Initialize Git"}
           </span>

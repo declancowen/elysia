@@ -746,7 +746,7 @@ describe("resolveThreadSwitchTimeline", () => {
         activeThreadKey: "env-2:thread-b",
         nextEntries: [],
       }),
-    ).toEqual({entries: [], displayThreadKey: "env-2:thread-b"});
+    ).toEqual({ entries: [], displayThreadKey: "env-2:thread-b" });
   });
 
   it("does not remember a timeline that still has handoff blob previews", () => {

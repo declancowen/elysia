@@ -14,10 +14,11 @@ const state = vi.hoisted(() => ({
 }));
 
 vi.mock("@effect/atom-react", () => ({
+  useAtomMount: () => {},
   useAtomValue: (atom: unknown) => (atom === "vcs-state" ? { isRunning: false } : null),
 }));
 vi.mock("~/state/entities", () => ({
-  useThreadProjection: () => null,
+  useQuietThreadProjection: () => null,
   useThreadShell: (ref: { threadId: string }) => ({ branch: "main", id: ref.threadId }),
   useQuietThreadShell: (ref: { threadId: string }) => ({ branch: "main", id: ref.threadId }),
 }));
@@ -32,6 +33,7 @@ vi.mock("~/state/server", () => ({ serverEnvironment: { configValueAtom: () => n
 vi.mock("~/state/sourceControl", () => ({ sourceControlEnvironment: { discovery: () => null } }));
 vi.mock("~/state/vcs", () => ({
   vcsEnvironment: { status: () => null },
+  vcsStatusRevalidation: () => null,
   vcsActionManager: { stateAtom: () => "vcs-state" },
 }));
 vi.mock("~/state/threads", () => ({
@@ -80,6 +82,7 @@ vi.mock("~/state/sourceControlActions", () => ({
         _tag: "Success",
         value: {
           branch: { status: "skipped_not_requested" },
+          pr: { status: "skipped_not_requested" },
           toast: {
             title: "Committed",
             description: "Committed",
@@ -211,21 +214,14 @@ afterEach(async () => {
 });
 
 describe("Git action targets across thread navigation", () => {
-  it("runs a retained PR toast in the thread that produced it", async () => {
+  it("keeps action success scoped to the thread that produced it", async () => {
     const renderer = await renderActions("first", "/first");
     await clickQuickAction(renderer);
-    const toast = state.toasts.find((toast) => toast.actionProps)!;
-    expect(toast).toBeDefined();
+    expect(renderer.root.findAllByProps({ role: "status" })).toHaveLength(1);
     await act(async () => {
       renderer.update(createElement(MemoGitActionsControl, props("second", "/second")));
     });
-    await act(async () => {
-      toast.actionProps!.onClick();
-    });
-    expect(state.actions.at(-1)).toMatchObject({
-      scope: { cwd: "/first" },
-      input: { threadId: "first", action: "commit_push_pr" },
-    });
+    expect(renderer.root.findAllByProps({ role: "status" })).toHaveLength(0);
   });
 
   it("runs the memoized panel button in the current thread after navigation", async () => {

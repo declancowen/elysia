@@ -121,7 +121,8 @@ describe("theme failure handling", () => {
     let readSnapshot: (() => unknown) | undefined;
     let subscribeToTheme: ((listener: () => void) => () => void) | undefined;
     let storageHandler: ((event: StorageEvent) => void) | undefined;
-    vi.doMock("react", () => ({
+    vi.doMock("react", async (importOriginal) => ({
+      ...(await importOriginal<typeof import("react")>()),
       useCallback: <A>(callback: A) => callback,
       useEffect: () => undefined,
       useSyncExternalStore: (

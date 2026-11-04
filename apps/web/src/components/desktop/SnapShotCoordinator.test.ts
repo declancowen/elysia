@@ -8,7 +8,9 @@ import {
 import { afterEach, beforeEach, describe, expect, it, vi } from "vite-plus/test";
 
 import { DraftId, useComposerDraftStore } from "../../composerDraftStore";
-type DesktopSnapShotBridge = NonNullable<ReturnType<typeof import("../../lib/desktopSnapShot").getDesktopSnapShotBridge>>;
+type DesktopSnapShotBridge = NonNullable<
+  ReturnType<typeof import("../../lib/desktopSnapShot").getDesktopSnapShotBridge>
+>;
 import {
   beginSnapShotAnimationWhenReady,
   deliverSnapShot,

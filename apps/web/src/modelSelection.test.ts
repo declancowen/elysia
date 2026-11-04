@@ -31,7 +31,6 @@ import {
   resolveEffectiveDefaultModelSelection,
 } from "./modelSelection";
 
-
 function provider(input: {
   provider?: ProviderDriverKind;
   instanceId: string;

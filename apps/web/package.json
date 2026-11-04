@@ -52,8 +52,8 @@
     "@tiptap/extension-horizontal-rule": "^3.31.3",
     "@tiptap/extension-italic": "^3.31.3",
     "@tiptap/extension-list": "^3.31.3",
-    "@tiptap/extension-table": "3.31.3",
     "@tiptap/extension-strike": "^3.31.3",
+    "@tiptap/extension-table": "^3.31.3",
     "@tiptap/extension-task-item": "^3.31.3",
     "@tiptap/extension-task-list": "^3.31.3",
     "@tiptap/pm": "^3.31.3",
@@ -93,8 +93,8 @@
     "unbash": "^5.0.0",
     "unified": "catalog:",
     "use-sync-external-store": "^1.6.0",
-    "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz",
     "vfile": "^6.0.3",
+    "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz",
     "zustand": "^5.0.11"
   },
   "devDependencies": {

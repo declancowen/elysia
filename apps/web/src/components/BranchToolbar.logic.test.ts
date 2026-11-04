@@ -253,14 +253,13 @@ describe("shouldShowEnvironmentIndicator", () => {
 });
 
 describe("shouldShowComposerContextStrip", () => {
-  it("keeps a sole primary server update reachable in a non-Git draft", () => {
+  it("hides an empty non-Git strip for the sole primary environment", () => {
     const environment = {
       activeEnvironment: { isPrimary: true },
       canPickEnvironment: false,
-      serverUpdateAvailable: true,
     };
     const showEnvironmentIndicator = shouldShowEnvironmentIndicator(environment);
-    expect(showEnvironmentIndicator).toBe(true);
+    expect(showEnvironmentIndicator).toBe(false);
     expect(
       shouldShowComposerContextStrip({
         isDraftHeroState: true,
@@ -270,7 +269,7 @@ describe("shouldShowComposerContextStrip", () => {
         showEnvironmentIndicator,
         hostsRestingComposerControls: false,
       }),
-    ).toBe(true);
+    ).toBe(false);
     expect(
       shouldShowComposerContextStrip({
         isDraftHeroState: false,
@@ -280,7 +279,7 @@ describe("shouldShowComposerContextStrip", () => {
         showEnvironmentIndicator,
         hostsRestingComposerControls: false,
       }),
-    ).toBe(true);
+    ).toBe(false);
   });
 
   it.each([false, true])(

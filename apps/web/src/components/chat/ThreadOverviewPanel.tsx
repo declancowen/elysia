@@ -137,12 +137,12 @@ function OverviewPopover({
   }
   // The shared header can live outside the thread pane, so report reserved space
   // to the pane owner instead of relying on the trigger being its DOM descendant.
-  // oxlint-disable-next-line elysia/react-effect-budget -- Reserve and release parent pane space for the portaled overview before layout paints.
+  // oxlint-disable-next-line elysia/no-unreasoned-state-sync -- Reserve and release parent pane space for the portaled overview before layout paints.
   useLayoutEffect(() => {
     onDockedChange?.(open && wide && !hidden);
     return () => onDockedChange?.(false);
   }, [open, wide, hidden, onDockedChange]);
-  // oxlint-disable-next-line elysia/react-effect-budget -- Notify the separate header owner when the portaled overview opens or is hidden.
+  // oxlint-disable-next-line elysia/no-unreasoned-state-sync -- Notify the separate header owner when the portaled overview opens or is hidden.
   useLayoutEffect(() => {
     if (!hidden) onOpenChange?.(open);
   }, [open, hidden, onOpenChange]);
@@ -197,7 +197,7 @@ function OverviewPopover({
   const expandedWidth = wide
     ? collapsedWidth + (availableSize.width - collapsedWidth) / 2
     : availableSize.width;
-  // oxlint-disable-next-line elysia/react-effect-budget -- Observe the committed reply DOM and land its scroll position at the selected response.
+  // oxlint-disable-next-line elysia/no-unreasoned-state-sync -- Observe the committed reply DOM and land its scroll position at the selected response.
   useLayoutEffect(() => {
     const body = bodyRef.current;
     if (!open || !selectedAgent) {
@@ -221,7 +221,7 @@ function OverviewPopover({
     landReply();
     return observeResize(body, landReply);
   }, [open, view, selectedAgent, bodyRef, landedView]);
-  // oxlint-disable-next-line elysia/react-effect-budget -- Measure the portaled panel against its DOM workspace and own resize listeners.
+  // oxlint-disable-next-line elysia/no-unreasoned-state-sync -- Measure the portaled panel against its DOM workspace and own resize listeners.
   useLayoutEffect(() => {
     if (!open || hidden) return;
     const column =
@@ -277,14 +277,14 @@ function OverviewPopover({
       setOpen(true);
     }
   }
-  // oxlint-disable-next-line elysia/react-effect-budget -- Acknowledge the consumed open request in the shared overview command store.
+  // oxlint-disable-next-line elysia/no-unreasoned-state-sync -- Acknowledge the consumed open request in the shared overview command store.
   useEffect(() => {
     if (targetMatches)
       useThreadOverviewStore.setState((state) =>
         state.target === target ? { target: null } : state,
       );
   }, [target, targetMatches]);
-  // oxlint-disable-next-line elysia/react-effect-budget -- Acknowledge the consumed toggle request in the shared overview command store.
+  // oxlint-disable-next-line elysia/no-unreasoned-state-sync -- Acknowledge the consumed toggle request in the shared overview command store.
   useEffect(() => {
     if (toggleMatches)
       useThreadOverviewStore.setState((state) =>

@@ -12,8 +12,20 @@ class BootElement extends EventTarget {
 
   setAttribute() {}
 
-  append(child: BootElement) {
-    this.children.push(child);
+  append(...children: Array<BootElement | string>) {
+    for (const child of children) {
+      if (typeof child === "string") this.textContent += child;
+      else this.children.push(child);
+    }
+  }
+
+  findByTagName(tagName: string): BootElement | undefined {
+    for (const child of this.children) {
+      if (child.tagName === tagName) return child;
+      const descendant = child.findByTagName(tagName);
+      if (descendant) return descendant;
+    }
+    return undefined;
   }
 
   replaceChildren(...children: BootElement[]) {
@@ -71,22 +83,20 @@ describe("app startup failures", () => {
     await import("./bootstrap");
     await vi.dynamicImportSettled();
 
-    expect(bootShell?.text).toContain("Elysia could not load.");
-    const reloadButton = bootShell?.children[0]?.children.find(
-      (element) => element.tagName === "button",
-    );
+    expect(bootShell?.text).toContain("Elysia failed to start");
+    const reloadButton = bootShell?.findByTagName("button");
     expect(reloadButton?.text).toBe("Reload");
     reloadButton?.dispatchEvent(new Event("click"));
     expect(reload).toHaveBeenCalledOnce();
   });
 
-  it.each([true, false])("shows startup error details only in dev mode, DEV=%s", (dev) => {
+  it.each([true, false])("keeps diagnostic details available for DEV=%s", (dev) => {
     vi.stubEnv("DEV", dev);
 
     showBootError(new Error("internal module path"));
 
-    expect(bootShell?.text).toContain("Elysia could not load.");
-    expect(bootShell?.text.includes("internal module path")).toBe(dev);
+    expect(bootShell?.text).toContain("Elysia failed to start");
+    expect(bootShell?.text).toContain("internal module path");
   });
 
   it("does not replace the app after React removes the splash", () => {

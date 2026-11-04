@@ -78,7 +78,7 @@ function AgentElapsed({ agent }: { agent: RuntimeSubagent }) {
   const live = agent.status === "running" || agent.status === "waiting";
   const startedAt = agent.startedAt;
 
-  // oxlint-disable-next-line elysia/react-effect-budget -- Own the live elapsed-time interval that writes to the DOM without React commits.
+  // oxlint-disable-next-line elysia/no-unreasoned-state-sync -- Own the live elapsed-time interval that writes to the DOM without React commits.
   useEffect(() => {
     if (!live || !startedAt) {
       return;

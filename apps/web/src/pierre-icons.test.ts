@@ -1,6 +1,11 @@
 import { assert, describe, it } from "vite-plus/test";
 
-import { ELYSIA_PIERRE_ICONS, hasSpecificPierreIconForFileName, resolvePierreIconForEntry, syntheticFileNameForLanguageId } from "./pierre-icons";
+import {
+  ELYSIA_PIERRE_ICONS,
+  hasSpecificPierreIconForFileName,
+  resolvePierreIconForEntry,
+  syntheticFileNameForLanguageId,
+} from "./pierre-icons";
 
 describe("Pierre file icons", () => {
   it.each(["photo.heic", "photo.heif", "PHOTO.HEIC", "folder/photo.HEIF"])(

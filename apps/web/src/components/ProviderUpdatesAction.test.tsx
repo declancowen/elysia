@@ -87,7 +87,7 @@ function UpdateHarness() {
     <>
       <p>
         {plan.summary}
-        {plan.rows.map(row => row.label).join("\n")}
+        {plan.rows.map((row) => `${row.label}: ${row.providers.join(", ")}`).join("\n")}
       </p>
       <button onClick={() => updates.updateAll({ quiet: true })}>Update</button>
     </>

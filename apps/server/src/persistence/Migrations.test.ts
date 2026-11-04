@@ -47,15 +47,7 @@ describe("runMigrations", () => {
       );
       const updated = yield* history;
       assert.deepStrictEqual(updated.slice(0, oldHistory.length), oldHistory);
-      assert.deepStrictEqual(updated.slice(-7), [
-        [70, "DropUnusedV1Projections"],
-        [71, "CanonicalizeThreadPullRequestLinks"],
-        [72, "CodexUsageNativeTurnIndex"],
-        [73, "RepairClientSettlementTimestamps"],
-        [74, "WebhookDedupe"],
-        [75, "ShellStopRequestIndex"],
-        [76, "ThreadMessageSearch"],
-      ]);
+      assert.deepStrictEqual(updated, migrationManifest);
       assert.deepStrictEqual(yield* runMigrations(), []);
 
       yield* sql`DELETE FROM pages WHERE id = 'kept-page'`;
@@ -189,7 +181,7 @@ describe("runMigrations", () => {
         String(exit),
         "56_RemoveRedundantProjectionIndexes (recorded: SiteLocalMigration)",
       );
-      assert.notInclude(String(exit), "57_ScheduledTaskWebhooks");
+      assert.notInclude(String(exit), "57_ProjectionProjectAgentProfile");
       assert.deepStrictEqual(yield* history, before);
     }).pipe(Effect.provide(NodeSqliteClient.layer({ filename: ":memory:" }))),
   );
@@ -218,9 +210,14 @@ it.effect("registers every migration file", () =>
       const match = /^(\d+)_(\w+)\.ts$/.exec(name);
       return match ? [[Number(match[1]), match[2]] as const] : [];
     });
+    // The retired conversion keeps its published ledger identity without executable source.
+    assert.deepStrictEqual(
+      migrationManifest.filter(([id]) => id === 61),
+      [[61, "ElysiaToolNames"]],
+    );
     assert.deepStrictEqual(
       files.toSorted(([a], [b]) => a - b),
-      migrationManifest,
+      migrationManifest.filter(([id]) => id !== 61),
     );
   }).pipe(Effect.provide(NodeServices.layer)),
 );

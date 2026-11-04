@@ -37,7 +37,7 @@ export function useTabOverflow(activeId: string | null) {
       behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth",
     });
   });
-  // oxlint-disable-next-line elysia/react-effect-budget -- Keep the selected tab visible in the native scroll viewport after tab changes.
+  // oxlint-disable-next-line elysia/no-unreasoned-state-sync -- Keep the selected tab visible in the native scroll viewport after tab changes.
   useEffect(() => {
     if (!activeId || !tabScrollState.hasOverflow) return;
     const viewport = tabScrollViewport(tabListRef.current);

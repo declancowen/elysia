@@ -120,7 +120,7 @@ export function ElysiaUsagePage() {
   const query = useEnvironmentQuery(statsAtom);
   const usage = useEnvironmentQuery(usageAtom);
   const account = useEnvironmentQuery(accountAtom);
-  // oxlint-disable-next-line elysia/react-effect-budget -- Reopening cached native queries must refresh their subscriptions without duplicating fresh in-flight reads.
+  // oxlint-disable-next-line elysia/no-unreasoned-state-sync -- Reopening cached native queries must refresh their subscriptions without duplicating fresh in-flight reads.
   useEffect(() => {
     if (statsAtom) {
       const result = registry.get(statsAtom);

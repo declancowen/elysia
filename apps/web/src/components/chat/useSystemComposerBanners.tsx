@@ -23,7 +23,6 @@ import type { ComposerBannerStackItem } from "./ComposerBannerStack";
 import { ENVIRONMENT_RECONNECT_WARNING_GRACE_MS } from "../ChatView.logic";
 import { useAtomCommand } from "../../state/use-atom-command";
 import { Button } from "../ui/button";
-import { Tooltip, TooltipPopup, TooltipTrigger } from "../ui/tooltip";
 import {
   ServerUpdateAction,
   serverUpdateStageLabel,
@@ -147,7 +146,8 @@ export function useSystemComposerBanners(input: SystemComposerBannersInput) {
       : "server";
   const serverUpdateEnvironmentId = activeThreadEnvironmentId;
   const versionMismatchSelfUpdate = resolveServerSelfUpdateCapability(serverConfig);
-  const versionMismatchThreadContinuation = serverConfig?.environment.capabilities.threadRestartContinuation;
+  const versionMismatchThreadContinuation =
+    serverConfig?.environment.capabilities.threadRestartContinuation;
   const versionMismatchInstallation = serverConfig?.environment.capabilities.serverInstallation;
   const versionMismatchDesktopAppUpdate = supportsDesktopAppUpdate(serverConfig);
   const serverUpdateState = useAtomValue(

@@ -562,4 +562,8 @@ export const TraitsPicker = memo(function TraitsPicker({
   );
 });
 
-export function shouldRenderTraitsControls(input: Parameters<typeof getTraitsSectionVisibility>[0]): boolean { return getTraitsSectionVisibility(input).hasAnyControls; }
+export function shouldRenderTraitsControls(
+  input: Parameters<typeof getTraitsSectionVisibility>[0],
+): boolean {
+  return getTraitsSectionVisibility(input).hasAnyControls;
+}

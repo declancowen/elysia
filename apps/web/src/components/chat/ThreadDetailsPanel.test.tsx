@@ -84,9 +84,15 @@ describe("ThreadDetailsPanel", () => {
       onStartFromOriginChange: vi.fn(),
       onComposerFocusRequest: vi.fn(),
       onRunProjectScript: vi.fn(),
-      onAddProjectScript: vi.fn() as React.ComponentProps<typeof ThreadDetailsPanel>["onAddProjectScript"],
-      onUpdateProjectScript: vi.fn() as React.ComponentProps<typeof ThreadDetailsPanel>["onUpdateProjectScript"],
-      onDeleteProjectScript: vi.fn() as React.ComponentProps<typeof ThreadDetailsPanel>["onDeleteProjectScript"],
+      onAddProjectScript: vi.fn() as React.ComponentProps<
+        typeof ThreadDetailsPanel
+      >["onAddProjectScript"],
+      onUpdateProjectScript: vi.fn() as React.ComponentProps<
+        typeof ThreadDetailsPanel
+      >["onUpdateProjectScript"],
+      onDeleteProjectScript: vi.fn() as React.ComponentProps<
+        typeof ThreadDetailsPanel
+      >["onDeleteProjectScript"],
     };
 
     renderToStaticMarkup(<ThreadDetailsPanel {...props} />);

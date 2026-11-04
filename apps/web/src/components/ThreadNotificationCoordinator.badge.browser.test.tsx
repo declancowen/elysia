@@ -342,15 +342,18 @@ it.each(["off", "sound", "focused", "denied", "archived"])(
     if (condition === "focused") focused = true;
     if (condition === "denied") TestNotification.permission = "denied";
     app.start();
-    complete();
-    if (condition === "archived")
+    if (condition === "archived") {
+      const archivedAt = "2026-09-13T08:00:00Z";
+      state.shells.set("one", shell({ archivedAt }));
       state.shells.set(
         "one",
         shell({
-          archivedAt: "2026-09-13T08:00:00Z",
+          archivedAt,
           hasPendingApprovals: true,
+          latestTurn: { turnId: "turn", state: "completed", completedAt: archivedAt },
         }),
       );
+    } else complete();
     await settleCompletions();
     expect(TestNotification.sent).toHaveLength(0);
     expect(state.badge.mock.calls.every(([count]) => count === 0)).toBe(true);

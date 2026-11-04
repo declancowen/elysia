@@ -1,4 +1,7 @@
-import { type EnvironmentContextRecord, resolveEnvironmentMachineKind } from "@elysiatools/contracts";
+import {
+  type EnvironmentContextRecord,
+  resolveEnvironmentMachineKind,
+} from "@elysiatools/contracts";
 
 import { useEnvironment } from "~/state/environments";
 import { ContextChip, ContextChipLabel } from "./ContextChip";

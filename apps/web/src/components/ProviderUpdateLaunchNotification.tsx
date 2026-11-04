@@ -57,7 +57,7 @@ function ProviderUpdateEnvironmentsNotification() {
   // is kept so in-progress rows are not torn down.
   const hasInteractedRef = useRef(false);
 
-  // oxlint-disable-next-line elysia/react-effect-budget -- Close the imperative toast-manager resource when its React owner unmounts.
+  // oxlint-disable-next-line elysia/no-unreasoned-state-sync -- Close the imperative toast-manager resource when its React owner unmounts.
   useEffect(() => {
     return () => {
       if (activeToastRef.current !== null) {
@@ -78,7 +78,7 @@ function ProviderUpdateEnvironmentsNotification() {
   if (!isAnySettling && settleGraceElapsed) {
     setSettleGraceElapsed(false);
   }
-  // oxlint-disable-next-line elysia/react-effect-budget -- Bound the external environment connection phase with a cancellable wall-clock timer.
+  // oxlint-disable-next-line elysia/no-unreasoned-state-sync -- Bound the external environment connection phase with a cancellable wall-clock timer.
   useEffect(() => {
     if (!isAnySettling) return;
     const timer = setTimeout(() => setSettleGraceElapsed(true), SETTLING_GRACE_MS);
@@ -104,7 +104,7 @@ function ProviderUpdateEnvironmentsNotification() {
     activeToastRef.current = null;
   });
 
-  // oxlint-disable-next-line elysia/react-effect-budget -- Reconcile server update snapshots and dismissal storage with the imperative toast manager.
+  // oxlint-disable-next-line elysia/no-unreasoned-state-sync -- Reconcile server update snapshots and dismissal storage with the imperative toast manager.
   useEffect(() => {
     const canShowPrompt =
       notificationKey !== null &&

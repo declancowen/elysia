@@ -117,6 +117,14 @@ Existing app profiles are restored by reading the native CLI's saved sign-in, in
 
 Working credentials do not establish feature compatibility. For each new CLI release, check its feature setup separately on initialization, managed update and existing-sign-in adoption, then exercise the feature in a new and an existing thread. Do not copy unrelated global MCP configuration or guess native private setup helpers to fill an unverified adoption gap.
 
+## Unreleased integration — 2026-11-04
+
+Upstream integration is pinned to [`a21d788752`](https://github.com/pingdotgg/t3code/commit/a21d788752695764028e6d26ba924f3963e05806), with Claude Agent SDK 0.3.316. The supplied native CLI 0.3.11 source remains the feature baseline; no newer native package was supplied for this integration. Native authentication, certificate trust, saved sign-in, model inventory and account totals retain their existing CLI owners.
+
+Focused regressions exercise fresh native-session handoffs across model changes, active steering, private settings with sandbox protection, compaction/Stop handling and MCP app transport. SDK and controlled-process fixtures are separate from a live company installation. MCP apps require the runtime’s advertised capabilities; older Claude runtimes retain ordinary tool rows. Permission failures remain conservative, and optional app hooks must compose with Elysia’s native protection hooks.
+
+Scoped web, desktop and packaging typechecks passed. The isolated browser pass verified Pages Wall/folder navigation, task cards and project menu icons/dividers before the browser stopped its tab for memory growth. The maintainer chose to finish with that limitation. Live company authentication, model/tool execution, compaction against the company gateway, native Finder actions, Windows execution and the remaining browser cases are **Not verified**. The stopped tab was not reopened; source review did not establish the cause of its memory growth. This entry records integration evidence, not a published app release.
+
 ## Recording the next release
 
 Before publishing, append the app release and source commit, resolved SDK version, actual managed CLI version tested, native package checksum if available, platforms tested, and the result. Record initialization, update and existing-sign-in adoption separately when the CLI changes setup behavior. Use “Not verified” for missing evidence; keep fixture coverage separate from native tests. Never record credentials, environment dumps or authenticated download URLs.

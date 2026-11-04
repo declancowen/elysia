@@ -14,7 +14,7 @@ Keep this boundary in [ElysiaCli](../../apps/server/src/provider/ElysiaCli.ts). 
 
 ## CLI-002: Native model configuration with per-query isolation
 
-**Accepted, 2026-10-26.** Baseline: native CLI 0.3.11.
+**Accepted, 2026-10-26; reviewed, 2026-11-04.** Baseline: native CLI 0.3.11.
 
 The installed CLI determines available models, model-specific headers, context length and compaction windows. Elysia applies its native model transformation to an isolated settings copy for each query. It must not switch the user's saved default to route a thread. This preserves independent concurrent threads and removes retired choices without recreating native routing rules in the UI.
 
@@ -23,6 +23,8 @@ Claude's saved `settings.env` overrides the process environment. A process envir
 The SDK rejects a settings-file path together with its top-level `sandbox` option. Serialize the complete per-query sandbox policy into the private settings file before handing it to the SDK; omit only the redundant SDK option. The startup regression in app 0.0.41 occurred before the CLI launched. Regression proof must exercise the real SDK with the complete production query options, including protection, rather than testing native routing and sandbox settings separately.
 
 Elysia model changes use a fresh native session with a portable handoff, including switches back to a model used earlier in the thread. The adapter must publish this capability on the opened session as well as its static metadata: the switch service reads session capabilities, and generic Claude defaults previously bypassed this safeguard. Active steering must follow the same rule rather than finding and resuming a historical session. Existing session metadata must not override the native Elysia restriction.
+
+Optional SDK capabilities must compose with native protection hooks, not replace their hook map. MCP app interactions reuse the existing live native session and its permissions; older runtimes keep plain tool results. Elysia’s own control tools remain excluded from third-party app capture.
 
 Revisit if the CLI exposes a supported per-session configuration interface or the native runtime changes settings precedence. Preserve isolation, private-file protection and child-lifetime cleanup in any replacement.
 
@@ -63,5 +65,7 @@ The server's exclusive data-directory ownership lock remains authoritative. Upst
 **Accepted, 2026-10-26.** Integration baseline: upstream `e762f09e26`, existing Elysia migration ledger through 73.
 
 Applied migration identities are durable state. Incoming upstream migrations that reuse fork identifiers must receive new trailing identifiers; do not rewrite applied history. Verify repeated startup, preservation of existing content and that deleted content does not return. This protects existing users independently of clean-install tests.
+
+Brand changes do not authorize rewriting persisted event keys or cross-client protocols. Preserve legacy aliases until a migration covers existing history and every producer and consumer; render current Elysia labels at the presentation boundary.
 
 A newly added upstream connection feature must pass the same Elysia policy at the UI, RPC/HTTP admission and service boundaries. Hiding its button alone does not preserve the fork policy. Keep dormant upstream code coherent without enabling it accidentally. Revisit only when the product policy changes, with an explicit decision covering all entry points and clients.

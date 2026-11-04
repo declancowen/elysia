@@ -7,6 +7,7 @@ import {
   injectMcpAppCookieBootstrap,
   mcpAppContentSecurityPolicy,
   mcpAppToolCallableByApp,
+  mcpAppToolResourceUri,
   readMcpAppCsp,
   readMcpAppReference,
 } from "./mcpApp.ts";
@@ -137,6 +138,14 @@ describe("readMcpAppReference", () => {
 
 describe("tool metadata", () => {
   it("reads the resource URI from either spelling and honors app visibility", () => {
+    const uri = "ui://weather/card.html";
+    expect(mcpAppToolResourceUri({ ui: { resourceUri: uri } })).toBe(uri);
+    expect(
+      mcpAppToolResourceUri({ ui: { visibility: ["model", "app"] }, "ui/resourceUri": uri }),
+    ).toBe(uri);
+    expect(
+      mcpAppToolResourceUri({ ui: { resourceUri: "https://weather/card.html" } }),
+    ).toBeUndefined();
     expect(mcpAppToolCallableByApp(undefined)).toBe(true);
     expect(mcpAppToolCallableByApp({ ui: { visibility: ["model"] } })).toBe(false);
     expect(mcpAppToolCallableByApp({ ui: { visibility: ["model", "app"] } })).toBe(true);
@@ -144,19 +153,23 @@ describe("tool metadata", () => {
 });
 
 describe("mcpAppFromToolItem", () => {
-  it("reads the app from both the stored output and its compact wire form", async () => {
-    const { compactDynamicToolOutput, mcpAppFromToolItem } = await import("./toolOutput.ts");
-    const app = {
-      attachmentId: "thread-1-abc-html",
-      server: "weather",
-      tool: "get_weather",
-      resourceUri: "ui://weather/dashboard",
-    };
-    const stored = { t3McpApp: app, result: { content: [] } };
-    const toolName = "weather.get_weather";
-    expect(mcpAppFromToolItem({ toolName, output: stored })).toEqual(app);
-    expect(mcpAppFromToolItem({ toolName, output: compactDynamicToolOutput(stored) })).toEqual(app);
-  });
+  it.each(["weather.get_weather", "mcp__weather__get_weather"])(
+    "reads the stored and compact app from %s without changing its persisted key",
+    async (toolName) => {
+      const { compactDynamicToolOutput, mcpAppFromToolItem } = await import("./toolOutput.ts");
+      const app = {
+        attachmentId: "thread-1-abc-html",
+        server: "weather",
+        tool: "get_weather",
+        resourceUri: "ui://weather/dashboard",
+      };
+      const stored = { t3McpApp: app, result: { content: [] } };
+      expect(mcpAppFromToolItem({ toolName, output: stored })).toEqual(app);
+      expect(mcpAppFromToolItem({ toolName, output: compactDynamicToolOutput(stored) })).toEqual(
+        app,
+      );
+    },
+  );
 
   it("ignores a reference naming a server or tool other than the item's own", async () => {
     const { mcpAppFromToolItem } = await import("./toolOutput.ts");
@@ -170,6 +183,13 @@ describe("mcpAppFromToolItem", () => {
     };
     expect(mcpAppFromToolItem({ toolName: "evil.lookup", output: forged })).toBeUndefined();
     expect(mcpAppFromToolItem({ toolName: "bank.transfer", output: forged })).toBeDefined();
+    // Claude Code names the same tool `mcp__<server>__<tool>`.
+    expect(mcpAppFromToolItem({ toolName: "mcp__bank__transfer", output: forged })).toBeDefined();
+    expect(mcpAppFromToolItem({ toolName: "mcp__evil__transfer", output: forged })).toBeUndefined();
+    const connector = { t3McpApp: { ...forged.t3McpApp, server: "claude.ai Asana (Beta)" } };
+    expect(
+      mcpAppFromToolItem({ toolName: "mcp__claude_ai_Asana_Beta__transfer", output: connector }),
+    ).toBeDefined();
   });
 
   it("keeps an app whose resource URI is longer than a name", async () => {

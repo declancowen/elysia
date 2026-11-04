@@ -1,9 +1,13 @@
 import { renderToStaticMarkup } from "react-dom/server";
+import { cloneElement, createRef, type ReactElement, type ReactNode } from "react";
+import { create, type ReactTestRenderer } from "react-test-renderer";
+import { act } from "../../../test/act";
 import { describe, expect, it, vi } from "vite-plus/test";
 
 const state = vi.hoisted(() => ({
   projection: null as unknown,
   workflow: null as unknown,
+  actions: [] as { command: symbol; input: unknown }[],
 }));
 
 vi.mock("@elysiatools/client-runtime/environment", () => ({
@@ -16,18 +20,22 @@ vi.mock("@elysiatools/client-runtime/state/thread-workflows", () => ({
 
 vi.mock("../../state/entities", () => ({
   useThreadProjection: () => state.projection,
+  useQuietThreadShell: () => null,
 }));
 
 vi.mock("../../state/threads", () => ({
   threadEnvironment: {
     cancelQueuedRun: Symbol("cancelQueuedRun"),
     promoteQueuedRun: Symbol("promoteQueuedRun"),
-    reorderQueuedRun: Symbol("reorderQueuedRun"),
+    resumeThreadQueue: Symbol("resumeThreadQueue"),
   },
 }));
 
 vi.mock("../../state/use-atom-command", () => ({
-  useAtomCommand: () => async () => undefined,
+  useAtomCommand: (command: symbol) => async (input: unknown) => {
+    state.actions.push({ command, input });
+    return { _tag: "Success", value: undefined };
+  },
 }));
 
 vi.mock("../../assets/assetUrls", () => ({
@@ -35,7 +43,29 @@ vi.mock("../../assets/assetUrls", () => ({
     resources.map((resource) => `https://assets.test/${resource.attachmentId}`),
 }));
 
-import { QueuedRunsControl } from "./QueuedRunsControl";
+// These attribution-only browser leaves are not queue controllers; importing the
+// full timeline here would also start its browser diff-worker dependency graph.
+vi.mock("./TimelineUserMessageRow", () => ({
+  FoldedMessageHeader: () => null,
+  useScheduledTaskTitle: () => undefined,
+}));
+
+// Queue actions do not depend on portal/focus behavior; keep that browser-only
+// tooltip leaf out of this Node renderer while retaining its real button child.
+vi.mock("../ui/tooltip", () => ({
+  Tooltip: ({ children }: { children?: ReactNode }) => children,
+  TooltipTrigger: ({
+    children,
+    render,
+  }: {
+    children?: ReactNode;
+    render?: ReactElement<{ children?: ReactNode }>;
+  }) => (render ? cloneElement(render, undefined, children) : children),
+  TooltipPopup: () => null,
+}));
+
+import { threadEnvironment } from "../../state/threads";
+import { QueuedRunsControl, type QueuedRunsControlHandle } from "./QueuedRunsControl";
 
 describe("QueuedRunsControl automatic completion delivery", () => {
   it("does not render a queue control when only hidden delivery remains", () => {
@@ -100,29 +130,60 @@ describe("QueuedRunsControl attachments and edit mode", () => {
     ],
   });
 
-  it("renders an attachment thumbnail on the queued row", () => {
+  it("keeps the attachment available for editing and steers its queued run", async () => {
     state.projection = { projection: { messages: [] } };
     state.workflow = workflowWithAttachment();
-
-    const html = renderToStaticMarkup(
-      <QueuedRunsControl
-        editBlockedReason={null}
-        timestampFormat="locale"
-        onOpenThread={() => {}}
-        environmentId={"environment:test" as never}
-        optimisticMessages={[]}
-        threadId={"thread:test" as never}
-        editingRunId={null}
-        onEditQueuedRun={() => undefined}
-        onCancelEdit={() => undefined}
-      />,
-    );
-
-    expect(html).toContain("https://assets.test/attachment-1");
-    expect(html).toContain("Queued with a screenshot");
-    expect(html).toContain("Edit queued message");
-    expect(html).toContain("Reorder queued message");
-    expect(html).not.toContain("Move queued message up");
+    state.actions = [];
+    const onEdit = vi.fn();
+    const control = createRef<QueuedRunsControlHandle>();
+    let renderer: ReactTestRenderer | undefined;
+    try {
+      await act(() => {
+        renderer = create(
+          <QueuedRunsControl
+            ref={control}
+            editBlockedReason={null}
+            timestampFormat="locale"
+            onOpenThread={() => {}}
+            environmentId={"environment:test" as never}
+            optimisticMessages={[]}
+            threadId={"thread:test" as never}
+            editingRunId={null}
+            onEditQueuedRun={onEdit}
+            onCancelEdit={() => {}}
+          />,
+        );
+      });
+      expect(renderer!.root.findByType("img").props.src).toBe("https://assets.test/attachment-1");
+      expect(renderer!.root.findByProps({ children: "Queued with a screenshot" })).toBeDefined();
+      await act(() => {
+        expect(control.current!.editLatest(false)).toBe(true);
+      });
+      expect(onEdit).toHaveBeenCalledExactlyOnceWith({
+        runId: "run:queued",
+        messageId: "message:queued",
+        text: "Queued with a screenshot",
+        attachments: [expect.objectContaining({ id: "attachment-1", name: "screenshot.png" })],
+      });
+      await act(async () => {
+        expect(control.current!.steerNext(false)).toBe(true);
+      });
+      expect(state.actions).toEqual([
+        {
+          command: threadEnvironment.promoteQueuedRun,
+          input: {
+            environmentId: "environment:test",
+            input: {
+              threadId: "thread:test",
+              queuedRunId: "run:queued",
+              targetRunId: "run:active",
+            },
+          },
+        },
+      ]);
+    } finally {
+      await act(() => renderer?.unmount());
+    }
   });
 
   it("drops the optimistic pending row once the projection holds its message", () => {

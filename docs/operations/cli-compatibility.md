@@ -129,9 +129,11 @@ The isolated browser pass verified Pages Wall/folder navigation, task cards and 
 
 ## App v0.0.44 UI regression repair
 
-Release candidate for 0.0.44. Claude Agent SDK remains 0.3.316, and the supplied native CLI 0.3.11 source remains the compatibility baseline. This patch does not change authentication, TLS, saved credentials, model routing or account reporting.
+Released on 2026-11-05 as [Elysia v0.0.44](https://github.com/declancowen/elysia/releases/tag/v0.0.44), from [d7124b1071](https://github.com/declancowen/elysia/commit/d7124b10711284d13a236cc1a247cfb0bc59f8e2) through [GitHub Actions run 42016655591](https://github.com/declancowen/elysia/actions/runs/42016655591). Claude Agent SDK remains 0.3.316, and the supplied native CLI 0.3.11 source remains the compatibility baseline. This patch does not change authentication, TLS, saved credentials, model routing or account reporting.
 
-The focused web/server regressions passed, together with scoped web/server typechecks and targeted lint. They cover normal send shortcuts and the one-time repair of the previously installed default, native Stats presentation, agent/channel settlement admission and ordinary chat lifecycle behavior. The maintainer selected code and focused tests only: interactive browser verification, live company CLI requests and native Windows use are **Not verified**. The signed installers and stable update feeds remain gated by GitHub Actions; this candidate is not yet a published-release claim.
+Focused regressions and release checks passed, including normal send shortcuts, the one-time repair of a previously installed default, native Stats presentation, persistent agent/channel settlement admission, ordinary chat lifecycle behavior and the Chromium route-retention regression. The maintainer selected code and focused tests rather than an interactive local browser pass; the automated browser guards ran on GitHub Actions.
+
+All four macOS/Windows installers built successfully. Both macOS apps passed signing, notarization and stapling. The ARM64 Mac runner initially could not be allocated because of GitHub capacity constraints; rerunning that job reused the successful checks and other platform artifacts. Publication readback confirmed all 17 release assets, 16 checksums matching GitHub asset digests, the exact source tag, and version 0.0.44 update feeds for both architectures on macOS and Windows. Live company CLI requests, manual installed-app interaction and native Windows UI use are **Not verified**.
 
 ## Recording the next release
 

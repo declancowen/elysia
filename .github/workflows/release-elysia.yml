@@ -172,6 +172,9 @@ jobs:
         working-directory: apps/web
         run: |
           vp test run --project unit \
+            src/composer-logic.test.ts \
+            src/components/AppTopbar.test.tsx \
+            src/components/settings/SettingsSidebarNav.test.tsx \
             src/elysiaModelSelection.test.ts \
             src/themePalette.test.ts \
             src/themeBoot.test.ts \
@@ -241,6 +244,7 @@ jobs:
         working-directory: apps/web
         run: |
           vp test run --project browser \
+            src/components/ThreadRouteView.browser.test.tsx \
             src/components/sidebar/SidebarUpdatePill.browser.test.tsx \
             src/components/WorkspaceEditorCommands.browser.test.ts \
             src/components/settings/ScheduledTaskPrompt.browser.test.tsx \
@@ -281,6 +285,7 @@ jobs:
             apps/server/src/orchestration-v2/AgentDelegation.test.ts \
             apps/server/src/orchestration-v2/RuntimePolicy.test.ts \
             apps/server/src/orchestration-v2/runtimeLayer.test.ts \
+            apps/server/src/orchestration-v2/ThreadSettlementService.test.ts \
             apps/server/src/orchestration-v2/ThreadMessageIntake.test.ts \
             apps/server/src/orchestration-v2/ThreadLaunchService.test.ts \
             apps/server/src/scheduledTasks/ScheduledTaskService.test.ts \

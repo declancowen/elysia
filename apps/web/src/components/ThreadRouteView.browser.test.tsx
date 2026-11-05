@@ -6,27 +6,13 @@ import { act, render } from "../../test/render";
 import { useConversationTabsStore } from "../conversationTabsStore";
 import { ThreadRouteView } from "./ThreadRouteView";
 
-const fixture = vi.hoisted(() => ({
-  navigate: vi.fn(),
-  draftStore: {
-    getDraftSession: () => null,
-    getDraftThreadByRef: () => null,
-    getDraftIdByRef: () => null,
-    hasDraftThreadsInEnvironment: () => false,
-    backgroundSubmissionThreadKeys: {},
-  },
+const fixture = vi.hoisted(() => ({ navigate: vi.fn() }));
+vi.mock("@tanstack/react-router", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@tanstack/react-router")>()),
+  useNavigate: () => fixture.navigate,
 }));
-vi.mock("@tanstack/react-router", () => ({ useNavigate: () => fixture.navigate }));
-vi.mock("../hooks/useConversationTabNavigation", () => ({
-  useConversationTabNavigation: () => fixture.navigate,
-}));
-vi.mock("../composerDraftStore", () => ({
-  useComposerDraftStore: (select: (store: typeof fixture.draftStore) => unknown) =>
-    select(fixture.draftStore),
-  finalizePromotedDraftThreadByRef: vi.fn(),
-  markPromotedDraftThreadByRef: vi.fn(),
-}));
-vi.mock("../state/entities", () => ({
+vi.mock("../state/entities", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../state/entities")>()),
   useThreadRefs: () => [],
   useEnvironmentThreadRefs: () => [],
   useQuietThreadShell: () => ({
@@ -39,8 +25,14 @@ vi.mock("../state/entities", () => ({
   }),
   useProject: () => null,
 }));
-vi.mock("../state/shell", () => ({ useEnvironmentShellStatus: () => "live" }));
-vi.mock("../state/threads", () => ({ useEnvironmentThread: () => null }));
+vi.mock("../state/shell", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../state/shell")>()),
+  useEnvironmentShellStatus: () => "live",
+}));
+vi.mock("../state/threads", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../state/threads")>()),
+  useEnvironmentThread: () => null,
+}));
 vi.mock("./ChatView", () => ({
   default: function RetainedChat() {
     const [text, setText] = useState("");

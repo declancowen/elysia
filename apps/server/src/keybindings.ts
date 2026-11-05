@@ -94,25 +94,13 @@ function isSameKeybindingRule(left: KeybindingRule, right: KeybindingRule): bool
   return keybindingRuleIdentity(left) === keybindingRuleIdentity(right);
 }
 
-const LATE_DEFAULT_KEYBINDINGS: ReadonlyArray<{
-  readonly id: string;
-  readonly alongside: KeybindingRule;
-  readonly rule: KeybindingRule;
-}> = [
-  {
-    id: "composer.sendBackground:mod+enter",
-    alongside: {
-      key: "mod+alt+enter",
-      command: "composer.sendBackground",
-      when: "composerFocus && draftThreadRoute",
-    },
-    rule: {
-      key: "mod+enter",
-      command: "composer.sendBackground",
-      when: "composerFocus && draftThreadRoute",
-    },
-  },
-];
+const LEGACY_BACKGROUND_SEND_MIGRATION = "composer.sendBackground:mod+enter";
+const FOREGROUND_SEND_MIGRATION = "elysia.foreground-draft-send";
+const RETIRED_BACKGROUND_SEND_RULE: KeybindingRule = {
+  key: "mod+enter",
+  command: "composer.sendBackground",
+  when: "composerFocus && draftThreadRoute",
+};
 
 function keybindingShortcutContext(rule: KeybindingRule): string | null {
   const parsed = parseKeybindingShortcut(rule.key);
@@ -444,16 +432,15 @@ const make = Effect.gen(function* () {
   const syncDefaultKeybindingsOnStartup = upsertSemaphore.withPermits(1)(
     Effect.gen(function* () {
       const appliedMigrationIds = yield* readAppliedMigrationIds;
-      const pendingLateDefaults = LATE_DEFAULT_KEYBINDINGS.filter(
-        (late) => !appliedMigrationIds.has(late.id),
-      );
+      const repairForegroundSend = !appliedMigrationIds.has(FOREGROUND_SEND_MIGRATION);
       const configExists = yield* readConfigExists;
       if (!configExists) {
         yield* writeConfigAtomically(DEFAULT_KEYBINDINGS);
-        if (pendingLateDefaults.length > 0) {
+        if (repairForegroundSend) {
           yield* recordAppliedMigrations([
             ...appliedMigrationIds,
-            ...LATE_DEFAULT_KEYBINDINGS.map((late) => late.id),
+            LEGACY_BACKGROUND_SEND_MIGRATION,
+            FOREGROUND_SEND_MIGRATION,
           ]);
         }
         yield* Cache.invalidate(resolvedConfigCache, resolvedConfigCacheKey);
@@ -472,7 +459,13 @@ const make = Effect.gen(function* () {
         yield* Cache.invalidate(resolvedConfigCache, resolvedConfigCacheKey);
         return;
       }
-      const customConfig = runtimeConfig.keybindings;
+      // Only retire a default installed by the old migrator; hand-written bindings remain user-owned.
+      const customConfig =
+        repairForegroundSend && appliedMigrationIds.has(LEGACY_BACKGROUND_SEND_MIGRATION)
+          ? runtimeConfig.keybindings.filter(
+              (rule) => !isSameKeybindingRule(rule, RETIRED_BACKGROUND_SEND_RULE),
+            )
+          : runtimeConfig.keybindings;
       const existingCommands = new Set(customConfig.map((entry) => entry.command));
       const missingDefaults: KeybindingRule[] = [];
       const shortcutConflictWarnings: Array<{
@@ -498,14 +491,6 @@ const make = Effect.gen(function* () {
           continue;
         }
         missingDefaults.push(defaultRule);
-      }
-      for (const { alongside, rule } of pendingLateDefaults) {
-        if (
-          customConfig.some((entry) => isSameKeybindingRule(entry, alongside)) &&
-          !customConfig.some((entry) => hasSameShortcutContext(entry, rule))
-        ) {
-          missingDefaults.push(rule);
-        }
       }
       for (const conflict of shortcutConflictWarnings) {
         yield* Effect.logWarning("skipping default keybinding due to shortcut conflict", {
@@ -542,16 +527,14 @@ const make = Effect.gen(function* () {
           commands: skippedDefaults.map((rule) => rule.command),
         });
       }
-      if (defaultsToAppend.length > 0) {
+      if (defaultsToAppend.length > 0 || customConfig.length !== runtimeConfig.keybindings.length) {
         yield* writeConfigAtomically([...defaultsToAppend, ...customConfig]);
       }
-      const settledLateDefaults = pendingLateDefaults.filter(
-        (late) => !skippedDefaults.includes(late.rule),
-      );
-      if (settledLateDefaults.length > 0) {
+      if (repairForegroundSend) {
         yield* recordAppliedMigrations([
           ...appliedMigrationIds,
-          ...settledLateDefaults.map((late) => late.id),
+          LEGACY_BACKGROUND_SEND_MIGRATION,
+          FOREGROUND_SEND_MIGRATION,
         ]);
       }
       yield* Cache.invalidate(resolvedConfigCache, resolvedConfigCacheKey);

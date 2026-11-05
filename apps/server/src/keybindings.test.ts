@@ -251,7 +251,7 @@ it.layer(NodeServices.layer)("keybindings", (it) => {
       }).pipe(Effect.provide(layerKeybindings())),
   );
 
-  it.effect("adds a late default to an existing command once", () =>
+  it.effect("does not backfill the retired modifier-Enter background shortcut", () =>
     Effect.gen(function* () {
       const { keybindingsConfigPath } = yield* ServerConfig.ServerConfig;
       const keybindings = yield* Keybindings.Keybindings;
@@ -263,10 +263,7 @@ it.layer(NodeServices.layer)("keybindings", (it) => {
       yield* writeKeybindingsConfig(keybindingsConfigPath, [existing]);
 
       yield* keybindings.syncDefaultKeybindingsOnStartup;
-      assert.deepStrictEqual(yield* backgroundRules, [
-        { key: "mod+enter", command: "composer.sendBackground", when },
-        existing,
-      ]);
+      assert.deepStrictEqual(yield* backgroundRules, [existing]);
 
       yield* writeKeybindingsConfig(keybindingsConfigPath, [existing]);
       yield* keybindings.syncDefaultKeybindingsOnStartup;
@@ -274,7 +271,38 @@ it.layer(NodeServices.layer)("keybindings", (it) => {
     }).pipe(Effect.provide(layerKeybindings())),
   );
 
-  it.effect("leaves a customized command without the late default", () =>
+  it.effect("repairs the installed background default once and preserves later user choices", () =>
+    Effect.gen(function* () {
+      const { keybindingsConfigPath } = yield* ServerConfig.ServerConfig;
+      const fs = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+      const ledger = path.join(path.dirname(keybindingsConfigPath), "keybindings-migrations");
+      const when = "composerFocus && draftThreadRoute";
+      const retired = { key: "mod+enter", command: "composer.sendBackground", when } as const;
+      const explicit = { ...retired, key: "mod+alt+enter" };
+      const custom = { ...retired, key: "alt+b" };
+      yield* writeKeybindingsConfig(keybindingsConfigPath, [retired, explicit, custom]);
+      yield* fs.writeFileString(ledger, "composer.sendBackground:mod+enter\nother-migration\n");
+      const keybindings = yield* Keybindings.Keybindings;
+      const backgroundRules = Effect.map(readKeybindingsConfig(keybindingsConfigPath), (rules) =>
+        rules.filter((entry) => entry.command === "composer.sendBackground"),
+      );
+      yield* keybindings.syncDefaultKeybindingsOnStartup;
+      assert.deepStrictEqual(yield* backgroundRules, [explicit, custom]);
+      const migrations = (yield* fs.readFileString(ledger)).split("\n");
+      assert.include(migrations, "composer.sendBackground:mod+enter");
+      assert.include(migrations, "other-migration");
+      // A user may deliberately rebind modifier-Enter after this one-time repair.
+      yield* writeKeybindingsConfig(keybindingsConfigPath, [retired, custom]);
+      yield* keybindings.syncDefaultKeybindingsOnStartup;
+      assert.deepStrictEqual(yield* backgroundRules, [retired, custom]);
+      yield* writeKeybindingsConfig(keybindingsConfigPath, [custom]);
+      yield* keybindings.syncDefaultKeybindingsOnStartup;
+      assert.deepStrictEqual(yield* backgroundRules, [custom]);
+    }).pipe(Effect.provide(layerKeybindings())),
+  );
+
+  it.effect("preserves hand-written background shortcuts without a legacy migration marker", () =>
     Effect.gen(function* () {
       const { keybindingsConfigPath } = yield* ServerConfig.ServerConfig;
       const keybindings = yield* Keybindings.Keybindings;
@@ -283,18 +311,19 @@ it.layer(NodeServices.layer)("keybindings", (it) => {
         command: "composer.sendBackground",
         when: "composerFocus && draftThreadRoute",
       } as const;
-      yield* writeKeybindingsConfig(keybindingsConfigPath, [custom]);
+      const handwritten = { ...custom, key: "mod+enter" };
+      yield* writeKeybindingsConfig(keybindingsConfigPath, [custom, handwritten]);
 
       yield* keybindings.syncDefaultKeybindingsOnStartup;
       const persisted = yield* readKeybindingsConfig(keybindingsConfigPath);
       assert.deepStrictEqual(
         persisted.filter((entry) => entry.command === "composer.sendBackground"),
-        [custom],
+        [custom, handwritten],
       );
     }).pipe(Effect.provide(layerKeybindings())),
   );
 
-  it.effect("keeps a late default pending while the config is full", () =>
+  it.effect("does not restore the retired background shortcut when slots become available", () =>
     Effect.gen(function* () {
       const { keybindingsConfigPath } = yield* ServerConfig.ServerConfig;
       const keybindings = yield* Keybindings.Keybindings;
@@ -316,7 +345,7 @@ it.layer(NodeServices.layer)("keybindings", (it) => {
 
       yield* writeKeybindingsConfig(keybindingsConfigPath, [existing]);
       yield* keybindings.syncDefaultKeybindingsOnStartup;
-      assert.isTrue(yield* hasModEnter);
+      assert.isFalse(yield* hasModEnter);
     }).pipe(Effect.provide(layerKeybindings())),
   );
 

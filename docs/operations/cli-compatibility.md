@@ -131,7 +131,7 @@ The isolated browser pass verified Pages Wall/folder navigation, task cards and 
 
 Release candidate for 0.0.44. Claude Agent SDK remains 0.3.316, and the supplied native CLI 0.3.11 source remains the compatibility baseline. This patch does not change authentication, TLS, saved credentials, model routing or account reporting.
 
-The 150 focused web/server regressions passed, together with scoped web/server typechecks and targeted lint. They cover normal send shortcuts, native Stats presentation, agent/channel settlement admission and ordinary chat lifecycle behavior. The maintainer selected code and focused tests only: interactive browser verification, live company CLI requests and native Windows use are **Not verified**. The signed installers and stable update feeds remain gated by GitHub Actions; this candidate is not yet a published-release claim.
+The focused web/server regressions passed, together with scoped web/server typechecks and targeted lint. They cover normal send shortcuts and the one-time repair of the previously installed default, native Stats presentation, agent/channel settlement admission and ordinary chat lifecycle behavior. The maintainer selected code and focused tests only: interactive browser verification, live company CLI requests and native Windows use are **Not verified**. The signed installers and stable update feeds remain gated by GitHub Actions; this candidate is not yet a published-release claim.
 
 ## Recording the next release
 

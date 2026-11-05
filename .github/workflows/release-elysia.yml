@@ -286,6 +286,7 @@ jobs:
             apps/server/src/orchestration-v2/RuntimePolicy.test.ts \
             apps/server/src/orchestration-v2/runtimeLayer.test.ts \
             apps/server/src/orchestration-v2/ThreadSettlementService.test.ts \
+            apps/server/src/keybindings.test.ts \
             apps/server/src/orchestration-v2/ThreadMessageIntake.test.ts \
             apps/server/src/orchestration-v2/ThreadLaunchService.test.ts \
             apps/server/src/scheduledTasks/ScheduledTaskService.test.ts \

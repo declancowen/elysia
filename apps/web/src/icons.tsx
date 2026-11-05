@@ -273,7 +273,7 @@ function createIcon(icon: IconSvgElement, name: string) {
       aria-hidden={
         !props["aria-label"] && !props["aria-labelledby"] && !props.role ? true : undefined
       }
-      strokeWidth={1.75}
+      strokeWidth={2}
       {...props}
       icon={icon}
       ref={ref}

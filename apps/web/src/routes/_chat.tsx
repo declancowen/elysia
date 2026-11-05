@@ -8,7 +8,6 @@ import { useEffect, useState } from "react";
 import { isCommandPaletteOpen } from "../commandPaletteBus";
 import { ThreadRouteView } from "../components/ThreadRouteView";
 import { isAppModalPage } from "../components/sidebar/mainAppLocation";
-import { SidebarInset } from "../components/ui/sidebar";
 import { resolveThreadRouteTarget, type ThreadRouteTarget } from "../threadRoutes";
 import { retainThreadFindForRoute } from "../components/chat/threadFindStore";
 import { ThreadLinkPrompt } from "../components/promptLinks/ThreadLinkPrompt";
@@ -211,7 +210,7 @@ function ChatRouteLayout() {
   const modalOpen = useMatches({
     select: (matches) => matches.some((match) => isAppModalPage(match.pathname)),
   });
-  // Settings and Usage render over the thread that opened them, so ChatView never remounts.
+  // Keep the previous chat mounted but hidden while a utility route owns the surface.
   const [backgroundTarget, setBackgroundTarget] = useState(threadTarget);
   if (!modalOpen && threadRouteTargetKey(backgroundTarget) !== threadRouteTargetKey(threadTarget)) {
     setBackgroundTarget(threadTarget);
@@ -225,9 +224,7 @@ function ChatRouteLayout() {
       ) : null}
       {shownTarget ? (
         <ThreadRouteView target={shownTarget} background={modalOpen} />
-      ) : modalOpen ? (
-        <SidebarInset className="h-dvh" />
-      ) : (
+      ) : modalOpen ? null : (
         <Outlet />
       )}
       {modalOpen ? <Outlet /> : null}

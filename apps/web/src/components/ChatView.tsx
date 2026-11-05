@@ -437,6 +437,7 @@ export default function ChatView(props: ChatViewProps) {
     embedded: embeddedTarget = false,
   } = props;
   const embedded = Boolean(embeddedTarget);
+  const backgroundThread = use(BackgroundThreadContext);
   const parentPanel = typeof embeddedTarget === "object" ? embeddedTarget : null;
   const canOperateThread = useEnvironmentScope(environmentId, AuthOrchestrationOperateScope);
   const canOperateTerminal = useEnvironmentScope(environmentId, AuthTerminalOperateScope);
@@ -839,12 +840,19 @@ export default function ChatView(props: ChatViewProps) {
   useLayoutEffect(() => {
     const host =
       topbarHost && !isTopbarMobileViewport ? topbarHost : localChatHeaderHostRef.current;
-    if (embedded || !host || !chatHeaderPresent) return;
+    if (embedded || backgroundThread || !host || !chatHeaderPresent) return;
     host.appendChild(chatHeaderContainer);
     return () => {
       if (chatHeaderContainer.parentNode === host) host.removeChild(chatHeaderContainer);
     };
-  }, [topbarHost, isTopbarMobileViewport, chatHeaderPresent, chatHeaderContainer, embedded]);
+  }, [
+    topbarHost,
+    isTopbarMobileViewport,
+    chatHeaderPresent,
+    chatHeaderContainer,
+    embedded,
+    backgroundThread,
+  ]);
   const serverLatestRun =
     serverProjection === null ? null : deriveLatestThreadRun(serverProjection);
   const serverActivityRun =
@@ -1750,7 +1758,6 @@ export default function ChatView(props: ChatViewProps) {
     resourceKey: `git-status:${activeThreadKey ?? ""}:${gitStatusCwd ?? ""}`,
   });
   const keybindings = useAtomValue(primaryServerKeybindingsAtom);
-  const backgroundThread = use(BackgroundThreadContext);
   const scriptKeybindings =
     useAtomValue(serverEnvironment.configValueAtom(environmentId))?.keybindings ??
     DEFAULT_RESOLVED_KEYBINDINGS;
@@ -2582,6 +2589,7 @@ export default function ChatView(props: ChatViewProps) {
     activeThreadShell,
     activeLatestRun,
     activeProjectCwd,
+    supportsSettlement: activeProject != null && !activeProject.agentProfile,
     serverConfig,
     runtimeMode,
     isWorking,
@@ -3414,6 +3422,7 @@ export default function ChatView(props: ChatViewProps) {
             }
           : {})}
         activeThreadTitle={activeThread.title}
+        threadStatus={threadStatusLine}
         mainLayoutControls={panelToggleControls({
           showTerminalControl: codeWorkspace,
           showRightPanelControl: !rightPanelOpen,
@@ -3658,7 +3667,7 @@ export default function ChatView(props: ChatViewProps) {
                     paintOnlyDisplayedTimeline ||
                     (pendingHandoff === null &&
                       pendingGuestMessageCount === 0 &&
-                      threadStatusLine === null) ? null : (
+                      (!embedded || threadStatusLine === null)) ? null : (
                       <>
                         {pendingHandoff === null ? null : (
                           <div className="chat-content-lane">
@@ -3677,7 +3686,7 @@ export default function ChatView(props: ChatViewProps) {
                             onFileOpen={openFileAttachmentStable}
                           />
                         ) : null}
-                        {threadStatusLine}
+                        {embedded ? threadStatusLine : null}
                       </>
                     )
                   }

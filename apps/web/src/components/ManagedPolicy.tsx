@@ -1,5 +1,5 @@
 import type { ManagedPolicySummary } from "@elysiatools/contracts";
-import { BuildingIcon } from "lucide-react";
+import { BuildingIcon } from "~/icons";
 import type { ReactNode } from "react";
 
 import { Tooltip, TooltipPopup, TooltipTrigger } from "./ui/tooltip";

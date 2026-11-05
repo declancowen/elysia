@@ -44,6 +44,7 @@ import * as Deferred from "effect/Deferred";
 import * as Fiber from "effect/Fiber";
 import * as Layer from "effect/Layer";
 import * as Option from "effect/Option";
+import * as Result from "effect/Result";
 import * as Path from "effect/Path";
 import * as Queue from "effect/Queue";
 import * as Stream from "effect/Stream";
@@ -8797,6 +8798,88 @@ it.layer(layerTest)("scheduled agent model admission", (it) => {
         assert.deepEqual(projection.runs[0]?.modelSelection, expectedModel);
         assert.equal(projection.messages.length, 1);
         assert.equal(projection.messages[0]?.scheduledTaskId, `scheduled-model-task:${target}`);
+      }),
+  );
+});
+
+it.layer(layerTest)("persistent conversation settlement admission", (it) => {
+  it.effect.each(["agent", "channel"] as const)(
+    "rejects manual and automatic settlement of a %s",
+    (kind) =>
+      Effect.gen(function* () {
+        const orchestrator = yield* Orchestrator.OrchestratorV2;
+        const projects = yield* ProjectStore.ProjectStoreV2;
+        const at = yield* DateTime.now;
+        const projectId = ProjectId.make(`settlement:${kind}`);
+        const threadId = ThreadId.make(`settlement:${kind}`);
+        yield* seedProject({
+          projectId,
+          title: kind,
+          workspaceRoot: process.cwd(),
+          defaultModelSelection: modelSelection,
+          createdAt: DateTime.formatIso(at),
+        });
+        yield* projects.apply({
+          sequence: 0,
+          eventId: EventId.make(`settlement-profile:${kind}`),
+          aggregateKind: "project",
+          aggregateId: projectId,
+          occurredAt: DateTime.formatIso(at),
+          commandId: null,
+          causationEventId: null,
+          correlationId: null,
+          metadata: {},
+          type: "project.meta-updated",
+          payload: {
+            projectId,
+            updatedAt: DateTime.formatIso(at),
+            agentProfile: {
+              instructions: "Help with tasks.",
+              avatar: { preset: "brain", color: "blue" },
+              archived: false,
+              notificationsEnabled: true,
+              conversationThreadId: threadId,
+              ...(kind === "channel"
+                ? {
+                    group: {
+                      memberProjectIds: [
+                        ProjectId.make("member-one"),
+                        ProjectId.make("member-two"),
+                      ],
+                      leadProjectId: ProjectId.make("member-one"),
+                    },
+                  }
+                : {}),
+            },
+          },
+        });
+        yield* orchestrator.dispatch({
+          type: "thread.create",
+          commandId: CommandId.make(`settlement-create:${kind}`),
+          threadId,
+          projectId,
+          title: kind,
+          modelSelection,
+          runtimeMode: "full-access",
+          interactionMode: "default",
+          branch: null,
+          worktreePath: null,
+          createdBy: "user",
+          creationSource: "web",
+        });
+        const before = (yield* orchestrator.getThreadProjection(threadId)).thread;
+        for (const type of ["thread.settle", "thread.auto-settle"] as const) {
+          const input = { commandId: CommandId.make(`${type}:${kind}`), threadId };
+          const result = yield* Effect.result(
+            orchestrator.dispatch(
+              type === "thread.auto-settle"
+                ? { ...input, type, snapshotAt: before.updatedAt }
+                : { ...input, type },
+            ),
+          );
+          assert.isTrue(Result.isFailure(result));
+          assert.deepEqual((yield* orchestrator.getThreadProjection(threadId)).thread, before);
+        }
       }),
   );
 });

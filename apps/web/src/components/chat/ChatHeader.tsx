@@ -72,6 +72,7 @@ interface ChatHeaderProps {
   activeThreadId: ThreadId;
   draftId?: DraftId;
   activeThreadTitle: string;
+  threadStatus?: ReactNode;
   /** Drafts have no server thread yet, so the title carries no action menu. */
   isServerThread: boolean;
   activeProject: EnvironmentProject | null;
@@ -120,6 +121,7 @@ export const ChatHeader = memo(function ChatHeader({
   activeThreadId,
   draftId,
   activeThreadTitle,
+  threadStatus,
   isServerThread,
   activeProject,
   openInCwd,
@@ -568,6 +570,7 @@ export const ChatHeader = memo(function ChatHeader({
             )}
           </WorkspaceBreadcrumb>
         )}
+        {threadStatus}
         {!mainColumnHidden && (activeProject?.agentProfile || overview || mainLayoutControls) ? (
           <div
             data-chat-header-actions

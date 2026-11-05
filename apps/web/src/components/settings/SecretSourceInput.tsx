@@ -10,7 +10,7 @@ import { useAtomValue } from "@effect/atom-react";
 import * as Option from "effect/Option";
 import * as Schema from "effect/Schema";
 import { Type as TypeIcon } from "~/icons";
-import { KeyRoundIcon } from "lucide-react";
+import { KeyRoundIcon } from "~/icons";
 import { useState, type ComponentProps, type ComponentType, type ReactNode } from "react";
 
 import { isSecretsFeatureEnabled } from "../../env";

@@ -33,7 +33,7 @@ import {
 
 /**
  * Render in the shared layout to retain ChatView across route swaps; plain server threads remain unkeyed.
- * `background` keeps the thread mounted, inert and in place under Settings or Usage.
+ * `background` keeps the thread mounted but hidden while Settings or Usage owns the surface.
  */
 export function ThreadRouteView({
   target,
@@ -134,7 +134,7 @@ export function ThreadRouteView({
   const environmentHasAnyThreads = environmentThreadRefs.length > 0 || environmentHasDraftThreads;
   // oxlint-disable-next-line elysia/no-unreasoned-state-sync -- Synchronize browser route changes with the retained conversation-tab store.
   useEffect(() => {
-    if (!SINGLE_PROVIDER_UI) return;
+    if (!SINGLE_PROVIDER_UI || background) return;
     const tabs = currentConversationTabsStore().getState();
     if (target.kind === "draft") {
       if (canonicalThreadRef) {
@@ -158,7 +158,15 @@ export function ThreadRouteView({
         );
       tabs.open(target);
     }
-  }, [canonicalThreadRef, draftSession, promotedDraftId, renderState, target, archived]);
+  }, [
+    background,
+    canonicalThreadRef,
+    draftSession,
+    promotedDraftId,
+    renderState,
+    target,
+    archived,
+  ]);
   // oxlint-disable-next-line elysia/no-unreasoned-state-sync -- Acknowledge the server-created thread in the shared draft registry while its promotion awaits the route swap.
   useEffect(() => {
     if (!inferredThreadRef || draftSession?.promotedTo) {
@@ -267,7 +275,8 @@ export function ThreadRouteView({
   return (
     <SidebarInset
       variant="split"
-      className="h-svh min-h-0 overflow-hidden overscroll-y-none md:h-dvh"
+      className="h-svh min-h-0 overflow-hidden overscroll-y-none md:h-dvh [&[hidden]]:hidden"
+      hidden={background}
       inert={background}
     >
       <BackgroundThreadContext value={background}>{view}</BackgroundThreadContext>

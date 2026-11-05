@@ -50,13 +50,15 @@ The boundary lives in [ElysiaAgentProtection](../../apps/server/src/provider/Ely
 
 Upstream extracts chat, timeline, settings and pull-request behavior into smaller owners. Adopt those ownership boundaries while preserving Elysia's established UI, package names and disabled connection policy. Carrying the old component alongside its replacement creates competing listeners, renderers and state ownership; choosing an entire side of a conflict loses either upstream fixes or fork behavior.
 
+Utility routes own the main Elysia surface. A retained background chat must stay hidden and release the global header host and active-tab authority; embedded chats keep their own pane controls. Upstream modal retention must not create a second visible chat column or tab strip. Normal modifier-send stays in the current conversation; opening another composer requires an explicit background-send action.
+
 Review the combined behavior, including rightclick and ellipsis entry points, rather than treating a resolved merge marker as proof. Revisit a particular adaptation when upstream changes its boundary again. A useful upstream UI improvement needs an explicit fit assessment against Elysia's design before changing the visible surface.
 
 ## UPSTREAM-002: Preserve event and process ownership
 
 **Accepted, 2026-10-26.** Related native decisions: CLI-001, CLI-002 and CLI-004.
 
-Keep orchestration decisions pure and run provider side effects after committed events, through the existing worker and adapter. Adopt upstream lifecycle repairs for [resumed MCP registration](https://github.com/pingdotgg/t3code/commit/572cf74275), [terminal turn settlement](https://github.com/pingdotgg/t3code/commit/725ada6eaa) and [abandoned-turn continuation](https://github.com/pingdotgg/t3code/commit/6f6f68ad2d), while retaining Elysia's dedicated agent/channel conversations. A new UI action must not create a second provider execution path.
+Keep orchestration decisions pure and run provider side effects after committed events, through the existing worker and adapter. Adopt upstream lifecycle repairs for [resumed MCP registration](https://github.com/pingdotgg/t3code/commit/572cf74275), [terminal turn settlement](https://github.com/pingdotgg/t3code/commit/725ada6eaa) and [abandoned-turn continuation](https://github.com/pingdotgg/t3code/commit/6f6f68ad2d), while retaining Elysia's dedicated agent/channel conversations. Agent and channel conversations are persistent: provider turns still complete normally, but their conversations cannot enter inbox settlement through either manual commands or automatic sweeps. A new UI action must not create a second provider execution path.
 
 The server's exclusive data-directory ownership lock remains authoritative. Upstream's pre-0.1 version heuristic cannot distinguish Elysia's 0.0.x releases from an old runtime without that lock. Detect the actual ownership capability instead of bypassing the lock, deleting its database or stopping an unrelated process. Revisit capability detection when the upstream ownership protocol changes; verify both supported upgrades and genuine competing owners.
 

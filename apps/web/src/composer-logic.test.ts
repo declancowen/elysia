@@ -104,6 +104,30 @@ describe("composerSubmissionIntentForKey", () => {
   };
   const enter = { key: "Enter", metaKey: false, ctrlKey: false, altKey: false, shiftKey: false };
 
+  it.each(["MacIntel", "Win32", "Linux"])(
+    "keeps normal modifier send in the new chat on %s",
+    (platform) => {
+      const event = {
+        key: "Enter",
+        metaKey: platform === "MacIntel",
+        ctrlKey: platform !== "MacIntel",
+        altKey: false,
+        shiftKey: false,
+      };
+      const input = {
+        keybindings: DEFAULT_RESOLVED_KEYBINDINGS,
+        platform,
+        isSoftwareKeyboardOpen: false,
+        isDraftThread: true,
+        sendShortcut: "mod-enter" as const,
+      };
+      expect(composerSubmissionIntentForKey({ ...input, event })).toBe("foreground");
+      expect(composerSubmissionIntentForKey({ ...input, event: { ...event, altKey: true } })).toBe(
+        "background",
+      );
+    },
+  );
+
   it.each([
     ["enter", "one line", false, "foreground"],
     ["enter", "two\nlines", false, "foreground"],
@@ -221,7 +245,7 @@ describe("composerSubmissionIntentForKey", () => {
       ).toBe("alternate");
       expect(
         composerSubmissionIntentForKey({ ...keyboardOpen, isDraftThread: true, event: modEnter }),
-      ).toBe("background");
+      ).toBe("foreground");
     },
   );
 

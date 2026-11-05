@@ -100,6 +100,7 @@ interface ThreadLifecycleInput {
   readonly activeThreadShell: EnvironmentThreadShell | null;
   readonly activeLatestRun: EnvironmentThreadShell["latestRun"];
   readonly activeProjectCwd: string | null;
+  readonly supportsSettlement: boolean;
   readonly serverConfig: EnvironmentServerConfig | null;
   readonly runtimeMode: RuntimeMode;
   readonly isWorking: boolean;
@@ -151,6 +152,7 @@ export function useThreadLifecycle(input: ThreadLifecycleInput) {
     activeThreadShell,
     activeLatestRun,
     activeProjectCwd,
+    supportsSettlement,
     serverConfig,
     runtimeMode,
     isWorking,
@@ -222,7 +224,7 @@ export function useThreadLifecycle(input: ThreadLifecycleInput) {
     latestRunCompletedAt: activeLatestRun?.completedAt ?? null,
   });
   const activeThreadSettled =
-    serverConfigLoaded && activeThreadShell?.settledOverride === "settled";
+    supportsSettlement && serverConfigLoaded && activeThreadShell?.settledOverride === "settled";
   const unsettleThreadMutation = useOrchestrationCommand(threadEnvironment.unsettle, {
     reportFailure: false,
   });
@@ -649,6 +651,7 @@ export function useThreadLifecycle(input: ThreadLifecycleInput) {
     };
   const shortcuts = {
     "thread.settle": () => {
+      if (!supportsSettlement) return false;
       if (!readEnvironmentScope(environmentId, AuthOrchestrationOperateScope)) return false;
       if (!activeThreadShell || !activeThreadRef || !serverConfigLoaded) return;
       if (activeThreadSettled) {

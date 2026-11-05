@@ -3221,6 +3221,16 @@ const makeOrchestrator = Effect.fn("orchestrationV2.Orchestrator.layer")(functio
         cause: `Thread ${command.threadId} is deleted.`,
       });
     }
+    if (command.type === "thread.settle") {
+      const project = yield* projects.get(thread.projectId).pipe(mapDispatchError(command));
+      if (Option.isSome(project) && project.value.agentProfile) {
+        return yield* new OrchestratorDispatchError({
+          commandId: command.commandId,
+          commandType: command.type,
+          cause: "Agent and channel conversations cannot be settled.",
+        });
+      }
+    }
     if (
       command.type === "thread.pull-request.watch" &&
       command.watching &&

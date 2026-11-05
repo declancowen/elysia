@@ -1,3 +1,6 @@
+import ShieldOffIconAsset from "@hugeicons/core-free-icons/ShieldOffIcon";
+import BuildingIconAsset from "@hugeicons/core-free-icons/Building03Icon";
+import KeyRoundIconAsset from "@hugeicons/core-free-icons/Key01Icon";
 import StopCircleIconAsset from "@hugeicons/core-free-icons/StopCircleIcon";
 import PauseIconAsset from "@hugeicons/core-free-icons/PauseIcon";
 import DashboardSquare02IconAsset from "@hugeicons/core-free-icons/DashboardSquare02Icon";
@@ -180,7 +183,6 @@ import PanelBottomIconAsset from "@hugeicons/core-free-icons/PanelBottomIcon";
 import PanelLeftCloseIconAsset from "@hugeicons/core-free-icons/PanelLeftCloseIcon";
 import PanelLeftIconAsset from "@hugeicons/core-free-icons/PanelLeftIcon";
 import PanelRightIconAsset from "@hugeicons/core-free-icons/PanelRightIcon";
-import PanelsTopLeftIconAsset from "@hugeicons/core-free-icons/PanelsTopLeftIcon";
 import PaperclipIconAsset from "@hugeicons/core-free-icons/PaperclipIcon";
 import PenLineIconAsset from "@hugeicons/core-free-icons/PenLineIcon";
 import PencilIconAsset from "@hugeicons/core-free-icons/PencilIcon";
@@ -261,7 +263,7 @@ import XIconAsset from "@hugeicons/core-free-icons/XIcon";
 import ZapIconAsset from "@hugeicons/core-free-icons/ZapIcon";
 import { forwardRef } from "react";
 
-// Keep the upstream component API while the trial changes only the icon artwork.
+// Keep the upstream component API while Elysia owns the icon artwork.
 export type LucideProps = Omit<HugeiconsIconProps, "icon">;
 export type LucideIcon = ReturnType<typeof createIcon>;
 
@@ -271,8 +273,8 @@ function createIcon(icon: IconSvgElement, name: string) {
       aria-hidden={
         !props["aria-label"] && !props["aria-labelledby"] && !props.role ? true : undefined
       }
+      strokeWidth={1.75}
       {...props}
-      strokeWidth={2}
       icon={icon}
       ref={ref}
       data-icon={name}
@@ -534,10 +536,6 @@ export const PanelLeftCloseIcon = /* @__PURE__ */ createIcon(
 );
 export const PanelLeftIcon = /* @__PURE__ */ createIcon(PanelLeftIconAsset, "panel-left");
 export const PanelRightIcon = /* @__PURE__ */ createIcon(PanelRightIconAsset, "panel-right");
-export const PanelsTopLeftIcon = /* @__PURE__ */ createIcon(
-  PanelsTopLeftIconAsset,
-  "panels-top-left",
-);
 export const PaperclipIcon = /* @__PURE__ */ createIcon(PaperclipIconAsset, "paperclip");
 export const PenLineIcon = /* @__PURE__ */ createIcon(PenLineIconAsset, "pen-line");
 export const PencilIcon = /* @__PURE__ */ createIcon(PencilIconAsset, "pencil");
@@ -724,3 +722,8 @@ export {
 
 export const CircleStopIcon = createIcon(StopCircleIconAsset, "circle-stop");
 export const FlaskConicalOffIcon = FlaskConicalIcon;
+
+export const BuildingIcon = /* @__PURE__ */ createIcon(BuildingIconAsset, "building");
+export const KeyRoundIcon = /* @__PURE__ */ createIcon(KeyRoundIconAsset, "key-round");
+
+export const ShieldOffIcon = /* @__PURE__ */ createIcon(ShieldOffIconAsset, "shield-off");

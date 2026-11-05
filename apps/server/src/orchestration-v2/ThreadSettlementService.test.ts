@@ -761,6 +761,53 @@ const startHarness = Effect.fn("startThreadSettlementHarness")(function* (
 });
 
 describe("ThreadSettlementServiceV2 worker", () => {
+  it.effect("keeps agent and channel conversations out of automatic settlement", () =>
+    Effect.scoped(
+      Effect.gen(function* () {
+        yield* TestClock.setTime(Date.parse(NOW));
+        const agentId = ProjectId.make("persistent-agent");
+        const channelId = ProjectId.make("persistent-channel");
+        const profile = {
+          instructions: "Help with tasks.",
+          avatar: { preset: "brain" as const, color: "blue" as const },
+          archived: false,
+          notificationsEnabled: true,
+        };
+        const fixture = yield* makeHarness({
+          snapshot: makeSnapshot(
+            [
+              makeThread("ordinary"),
+              makeThread("agent", { projectId: agentId }),
+              makeThread("channel", { projectId: channelId }),
+            ],
+            [
+              makeProject(),
+              { ...makeProject(agentId), agentProfile: profile },
+              {
+                ...makeProject(channelId),
+                agentProfile: {
+                  ...profile,
+                  group: {
+                    memberProjectIds: [agentId, ProjectId.make("other-agent")],
+                    leadProjectId: agentId,
+                  },
+                },
+              },
+            ],
+          ),
+          settings: { ...DEFAULT_SERVER_SETTINGS, sidebarAutoSettleAfterDays: 3 },
+        });
+        yield* Effect.gen(function* () {
+          const service = yield* ThreadSettlementService.ThreadSettlementServiceV2;
+          yield* startHarness(service, fixture.activation, fixture.snapshotReads);
+          assert.deepEqual(
+            (yield* Ref.get(fixture.commands)).map((command) => command.threadId),
+            [ThreadId.make("ordinary")],
+          );
+        }).pipe(Effect.provide(fixture.layer));
+      }),
+    ),
+  );
   it.effect("skips settings and PR decisions for recent branchless threads", () =>
     Effect.scoped(
       Effect.gen(function* () {

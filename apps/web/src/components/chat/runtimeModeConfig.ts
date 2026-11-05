@@ -1,10 +1,9 @@
-import { type LucideIcon, LockIcon, PenLineIcon, SparklesIcon } from "~/icons";
+import { type LucideIcon, LockIcon, PenLineIcon, SparklesIcon, ShieldOffIcon } from "~/icons";
 import {
   managedRuntimeModeDenial,
   type ManagedPolicySummary,
   type RuntimeMode,
 } from "@elysiatools/contracts";
-import { ShieldOffIcon } from "lucide-react";
 
 export const runtimeModeConfig: Record<
   RuntimeMode,

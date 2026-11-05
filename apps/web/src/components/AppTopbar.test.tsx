@@ -21,7 +21,7 @@ vi.mock("./sidebar/SidebarChrome", () => ({
 vi.mock("./chat/ConversationTabs", () => ({
   ConversationTabs: () => <nav aria-label="Shared tabs" />,
 }));
-vi.mock("~/env", () => ({ isElectron: false }));
+vi.mock("~/env", () => ({ isElectron: false, isSecretsFeatureEnabled: false }));
 
 function SidebarState() {
   const { state } = useSidebar();

@@ -127,6 +127,12 @@ The release workflow passed formatting, lint, typechecking and the packaging, na
 
 The isolated browser pass verified Pages Wall/folder navigation, task cards and project menu icons/dividers before the browser stopped its tab for memory growth. The maintainer chose to finish with that limitation; the stopped tab was not reopened, and source review did not establish its memory-growth cause. Live company authentication and model/tool/compaction requests, native Finder actions, end-to-end use on a Windows host and the remaining interactive browser cases are **Not verified**.
 
+## App v0.0.44 UI regression repair
+
+Release candidate for 0.0.44. Claude Agent SDK remains 0.3.316, and the supplied native CLI 0.3.11 source remains the compatibility baseline. This patch does not change authentication, TLS, saved credentials, model routing or account reporting.
+
+The 150 focused web/server regressions passed, together with scoped web/server typechecks and targeted lint. They cover normal send shortcuts, native Stats presentation, agent/channel settlement admission and ordinary chat lifecycle behavior. The maintainer selected code and focused tests only: interactive browser verification, live company CLI requests and native Windows use are **Not verified**. The signed installers and stable update feeds remain gated by GitHub Actions; this candidate is not yet a published-release claim.
+
 ## Recording the next release
 
 Before publishing, append the app release and source commit, resolved SDK version, actual managed CLI version tested, native package checksum if available, platforms tested, and the result. Record initialization, update and existing-sign-in adoption separately when the CLI changes setup behavior. Use “Not verified” for missing evidence; keep fixture coverage separate from native tests. Never record credentials, environment dumps or authenticated download URLs.

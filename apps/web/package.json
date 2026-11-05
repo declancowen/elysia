@@ -74,7 +74,6 @@
     "jsonc-parser": "3.3.1",
     "jszip": "3.10.1",
     "katex": "^0.16.47",
-    "lucide-react": "^0.564.0",
     "mdast-util-from-markdown": "^2.0.3",
     "micromark-util-combine-extensions": "^2.0.1",
     "pdfjs-dist": "6.4.299",

@@ -139,3 +139,40 @@ test("rejects a conflicting tag and accepts an untagged main commit", async () =
     /must be dispatched from main/,
   );
 });
+
+test("allows unpublished branch installers while preserving the main-only publication gate", async () => {
+  const context = {
+    eventName: "workflow_dispatch",
+    ref: "refs/heads/codex/icon-trial",
+    sha: "candidate",
+    repo: { owner: "declancowen", repo: "elysia" },
+    payload: { repository: { default_branch: "main" } },
+  };
+  const github = {
+    paginate: async () => [{ tag_name: "v0.0.8" }],
+    rest: {
+      repos: {
+        listReleases() {},
+        getCommit: async () => {
+          throw Object.assign(new Error("Not found"), { status: 404 });
+        },
+      },
+    },
+  };
+  assert.deepEqual(await resolveElysiaRelease({ github, context, raw: "0.0.9", publish: false }), {
+    version: "0.0.9",
+    tag: "v0.0.9",
+  });
+  await assert.rejects(
+    resolveElysiaRelease({ github, context, raw: "0.0.9", publish: true }),
+    /must be dispatched from main/,
+  );
+  await assert.rejects(
+    resolveElysiaRelease({
+      github,
+      context: { ...context, eventName: "push" },
+      raw: "0.0.9",
+      publish: false,
+    }),
+  );
+});

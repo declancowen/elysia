@@ -55,13 +55,16 @@ jobs:
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
         env:
           DISPATCH_VERSION: ${{ inputs.version }}
+          PUBLISH_RELEASE: ${{ github.event_name == 'push' || inputs.publish }}
         with:
           script: |
             const { resolveElysiaRelease } = require('./.github/scripts/check-elysia-release.cjs');
             const raw = context.eventName === 'workflow_dispatch'
               ? process.env.DISPATCH_VERSION
               : context.ref.replace('refs/tags/', '');
-            const { version, tag } = await resolveElysiaRelease({ github, context, raw });
+            const { version, tag } = await resolveElysiaRelease({
+              github, context, raw, publish: process.env.PUBLISH_RELEASE === 'true',
+            });
             core.setOutput('version', version);
             core.setOutput('tag', tag);
 

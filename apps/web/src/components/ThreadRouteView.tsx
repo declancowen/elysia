@@ -7,21 +7,10 @@ import ChatView from "./ChatView";
 import { useConversationTabNavigation } from "../hooks/useConversationTabNavigation";
 import { currentConversationTabsStore } from "../conversationTabsStore";
 import { BackgroundThreadContext } from "./chat/backgroundThread";
-import { resolveDraftPromotionNavigationTarget, threadHasStarted } from "./ChatView.logic";
-import { waitForDraftHeroTransition } from "./chat/draftHeroTransition";
 import { SidebarInset } from "./ui/sidebar";
-import {
-  finalizePromotedDraftThreadByRef,
-  markPromotedDraftThreadByRef,
-  useComposerDraftStore,
-} from "../composerDraftStore";
+import { useComposerDraftStore } from "../composerDraftStore";
 import { useSidebarPendingFileDropStore } from "../sidebarPendingFileDropStore";
-import {
-  useEnvironmentThreadRefs,
-  useThreadRefs,
-  useQuietThreadShell,
-  useProject,
-} from "../state/entities";
+import { useEnvironmentThreadRefs, useQuietThreadShell, useProject } from "../state/entities";
 import { useEnvironmentShellStatus } from "../state/shell";
 import { useEnvironmentThread } from "../state/threads";
 import {
@@ -48,39 +37,20 @@ export function ThreadRouteView({
   const draftSession = useComposerDraftStore((store) =>
     draftId === null ? null : store.getDraftSession(draftId),
   );
-  const threadRefs = useThreadRefs();
-  // Promotion can begin before the server creates the reserved thread.
-  const inferredThreadRef = draftSession
-    ? (threadRefs.find(
-        (ref) =>
-          ref.environmentId === draftSession.environmentId &&
-          ref.threadId === draftSession.threadId,
-      ) ?? null)
-    : null;
+  const draftRedirect = useComposerDraftStore((store) =>
+    draftId !== null && draftSession === null ? store.getPromotedDraftRedirect(draftId) : null,
+  );
   const serverThreadRef: ScopedThreadRef | null =
-    target.kind === "server" ? target.threadRef : (draftSession?.promotedTo ?? inferredThreadRef);
-  const serverThread = useQuietThreadShell(serverThreadRef);
+    target.kind === "server" ? target.threadRef : draftRedirect;
+  const serverThreadShell = useQuietThreadShell(serverThreadRef);
   const project = useProject(
-    serverThreadRef && serverThread
-      ? scopeProjectRef(serverThreadRef.environmentId, serverThread.projectId)
+    serverThreadRef && serverThreadShell
+      ? scopeProjectRef(serverThreadRef.environmentId, serverThreadShell.projectId)
       : null,
   );
-  const archived = serverThread?.archivedAt != null || project?.agentProfile?.archived === true;
-  const backgroundSubmissionPending = useComposerDraftStore(
-    (store) =>
-      serverThreadRef !== null &&
-      store.backgroundSubmissionThreadKeys[scopedThreadKey(serverThreadRef)] === true,
-  );
-  const canonicalThreadRef =
-    target.kind === "draft"
-      ? resolveDraftPromotionNavigationTarget({
-          serverThreadRef,
-          serverThread,
-          backgroundSubmissionPending,
-        })
-      : null;
+  const archived =
+    serverThreadShell?.archivedAt != null || project?.agentProfile?.archived === true;
   const shellStatus = useEnvironmentShellStatus(serverThreadRef?.environmentId ?? null);
-  const serverThreadShell = serverThread;
   const environmentThreadRefs = useEnvironmentThreadRefs(serverThreadRef?.environmentId ?? null);
   const bootstrapComplete = isThreadRouteSnapshotAuthoritative(shellStatus);
   const draftThread = useComposerDraftStore((store) =>
@@ -89,21 +59,22 @@ export function ThreadRouteView({
   const promotedDraftId = useComposerDraftStore((store) =>
     target.kind === "server" ? store.getDraftIdByRef(target.threadRef) : null,
   );
-  // Latch the key through promotion because the draft record disappears after the route swap.
+  // Keep the composer mounted while the finalized draft redirects to its thread.
   const [chatViewKey, setChatViewKey] = useState<{
     threadKey: string;
     key: string;
   } | null>(null);
-  const serverThreadKey = target.kind === "server" ? scopedThreadKey(target.threadRef) : null;
+  const serverThreadKey = serverThreadRef ? scopedThreadKey(serverThreadRef) : null;
+  const handoffDraftId = draftRedirect ? draftId : promotedDraftId;
   const nextChatViewKey =
     serverThreadKey === null
       ? null
       : chatViewKey?.threadKey === serverThreadKey
         ? chatViewKey
-        : promotedDraftId
+        : handoffDraftId
           ? {
               threadKey: serverThreadKey,
-              key: promotedDraftId,
+              key: handoffDraftId,
             }
           : null;
   if (nextChatViewKey !== chatViewKey) {
@@ -130,17 +101,16 @@ export function ThreadRouteView({
     unlistedThreadDetail,
     draftThreadExists: draftThread !== null,
   });
-  const serverThreadStarted = threadHasStarted(serverThreadShell);
   const environmentHasAnyThreads = environmentThreadRefs.length > 0 || environmentHasDraftThreads;
   // oxlint-disable-next-line elysia/no-unreasoned-state-sync -- Synchronize browser route changes with the retained conversation-tab store.
   useEffect(() => {
     if (!SINGLE_PROVIDER_UI || background) return;
     const tabs = currentConversationTabsStore().getState();
     if (target.kind === "draft") {
-      if (canonicalThreadRef) {
+      if (draftRedirect) {
         const promoted = {
           kind: "server" as const,
-          threadRef: canonicalThreadRef,
+          threadRef: draftRedirect,
         };
         tabs.retarget(target, promoted);
         tabs.open(promoted);
@@ -158,45 +128,16 @@ export function ThreadRouteView({
         );
       tabs.open(target);
     }
-  }, [
-    background,
-    canonicalThreadRef,
-    draftSession,
-    promotedDraftId,
-    renderState,
-    target,
-    archived,
-  ]);
-  // oxlint-disable-next-line elysia/no-unreasoned-state-sync -- Acknowledge the server-created thread in the shared draft registry while its promotion awaits the route swap.
+  }, [background, draftRedirect, draftSession, promotedDraftId, renderState, target, archived]);
+  // oxlint-disable-next-line elysia/no-unreasoned-state-sync -- Follow the draft store's redirect or forget a deleted draft.
   useEffect(() => {
-    if (!inferredThreadRef || draftSession?.promotedTo) {
-      return;
-    }
-    markPromotedDraftThreadByRef(inferredThreadRef);
-  }, [draftSession?.promotedTo, inferredThreadRef]);
-  // oxlint-disable-next-line elysia/no-unreasoned-state-sync -- Navigate the browser after the external draft-hero animation settles, cancelling stale route work on cleanup.
-  useEffect(() => {
-    if (!canonicalThreadRef || background) {
-      return;
-    }
-    let cancelled = false;
-    void waitForDraftHeroTransition().then(() => {
-      if (cancelled) {
-        return;
-      }
+    if (background || target.kind !== "draft" || draftSession) return;
+    if (draftRedirect) {
       void navigate({
         to: "/$environmentId/$threadId",
-        params: buildThreadRouteParams(canonicalThreadRef),
+        params: buildThreadRouteParams(draftRedirect),
         replace: true,
       });
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [background, canonicalThreadRef, navigate]);
-  // oxlint-disable-next-line elysia/no-unreasoned-state-sync -- Remove a deleted draft from the shared conversation-tab store and navigate the browser to the next surviving tab.
-  useEffect(() => {
-    if (background || target.kind !== "draft" || draftSession || canonicalThreadRef) {
       return;
     }
     const next = SINGLE_PROVIDER_UI
@@ -210,7 +151,7 @@ export function ThreadRouteView({
         replace: true,
       });
     }
-  }, [background, canonicalThreadRef, draftSession, navigate, navigateTab, target]);
+  }, [background, draftRedirect, draftSession, navigate, navigateTab, target]);
   // oxlint-disable-next-line elysia/no-unreasoned-state-sync -- Reconcile authoritative server deletion with pending drop and conversation-tab registries, then update the browser route.
   useEffect(() => {
     if (target.kind !== "server" || !bootstrapComplete) {
@@ -241,33 +182,28 @@ export function ThreadRouteView({
     renderState,
     target,
   ]);
-  // oxlint-disable-next-line elysia/no-unreasoned-state-sync -- Release the shared draft registry entry after the server confirms that the promoted thread has started.
-  useEffect(() => {
-    if (target.kind !== "server" || !serverThreadStarted || !draftThread) {
-      return;
-    }
-    finalizePromotedDraftThreadByRef(target.threadRef);
-  }, [draftThread, serverThreadStarted, target]);
   let view: React.ReactNode = null;
-  if (target.kind === "draft") {
-    if (draftSession) {
-      view = (
-        <ChatView
-          key={target.draftId}
-          draftId={target.draftId}
-          environmentId={draftSession.environmentId}
-          threadId={draftSession.threadId}
-          routeKind="draft"
-          forceExpandedMobileComposer
-        />
-      );
-    }
-  } else if (renderState === "ready" || (renderState === "loading" && serverThreadShell !== null)) {
+  if (draftId !== null && draftSession) {
+    view = (
+      <ChatView
+        key={draftId}
+        draftId={draftId}
+        environmentId={draftSession.environmentId}
+        threadId={draftSession.threadId}
+        routeKind="draft"
+        forceExpandedMobileComposer
+      />
+    );
+  } else if (
+    serverThreadRef &&
+    (renderState === "ready" ||
+      (renderState === "loading" && (serverThreadShell !== null || nextChatViewKey !== null)))
+  ) {
     view = (
       <ChatView
         key={nextChatViewKey?.key}
-        environmentId={target.threadRef.environmentId}
-        threadId={target.threadRef.threadId}
+        environmentId={serverThreadRef.environmentId}
+        threadId={serverThreadRef.threadId}
         routeKind="server"
       />
     );

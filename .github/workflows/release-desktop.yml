@@ -679,8 +679,8 @@ jobs:
           grep -qx 'updaterCacheDirName: elysia-updater' "$app_path/Contents/Resources/app-update.yml"
           [[ "$(/usr/libexec/PlistBuddy -c 'Print :NSHumanReadableCopyright' "$app_path/Contents/Info.plist")" == "Copyright © $(date +%Y) Elysia" ]]
           if [[ "${{ inputs.arch }}" == "arm64" ]]; then
-            lipo -verify_arch arm64 "$app_path/Contents/MacOS/Elysia"
-            lipo -verify_arch arm64 "$app_path/Contents/Resources/resource-monitor/elysia-resource-monitor"
+            lipo "$app_path/Contents/MacOS/Elysia" -verify_arch arm64
+            lipo "$app_path/Contents/Resources/resource-monitor/elysia-resource-monitor" -verify_arch arm64
           fi
           codesign --verify --deep --strict "$app_path"
           xcrun stapler validate "$app_path"

@@ -1821,6 +1821,7 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: SidebarThreadRowP
     lastVisitedAt,
   });
   const status = resolveSidebarThreadStatus(thread);
+  const isWorking = status === "preparing" || status === "working";
   const lastVisitedDate = lastVisitedAt === undefined ? null : parseTimestampDate(lastVisitedAt);
   const wokeAtDate = props.wokeAt === null ? null : parseTimestampDate(props.wokeAt);
   const isWoke =
@@ -1834,56 +1835,60 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: SidebarThreadRowP
     isActive: props.isActive,
     isSelected,
   });
-  const topStatus =
-    status === "working"
+  const topStatus = isWorking
+    ? {
+        label:
+          status === "preparing"
+            ? "Setting up"
+            : thread.goal?.status === "active"
+              ? "Goal"
+              : "Working",
+        icon: "working" as const,
+        className: "text-info",
+      }
+    : status === "waiting"
       ? {
-          label: thread.goal?.status === "active" ? "Goal" : "Working",
-          icon: "working" as const,
-          className: "text-info",
+          label: "Waiting",
+          icon: "waiting" as const,
+          className: "text-muted-foreground",
         }
-      : status === "waiting"
+      : status === "approval"
         ? {
-            label: "Waiting",
-            icon: "waiting" as const,
-            className: "text-muted-foreground",
+            label: "Approval",
+            icon: "approval" as const,
+            className: "text-warning-foreground",
           }
-        : status === "approval"
+        : status === "input"
           ? {
-              label: "Approval",
-              icon: "approval" as const,
-              className: "text-warning-foreground",
+              label: "Input",
+              icon: "input" as const,
+              className: "text-indigo-600 dark:text-indigo-300",
             }
-          : status === "input"
+          : status === "limited"
             ? {
-                label: "Input",
-                icon: "input" as const,
-                className: "text-indigo-600 dark:text-indigo-300",
+                label: "Limited",
+                icon: "failed" as const,
+                className: "text-warning",
               }
-            : status === "limited"
+            : status === "failed"
               ? {
-                  label: "Limited",
+                  label: "Failed",
                   icon: "failed" as const,
-                  className: "text-warning",
+                  className: "text-error",
                 }
-              : status === "failed"
+              : isWoke
                 ? {
-                    label: "Failed",
-                    icon: "failed" as const,
-                    className: "text-error",
+                    label: "Woke",
+                    icon: "woke" as const,
+                    className: "text-warning",
                   }
-                : isWoke
+                : isUnread
                   ? {
-                      label: "Woke",
-                      icon: "woke" as const,
-                      className: "text-warning",
+                      label: "Done",
+                      icon: "done" as const,
+                      className: "text-success",
                     }
-                  : isUnread
-                    ? {
-                        label: "Done",
-                        icon: "done" as const,
-                        className: "text-success",
-                      }
-                    : null;
+                  : null;
   const isWokeStatus = topStatus?.icon === "woke";
   const branchMismatch = resolveLocalCheckoutBranchMismatch({
     effectiveEnvMode: thread.worktreePath === null ? "local" : "worktree",
@@ -2092,7 +2097,7 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: SidebarThreadRowP
     // Background work fades as a whole row, status label included, so it
     // takes less attention than rows that need a human (input, approval).
     shouldRecede &&
-      status === "working" &&
+      isWorking &&
       "opacity-70 transition-opacity hover:opacity-100 focus-within:opacity-100 motion-reduce:transition-none",
     isFileDragOver && "ring-1 ring-inset ring-primary/70",
     isFileDragOver && !props.isActive && !isSelected && "bg-sidebar-row-hover",
@@ -2535,7 +2540,7 @@ const SidebarThreadRow = memo(function SidebarThreadRow(props: SidebarThreadRowP
                             wrapper around the ticking duration would make
                             screen readers announce every second. */}
                           <span role="status">{topStatus.label}</span>
-                          {status === "working" ? (
+                          {isWorking ? (
                             <span aria-hidden>
                               <WorkingDuration startedAt={resolveWorkingStartedAt(thread)} />
                             </span>

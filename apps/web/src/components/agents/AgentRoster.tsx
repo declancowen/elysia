@@ -147,7 +147,7 @@ function AgentRow(agent: AgentRosterEntry) {
             <AgentAvatar
               avatar={profile.avatar}
               className="size-4"
-              working={status === "working"}
+              working={status === "preparing" || status === "working"}
             />
           )}
           <span className="min-w-0 flex-1">

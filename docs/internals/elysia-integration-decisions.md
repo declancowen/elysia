@@ -52,6 +52,8 @@ Upstream extracts chat, timeline, settings and pull-request behavior into smalle
 
 Utility routes own the main Elysia surface. A retained background chat must stay hidden and release the global header host and active-tab authority; embedded chats keep their own pane controls. Upstream modal retention must not create a second visible chat column or tab strip. Normal modifier-send stays in the current conversation; opening another composer requires an explicit background-send action.
 
+The draft store finalizes the first send and records the destination thread when it removes the draft. The route follows that redirect and retargets the existing tab. Only a draft with neither a session nor a recorded destination falls back to another tab or home. Test the handoff with the draft already removed, including when another surface is active.
+
 Review the combined behavior, including rightclick and ellipsis entry points, rather than treating a resolved merge marker as proof. Revisit a particular adaptation when upstream changes its boundary again. A useful upstream UI improvement needs an explicit fit assessment against Elysia's design before changing the visible surface.
 
 ## UPSTREAM-002: Preserve event and process ownership

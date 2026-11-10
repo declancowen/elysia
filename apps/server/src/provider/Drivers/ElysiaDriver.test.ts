@@ -154,8 +154,8 @@ it.layer(testLayer)("Elysia startup", (it) => {
             modelPricing: Effect.succeed({}),
             compression: Effect.succeedNone,
             connectionError: Effect.succeed(null),
-            requireReady: Effect.sync(() => undefined),
-            refreshEnvironment: Effect.sync(() => undefined),
+            requireReady: Effect.undefined,
+            refreshEnvironment: Effect.undefined,
             run: Effect.fn("test.nativeRun")(function* (
               operation: string,
               _values?: Readonly<Record<string, string>>,
@@ -189,11 +189,11 @@ it.layer(testLayer)("Elysia startup", (it) => {
                 updateLockKey: null,
               }),
             ),
-            bootstrap: () => Effect.sync(() => undefined),
+            bootstrap: () => Effect.undefined,
             reuseCredentials: () => Effect.succeed(false),
             accountUsage: Effect.succeed({ status: "unavailable", reason: "cli-unavailable" }),
-            restoreCompression: Effect.sync(() => undefined),
-            logout: Effect.sync(() => undefined),
+            restoreCompression: Effect.undefined,
+            logout: Effect.undefined,
           }),
         );
         const probe = vi
@@ -307,9 +307,9 @@ it.layer(testLayer)("Elysia startup", (it) => {
             modelPricing: Effect.succeed({}),
             compression: Effect.succeedSome({ enabled: true, port: 9123 }),
             connectionError: Effect.succeed(ready ? null : "Credentials need setup."),
-            requireReady: Effect.sync(() => undefined),
-            refreshEnvironment: Effect.sync(() => undefined),
-            run: () => Effect.sync(() => undefined),
+            requireReady: Effect.undefined,
+            refreshEnvironment: Effect.undefined,
+            run: () => Effect.undefined,
             version: Effect.succeed("0.3.8"),
             configurationVersion: Effect.succeed("0.3.8"),
             maintenance: Effect.succeed(
@@ -321,13 +321,13 @@ it.layer(testLayer)("Elysia startup", (it) => {
                 updateLockKey: null,
               }),
             ),
-            bootstrap: () => Effect.sync(() => undefined),
+            bootstrap: () => Effect.undefined,
             reuseCredentials: () => Effect.succeed(ready),
             accountUsage: Effect.succeed({ status: "unavailable", reason: "cli-unavailable" }),
             restoreCompression: Deferred.succeed(restoreStarted, undefined).pipe(
               Effect.andThen(Effect.never),
             ),
-            logout: Effect.sync(() => undefined),
+            logout: Effect.undefined,
           }),
         );
         yield* Effect.addFinalizer(() => Effect.sync(() => cli.mockRestore()));

@@ -11,7 +11,7 @@ export interface EnvironmentReleaseCheck {
   readonly targetVersion: string | null;
 }
 
-export class EnvironmentUpdateCheckError extends Schema.TaggedError<EnvironmentUpdateCheckError>()(
+class EnvironmentUpdateCheckError extends Schema.TaggedError<EnvironmentUpdateCheckError>()(
   "EnvironmentUpdateCheckError",
   {
     message: Schema.String,

@@ -147,7 +147,7 @@ const threads = Layer.unwrap(
   }),
 ).pipe(Layer.provide(LegacyV1ThreadImporter.layer.pipe(Layer.provide(sink))), Layer.provide(sink));
 const dependencies = Layer.mergeAll(
-  Layer.mock(DocumentText.DocumentText)({ ensure: () => Effect.sync(() => undefined) }),
+  Layer.mock(DocumentText.DocumentText)({ ensure: () => Effect.undefined }),
   sink,
   threads,
   ThreadCommandExecutor.layer,

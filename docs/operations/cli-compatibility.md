@@ -135,11 +135,11 @@ Focused regressions and release checks passed, including normal send shortcuts, 
 
 All four macOS/Windows installers built successfully. Both macOS apps passed signing, notarization and stapling. The ARM64 Mac runner initially could not be allocated because of GitHub capacity constraints; rerunning that job reused the successful checks and other platform artifacts. Publication readback confirmed all 17 release assets, 16 checksums matching GitHub asset digests, the exact source tag, and version 0.0.44 update feeds for both architectures on macOS and Windows. Live company CLI requests, manual installed-app interaction and native Windows UI use are **Not verified**.
 
-## Unreleased upstream checkpoint, 2026-11-10
+## App v0.0.45 upstream checkpoint and chat fixes
 
-Integrated upstream through [`b28bb8fc9d`](https://github.com/pingdotgg/t3code/commit/b28bb8fc9d582ca7cc95aebb9fd6ceb24cc28884) and backported the [CSV and TSV preview fix](https://github.com/pingdotgg/t3code/commit/09647d188dcd817b7137a0932e2dca2e791f2bb4). The supplied CLI 0.3.11 and resolved Claude Agent SDK 0.3.316 remain the compatibility baseline. The later Claude startup change needs a regression fixture that exercises Elysia's native model settings path before it can be adopted.
+The [v0.0.45 tag](https://github.com/declancowen/elysia/releases/tag/v0.0.45) identifies the release source. Integrated upstream through [`b28bb8fc9d`](https://github.com/pingdotgg/t3code/commit/b28bb8fc9d582ca7cc95aebb9fd6ceb24cc28884) and backported the [CSV and TSV preview fix](https://github.com/pingdotgg/t3code/commit/09647d188dcd817b7137a0932e2dca2e791f2bb4) and [Windows relative file link fix](https://github.com/pingdotgg/t3code/commit/9e12eca125). The supplied CLI 0.3.11 and resolved Claude Agent SDK 0.3.316 remain the compatibility baseline. The later Claude startup change needs a regression fixture that exercises Elysia's native model settings path before it can be adopted.
 
-Web, desktop, mobile and server typechecks passed. Focused non-browser tests covered the first-send route handoff, retained tabs, mobile composer events, desktop tab visibility, attachment previews and Elysia's native policy. Browser interaction, installed-app behavior on macOS and Windows, and live company CLI requests are **Not verified**.
+Web, desktop, mobile and server typechecks passed. Focused non-browser tests covered the first-send route handoff, retained tabs, mobile composer events, desktop tab visibility, attachment previews, chat folder link resolution and Elysia's native policy. Local browser interaction, installed-app behavior on macOS and Windows, and live company CLI requests are **Not verified**.
 
 ## Recording the next release
 

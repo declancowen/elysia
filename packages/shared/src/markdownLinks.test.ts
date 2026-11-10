@@ -39,6 +39,8 @@ describe("parseMarkdownFileLink", () => {
     ["C:%5Crepo%5Cimage.png", "C:\\repo\\image.png"],
     ["</D:/Programme/t3code/ChatMarkdown.tsx:1>", "D:/Programme/t3code/ChatMarkdown.tsx"],
     ["file://localhost/home/me/notes.md", "/home/me/notes.md"],
+    ["file:///work/Project%20Notes", "/work/Project Notes"],
+    ["file:///work/Project%20Notes/", "/work/Project Notes/"],
     ["app/routes/posts.$postId.tsx", "app/routes/posts.$postId.tsx"],
     ["src/routes/+page.svelte", "src/routes/+page.svelte"],
     ["app/(marketing)/page.tsx:12", "app/(marketing)/page.tsx"],
@@ -133,6 +135,14 @@ describe("extractMarkdownLinkHrefs", () => {
 });
 
 describe("resolveMarkdownFileLinkTarget", () => {
+  it("resolves absolute folder paths within the workspace", () => {
+    expect(resolveMarkdownFileLinkTarget("/work/project/docs", "/work/project")).toBe(
+      "/work/project/docs",
+    );
+    expect(resolveMarkdownFileLinkTarget("/work/project", "/work/project")).toBe("/work/project");
+    expect(resolveMarkdownFileLinkTarget("/work/project-other/docs", "/work/project")).toBeNull();
+  });
+
   it("resolves a relative folder with a trailing slash against cwd", () => {
     expect(resolveMarkdownFileLinkTarget("patches/", "/repo/project")).toBe(
       "/repo/project/patches/",

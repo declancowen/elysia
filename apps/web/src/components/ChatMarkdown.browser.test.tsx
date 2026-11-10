@@ -8,7 +8,7 @@ import { act, render } from "../../test/render";
 import "../index.css";
 
 import { filesystemEnvironment } from "../state/filesystem";
-import { useRightPanelStore } from "../rightPanelStore";
+import { selectActiveRightPanelSurface, useRightPanelStore } from "../rightPanelStore";
 import { setMarkdownTaskChecked } from "./files/filePreviewMode";
 import { HostImageUrlContext } from "./chat/hostImageUrl";
 
@@ -328,6 +328,19 @@ describe("ChatMarkdown workspace file opens", () => {
     environmentId: EnvironmentId.make("workspace"),
     threadId: ThreadId.make("thread"),
   };
+
+  it("opens a folder from its chat link without opening an unrelated network share", async () => {
+    setup();
+    await using screen = await renderText(
+      "[Open notes](file:///work/project/Project%20Notes/) and [Network](file://outside.test/share/docs)",
+      { cwd: "/work/project", threadRef },
+    );
+    await expect.element(screen.getByRole("link", { name: /Network/ })).not.toBeInTheDocument();
+    await screen.getByRole("link", { name: /Open notes/ }).click();
+    expect(
+      selectActiveRightPanelSurface(useRightPanelStore.getState().byThreadKey, threadRef)?.id,
+    ).toBe("file:Project Notes");
+  });
 
   it("keeps a newer absolute file open when an earlier repo-relative lookup finishes", async () => {
     setup();

@@ -382,10 +382,9 @@ const GITHUB_ALERT_PRESENTATIONS: Record<
 
 function normalizeMarkdownLinkHrefKey(href: string): string {
   const normalizedHref = normalizeMarkdownLinkDestination(href);
-  const rewrittenHref = rewriteMarkdownFileUriHref(normalizedHref) ?? normalizedHref;
-  return WINDOWS_DRIVE_PATH_REGEX.test(rewrittenHref)
-    ? rewrittenHref.replaceAll("\\", "/")
-    : rewrittenHref;
+  return WINDOWS_DRIVE_PATH_REGEX.test(normalizedHref)
+    ? normalizedHref.replaceAll("\\", "/")
+    : normalizedHref;
 }
 
 // Heading ids are added after sanitizing, which would prefix them a second time.
@@ -402,11 +401,12 @@ const CHAT_MARKDOWN_LITERAL_HTML_REHYPE_PLUGINS = [
   rehypeChipPunctuation,
 ] satisfies NonNullable<ReactMarkdownOptions["rehypePlugins"]>;
 
-function markdownUrlTransform(href: string) {
+function markdownUrlTransform(href: string, key: string) {
   if (parseAssistantCitationHref(href)) return href;
   if (parseComposerContextHref(href)) return href;
   if (parseThreadLinkHref(href)) return href;
   if (isWindowsDrivePathHref(href)) return href;
+  if (key === "href" && /^file:/i.test(href)) return href;
   return rewriteMarkdownFileUriHref(href) ?? defaultUrlTransform(href);
 }
 
@@ -820,6 +820,7 @@ function useChatMarkdownState({
     fileLinkMeta: MarkdownFileLinkMeta,
     copyMarkdown: string,
     mediaSource?: string,
+    authoredLabel?: string,
   ) => {
     const resolveHostPath = () =>
       resolveMarkdownFileHostPath({
@@ -835,6 +836,14 @@ function useChatMarkdownState({
     const panelPath =
       fileLinkMeta.workspaceRelativePath ??
       (!canPreviewMedia && isHostPath(fileLinkMeta.filePath) ? fileLinkMeta.filePath : null);
+    const pathLabel = fileLinkLabel(
+      {
+        path: fileLinkMeta.filePath,
+        ...(fileLinkMeta.line !== undefined ? { line: fileLinkMeta.line } : {}),
+        ...(fileLinkMeta.column !== undefined ? { column: fileLinkMeta.column } : {}),
+      },
+      fileLinkParentSuffixByPath,
+    );
 
     return (
       <MarkdownFileLink
@@ -845,14 +854,7 @@ function useChatMarkdownState({
         workspaceRelativePath={fileLinkMeta.workspaceRelativePath}
         panelPath={panelPath}
         line={fileLinkMeta.line}
-        label={fileLinkLabel(
-          {
-            path: fileLinkMeta.filePath,
-            ...(fileLinkMeta.line !== undefined ? { line: fileLinkMeta.line } : {}),
-            ...(fileLinkMeta.column !== undefined ? { column: fileLinkMeta.column } : {}),
-          },
-          fileLinkParentSuffixByPath,
-        )}
+        label={authoredLabel ? `${authoredLabel} · ${pathLabel}` : pathLabel}
         copyMarkdown={copyMarkdown}
         theme={resolvedTheme}
         threadRef={threadRef}
@@ -1109,6 +1111,7 @@ const CHAT_MARKDOWN_COMPONENTS = {
         resolveMarkdownFileLinkMeta(normalizedHref, cwd, imageBaseDir ?? cwd))
       : null;
     if (!fileLinkMeta) {
+      if (/^file:/i.test(normalizedHref)) return <span>{children}</span>;
       const faviconHost = resolveExternalWebLinkHost(href);
       const hasText = hastHasText(node);
       const pullRequestAutolink = String(
@@ -1322,14 +1325,11 @@ const CHAT_MARKDOWN_COMPONENTS = {
       source.startsWith("[") && source.includes("](")
         ? source
         : `[${(label || fileLinkMeta.basename).replace(/[\\[\]]/g, "\\$&")}](${normalizedHref})`;
-    const chip = fileLinkChip(fileLinkMeta, copyMarkdown, normalizedHref);
-    return isMarkdownFileLinkLabel(label, normalizedHref) ? (
-      chip
-    ) : (
-      <span data-markdown-copy={copyMarkdown}>
-        <span className="whitespace-normal">{children} </span>
-        {chip}
-      </span>
+    return fileLinkChip(
+      fileLinkMeta,
+      copyMarkdown,
+      normalizedHref,
+      isMarkdownFileLinkLabel(label, normalizedHref) ? undefined : label,
     );
   },
   code: function MarkdownCode({ node, children, className, ...props }) {

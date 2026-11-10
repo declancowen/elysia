@@ -297,29 +297,36 @@ function hasExternalScheme(path: string): boolean {
   return !POSITION_ONLY_PATTERN.test(rest);
 }
 
-export function parseMarkdownFileLink(href: string): FilePathPosition | null {
+export function parseMarkdownFileLink(
+  href: string,
+  workspaceRoot?: string,
+): FilePathPosition | null {
   const normalized = normalizeMarkdownLinkDestination(href);
   if (normalized.length === 0 || normalized.startsWith("#") || normalized.startsWith("//")) {
     return null;
   }
 
-  const source =
-    (normalized.toLowerCase().startsWith("file:") ? parseFileUrlHref(normalized) : null) ??
-    splitMarkdownLinkSearchAndHash(normalized);
+  const fileUrl = /^file:/i.test(normalized) ? parseFileUrlHref(normalized) : null;
+  const source = fileUrl ?? splitMarkdownLinkSearchAndHash(normalized);
   const path = stripSlashPrefixedWindowsDrive(safeDecodeURIComponent(source.path.trim()));
   const hash = safeDecodeURIComponent(source.hash.trim());
   if (path.length === 0 || hasExternalScheme(path)) return null;
 
-  const position = parseFilePathLink(path, hash);
+  const position = splitFilePathPosition(path, hash);
+  if (
+    fileUrl !== null ||
+    looksLikeFilePath(position.path, path) ||
+    (position.path.startsWith("/") &&
+      workspaceRelativeFilePath(position.path, workspaceRoot) !== null)
+  ) {
+    return position;
+  }
   // `src\a.ts` is Windows-relative. A link that already parses keeps its spelling, since POSIX
   // names may contain `\`; a rooted `\\host` or `\foo` would change root if rewritten.
-  if (position || /^[\\/]/.test(path) || isWindowsAbsolutePath(path)) return position;
-  return path.includes("\\") ? parseFilePathLink(path.replaceAll("\\", "/"), hash) : null;
-}
-
-function parseFilePathLink(path: string, hash: string): FilePathPosition | null {
-  const position = splitFilePathPosition(path, hash);
-  return looksLikeFilePath(position.path, path) ? position : null;
+  if (/^[\\/]/.test(path) || !path.includes("\\")) return null;
+  const normalizedPath = path.replaceAll("\\", "/");
+  const normalizedPosition = splitFilePathPosition(normalizedPath, hash);
+  return looksLikeFilePath(normalizedPosition.path, normalizedPath) ? normalizedPosition : null;
 }
 
 const FENCED_CODE_SEGMENT_PATTERN = /(```[\s\S]*?(?:```|$))/;
@@ -416,7 +423,7 @@ export function resolveMarkdownFileLinkTarget(
   baseDir: string | undefined = cwd,
 ): string | null {
   if (!href) return null;
-  const target = parseMarkdownFileLink(href);
+  const target = parseMarkdownFileLink(href, cwd);
   if (!target) return null;
 
   const pathWithPosition = formatFilePathPosition(target);

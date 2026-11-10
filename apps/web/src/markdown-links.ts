@@ -72,7 +72,7 @@ export function resolveMarkdownFileLinkMeta(
 ): MarkdownFileLinkMeta | null {
   const targetPath = resolveMarkdownFileLinkTarget(href, cwd, baseDir);
   if (!targetPath) return null;
-  const source = href ? parseMarkdownFileLink(href) : null;
+  const source = href ? parseMarkdownFileLink(href, cwd) : null;
   return {
     ...buildFileLinkMetaFromTarget(targetPath, cwd),
     workspaceLookupPath:

@@ -237,8 +237,8 @@ jobs:
             src/components/chat/ComposerPrimaryActions.agent.test.tsx
           vp test run --project unit src/components/settings/settingsSearch.test.ts \
             --testNamePattern 'finds Appearance themes by|finds Send shortcut for'
-          vp test run --project unit src/components/ChatView.logic.test.ts \
-            --testNamePattern 'resolveDraftPromotionNavigationTarget|draft hero submission transition'
+          vp test run --project unit src/composerDraftStore.test.ts \
+            --testNamePattern 'composerDraftStore draft promotion'
 
       - name: Install Chromium for web release guards
         run: node apps/web/node_modules/playwright/cli.js install --with-deps --only-shell chromium
@@ -255,6 +255,8 @@ jobs:
             src/components/settings/ProviderSettingsPanel.policy.browser.test.tsx \
             src/components/onboarding/WelcomeWizard.elysia.browser.test.tsx \
             src/components/ThreadNotificationCoordinator.badge.browser.test.tsx
+          vp test run --project browser src/components/ChatMarkdown.browser.test.tsx \
+            --testNamePattern 'opens a folder from its chat link'
 
       - name: Test desktop stable updater and settings
         run: |

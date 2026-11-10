@@ -17,6 +17,13 @@ on:
         required: false
         default: false
         type: boolean
+      arm64_runner:
+        description: "Build Apple Silicon on Intel only when hosted ARM64 runners are unavailable"
+        type: choice
+        default: macos-26
+        options:
+          - macos-26
+          - macos-15-intel
 
 concurrency:
   group: release-elysia-stable
@@ -337,7 +344,7 @@ jobs:
       matrix:
         include:
           - label: macOS arm64
-            runner: macos-26
+            runner: ${{ inputs.arm64_runner || 'macos-26' }}
             platform: mac
             target: dmg
             arch: arm64

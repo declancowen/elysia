@@ -21,6 +21,11 @@ apps, installers and WSL runtime archives are not built or published for Elysia.
    installers, `latest-mac.yml`, `latest.yml`, blockmaps and `SHA256SUMS`.
    The app ZIPs remain the macOS updater payloads; installer ZIPs preserve the DMG Finder icon.
 
+If GitHub cancels the Apple Silicon job because it cannot assign a runner, retry that job first to
+reuse the successful builds. If ARM64 runners remain unavailable, dispatch again with
+`-f arm64_runner=macos-15-intel`. The Intel runner cross-packages the ARM64 app and verifies its
+architecture, signature and notarization. The server prepares its bytecode cache on first launch.
+
 The first official Elysia release can use `0.0.1`; later versions must be newer than every
 published stable release. Reinstall the first official release if an earlier development build
 has a higher version, such as `0.0.44`, because the updater does not downgrade. The release publishes

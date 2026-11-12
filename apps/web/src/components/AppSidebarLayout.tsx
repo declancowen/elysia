@@ -349,7 +349,7 @@ function SidebarControl({ disabled = false }: { disabled?: boolean }) {
 
     window.addEventListener("keydown", onKeyDown, true);
     const unsubscribe = window.desktopBridge?.onMenuAction((action) => {
-      if (!disabled && action === "sidebar.toggle") toggleSidebar();
+      if (action === "sidebar.toggle") toggleSidebar();
     });
     return () => {
       window.removeEventListener("keydown", onKeyDown, true);
@@ -363,6 +363,8 @@ function SidebarControl({ disabled = false }: { disabled?: boolean }) {
     () => (node: HTMLDivElement | null) =>
       node === null ? undefined : registerAppShellCommands(router, node),
   );
+
+  if (disabled) return <div ref={appShellCommandsRef} hidden />;
 
   return (
     <div
@@ -378,7 +380,6 @@ function SidebarControl({ disabled = false }: { disabled?: boolean }) {
         <TooltipTrigger
           render={
             <SidebarTrigger
-              disabled={disabled}
               // Over the stage artwork the trigger is a control on imagery, like the media
               // viewer's arrows; that variant positions itself, so the layout is reset here.
               variant={isSidebarVisible && stageBackdropVariant ? "media-navigation" : "ghost"}
@@ -514,20 +515,25 @@ export function AppSidebarLayout({ children }: { children: ReactNode }) {
   } as CSSProperties;
 
   const sectionDialogOpen = useAgentDialogStore((state) => state.sectionDialogOpen);
+  const hasDockedSidebar =
+    !SINGLE_PROVIDER_UI || (collectionKind === null && !isProjectsPage && pathname !== "/mcp");
   return (
     <PanelAnimationSuppressionProvider value={panelAnimationsSuppressed}>
       <WorkspaceSidebarContentProvider>
         <SidebarProvider
+          available={hasDockedSidebar}
           className={cn("h-dvh! min-h-0!", SINGLE_PROVIDER_UI && "md:flex-col")}
           data-panel-animations={routePanelAnimationsActive ? "true" : "false"}
           defaultOpen
           style={sidebarProviderStyle}
         >
-          <SidebarHoverPreviewProvider sidebarAvailable>
+          <SidebarHoverPreviewProvider sidebarAvailable={hasDockedSidebar}>
             {!SINGLE_PROVIDER_UI ? <SidebarBrandWidthProbe onWidthChange={setBrandWidth} /> : null}
             <ProjectProjectionRetention />
-            {SINGLE_PROVIDER_UI ? <AppTopbar sidebarControl={<SidebarControl />} /> : null}
             {SINGLE_PROVIDER_UI ? (
+              <AppTopbar sidebarControl={<SidebarControl disabled={!hasDockedSidebar} />} />
+            ) : null}
+            {SINGLE_PROVIDER_UI && hasDockedSidebar ? (
               <div
                 data-mobile-sidebar-control
                 className="fixed left-[var(--workspace-controls-left)] top-[var(--workspace-controls-top)] z-50 flex h-[var(--workspace-topbar-height)] items-center md:hidden"
@@ -543,13 +549,10 @@ export function AppSidebarLayout({ children }: { children: ReactNode }) {
                 "flex min-h-0 min-w-0 flex-1",
                 SINGLE_PROVIDER_UI &&
                   "md:h-[calc(100dvh-var(--workspace-topbar-height)-0.25rem)] md:pt-1 md:pb-2 md:[&>[data-slot=sidebar-inset]]:h-full",
-                SINGLE_PROVIDER_UI &&
-                  (collectionKind !== null || isProjectsPage) &&
-                  "md:[&>[data-slot=sidebar][data-state=collapsed]]:hidden",
               )}
             >
               {SINGLE_PROVIDER_UI ? <AppNavigationRail /> : null}
-              {
+              {hasDockedSidebar ? (
                 <Sidebar
                   className={
                     SINGLE_PROVIDER_UI
@@ -608,7 +611,7 @@ export function AppSidebarLayout({ children }: { children: ReactNode }) {
                   )}
                   <SidebarRail onDoubleClick={resetSidebarWidth} />
                 </Sidebar>
-              }
+              ) : null}
               {children}
             </div>
             {!SINGLE_PROVIDER_UI ? <SidebarControl /> : null}

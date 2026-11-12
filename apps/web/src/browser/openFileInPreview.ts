@@ -17,6 +17,7 @@ import { AsyncResult } from "effect/reactivity";
 
 import { resolveAssetUrl } from "~/assets/assetUrls";
 import { isPreviewAvailableFor, previewRuntimeFor } from "~/browser/previewRuntime";
+import { isHtmlPreviewFile } from "~/components/files/filePreviewMode";
 import {
   applyPreviewServerSnapshot,
   readThreadPreviewState,
@@ -33,7 +34,7 @@ import {
 import { resolveBrowserDefaults } from "./browserDefaults";
 
 export const isBrowserPreviewFile = (path: string): boolean =>
-  /\.(?:html?|pdf)$/i.test(path.split(/[?#]/, 1)[0] ?? "");
+  isHtmlPreviewFile(path) || /\.pdf$/i.test(path.split(/[?#]/, 1)[0] ?? "");
 
 export class BrowserPreviewUnavailableError extends Data.TaggedError(
   "BrowserPreviewUnavailableError",

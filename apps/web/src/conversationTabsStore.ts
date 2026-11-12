@@ -14,7 +14,7 @@ export type WorkspaceItemTabTarget =
 
 export type SurfaceTabTarget = {
   kind: "surface";
-  path: SettingsPath | "/projects" | "/usage" | "/agents";
+  path: SettingsPath | "/projects" | "/usage" | "/agents" | "/mcp";
   title: string;
   search?: SettingsScopeSearch;
 };

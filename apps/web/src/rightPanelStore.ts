@@ -8,6 +8,7 @@ import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 
 import { useClosedViewStore } from "./closedViewStore";
+import { isHtmlPreviewFile } from "./components/files/filePreviewMode";
 import { resolveStorage } from "./lib/storage";
 import type { ThreadPanelPresentation } from "./rightPanelLayout";
 import type { ChatFileAttachment } from "./types";
@@ -110,7 +111,8 @@ export function workspaceRightPanelState(
   const surfaces = state.surfaces.filter(
     (surface) =>
       ["preview", "sources", "agents"].includes(surface.kind) ||
-      (surface.kind === "file" && surface.attachment !== undefined),
+      (surface.kind === "file" &&
+        (surface.attachment !== undefined || isHtmlPreviewFile(surface.relativePath))),
   );
   return {
     ...state,

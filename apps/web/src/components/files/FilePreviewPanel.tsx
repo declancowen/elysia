@@ -111,6 +111,7 @@ import { DiffCommentAnnotation } from "../diffs/DiffCommentAnnotation";
 import { projectFileCacheKey } from "./fileContentRevision";
 import {
   filePreviewReadErrorMessage,
+  isHtmlPreviewFile,
   isMarkdownPreviewFile,
   resolveFilePreviewPath,
   setMarkdownTaskChecked,
@@ -1036,7 +1037,7 @@ export default function FilePreviewPanel({
         name: relativePath,
       }) === "xls" ||
       isWorkspaceFontPreviewPath(relativePath));
-  const isHtml = relativePath !== null && !isPdf && isBrowserPreviewFile(relativePath);
+  const isHtml = relativePath !== null && isHtmlPreviewFile(relativePath);
   const isHostFile =
     attachment !== undefined || (relativePath !== null && isHostPath(relativePath));
   const fileAccess = useFilesystemReadAccess(environmentId);

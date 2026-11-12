@@ -14,6 +14,7 @@ import { Route as TasksRouteImport } from './routes/tasks'
 import { Route as ProjectsRouteImport } from './routes/projects'
 import { Route as PairRouteImport } from './routes/pair'
 import { Route as PagesRouteImport } from './routes/pages'
+import { Route as McpRouteImport } from './routes/mcp'
 import { Route as GuestRouteImport } from './routes/guest'
 import { Route as ConnectAgentRouteImport } from './routes/connect-agent'
 import { Route as ConnectRouteImport } from './routes/connect'
@@ -81,6 +82,11 @@ const PairRoute = PairRouteImport.update({
 const PagesRoute = PagesRouteImport.update({
   id: '/pages',
   path: '/pages',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const McpRoute = McpRouteImport.update({
+  id: '/mcp',
+  path: '/mcp',
   getParentRoute: () => rootRouteImport,
 } as any)
 const GuestRoute = GuestRouteImport.update({
@@ -309,6 +315,7 @@ export interface FileRoutesByFullPath {
   '/connect': typeof ConnectRoute
   '/connect-agent': typeof ConnectAgentRoute
   '/guest': typeof GuestRoute
+  '/mcp': typeof McpRoute
   '/pages': typeof PagesRouteWithChildren
   '/pair': typeof PairRoute
   '/projects': typeof ProjectsRouteWithChildren
@@ -357,6 +364,7 @@ export interface FileRoutesByTo {
   '/connect': typeof ConnectRoute
   '/connect-agent': typeof ConnectAgentRoute
   '/guest': typeof GuestRoute
+  '/mcp': typeof McpRoute
   '/pair': typeof PairRoute
   '/projects': typeof ProjectsRouteWithChildren
   '/tasks': typeof TasksRoute
@@ -407,6 +415,7 @@ export interface FileRoutesById {
   '/connect': typeof ConnectRoute
   '/connect-agent': typeof ConnectAgentRoute
   '/guest': typeof GuestRoute
+  '/mcp': typeof McpRoute
   '/pages': typeof PagesRouteWithChildren
   '/pair': typeof PairRoute
   '/projects': typeof ProjectsRouteWithChildren
@@ -459,6 +468,7 @@ export interface FileRouteTypes {
     | '/connect'
     | '/connect-agent'
     | '/guest'
+    | '/mcp'
     | '/pages'
     | '/pair'
     | '/projects'
@@ -507,6 +517,7 @@ export interface FileRouteTypes {
     | '/connect'
     | '/connect-agent'
     | '/guest'
+    | '/mcp'
     | '/pair'
     | '/projects'
     | '/tasks'
@@ -556,6 +567,7 @@ export interface FileRouteTypes {
     | '/connect'
     | '/connect-agent'
     | '/guest'
+    | '/mcp'
     | '/pages'
     | '/pair'
     | '/projects'
@@ -607,6 +619,7 @@ export interface RootRouteChildren {
   ConnectRoute: typeof ConnectRoute
   ConnectAgentRoute: typeof ConnectAgentRoute
   GuestRoute: typeof GuestRoute
+  McpRoute: typeof McpRoute
   PagesRoute: typeof PagesRouteWithChildren
   PairRoute: typeof PairRoute
   ProjectsRoute: typeof ProjectsRouteWithChildren
@@ -650,6 +663,13 @@ declare module '@tanstack/react-router' {
       path: '/pages'
       fullPath: '/pages'
       preLoaderRoute: typeof PagesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/mcp': {
+      id: '/mcp'
+      path: '/mcp'
+      fullPath: '/mcp'
+      preLoaderRoute: typeof McpRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/guest': {
@@ -1073,6 +1093,7 @@ const rootRouteChildren: RootRouteChildren = {
   ConnectRoute: ConnectRoute,
   ConnectAgentRoute: ConnectAgentRoute,
   GuestRoute: GuestRoute,
+  McpRoute: McpRoute,
   PagesRoute: PagesRouteWithChildren,
   PairRoute: PairRoute,
   ProjectsRoute: ProjectsRouteWithChildren,

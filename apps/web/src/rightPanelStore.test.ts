@@ -99,7 +99,7 @@ describe("rightPanelStore", () => {
     expect(workspaceRightPanelState(closed, false).isOpen).toBe(false);
     expect(closed).toEqual(stored);
   });
-  it("keeps source attachment previews in Work while hiding repository file previews", () => {
+  it("keeps source attachments and linked HTML previews in Work while hiding other code tabs", () => {
     const store = useRightPanelStore.getState();
     const attachment = {
       type: "file" as const,
@@ -110,16 +110,20 @@ describe("rightPanelStore", () => {
     };
     store.openAttachment(refA, attachment);
     store.openFile(refA, "README.md");
+    store.openFile(refA, "reports/assessment.html");
+    store.openFile(refA, "/exports/summary.HTM");
     const state = selectThreadRightPanelState(useRightPanelStore.getState().byThreadKey, refA);
 
     const workState = workspaceRightPanelState(state, false);
     expect(workState.surfaces).toEqual([
       expect.objectContaining({ id: "attachment:report", kind: "file", attachment }),
+      expect.objectContaining({ id: "file:reports/assessment.html", kind: "file" }),
+      expect.objectContaining({ id: "file:/exports/summary.HTM", kind: "file" }),
     ]);
-    expect(workState.activeSurfaceId).toBe("attachment:report");
+    expect(workState.activeSurfaceId).toBe("file:/exports/summary.HTM");
     expect(workState.isOpen).toBe(true);
     expect(workspaceRightPanelState(state, true)).toBe(state);
-    expect(state.activeSurfaceId).toBe("file:README.md");
+    expect(state.activeSurfaceId).toBe("file:/exports/summary.HTM");
   });
   it("opens a hosted side chat's panel actions in its parent's panel until unhosted", () => {
     const store = useRightPanelStore.getState();

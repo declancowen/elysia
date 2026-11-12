@@ -5,6 +5,7 @@ it("preserves the Home conversation while visiting navigation destinations", () 
   for (const pathname of [
     "/agents",
     "/projects",
+    "/mcp",
     "/settings",
     "/settings/scheduled-tasks",
     "/usage",

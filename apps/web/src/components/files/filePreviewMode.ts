@@ -10,6 +10,9 @@ export function resolveFilePreviewPath(path: string | null, cwd: string): string
 export const isMarkdownPreviewFile = (path: string): boolean =>
   /\.(?:md|mdx|markdown|mdown|mkd)$/i.test(path);
 
+export const isHtmlPreviewFile = (path: string): boolean =>
+  /\.html?$/i.test(path.split(/[?#]/, 1)[0] ?? "");
+
 export function filePreviewReadErrorMessage(error: ProjectReadFileError): string {
   switch (error.failure) {
     case "path_not_file":

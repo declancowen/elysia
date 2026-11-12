@@ -1,5 +1,4 @@
 import { useNavigate } from "@tanstack/react-router";
-import { DownloadIcon } from "~/icons";
 import { useEffect, useRef, useState } from "react";
 
 import { useStableCallback } from "~/hooks/useStableCallback";
@@ -15,6 +14,7 @@ import {
   localEnvironmentUpdateNotificationKey,
 } from "./ProviderUpdateLaunchNotification.logic";
 import { ProviderUpdatePrimaryNotification } from "./ProviderUpdatePrimaryNotification";
+import { ProviderUpdateToastIcon } from "./ProviderUpdateToastIcon";
 import { stackedThreadToast, toastManager } from "./ui/toast";
 
 function useHasLocalSecondaryEnvironment(): boolean {
@@ -153,7 +153,7 @@ function ProviderUpdateEnvironmentsNotification() {
         data: {
           position: "bottom-right",
           hideCopyButton: true,
-          leadingIcon: <DownloadIcon aria-hidden="true" className="size-4" />,
+          leadingIcon: <ProviderUpdateToastIcon providers={candidateUnion} />,
           onClose: dismissPrompt,
         },
       }),

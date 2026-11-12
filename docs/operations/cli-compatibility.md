@@ -153,6 +153,10 @@ The supplied 0.3.11 package owns update download and finalization. The app and i
 
 The supplied 0.3.9 package could append names from `ELYSIA_ALLOWED_MODELS`; 0.3.10 and 0.3.11 include Sonnet 5.5 in the native roster. Model availability alone cannot verify the installer version. Controlled fixtures cover version advance, already current and outdated installs, and an unavailable post-update lookup. Live delivery of the company package and an update on Windows are **Not verified**.
 
+## App v0.0.47 workspace and preview fixes
+
+The [v0.0.47 tag](https://github.com/declancowen/elysia/releases/tag/v0.0.47) identifies the release source. The supplied native CLI 0.3.11 and Claude Agent SDK 0.3.316 remain the compatibility baseline. This release changes how the app displays MCP registrations and update notifications. It does not change native sign-in, model selection, or the CLI update command. Focused web tests cover the app changes; live company CLI and installed-app behavior on macOS and Windows are **Not verified**.
+
 ## Recording the next release
 
 Before publishing, append the app release and source commit, resolved SDK version, actual managed CLI version tested, native package checksum if available, platforms tested, and the result. Record initialization, update and existing-sign-in adoption separately when the CLI changes setup behavior. Use “Not verified” for missing evidence; keep fixture coverage separate from native tests. Never record credentials, environment dumps or authenticated download URLs.

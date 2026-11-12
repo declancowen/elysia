@@ -87,11 +87,13 @@ type TabSection =
   | "tasks"
   | "scheduled"
   | "projects"
+  | "mcp"
   | "settings"
   | "stats";
 function tabSection(target: ConversationTabTarget): TabSection {
   if (target.kind === "scheduled") return "scheduled";
-  if (target.kind === "surface")
+  if (target.kind === "surface") {
+    if (target.path === "/mcp") return "mcp";
     return target.path === "/projects"
       ? "projects"
       : target.path === "/usage"
@@ -99,6 +101,7 @@ function tabSection(target: ConversationTabTarget): TabSection {
         : target.path === "/agents"
           ? "agents"
           : "settings";
+  }
   if (target.kind === "agent-create") return "agents";
   if (target.kind === "page") return "pages";
   if (target.kind === "task") return "tasks";

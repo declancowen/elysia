@@ -643,11 +643,7 @@ export const AppNavigationRail = memo(function AppNavigationRail() {
           tabTarget={{ kind: "surface", path: "/settings/general", title: "Settings" }}
           onIntent={() => void router.preloadRoute({ to: "/settings" })}
           icon={<SettingsIcon className="size-5" />}
-          active={
-            pathname.startsWith("/settings") &&
-            pathname !== "/settings/scheduled-tasks" &&
-            pathname !== "/settings/mcp"
-          }
+          active={pathname.startsWith("/settings") && pathname !== "/settings/scheduled-tasks"}
           onClick={() => {
             setAgentSidebarActive(false);
             if (navigateToTabSection("settings")) return;
@@ -656,11 +652,14 @@ export const AppNavigationRail = memo(function AppNavigationRail() {
         />
         <AppRailButton
           label="MCP"
-          tabTarget={{ kind: "surface", path: "/settings/mcp", title: "MCP" }}
-          onIntent={() => void router.preloadRoute({ to: "/settings/mcp" })}
+          tabTarget={{ kind: "surface", path: "/mcp", title: "MCP" }}
+          onIntent={() => void router.preloadRoute({ to: "/mcp" })}
           icon={<Plug2Icon className="size-5" />}
-          active={pathname === "/settings/mcp"}
-          onClick={() => void navigate({ to: "/settings/mcp" })}
+          active={pathname === "/mcp"}
+          onClick={() => {
+            if (navigateToTabSection("mcp")) return;
+            void navigate({ to: "/mcp" });
+          }}
         />
         <AppRailButton
           label={

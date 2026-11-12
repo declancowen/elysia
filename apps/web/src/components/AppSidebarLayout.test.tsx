@@ -134,11 +134,8 @@ it("opens and closes the mobile sidebar from the main page", async () => {
         </AppSidebarLayout>,
       ),
     );
-    expect(container.querySelector("[data-mobile-sidebar-control]")).not.toBeNull();
-    await act(async () => opener.click());
-    expect(
-      document.querySelector('[data-mobile="true"][data-sidebar="sidebar"]')?.textContent,
-    ).toContain("Project navigation");
+    expect(container.querySelector("[data-mobile-sidebar-control]")).toBeNull();
+    expect(document.querySelector('[data-mobile="true"][data-sidebar="sidebar"]')).toBeNull();
   } finally {
     state.pathname = "/";
     await act(async () => root.unmount());
@@ -193,30 +190,31 @@ it("retains Agents beside its conversations and restores each Home sidebar and u
       host.querySelector<HTMLButtonElement>(
         '[data-app-topbar] [aria-label="Toggle main sidebar"]',
       )!;
-    for (const [pathname, label, navigation] of [
-      ["/projects", "Projects", "Project navigation"],
-      ["/tasks", "Tasks", "tasks navigation"],
-      ["/pages", "Pages", "pages navigation"],
-      ["/usage", "Threads", "Project navigation"],
-    ]) {
-      state.pathname = pathname!;
+    for (const pathname of ["/projects", "/tasks", "/pages", "/pages/page-reference", "/mcp"]) {
+      state.pathname = pathname;
       await render();
-      expect(host.querySelector("[data-app-sidebar]")?.getAttribute("aria-label")).toBe(label);
-      expect(host.textContent).toContain(navigation);
-      expect(sidebarToggle().disabled).toBe(false);
-      expect(sidebarToggle().getAttribute("aria-pressed")).toBe("true");
-      await act(async () => sidebarToggle().click());
-      expect(sidebarToggle().getAttribute("aria-pressed")).toBe("false");
-      state.pathname = "/local/agent-chat";
-      await render();
-      expect(sidebarToggle().getAttribute("aria-pressed")).toBe("false");
-      expect(host.textContent).toContain("Conversation body");
-      await act(async () => sidebarToggle().click());
-      expect(sidebarToggle().getAttribute("aria-pressed")).toBe("true");
+      expect(host.querySelector("[data-app-sidebar]")).toBeNull();
+      expect(sidebarToggle()).toBeNull();
+      expect(host.querySelector("[data-sidebar-state]")?.getAttribute("data-sidebar-state")).toBe(
+        "collapsed",
+      );
     }
+    state.pathname = "/settings/mcp";
+    await render();
+    expect(host.querySelector("[data-app-sidebar]")?.getAttribute("aria-label")).toBe("Settings");
+    expect(sidebarToggle().getAttribute("aria-pressed")).toBe("true");
+    state.pathname = "/usage";
+    await render();
+    expect(host.querySelector("[data-app-sidebar]")?.getAttribute("aria-label")).toBe("Threads");
+    expect(sidebarToggle().disabled).toBe(false);
+    await act(async () => sidebarToggle().click());
+    state.pathname = "/pages";
+    await render();
+    expect(host.querySelector("[data-app-sidebar]")).toBeNull();
     state.pathname = "/local/agent-chat";
     await render();
-    expect(sidebarToggle().disabled).toBe(false);
+    expect(sidebarToggle().getAttribute("aria-pressed")).toBe("false");
+    expect(host.textContent).toContain("Conversation body");
     expect(host.textContent).not.toContain("Agent navigation");
   } finally {
     await act(async () => root.unmount());

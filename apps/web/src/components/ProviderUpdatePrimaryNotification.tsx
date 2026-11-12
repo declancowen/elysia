@@ -1,18 +1,13 @@
 import { useNavigate } from "@tanstack/react-router";
 import { useAtomValue } from "@effect/atom-react";
-import { DownloadIcon } from "~/icons";
 import { useEffect, useRef } from "react";
-import {
-  AuthProvidersManageScope,
-  type ServerProvider,
-  type ProviderInstanceId,
-} from "@elysiatools/contracts";
+import { AuthProvidersManageScope, type ProviderInstanceId } from "@elysiatools/contracts";
 
 import { primaryServerProvidersAtom, serverEnvironment } from "../state/server";
 import { usePrimaryEnvironment } from "../state/environments";
 import { readEnvironmentScope, useEnvironmentScope } from "../state/session";
 import { useDismissedProviderUpdateNotificationKeys } from "../providerUpdateDismissal";
-import { ProviderInstanceIcon } from "./chat/ProviderInstanceIcon";
+import { ProviderUpdateToastIcon } from "./ProviderUpdateToastIcon";
 import {
   canOneClickUpdateProviderCandidate,
   collectProviderUpdateCandidates,
@@ -49,22 +44,6 @@ type ActiveProviderUpdateToast =
       }>;
       readonly providerCount: number;
     };
-
-function ProviderUpdateToastIcon({ provider }: { provider: ServerProvider }) {
-  return (
-    <span className="relative inline-flex size-4 shrink-0 items-center justify-center">
-      <ProviderInstanceIcon
-        driverKind={provider.driver}
-        displayName={provider.displayName ?? provider.driver}
-        acpRegistryIconUrl={provider.iconUrl}
-        iconClassName="size-4"
-      />
-      <span className="absolute -right-1 -bottom-1 z-40 inline-flex size-3 items-center justify-center rounded-full bg-popover">
-        <DownloadIcon aria-hidden="true" className="size-2.5" strokeWidth={2.5} />
-      </span>
-    </span>
-  );
-}
 
 function addProviderUpdateToast(input: {
   readonly view: ProviderUpdateToastView;
@@ -323,11 +302,7 @@ export function ProviderUpdatePrimaryNotification() {
       actionVariant: "outline",
       data: {
         position: "bottom-right",
-        leadingIcon:
-          updateProviders.length > 0 &&
-          updateProviders.every((provider) => provider.driver === updateProviders[0]!.driver) ? (
-            <ProviderUpdateToastIcon provider={updateProviders[0]!} />
-          ) : undefined,
+        leadingIcon: <ProviderUpdateToastIcon providers={updateProviders} />,
         hideCopyButton: true,
         onClose: dismissPrompt,
         ...(oneClickProviders.length > 0

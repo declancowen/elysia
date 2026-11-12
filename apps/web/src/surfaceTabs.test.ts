@@ -25,3 +25,16 @@ it("keeps shared surfaces distinct and restores scoped settings without duplicat
   expect(surfaceTabForLocation("/settings/scheduled-tasks", {})).toBeNull();
   expect(surfaceTabForLocation("/agents", { create: true })).toBeNull();
 });
+
+it("keeps the rail's MCP surface separate from MCP settings", () => {
+  const store = useConversationTabsStore.getState();
+  const workspace = surfaceTabForLocation("/mcp", {})!;
+  const settings = surfaceTabForLocation("/settings/mcp", {})!;
+  store.open(workspace, true);
+  store.open(settings, true);
+  expect(useConversationTabsStore.getState().tabs.map((tab) => tab.target)).toEqual([
+    workspace,
+    settings,
+  ]);
+  expect(store.close(useConversationTabsStore.getState().activeId!)).toEqual(workspace);
+});

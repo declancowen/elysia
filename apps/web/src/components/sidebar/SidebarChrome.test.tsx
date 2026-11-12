@@ -155,11 +155,15 @@ it("navigates rail pages and keeps the thread switcher in Workspace", async () =
     await act(async () => button("Projects").click());
     expect(state.navigate).toHaveBeenLastCalledWith({ to: "/projects" });
     await act(async () => button("MCP").click());
-    expect(state.navigate).toHaveBeenLastCalledWith({ to: "/settings/mcp" });
-    state.pathname = "/settings/mcp";
+    expect(state.navigate).toHaveBeenLastCalledWith({ to: "/mcp" });
+    state.pathname = "/mcp";
     await act(async () => render());
     expect(button("MCP").getAttribute("aria-current")).toBe("page");
     expect(button("Settings").getAttribute("aria-current")).toBeNull();
+    state.pathname = "/settings/mcp";
+    await act(async () => render());
+    expect(button("Settings").getAttribute("aria-current")).toBe("page");
+    expect(button("MCP").getAttribute("aria-current")).toBeNull();
     await act(async () => button("Workspace").click());
     expect(state.navigate).toHaveBeenLastCalledWith({ href: "/" });
     state.pathname = "/";

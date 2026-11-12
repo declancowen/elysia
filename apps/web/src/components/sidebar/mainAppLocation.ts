@@ -10,6 +10,7 @@ export function isSidebarUtilityPage(pathname: string) {
   return (
     pathname === "/settings" ||
     pathname.startsWith("/settings/") ||
+    pathname === "/mcp" ||
     pathname === "/tasks" ||
     pathname === "/pages" ||
     pathname.startsWith("/pages/") ||

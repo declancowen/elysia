@@ -8,6 +8,7 @@ export function surfaceTabForLocation(
   search: Record<string, unknown>,
 ): SurfaceTabTarget | null {
   if (path === "/projects") return { kind: "surface", path, title: "Projects" };
+  if (path === "/mcp") return { kind: "surface", path, title: "MCP" };
   if (path === "/usage") return { kind: "surface", path, title: "Stats" };
   if (path === "/agents")
     return search.create || search.projectId ? null : { kind: "surface", path, title: "Agents" };

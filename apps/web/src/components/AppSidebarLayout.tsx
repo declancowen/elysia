@@ -543,6 +543,9 @@ export function AppSidebarLayout({ children }: { children: ReactNode }) {
                 "flex min-h-0 min-w-0 flex-1",
                 SINGLE_PROVIDER_UI &&
                   "md:h-[calc(100dvh-var(--workspace-topbar-height)-0.25rem)] md:pt-1 md:pb-2 md:[&>[data-slot=sidebar-inset]]:h-full",
+                SINGLE_PROVIDER_UI &&
+                  (collectionKind !== null || isProjectsPage) &&
+                  "md:[&>[data-slot=sidebar][data-state=collapsed]]:hidden",
               )}
             >
               {SINGLE_PROVIDER_UI ? <AppNavigationRail /> : null}

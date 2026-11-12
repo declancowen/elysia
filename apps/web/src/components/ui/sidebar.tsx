@@ -142,7 +142,17 @@ interface SidebarOpenState {
 
 /** Per-provider open state, kept outside React so shortcuts can toggle it at event time. */
 function createSidebarOpenStore(defaultOpen: boolean) {
-  let state: SidebarOpenState = { open: defaultOpen, openMobile: false };
+  const savedOpen =
+    typeof document === "undefined"
+      ? undefined
+      : document.cookie
+          .split(/;\s*/)
+          .find((cookie) => cookie.startsWith(`${SIDEBAR_COOKIE_NAME}=`))
+          ?.slice(SIDEBAR_COOKIE_NAME.length + 1);
+  let state: SidebarOpenState = {
+    open: savedOpen === "true" || savedOpen === "false" ? savedOpen === "true" : defaultOpen,
+    openMobile: false,
+  };
   const listeners = new Set<() => void>();
   const collapseListeners = new Set<() => void>();
   const publish = (next: SidebarOpenState) => {

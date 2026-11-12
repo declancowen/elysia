@@ -65,8 +65,8 @@ export function elysiaAgentProtection(
   const protectedPaths = [
     ...privateEntries(root, [".claude", "bin", "runtime", "ca.pem"]),
     ...privateEntries(NodePath.join(root, ".claude"), ["skills", "commands"]),
-    ...["settings.json", "settings.local.json", ".credentials.json", "plugins"].map((name) =>
-      NodePath.join(root, ".claude", name),
+    ...["settings.json", "settings.local.json", ".claude.json", ".credentials.json", "plugins"].map(
+      (name) => NodePath.join(root, ".claude", name),
     ),
     NodePath.join(root, ".elysia"),
     NodePath.join(root, ".zshrc"),

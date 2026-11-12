@@ -167,6 +167,15 @@ export const ProviderInstallCancelInput = Schema.Struct({
 });
 export type ProviderInstallCancelInput = typeof ProviderInstallCancelInput.Type;
 
+export const ElysiaMcpRegistration = Schema.Struct({
+  id: Schema.String,
+  name: Schema.String,
+  project: Schema.NullOr(Schema.String),
+  transport: Schema.NullOr(Schema.Literals(["stdio", "http", "sse"])),
+  disabled: Schema.Boolean,
+});
+export type ElysiaMcpRegistration = typeof ElysiaMcpRegistration.Type;
+
 /** Safe setup failure text. Never include OAuth codes, URLs, or native token data. */
 export class ProviderSetupError extends Schema.TaggedError<ProviderSetupError>()(
   "ProviderSetupError",

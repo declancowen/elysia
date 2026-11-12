@@ -34,7 +34,7 @@ vi.mock("@tanstack/react-router", () => ({
     return options ? options.select(location) : location;
   },
 }));
-vi.mock("../env", () => ({ isElectron: false }));
+vi.mock("../env", () => ({ isElectron: false, isSecretsFeatureEnabled: false }));
 vi.mock("./chat/ConversationTabs", () => ({
   ConversationTabs: () => <nav aria-label="Shared tabs" />,
 }));

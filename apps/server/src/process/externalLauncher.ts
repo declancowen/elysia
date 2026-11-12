@@ -716,6 +716,7 @@ const readGraphicalSessionEnv = Effect.fn("externalLauncher.readGraphicalSession
 const launchAndUnref = Effect.fn("externalLauncher.launchAndUnref")(function* (
   launch: ProcessLaunch,
   onError: (cause: unknown) => ExternalLauncherError,
+  waitForExit = false,
 ): Effect.fn.Return<void, ExternalLauncherError, ChildProcessSpawner.ChildProcessSpawner> {
   const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
   // Inherited ELECTRON_RUN_AS_NODE would make Electron apps opened by this launcher run as Node and exit.
@@ -726,6 +727,15 @@ const launchAndUnref = Effect.fn("externalLauncher.launchAndUnref")(function* (
     extendEnv: false,
   });
 
+  if (waitForExit) {
+    return yield* spawner.exitCode(command).pipe(
+      Effect.timeout("5 seconds"),
+      Effect.mapError(onError),
+      Effect.flatMap((code) =>
+        code === 0 ? Effect.void : Effect.fail(onError(`File manager exited with code ${code}.`)),
+      ),
+    );
+  }
   yield* spawner.spawn(command).pipe(
     Effect.flatMap((handle) => handle.unref),
     Effect.asVoid,
@@ -769,12 +779,14 @@ const launchEditorProcess = Effect.fn("externalLauncher.launchEditorProcess")(fu
   if (spawnCommand.shell && launch.args.some((arg) => WINDOWS_SHIM_UNSAFE_ARG_PATTERN.test(arg))) {
     return yield* new ExternalLauncherUnsupportedTargetError({ editor: launch.editor });
   }
+  const waitForExit =
+    launch.editor === "file-manager" && launch.command === "open" && launch.args[0] === "-R";
   yield* launchAndUnref(
     {
       command: spawnCommand.command,
       args: spawnCommand.args,
       options: {
-        detached: launch.detached ?? true,
+        detached: waitForExit ? false : (launch.detached ?? true),
         shell: spawnCommand.shell,
         env: yield* readGraphicalSessionEnv(),
         stdin: "ignore",
@@ -790,6 +802,7 @@ const launchEditorProcess = Effect.fn("externalLauncher.launchEditorProcess")(fu
         args: spawnCommand.args,
         cause,
       }),
+    waitForExit,
   );
 });
 

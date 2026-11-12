@@ -373,6 +373,25 @@ it("routes a channel task to its dedicated thread and keeps member models", asyn
   expect(state.close).toHaveBeenCalledOnce();
 });
 
+it("asks for a replacement when an agent's saved model is no longer installed", async () => {
+  const id = agent.agentProfile!.conversationThreadId!;
+  state.threads.set(id, {
+    ...state.threads.get(id)!,
+    modelSelection: { instanceId, model: "retired-model" },
+  });
+  await using _screen = await renderDom(view(), { router: false });
+  await selectDestination("Alex");
+  await fillDetails();
+  expect(document.body.textContent).toContain("The saved model (retired-model) is unavailable");
+  expect(button("Create task").hasAttribute("disabled")).toBe(true);
+  await selectModel("Careful model");
+  await click(button("Create task"));
+  expect(state.save).toHaveBeenCalledWith({
+    environmentId,
+    input: expect.objectContaining({ modelSelection: { instanceId, model: "model-careful" } }),
+  });
+});
+
 it("saves project tasks without a dedicated thread so each run starts its own thread", async () => {
   await using _screen = await renderDom(view(), { router: false });
   await fillDetails();

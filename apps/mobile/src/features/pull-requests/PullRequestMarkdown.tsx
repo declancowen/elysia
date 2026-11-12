@@ -1,4 +1,7 @@
-import { splitPullRequestBody } from "@elysiatools/client-runtime/pull-request-markdown";
+import {
+  splitPullRequestBody,
+  type PullRequestBodySegment,
+} from "@elysiatools/client-runtime/pull-request-markdown";
 import type { ReactNode } from "react";
 import { View } from "react-native";
 import { useProject } from "../../state/entities";
@@ -99,22 +102,38 @@ export function PullRequestMarkdown(props: {
   readonly lineBreaks?: boolean;
 }) {
   const segments = useMemo(() => splitPullRequestBody(props.markdown), [props.markdown]);
-  return (
-    <View style={{ gap: 12 }}>
-      {segments.map((segment) =>
-        segment.kind === "markdown" ? (
-          <PullRequestMarkdownContent
-            key={segment.id}
-            markdown={segment.text}
-            imageGroupMarkdown={props.imageGroupMarkdown ?? props.markdown}
-            lineBreaks={props.lineBreaks}
-          />
-        ) : (
-          <PullRequestMedia key={segment.id} url={segment.url} kind={segment.media} />
-        ),
-      )}
-    </View>
-  );
+  const renderSegment = (segment: PullRequestBodySegment): ReactNode => {
+    if (segment.kind === "table") {
+      return (
+        <View key={segment.id} className="overflow-hidden rounded-lg border border-border">
+          {segment.rows.map((cells) => (
+            <View key={cells[0]!.id} className="flex-row">
+              {cells.map((cell) => (
+                <View
+                  key={cell.id}
+                  accessibilityRole={cell.header ? "header" : undefined}
+                  className="min-w-0 flex-1 gap-2 border border-border p-2"
+                >
+                  {cell.segments.map(renderSegment)}
+                </View>
+              ))}
+            </View>
+          ))}
+        </View>
+      );
+    }
+    return segment.kind === "markdown" ? (
+      <PullRequestMarkdownContent
+        key={segment.id}
+        markdown={segment.text}
+        imageGroupMarkdown={props.imageGroupMarkdown ?? props.markdown}
+        lineBreaks={props.lineBreaks}
+      />
+    ) : (
+      <PullRequestMedia key={segment.id} url={segment.url} kind={segment.media} />
+    );
+  };
+  return <View style={{ gap: 12 }}>{segments.map(renderSegment)}</View>;
 }
 
 function PullRequestMarkdownContent(props: {

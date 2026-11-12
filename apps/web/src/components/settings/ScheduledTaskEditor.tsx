@@ -44,6 +44,7 @@ import {
   WEBHOOK_SIGNATURE_DEFAULTS,
   scheduleFromDraft,
   scheduleDraftErrors,
+  isScheduledTaskModelAvailable,
   matchesScheduledTaskScope,
   scheduledTaskDefaultModel,
   scheduledTaskWorkspaceStrategy,
@@ -246,13 +247,14 @@ export function ScheduledTaskEditor({
   const firstInstance = instanceEntries[0];
   const preferredSelection =
     (draft.modelKey ? splitModelKey(draft.modelKey) : null) ?? agentThread?.modelSelection;
+  const unavailableSelection = Boolean(
+    preferredSelection && !isScheduledTaskModelAvailable(preferredSelection, instanceEntries),
+  );
   const activeSelection =
-    preferredSelection &&
-    instanceEntries.some(
-      (entry) => entry.instanceId === preferredSelection.instanceId && entry.enabled,
-    )
+    preferredSelection && (!agentProfile?.group || !unavailableSelection)
       ? preferredSelection
       : scheduledTaskDefaultModel(settings, selectedProject ?? null, instanceEntries);
+  const needsReplacementModel = unavailableSelection && !agentProfile?.group;
   const activeInstanceId =
     activeSelection?.instanceId ?? firstInstance?.instanceId ?? ("" as ProviderInstanceId);
   const activeModel = activeSelection?.model ?? "";
@@ -286,6 +288,10 @@ export function ScheduledTaskEditor({
     const selection = activeSelection;
     if (agentProfile && (agentProfile.archived || !agentThread)) {
       reportFailure("Agent chat is unavailable", "Open the agent chat before scheduling a task.");
+      return;
+    }
+    if (needsReplacementModel) {
+      reportFailure("Model unavailable", "Choose a model available in the installed provider.");
       return;
     }
     if (
@@ -574,12 +580,19 @@ export function ScheduledTaskEditor({
             isComposerOwned={false}
             triggerVariant="outline"
             triggerAriaLabel="Scheduled task model"
+            {...(needsReplacementModel ? { triggerLabel: "Choose model" } : {})}
             onInstanceModelChange={(instanceId, model) =>
               setDraft((current) => ({ ...current, modelKey: `${instanceId}:${model}` }))
             }
           />
         </div>
       )}
+      {needsReplacementModel ? (
+        <p role="status" className="text-sm text-muted-foreground">
+          The saved model ({preferredSelection?.model}) is unavailable. Choose another model to save
+          this task.
+        </p>
+      ) : null}
 
       <div className="space-y-3">
         {task?.schedule.type === "interval" &&
@@ -831,7 +844,14 @@ export function ScheduledTaskEditor({
       </Button>
       <Button
         variant="outline"
-        disabled={!canOperate || saving || editingTaskMissing || !connected || !tasksQuery.data}
+        disabled={
+          !canOperate ||
+          saving ||
+          editingTaskMissing ||
+          !connected ||
+          !tasksQuery.data ||
+          needsReplacementModel
+        }
         onClick={() => void submit()}
       >
         {draft.editingId ? "Save task" : "Create task"}

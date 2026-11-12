@@ -36,6 +36,7 @@ export type SettingsPath =
   | "/settings/keybindings"
   | "/settings/snap-shot"
   | "/settings/providers"
+  | "/settings/mcp"
   | "/settings/threads"
   | "/settings/browser"
   | "/settings/devices"
@@ -106,6 +107,7 @@ export const SETTINGS_SECTION_LABELS: Readonly<Record<SettingsPath, string>> = {
   "/settings/keybindings": "Keybindings",
   "/settings/snap-shot": "SnapShots",
   "/settings/providers": "Providers",
+  "/settings/mcp": "MCP",
   "/settings/threads": "Threads",
   "/settings/browser": "Browser",
   "/settings/devices": "Devices",
@@ -141,6 +143,7 @@ export const SETTINGS_NAV_GROUPS: ReadonlyArray<{
     heading: "Agents",
     paths: [
       "/settings/providers",
+      "/settings/mcp",
       "/settings/threads",
       "/settings/browser",
       "/settings/devices",
@@ -822,6 +825,13 @@ export const SETTINGS_SEARCH_ITEMS = [
         ],
   },
   {
+    id: "mcp-servers",
+    title: "MCP servers",
+    to: "/settings/mcp",
+    scope: "environment",
+    searchTerms: ["Claude Code integrations model context protocol"],
+  },
+  {
     id: "usage-providers",
     title: "Usage providers",
     to: "/settings/providers",
@@ -1235,6 +1245,7 @@ const SETTINGS_CATEGORY_SCOPES: Readonly<Record<SettingsPath, SettingsSearchScop
   "/settings/snap-shot": null,
   "/settings/keybindings": null,
   "/settings/providers": null,
+  "/settings/mcp": null,
   "/settings/threads": null,
   "/settings/browser": null,
   "/settings/devices": null,

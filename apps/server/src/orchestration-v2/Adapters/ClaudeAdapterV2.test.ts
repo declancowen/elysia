@@ -3208,7 +3208,10 @@ describe("ClaudeAdapterV2 background wake turns", () => {
     > &
       Partial<Pick<ClaudeAdapterV2.ClaudeAgentSdkQuerySession, "listPermissionRules">>;
     readonly environment?: NodeJS.ProcessEnv;
-    readonly queryConfigurationVersion?: Effect.Effect<string | null>;
+    readonly queryConfiguration?: (cwd: string) => Effect.Effect<{
+      readonly version: string | null;
+      readonly mcpServers?: ClaudeAdapterV2.ClaudeAgentSdkQueryOptions["mcpServers"];
+    }>;
     readonly subagentLaunchToolUseId?: string;
     readonly nativeSessionId?: string;
     readonly settings?: ClaudeSettings;
@@ -3272,9 +3275,9 @@ describe("ClaudeAdapterV2 background wake turns", () => {
         instanceId: ClaudeAdapterV2.CLAUDE_DEFAULT_INSTANCE_ID,
         settings: options?.settings ?? DEFAULT_CLAUDE_SETTINGS,
         environment: options?.environment ?? {},
-        ...(options?.queryConfigurationVersion === undefined
+        ...(options?.queryConfiguration === undefined
           ? {}
-          : { queryConfigurationVersion: options.queryConfigurationVersion }),
+          : { queryConfiguration: options.queryConfiguration }),
         attachmentsDir,
         fileSystem,
         path: yield* Path.Path,
@@ -3475,7 +3478,11 @@ describe("ClaudeAdapterV2 background wake turns", () => {
         let version = "0.3.8";
         let closed = 0;
         const harness = yield* makeWakeHarnessWithOptions({
-          queryConfigurationVersion: Effect.sync(() => version),
+          queryConfiguration: () =>
+            Effect.sync(() => ({
+              version,
+              mcpServers: { reports: { type: "stdio" as const, command: "fixture-reports" } },
+            })),
           close: () =>
             Effect.sync(() => {
               closed += 1;
@@ -3522,6 +3529,9 @@ describe("ClaudeAdapterV2 background wake turns", () => {
         assert.isUndefined(resumed?.sessionId);
         assert.deepEqual(resumed?.settingSources, ["user", "project", "local"]);
         assert.notEqual(resumed?.strictMcpConfig, true);
+        assert.deepInclude(resumed?.mcpServers, {
+          reports: { type: "stdio", command: "fixture-reports" },
+        });
       }).pipe(
         Effect.scoped,
         Effect.provide(

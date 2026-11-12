@@ -15,6 +15,7 @@ import {
   FolderIcon,
   Home,
   PanelLeftIcon,
+  Plug2Icon,
   SearchIcon,
   SettingsIcon,
   SquarePenIcon,
@@ -642,12 +643,24 @@ export const AppNavigationRail = memo(function AppNavigationRail() {
           tabTarget={{ kind: "surface", path: "/settings/general", title: "Settings" }}
           onIntent={() => void router.preloadRoute({ to: "/settings" })}
           icon={<SettingsIcon className="size-5" />}
-          active={pathname.startsWith("/settings") && pathname !== "/settings/scheduled-tasks"}
+          active={
+            pathname.startsWith("/settings") &&
+            pathname !== "/settings/scheduled-tasks" &&
+            pathname !== "/settings/mcp"
+          }
           onClick={() => {
             setAgentSidebarActive(false);
             if (navigateToTabSection("settings")) return;
             void navigate({ to: "/settings" });
           }}
+        />
+        <AppRailButton
+          label="MCP"
+          tabTarget={{ kind: "surface", path: "/settings/mcp", title: "MCP" }}
+          onIntent={() => void router.preloadRoute({ to: "/settings/mcp" })}
+          icon={<Plug2Icon className="size-5" />}
+          active={pathname === "/settings/mcp"}
+          onClick={() => void navigate({ to: "/settings/mcp" })}
         />
         <AppRailButton
           label={

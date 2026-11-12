@@ -11,6 +11,7 @@ import {
   TaskEdit02Icon,
   Clock3Icon,
   FolderIcon,
+  Plug2Icon,
   SettingsIcon,
   BubblesIcon,
   ChartNoAxesColumnIncreasingIcon,
@@ -95,6 +96,8 @@ export function ConversationTabs() {
             icon={
               tab.target.path === "/usage" ? (
                 <ChartNoAxesColumnIncreasingIcon className="size-4" />
+              ) : tab.target.path === "/settings/mcp" ? (
+                <Plug2Icon className="size-4" />
               ) : tab.target.path === "/projects" || tab.target.search?.project ? (
                 <FolderIcon className="size-4" />
               ) : tab.target.path === "/agents" ? (

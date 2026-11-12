@@ -1,3 +1,5 @@
+import { AssetWorkspaceAssetNotFoundError } from "@elysiatools/contracts";
+import * as Schema from "effect/Schema";
 import * as Dialog from "./ui/Dialog";
 import { useContext, useEffect, useEffectEvent, useState } from "react";
 
@@ -33,6 +35,8 @@ class PreviewResolutionError extends Error {
   }
 }
 
+const isAssetNotFound = Schema.is(AssetWorkspaceAssetNotFoundError);
+
 interface ResolvedPreviewItem {
   readonly source: ResolvedFilePreviewSource;
   readonly dispose?: () => void;
@@ -59,9 +63,16 @@ async function resolvePreviewItem(
       return value;
     })
     .catch((error: unknown) => {
+      if (isAssetNotFound(error)) {
+        const path = error.checkedPath ?? ("path" in error.resource ? error.resource.path : null);
+        throw new PreviewResolutionError(
+          error,
+          path ? `The file was not found at ${path}.` : error.message,
+        );
+      }
       throw new PreviewResolutionError(
         error,
-        "Reconnect to this environment and try again. The file may have been moved or deleted.",
+        "Could not load the file. Check the environment connection and try again.",
       );
     });
   return { source: { ...item, name, uri: url + (item.srcFragment ?? "") } };

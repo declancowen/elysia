@@ -154,7 +154,10 @@ export function useThreadActionMenu(input: {
       // Snapshot at open time — the menu is modal, so state read now is
       // what the user is looking at.
       const thread = readThreadShell(threadRef);
-      if (!thread) return;
+      if (!thread) {
+        failureToast("Thread actions unavailable", new Error("This thread has not loaded yet."));
+        return;
+      }
       const now = new Date();
       const configLoaded = readEnvironmentServerConfigLoaded(threadRef.environmentId);
       const supports = {

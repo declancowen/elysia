@@ -66,6 +66,7 @@ export const RPC_REQUIRED_SCOPES = {
   [WS_METHODS.serverGetConfig]: AuthOrchestrationReadScope,
   [WS_METHODS.serverGetElysiaStats]: AuthOrchestrationReadScope,
   [WS_METHODS.serverGetElysiaAccountUsage]: AuthOrchestrationReadScope,
+  [WS_METHODS.serverListElysiaMcpRegistrations]: AuthProvidersManageScope,
   [WS_METHODS.serverGetNpmRelease]: AuthOrchestrationReadScope,
   [WS_METHODS.serverRefreshProviders]: AuthOrchestrationReadScope,
   [WS_METHODS.serverUpdateProvider]: AuthProvidersManageScope,

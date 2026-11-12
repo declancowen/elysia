@@ -258,6 +258,38 @@ it.effect("launches an installed editor with platform-safe arguments", () =>
 );
 
 it.effect.skipIf(windowsHost)(
+  "reports Finder reveal failures instead of acknowledging a detached spawn",
+  () =>
+    Effect.gen(function* () {
+      const fileSystem = yield* FileSystem.FileSystem;
+      const path = yield* Path.Path;
+      const binDir = yield* fileSystem.makeTempDirectoryScoped();
+      const open = path.join(binDir, "open");
+      yield* fileSystem.writeFileString(open, "#!/bin/sh\n");
+      yield* fileSystem.chmod(open, 0o755);
+
+      yield* Effect.gen(function* () {
+        const launcher = yield* ExternalLauncher.ExternalLauncher;
+        const result = yield* Effect.result(
+          launcher.launchEditor({ editor: "file-manager", cwd: "/missing", reveal: true }),
+        );
+        assert.equal(result._tag, "Failure");
+        if (result._tag === "Failure") {
+          assert.equal(result.failure._tag, "ExternalLauncherEditorSpawnError");
+        }
+      }).pipe(
+        Effect.provide(
+          layerTest({
+            platform: "darwin",
+            env: { PATH: binDir },
+            spawnResult: () => ({ exitCode: 1 }),
+          }),
+        ),
+      );
+    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer)),
+);
+
+it.effect.skipIf(windowsHost)(
   "reveals a WSL file in Windows File Explorer through its UNC path",
   () =>
     Effect.gen(function* () {

@@ -1279,9 +1279,12 @@ function ProviderInstanceRow({
       : undefined;
   const instance = explicitInstance ?? { driver };
   const driverOption = providerClients.get(driver);
-  const updateCandidate = projectProviderUpdateTargets(liveProvider ? [liveProvider] : [])
-    .filter((candidate) => candidate.updateTarget !== "runtime")
-    .find(isProviderSettingsUpdateCandidate);
+  const updateCandidate =
+    mode === "editor" && driver === "claudeAgent" && liveProvider?.versionAdvisory?.canUpdate
+      ? liveProvider
+      : projectProviderUpdateTargets(liveProvider ? [liveProvider] : [])
+          .filter((candidate) => candidate.updateTarget !== "runtime")
+          .find(isProviderSettingsUpdateCandidate);
   const isInstanceUpdateRunning =
     isUpdateDispatching ||
     (liveProvider !== undefined &&

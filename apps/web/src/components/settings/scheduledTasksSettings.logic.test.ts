@@ -196,6 +196,14 @@ describe("editing scheduled task branch settings", () => {
   });
 });
 
+it("pads an existing fixed schedule for the time input", () => {
+  const draft = taskToDraft({
+    ...legacyTask,
+    schedule: { type: "fixed_time", timeOfDay: "9:05" },
+  });
+  expect(draft.timeOfDay).toBe("09:05");
+});
+
 describe("one-time scheduled tasks", () => {
   afterEach(() => vi.unstubAllEnvs());
 
@@ -398,6 +406,20 @@ describe("scheduled task model defaults", () => {
         },
       }),
     ).toEqual(environmentSelection);
+  });
+  it("ignores a stored model removed from the current catalog", () => {
+    expect(
+      resolve(
+        {
+          ...config,
+          settings: {
+            ...config.settings,
+            defaultModelSelection: { instanceId, model: "retired-environment-model" },
+          },
+        },
+        { id: projectId, defaultModelSelection: { instanceId, model: "retired-project-model" } },
+      ),
+    ).toEqual({ instanceId, model: "catalog-default" });
   });
 });
 

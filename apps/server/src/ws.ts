@@ -186,6 +186,7 @@ import * as ThreadSearch from "./orchestration-v2/ThreadSearch.ts";
 import * as OrchestrationEventStore from "./persistence/OrchestrationEventStore.ts";
 import { userFacingDispatchErrorMessage } from "./orchestration-v2/UserFacingErrors.ts";
 import * as ProviderRegistry from "./provider/ProviderRegistry.ts";
+import { readElysiaMcpInventory } from "./provider/ElysiaMcpConfig.ts";
 import * as ProviderInstanceRegistry from "./provider/ProviderInstanceRegistry.ts";
 import * as AcpRegistrySupport from "@elysiatools/provider-acp-registry/server/AcpRegistrySupport";
 import * as AcpRegistryRuntimeCoordinator from "@elysiatools/provider-acp-registry/server/AcpRegistryRuntimeCoordinator";
@@ -633,6 +634,7 @@ const ServerWsRpcGroup = WsRpcGroup.middleware(RpcInstrumentation);
 const ServerCoreWsRpcGroup = ServerWsRpcGroup.omit(
   WS_METHODS.serverGetElysiaStats,
   WS_METHODS.serverGetElysiaAccountUsage,
+  WS_METHODS.serverListElysiaMcpRegistrations,
   WS_METHODS.workspaceChatsList,
   WS_METHODS.workspaceChatsLink,
   WS_METHODS.pagesList,
@@ -3441,6 +3443,8 @@ export const layerWsRpc = (
           ),
       });
       const elysiaHandlers = ServerElysiaWsRpcGroup.of({
+        [WS_METHODS.serverListElysiaMcpRegistrations]: () =>
+          Effect.flatMap(providerInstances.listInstances, readElysiaMcpInventory),
         [WS_METHODS.workspaceChatsList]: (input) => workspaceChats.list(input),
         [WS_METHODS.workspaceChatsLink]: (input) => workspaceChats.link(input),
         [WS_METHODS.pagesList]: (_input) => pages.list(),

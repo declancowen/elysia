@@ -12,7 +12,7 @@ import { useComposerDraftStore } from "../composerDraftStore";
 import { useSidebarPendingFileDropStore } from "../sidebarPendingFileDropStore";
 import { useEnvironmentThreadRefs, useQuietThreadShell, useProject } from "../state/entities";
 import { useEnvironmentShellStatus } from "../state/shell";
-import { useEnvironmentThread } from "../state/threads";
+import { useEnvironmentThread, useThreadFamily } from "../state/threads";
 import {
   buildThreadRouteParams,
   isThreadRouteSnapshotAuthoritative,
@@ -93,6 +93,17 @@ export function ThreadRouteView({
   const unlistedThreadDetail = useEnvironmentThread(
     unlistedThreadRef?.environmentId ?? null,
     unlistedThreadRef?.threadId ?? null,
+  );
+  // Keep the family mounted after it fills the missing shell row, until the route changes.
+  const [leasedThreadKey, setLeasedThreadKey] = useState<string | null>(null);
+  const nextLeaseKey =
+    (bootstrapComplete && unlistedThreadRef !== null) || leasedThreadKey === serverThreadKey
+      ? serverThreadKey
+      : null;
+  if (nextLeaseKey !== leasedThreadKey) setLeasedThreadKey(nextLeaseKey);
+  useThreadFamily(
+    nextLeaseKey === null ? null : (serverThreadRef?.environmentId ?? null),
+    nextLeaseKey === null ? null : (serverThreadRef?.threadId ?? null),
   );
   const renderState = resolveThreadRouteRenderState({
     bootstrapComplete,

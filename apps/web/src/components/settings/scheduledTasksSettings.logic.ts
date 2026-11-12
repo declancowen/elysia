@@ -266,7 +266,8 @@ export function taskToDraft(task: ScheduledTask): DraftState {
     scheduleMode: schedule.type === "fixed_time" ? "fixed" : schedule.type,
     intervalMinutes:
       schedule.type === "interval" ? String(Math.max(1, schedule.everyMs / 60_000)) : "15",
-    timeOfDay: schedule.type === "fixed_time" ? schedule.timeOfDay : "09:00",
+    // A time input shows nothing for an unpadded hour such as 9:05, which agents may save.
+    timeOfDay: schedule.type === "fixed_time" ? schedule.timeOfDay.padStart(5, "0") : "09:00",
     runAt: schedule.type === "once" ? toDateTimeLocalValue(new Date(schedule.runAt)) : "",
     savedRunAt: schedule.type === "once" ? schedule.runAt : "",
     weekdays,
@@ -310,30 +311,37 @@ export function taskToDraft(task: ScheduledTask): DraftState {
   };
 }
 
+function isScheduledTaskProviderAvailable(entry: ProviderInstanceEntry) {
+  return (
+    entry.enabled &&
+    entry.installed &&
+    entry.isAvailable &&
+    entry.snapshot.auth.status !== "unauthenticated"
+  );
+}
+
+export function isScheduledTaskModelAvailable(
+  selection: ModelSelection,
+  entries: readonly ProviderInstanceEntry[],
+) {
+  return entries.some(
+    (entry) =>
+      entry.instanceId === selection.instanceId &&
+      isScheduledTaskProviderAvailable(entry) &&
+      entry.models.some((model) => model.slug === selection.model && !model.isLegacy),
+  );
+}
+
 export function scheduledTaskDefaultModel(
   settings: ServerSettings,
   project: (LegacyProjectSettingsFields & { readonly id: ProjectId }) | null,
   entries: readonly ProviderInstanceEntry[],
 ): ModelSelection | null {
-  const available = entries.filter(
-    (entry) =>
-      entry.enabled &&
-      entry.installed &&
-      entry.isAvailable &&
-      entry.snapshot.auth.status !== "unauthenticated",
-  );
+  const available = entries.filter(isScheduledTaskProviderAvailable);
   const configured = resolveProjectSettings(settings, project?.id ?? null, project).settings
     .defaultModelSelection;
   for (const selection of [configured, settings.defaultModelSelection]) {
-    if (
-      selection &&
-      available.some(
-        (entry) =>
-          entry.instanceId === selection.instanceId &&
-          entry.models.find((model) => model.slug === selection.model)?.isLegacy !== true,
-      )
-    )
-      return selection;
+    if (selection && isScheduledTaskModelAvailable(selection, available)) return selection;
   }
   const models = available.flatMap((entry) =>
     entry.models

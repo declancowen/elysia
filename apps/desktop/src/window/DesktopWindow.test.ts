@@ -462,6 +462,16 @@ const captureOne = DesktopSnapShotId.make("11111111-1111-4111-8111-111111111111"
 const captureTwo = DesktopSnapShotId.make("22222222-2222-4222-8222-222222222222");
 
 describe("DesktopWindow", () => {
+  it("restores a snapped window within one pixel of the display edge", () => {
+    const displays = [{ x: 1920, y: 0, width: 1280, height: 1920 }];
+    const bounds = { x: 1921, y: 30, width: 1280, height: 945 };
+    assert.deepEqual(DesktopWindow.resolveInitialMainWindowBounds(bounds, displays), bounds);
+    assert.deepEqual(
+      DesktopWindow.resolveInitialMainWindowBounds({ ...bounds, x: 1922 }, displays),
+      DesktopAppSettings.DEFAULT_MAIN_WINDOW_SIZE,
+    );
+  });
+
   it("restores bounds only when the window fits within a connected display", () => {
     const persistedBounds = { x: 2040, y: 80, width: 1320, height: 880 };
     const displays = [

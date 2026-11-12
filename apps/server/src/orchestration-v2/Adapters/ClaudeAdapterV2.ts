@@ -4977,7 +4977,10 @@ export interface ClaudeAdapterV2Options {
   readonly idAllocator: IdAllocator.IdAllocatorV2["Service"];
   readonly queryRunner: ClaudeAgentSdkQueryRunnerShape;
   readonly modelCatalog?: Effect.Effect<ClaudeModelCatalog>;
-  readonly queryConfigurationVersion?: Effect.Effect<string | null>;
+  readonly queryConfiguration?: (cwd: string) => Effect.Effect<{
+    readonly version: string | null;
+    readonly mcpServers?: ClaudeQueryOptions["mcpServers"];
+  }>;
   readonly authorizeModel?: (model: string) => Effect.Effect<void, ProviderSetupError>;
   readonly resolveEnvironment?: (
     model: string,
@@ -10939,11 +10942,18 @@ export const makeClaudeAdapterV2 = Effect.fn("makeClaudeAdapterV2")(function* (
               ? {}
               : { allowedTools: queryPolicy.allowedTools }),
           });
+          const queryConfiguration = yield* (
+            adapterOptions.queryConfiguration?.(path.resolve(turnInput.runtimePolicy.cwd ?? ".")) ??
+              Effect.undefined
+          );
+          const inheritedMcpServers = queryConfiguration?.mcpServers;
+          const queryMcpServers =
+            inheritedMcpServers && Object.keys(inheritedMcpServers).length > 0
+              ? { ...inheritedMcpServers, ...mcpOverrides.mcpServers }
+              : mcpOverrides.mcpServers;
           const queryPolicyKey = encodeElysiaQueryPolicyKey({
             query: claudeEffectiveQueryPolicyKey(queryPolicy, mcpOverrides),
-            configurationVersion: yield* (
-              adapterOptions.queryConfigurationVersion ?? Effect.succeed(null)
-            ),
+            configurationVersion: queryConfiguration?.version ?? null,
             persistentAgent: turnInput.runtimePolicy.persistentAgent ?? null,
           });
           const compiledSelection = compileClaudeModelSelection(
@@ -11107,9 +11117,7 @@ export const makeClaudeAdapterV2 = Effect.fn("makeClaudeAdapterV2")(function* (
             ...(mcpOverrides.allowedTools === undefined
               ? {}
               : { allowedTools: mcpOverrides.allowedTools }),
-            ...(mcpOverrides.mcpServers === undefined
-              ? {}
-              : { mcpServers: mcpOverrides.mcpServers }),
+            ...(queryMcpServers === undefined ? {} : { mcpServers: queryMcpServers }),
             deviceToolsAvailable: mcpSession?.capabilities?.has("device") === true,
             permissionMode: queryPolicy.permissionMode,
             ...(queryPolicy.allowDangerouslySkipPermissions === undefined

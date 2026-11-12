@@ -584,7 +584,7 @@ describe("project query refresh", () => {
       atomHooks.registry = null;
     }
   });
-  it("refetches a listing when the workspace mutation changes, not when it is first read", () => {
+  it("refetches a listing when the workspace mutation changes, not when it is first read", async () => {
     let fetches = 0;
     const listing = Atom.make(() => {
       fetches += 1;
@@ -601,6 +601,8 @@ describe("project query refresh", () => {
       read("mutation-1");
       expect(fetches).toBe(1);
 
+      read("mutation-2");
+      await Promise.resolve();
       read("mutation-2");
       expect(fetches).toBe(2);
     } finally {

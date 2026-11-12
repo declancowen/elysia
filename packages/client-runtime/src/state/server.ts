@@ -1405,6 +1405,11 @@ export function createServerEnvironmentAtoms<R, E>(
       tag: WS_METHODS.serverGetElysiaAccountUsage,
       staleTimeMs: 0,
     }),
+    elysiaMcpRegistrations: createEnvironmentRpcQueryAtomFamily(runtime, {
+      label: "environment-data:server:elysia-mcp-registrations",
+      tag: WS_METHODS.serverListElysiaMcpRegistrations,
+      staleTimeMs: 0,
+    }),
     configProjection,
     welcome,
     legacyThreadMigration: createEnvironmentRpcSubscriptionAtomFamily(runtime, {

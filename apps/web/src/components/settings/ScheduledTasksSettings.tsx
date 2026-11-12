@@ -118,8 +118,7 @@ export function ScheduledRelativeLabel(props: { value: string | null }) {
 
 function statusVariant(status: ScheduledTask["lastRunStatus"]) {
   if (status === "failed") return "error";
-  if (status === "succeeded") return "success";
-  if (status === "running") return "info";
+  if (status === "succeeded" || status === "running") return "info";
   return "outline";
 }
 
@@ -719,6 +718,7 @@ function ScheduledTaskRow({
   );
   const [deliveriesOpen, setDeliveriesOpen] = useState(false);
   const isWebhook = task.schedule.type === "webhook";
+  const lastRunLabel = task.lastRunStatus === "succeeded" ? "Dispatched" : task.lastRunStatus;
   const toggle = useAtomCommand(serverEnvironment.setScheduledTaskEnabled, {
     label: "scheduled task enabled",
   });
@@ -859,7 +859,7 @@ function ScheduledTaskRow({
                 task.lastRunStatus === "failed" && "text-destructive",
               )}
             >
-              {task.lastRunError ?? task.lastRunStatus}
+              {task.lastRunError ?? lastRunLabel}
             </span>
           ) : null}
         </button>
@@ -887,7 +887,7 @@ function ScheduledTaskRow({
             )}
           </span>
           {task.lastRunStatus !== "never" ? (
-            <Badge variant={statusVariant(task.lastRunStatus)}>{task.lastRunStatus}</Badge>
+            <Badge variant={statusVariant(task.lastRunStatus)}>{lastRunLabel}</Badge>
           ) : null}
           {task.lastRunError ? <span className="text-destructive">{task.lastRunError}</span> : null}
         </div>

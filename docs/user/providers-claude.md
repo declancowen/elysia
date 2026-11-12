@@ -18,11 +18,19 @@ You can send `/compact` in an existing conversation. The CLI and Claude Code own
 
 ## Updates
 
-Use the Elysia CLI updater in **Settings → Providers** to update the managed copy used by app sessions. Updating a separate global CLI does not update the app’s managed copy. A successful update applies its configuration to a fresh process on the next user turn; finish or stop running work before replacing its process.
+Open **Settings → Providers → Elysia CLI** and choose **Update CLI**. To run the same native updater from a terminal, use **Copy Elysia CLI update command**. Both target the managed copy used by app sessions. A bare `elysia-code --update` in your shell targets whichever installation is on your PATH.
+
+Elysia checks the installed managed version after updating. A verified update applies its configuration to a fresh process on the next user turn. Finish or stop running work before replacing its process.
 
 ## Usage
 
 The account totals reported by the native CLI are authoritative for spend, allowance and reset period. Stats also shows model-level estimates from recorded activity and known rates. Input/output token rates in `--config` are pricing metadata, not an itemized statement of billed cost per model.
+
+## MCP servers
+
+Open **MCP** in the sidebar or **Settings → MCP** to see servers registered in Claude Code and Elysia. User-scoped servers are available across projects. Local registrations apply in the working directory where they were added. Claude Code loads repository MCP configuration when it starts a session.
+
+Elysia picks up profile changes automatically on the next turn. The cards show registration status. A configured server connects when Claude loads it for a session.
 
 ## Skills and commands
 

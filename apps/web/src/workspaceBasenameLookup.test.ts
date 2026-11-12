@@ -11,20 +11,27 @@ describe("pickWorkspaceBasenameMatch", () => {
     { path: "apps/web/src/components/ChatView.tsx", kind: "file" as const },
   ];
 
-  it("takes the first exact filename match, not the closest fuzzy one", () => {
+  it("takes a unique exact filename match over a fuzzy one", () => {
     expect(pickWorkspaceBasenameMatch("ChatView.tsx", entries)).toBe(
       "apps/web/src/components/ChatView.tsx",
     );
   });
 
-  // regression: #6297 a bare filename resolves to a file, never a same-named directory
-  it("ignores directories", () => {
+  it("does not guess between exact matches", () => {
+    expect(
+      pickWorkspaceBasenameMatch("foo.ts", [
+        { path: "src/foo.ts", kind: "file" },
+        { path: "test/foo.ts", kind: "file" },
+      ]),
+    ).toBeNull();
+  });
+
+  it("resolves a directory when it is the only matching entry", () => {
     expect(
       pickWorkspaceBasenameMatch("components", [
         { path: "apps/web/src/components", kind: "directory" },
-        { path: "apps/web/src/components/components", kind: "file" },
       ]),
-    ).toBe("apps/web/src/components/components");
+    ).toBe("apps/web/src/components");
   });
 
   it("prefers the exactly-cased file over a case-only twin", () => {

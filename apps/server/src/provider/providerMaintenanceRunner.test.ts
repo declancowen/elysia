@@ -282,6 +282,55 @@ function layerFailingLatestLookupAfterFirst() {
 }
 
 describe("providerMaintenanceRunner", () => {
+  it.effect.each([
+    { installedVersion: "0.3.8", status: "unchanged", message: /could not verify/ },
+    { installedVersion: "0.3.11", status: "succeeded", message: /Already up to date/ },
+  ] as const)(
+    "verifies native $installedVersion when the release lookup disappears",
+    ({ installedVersion, status, message }) => {
+      const driver = ProviderDriverKind.make("claudeAgent");
+      const instanceId = ProviderInstanceId.make("claudeAgent");
+      let ran = false;
+      return Effect.gen(function* () {
+        const { registry } = yield* makeRegistry({
+          ...baseProvider,
+          driver,
+          instanceId,
+          version: installedVersion,
+        });
+        const updater = yield* makeTestRunner({
+          ...registry,
+          getProviderMaintenanceCapabilitiesForInstance: () =>
+            Effect.succeed(
+              makeProviderMaintenanceCapabilities({
+                provider: driver,
+                packageName: null,
+                updateExecutable: "python3",
+                updateArgs: ["elysia-code.py", "--update"],
+                updateLockKey: "/owned/elysia",
+                latestVersion: ran ? null : "0.3.11",
+              }),
+            ),
+        });
+        const result = yield* updater.updateProvider({ provider: driver });
+        assert.isTrue(ran);
+        assert.strictEqual(result.providers[0]?.version, installedVersion);
+        assert.strictEqual(result.providers[0]?.updateState?.status, status);
+        assert.match(result.providers[0]?.updateState?.message ?? "", message);
+      }).pipe(
+        Effect.provide(
+          Layer.mergeAll(
+            layerNonWindowsPlatform,
+            layerLatestVersionHttpClient("0.3.11"),
+            layerMockSpawner(() => {
+              ran = true;
+              return { stdout: "fixture update completed" };
+            }),
+          ),
+        ),
+      );
+    },
+  );
   it.effect(
     "updates Elysia and its Claude runtime independently and verifies the selected version",
     () => {

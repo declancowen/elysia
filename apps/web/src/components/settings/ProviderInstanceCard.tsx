@@ -91,7 +91,9 @@ function ProviderStatusDiagnostic({
   );
 }
 let environmentVariableDraftId = 0;
-const nextEnvironmentVariableDraftId = () => `provider-env-${environmentVariableDraftId++}`;
+const DRAFT_ROW_ID_PREFIX = "provider-env-";
+const nextEnvironmentVariableDraftId = () =>
+  `${DRAFT_ROW_ID_PREFIX}${environmentVariableDraftId++}`;
 
 type EnvironmentDraftRow = {
   readonly id: string;
@@ -340,12 +342,22 @@ export function ProviderEnvironmentSection(props: {
   const [storedDraft, setDraft] = useState(() =>
     seedRowsDraft(props.environment, toEnvironmentDraftRows),
   );
-  const draft = reconcileRowsDraft(
+  let draft = reconcileRowsDraft(
     storedDraft,
     props.environment,
     providerEnvironmentsEqual,
     toEnvironmentDraftRows,
   );
+  if (draft.rows !== storedDraft.rows) {
+    const acknowledgedNames = new Set(storedDraft.seen.map((variable) => variable.name));
+    const unpublished = storedDraft.rows.filter(
+      (row) =>
+        row.id.startsWith(DRAFT_ROW_ID_PREFIX) &&
+        !acknowledgedNames.has(row.name) &&
+        !draft.rows.some((incoming) => incoming.name === row.name),
+    );
+    if (unpublished.length > 0) draft = { ...draft, rows: [...draft.rows, ...unpublished] };
+  }
   if (draft !== storedDraft) setDraft(draft);
   const rows = draft.rows;
   const setRows = (nextRows: ReadonlyArray<EnvironmentDraftRow>) =>
@@ -771,6 +783,7 @@ export function ProviderInstanceCard({
       : compatibility?.latestVersionStatus !== "broken" &&
         compatibility?.latestVersionStatus !== "unsupported");
   const updateCommand = versionAdvisory?.updateCommand ?? null;
+  const nativeUpdateCommand = liveProvider?.versionAdvisory?.updateCommand;
   const updateState = liveProvider?.updateState;
   const updateProgress = isUpdating
     ? ((updateState?.status === "queued" || updateState?.status === "running"
@@ -1401,6 +1414,19 @@ export function ProviderInstanceCard({
                   >
                     {isUpdating ? <Spinner /> : <DownloadIcon />}
                     {isUpdating ? "Updating" : "Update CLI"}
+                  </Button>
+                ) : null}
+                {nativeUpdateCommand && onRunUpdate ? (
+                  <Button
+                    type="button"
+                    size="icon-xs"
+                    variant="ghost-muted"
+                    aria-label="Copy Elysia CLI update command"
+                    onClick={() =>
+                      copyToClipboard(nativeUpdateCommand, { providerName: displayName })
+                    }
+                  >
+                    <CopyIcon />
                   </Button>
                 ) : null}
               </div>

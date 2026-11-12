@@ -2,6 +2,7 @@ import { PASTED_TEXT_ATTACHMENT_THRESHOLD_BYTES } from "@elysiatools/client-runt
 import { PROVIDER_SEND_TURN_MAX_INPUT_CHARS } from "@elysiatools/contracts";
 import { collectComposerInlineTokens } from "@elysiatools/shared/composerInlineTokens";
 import { composerContextEditorTokens, composerSkillLabels } from "../lib/composerContext";
+import { DEFAULT_COMPOSER_ENTER_BEHAVIOR } from "../lib/composerEnterBehavior";
 import { requireNativeView } from "expo";
 import { TextInputWrapper } from "expo-paste-input";
 import {
@@ -89,6 +90,8 @@ interface NativeComposerEditorProps extends ViewProps {
   readonly autoFocus: boolean;
   readonly autoCorrect: boolean;
   readonly spellCheck: boolean;
+  readonly enterBehavior: string;
+  readonly submitEnabled: boolean;
   readonly onComposerChange: (event: NativeEditorEvent) => void;
   readonly onComposerSelectionChange?: (event: NativeSelectionEvent) => void;
   readonly onComposerPasteImages?: (event: NativePasteImagesEvent) => void;
@@ -103,6 +106,7 @@ interface NativeComposerEditorProps extends ViewProps {
   readonly onComposerPasteText?: (event: NativePasteTextEvent) => void;
   readonly onComposerFocus?: () => void;
   readonly onComposerBlur?: () => void;
+  readonly onComposerSubmit?: (event: NativeSyntheticEvent<{ alternate: boolean }>) => void;
   readonly onComposerContentSizeChange?: (
     event: NativeSyntheticEvent<{ readonly width: number; readonly height: number }>,
   ) => void;
@@ -135,6 +139,7 @@ export function ComposerEditor({
   onFocus,
   onBlur,
   onContentSizeChange,
+  onSubmit,
   contentInsetVertical = 0,
   ...props
 }: ComposerEditorProps) {
@@ -317,6 +322,13 @@ export function ComposerEditor({
         autoFocus={props.autoFocus ?? false}
         autoCorrect={props.autoCorrect ?? true}
         spellCheck={props.spellCheck ?? true}
+        enterBehavior={props.enterBehavior ?? DEFAULT_COMPOSER_ENTER_BEHAVIOR}
+        submitEnabled={onSubmit !== undefined}
+        onComposerSubmit={
+          onSubmit === undefined
+            ? undefined
+            : (event) => onSubmit(event.nativeEvent.alternate === true)
+        }
         textPasteThresholdBytes={onPasteText ? PASTED_TEXT_ATTACHMENT_THRESHOLD_BYTES : 0}
         maxInputChars={PROVIDER_SEND_TURN_MAX_INPUT_CHARS}
         style={{ flex: 1, minHeight: 0 }}

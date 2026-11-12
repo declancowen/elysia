@@ -77,7 +77,8 @@ import { useNowSecond } from "../hooks/useNowSecond";
 import { discardComposerDraft } from "../lib/discardComposerDraft";
 import { useOpenPrLink } from "../lib/openPullRequestLink";
 import { shouldShowInstanceBadge, type ProviderInstanceEntry } from "../providerInstances";
-import { useRightPanelStore } from "../rightPanelStore";
+import { selectActiveRightPanel, useRightPanelStore } from "../rightPanelStore";
+import { isPreviewFocused } from "../lib/previewFocus";
 import { useEnvironmentQuery } from "../state/query";
 import { useThreadRunningTerminalIds } from "../state/terminalSessions";
 import { vcsEnvironment } from "../state/vcs";
@@ -4946,6 +4947,9 @@ export default function Sidebar({
       ? selectThreadTerminalUiState(state.terminalUiStateByThreadKey, routeThreadRef).terminalOpen
       : false,
   );
+  const routePreviewOpen = useRightPanelStore(
+    (state) => selectActiveRightPanel(state.byThreadKey, routeThreadRef) === "preview",
+  );
   // oxlint-disable-next-line elysia/no-unreasoned-state-sync -- Installs sidebar keyboard navigation on the window for the mounted active sidebar.
   useEffect(() => {
     if (preview) return;
@@ -4958,6 +4962,8 @@ export default function Sidebar({
         context: {
           terminalFocus: isTerminalFocused(),
           terminalOpen: routeTerminalOpen,
+          previewFocus: isPreviewFocused(),
+          previewOpen: routePreviewOpen,
           modelPickerOpen: isModelPickerOpen(),
           isWeb: !isElectron,
           isDesktop: isElectron,
@@ -4994,6 +5000,7 @@ export default function Sidebar({
     keybindings,
     navigateToThread,
     orderedThreadKeys,
+    routePreviewOpen,
     routeRowThreadKey,
     routeTerminalOpen,
     threadByKey,
@@ -5006,6 +5013,8 @@ export default function Sidebar({
       context: {
         terminalFocus: terminalFocused,
         terminalOpen: routeTerminalOpen,
+        previewFocus: isPreviewFocused(),
+        previewOpen: routePreviewOpen,
         modelPickerOpen: isModelPickerOpen(),
         isWeb: !isElectron,
         isDesktop: isElectron,

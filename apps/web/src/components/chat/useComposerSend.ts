@@ -41,6 +41,7 @@ import {
   type ThreadId,
   ProviderInteractionMode,
   RuntimeMode,
+  SINGLE_PROVIDER_UI,
 } from "@elysiatools/contracts";
 import { deriveThreadTitleSeed } from "@elysiatools/client-runtime/operations";
 import { wasBootstrapThreadDeleted } from "@elysiatools/client-runtime/errors";
@@ -1646,7 +1647,7 @@ export function useComposerSend(input: ComposerSendInput) {
         ) {
           handleNewThreadInActiveProject();
         }
-        void recordPromptSent(environmentId);
+        if (!SINGLE_PROVIDER_UI) void recordPromptSent(environmentId);
       }
     }
 

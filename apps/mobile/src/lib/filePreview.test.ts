@@ -104,6 +104,7 @@ vi.mock("react-native", () => ({
     ),
 }));
 vi.mock("../components/PierreEntryIcon", () => ({ PierreEntryIcon: () => null }));
+vi.mock("../features/agents/AgentAvatar", () => ({ AgentAvatar: () => null }));
 vi.mock("../components/ui/AppText", () => ({
   AppText: ({ children }: { children?: ReactNode }) => createElement("span", null, children),
 }));
@@ -113,6 +114,7 @@ vi.mock("../components/ui/Button", () => ({
     createElement("button", { onClick: props.onPress, disabled: props.disabled }, props.label),
 }));
 vi.mock("expo", () => ({
+  requireOptionalNativeModule: () => null,
   useEvent: (_player: unknown, _event: unknown, initial: unknown) => initial,
   useReleasingSharedObjectWithLifecycle: (
     lifecycle: {
@@ -174,7 +176,15 @@ vi.mock("../state/session", () => ({
   usePreparedConnection: () => ({ _tag: "Some", value: { httpBaseUrl: "https://example.com" } }),
 }));
 vi.mock("../state/atom-registry", () => ({ appAtomRegistry: {} }));
-vi.mock("../state/threads", () => ({ environmentThreadShells: {}, threadEnvironment: {} }));
+vi.mock("../state/threads", async () => {
+  const { Atom } = await import("effect/reactivity");
+  const emptyQueue = Atom.make(null);
+  return {
+    environmentThreadShells: {},
+    environmentThreadDetails: { queueWorkflowAtom: () => emptyQueue },
+    threadEnvironment: {},
+  };
+});
 vi.mock("../state/entities", () => ({
   useLiveThreadLinkLabels: (text: string) => text,
   useThreadChipIcons: () => new Map(),
@@ -227,6 +237,7 @@ vi.mock("react-native-safe-area-context", () => ({
 }));
 vi.mock("expo-haptics", () => ({ selectionAsync: async () => {} }));
 vi.mock("expo-image", () => ({}));
+vi.mock("react-native-svg", () => ({ parse: vi.fn(), SvgAst: () => null }));
 vi.mock("uniwind", () => ({}));
 vi.mock("../components/ui/Dialog", () => ({}));
 vi.mock("../components/ui/NativePresentation", () => ({

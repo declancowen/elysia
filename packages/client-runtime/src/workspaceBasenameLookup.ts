@@ -38,11 +38,10 @@ export function pickWorkspaceBasenameMatch(
 ): string | null {
   const target = basename.trim();
   if (!target) return null;
-  const files = entries.filter((entry) => entry.kind === "file");
-  const exact = files.find((entry) => basenameOfPath(entry.path) === target);
-  if (exact) return exact.path;
+  const exact = entries.filter((entry) => basenameOfPath(entry.path) === target);
+  if (exact.length > 0) return exact.length === 1 ? (exact[0]?.path ?? null) : null;
   const folded = target.toLowerCase();
-  const foldedMatches = files.filter(
+  const foldedMatches = entries.filter(
     (entry) => basenameOfPath(entry.path).toLowerCase() === folded,
   );
   return foldedMatches.length === 1 ? (foldedMatches[0]?.path ?? null) : null;
@@ -75,6 +74,5 @@ export function pickStrippedWorkspaceMatch(
     const normalized = path.replaceAll("\\", "/");
     return caseInsensitive ? normalized.toLowerCase() : normalized;
   };
-  const files = entries.filter((entry) => entry.kind === "file");
-  return files.find((entry) => key(entry.path) === key(strippedPath))?.path ?? null;
+  return entries.find((entry) => key(entry.path) === key(strippedPath))?.path ?? null;
 }

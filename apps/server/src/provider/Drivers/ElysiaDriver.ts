@@ -219,7 +219,7 @@ export const ElysiaDriver: ProviderDriver<ClaudeSettings, ElysiaDriverEnv> = {
       environment: processEnv,
       modelCatalog,
       // A native update installs user MCP/plugins that a live CLI has not loaded.
-      queryConfigurationVersion: elysia.configurationVersion,
+      queryConfiguration: elysia.queryConfiguration,
       authorizeModel: authorize,
       resolveEnvironment: elysia.modelEnvironment,
       attachmentsDir: (yield* ServerConfig).attachmentsDir,
@@ -385,7 +385,7 @@ export const ElysiaDriver: ProviderDriver<ClaudeSettings, ElysiaDriverEnv> = {
         ...(compression._tag === "Some" ? { elysiaCompression: compression.value } : {}),
         requiresNewThreadForModelChange: false,
         runtimeVersion: draft.version,
-        version: yield* elysia.version,
+        ...(yield* elysia.versions),
         // Native Elysia validates the sign-in; optional SDK discovery cannot revoke it.
         ...(ready
           ? { auth: { status: "authenticated" as const } }
@@ -422,7 +422,7 @@ export const ElysiaDriver: ProviderDriver<ClaudeSettings, ElysiaDriverEnv> = {
             ? "Checking Claude Code…"
             : ((yield* elysia.connectionError) ??
               "Connect Elysia in Settings → Providers to begin."),
-          version: yield* elysia.version,
+          ...(yield* elysia.versions),
           runtimeVersion: null,
           ...(compression._tag === "Some" ? { elysiaCompression: compression.value } : {}),
           requiresNewThreadForModelChange: false,
@@ -580,6 +580,7 @@ export const ElysiaDriver: ProviderDriver<ClaudeSettings, ElysiaDriverEnv> = {
       textGeneration,
       auth,
       elysiaAccountUsage: elysia.accountUsage,
+      elysiaMcpRegistrations: elysia.mcpRegistrations,
       elysiaModelPricing: elysia.modelPricing,
       invalidateCaches: Cache.invalidateAll(capabilities).pipe(
         Effect.andThen(elysia.refreshEnvironment),

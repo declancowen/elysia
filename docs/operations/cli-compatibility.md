@@ -141,6 +141,18 @@ The [v0.0.45 tag](https://github.com/declancowen/elysia/releases/tag/v0.0.45) id
 
 Web, desktop, mobile and server typechecks passed. Focused non-browser tests covered the first-send route handoff, retained tabs, mobile composer events, desktop tab visibility, attachment previews, chat folder link resolution and Elysia's native policy. Local browser interaction, installed-app behavior on macOS and Windows, and live company CLI requests are **Not verified**.
 
+## App v0.0.46 Claude MCP profile inheritance
+
+The [v0.0.46 tag](https://github.com/declancowen/elysia/releases/tag/v0.0.46) identifies the release source. The supplied native CLI 0.3.11 and Claude Agent SDK 0.3.316 remain the compatibility baseline. Elysia inherits user-scoped Claude MCP registrations across projects and local registrations in their original working directory. See [CLI-005](../internals/elysia-integration-decisions.md#cli-005-claude-mcp-inheritance-preserves-registration-scope) for the profile boundary.
+
+Provider fixtures cover scope, collisions, concurrent manual edits, a transient unreadable profile and removals. The bundled macOS Claude binary connected to both a profile server and an inherited stdio server through the SDK's stdin control channel in an isolated fixture. The managed registration remained in its profile, and the inherited registration existed only in the running session. Live Talat, OAuth-backed MCP servers, the installed desktop release and Windows are **Not verified**.
+
+### Native update verification
+
+The supplied 0.3.11 package owns update download and finalization. The app and its terminal launcher run the same managed `--update` path. The app verifies the managed script version against the pre-update installation and any known release candidate. The launcher prints the version actually installed after native finalization.
+
+The supplied 0.3.9 package could append names from `ELYSIA_ALLOWED_MODELS`; 0.3.10 and 0.3.11 include Sonnet 5.5 in the native roster. Model availability alone cannot verify the installer version. Controlled fixtures cover version advance, already current and outdated installs, and an unavailable post-update lookup. Live delivery of the company package and an update on Windows are **Not verified**.
+
 ## Recording the next release
 
 Before publishing, append the app release and source commit, resolved SDK version, actual managed CLI version tested, native package checksum if available, platforms tested, and the result. Record initialization, update and existing-sign-in adoption separately when the CLI changes setup behavior. Use “Not verified” for missing evidence; keep fixture coverage separate from native tests. Never record credentials, environment dumps or authenticated download URLs.

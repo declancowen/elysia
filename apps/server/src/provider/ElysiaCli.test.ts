@@ -14,6 +14,7 @@ import {
   Platform as HostProcessPlatform,
 } from "@elysiatools/shared/HostProcess";
 import * as Effect from "effect/Effect";
+import * as Fiber from "effect/Fiber";
 import * as Schema from "effect/Schema";
 import * as Sink from "effect/Sink";
 import * as Stream from "effect/Stream";
@@ -252,7 +253,7 @@ for (const [platform, scenario] of [
           environment: { LOCALAPPDATA: NodePath.join(directory, "AppData/Local") },
           checkUpdates: Effect.succeed(false),
         });
-        expect(yield* cli.version).toBe("0.3.8");
+        expect(yield* cli.versions).toEqual({ version: "0.3.8", installedVersion: null });
         const result = yield* cli
           .bootstrap((message) =>
             Effect.sync(() => {
@@ -847,6 +848,118 @@ effectIt.effect("restores the terminal sign-in when an old managed profile is in
 });
 
 effectIt.effect(
+  "inherits Claude MCP registrations with their scopes and preserves managed entries",
+  () => {
+    const { directory, source } = fixture();
+    const native = NodePath.join(directory, "native");
+    const project = NodePath.join(NodeFS.realpathSync(directory), "project");
+    const scratch = NodePath.join(NodeFS.realpathSync(directory), "scratch");
+    const managed = NodePath.join(directory, "providers", "elysia-mcp-test", ".claude");
+    for (const dir of [native, project, scratch, managed])
+      NodeFS.mkdirSync(dir, { recursive: true });
+    const nativeFile = NodePath.join(native, ".claude.json");
+    const managedFile = NodePath.join(managed, ".claude.json");
+    const userServer = { type: "http", url: "https://fixture.invalid/mcp" };
+    const localServer = { type: "stdio", command: "/fixture/talat" };
+    const managedServer = { type: "stdio", command: "/managed/talat" };
+    const nativeConfig = {
+      oauthAccount: { accessToken: "never-import" },
+      mcpServers: { reports: userServer, tavily: localServer },
+      projects: {
+        [project]: {
+          mcpServers: { talat: localServer },
+          disabledMcpServers: ["reports"],
+          hasTrustDialogAccepted: true,
+        },
+      },
+    };
+    NodeFS.writeFileSync(nativeFile, JSON.stringify(nativeConfig));
+    NodeFS.writeFileSync(
+      managedFile,
+      JSON.stringify({
+        mcpServers: { tavily: userServer },
+        projects: { [scratch]: { mcpServers: { talat: managedServer } } },
+      }),
+    );
+    return Effect.gen(function* () {
+      const cli = yield* makeElysiaCli({
+        instanceId: ProviderInstanceId.make("mcp-test"),
+        stateDir: directory,
+        config: decodeClaudeSettings({ enabled: false, elysiaScriptPath: source }),
+        environment: { ...process.env, CLAUDE_CONFIG_DIR: native },
+        checkUpdates: Effect.succeed(false),
+      });
+      const readManaged = () => JSON.parse(NodeFS.readFileSync(managedFile, "utf8"));
+      expect(yield* cli.mcpRegistrations).toEqual([
+        {
+          id: expect.any(String),
+          name: "reports",
+          project: null,
+          transport: "http",
+          disabled: false,
+        },
+        {
+          id: expect.any(String),
+          name: "talat",
+          project: "project",
+          transport: "stdio",
+          disabled: false,
+        },
+        {
+          id: expect.any(String),
+          name: "talat",
+          project: "scratch",
+          transport: "stdio",
+          disabled: false,
+        },
+        {
+          id: expect.any(String),
+          name: "tavily",
+          project: null,
+          transport: "http",
+          disabled: false,
+        },
+      ]);
+      const managedBefore = NodeFS.readFileSync(managedFile, "utf8");
+      const scratchConfig = yield* cli.queryConfiguration(scratch);
+      expect(scratchConfig.mcpServers).toEqual({ reports: userServer });
+      const projectConfig = yield* cli.queryConfiguration(project);
+      expect(projectConfig.mcpServers).toEqual({ talat: localServer });
+      expect(yield* cli.queryConfiguration(scratch)).toEqual(scratchConfig);
+      expect(yield* cli.queryConfiguration(project)).toEqual(projectConfig);
+      expect(NodeFS.readFileSync(managedFile, "utf8")).toBe(managedBefore);
+      expect(JSON.parse(NodeFS.readFileSync(nativeFile, "utf8"))).toEqual(nativeConfig);
+
+      NodeFS.writeFileSync(nativeFile, "{");
+      expect(yield* cli.queryConfiguration(project)).toEqual(projectConfig);
+      const manualEdit = JSON.stringify({
+        ...readManaged(),
+        mcpServers: { tavily: userServer, manuallyAdded: managedServer },
+      });
+      NodeFS.writeFileSync(managedFile, manualEdit);
+      NodeFS.writeFileSync(nativeFile, JSON.stringify(nativeConfig));
+      const read = yield* cli.queryConfiguration(project).pipe(Effect.forkChild);
+      const editedAgain = JSON.stringify({ ...JSON.parse(manualEdit), theme: "dark" });
+      NodeFS.writeFileSync(managedFile, editedAgain);
+      const afterEdit = yield* Fiber.join(read);
+      expect(afterEdit.mcpServers).toEqual({ talat: localServer });
+      expect(NodeFS.readFileSync(managedFile, "utf8")).toBe(editedAgain);
+
+      NodeFS.writeFileSync(
+        NodePath.join(scratch, ".mcp.json"),
+        JSON.stringify({ mcpServers: { reports: localServer } }),
+      );
+      expect((yield* cli.queryConfiguration(scratch)).mcpServers).toEqual({});
+      NodeFS.unlinkSync(nativeFile);
+      const removed = yield* cli.queryConfiguration(project);
+      expect(removed.mcpServers).toEqual({});
+      expect(removed.version).not.toBe(afterEdit.version);
+      expect(NodeFS.readFileSync(managedFile, "utf8")).toBe(editedAgain);
+    }).pipe(Effect.scoped, Effect.provide(NodeServices.layer));
+  },
+);
+
+effectIt.effect(
   "reports the failed CLI step and safe exception type without leaking diagnostics",
   () => {
     const { directory, source } = fixture(
@@ -886,7 +999,9 @@ it("updates its managed copy and preserves profile isolation across native re-ex
   const { source, profile, run } = fixture();
   expect(run("--init").status).toBe(0);
   const before = JSON.parse(NodeFS.readFileSync(NodePath.join(profile, "record.json"), "utf8"));
-  expect(run("--update").status).toBe(0);
+  const update = run("--update");
+  expect(update.status).toBe(0);
+  expect(update.stdout).toBe("Elysia CLI updated from 0.3.8 to 0.3.9.\n");
   expect(
     JSON.parse(NodeFS.readFileSync(NodePath.join(profile, "record.json"), "utf8")),
   ).toMatchObject({
@@ -898,6 +1013,7 @@ it("updates its managed copy and preserves profile isolation across native re-ex
   expect(NodeFS.readFileSync(NodePath.join(profile, "configuration-version"), "utf8")).toBe(
     "0.3.9",
   );
+  expect(run("--update").stdout).toBe("Elysia CLI remains at 0.3.9.\n");
 });
 
 it.each(["direct", "child"])(

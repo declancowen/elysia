@@ -3,6 +3,31 @@ import { describe, expect, it } from "vite-plus/test";
 import { changeRequestReferenceAutolinker, splitPullRequestBody } from "./pullRequestMarkdown.ts";
 
 describe("pull request body segmentation", () => {
+  it("keeps before/after labels and videos in their table cells", () => {
+    const before = "https://example.com/before.mp4";
+    const after = "https://example.com/after.mp4";
+    const table = `<table>\r\n<tr><th>Before</th><th>After</th></tr>\r\n<tr><td>\r\n${before}\r\n</td><td>\r\n${after}\r\n</td></tr>\r\n</table>`;
+    expect(splitPullRequestBody(`Intro\r\n\r\n${table}\r\n\r\nOutro`)).toMatchObject([
+      { kind: "markdown", text: "Intro" },
+      {
+        kind: "table",
+        rows: [
+          [
+            { header: true, segments: [{ kind: "markdown", text: "Before" }] },
+            { header: true, segments: [{ kind: "markdown", text: "After" }] },
+          ],
+          [
+            { header: false, segments: [{ kind: "attachment", url: before, media: "video" }] },
+            { header: false, segments: [{ kind: "attachment", url: after, media: "video" }] },
+          ],
+        ],
+      },
+      { kind: "markdown", text: "Outro" },
+    ]);
+    const example = `\`\`\`html\n${table}\n\`\`\``;
+    expect(splitPullRequestBody(example)).toMatchObject([{ kind: "markdown", text: example }]);
+  });
+
   // GitHub writes a dropped image into the body as an `<img>` tag, so a bare attachment link on
   // its own line is the shape it uses for a video — every one sampled in the wild was one.
   it("lifts a dropped video out and keeps the prose around it", () => {

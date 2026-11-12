@@ -8,6 +8,7 @@ import {
   type ServerProviderUpdateState,
 } from "@elysiatools/contracts";
 import { resolveSpawnCommand } from "@elysiatools/shared/shell";
+import { compareSemverVersions } from "@elysiatools/shared/semver";
 import * as Cause from "effect/Cause";
 import * as Context from "effect/Context";
 import * as Data from "effect/Data";
@@ -527,10 +528,14 @@ export const make = Effect.fn("ProviderMaintenanceRunner.make")(function* () {
               );
             }
 
-            if (targetVersion === undefined) {
-              const prior = (yield* providerRegistry.getProviders).find(
-                (candidate) => candidate.instanceId === instanceId,
-              );
+            const nativeElysiaUpdate =
+              provider === "claudeAgent" &&
+              fresh.packageName === null &&
+              updateTarget !== "runtime";
+            const prior = (yield* providerRegistry.getProviders).find(
+              (candidate) => candidate.instanceId === instanceId,
+            );
+            if (targetVersion === undefined && !nativeElysiaUpdate) {
               const precheck = yield* verifyFromRefresh(
                 providerRegistry.refreshInstance(instanceId),
                 provider,
@@ -600,21 +605,37 @@ export const make = Effect.fn("ProviderMaintenanceRunner.make")(function* () {
               "post-update",
               updateTarget,
             );
-            // Cursor about probes can fail transiently; missing versions alone do not imply failure.
+            const priorVersion = prior?.installedVersion ?? prior?.version ?? null;
+            const verifiedVersion = (provider: ServerProvider) =>
+              provider.installedVersion === undefined
+                ? provider.version
+                : provider.installedVersion;
+            const nativeAlreadyCurrent =
+              nativeElysiaUpdate &&
+              candidateVersion != null &&
+              priorVersion !== null &&
+              compareSemverVersions(priorVersion, candidateVersion) >= 0 &&
+              verifiedProviders.every((provider) => verifiedVersion(provider) === priorVersion);
+            // Keep the preflight target if the later lookup fails.
             const couldNotVerify =
               verifiedProviders.length === 0 ||
               verifiedProviders.some((verifiedProvider) => {
-                const installedVersion =
-                  verifiedProvider.installedVersion !== undefined
-                    ? verifiedProvider.installedVersion
-                    : verifiedProvider.version;
+                const installedVersion = verifiedVersion(verifiedProvider);
                 return (
                   !isStillInstalled(verifiedProvider) ||
                   (verifiedProvider.status === "error" &&
                     (verifiedProvider.auth.status !== "unauthenticated" ||
                       !verifiedProvider.version)) ||
                   (targetVersion !== undefined &&
-                    installedVersion?.replace(/^v/, "") !== targetVersion)
+                    installedVersion?.replace(/^v/, "") !== targetVersion) ||
+                  (nativeElysiaUpdate &&
+                    !nativeAlreadyCurrent &&
+                    (!installedVersion ||
+                      (candidateVersion != null &&
+                        compareSemverVersions(installedVersion, candidateVersion) < 0) ||
+                      (priorVersion !== null
+                        ? compareSemverVersions(installedVersion, priorVersion) <= 0
+                        : candidateVersion == null)))
                 );
               });
             const stillOutdated =
@@ -629,9 +650,11 @@ export const make = Effect.fn("ProviderMaintenanceRunner.make")(function* () {
                   ? "Update command completed, but Elysia could not verify the provider version."
                   : stillOutdated
                     ? "Update command completed, but Elysia still detects an outdated provider version."
-                    : updateTarget === "runtime"
-                      ? "Claude Code runtime updated."
-                      : "Provider updated.",
+                    : nativeAlreadyCurrent
+                      ? "Already up to date."
+                      : updateTarget === "runtime"
+                        ? "Claude Code runtime updated."
+                        : "Provider updated.",
                 output: commandOutput(result),
               }),
             );

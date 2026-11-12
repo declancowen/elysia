@@ -28,6 +28,11 @@ import { makeProviderMaintenanceCapabilities } from "@elysiatools/provider-core/
 import type { ElysiaModelPricing } from "@elysiatools/provider-core/server/usage";
 import { resolveClaudeHomePath } from "./Drivers/ClaudeHome.ts";
 import { ElysiaModelMetadata } from "./ElysiaModelCatalog.ts";
+import {
+  listElysiaMcpRegistrations,
+  readElysiaQueryMcp,
+  type ElysiaQueryMcp,
+} from "./ElysiaMcpConfig.ts";
 
 const decodeAccountUsage = Schema.decodeUnknownOption(ElysiaAccountUsageSnapshot);
 const decodeModelMetadata = Schema.decodeEffect(Schema.fromJsonString(ElysiaModelMetadata));
@@ -596,7 +601,13 @@ if operation in ["--init", "--update", "--finish-update", "adopt"]:
     staged = root / "configuration-version.tmp"
     staged.write_text(match[1])
     staged.replace(root / "configuration-version")
-if sensitive:
+if operation == "--update":
+    installed_version = match[1]
+    if installed_version == native.CLI_VERSION:
+        print(f"Elysia CLI remains at {installed_version}.")
+    else:
+        print(f"Elysia CLI updated from {native.CLI_VERSION} to {installed_version}.")
+elif sensitive:
     print("Elysia " + native.CLI_VERSION)
 `;
 
@@ -688,6 +699,12 @@ export const makeElysiaCli = Effect.fn("makeElysiaCli")(function* (input: {
   );
   const python = input.config.elysiaPythonPath || (platform === "win32" ? "python" : "python3");
   const nativeClaudeDir = yield* resolveClaudeHomePath(input.config, input.environment);
+  const nativeMcpFile = path.join(
+    input.config.homePath.trim() || input.environment.CLAUDE_CONFIG_DIR?.trim()
+      ? nativeClaudeDir
+      : homeDirectory,
+    ".claude.json",
+  );
   const environment: NodeJS.ProcessEnv = {
     ...input.environment,
     PATH: [
@@ -1141,11 +1158,16 @@ export const makeElysiaCli = Effect.fn("makeElysiaCli")(function* (input: {
       return { status: "unavailable", reason: "cli-unavailable" } as const;
     return parseElysiaAccountUsage(result.value.stdout);
   });
-  const version = fs.readFileString(script).pipe(
-    Effect.catch(() => fs.readFileString(source)),
-    Effect.map((source) => /CLI_VERSION\s*=\s*"([^"]+)"/.exec(source)?.[1] ?? null),
-    Effect.orElseSucceed(() => null),
-  );
+  const readCliVersion = (file: string) =>
+    fs.readFileString(file).pipe(
+      Effect.map((source) => /CLI_VERSION\s*=\s*"([^"]+)"/.exec(source)?.[1] ?? null),
+      Effect.orElseSucceed(() => null),
+    );
+  const installedVersion = readCliVersion(script);
+  const versions = Effect.gen(function* () {
+    const installed = yield* installedVersion;
+    return { version: installed ?? (yield* readCliVersion(source)), installedVersion: installed };
+  });
   const modelMetadataCache = yield* Cache.make({
     capacity: 1,
     timeToLive: "5 minutes",
@@ -1162,7 +1184,7 @@ export const makeElysiaCli = Effect.fn("makeElysiaCli")(function* (input: {
         Effect.withTracerEnabled(false),
       ),
   });
-  const modelMetadata = version.pipe(
+  const modelMetadata = installedVersion.pipe(
     Effect.flatMap((value) => Cache.get(modelMetadataCache, value)),
   );
   const modelPricing = modelMetadata.pipe(
@@ -1188,16 +1210,62 @@ export const makeElysiaCli = Effect.fn("makeElysiaCli")(function* (input: {
             Effect.orElseSucceed(() => null),
           )
         : null;
+    const launcher = path.join(
+      root,
+      "bin",
+      platform === "win32" ? "elysia-code.cmd" : "elysia-code",
+    );
+    const updateCommand =
+      platform === "win32"
+        ? `& '${launcher.replaceAll("'", "''")}' --update`
+        : `'${launcher.replaceAll("'", "'\\''")}' --update`;
     return makeProviderMaintenanceCapabilities({
       provider: ProviderDriverKind.make("claudeAgent"),
       packageName: null,
       updateExecutable: installed ? python : null,
       updateArgs: ["-c", ELYSIA_CLI_BRIDGE, source, root, "--update"],
       updateLockKey: root,
-      updateCommand: "elysia-code --update",
+      updateCommand,
       env: { ...environment, ELYSIA_CLI_BRIDGE },
       latestVersion: latest,
     });
+  });
+  const lastMcpByWorkspace = new Map<string, ElysiaQueryMcp>();
+  const managedMcpFile = path.join(root, ".claude", ".claude.json");
+  const mcpRegistrations = Effect.tryPromise({
+    try: () => listElysiaMcpRegistrations(nativeMcpFile, managedMcpFile),
+    catch: () =>
+      new ProviderSetupError({
+        instanceId: input.instanceId,
+        operation: "list-mcp-registrations",
+        detail: "Claude MCP registrations could not be read.",
+      }),
+  });
+  const queryConfiguration = Effect.fn("ElysiaCli.queryConfiguration")(function* (cwd: string) {
+    const cliVersion = yield* fs.readFileString(path.join(root, "configuration-version")).pipe(
+      Effect.map((value) => value.trim()),
+      Effect.orElseSucceed(() => null),
+    );
+    const result = yield* Effect.option(
+      Effect.tryPromise(() =>
+        readElysiaQueryMcp({
+          nativeFile: nativeMcpFile,
+          managedFile: managedMcpFile,
+          cwd,
+        }),
+      ),
+    );
+    if (result._tag === "Some") {
+      lastMcpByWorkspace.delete(cwd);
+      lastMcpByWorkspace.set(cwd, result.value);
+      const oldest = lastMcpByWorkspace.keys().next();
+      if (lastMcpByWorkspace.size > 64 && !oldest.done) lastMcpByWorkspace.delete(oldest.value);
+    }
+    const mcp = lastMcpByWorkspace.get(cwd);
+    return {
+      version: mcp?.revision ? `${cliVersion ?? ""}:${mcp.revision}` : cliVersion,
+      mcpServers: mcp?.servers ?? {},
+    };
   });
   return {
     root,
@@ -1212,11 +1280,9 @@ export const makeElysiaCli = Effect.fn("makeElysiaCli")(function* (input: {
     requireReady,
     refreshEnvironment,
     run,
-    version,
-    configurationVersion: fs.readFileString(path.join(root, "configuration-version")).pipe(
-      Effect.map((value) => value.trim()),
-      Effect.orElseSucceed(() => null),
-    ),
+    versions,
+    queryConfiguration,
+    mcpRegistrations,
     maintenance,
     bootstrap,
     reuseCredentials,

@@ -33,7 +33,7 @@ import {
 const STATUS_DOT_CLASS: Record<ScheduledTask["lastRunStatus"], string> = {
   never: "bg-muted-foreground/40",
   running: "bg-sky-500",
-  succeeded: "bg-emerald-500",
+  succeeded: "bg-sky-500",
   failed: "bg-destructive",
 };
 
@@ -184,6 +184,9 @@ export function ThreadAutomationsPanel(props: {
               <TooltipPopup side="left">
                 <p className="font-medium">{task.title}</p>
                 <p className="text-muted-foreground">{taskScheduleLine(task)}</p>
+                {task.lastRunStatus === "succeeded" ? (
+                  <p className="text-muted-foreground">Last run dispatched</p>
+                ) : null}
               </TooltipPopup>
             </Tooltip>
             <Tooltip>

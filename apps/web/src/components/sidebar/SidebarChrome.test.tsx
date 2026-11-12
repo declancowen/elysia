@@ -121,6 +121,7 @@ it("navigates rail pages and keeps the thread switcher in Workspace", async () =
       "Projects",
       "Pull requests",
       "Settings",
+      "MCP",
       "Code workspace · Switch to Work",
       "Stats",
       "Switch to Thread view",
@@ -153,6 +154,12 @@ it("navigates rail pages and keeps the thread switcher in Workspace", async () =
     expect(useAgentSidebarStore.getState().active).toBe(false);
     await act(async () => button("Projects").click());
     expect(state.navigate).toHaveBeenLastCalledWith({ to: "/projects" });
+    await act(async () => button("MCP").click());
+    expect(state.navigate).toHaveBeenLastCalledWith({ to: "/settings/mcp" });
+    state.pathname = "/settings/mcp";
+    await act(async () => render());
+    expect(button("MCP").getAttribute("aria-current")).toBe("page");
+    expect(button("Settings").getAttribute("aria-current")).toBeNull();
     await act(async () => button("Workspace").click());
     expect(state.navigate).toHaveBeenLastCalledWith({ href: "/" });
     state.pathname = "/";

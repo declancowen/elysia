@@ -178,8 +178,9 @@ it.layer(testLayer)("Elysia startup", (it) => {
               }
               return undefined;
             }),
-            version: Effect.succeed("0.3.10"),
-            configurationVersion: Effect.succeed("0.3.10"),
+            queryConfiguration: () => Effect.succeed({ version: "0.3.10", mcpServers: {} }),
+            mcpRegistrations: Effect.succeed([]),
+            versions: Effect.succeed({ version: "0.3.10", installedVersion: "0.3.10" }),
             maintenance: Effect.succeed(
               makeProviderMaintenanceCapabilities({
                 provider: ElysiaDriver.driverKind,
@@ -310,8 +311,9 @@ it.layer(testLayer)("Elysia startup", (it) => {
             requireReady: Effect.undefined,
             refreshEnvironment: Effect.undefined,
             run: () => Effect.undefined,
-            version: Effect.succeed("0.3.8"),
-            configurationVersion: Effect.succeed("0.3.8"),
+            queryConfiguration: () => Effect.succeed({ version: "0.3.8", mcpServers: {} }),
+            mcpRegistrations: Effect.succeed([]),
+            versions: Effect.succeed({ version: "0.3.8", installedVersion: "0.3.8" }),
             maintenance: Effect.succeed(
               makeProviderMaintenanceCapabilities({
                 provider: ElysiaDriver.driverKind,

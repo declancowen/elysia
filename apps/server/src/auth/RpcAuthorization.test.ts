@@ -56,6 +56,11 @@ describe("RPC authorization scopes", () => {
       AuthOrchestrationReadScope,
     );
   });
+  it("limits the Claude MCP inventory to clients with provider access", () => {
+    expect(requiredScopeForRpcMethod(WS_METHODS.serverListElysiaMcpRegistrations)).toBe(
+      AuthProvidersManageScope,
+    );
+  });
   it("keeps webhook delivery logs, which hold request bodies, behind operate scope", () => {
     for (const method of [
       WS_METHODS.scheduledTasksListWebhookDeliveries,

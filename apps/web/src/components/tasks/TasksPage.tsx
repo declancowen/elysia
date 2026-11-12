@@ -15,6 +15,7 @@ import {
 import { useWorkspaceCollectionGrouping } from "../workspaceCollectionGrouping";
 import { TaskAgentResponse } from "./TaskAgentResponse";
 import { TaskDragRow, TaskDropGroup } from "./TaskDrag";
+import { reconcileTaskSave } from "./taskEditorDraft";
 import { useTaskCardLayout } from "./useTaskCardLayout";
 import { useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 import { useBlocker, useNavigate, useSearch } from "@tanstack/react-router";
@@ -424,9 +425,9 @@ export function TasksPage() {
     });
   const showSelectionMenu = async (task: WorkTaskSummary, position: { x: number; y: number }) => {
     if (!environment || bulkPending) return;
-    const ids = selection.has(task.id) ? selection : new Set([task.id]);
-    setSelection(new Set(ids));
-    const selectedTasks = taskRows.filter((row) => ids.has(row.id));
+    const ids = !selectedId && selection.has(task.id) ? selection : new Set([task.id]);
+    if (!selectedId) setSelection(new Set(ids));
+    const selectedTasks = selectedId ? [task] : taskRows.filter((row) => ids.has(row.id));
     const action = await showContextMenuFallback(
       [
         { id: "open", label: "Open task", icon: "workspace-task" },
@@ -1053,6 +1054,7 @@ export function TasksPage() {
                   (task) => task.parentTaskId === selected.id,
                 )}
                 onOpenSubtask={openTask}
+                onSubtaskMenu={(task, position) => showSelectionMenu(task, position).catch(report)}
                 onAddSubtask={() => {
                   setCreatingParent(selected.id);
                   setCreating(true);
@@ -1395,6 +1397,7 @@ function TaskEditor({
   assignee,
   subtasks,
   onOpenSubtask,
+  onSubtaskMenu,
   onAddSubtask,
   projectOptions,
   agentOptions,
@@ -1411,6 +1414,7 @@ function TaskEditor({
   assignee?: ReactNode;
   subtasks: WorkTaskSummary[];
   onOpenSubtask: (task: WorkTaskSummary, newTab?: boolean) => void;
+  onSubtaskMenu: (task: WorkTaskSummary, position: { x: number; y: number }) => Promise<unknown>;
   onAddSubtask: () => void;
   projectOptions: { value: string; label: ReactNode }[];
   agentOptions: { value: string; label: ReactNode }[];
@@ -1491,7 +1495,11 @@ function TaskEditor({
       ...(current.description !== baseline.description ? { description: current.description } : {}),
     })
       .then((updated) => {
+        const next = reconcileTaskSave(draft.current, current, updated);
+        draft.current = next;
         saved.current = updated;
+        setTitle(next.title);
+        setDescription(next.description);
         setError(null);
         return true;
       })
@@ -1643,29 +1651,35 @@ function TaskEditor({
               {subtasksOpen ? (
                 <div className="border-t border-border">
                   {subtasks.map((subtask) => (
-                    <WorkspaceItemLink
+                    <div
                       key={subtask.id}
-                      onOpen={(newTab) => onOpenSubtask(subtask, newTab)}
                       onContextMenu={(event) => {
                         event.preventDefault();
-                        void showContextMenuFallback(
-                          [{ id: "open-new-tab", label: "Open in new tab", icon: "open-new-tab" }],
-                          { x: event.clientX, y: event.clientY },
-                        )
-                          .then((action) => {
-                            if (action === "open-new-tab") onOpenSubtask(subtask, true);
-                          })
-                          .catch((error) => setError(String(error)));
+                        void onSubtaskMenu(subtask, { x: event.clientX, y: event.clientY });
                       }}
-                      className="flex h-12 w-full cursor-pointer items-center gap-3 px-4 text-left text-sm hover:bg-sidebar-row-hover"
+                      className="group flex items-center rounded-lg pr-3 hover:bg-sidebar-row-hover"
                     >
-                      <TaskStatusIcon status={subtask.status} />
-                      <span className="min-w-0 flex-1 truncate">{subtask.title}</span>
-                      <span className="flex shrink-0 items-center gap-2 text-xs text-muted-foreground">
+                      <WorkspaceItemLink
+                        onOpen={(newTab) => onOpenSubtask(subtask, newTab)}
+                        className="flex h-12 min-w-0 flex-1 items-center gap-3 rounded-lg px-4 text-left text-sm"
+                      >
                         <TaskStatusIcon status={subtask.status} />
-                        {TASK_STATUS_LABELS[subtask.status]}
-                      </span>
-                    </WorkspaceItemLink>
+                        <span className="min-w-0 flex-1 truncate">{subtask.title}</span>
+                        <span className="shrink-0 text-xs text-muted-foreground">
+                          {TASK_STATUS_LABELS[subtask.status]}
+                        </span>
+                      </WorkspaceItemLink>
+                      <div className="opacity-0 group-hover:opacity-100 focus-within:opacity-100 pointer-coarse:opacity-100">
+                        <ContextMenuButton
+                          variant="ghost-muted"
+                          size="icon-xs"
+                          aria-label={`Options for ${subtask.title}`}
+                          onOpen={(position) => onSubtaskMenu(subtask, position)}
+                        >
+                          <MoreHorizontalIcon className="size-4" />
+                        </ContextMenuButton>
+                      </div>
+                    </div>
                   ))}
                 </div>
               ) : null}

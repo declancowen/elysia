@@ -772,28 +772,26 @@ function useChatMarkdownState({
       ? null
       : stripRepeatedWorkspacePrefix(workspaceRelativePath, cwd);
     if (!isBasename && strippedPath === null) return null;
+    // A literal path can exist outside the search index, for example an ignored file.
+    const metadata = await getFilesystemMetadata({
+      environmentId,
+      input: { paths: [resolveWorkspaceFilePath(workspaceRelativePath, cwd)] },
+    });
+    if (metadata._tag !== "Success" || metadata.value.entries[0] !== null) return null;
     const result = await searchProjectEntries({
       environmentId,
       input: {
         cwd,
         query: strippedPath ?? workspaceRelativePath,
         limit: WORKSPACE_BASENAME_LOOKUP_LIMIT,
-        kind: "file",
       },
     });
     if (result._tag !== "Success") return null;
     if (strippedPath === null) {
+      if (result.value.truncated) return null;
       return pickWorkspaceBasenameMatch(workspaceRelativePath, result.value.entries);
     }
-    const match = pickStrippedWorkspaceMatch(strippedPath, cwd, result.value.entries);
-    if (match === null) return null;
-    // Search can be truncated or still scanning, so it cannot rule out the
-    // literal path. Check the host before redirecting to the stripped match.
-    const metadata = await getFilesystemMetadata({
-      environmentId,
-      input: { paths: [resolveWorkspaceFilePath(workspaceRelativePath, cwd)] },
-    });
-    return metadata._tag === "Success" && metadata.value.entries[0] === null ? match : null;
+    return pickStrippedWorkspaceMatch(strippedPath, cwd, result.value.entries);
   };
   const openFileInPanel = (fileLinkMeta: MarkdownFileLinkMeta, panelPath: string) => {
     if (!threadRef) return;

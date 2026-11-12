@@ -70,6 +70,7 @@ import {
   ProviderAuthRespondInput,
   ProviderInstallCancelInput,
   ProviderInstallState,
+  ElysiaMcpRegistration,
   ProviderSetupError,
   ProviderSetupInput,
 } from "./providerSetup.ts";
@@ -539,6 +540,7 @@ export const WS_METHODS = {
   serverProbe: "server.probe",
   serverGetElysiaStats: "server.getElysiaStats",
   serverGetElysiaAccountUsage: "server.getElysiaAccountUsage",
+  serverListElysiaMcpRegistrations: "server.listElysiaMcpRegistrations",
   serverGetConfig: "server.getConfig",
   serverGetNpmRelease: "server.getNpmRelease",
   serverRefreshProviders: "server.refreshProviders",
@@ -707,6 +709,15 @@ const WsServerGetElysiaAccountUsageRpc = Rpc.make(WS_METHODS.serverGetElysiaAcco
   success: ElysiaAccountUsageSnapshot,
   error: EnvironmentAuthorizationError,
 });
+
+const WsServerListElysiaMcpRegistrationsRpc = Rpc.make(
+  WS_METHODS.serverListElysiaMcpRegistrations,
+  {
+    payload: Schema.Struct({}),
+    success: Schema.Array(ElysiaMcpRegistration),
+    error: Schema.Union([EnvironmentAuthorizationError, ProviderSetupError]),
+  },
+);
 
 export const WsServerRefreshProvidersRpc = Rpc.make(WS_METHODS.serverRefreshProviders, {
   payload: Schema.Struct({
@@ -2162,6 +2173,7 @@ export class RpcScopeAuthorization extends RpcMiddleware.Service<RpcScopeAuthori
 export const ElysiaWsRpcGroup = RpcGroup.make(
   WsServerGetElysiaStatsRpc,
   WsServerGetElysiaAccountUsageRpc,
+  WsServerListElysiaMcpRegistrationsRpc,
   WsWorkspaceChatsListRpc,
   WsWorkspaceChatsLinkRpc,
   WsPagesListRpc,
@@ -2182,6 +2194,7 @@ export const WsRpcGroup = RpcGroup.make(
   WsServerGetConfigRpc,
   WsServerGetElysiaStatsRpc,
   WsServerGetElysiaAccountUsageRpc,
+  WsServerListElysiaMcpRegistrationsRpc,
   WsServerRefreshProvidersRpc,
   WsServerUpdateProviderRpc,
   WsProviderConsumeResetCreditRpc,

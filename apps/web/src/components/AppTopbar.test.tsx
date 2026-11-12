@@ -113,6 +113,14 @@ it("moves through real browser history while preserving the sidebar toggle", asy
     });
     expect(window.location.pathname).toBe("/settings");
     expect(container.querySelector("output")!.textContent).toBe("collapsed");
+    await act(async () =>
+      root.rerender(
+        <SidebarProvider key="remounted">
+          <SidebarState />
+        </SidebarProvider>,
+      ),
+    );
+    expect(container.querySelector("output")!.textContent).toBe("collapsed");
   } finally {
     await act(async () => root.unmount());
     window.history.replaceState({}, "", originalHref);

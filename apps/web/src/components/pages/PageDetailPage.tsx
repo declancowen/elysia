@@ -1,6 +1,7 @@
 import { formatCalendarDateTime } from "@elysiatools/shared/dateFormat";
 import { useBlocker, useNavigate } from "@tanstack/react-router";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useCopyToClipboard } from "../../hooks/useCopyToClipboard";
 import { useStableCallback } from "../../hooks/useStableCallback";
 import { PageId, ProjectId, type EnvironmentId, type Page } from "@elysiatools/contracts";
 import {
@@ -12,6 +13,7 @@ import { usePrimaryEnvironmentId } from "../../state/environments";
 import { useEnvironmentQuery } from "../../state/query";
 import { serverEnvironment } from "../../state/server";
 import { useAtomCommand } from "../../state/use-atom-command";
+import { ensureLocalApi } from "../../localApi";
 import { ArrowLeftIcon, AlignBoxMiddleLeftIcon, Trash2Icon } from "../../icons";
 import { Button } from "../ui/button";
 import { SidebarInset } from "../ui/sidebar";
@@ -81,6 +83,10 @@ function PageDetail({
   const [reloadOpen, setReloadOpen] = useState(false);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { copyToClipboard, isCopied } = useCopyToClipboard({
+    target: "page draft",
+    onError: (error) => setError(error.message),
+  });
   const sideChat = useWorkspaceSideChat({
     environmentId,
     target: saved ? { kind: "page", id: saved.id } : null,
@@ -218,6 +224,21 @@ function PageDetail({
     setError(null);
     query.refresh();
   };
+  const leaveDeletedPage = async () => {
+    try {
+      if (
+        !(await ensureLocalApi().dialogs.confirm("Leave this page and discard the unsaved draft?", {
+          variant: "destructive",
+        }))
+      )
+        return;
+      leaving.current = true;
+      await navigate({ to: "/pages" });
+    } catch {
+      leaving.current = false;
+      setError("Could not return to Pages. Your draft is still here.");
+    }
+  };
   return (
     <SidebarInset variant="standalone" className="min-h-0 overflow-hidden">
       <WorkspaceItemTabs
@@ -312,9 +333,31 @@ function PageDetail({
           ) : (
             <WorkspacePageContainer width={width}>
               {removed ? (
-                <p role="alert" className="text-sm text-destructive">
-                  This page was deleted. Your unsaved content is still visible here.
-                </p>
+                <div className="space-y-2 text-sm">
+                  <p role="alert" className="text-destructive">
+                    {dirty
+                      ? "This page was deleted. Your unsaved draft is still visible here."
+                      : "This page was deleted."}
+                  </p>
+                  {dirty ? (
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          const heading = document.createElement("h1");
+                          heading.textContent = draft.title;
+                          copyToClipboard(`${heading.outerHTML}\n${draft.content}`, undefined);
+                        }}
+                      >
+                        {isCopied ? "Copied" : "Copy draft as HTML"}
+                      </Button>
+                      <Button size="sm" variant="outline" onClick={() => void leaveDeletedPage()}>
+                        Leave page
+                      </Button>
+                    </div>
+                  ) : null}
+                </div>
               ) : newer && dirty ? (
                 <div
                   role="status"
@@ -329,16 +372,18 @@ function PageDetail({
               {error ? (
                 <p role="alert" className="text-sm text-destructive">
                   {error}
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => {
-                      setError(null);
-                      void save();
-                    }}
-                  >
-                    Retry save
-                  </Button>
+                  {!removed ? (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        setError(null);
+                        void save();
+                      }}
+                    >
+                      Retry save
+                    </Button>
+                  ) : null}
                 </p>
               ) : null}
               <div className="text-3xl font-medium">

@@ -12,6 +12,8 @@ The CLI owns authentication, credential validation, certificate trust and setup.
 
 Keep this boundary in [ElysiaCli](../../apps/server/src/provider/ElysiaCli.ts). Revisit only if the CLI publishes a different supported authentication contract. A setup error must retain its native meaning; do not infer that credentials or network trust are invalid from an unrelated optional plugin failure.
 
+The app and its terminal launcher invoke the managed profile's native `--update`. The installer exit code alone does not establish an upgrade. [Provider maintenance](../../apps/server/src/provider/providerMaintenanceRunner.ts) verifies the version from the installed managed script and retains the release target observed before the command. A download candidate and the separate global CLI are different installations and cannot verify the managed version.
+
 ## CLI-002: Native model configuration with per-query isolation
 
 **Accepted, 2026-10-26; reviewed, 2026-11-04.** Baseline: native CLI 0.3.11.
@@ -43,6 +45,12 @@ Keep pricing ownership in [ElysiaStats](../../apps/server/src/provider/ElysiaSta
 Protect application state, secrets and native credentials with specific paths. Do not deny the entire Elysia home: it also contains uploaded files and persistent agent workspaces. That broad deny made composer attachments unreadable while manually copied project files worked. Permit read access to the selected public CA bundle without granting write access or exposing credential stores. Keep TLS verification enabled.
 
 The boundary lives in [ElysiaAgentProtection](../../apps/server/src/provider/ElysiaAgentProtection.ts). Its regression proof must use the real `.elysia/userdata` layout and uploaded text and Office files. Revisit when storage layout or the native sandbox changes; do not solve attachment failures by widening access to all application state.
+
+## CLI-005: Claude MCP inheritance preserves registration scope
+
+**Accepted, 2026-11-12.** Elysia keeps a managed Claude profile so its gateway settings and native runtime stay isolated. At query startup, [ElysiaMcpConfig](../../apps/server/src/provider/ElysiaMcpConfig.ts) reads user registrations and local registrations for the query's working directory. It reserves names configured in the managed profile or the workspace's `.mcp.json`. Claude owns repository registration, trust and approval. Account credentials, OAuth state and workspace trust are outside the import boundary.
+
+The earlier managed-file merge was superseded before release because Claude's own saves could land between the importer's comparison and rename. The adapter passes inherited servers through its existing SDK stdin registration path for the active session. It leaves both profiles under their original writers. A successful read changes the configuration revision when effective registrations change. Transient read failures retain the last valid snapshot for that workspace so an idle session can be reused and background work can continue.
 
 ## UPSTREAM-001: Adapt changes in their current owner
 

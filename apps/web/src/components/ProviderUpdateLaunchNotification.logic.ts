@@ -53,6 +53,7 @@ export function projectProviderUpdateTargets(
         updateTarget: "runtime" as const,
         displayName: "Claude CLI",
         version: provider.runtimeVersion,
+        installedVersion: provider.runtimeVersion,
         ...(compatibilityAdvisory
           ? {
               compatibilityAdvisory,

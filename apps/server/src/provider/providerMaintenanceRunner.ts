@@ -26,6 +26,7 @@ import { ChildProcess, ChildProcessSpawner } from "effect/process";
 import * as NodeUtil from "node:util";
 
 import * as ModelManifest from "./ModelManifest.ts";
+import { claudeRuntimeMaintenanceSnapshot } from "./Drivers/ClaudeMaintenance.ts";
 import { resolveProviderCompatibility } from "./providerCompatibility.ts";
 import * as ProviderRegistry from "./ProviderRegistry.ts";
 import { makeProviderMaintenanceCommandCoordinator } from "./providerMaintenanceCommandCoordinator.ts";
@@ -341,16 +342,7 @@ export const make = Effect.fn("ProviderMaintenanceRunner.make")(function* () {
             (candidate) => candidate.driver === provider && candidate.instanceId === instanceId,
           )
           .map((snapshot) =>
-            updateTarget === "runtime"
-              ? {
-                  ...snapshot,
-                  version: snapshot.runtimeVersion ?? null,
-                  ...(snapshot.runtimeVersionAdvisory
-                    ? { versionAdvisory: snapshot.runtimeVersionAdvisory }
-                    : {}),
-                  installed: snapshot.runtimeVersion != null,
-                }
-              : snapshot,
+            updateTarget === "runtime" ? claudeRuntimeMaintenanceSnapshot(snapshot) : snapshot,
           );
         if (refreshedProviders.length === 0) {
           return Effect.succeed<VerifiedProviderRefresh>({

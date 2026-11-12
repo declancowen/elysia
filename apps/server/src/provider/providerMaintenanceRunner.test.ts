@@ -343,6 +343,7 @@ describe("providerMaintenanceRunner", () => {
           driver: elysia,
           instanceId: ProviderInstanceId.make("claudeAgent"),
           version: "0.3.8",
+          installedVersion: "0.3.8",
           runtimeVersion: "2.1.285",
         });
         const updater = yield* makeTestRunner({
@@ -367,7 +368,9 @@ describe("providerMaintenanceRunner", () => {
             Ref.updateAndGet(providersRef, (snapshots) =>
               snapshots.map((snapshot) => ({
                 ...snapshot,
-                version: calls.includes("python3") ? "0.3.9" : snapshot.version,
+                ...(calls.includes("python3")
+                  ? { version: "0.3.9", installedVersion: "0.3.9" }
+                  : {}),
                 runtimeVersion:
                   calls.filter((command) => command === "npm").length > 1
                     ? "2.1.286"
@@ -385,11 +388,16 @@ describe("providerMaintenanceRunner", () => {
           updateTarget: "runtime",
         });
         assert.strictEqual(unchanged.providers[0]?.runtimeUpdateState?.status, "unchanged");
+        assert.strictEqual(
+          unchanged.providers[0]?.runtimeUpdateState?.message,
+          "Update command completed, but Elysia still detects an outdated provider version.",
+        );
         const runtime = yield* updater.updateProvider({
           provider: elysia,
           updateTarget: "runtime",
         });
         assert.strictEqual(runtime.providers[0]?.runtimeVersion, "2.1.286");
+        assert.strictEqual(runtime.providers[0]?.installedVersion, "0.3.9");
         assert.strictEqual(runtime.providers[0]?.updateState?.status, "succeeded");
         assert.strictEqual(runtime.providers[0]?.runtimeUpdateState?.status, "succeeded");
         assert.deepStrictEqual(calls, ["python3", "npm", "npm"]);

@@ -51,7 +51,7 @@ import {
   makeProviderMaintenanceCapabilities,
   resolveProviderMaintenanceCapabilitiesEffect,
 } from "@elysiatools/provider-core/server/maintenanceResolver";
-import { CLAUDE_RUNTIME_UPDATE } from "./ClaudeMaintenance.ts";
+import { CLAUDE_RUNTIME_UPDATE, claudeRuntimeMaintenanceSnapshot } from "./ClaudeMaintenance.ts";
 import {
   haveProviderSnapshotSettingsChanged,
   makeProviderSnapshotSettingsSource,
@@ -439,7 +439,7 @@ export const ElysiaDriver: ProviderDriver<ClaudeSettings, ElysiaDriverEnv> = {
             },
           );
           const runtime = yield* enrichProviderSnapshotWithVersionAdvisory(
-            { ...snapshot, version: snapshot.runtimeVersion ?? null },
+            claudeRuntimeMaintenanceSnapshot(snapshot),
             yield* resolveRuntimeMaintenance(),
             {
               enableProviderUpdateChecks: settings.enableProviderUpdateChecks,

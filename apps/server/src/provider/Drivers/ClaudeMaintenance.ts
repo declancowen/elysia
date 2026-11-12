@@ -1,4 +1,4 @@
-import { ProviderDriverKind } from "@elysiatools/contracts";
+import { ProviderDriverKind, type ServerProvider } from "@elysiatools/contracts";
 import {
   makeCachedProviderMaintenanceResolution,
   makePackageManagedProviderMaintenanceResolver,
@@ -23,6 +23,20 @@ const UpdateChannelSettings = fromLenientJson(
   Schema.Struct({ autoUpdatesChannel: Schema.optional(Schema.Literals(["latest", "stable"])) }),
 );
 const NativeVersion = Schema.String.check(Schema.isPattern(/^\d+\.\d+\.\d+$/));
+
+export function claudeRuntimeMaintenanceSnapshot(provider: ServerProvider): ServerProvider {
+  const { versionAdvisory: _nativeAdvisory, ...snapshot } = provider;
+  const version = snapshot.runtimeVersion ?? null;
+  return {
+    ...snapshot,
+    version,
+    installedVersion: version,
+    installed: version !== null,
+    ...(snapshot.runtimeVersionAdvisory
+      ? { versionAdvisory: snapshot.runtimeVersionAdvisory }
+      : {}),
+  };
+}
 
 export const CLAUDE_RUNTIME_UPDATE = makePackageManagedProviderMaintenanceResolver({
   provider: ProviderDriverKind.make("claudeAgent"),

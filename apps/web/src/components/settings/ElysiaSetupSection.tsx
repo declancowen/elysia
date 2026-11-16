@@ -1,6 +1,10 @@
 import { useEffect, useId, useRef, useState } from "react";
-import type { EnvironmentId } from "@elysiatools/contracts";
-import type { ProviderInstanceId, ServerProvider } from "@elysiatools/contracts";
+import {
+  ELYSIA_CHANGE_CREDENTIALS_METHOD,
+  type EnvironmentId,
+  type ProviderInstanceId,
+  type ServerProvider,
+} from "@elysiatools/contracts";
 import { serverEnvironment } from "../../state/server";
 import { useEnvironmentQuery } from "../../state/query";
 import { useAtomCommand } from "../../state/use-atom-command";
@@ -299,17 +303,27 @@ export function ElysiaSetupSection({
             size={onContinue ? "default" : "sm"}
             disabled={disabled}
           >
-            Connect
+            {connected ? "Save credentials" : "Connect"}
           </Button>
         ) : (
           <Button
             size={onContinue ? "default" : "sm"}
             disabled={disabled || active || !provider}
             onClick={() => {
+              setValues({});
               setAttemptedSetup(true);
               setIgnoredFlowId(auth?.flowId ?? null);
               setSignInRequested(packagesReady);
-              void run(() => start(target));
+              void run(() =>
+                start(
+                  connected
+                    ? {
+                        environmentId,
+                        input: { instanceId, methodId: ELYSIA_CHANGE_CREDENTIALS_METHOD },
+                      }
+                    : target,
+                ),
+              );
             }}
           >
             {active

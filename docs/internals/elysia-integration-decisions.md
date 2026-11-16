@@ -8,11 +8,11 @@ When a CLI update or upstream change affects a decision, add a dated replacement
 
 **Accepted, 2026-10-26.** Applies to macOS and Windows. Reaffirmed against native CLI 0.3.11 after regressions in existing-sign-in reuse.
 
-The CLI owns authentication, credential validation, certificate trust and setup. Elysia first reuses a native sign-in and only presents credential entry when the CLI requires it. The GUI must not introduce its own gateway request, VPN check or certificate export as an admission requirement. Those checks duplicated native policy and rejected sign-ins that worked in the terminal.
+The CLI owns authentication, credential validation, certificate trust and setup. Initial sign-in first reuses the CLI profile. An explicit credential change in Settings skips reuse and collects replacement values for native `--init`. The GUI must not introduce its own gateway request, VPN check or certificate export as an admission requirement. Those checks duplicated native policy and rejected sign-ins that worked in the terminal.
 
 Keep this boundary in [ElysiaCli](../../apps/server/src/provider/ElysiaCli.ts). Revisit only if the CLI publishes a different supported authentication contract. A setup error must retain its native meaning; do not infer that credentials or network trust are invalid from an unrelated optional plugin failure.
 
-The app and its terminal launcher invoke the managed profile's native `--update`. The installer exit code alone does not establish an upgrade. [Provider maintenance](../../apps/server/src/provider/providerMaintenanceRunner.ts) verifies the version from the installed managed script and retains the release target observed before the command. A download candidate and the separate global CLI are different installations and cannot verify the managed version.
+The app and its terminal launcher invoke the managed profile's native `--update`. The installer exit code alone does not establish an upgrade. [Provider maintenance](../../apps/server/src/provider/providerMaintenanceRunner.ts) verifies the version from the installed managed script and retains the release target observed before the command. A download candidate and the separate global CLI are different installations and cannot verify the managed version. Publish status and verification results to clients without bridge arguments or native process output, which can contain private configuration.
 
 ## CLI-002: Native model configuration with per-query isolation
 

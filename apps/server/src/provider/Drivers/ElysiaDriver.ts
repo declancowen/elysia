@@ -1,6 +1,7 @@
 /** Elysia configures Claude Code; keep its existing agent protocol and routing IDs. */
 import {
   ClaudeSettings,
+  ELYSIA_CHANGE_CREDENTIALS_METHOD,
   ProviderDriverKind,
   ProviderSetupError,
   TextGenerationError,
@@ -469,31 +470,44 @@ export const ElysiaDriver: ProviderDriver<ClaudeSettings, ElysiaDriverEnv> = {
       instanceId,
       credentialBinding: { owner: "provider", key: elysia.root },
       defaultMethodId: "elysia",
+      refreshMethodsAfterAuth: true,
       timeoutMs: 1_800_000,
-      methods: Effect.succeed([
+      methods: Effect.map(elysia.ready, (ready) => [
         {
           id: "elysia",
           name: "Elysia credentials",
           description: "Initialise the native Elysia CLI and context compression.",
           type: "credentials" as const,
         },
+        ...(ready
+          ? [
+              {
+                id: ELYSIA_CHANGE_CREDENTIALS_METHOD,
+                name: "Change credentials",
+                description: null,
+                type: "credentials" as const,
+              },
+            ]
+          : []),
       ]),
-      authenticate: Effect.fn("ElysiaDriver.authenticate")(function* (_method, flow) {
+      authenticate: Effect.fn("ElysiaDriver.authenticate")(function* (method, flow) {
         if (!enabled)
           return yield* new ProviderSetupError({
             instanceId,
             operation: "connect",
             detail: "Enable Elysia before configuring credentials.",
           });
-        yield* elysia.bootstrap(flow.setMessage);
-        yield* flow.setMessage("Reading the native Elysia CLI sign-in…");
-        if (yield* elysia.reuseCredentials()) {
-          yield* flow.verifying;
-          yield* flow.setMessage("Connected using your existing Elysia CLI sign-in.");
-          yield* Cache.invalidateAll(capabilities);
-          return;
+        if (method !== ELYSIA_CHANGE_CREDENTIALS_METHOD) {
+          yield* elysia.bootstrap(flow.setMessage);
+          yield* flow.setMessage("Reading the native Elysia CLI sign-in…");
+          if (yield* elysia.reuseCredentials()) {
+            yield* flow.verifying;
+            yield* flow.setMessage("Connected using your existing Elysia CLI sign-in.");
+            yield* Cache.invalidateAll(capabilities);
+            return;
+          }
+          yield* snapshot.refresh;
         }
-        yield* snapshot.refresh;
         const credentials = yield* Deferred.make<typeof Credentials.Type, ProviderSetupError>();
         yield* flow.setInteraction(
           {

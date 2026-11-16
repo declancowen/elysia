@@ -133,7 +133,7 @@ function layerMockSpawner(
   handler: (
     command: string,
     args: ReadonlyArray<string>,
-    options: { readonly env?: NodeJS.ProcessEnv | undefined },
+    options: { readonly env?: NodeJS.ProcessEnv | undefined; readonly stdin?: unknown },
   ) => {
     readonly stdout?: string;
     readonly stderr?: string;
@@ -147,7 +147,10 @@ function layerMockSpawner(
       const childProcess = command as unknown as {
         readonly command: string;
         readonly args: ReadonlyArray<string>;
-        readonly options: { readonly env?: NodeJS.ProcessEnv | undefined };
+        readonly options: {
+          readonly env?: NodeJS.ProcessEnv | undefined;
+          readonly stdin?: unknown;
+        };
       };
       return Effect.succeed(
         mockHandle(handler(childProcess.command, childProcess.args, childProcess.options)),
@@ -338,7 +341,7 @@ describe("providerMaintenanceRunner", () => {
       const targets: Array<string | undefined> = [];
       const elysia = ProviderDriverKind.make("claudeAgent");
       return Effect.gen(function* () {
-        const { registry, providersRef } = yield* makeRegistry({
+        const { registry, providersRef, updateStatesRef } = yield* makeRegistry({
           ...baseProvider,
           driver: elysia,
           instanceId: ProviderInstanceId.make("claudeAgent"),
@@ -358,7 +361,7 @@ describe("providerMaintenanceRunner", () => {
                 updateExecutable: runtime ? "npm" : "python3",
                 updateArgs: runtime
                   ? ["install", "--prefix", "/owned/runtime", "@anthropic-ai/claude-code@latest"]
-                  : ["elysia-code.py", "--update"],
+                  : ["-c", "private bridge source", "/managed/profile", "--update"],
                 updateLockKey: runtime ? "npm-local:/owned/runtime" : "/owned/elysia",
                 latestVersion: runtime ? "2.1.286" : "0.3.9",
               }),
@@ -382,6 +385,8 @@ describe("providerMaintenanceRunner", () => {
         assert.strictEqual(native.providers[0]?.version, "0.3.9");
         assert.strictEqual(native.providers[0]?.runtimeVersion, "2.1.285");
         assert.strictEqual(native.providers[0]?.updateState?.status, "succeeded");
+        assert.strictEqual(native.providers[0]?.updateState?.output, null);
+        assert.isFalse(JSON.stringify(yield* Ref.get(updateStatesRef)).includes("private bridge"));
         assert.strictEqual(native.providers[0]?.runtimeUpdateState, undefined);
         const unchanged = yield* updater.updateProvider({
           provider: elysia,
@@ -417,8 +422,10 @@ describe("providerMaintenanceRunner", () => {
           Layer.mergeAll(
             layerNonWindowsPlatform,
             layerLatestVersionHttpClient("2.1.286"),
-            layerMockSpawner((command) => {
+            layerMockSpawner((command, args, options) => {
               calls.push(command);
+              assert.strictEqual(options.stdin, "ignore");
+              if (command === "python3") assert.strictEqual(args.at(-1), "--update");
               return { stdout: "updated" };
             }),
           ),
@@ -939,6 +946,32 @@ describe("providerMaintenanceRunner", () => {
               Effect.andThen(Effect.sleep(runFor)),
               Effect.as(ChildProcessSpawner.ExitCode(0)),
             ),
+          })),
+        ),
+      ),
+    );
+  });
+
+  it.effect("an interrupted update ends failed instead of running forever", () => {
+    const started = Deferred.makeUnsafe<void>();
+    return Effect.gen(function* () {
+      const { registry, updateStatesRef } = yield* makeRegistry(baseNativeCliProvider);
+      const updater = yield* makeTestRunner(registry);
+      const update = yield* updater.updateProvider(NATIVE_CLI_DRIVER).pipe(Effect.forkScoped);
+      yield* Deferred.await(started);
+      yield* Fiber.interrupt(update);
+      const last = (yield* Ref.get(updateStatesRef)).at(-1);
+      assert.deepStrictEqual(
+        [last?.status, last?.message],
+        ["failed", "Update stopped before it finished."],
+      );
+    }).pipe(
+      Effect.provide(
+        Layer.mergeAll(
+          layerNonWindowsPlatform,
+          layerLatestVersionHttpClient("1.0.0"),
+          layerMockSpawner(() => ({
+            exitCode: Deferred.succeed(started, undefined).pipe(Effect.andThen(Effect.never)),
           })),
         ),
       ),

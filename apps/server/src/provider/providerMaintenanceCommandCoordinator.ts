@@ -7,6 +7,7 @@ export interface ProviderMaintenanceCommandCoordinatorShape<E> {
     readonly targetKey: string;
     readonly lockKey: string;
     readonly onQueued?: Effect.Effect<void, E, R>;
+    readonly onInterrupt?: Effect.Effect<void, never, R>;
     readonly run: Effect.Effect<A, E, R>;
   }) => Effect.Effect<A, E, R>;
 }
@@ -40,6 +41,7 @@ export const makeProviderMaintenanceCommandCoordinator = Effect.fn(
       targetKey,
       lockKey,
       onQueued,
+      onInterrupt,
       run,
     }) {
       const acquired = yield* acquireTarget(targetKey);
@@ -49,6 +51,7 @@ export const makeProviderMaintenanceCommandCoordinator = Effect.fn(
 
       return yield* (onQueued ?? Effect.void).pipe(
         Effect.andThen(locks.withLock(lockKey, run)),
+        Effect.onInterrupt(() => onInterrupt ?? Effect.void),
         Effect.ensuring(releaseTarget(targetKey)),
       );
     });

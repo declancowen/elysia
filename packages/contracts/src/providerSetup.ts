@@ -83,6 +83,8 @@ export const ProviderAuthResponse = Schema.Union([
 ]);
 export type ProviderAuthResponse = typeof ProviderAuthResponse.Type;
 
+export const ELYSIA_CHANGE_CREDENTIALS_METHOD = "elysia-change-credentials";
+
 export const ProviderAuthStartInput = Schema.Struct({
   instanceId: ProviderInstanceId,
   methodId: Schema.optionalKey(SetupOperationId),

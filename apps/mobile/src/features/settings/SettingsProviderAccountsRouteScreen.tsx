@@ -6,6 +6,7 @@ import {
 } from "@elysiatools/client-runtime/state/runtime";
 import {
   AuthProvidersManageScope,
+  ELYSIA_CHANGE_CREDENTIALS_METHOD,
   isManagedDriverAllowed,
   type ProviderAuthResponse,
   type ServerProvider,
@@ -204,6 +205,9 @@ function ProviderAccount({
   const name = provider.displayName ?? provider.driver;
   const email = signedIn && !active && provider.enabled ? provider.auth.email?.trim() : undefined;
   const methods = state?.methods ?? [];
+  const changeCredentialsMethod = methods.find(
+    (method) => method.id === ELYSIA_CHANGE_CREDENTIALS_METHOD,
+  );
   // The status line says why a provider that is missing or turned off can't sign in.
   const canSignIn =
     !active &&
@@ -264,17 +268,17 @@ function ProviderAccount({
     // iOS keeps a disabled submenu's children selectable, so sign-in guards here too.
     else if (signInDisabled) return;
     else if (id.startsWith("method:")) startSignIn(id.slice("method:".length));
-    else if (id === "change") startSignIn();
+    else if (id === "change") startSignIn(changeCredentialsMethod?.id);
   }
   const accountActions: MenuAction[] = [
     ...(canSignIn
       ? [
           {
             id: "change",
-            title: "Change account",
+            title: changeCredentialsMethod ? "Change credentials" : "Change account",
             image: "person.crop.circle",
             attributes: { disabled: signInDisabled },
-            ...(methodActions.length > 1
+            ...(!changeCredentialsMethod && methodActions.length > 1
               ? {
                   subactions: methodActions.map((action) => ({
                     ...action,

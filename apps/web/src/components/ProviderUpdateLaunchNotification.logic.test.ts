@@ -15,6 +15,7 @@ vi.mock("@elysiatools/contracts", async (importOriginal) => ({
 }));
 
 import {
+  canOfferProviderUpdate,
   providerUpdateTargetName,
   isProviderUpdateCandidate,
   collectProviderUpdateCandidates,
@@ -23,13 +24,11 @@ import {
   canOneClickUpdateProviderCandidate,
   providerUpdateNotificationKey,
   getProviderUpdateInitialToastView,
-  shouldShowPrimaryProviderUpdateToast,
-  getProviderUpdateRejectedToastView,
   getProviderUpdateProgressToastView,
   getProviderUpdateRunToastView,
-  collectUpdatedProviderSnapshots,
-  firstFailedProviderUpdateMessage,
+  getProviderUpdateCompletionToastView,
   getProviderUpdateSidebarPillView,
+  matchesProviderUpdateCheck,
   type ProviderUpdateCandidate,
 } from "./ProviderUpdateLaunchNotification.logic";
 
@@ -252,44 +251,6 @@ describe("provider update launch notification logic", () => {
     );
   });
 
-  it("tracks updated provider snapshots by instance instead of collapsing to a sibling driver", () => {
-    const targetInstanceId = instanceId("codex_personal");
-    const siblingInstanceId = instanceId("codex");
-    const updatedPersonal = provider({
-      driver: driver("codex"),
-      instanceId: targetInstanceId,
-      version: "1.1.0",
-      latestVersion: "1.1.0",
-      advisoryStatus: "current",
-      updateState: {
-        status: "succeeded",
-        startedAt: checkedAt,
-        finishedAt: checkedAt,
-        message: "Provider updated.",
-        output: null,
-      },
-    });
-    const currentDefaultSibling = provider({
-      driver: driver("codex"),
-      instanceId: siblingInstanceId,
-      version: "1.1.0",
-      latestVersion: "1.1.0",
-      advisoryStatus: "current",
-      updateState: undefined,
-    });
-
-    expect(
-      collectUpdatedProviderSnapshots({
-        results: [
-          AsyncResult.success({
-            providers: [updatedPersonal, currentDefaultSibling],
-          }),
-        ],
-        providerInstanceIds: new Set([targetInstanceId]),
-      }),
-    ).toEqual([updatedPersonal]);
-  });
-
   it("describes a single one-click update", () => {
     const view = getProviderUpdateInitialToastView({
       updateProviders: [updateCandidate({ driver: driver("codex"), latestVersion: "1.1.0" })],
@@ -384,21 +345,25 @@ describe("provider update launch notification logic", () => {
       type: "loading",
       title: "Updating provider",
     });
-    expect(shouldShowPrimaryProviderUpdateToast(view)).toBe(false);
   });
 
-  it("keeps the initial prompt and terminal outcomes visible as toasts", () => {
+  it("reoffers a dismissed native CLI update only after a manual check confirms it", () => {
+    const key = providerUpdateNotificationKey([
+      updateCandidate({ driver: driver("claudeAgent") }),
+    ])!;
+    const state = { key, dismissedKeys: new Set([key]), seenKeys: new Set([key]) };
+    const environmentId = EnvironmentId.make("local");
+    const check = { environmentId, key };
+    expect(canOfferProviderUpdate({ ...state, manuallyChecked: false })).toBe(false);
     expect(
-      shouldShowPrimaryProviderUpdateToast(
-        getProviderUpdateInitialToastView({
-          updateProviders: [updateCandidate({ driver: driver("codex") })],
-          oneClickProviders: [updateCandidate({ driver: driver("codex") })],
-        }),
-      ),
+      canOfferProviderUpdate({
+        ...state,
+        manuallyChecked: matchesProviderUpdateCheck(check, null, environmentId, key),
+      }),
     ).toBe(true);
-    expect(
-      shouldShowPrimaryProviderUpdateToast(getProviderUpdateRejectedToastView(1, "boom")),
-    ).toBe(true);
+    expect(matchesProviderUpdateCheck(check, check, environmentId, key)).toBe(false);
+    expect(matchesProviderUpdateCheck(check, null, EnvironmentId.make("remote"), key)).toBe(false);
+    expect(matchesProviderUpdateCheck(check, null, environmentId, null)).toBe(false);
   });
 
   it("uses server failure state for failed progress", () => {
@@ -480,28 +445,39 @@ describe("provider update launch notification logic", () => {
     });
   });
 
-  it("falls back to a rejected RPC message for transport-level failures", () => {
-    const results = [AsyncResult.failure(Cause.die(new Error("WebSocket closed")))];
-
-    expect(firstFailedProviderUpdateMessage(results)).toBe("WebSocket closed");
-    expect(getProviderUpdateRejectedToastView(2, "WebSocket closed")).toMatchObject({
-      phase: "failed",
-      title: "Provider updates failed",
-      description: "WebSocket closed",
-    });
+  it("reports a transport failure from the update request", () => {
+    const target = provider({ driver: driver("claudeAgent") });
+    expect(
+      getProviderUpdateCompletionToastView([
+        { provider: target, result: AsyncResult.failure(Cause.die(new Error("WebSocket closed"))) },
+      ]),
+    ).toMatchObject({ phase: "failed", description: "WebSocket closed" });
   });
 
-  it("collects only attempted provider snapshots from update responses", () => {
-    const codex = provider({ driver: driver("codex") });
-    const cursor = provider({ driver: driver("cursor") });
-    const results = [AsyncResult.success({ providers: [codex, cursor] })];
+  it("requires confirmation for the requested CLI even if its runtime update succeeded", () => {
+    const updateState = {
+      status: "succeeded" as const,
+      startedAt: checkedAt,
+      finishedAt: checkedAt,
+      message: "Provider updated.",
+      output: null,
+    };
+    const target = provider({ driver: driver("claudeAgent"), advisoryStatus: "current" });
+    const snapshot = {
+      ...target,
+      runtimeVersion: "2.1.311",
+      runtimeUpdateState: updateState,
+    };
+    const completion = (value: ServerProvider) =>
+      getProviderUpdateCompletionToastView([
+        { provider: target, result: AsyncResult.success({ providers: [value] }) },
+      ]);
 
+    expect(completion(snapshot)).toMatchObject({ phase: "failed" });
+    expect(completion({ ...snapshot, updateState })).toMatchObject({ phase: "succeeded" });
     expect(
-      collectUpdatedProviderSnapshots({
-        results,
-        providerInstanceIds: new Set([cursor.instanceId]),
-      }),
-    ).toEqual([cursor]);
+      completion({ ...snapshot, updateState, instanceId: instanceId("claudeAgent_other") }),
+    ).toMatchObject({ phase: "failed" });
   });
 
   it("summarizes active provider updates for the sidebar pill", () => {

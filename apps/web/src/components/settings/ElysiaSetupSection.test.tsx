@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { act, render as renderDom } from "../../../test/render";
 import {
+  ELYSIA_CHANGE_CREDENTIALS_METHOD,
   EnvironmentId,
   ProviderDriverKind,
   ProviderInstanceId,
@@ -105,15 +106,20 @@ it("opens an existing installation without stale cancellation or credential erro
 });
 
 it("changes credentials in Settings without repeating onboarding package groups", async () => {
-  await using screen = await renderDom(
-    view({ ...provider, status: "ready", auth: { status: "authenticated" } }, false),
-    { router: false },
-  );
+  const connectedProvider = {
+    ...provider,
+    status: "ready",
+    auth: { status: "authenticated" },
+  } as const;
+  await using screen = await renderDom(view(connectedProvider, false), { router: false });
   expect(screen.container.querySelector('section[aria-label="Installed"]')).toBeNull();
   expect(screen.container.querySelector('section[aria-label="Not installed"]')).toBeNull();
   expect(button("Disconnect Elysia")).toBeDefined();
   await act(async () => button("Change credentials")!.click());
-  expect(setup.start).toHaveBeenCalledOnce();
+  expect(setup.start).toHaveBeenCalledWith({
+    environmentId: "local",
+    input: { instanceId, methodId: ELYSIA_CHANGE_CREDENTIALS_METHOD },
+  });
   setup.auth = authState({
     phase: "waiting",
     flowId: "change-credentials",
@@ -123,9 +129,9 @@ it("changes credentials in Settings without repeating onboarding package groups"
       fields: [{ name: "api_key", label: "API key", secret: true }],
     },
   });
-  await screen.rerender(view(provider, false));
+  await screen.rerender(view(connectedProvider, false));
   expect(screen.container.querySelector<HTMLInputElement>("input")?.type).toBe("password");
-  expect(button("Connect")).toBeDefined();
+  expect(button("Save credentials")).toBeDefined();
   expect(screen.container.querySelector('section[aria-label="Installed"]')).toBeNull();
   expect(setup.toast).not.toHaveBeenCalled();
 });

@@ -112,6 +112,7 @@ const runProviderMaintenanceCommandWithSpawner = Effect.fn("ProviderMaintenanceR
           .spawn(
             ChildProcess.make(resolved.command, resolved.args, {
               shell: resolved.shell,
+              stdin: "ignore",
               ...env,
             }),
           )
@@ -265,7 +266,7 @@ function lastOutputLine(result: ProviderMaintenanceCommandResult): string | null
   return null;
 }
 
-function failureMessage(result: ProviderMaintenanceCommandResult): string {
+function failureMessage(result: ProviderMaintenanceCommandResult, includeOutput: boolean): string {
   if (result.timedOut) {
     return `Update timed out after ${UPDATE_TIMEOUT_MINUTES} minutes.`;
   }
@@ -273,7 +274,7 @@ function failureMessage(result: ProviderMaintenanceCommandResult): string {
     result.exitCode !== null && result.exitCode !== 0
       ? `Update command exited with code ${result.exitCode}`
       : "Update command failed";
-  const reason = lastOutputLine(result);
+  const reason = includeOutput ? lastOutputLine(result) : null;
   return reason ? `${summary}: ${reason}` : `${summary}.`;
 }
 
@@ -310,13 +311,13 @@ export const make = Effect.fn("ProviderMaintenanceRunner.make")(function* () {
   const latestVersions = yield* ProviderLatestVersions.ProviderLatestVersions;
   const runMaintenanceCommand = (
     update: ProviderMaintenanceCommandAction,
-    onProgress: (line: string) => Effect.Effect<void>,
+    onProgress?: (line: string) => Effect.Effect<void>,
   ) =>
     runProviderMaintenanceCommandWithSpawner({
       spawner,
       command: update.executable,
       args: update.args,
-      onProgress,
+      ...(onProgress ? { onProgress } : {}),
       ...(update.env ? { env: update.env } : {}),
     });
   const commandCoordinator = yield* makeProviderMaintenanceCommandCoordinator({
@@ -416,6 +417,10 @@ export const make = Effect.fn("ProviderMaintenanceRunner.make")(function* () {
         reason: "This provider does not support one-click updates.",
       });
     }
+    const nativeElysiaUpdate =
+      provider === "claudeAgent" && capabilities.packageName === null && updateTarget !== "runtime";
+    const startedAtRef = yield* Ref.make<string | null>(null);
+    const settled = yield* Ref.make(false);
 
     const setUpdateState = (state: ServerProviderUpdateState | null) =>
       providerRegistry.setProviderMaintenanceActionState({
@@ -435,8 +440,11 @@ export const make = Effect.fn("ProviderMaintenanceRunner.make")(function* () {
     const runProviderUpdate = Effect.fn("ProviderMaintenanceRunner.runProviderUpdate")(
       function* () {
         const finish = (state: ServerProviderUpdateState) =>
-          setUpdateState(state).pipe(Effect.map((providers) => ({ providers })));
-        const startedAtRef = yield* Ref.make<string | null>(null);
+          setUpdateState(state).pipe(
+            Effect.tap(() => Ref.set(settled, true)),
+            Effect.map((providers) => ({ providers })),
+            Effect.uninterruptible,
+          );
 
         const runCommandAndVerify = Effect.fn("ProviderMaintenanceRunner.runCommandAndVerify")(
           function* () {
@@ -520,10 +528,6 @@ export const make = Effect.fn("ProviderMaintenanceRunner.make")(function* () {
               );
             }
 
-            const nativeElysiaUpdate =
-              provider === "claudeAgent" &&
-              fresh.packageName === null &&
-              updateTarget !== "runtime";
             const prior = (yield* providerRegistry.getProviders).find(
               (candidate) => candidate.instanceId === instanceId,
             );
@@ -558,24 +562,30 @@ export const make = Effect.fn("ProviderMaintenanceRunner.make")(function* () {
               }
             }
 
-            yield* setRunningMessage(`Running ${describeCommand(command)}`);
-            const result = yield* runMaintenanceCommand(command, setRunningMessage);
+            yield* setRunningMessage(
+              nativeElysiaUpdate ? "Updating Elysia CLI…" : `Running ${describeCommand(command)}`,
+            );
+            const result = yield* runMaintenanceCommand(
+              command,
+              nativeElysiaUpdate ? undefined : setRunningMessage,
+            );
+            const output = nativeElysiaUpdate ? null : commandOutput(result);
             const finishedAt = yield* nowIso;
             if (result.timedOut || result.exitCode !== 0) {
               yield* Effect.logWarning("Provider update command failed", {
                 provider,
-                command: describeCommand(command),
+                command: nativeElysiaUpdate ? "Elysia CLI --update" : describeCommand(command),
                 exitCode: result.exitCode,
                 timedOut: result.timedOut,
-                output: commandOutput(result),
+                output,
               });
               return yield* finish(
                 makeUpdateState({
                   status: "failed",
                   startedAt,
                   finishedAt,
-                  message: failureMessage(result),
-                  output: commandOutput(result),
+                  message: failureMessage(result, !nativeElysiaUpdate),
+                  output,
                 }),
               );
             }
@@ -646,8 +656,10 @@ export const make = Effect.fn("ProviderMaintenanceRunner.make")(function* () {
                       ? "Already up to date."
                       : updateTarget === "runtime"
                         ? "Claude Code runtime updated."
-                        : "Provider updated.",
-                output: commandOutput(result),
+                        : nativeElysiaUpdate
+                          ? "Elysia CLI updated."
+                          : "Provider updated.",
+                output,
               }),
             );
           },
@@ -662,14 +674,22 @@ export const make = Effect.fn("ProviderMaintenanceRunner.make")(function* () {
                 status: "failed",
                 startedAt,
                 finishedAt: yield* nowIso,
-                message: failure instanceof Error ? failure.message : "Update command failed.",
+                message: nativeElysiaUpdate
+                  ? "Could not complete the Elysia CLI update. Try again."
+                  : failure instanceof Error
+                    ? failure.message
+                    : "Update command failed.",
                 output: null,
               }),
             );
           },
         );
 
-        return yield* runCommandAndVerify().pipe(Effect.catchCause(recordFailedUpdate));
+        return yield* runCommandAndVerify().pipe(
+          Effect.catchCause((cause) =>
+            Cause.hasInterruptsOnly(cause) ? Effect.interrupt : recordFailedUpdate(cause),
+          ),
+        );
       },
     );
 
@@ -679,6 +699,17 @@ export const make = Effect.fn("ProviderMaintenanceRunner.make")(function* () {
         lockKey: update.lockKey,
         onQueued: setQueuedState,
         run: runProviderUpdate(),
+        onInterrupt: Effect.gen(function* () {
+          if (yield* Ref.get(settled)) return;
+          yield* setUpdateState(
+            makeUpdateState({
+              status: "failed",
+              startedAt: yield* Ref.get(startedAtRef),
+              finishedAt: yield* nowIso,
+              message: "Update stopped before it finished.",
+            }),
+          ).pipe(Effect.ignore);
+        }),
       })
       .pipe(
         Effect.mapError((error) =>

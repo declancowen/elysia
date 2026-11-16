@@ -1,4 +1,4 @@
-import { useAtomValue } from "@effect/atom-react";
+import { useAtomSet, useAtomValue } from "@effect/atom-react";
 import { connectionStatusTitle } from "@elysiatools/client-runtime/connection";
 import { safeErrorLogAttributes } from "@elysiatools/client-runtime/errors";
 import {
@@ -71,11 +71,14 @@ import {
 } from "../ConnectionStatusDot";
 import { EnvironmentMachineIcon } from "../EnvironmentMachineIcon";
 import {
+  collectProviderUpdateCandidates,
   isProviderSettingsUpdateCandidate,
   isProviderUpdateActive,
   projectProviderUpdateTargets,
+  providerUpdateNotificationKey,
   type ProviderSettingsUpdateCandidate,
 } from "../ProviderUpdateLaunchNotification.logic";
+import { providerUpdateCheckAtom } from "../../providerUpdateDismissal";
 import { ProviderUpdatesAction } from "../ProviderUpdatesAction";
 import { Button } from "../ui/button";
 import {
@@ -650,6 +653,7 @@ export function EnvironmentProviderSettings({
   );
   const defaultProviderHealthRefreshIntervalSeconds = durationToSeconds(providerHealthPreset);
 
+  const requestProviderUpdatePrompt = useAtomSet(providerUpdateCheckAtom);
   const refreshProviders = (instanceId?: ProviderInstanceId) => {
     if (refreshingRef.current || !readEnvironmentScope(environmentId, AuthOrchestrationReadScope))
       return;
@@ -676,6 +680,13 @@ export function EnvironmentProviderSettings({
           ...safeErrorLogAttributes(squashAtomCommandFailure(result)),
         });
       } else if (result._tag === "Success" && instanceId) {
+        const key = providerUpdateNotificationKey(
+          collectProviderUpdateCandidates(result.value.providers),
+        );
+        if (key !== null) {
+          requestProviderUpdatePrompt({ environmentId, key });
+          return;
+        }
         toastManager.add({
           type: "success",
           title: "Update check complete",

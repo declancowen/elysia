@@ -1,17 +1,24 @@
 import { useNavigate } from "@tanstack/react-router";
+import { useAtomValue } from "@effect/atom-react";
 import { useEffect, useRef, useState } from "react";
 
 import { useStableCallback } from "~/hooks/useStableCallback";
 import { useEnvironments } from "~/state/environments";
 import { isDesktopLocalConnectionTarget } from "~/connection/desktopLocal";
-import { useDismissedProviderUpdateNotificationKeys } from "../providerUpdateDismissal";
+import {
+  providerUpdateCheckAtom,
+  useDismissedProviderUpdateNotificationKeys,
+} from "../providerUpdateDismissal";
 import { ProviderUpdateEnvironmentRows } from "./ProviderUpdateEnvironmentRows";
 import { useLocalEnvironmentUpdateGroups } from "./ProviderUpdateLaunchNotification.environments";
 import {
+  canOfferProviderUpdate,
   collectProviderUpdateCandidates,
   environmentGroupsWithUpdates,
   getProviderUpdateInitialToastView,
   localEnvironmentUpdateNotificationKey,
+  matchesProviderUpdateCheck,
+  providerUpdateNotificationKey,
 } from "./ProviderUpdateLaunchNotification.logic";
 import { ProviderUpdatePrimaryNotification } from "./ProviderUpdatePrimaryNotification";
 import { ProviderUpdateToastIcon } from "./ProviderUpdateToastIcon";
@@ -47,6 +54,8 @@ function ProviderUpdateEnvironmentsNotification() {
   const { groups, isAnySettling } = useLocalEnvironmentUpdateGroups();
   const { dismissedNotificationKeys, dismissNotificationKey } =
     useDismissedProviderUpdateNotificationKeys();
+  const manualCheck = useAtomValue(providerUpdateCheckAtom);
+  const handledCheck = useRef<typeof manualCheck>(null);
 
   const activeToastRef = useRef<{
     readonly toastId: ProviderUpdateToastId;
@@ -106,13 +115,25 @@ function ProviderUpdateEnvironmentsNotification() {
 
   // oxlint-disable-next-line elysia/no-unreasoned-state-sync -- Reconcile server update snapshots and dismissal storage with the imperative toast manager.
   useEffect(() => {
-    const canShowPrompt =
-      notificationKey !== null &&
-      !isGated &&
-      !dismissedNotificationKeys.has(notificationKey) &&
-      !seenProviderUpdateNotificationKeys.has(notificationKey);
-
+    const checkedManually = updateGroups.some((group) =>
+      matchesProviderUpdateCheck(
+        manualCheck,
+        handledCheck.current,
+        group.environmentId,
+        providerUpdateNotificationKey(group.candidates),
+      ),
+    );
     const active = activeToastRef.current;
+    if (checkedManually && active?.key === notificationKey) handledCheck.current = manualCheck;
+    const canShowPrompt =
+      !isGated &&
+      canOfferProviderUpdate({
+        key: notificationKey,
+        manuallyChecked: checkedManually,
+        dismissedKeys: dismissedNotificationKeys,
+        seenKeys: seenProviderUpdateNotificationKeys,
+      });
+
     if (
       active &&
       active.key !== notificationKey &&
@@ -128,6 +149,7 @@ function ProviderUpdateEnvironmentsNotification() {
     }
 
     seenProviderUpdateNotificationKeys.add(notificationKey);
+    if (checkedManually) handledCheck.current = manualCheck;
     hasInteractedRef.current = false;
 
     const toastId = toastManager.add(
@@ -161,6 +183,8 @@ function ProviderUpdateEnvironmentsNotification() {
     activeToastRef.current = { toastId, key: notificationKey };
   }, [
     notificationKey,
+    manualCheck,
+    updateGroups,
     isGated,
     candidateUnion,
     dismissedNotificationKeys,

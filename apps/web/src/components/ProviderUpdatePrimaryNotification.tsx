@@ -1,24 +1,27 @@
 import { useNavigate } from "@tanstack/react-router";
 import { useAtomValue } from "@effect/atom-react";
-import { useEffect, useRef } from "react";
-import { AuthProvidersManageScope, type ProviderInstanceId } from "@elysiatools/contracts";
+import { useEffect, useRef, type ReactNode } from "react";
+import { AuthProvidersManageScope, type EnvironmentId } from "@elysiatools/contracts";
 
+import { useStableCallback } from "../hooks/useStableCallback";
 import { primaryServerProvidersAtom, serverEnvironment } from "../state/server";
 import { usePrimaryEnvironment } from "../state/environments";
 import { readEnvironmentScope, useEnvironmentScope } from "../state/session";
-import { useDismissedProviderUpdateNotificationKeys } from "../providerUpdateDismissal";
+import {
+  providerUpdateCheckAtom,
+  useDismissedProviderUpdateNotificationKeys,
+} from "../providerUpdateDismissal";
 import { ProviderUpdateToastIcon } from "./ProviderUpdateToastIcon";
 import {
+  canOfferProviderUpdate,
   canOneClickUpdateProviderCandidate,
   collectProviderUpdateCandidates,
-  collectUpdatedProviderSnapshots,
-  projectProviderUpdateTargets,
-  firstFailedProviderUpdateMessage,
+  getProviderUpdateCompletionToastView,
   getProviderUpdateInitialToastView,
   getProviderUpdateProgressToastView,
-  getProviderUpdateRejectedToastView,
+  matchesProviderUpdateCheck,
   providerUpdateNotificationKey,
-  shouldShowPrimaryProviderUpdateToast,
+  type ProviderUpdateCandidate,
   type ProviderUpdateToastView,
 } from "./ProviderUpdateLaunchNotification.logic";
 import { hiddenToastActionProps, stackedThreadToast, toastManager } from "./ui/toast";
@@ -36,18 +39,46 @@ type ActiveProviderUpdateToast =
     }
   | {
       readonly kind: "update";
-      readonly key: string;
-      readonly providerInstanceIds: ReadonlySet<ProviderInstanceId>;
-      readonly targets: ReadonlyArray<{
-        readonly instanceId: ProviderInstanceId;
-        readonly updateTarget?: "runtime";
-      }>;
-      readonly providerCount: number;
+      readonly toastId: ProviderUpdateToastId;
     };
+
+function buildUpdatePrompt(input: {
+  readonly view: ProviderUpdateToastView;
+  readonly providers: ReadonlyArray<ProviderUpdateCandidate>;
+  readonly canUpdate: boolean;
+  readonly canManageProviders: boolean;
+  readonly openSettings: () => void;
+  readonly update: () => void;
+  readonly dismiss: () => void;
+}) {
+  const settingsAction = { children: "Settings", onClick: input.openSettings };
+  return stackedThreadToast({
+    type: input.view.type,
+    title: input.view.title,
+    description: input.canManageProviders
+      ? input.view.description
+      : "This connection cannot manage provider accounts. View provider settings for update details.",
+    timeout: 0,
+    actionProps: input.canUpdate
+      ? { children: "Update", disabled: !input.canManageProviders, onClick: input.update }
+      : settingsAction,
+    actionVariant: "outline",
+    data: {
+      position: "bottom-right",
+      leadingIcon: <ProviderUpdateToastIcon providers={input.providers} />,
+      hideCopyButton: true,
+      onClose: input.dismiss,
+      ...(input.canUpdate
+        ? { secondaryActionProps: settingsAction, secondaryActionVariant: "outline" as const }
+        : {}),
+    },
+  });
+}
 
 function addProviderUpdateToast(input: {
   readonly view: ProviderUpdateToastView;
   readonly openSettings: (toastId: ProviderUpdateToastId) => void;
+  readonly leadingIcon?: ReactNode;
 }) {
   if (input.view.type === "loading" || input.view.type === "success") {
     return toastManager.add({
@@ -59,6 +90,7 @@ function addProviderUpdateToast(input: {
       data: {
         position: "bottom-right",
         hideCopyButton: true,
+        leadingIcon: input.leadingIcon,
         ...(input.view.dismissAfterVisibleMs !== undefined
           ? { dismissAfterVisibleMs: input.view.dismissAfterVisibleMs }
           : {}),
@@ -81,6 +113,7 @@ function addProviderUpdateToast(input: {
       data: {
         position: "bottom-right",
         hideCopyButton: true,
+        leadingIcon: input.leadingIcon,
       },
     }),
   );
@@ -99,6 +132,8 @@ export function ProviderUpdatePrimaryNotification() {
     reportFailure: false,
   });
   const activeToastRef = useRef<ActiveProviderUpdateToast | null>(null);
+  const manualCheck = useAtomValue(providerUpdateCheckAtom);
+  const handledCheck = useRef<typeof manualCheck>(null);
   const { dismissedNotificationKeys, dismissNotificationKey } =
     useDismissedProviderUpdateNotificationKeys();
 
@@ -106,7 +141,7 @@ export function ProviderUpdatePrimaryNotification() {
   useEffect(() => {
     return () => {
       const activeToast = activeToastRef.current;
-      if (activeToast?.kind === "prompt") {
+      if (activeToast) {
         toastManager.close(activeToast.toastId);
       }
       activeToastRef.current = null;
@@ -119,65 +154,97 @@ export function ProviderUpdatePrimaryNotification() {
     canOneClickUpdateProviderCandidate(provider, providers),
   );
 
-  const openProviderSettings = (toastId?: ProviderUpdateToastId) => {
+  const openProviderSettings = useStableCallback((toastId: ProviderUpdateToastId) => {
+    toastManager.close(toastId);
     const activeToast = activeToastRef.current;
-    if (toastId !== undefined) {
-      toastManager.close(toastId);
-    } else if (activeToast?.kind === "prompt") {
-      toastManager.close(activeToast.toastId);
-    }
-    if (
-      activeToast &&
-      (toastId === undefined || (activeToast.kind === "prompt" && activeToast.toastId === toastId))
-    ) {
+    if (activeToast?.kind === "prompt" && activeToast.toastId === toastId) {
       activeToastRef.current = null;
     }
     void navigate({ to: "/settings/providers" });
-  };
+  });
 
-  // oxlint-disable-next-line elysia/no-unreasoned-state-sync -- Publish externally pushed provider update completion into the imperative toast manager.
-  useEffect(() => {
-    const activeToast = activeToastRef.current;
-    if (activeToast?.kind !== "update") {
-      return;
-    }
+  const runUpdates = useStableCallback(
+    async (
+      toastId: ProviderUpdateToastId,
+      environmentId: EnvironmentId | undefined,
+      candidates: ReadonlyArray<ProviderUpdateCandidate>,
+    ) => {
+      if (
+        activeToastRef.current?.toastId !== toastId ||
+        environmentId === undefined ||
+        primaryEnvironment?.environmentId !== environmentId ||
+        !readEnvironmentScope(environmentId, AuthProvidersManageScope)
+      ) {
+        return;
+      }
 
-    const activeProviders = projectProviderUpdateTargets(providers).filter((provider) =>
-      activeToast.targets.some(
-        (target) =>
-          target.instanceId === provider.instanceId &&
-          target.updateTarget === provider.updateTarget,
-      ),
-    );
-    const view = getProviderUpdateProgressToastView({
-      providers: activeProviders,
-      providerCount: activeToast.providerCount,
-    });
-    if (!shouldShowPrimaryProviderUpdateToast(view)) {
-      return;
-    }
+      const providerCount = candidates.length;
+      const leadingIcon = <ProviderUpdateToastIcon providers={candidates} />;
+      toastManager.close(toastId);
+      const activeUpdate: ActiveProviderUpdateToast = {
+        kind: "update",
+        toastId: addProviderUpdateToast({
+          view: getProviderUpdateProgressToastView({ providers: [], providerCount }),
+          openSettings: openProviderSettings,
+          leadingIcon,
+        }),
+      };
+      activeToastRef.current = activeUpdate;
+      const finish = (view: ProviderUpdateToastView) => {
+        if (activeToastRef.current !== activeUpdate) return;
+        toastManager.close(activeUpdate.toastId);
+        addProviderUpdateToast({ view, openSettings: openProviderSettings, leadingIcon });
+        activeToastRef.current = null;
+      };
 
-    addProviderUpdateToast({ view, openSettings: openProviderSettings });
-    activeToastRef.current = null;
-  }, [providers, openProviderSettings]);
+      const results = [];
+      for (const provider of candidates) {
+        results.push({
+          provider,
+          result: await updateProvider({
+            environmentId,
+            input: {
+              provider: provider.driver,
+              instanceId: provider.instanceId,
+              ...(provider.updateTarget && { updateTarget: provider.updateTarget }),
+            },
+          }),
+        });
+      }
+
+      finish(getProviderUpdateCompletionToastView(results));
+    },
+  );
 
   // oxlint-disable-next-line elysia/no-unreasoned-state-sync -- Reconcile pushed update availability and current authorization with the imperative toast prompt.
   useEffect(() => {
     const activeToast = activeToastRef.current;
-    if (activeToast?.kind === "prompt" && activeToast.key !== notificationKey) {
+    if (activeToast?.kind === "update") return;
+    const currentPrompt = activeToast?.key === notificationKey ? activeToast : null;
+    if (activeToast && !currentPrompt) {
       toastManager.close(activeToast.toastId);
       activeToastRef.current = null;
     }
+    if (!notificationKey) return;
 
+    const checkedManually = matchesProviderUpdateCheck(
+      manualCheck,
+      handledCheck.current,
+      primaryEnvironment?.environmentId,
+      notificationKey,
+    );
+    if (checkedManually) handledCheck.current = manualCheck;
     const updateExistingPrompt =
-      activeToast?.kind === "prompt" &&
-      activeToast.key === notificationKey &&
-      activeToast.canManageProviders !== canManageProviders;
+      currentPrompt !== null && currentPrompt.canManageProviders !== canManageProviders;
     if (
-      !notificationKey ||
-      dismissedNotificationKeys.has(notificationKey) ||
-      (seenProviderUpdateNotificationKeys.has(notificationKey) && !updateExistingPrompt) ||
-      (activeToastRef.current && !updateExistingPrompt)
+      (currentPrompt && !updateExistingPrompt) ||
+      !canOfferProviderUpdate({
+        key: notificationKey,
+        manuallyChecked: checkedManually,
+        dismissedKeys: dismissedNotificationKeys,
+        seenKeys: seenProviderUpdateNotificationKeys,
+        replaceExisting: updateExistingPrompt,
+      })
     ) {
       return;
     }
@@ -187,137 +254,23 @@ export function ProviderUpdatePrimaryNotification() {
     const initialView = getProviderUpdateInitialToastView({ updateProviders, oneClickProviders });
 
     let toastId!: ProviderUpdateToastId;
-    let updateStarted = false;
     const openSettings = () => openProviderSettings(toastId);
     const dismissPrompt = () => {
       dismissNotificationKey(notificationKey);
+      if (activeToastRef.current?.toastId === toastId) activeToastRef.current = null;
     };
 
-    const runUpdates = () => {
-      if (
-        updateStarted ||
-        oneClickProviders.length === 0 ||
-        !primaryEnvironment ||
-        !readEnvironmentScope(primaryEnvironment.environmentId, AuthProvidersManageScope)
-      ) {
-        return;
-      }
-      updateStarted = true;
-
-      const providerCount = oneClickProviders.length;
-      const providerInstanceIds = new Set(oneClickProviders.map((provider) => provider.instanceId));
-      const activeUpdate: ActiveProviderUpdateToast = {
-        kind: "update",
-        key: notificationKey,
-        providerInstanceIds,
-        targets: oneClickProviders,
-        providerCount,
-      };
-      activeToastRef.current = activeUpdate;
-
-      toastManager.close(toastId);
-
-      void (async () => {
-        const results = [];
-        for (const provider of oneClickProviders) {
-          if (!readEnvironmentScope(primaryEnvironment.environmentId, AuthProvidersManageScope)) {
-            if (activeToastRef.current === activeUpdate) {
-              addProviderUpdateToast({
-                view: getProviderUpdateRejectedToastView(
-                  providerCount,
-                  "This connection cannot manage provider accounts.",
-                ),
-                openSettings: openProviderSettings,
-              });
-              activeToastRef.current = null;
-            }
-            return;
-          }
-          results.push(
-            await updateProvider({
-              environmentId: primaryEnvironment.environmentId,
-              input: {
-                provider: provider.driver,
-                instanceId: provider.instanceId,
-                ...(provider.updateTarget ? { updateTarget: provider.updateTarget } : {}),
-              },
-            }),
-          );
-        }
-
-        const activeUpdateToast = activeToastRef.current;
-        if (activeUpdateToast !== activeUpdate) {
-          return;
-        }
-
-        const failedMessage = firstFailedProviderUpdateMessage(results);
-        if (failedMessage) {
-          addProviderUpdateToast({
-            view: getProviderUpdateRejectedToastView(providerCount, failedMessage),
-            openSettings: openProviderSettings,
-          });
-          activeToastRef.current = null;
-          return;
-        }
-
-        const updatedProviderSnapshots = collectUpdatedProviderSnapshots({
-          results,
-          providerInstanceIds,
-        }).filter((provider) =>
-          activeUpdate.targets.some(
-            (target) =>
-              target.instanceId === provider.instanceId &&
-              target.updateTarget === provider.updateTarget,
-          ),
-        );
-        const view = getProviderUpdateProgressToastView({
-          providers: updatedProviderSnapshots,
-          providerCount,
-        });
-        if (shouldShowPrimaryProviderUpdateToast(view)) {
-          addProviderUpdateToast({ view, openSettings: openProviderSettings });
-          activeToastRef.current = null;
-        }
-      })();
-    };
-
-    const toastOptions = stackedThreadToast({
-      type: initialView.type,
-      title: initialView.title,
-      description: canManageProviders
-        ? initialView.description
-        : "This connection cannot manage provider accounts. View provider settings for update details.",
-      timeout: 0,
-      actionProps:
-        oneClickProviders.length > 0
-          ? {
-              children: "Update",
-              disabled: !canManageProviders,
-              onClick: runUpdates,
-            }
-          : {
-              children: "Settings",
-              onClick: openSettings,
-            },
-      actionVariant: "outline",
-      data: {
-        position: "bottom-right",
-        leadingIcon: <ProviderUpdateToastIcon providers={updateProviders} />,
-        hideCopyButton: true,
-        onClose: dismissPrompt,
-        ...(oneClickProviders.length > 0
-          ? {
-              secondaryActionProps: {
-                children: "Settings",
-                onClick: openSettings,
-              },
-              secondaryActionVariant: "outline" as const,
-            }
-          : {}),
-      },
+    const toastOptions = buildUpdatePrompt({
+      view: initialView,
+      providers: updateProviders,
+      canUpdate: oneClickProviders.length > 0,
+      canManageProviders,
+      openSettings,
+      update: () => void runUpdates(toastId, primaryEnvironment?.environmentId, oneClickProviders),
+      dismiss: dismissPrompt,
     });
-    if (updateExistingPrompt && activeToast?.kind === "prompt") {
-      toastId = activeToast.toastId;
+    if (currentPrompt) {
+      toastId = currentPrompt.toastId;
       toastManager.update(toastId, toastOptions);
     } else {
       toastId = toastManager.add(toastOptions);
@@ -325,10 +278,11 @@ export function ProviderUpdatePrimaryNotification() {
     activeToastRef.current = { kind: "prompt", key: notificationKey, toastId, canManageProviders };
   }, [
     canManageProviders,
-    updateProvider,
+    runUpdates,
     dismissNotificationKey,
     dismissedNotificationKeys,
     notificationKey,
+    manualCheck,
     oneClickProviders,
     openProviderSettings,
     primaryEnvironment,

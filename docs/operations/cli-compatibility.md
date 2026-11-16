@@ -161,6 +161,12 @@ The [v0.0.47 tag](https://github.com/declancowen/elysia/releases/tag/v0.0.47) id
 
 The [v0.0.48 tag](https://github.com/declancowen/elysia/releases/tag/v0.0.48) identifies the release source. The supplied native CLI 0.3.11 and Claude Agent SDK 0.3.316 remain the compatibility baseline. Version advisories and update verification now compare the installed Claude runtime with its own release. The regression fixture covers a successful runtime upgrade and a command that leaves the runtime outdated, independently of the native Elysia CLI version. A live installer run on macOS or Windows is **Not verified**.
 
+## App v0.0.49 credential replacement and updater status
+
+The native CLI 0.3.11 and Claude Agent SDK 0.3.316 remain the compatibility baseline. The explicit credential change uses the native `--init` handshake. Regular setup continues to reuse the native profile. Manual update checks use the existing background updater, which runs native `--update` and verifies the installed managed script. Upstream fixes for unattended command input and interrupted update status were adapted from [`fb4bf0722a`](https://github.com/pingdotgg/t3code/commit/fb4bf0722a56e748b3a5158f6d6579deca2c403d) and [`fe5b51e206`](https://github.com/pingdotgg/t3code/commit/fe5b51e206997c765167f3e8f3f3c25cfd8897ea).
+
+On macOS, the isolated bridge fixture upgraded the managed script from 0.3.8 to 0.3.9 and left the separate terminal installation untouched. Failed finalization did not publish a new configuration version. Live company credentials, installer delivery and installed-app interaction are **Not verified**.
+
 ## Recording the next release
 
 Before publishing, append the app release and source commit, resolved SDK version, actual managed CLI version tested, native package checksum if available, platforms tested, and the result. Record initialization, update and existing-sign-in adoption separately when the CLI changes setup behavior. Use “Not verified” for missing evidence; keep fixture coverage separate from native tests. Never record credentials, environment dumps or authenticated download URLs.

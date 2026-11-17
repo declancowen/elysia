@@ -41,8 +41,11 @@ CLI_VERSION = "0.3.8"
 HOME = Path.home()
 ELYSIA_DIR = HOME / ".elysia"
 COMPRESSION_STATE = ELYSIA_DIR / "compression.json"
+COMPRESSION_PORT = 8787
 CERT_FILE = HOME / "ca.pem"
 IS_MAC, IS_WINDOWS = True, False
+PLIST_LABEL = "native.elysia-compression"
+PLIST_PATH = HOME / "native-compression.plist"
 CLAUDE_DIR = HOME / ".claude"
 SETTINGS_FILE = CLAUDE_DIR / "settings.json"
 def _load_credentials_from_settings():
@@ -81,7 +84,7 @@ def deploy_elysia_compression_command():
     command.parent.mkdir(parents=True, exist_ok=True)
     command.write_text("curl http://localhost:8787/stats\nhttp://localhost:8787/dashboard")
 def _read_compression_state():
-    return json.loads(COMPRESSION_STATE.read_text())
+    return json.loads(COMPRESSION_STATE.read_text()) if COMPRESSION_STATE.is_file() else {"enabled": False, "port": COMPRESSION_PORT}
 def _write_compression_state(enabled, port=8787):
     COMPRESSION_STATE.write_text(json.dumps({"enabled": enabled, "port": port}))
 def main():
@@ -146,6 +149,7 @@ function fixture(script = nativeFixture) {
       env: {
         ...process.env,
         HOME: directory,
+        ELYSIA_REAL_HOME: directory,
         ELYSIA_CLI_BRIDGE,
         ELYSIA_GATEWAY_URL: "https://fixture.invalid",
         ...extraEnv,
@@ -499,7 +503,7 @@ def main():
   data.env.LANGSMITH_HIDE_INPUTS = "true";
   data.env.LANGSMITH_HIDE_OUTPUTS = "false";
   const nativeDir = NodePath.join(directory, "native-claude");
-  NodeFS.mkdirSync(nativeDir);
+  NodeFS.mkdirSync(nativeDir, { recursive: true });
   const nativeSettings = JSON.stringify(data);
   NodeFS.writeFileSync(NodePath.join(nativeDir, "settings.json"), nativeSettings);
   NodeFS.rmSync(profile, { recursive: true });
@@ -562,7 +566,7 @@ it("adopts a native Windows sign-in using system trust without adding a missing 
   delete settings.env.NODE_EXTRA_CA_CERTS;
   const original = JSON.stringify(settings);
   const nativeDir = NodePath.join(directory, ".claude");
-  NodeFS.mkdirSync(nativeDir);
+  NodeFS.mkdirSync(nativeDir, { recursive: true });
   NodeFS.writeFileSync(NodePath.join(nativeDir, "settings.json"), original);
   NodeFS.rmSync(profile, { recursive: true });
   NodeFS.appendFileSync(
@@ -615,11 +619,12 @@ it("reads only native account totals and never substitutes local estimates or pr
 });
 
 effectIt.effect(
-  "reads native --config through the adapter without exposing secrets or changing sign-in on failure",
+  "refreshes terminal credentials and reads native usage without exposing secrets or losing sign-in",
   () => {
     const { directory, source } = fixture(
       nativeFixture +
         String.raw`
+DEFAULT_MODEL = "deepseek-v4.1-flash"
 original_main = main
 def main():
     original_main()
@@ -640,6 +645,7 @@ def main():
         }),
         environment: {
           ...process.env,
+          ELYSIA_REAL_HOME: directory,
           CLAUDE_CONFIG_DIR: NodePath.join(directory, "native-empty"),
         },
         checkUpdates: Effect.succeed(false),
@@ -651,6 +657,7 @@ def main():
         user_id: "user",
         api_key: "fixture-secret",
       });
+      yield* cli.refreshEnvironment;
       const before = NodeFS.readFileSync(NodePath.join(cli.root, ".claude/settings.json"), "utf8");
       const usage = yield* cli.accountUsage;
       expect(usage).toMatchObject({ status: "available", usedUsd: 171.1899, limitUsd: 350 });
@@ -661,6 +668,35 @@ def main():
       expect(NodeFS.readFileSync(NodePath.join(cli.root, ".claude/settings.json"), "utf8")).toBe(
         before,
       );
+      yield* cli.refreshEnvironment;
+      const initialQuery = yield* cli.queryConfiguration(directory);
+      const revisionFile = NodePath.join(cli.root, "configuration-version");
+      const initialRevision = NodeFS.readFileSync(revisionFile, "utf8");
+      const terminalFile = NodePath.join(directory, "native-empty/settings.json");
+      const terminal = JSON.parse(NodeFS.readFileSync(terminalFile, "utf8"));
+      for (const refresh of [
+        cli.accountUsage,
+        cli.modelEnvironment("deepseek-v4.1-flash"),
+        cli.queryConfiguration(directory),
+      ]) {
+        const key = terminal.env.ANTHROPIC_AUTH_TOKEN + "-new";
+        terminal.env.ANTHROPIC_CUSTOM_HEADERS = terminal.env.ANTHROPIC_CUSTOM_HEADERS.replace(
+          terminal.env.ANTHROPIC_AUTH_TOKEN,
+          key,
+        );
+        terminal.env.ANTHROPIC_AUTH_TOKEN = key;
+        NodeFS.writeFileSync(terminalFile, JSON.stringify(terminal));
+        yield* refresh;
+        expect(cli.environment.ANTHROPIC_AUTH_TOKEN).toBe(key);
+      }
+      expect(yield* cli.connectionError).toBeNull();
+      NodeFS.writeFileSync(revisionFile, initialRevision);
+      expect((yield* cli.queryConfiguration(directory)).version).not.toBe(initialQuery.version);
+      NodeFS.writeFileSync(terminalFile, "{}");
+      yield* cli.refreshEnvironment;
+      expect(yield* cli.connectionError).toContain("terminal CLI credentials could not be read");
+      expect(cli.environment.ANTHROPIC_AUTH_TOKEN).toBe(terminal.env.ANTHROPIC_AUTH_TOKEN);
+      expect(yield* cli.ready).toBe(true);
     }).pipe(Effect.scoped, Effect.provide(NodeServices.layer));
   },
 );
@@ -703,7 +739,7 @@ def install_shunt_plugin():
   data.env.LANGSMITH_HIDE_INPUTS = "true";
   NodeFS.writeFileSync(managed, JSON.stringify(data));
   const globalClaude = NodePath.join(directory, ".claude");
-  NodeFS.mkdirSync(globalClaude);
+  NodeFS.mkdirSync(globalClaude, { recursive: true });
   const certificate = NodePath.join(directory, "global-ca.pem");
   NodeFS.copyFileSync(NodePath.join(profile, "ca.pem"), certificate);
   const original = JSON.stringify({
@@ -777,7 +813,7 @@ def write_mcp(key):
   );
   expect(run("--init").status).toBe(0);
   const nativeDir = NodePath.join(directory, ".claude");
-  NodeFS.mkdirSync(nativeDir);
+  NodeFS.mkdirSync(nativeDir, { recursive: true });
   const original = NodeFS.readFileSync(NodePath.join(profile, ".claude/settings.json"), "utf8");
   NodeFS.writeFileSync(NodePath.join(nativeDir, "settings.json"), original);
   NodeFS.rmSync(profile, { recursive: true });
@@ -806,7 +842,7 @@ def enable_compression():
   );
   expect(run("--init").status).toBe(0);
   const nativeDir = NodePath.join(directory, ".claude");
-  NodeFS.mkdirSync(nativeDir);
+  NodeFS.mkdirSync(nativeDir, { recursive: true });
   const settings = JSON.parse(
     NodeFS.readFileSync(NodePath.join(profile, ".claude/settings.json"), "utf8"),
   );
@@ -1006,7 +1042,7 @@ def main():
   },
 );
 
-it("updates its managed copy and preserves profile isolation across native re-exec", () => {
+it("synchronizes native CLI updates in both directions with profile-specific finalization", () => {
   const { source, profile, run } = fixture();
   expect(run("--init").status).toBe(0);
   const before = JSON.parse(NodeFS.readFileSync(NodePath.join(profile, "record.json"), "utf8"));
@@ -1020,14 +1056,62 @@ it("updates its managed copy and preserves profile isolation across native re-ex
     label: before.label,
     version: "0.3.9",
   });
-  expect(NodeFS.readFileSync(source, "utf8")).toBe(nativeFixture);
+  expect(NodeFS.readFileSync(source, "utf8")).toBe(
+    NodeFS.readFileSync(NodePath.join(profile, "elysia-code.py"), "utf8"),
+  );
+  expect(
+    JSON.parse(NodeFS.readFileSync(NodePath.join(NodePath.dirname(source), "record.json"), "utf8")),
+  ).toMatchObject({
+    home: NodePath.dirname(source),
+    version: "0.3.9",
+    label: "native.elysia-compression",
+  });
   expect(NodeFS.readFileSync(NodePath.join(profile, "configuration-version"), "utf8")).toBe(
     "0.3.9",
   );
   expect(run("--update").stdout).toBe("Elysia CLI remains at 0.3.9.\n");
+  NodeFS.writeFileSync(
+    source,
+    NodeFS.readFileSync(source, "utf8").replace('CLI_VERSION = "0.3.9"', 'CLI_VERSION = "0.3.10"'),
+  );
+  expect(run("sync-native").status).toBe(0);
+  expect(
+    JSON.parse(NodeFS.readFileSync(NodePath.join(profile, "record.json"), "utf8")),
+  ).toMatchObject({
+    home: profile,
+    label: before.label,
+    version: "0.3.10",
+  });
+  const revision = NodeFS.readFileSync(NodePath.join(profile, "configuration-version"), "utf8");
+  expect(revision).toMatch(/^0\.3\.10:/);
+  expect(run("sync-native").status).toBe(0);
+  expect(NodeFS.readFileSync(NodePath.join(profile, "configuration-version"), "utf8")).toBe(
+    revision,
+  );
+  const latest = NodeFS.readFileSync(source, "utf8").replace(
+    'CLI_VERSION = "0.3.10"',
+    'CLI_VERSION = "0.3.11"',
+  );
+  NodeFS.writeFileSync(
+    source,
+    latest + '\noriginal_main = main\ndef main():\n    raise RuntimeError("Post-update failed")\n',
+  );
+  expect(run("sync-native").status).toBe(1);
+  expect(NodeFS.readFileSync(NodePath.join(profile, "configuration-version"), "utf8")).toBe(
+    revision,
+  );
+  NodeFS.writeFileSync(NodePath.join(profile, "elysia-code.py"), latest);
+  NodeFS.writeFileSync(source, latest);
+  expect(run("sync-native").status).toBe(0);
+  expect(
+    JSON.parse(NodeFS.readFileSync(NodePath.join(profile, "record.json"), "utf8")).version,
+  ).toBe("0.3.11");
+  expect(NodeFS.readFileSync(NodePath.join(profile, "configuration-version"), "utf8")).toMatch(
+    /^0\.3\.11:/,
+  );
 });
 
-it.each(["direct", "child"])(
+it.each(["direct", "child", "terminal"])(
   "keeps session configuration unchanged after %s update setup failure",
   (mode) => {
     const { profile, run } = fixture();
@@ -1041,11 +1125,12 @@ def main():
     if "--update" in sys.argv:
         script = Path(__file__)
         script.write_text(script.read_text().replace('CLI_VERSION = "0.3.8"', 'CLI_VERSION = "0.3.9"'))
-        if os.environ.get("FIXTURE_UPDATE_FAILURE") == "child":
-            subprocess.run([sys.executable, str(script), "--finish-update", CLI_VERSION], check=False)
-            return
-        raise RuntimeError("Native plugin setup failed")
-    if "--finish-update" in sys.argv:
+        if os.environ.get("FIXTURE_UPDATE_FAILURE") == "direct":
+            raise RuntimeError("Native plugin setup failed")
+        subprocess.run([sys.executable, str(script), "--finish-update", CLI_VERSION], check=False)
+        return
+    failure = os.environ.get("FIXTURE_UPDATE_FAILURE")
+    if "--finish-update" in sys.argv and (failure == "child" or failure == "terminal" and HOME == Path(os.environ["ELYSIA_REAL_HOME"])):
         raise RuntimeError("Native plugin setup failed")
     original_main()
 `,
@@ -1055,6 +1140,11 @@ def main():
     expect(run("validate").status).toBe(0);
     expect(NodeFS.readFileSync(NodePath.join(profile, "configuration-version"), "utf8")).toBe(
       "0.3.8",
+    );
+    const retry = run("--update");
+    expect(retry.status, retry.stderr).toBe(0);
+    expect(NodeFS.readFileSync(NodePath.join(profile, "configuration-version"), "utf8")).toBe(
+      "0.3.9",
     );
   },
 );
@@ -1071,7 +1161,7 @@ def main():
         MCP_FILE.write_text(json.dumps({"mcpServers": {"tavily": {"type": "http", "url": "https://fixture.invalid/mcp"}}}))
         settings = CLAUDE_DIR / "settings.json"
         data = json.loads(settings.read_text())
-        data["enabledPlugins"] = {"elysia-shunt@fixture-marketplace": True}
+        data.setdefault("enabledPlugins", {})["elysia-shunt@fixture-marketplace"] = True
         settings.write_text(json.dumps(data))
         plugins = CLAUDE_DIR / "plugins"
         plugins.mkdir(exist_ok=True)
@@ -1083,7 +1173,7 @@ def main():
         : nativeFixture) + addons;
     const { directory, profile, run } = fixture(script);
     const globalClaude = NodePath.join(directory, ".claude");
-    NodeFS.mkdirSync(globalClaude);
+    NodeFS.mkdirSync(globalClaude, { recursive: true });
     const globalSettings = '{"enabledPlugins":{"unrelated@global":true}}';
     NodeFS.writeFileSync(NodePath.join(globalClaude, "settings.json"), globalSettings);
     expect(run("--init").status).toBe(0);
@@ -1107,9 +1197,12 @@ def main():
         ],
       },
     });
-    expect(NodeFS.readFileSync(NodePath.join(globalClaude, "settings.json"), "utf8")).toBe(
-      globalSettings,
-    );
+    expect(
+      JSON.parse(NodeFS.readFileSync(NodePath.join(globalClaude, "settings.json"), "utf8")),
+    ).toMatchObject({
+      enabledPlugins: { "unrelated@global": true },
+      env: { ANTHROPIC_AUTH_TOKEN: "fixture-secret" },
+    });
   },
 );
 
@@ -1208,13 +1301,13 @@ def _stop_proxy_windows(*args, **kwargs):
     for name in ("elysia-compression.pyw", "elysia-compression.py", "elysia-compression.bat"):
         (STARTUP_FOLDER / name).unlink(missing_ok=True)
 def main():
-    if "--compression-enable" in sys.argv:
+    if "--fixture-register-autostart" in sys.argv:
         _register_proxy_autostart_windows(sys.executable, 8787)
-    elif "--compression-disable" in sys.argv:
+    elif "--fixture-remove-autostart" in sys.argv:
         _stop_proxy_windows()
 `,
   );
-  const registered = run("--compression-enable", "", { APPDATA: appData });
+  const registered = run("--fixture-register-autostart", "", { APPDATA: appData });
   expect(registered.status, registered.stderr).toBe(0);
   const ownFile = NodeFS.readdirSync(startup).find((file) => !unrelated.includes(file));
   expect(ownFile).toMatch(/^ElysiaCompressionProxy-[a-f0-9]{16}\.pyw$/);
@@ -1226,7 +1319,7 @@ def main():
       NodePath.join(profile, "AppData/Roaming/Microsoft/Windows/Start Menu/Programs/Startup"),
     ),
   ).toEqual([]);
-  const stopped = run("--compression-disable", "", { APPDATA: appData });
+  const stopped = run("--fixture-remove-autostart", "", { APPDATA: appData });
   expect(stopped.status, stopped.stderr).toBe(0);
   expect(NodeFS.readdirSync(startup).sort()).toEqual(unrelated.toSorted());
   for (const file of unrelated)
@@ -1372,6 +1465,97 @@ def validate_gateway_credentials(key, config, model):
   expect(responses.models).toEqual(["deepseek-v4.1-flash"]);
 });
 
+it("shares saved credentials in both directions and preserves divergent keys until an explicit save", () => {
+  const { directory, profile, run } = fixture(
+    nativeFixture + '\nDEFAULT_MODEL = "deepseek-v4.1-flash"\n',
+  );
+  expect(run("--init").status).toBe(0);
+  const managedFile = NodePath.join(profile, ".claude/settings.json");
+  const terminalFile = NodePath.join(directory, ".claude/settings.json");
+  const revisionFile = NodePath.join(profile, "configuration-version");
+  const baselineFile = NodePath.join(profile, ".elysia/shared-credentials.json");
+  const managed = JSON.parse(NodeFS.readFileSync(managedFile, "utf8"));
+  managed.model = "gpt-6.1-sol";
+  managed.permissions = { defaultMode: "plan" };
+  managed.env.ANTHROPIC_CUSTOM_HEADERS += "\nx-managed: keep";
+  NodeFS.writeFileSync(managedFile, JSON.stringify(managed));
+  const terminal = JSON.parse(NodeFS.readFileSync(terminalFile, "utf8"));
+  terminal.model = "claude-sonnet-5-5";
+  terminal.env.ANTHROPIC_CUSTOM_HEADERS += "\nx-terminal: keep";
+  terminal.enabledPlugins = { "user-plugin@private": true };
+  NodeFS.writeFileSync(terminalFile, JSON.stringify(terminal));
+  const terminalMcp = NodePath.join(directory, ".claude.json");
+  NodeFS.writeFileSync(
+    terminalMcp,
+    JSON.stringify({
+      mcpServers: {
+        tavily: { headers: { "x-portkey-api-key": "fixture-secret", keep: "value" } },
+        talat: { command: "user-owned-server" },
+      },
+    }),
+  );
+
+  const saved = run("rotate-credentials", "replacement-key");
+  expect(saved.status, saved.stderr).toBe(0);
+  expect(saved.stdout + saved.stderr).not.toContain("replacement-key");
+  expect(JSON.parse(NodeFS.readFileSync(terminalFile, "utf8"))).toEqual({
+    ...terminal,
+    env: {
+      ...terminal.env,
+      ANTHROPIC_AUTH_TOKEN: "replacement-key",
+      ANTHROPIC_CUSTOM_HEADERS:
+        "x-portkey-api-key: replacement-key\nx-portkey-config:config\nx-terminal: keep",
+    },
+  });
+  expect(JSON.parse(NodeFS.readFileSync(terminalMcp, "utf8"))).toEqual({
+    mcpServers: {
+      tavily: { headers: { "x-portkey-api-key": "replacement-key", keep: "value" } },
+      talat: { command: "user-owned-server" },
+    },
+  });
+  const revision = NodeFS.readFileSync(revisionFile, "utf8");
+  const edited = JSON.parse(NodeFS.readFileSync(terminalFile, "utf8"));
+  edited.env.ANTHROPIC_AUTH_TOKEN = "terminal-replacement";
+  edited.env.ANTHROPIC_CUSTOM_HEADERS = edited.env.ANTHROPIC_CUSTOM_HEADERS.replace(
+    "replacement-key",
+    "terminal-replacement",
+  );
+  NodeFS.writeFileSync(terminalFile, JSON.stringify(edited));
+  expect(run("sync-native").status).toBe(0);
+  const synchronized = JSON.parse(NodeFS.readFileSync(managedFile, "utf8"));
+  expect(synchronized).toEqual({
+    ...managed,
+    env: {
+      ...managed.env,
+      ANTHROPIC_AUTH_TOKEN: "terminal-replacement",
+      ANTHROPIC_CUSTOM_HEADERS:
+        "x-portkey-api-key: terminal-replacement\nx-portkey-config:config\nx-managed: keep",
+    },
+  });
+  const nextRevision = NodeFS.readFileSync(revisionFile, "utf8");
+  expect(nextRevision).not.toBe(revision);
+  expect(run("sync-native").status).toBe(0);
+  expect(NodeFS.readFileSync(revisionFile, "utf8")).toBe(nextRevision);
+  expect(NodeFS.readFileSync(baselineFile, "utf8")).not.toContain("terminal-replacement");
+
+  synchronized.env.ANTHROPIC_AUTH_TOKEN = "app-replacement";
+  NodeFS.writeFileSync(managedFile, JSON.stringify(synchronized));
+  for (const firstSync of [false, true]) {
+    if (firstSync) NodeFS.unlinkSync(baselineFile);
+    const conflict = run("sync-native");
+    expect(conflict.status).toBe(0);
+    expect(conflict.stderr).toContain("ELYSIA_WARNING:shared-credentials-conflict");
+    expect(JSON.parse(NodeFS.readFileSync(managedFile, "utf8"))).toEqual(synchronized);
+    expect(JSON.parse(NodeFS.readFileSync(terminalFile, "utf8"))).toEqual(edited);
+    expect(NodeFS.readFileSync(revisionFile, "utf8")).toBe(nextRevision);
+  }
+  expect(run("rotate-credentials", "app-replacement").status).toBe(0);
+  expect(JSON.parse(NodeFS.readFileSync(terminalFile, "utf8")).env.ANTHROPIC_AUTH_TOKEN).toBe(
+    "app-replacement",
+  );
+  expect(run("sync-native").stderr).not.toContain("shared-credentials-conflict");
+});
+
 it("rotates the managed key across settings, Tavily and compression without reinstalling", () => {
   const { profile, run } = fixture(
     nativeFixture +
@@ -1504,12 +1688,12 @@ it("preserves the owned port when native compression is disabled", () => {
 });
 
 it("runs the native compression commands and falls back to direct routing if enable is unhealthy", () => {
-  const { profile, run } = fixture(
+  const { profile, run, directory } = fixture(
     nativeFixture +
       compressionClock +
       String.raw`
 import errno, http.client, socket
-health_checks = 0
+DEFAULT_MODEL = "deepseek-v4.1-flash"
 class FixtureSocket(socket.socket):
     def bind(self, address):
         if os.environ.get("FIXTURE_STARTING") and clock == 0:
@@ -1517,12 +1701,14 @@ class FixtureSocket(socket.socket):
         return super().bind(address)
 socket.socket = FixtureSocket
 original_main = main
+def _install_launchd_agent():
+    pass
 def main():
     flag = sys.argv[1]
     if flag not in ["--compression-enable", "--compression-disable"]:
         return original_main()
     key, config = _load_credentials_from_settings()
-    assert key == "fixture-secret" and config == "config"
+    assert key == os.environ.get("FIXTURE_EXPECTED_KEY", "fixture-secret") and config == "config"
     print(key)
     enabled = flag == "--compression-enable"
     if not enabled and os.environ.get("FIXTURE_DISABLE_NOOP"):
@@ -1530,6 +1716,8 @@ def main():
     port = _read_compression_state()["port"]
     with (HOME / "compression-commands").open("a") as commands:
         commands.write(flag + "\n")
+    if enabled:
+        _install_launchd_agent()
     data = json.loads(SETTINGS_FILE.read_text())
     data["env"]["ANTHROPIC_BASE_URL"] = f"http://localhost:{port}" if enabled else os.environ["ELYSIA_GATEWAY_URL"]
     SETTINGS_FILE.write_text(json.dumps(data))
@@ -1540,9 +1728,11 @@ class FixtureConnection:
     def request(self, method, path):
         assert (method, path) == ("GET", "/health")
     def getresponse(self):
-        global health_checks
-        health_checks += 1
-        starting = os.environ.get("FIXTURE_STARTING") and health_checks == 1
+        route = json.loads(SETTINGS_FILE.read_text())["env"]["ANTHROPIC_BASE_URL"]
+        assert route == os.environ["ELYSIA_GATEWAY_URL"]
+        if os.environ.get("FIXTURE_NO_RESPONSE"):
+            raise ConnectionRefusedError("Fixture proxy has not opened its listener")
+        starting = os.environ.get("FIXTURE_STARTING") and clock < 12
         return type("Response", (), {"status": 503 if starting or os.environ.get("FIXTURE_UNHEALTHY") else 200})()
     def close(self):
         pass
@@ -1556,12 +1746,16 @@ http.client.HTTPConnection = FixtureConnection
   const { port } = JSON.parse(NodeFS.readFileSync(statePath, "utf8"));
   const before = JSON.parse(NodeFS.readFileSync(settingsPath, "utf8"));
   const toggle = (flag: "--compression-enable" | "--compression-disable", extraEnv = {}) =>
-    run("set-compression", "", extraEnv, ELYSIA_CLI_BRIDGE, [flag]);
+    run(flag, "", extraEnv);
   const unhealthy = toggle("--compression-enable", { FIXTURE_UNHEALTHY: "1" });
   expect(unhealthy.status, unhealthy.stderr).toBe(1);
-  expect(unhealthy.stderr).toContain("ELYSIA_ERROR:compression-health-direct");
+  expect(unhealthy.stderr).toContain("ELYSIA_ERROR:compression-health-http-503-direct");
   expect(unhealthy.output.join("")).not.toContain("fixture-secret");
   expect(JSON.parse(NodeFS.readFileSync(statePath, "utf8"))).toEqual({ enabled: false, port });
+  expect(JSON.parse(NodeFS.readFileSync(settingsPath, "utf8"))).toEqual(before);
+  const noResponse = toggle("--compression-enable", { FIXTURE_NO_RESPONSE: "1" });
+  expect(noResponse.status).toBe(1);
+  expect(noResponse.stderr).toContain("ELYSIA_ERROR:compression-health-direct");
   expect(JSON.parse(NodeFS.readFileSync(settingsPath, "utf8"))).toEqual(before);
   const revision = NodeFS.readFileSync(versionPath, "utf8");
   const enabled = toggle("--compression-enable");
@@ -1590,6 +1784,29 @@ http.client.HTTPConnection = FixtureConnection
     "--compression-disable",
     "--compression-enable",
   ]);
+  expect(JSON.parse(NodeFS.readFileSync(statePath, "utf8"))).toEqual({ enabled: true, port });
+
+  expect(toggle("--compression-disable").status).toBe(0);
+  const rotated = run("rotate-credentials", "replacement-fixture-key");
+  expect(rotated.status, rotated.stderr).toBe(0);
+  expect(JSON.parse(NodeFS.readFileSync(settingsPath, "utf8")).env.ANTHROPIC_AUTH_TOKEN).toBe(
+    "replacement-fixture-key",
+  );
+  const terminal = NodeChildProcess.spawnSync(
+    NodePath.join(profile, "bin", "elysia-code"),
+    ["--compression-enable"],
+    {
+      env: {
+        ...process.env,
+        HOME: directory,
+        ELYSIA_GATEWAY_URL: "https://fixture.invalid",
+        FIXTURE_EXPECTED_KEY: "replacement-fixture-key",
+      },
+      encoding: "utf8",
+    },
+  );
+  expect(terminal.status, terminal.stderr).toBe(0);
+  expect(terminal.stdout + terminal.stderr).not.toContain("replacement-fixture-key");
   expect(JSON.parse(NodeFS.readFileSync(statePath, "utf8"))).toEqual({ enabled: true, port });
 });
 

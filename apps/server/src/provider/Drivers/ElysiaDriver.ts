@@ -123,8 +123,8 @@ const compressionCommands = new Map<
   [
     ELYSIA_ENABLE_COMPRESSION_METHOD,
     {
-      operation: "set-compression",
-      args: ["--compression-enable"],
+      operation: "--compression-enable",
+      args: [],
       progress: "Starting compression…",
       success: "Compression is on. The local proxy passed its health check.",
     },
@@ -132,8 +132,8 @@ const compressionCommands = new Map<
   [
     ELYSIA_DISABLE_COMPRESSION_METHOD,
     {
-      operation: "set-compression",
-      args: ["--compression-disable"],
+      operation: "--compression-disable",
+      args: [],
       progress: "Turning compression off…",
       success: "Compression is off. Elysia is using the direct gateway.",
     },
@@ -490,6 +490,7 @@ export const ElysiaDriver: ProviderDriver<ClaudeSettings, ElysiaDriverEnv> = {
       const catalog = yield* modelCatalog;
       const ready = yield* elysia.ready;
       const compression = yield* elysia.compression;
+      const connectionError = yield* elysia.connectionError;
       const draft = ready
         ? yield* checkClaudeProviderStatus(
             effectiveConfig,
@@ -517,7 +518,10 @@ export const ElysiaDriver: ProviderDriver<ClaudeSettings, ElysiaDriverEnv> = {
         ...(yield* elysia.versions),
         // Native Elysia validates the sign-in; optional SDK discovery cannot revoke it.
         ...(ready
-          ? { auth: { status: "authenticated" as const } }
+          ? {
+              auth: { status: "authenticated" as const },
+              ...(connectionError ? { status: "warning" as const, message: connectionError } : {}),
+            }
           : {
               status: enabled ? ("warning" as const) : ("disabled" as const),
               auth: { status: "unauthenticated" as const },
@@ -621,6 +625,7 @@ export const ElysiaDriver: ProviderDriver<ClaudeSettings, ElysiaDriverEnv> = {
     const rotateCredentials = Effect.fn("ElysiaDriver.rotateCredentials")(function* (
       flow: ProviderAuthFlow.ProviderAuthFlowContext,
     ) {
+      yield* elysia.refreshEnvironment;
       const saved = yield* elysia.readSettings;
       const values = yield* requestElysiaCredentials(
         instanceId,

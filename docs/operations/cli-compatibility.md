@@ -183,6 +183,12 @@ The installed native CLI 0.3.11 remains the baseline. An explicit save of a repl
 
 The managed bridge invokes native CLI 0.3.11 with `--compression-enable` or `--compression-disable`. Both platform branches ran with simulated OS services in isolated profiles. Checks covered route changes, retention of the saved key and owned port, a slow release of the port, a proxy that becomes healthy after startup, and failure recovery. A work laptop reported HTTP 200 from the running proxy while its profile was marked paused. The original failure stage and production recovery are **Not verified**.
 
+## App v0.0.54 shared CLI sign-in and compression readiness
+
+The native CLI 0.3.11 remains the baseline. The supplied archive SHA-256 is `f5ba98ca6c7afb342aaf6736870420a1783ad68426f0550b7763209d0f06f798` and the resolved Claude Agent SDK is 0.3.316. Isolated Python fixtures cover bidirectional key saves, initial and concurrent credential conflicts, preserved profile-specific settings, and native script upgrades with separate post-update setup. An existing divergent sign-in needs one explicit credential save to establish the shared baseline. Work-laptop synchronization and Windows native service behavior are **Not verified**.
+
+The app keeps the direct route during proxy startup and checks readiness for up to 90 seconds. The fixture covers a proxy becoming ready after the former eight-second deadline, a persistent HTTP 503, and an unreachable local endpoint. The web, desktop and mobile controls reflect the verified compression state. Production recovery on a work laptop is **Not verified**.
+
 ## Recording the next release
 
 Before publishing, append the app release and source commit, resolved SDK version, actual managed CLI version tested, native package checksum if available, platforms tested, and the result. Record initialization, update and existing-sign-in adoption separately when the CLI changes setup behavior. Use “Not verified” for missing evidence; keep fixture coverage separate from native tests. Never record credentials, environment dumps or authenticated download URLs.

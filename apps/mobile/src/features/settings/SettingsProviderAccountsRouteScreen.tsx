@@ -7,11 +7,9 @@ import {
 import {
   AuthProvidersManageScope,
   ELYSIA_CHANGE_CREDENTIALS_METHOD,
-  ELYSIA_DISABLE_COMPRESSION_METHOD,
-  ELYSIA_ENABLE_COMPRESSION_METHOD,
-  ELYSIA_RETRY_COMPRESSION_METHOD,
   isElysiaCompressionMethod,
   isManagedDriverAllowed,
+  resolveElysiaCompressionControl,
   type ProviderAuthResponse,
   type ServerProvider,
 } from "@elysiatools/contracts";
@@ -39,6 +37,7 @@ import {
 } from "./components/SettingsEnvironmentFilterHeader";
 import { SettingsScreen } from "./components/SettingsScreen";
 import { SettingsSection } from "./components/SettingsSection";
+import { SettingsSwitchRow } from "./components/SettingsSwitchRow";
 import { useSettingsEnvironmentFilter, type SettingsTarget } from "./settings-environment-filter";
 
 export function SettingsProviderAccountsRouteScreen() {
@@ -212,11 +211,9 @@ function ProviderAccount({
   const changeCredentialsMethod = methods.find(
     (method) => method.id === ELYSIA_CHANGE_CREDENTIALS_METHOD,
   );
-  const retryCompression = methods.find((method) => method.id === ELYSIA_RETRY_COMPRESSION_METHOD);
-  const enableCompression =
-    methods.find((method) => method.id === ELYSIA_ENABLE_COMPRESSION_METHOD) ?? retryCompression;
-  const disableCompression = methods.find(
-    (method) => method.id === ELYSIA_DISABLE_COMPRESSION_METHOD,
+  const compression = resolveElysiaCompressionControl(
+    methods,
+    provider.elysiaCompression?.enabled ?? false,
   );
   const compressionAction = isElysiaCompressionMethod(state?.methodId);
   // The status line says why a provider that is missing or turned off can't sign in.
@@ -240,9 +237,7 @@ function ProviderAccount({
       : !provider.enabled
         ? "Turned off"
         : signedIn
-          ? retryCompression
-            ? "Compression is paused. Elysia is using the direct gateway."
-            : "Signed in"
+          ? "Signed in"
           : isDiscovering
             ? "Discovering sign-in methods…"
             : needsExternalSetup
@@ -303,16 +298,6 @@ function ProviderAccount({
               : {}),
           },
         ]
-      : []),
-    ...(canSignIn
-      ? [enableCompression, disableCompression]
-          .filter((method) => method !== undefined)
-          .map((method) => ({
-            id: `method:${method.id}`,
-            title: method.name,
-            image: "arrow.clockwise",
-            attributes: { disabled: signInDisabled },
-          }))
       : []),
     ...(canSignOut
       ? [
@@ -393,6 +378,15 @@ function ProviderAccount({
         <ProviderAccountSummary key={email} name={name} status={status} email={email} />
         {trailing}
       </View>
+      {compression.methodId ? (
+        <SettingsSwitchRow
+          label="Context compression"
+          subtitle={compression.status}
+          value={compression.enabled}
+          disabled={signInDisabled || active || !provider.enabled}
+          onValueChange={() => startSignIn(compression.methodId)}
+        />
+      ) : null}
       {interaction?.type === "deviceCode" ||
       interaction?.type === "terminal" ||
       interaction?.type === "credentials" ||

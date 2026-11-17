@@ -1,9 +1,7 @@
 import { useState } from "react";
 import {
-  ELYSIA_DISABLE_COMPRESSION_METHOD,
-  ELYSIA_ENABLE_COMPRESSION_METHOD,
-  ELYSIA_RETRY_COMPRESSION_METHOD,
   isElysiaCompressionMethod,
+  resolveElysiaCompressionControl,
   type EnvironmentId,
   type ProviderAuthState,
   type ProviderInstanceId,
@@ -13,20 +11,15 @@ import { settlePromise } from "@elysiatools/client-runtime/state/runtime";
 import { serverEnvironment } from "../../state/server";
 import { useEnvironmentQuery } from "../../state/query";
 import { useAtomCommand } from "../../state/use-atom-command";
-import { Button } from "../ui/button";
+import { Switch } from "../ui/switch";
 import { SettingsRow, SettingsSection } from "./settingsLayout";
 
 function compressionPresentation(auth: ProviderAuthState | null | undefined, usingProxy: boolean) {
   const { methods = [], phase, methodId, message } = auth ?? {};
-  const retry = methods.find(({ id }) => id === ELYSIA_RETRY_COMPRESSION_METHOD);
-  const enable = methods.find(({ id }) => id === ELYSIA_ENABLE_COMPRESSION_METHOD) ?? retry;
-  const disable = methods.find(({ id }) => id === ELYSIA_DISABLE_COMPRESSION_METHOD);
-  const enabled = Boolean(disable || (!enable && usingProxy));
   const compressionAction = isElysiaCompressionMethod(methodId);
   return {
-    actions: [enable, disable].filter((method) => method !== undefined),
+    ...resolveElysiaCompressionControl(methods, usingProxy),
     active: ["starting", "waiting", "verifying"].some((activePhase) => phase === activePhase),
-    status: retry ? "Paused" : enabled ? "On" : "Off",
     message: compressionAction ? message : null,
     failed: compressionAction && phase === "failed",
   };
@@ -48,13 +41,14 @@ export function ElysiaCompressionSection({
   const start = useAtomCommand(serverEnvironment.startProviderAuth, "Change compression");
   const [pending, setPending] = useState(false);
   const compression = provider?.elysiaCompression;
-  const { status, active, actions, message, failed } = compressionPresentation(
+  const { status, active, enabled, methodId, message, failed } = compressionPresentation(
     auth,
     compression?.enabled ?? false,
   );
-  if (actions.length === 0 && !compression) return null;
+  if (!methodId && !compression) return null;
 
-  function change(methodId: string) {
+  function change() {
+    if (!methodId) return;
     setPending(true);
     void settlePromise(() => start({ environmentId, input: { instanceId, methodId } })).finally(
       () => setPending(false),
@@ -75,19 +69,13 @@ export function ElysiaCompressionSection({
           </span>
         }
         control={
-          <div className="flex flex-wrap items-center justify-end gap-2">
-            {actions.map((method) => (
-              <Button
-                key={method.id}
-                variant="outline"
-                size="xs"
-                disabled={disabled || pending || active}
-                onClick={() => change(method.id)}
-              >
-                {method.name}
-              </Button>
-            ))}
-          </div>
+          <Switch
+            aria-label="Context compression"
+            aria-busy={pending || active}
+            checked={enabled}
+            disabled={disabled || pending || active || !methodId}
+            onCheckedChange={change}
+          />
         }
       />
     </SettingsSection>

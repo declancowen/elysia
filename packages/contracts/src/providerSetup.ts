@@ -105,6 +105,21 @@ export function isElysiaCompressionMethod(methodId: string | undefined) {
   );
 }
 
+export function resolveElysiaCompressionControl(
+  methods: readonly ProviderAuthMethod[],
+  routingUsesProxy: boolean,
+) {
+  const retry = methods.find(({ id }) => id === ELYSIA_RETRY_COMPRESSION_METHOD);
+  const enable = methods.find(({ id }) => id === ELYSIA_ENABLE_COMPRESSION_METHOD) ?? retry;
+  const disable = methods.find(({ id }) => id === ELYSIA_DISABLE_COMPRESSION_METHOD);
+  const enabled = !retry && Boolean(disable || (!enable && routingUsesProxy));
+  return {
+    enabled,
+    status: retry ? "Paused" : enabled ? "On" : "Off",
+    methodId: (enabled ? disable : enable)?.id,
+  };
+}
+
 export const ProviderAuthStartInput = Schema.Struct({
   instanceId: ProviderInstanceId,
   methodId: Schema.optionalKey(SetupOperationId),

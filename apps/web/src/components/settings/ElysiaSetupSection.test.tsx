@@ -204,7 +204,12 @@ it("changes credentials in Settings without repeating onboarding package groups"
   });
   await screen.rerender(view(connectedProvider, false));
   expect(screen.container.querySelector('[role="alert"]')?.textContent).toBe(savedMessage);
-  await act(async () => button("Turn on compression")!.click());
+  const compressionSwitch = () =>
+    screen.container.querySelector<HTMLElement>(
+      '[role="switch"][aria-label="Context compression"]',
+    )!;
+  expect(compressionSwitch().getAttribute("aria-checked")).toBe("false");
+  await act(async () => compressionSwitch().click());
   expect(setup.start).toHaveBeenLastCalledWith({
     environmentId: "local",
     input: { instanceId, methodId: ELYSIA_ENABLE_COMPRESSION_METHOD },
@@ -225,7 +230,8 @@ it("changes credentials in Settings without repeating onboarding package groups"
   });
   await screen.rerender(view(connectedProvider, false));
   expect(screen.container.textContent).toContain(setup.auth.message);
-  await act(async () => button("Turn off compression")!.click());
+  expect(compressionSwitch().getAttribute("aria-checked")).toBe("true");
+  await act(async () => compressionSwitch().click());
   expect(setup.start).toHaveBeenLastCalledWith({
     environmentId: "local",
     input: { instanceId, methodId: ELYSIA_DISABLE_COMPRESSION_METHOD },

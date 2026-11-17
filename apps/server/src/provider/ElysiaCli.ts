@@ -40,6 +40,28 @@ const decodeModelEnvironment = Schema.decodeEffect(
   Schema.fromJsonString(Schema.Record(Schema.String, Schema.String)),
 );
 
+function rotationGatewayFailureDetail(diagnostic: string): string | null {
+  const match =
+    /(?:^|\n)ELYSIA_ERROR:(gateway(?:-timeout|-model)?|tls|credentials):[a-zA-Z]+(?::http-([45]\d{2}))?(?:\r?\n|$)/.exec(
+      diagnostic,
+    );
+  if (!match) return null;
+  const [, category = "", status] = match;
+  const http = status ? ` (HTTP ${status})` : "";
+  const reasons: Readonly<Record<string, string>> = {
+    credentials: `The company gateway denied the credential check${http}. Check your API key and Config ID.`,
+    tls: "The native Elysia CLI could not verify the gateway certificate.",
+    "gateway-timeout": "The company gateway did not respond before the credential check timed out.",
+    "gateway-model": "The installed Elysia CLI has no compatible model for its credential check.",
+    gateway: "The native Elysia CLI could not complete the gateway check.",
+  };
+  const detail =
+    category === "gateway" && status
+      ? `The company gateway returned HTTP ${status} during the credential check.`
+      : reasons[category];
+  return `${detail} Your saved credentials were kept.`;
+}
+
 export function parseElysiaAccountUsage(output: string): ElysiaAccountUsageSnapshot {
   // Read only the native --config Usage section; never return profile IDs or credentials.
   const usage = output.split(/^Usage\s*$/m)[1]?.split(/^Compression\s*$/m)[0];
@@ -396,10 +418,11 @@ def run(command, *args, **kwargs):
 subprocess.run = run
 sys.argv = [str(script), operation] + sys.argv[4:]
 validation_error = "gateway"
+gateway_http_status = None
 warnings = set()
 original_urlopen = urllib.request.urlopen
 def urlopen(*args, **kwargs):
-    global validation_error
+    global validation_error, gateway_http_status
     try:
         context = kwargs.get("context")
         if operation == "rotate-credentials" and context is not None and context.verify_mode == ssl.CERT_NONE:
@@ -407,9 +430,16 @@ def urlopen(*args, **kwargs):
         return original_urlopen(*args, **kwargs)
     except urllib.error.HTTPError as error:
         validation_error = "credentials" if error.code in (401, 403) else "gateway"
+        gateway_http_status = error.code
         raise
-    except (ssl.SSLError, urllib.error.URLError) as error:
-        validation_error = "tls" if isinstance(error, ssl.SSLError) or isinstance(getattr(error, "reason", None), ssl.SSLError) else "gateway"
+    except OSError as error:
+        reason = getattr(error, "reason", error)
+        if isinstance(reason, ssl.SSLError):
+            validation_error = "tls"
+        elif operation == "rotate-credentials" and isinstance(reason, TimeoutError):
+            validation_error = "gateway-timeout"
+        else:
+            validation_error = "gateway"
         raise
 urllib.request.urlopen = urlopen
 
@@ -421,8 +451,31 @@ def validate_profile():
         raise ValueError("No native Elysia sign-in")
     # Read the CLI's saved sign-in; prerequisite/addon setup is not authentication.
 
+def validate_rotation(key, config_id, saved_model):
+    global validation_error, gateway_http_status
+    responses_models = getattr(native, "RESPONSES_API_MODELS", ())
+    allowed = getattr(native, "ALLOWED_MODELS", ())
+    candidates = (saved_model, native.DEFAULT_MODEL, getattr(native, "BUILTIN_DEFAULT_MODEL", None))
+    # The installed CLI validates over Chat Completions.
+    models = list(dict.fromkeys(model for model in candidates
+        if isinstance(model, str) and model and model not in responses_models
+        and (not allowed or model in allowed)))[:2]
+    if not models:
+        validation_error = "gateway-model"
+        raise RuntimeError("Native CLI has no compatible validation model")
+    for index, model in enumerate(models):
+        validation_error = "gateway"
+        gateway_http_status = None
+        try:
+            native.validate_gateway_credentials(key, config_id, model)
+            return
+        except (SystemExit, urllib.error.HTTPError):
+            if gateway_http_status != 404 or index + 1 == len(models):
+                raise
+
 def rotate_credentials():
     global validation_error
+    validation_error = "configuration"
     values = json.load(sys.stdin)
     key, config_id = values["api_key"], values["config_id"]
     settings_file, mcp_file = native.SETTINGS_FILE, native.MCP_FILE
@@ -431,8 +484,7 @@ def rotate_credentials():
     env = data["env"]
     metadata = json.loads(env.get("CC_LANGSMITH_METADATA", "{}"))
     native._init_globals()
-    validation_error = "credentials"
-    native.validate_gateway_credentials(key, config_id, native.DEFAULT_MODEL)
+    validate_rotation(key, config_id, data.get("model"))
     user_hash, api_key_id = native.fetch_user_hash(values["user_id"], key)
 
     validation_error = "configuration"
@@ -710,6 +762,9 @@ if sensitive:
                     validate_profile()
     except BaseException as error:
         failure = validation_error + ":" + type(error).__name__
+        if (operation == "rotate-credentials" and validation_error in ["gateway", "credentials"]
+                and type(gateway_http_status) is int and 400 <= gateway_http_status <= 599):
+            failure += ":http-" + str(gateway_http_status)
     finally:
         sys.stdout.flush()
         sys.stderr.flush()
@@ -911,6 +966,8 @@ export const makeElysiaCli = Effect.fn("makeElysiaCli")(function* (input: {
   let validated = false;
   let connectionError: string | null = null;
   const failure = (operation: string, diagnostic = "") => {
+    const rotationDetail =
+      operation === "rotate-credentials" ? rotationGatewayFailureDetail(diagnostic) : null;
     const errorType =
       /(?:ELYSIA_ERROR:[a-z-]+:|(?:^|\n))(AttributeError|FileNotFoundError|ImportError|KeyError|ModuleNotFoundError|OSError|PermissionError|RuntimeError|SyntaxError|SystemExit|TypeError|ValueError)(?::|\s|$)/.exec(
         diagnostic,
@@ -939,7 +996,8 @@ export const makeElysiaCli = Effect.fn("makeElysiaCli")(function* (input: {
     return new ProviderSetupError({
       instanceId: input.instanceId,
       operation,
-      detail: `${detail} Step: ${operation}${errorType ? ` (${errorType})` : ""}.`,
+      detail:
+        rotationDetail ?? `${detail} Step: ${operation}${errorType ? ` (${errorType})` : ""}.`,
     });
   };
   const command = (

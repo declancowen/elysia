@@ -1243,6 +1243,81 @@ it("keeps the slash command and scoped CLI on the active compression port", () =
   expect(JSON.parse(stats.stdout)).toEqual({ home: profile, port });
 });
 
+it("uses a compatible native model for rotation and keeps only safe gateway failure details", () => {
+  const { profile, run } = fixture(
+    nativeFixture +
+      String.raw`
+import urllib.error, urllib.request
+DEFAULT_MODEL = "deepseek-v4.1-flash"
+ALLOWED_MODELS = ["deepseek-v4.1-flash", "claude-sonnet-5-5", "gpt-6.1-sol"]
+RESPONSES_API_MODELS = {"gpt-6.1-sol"}
+def fetch_user_hash(user, key):
+    return "fixture-hash", "fixture-key-id"
+def fixture_urlopen(request, *, context, timeout):
+    payload = json.loads(request.data)
+    with (HOME / "validation-models").open("a") as models:
+        models.write(payload["model"] + "\n")
+    mode = os.environ.get("FIXTURE_GATEWAY_MODE")
+    if mode == "timeout":
+        raise TimeoutError("fixture-sensitive-detail")
+    if mode == "denied":
+        raise urllib.error.HTTPError(request.full_url, 403, "fixture-sensitive-detail", {}, None)
+    if mode == "unavailable" or (mode == "fallback" and payload["model"] == "claude-sonnet-5-5"):
+        raise urllib.error.HTTPError(request.full_url, 404, "fixture-sensitive-detail", {}, None)
+urllib.request.urlopen = fixture_urlopen
+def validate_gateway_credentials(key, config, model):
+    if "--init" in sys.argv:
+        return
+    request = urllib.request.Request("https://fixture.invalid/v1/chat/completions",
+        data=json.dumps({"model": model}).encode())
+    try:
+        urllib.request.urlopen(request, context=ssl.create_default_context(), timeout=15)
+    except Exception as error:
+        print(error, file=sys.stderr)
+        sys.exit(1)
+`,
+  );
+  expect(run("--init").status).toBe(0);
+  const settingsPath = NodePath.join(profile, ".claude/settings.json");
+  const modelsPath = NodePath.join(profile, "validation-models");
+  const saved = JSON.parse(NodeFS.readFileSync(settingsPath, "utf8"));
+  saved.model = "claude-sonnet-5-5";
+  NodeFS.writeFileSync(settingsPath, JSON.stringify(saved));
+  const rotate = (mode: string) => {
+    NodeFS.writeFileSync(modelsPath, "");
+    const result = run("rotate-credentials", "replacement-fixture-key", {
+      FIXTURE_GATEWAY_MODE: mode,
+    });
+    expect(result.stdout + result.stderr).not.toContain("fixture-sensitive-detail");
+    expect(result.stdout + result.stderr).not.toContain("replacement-fixture-key");
+    return {
+      result,
+      models: NodeFS.readFileSync(modelsPath, "utf8").trim().split("\n"),
+    };
+  };
+  for (const [mode, error, models] of [
+    ["denied", "credentials:SystemExit:http-403", ["claude-sonnet-5-5"]],
+    ["timeout", "gateway-timeout:SystemExit", ["claude-sonnet-5-5"]],
+    ["unavailable", "gateway:SystemExit:http-404", ["claude-sonnet-5-5", "deepseek-v4.1-flash"]],
+  ] as const) {
+    const attempt = rotate(mode);
+    expect(attempt.result.status).toBe(1);
+    expect(attempt.result.stderr).toContain(`ELYSIA_ERROR:${error}`);
+    expect(attempt.models).toEqual(models);
+    expect(JSON.parse(NodeFS.readFileSync(settingsPath, "utf8"))).toEqual(saved);
+  }
+  const fallback = rotate("fallback");
+  expect(fallback.result.status, fallback.result.stderr).toBe(0);
+  expect(fallback.models).toEqual(["claude-sonnet-5-5", "deepseek-v4.1-flash"]);
+  expect(JSON.parse(NodeFS.readFileSync(settingsPath, "utf8")).model).toBe("claude-sonnet-5-5");
+
+  saved.model = "gpt-6.1-sol";
+  NodeFS.writeFileSync(settingsPath, JSON.stringify(saved));
+  const responses = rotate("available");
+  expect(responses.result.status, responses.result.stderr).toBe(0);
+  expect(responses.models).toEqual(["deepseek-v4.1-flash"]);
+});
+
 it("rotates the managed key across settings, Tavily and compression without reinstalling", () => {
   const { profile, run } = fixture(
     nativeFixture +

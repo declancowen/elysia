@@ -574,8 +574,8 @@ export const ElysiaDriver: ProviderDriver<ClaudeSettings, ElysiaDriverEnv> = {
       yield* elysia.run("rotate-credentials", values).pipe(Effect.ensuring(refreshProfile));
       const compression = yield* elysia.compression;
       return compression._tag === "Some" && compression.value.enabled
-        ? "Credentials saved. Compression restarted."
-        : "Credentials saved.";
+        ? "Credentials saved to the Elysia CLI. Compression restarted."
+        : "Credentials saved to the Elysia CLI.";
     });
     const providerScope = yield* Scope.Scope;
     const auth = yield* ProviderAuthFlow.make({

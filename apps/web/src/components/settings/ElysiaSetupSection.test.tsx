@@ -348,7 +348,9 @@ it("submits credentials from the single footer button, then gates entry on verif
   await screen.rerender(
     view({ ...provider, status: "ready", auth: { status: "authenticated" } }, false),
   );
-  expect(screen.container.textContent).toContain("Company connection: managed by the Elysia CLI.");
+  expect(screen.container.textContent).toContain(
+    "Elysia has company credentials saved. Send a message to check gateway access.",
+  );
 });
 
 vi.mock("vite-plus/test/browser", () => ({

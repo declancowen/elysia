@@ -483,26 +483,38 @@ def rotate_credentials():
     data = json.loads(settings_before)
     env = data["env"]
     metadata = json.loads(env.get("CC_LANGSMITH_METADATA", "{}"))
+    saved_key = env.get("ANTHROPIC_AUTH_TOKEN")
+    same_account = bool(saved_key) and all(
+        values[name] == metadata.get(name) for name in ("workspace_id", "config_id", "user_id"))
     native._init_globals()
-    validate_rotation(key, config_id, data.get("model"))
-    user_hash, api_key_id = native.fetch_user_hash(values["user_id"], key)
+    try:
+        validate_rotation(key, config_id, data.get("model"))
+    except (SystemExit, urllib.error.HTTPError):
+        # A key-only save can replace a revoked key even when the probe's route returns 412.
+        if not same_account or key == saved_key or gateway_http_status != 412:
+            raise
 
     validation_error = "configuration"
+    updated_headers = [("x-portkey-api-key", key)]
+    if not same_account:
+        user_hash, api_key_id = native.fetch_user_hash(values["user_id"], key)
+        metadata.update({"workspace_id": values["workspace_id"], "config_id": config_id,
+            "user_id": values["user_id"], "user_hash": user_hash, "api_key_id": api_key_id})
+        updated_headers.append(("x-portkey-config", config_id))
     env["ANTHROPIC_AUTH_TOKEN"] = key
     headers = env.get("ANTHROPIC_CUSTOM_HEADERS", "")
-    for name, value in [("x-portkey-api-key", key), ("x-portkey-config", config_id)]:
+    for name, value in updated_headers:
         headers, replaced = re.subn(r"(?im)^" + name + r":[^\r\n]*", lambda _: name + ": " + value, headers)
         if not replaced:
             headers = "\n".join(filter(None, [headers, name + ": " + value]))
     env["ANTHROPIC_CUSTOM_HEADERS"] = headers
-    metadata.update({"workspace_id": values["workspace_id"], "config_id": config_id,
-        "user_id": values["user_id"], "user_hash": user_hash, "api_key_id": api_key_id})
     state = native._read_compression_state()
     needs_restart = state.get("enabled") is True or state.get("restartPending") is True
     if needs_restart:
         env["ANTHROPIC_BASE_URL"] = native.GATEWAY_URL
         metadata["compression"] = "disabled"
-    env["CC_LANGSMITH_METADATA"] = json.dumps(metadata, separators=(",", ":"))
+    if not same_account or needs_restart:
+        env["CC_LANGSMITH_METADATA"] = json.dumps(metadata, separators=(",", ":"))
     mcp_before = mcp_file.read_text() if mcp_file.is_file() else None
     mcp = json.loads(mcp_before) if mcp_before is not None else {}
     tavily = mcp.get("mcpServers", {}).get(getattr(native, "TAVILY_MCP_SERVER_NAME", "tavily"))

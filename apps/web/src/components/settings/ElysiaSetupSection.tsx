@@ -153,7 +153,7 @@ export function ElysiaSetupSection({
       {onContinue ? (
         <p className="text-xs text-muted-foreground">
           {connected
-            ? "Elysia is connected with native context compression."
+            ? "Your Elysia credentials are saved."
             : signingIn
               ? "Enter your company credentials to connect Elysia and enable native context compression."
               : "Check Claude Code and Elysia below. Missing packages are installed automatically when you continue."}
@@ -211,7 +211,7 @@ export function ElysiaSetupSection({
         : null}
       {!onContinue && connected ? (
         <p role="status" className="text-xs text-muted-foreground">
-          Company connection: managed by the Elysia CLI.
+          Elysia has company credentials saved. Send a message to check gateway access.
         </p>
       ) : null}
       {enteringCredentials && interaction?.type === "credentials" && auth?.flowId ? (
@@ -268,8 +268,6 @@ export function ElysiaSetupSection({
         <p role="status" className="text-xs text-muted-foreground">
           {auth.message}
         </p>
-      ) : connected ? (
-        <p className="text-xs text-muted-foreground">Elysia is connected. API key: ****</p>
       ) : null}
       {error || connectionError ? (
         <p role="alert" className="text-xs text-destructive">

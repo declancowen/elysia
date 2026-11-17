@@ -1384,7 +1384,7 @@ export function ProviderInstanceCard({
           <SettingsRow
             title="Version"
             description={liveProvider?.updateState?.message ?? versionAdvisory?.detail}
-            status={editorStatusNode}
+            status={needsAttention ? editorStatusNode : undefined}
             control={
               <div className="flex items-center gap-2">
                 <span className="text-xs text-muted-foreground">

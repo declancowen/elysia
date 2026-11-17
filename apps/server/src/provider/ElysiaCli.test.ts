@@ -1262,6 +1262,8 @@ def fixture_urlopen(request, *, context, timeout):
         raise TimeoutError("fixture-sensitive-detail")
     if mode == "denied":
         raise urllib.error.HTTPError(request.full_url, 403, "fixture-sensitive-detail", {}, None)
+    if mode == "precondition":
+        raise urllib.error.HTTPError(request.full_url, 412, "fixture-sensitive-detail", {}, None)
     if mode == "unavailable" or (mode == "fallback" and payload["model"] == "claude-sonnet-5-5"):
         raise urllib.error.HTTPError(request.full_url, 404, "fixture-sensitive-detail", {}, None)
 urllib.request.urlopen = fixture_urlopen
@@ -1282,6 +1284,11 @@ def validate_gateway_credentials(key, config, model):
   const modelsPath = NodePath.join(profile, "validation-models");
   const saved = JSON.parse(NodeFS.readFileSync(settingsPath, "utf8"));
   saved.model = "claude-sonnet-5-5";
+  saved.env.CC_LANGSMITH_METADATA = JSON.stringify({
+    ...JSON.parse(saved.env.CC_LANGSMITH_METADATA),
+    user_hash: "existing-hash",
+    api_key_id: "existing-key-id",
+  });
   NodeFS.writeFileSync(settingsPath, JSON.stringify(saved));
   const rotate = (mode: string) => {
     NodeFS.writeFileSync(modelsPath, "");
@@ -1306,6 +1313,42 @@ def validate_gateway_credentials(key, config, model):
     expect(attempt.models).toEqual(models);
     expect(JSON.parse(NodeFS.readFileSync(settingsPath, "utf8"))).toEqual(saved);
   }
+
+  const changedConfig = structuredClone(saved);
+  changedConfig.env.CC_LANGSMITH_METADATA = JSON.stringify({
+    ...JSON.parse(saved.env.CC_LANGSMITH_METADATA),
+    config_id: "other-config",
+  });
+  NodeFS.writeFileSync(settingsPath, JSON.stringify(changedConfig));
+  const rejected = rotate("precondition");
+  expect(rejected.result.status).toBe(1);
+  expect(rejected.result.stderr).toContain("ELYSIA_ERROR:gateway:SystemExit:http-412");
+  expect(JSON.parse(NodeFS.readFileSync(settingsPath, "utf8"))).toEqual(changedConfig);
+
+  const accepted = rotate("available");
+  expect(accepted.result.status, accepted.result.stderr).toBe(0);
+  const updated = JSON.parse(NodeFS.readFileSync(settingsPath, "utf8"));
+  expect(JSON.parse(updated.env.CC_LANGSMITH_METADATA)).toMatchObject({
+    config_id: "config",
+    user_hash: "fixture-hash",
+    api_key_id: "fixture-key-id",
+  });
+
+  NodeFS.writeFileSync(settingsPath, JSON.stringify(saved));
+  const replaced = rotate("precondition");
+  expect(replaced.result.status, replaced.result.stderr).toBe(0);
+  expect(replaced.models).toEqual(["claude-sonnet-5-5"]);
+  expect(JSON.parse(NodeFS.readFileSync(settingsPath, "utf8"))).toEqual({
+    ...saved,
+    env: {
+      ...saved.env,
+      ANTHROPIC_AUTH_TOKEN: "replacement-fixture-key",
+      ANTHROPIC_CUSTOM_HEADERS:
+        "x-portkey-api-key: replacement-fixture-key\nx-portkey-config:config",
+    },
+  });
+
+  NodeFS.writeFileSync(settingsPath, JSON.stringify(saved));
   const fallback = rotate("fallback");
   expect(fallback.result.status, fallback.result.stderr).toBe(0);
   expect(fallback.models).toEqual(["claude-sonnet-5-5", "deepseek-v4.1-flash"]);
@@ -1410,11 +1453,9 @@ http.client.HTTPConnection = FixtureConnection
       ...before.env,
       ANTHROPIC_AUTH_TOKEN: "replacement-fixture-key",
       ANTHROPIC_CUSTOM_HEADERS:
-        "x-portkey-api-key: replacement-fixture-key\nx-portkey-config: config\nx-keep: true",
+        "x-portkey-api-key: replacement-fixture-key\nx-portkey-config:config\nx-keep: true",
       CC_LANGSMITH_METADATA: JSON.stringify({
         ...JSON.parse(before.env.CC_LANGSMITH_METADATA),
-        user_hash: "test-hash",
-        api_key_id: "test-key-id",
         compression: "enabled",
       }),
     },

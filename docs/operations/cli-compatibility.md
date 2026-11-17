@@ -175,6 +175,10 @@ The native CLI 0.3.11 was exercised in an isolated managed profile with simulate
 
 The native CLI 0.3.11 remains the baseline. Rotation prefers the saved model when compatible with its Chat Completions validator and can retry one native default after an HTTP 404. Synthetic gateway responses cover the fallback, access denial, timeouts, preserved credentials on failure, and exclusion of response bodies. The original v0.0.50 report contained only a generic exit and does not establish the live gateway response.
 
+## App v0.0.52 key-only saves after HTTP 412
+
+The installed native CLI 0.3.11 remains the baseline. An explicit save of a replacement key can proceed after HTTP 412 if the saved workspace, Config ID and user ID match the submitted values. Settings reports that credentials were saved. The macOS bridge fixture covers the persisted key and unchanged profile, and verifies that a changed Config ID still requires gateway validation. Live gateway access with the replacement key is **Not verified**.
+
 ## Recording the next release
 
 Before publishing, append the app release and source commit, resolved SDK version, actual managed CLI version tested, native package checksum if available, platforms tested, and the result. Record initialization, update and existing-sign-in adoption separately when the CLI changes setup behavior. Use “Not verified” for missing evidence; keep fixture coverage separate from native tests. Never record credentials, environment dumps or authenticated download URLs.

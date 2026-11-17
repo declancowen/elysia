@@ -89,7 +89,8 @@ const makeHarness = Effect.gen(function* () {
 it.effect("requires owner consent and provider verification before success", () =>
   Effect.gen(function* () {
     const { controller, phase, started, verified, attempts } = yield* makeHarness;
-    const state = yield* controller.start("owner");
+    const state = yield* controller.start("owner", Effect.void, method.id);
+    assert.strictEqual(state.methodId, method.id);
     yield* Deferred.await(started);
     const response = {
       instanceId,
@@ -100,6 +101,7 @@ it.effect("requires owner consent and provider verification before success", () 
     const other = yield* phase("waiting", "other");
     assert.isNull(other.interaction);
     assert.isNull(other.flowId);
+    assert.isUndefined(other.methodId);
     assert.isTrue(
       (yield* controller.respond!("other", response).pipe(Effect.result))._tag === "Failure",
     );
@@ -113,7 +115,7 @@ it.effect("requires owner consent and provider verification before success", () 
     yield* controller.respond!("owner", response);
     yield* phase("verifying");
     yield* Deferred.succeed(verified, undefined);
-    assert.strictEqual((yield* phase("succeeded")).phase, "succeeded");
+    assert.strictEqual((yield* phase("succeeded")).methodId, method.id);
   }).pipe(Effect.scoped, Effect.provide(Layer.mergeAll(NodeServices.layer, NodeCrypto.layer))),
 );
 

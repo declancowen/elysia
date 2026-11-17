@@ -2,7 +2,10 @@
 import {
   ClaudeSettings,
   ELYSIA_CHANGE_CREDENTIALS_METHOD,
+  ELYSIA_DISABLE_COMPRESSION_METHOD,
+  ELYSIA_ENABLE_COMPRESSION_METHOD,
   ELYSIA_RETRY_COMPRESSION_METHOD,
+  type ProviderAuthMethod,
   ProviderDriverKind,
   type ProviderInstanceId,
   ProviderSetupError,
@@ -90,6 +93,61 @@ const readCredentialIds = Schema.decodeUnknownOption(
   ),
 );
 const decodeClaudeSettings = Schema.decodeSync(ClaudeSettings);
+
+const enableCompression = {
+  id: ELYSIA_ENABLE_COMPRESSION_METHOD,
+  name: "Turn on compression",
+  description: null,
+  type: "credentials",
+} satisfies ProviderAuthMethod;
+const disableCompression = {
+  ...enableCompression,
+  id: ELYSIA_DISABLE_COMPRESSION_METHOD,
+  name: "Turn off compression",
+};
+const retryCompression = {
+  ...enableCompression,
+  id: ELYSIA_RETRY_COMPRESSION_METHOD,
+  name: "Retry compression",
+};
+
+function compressionAuthMethods(compression?: { enabled: boolean; restartPending?: boolean }) {
+  if (compression?.restartPending) return [enableCompression, disableCompression, retryCompression];
+  return [compression?.enabled ? disableCompression : enableCompression];
+}
+
+const compressionCommands = new Map<
+  string,
+  { operation: string; args: readonly string[]; progress: string; success: string }
+>([
+  [
+    ELYSIA_ENABLE_COMPRESSION_METHOD,
+    {
+      operation: "set-compression",
+      args: ["--compression-enable"],
+      progress: "Starting compression…",
+      success: "Compression is on. The local proxy passed its health check.",
+    },
+  ],
+  [
+    ELYSIA_DISABLE_COMPRESSION_METHOD,
+    {
+      operation: "set-compression",
+      args: ["--compression-disable"],
+      progress: "Turning compression off…",
+      success: "Compression is off. Elysia is using the direct gateway.",
+    },
+  ],
+  [
+    ELYSIA_RETRY_COMPRESSION_METHOD,
+    {
+      operation: "retry-compression",
+      args: [],
+      progress: "Restarting compression…",
+      success: "Compression restarted.",
+    },
+  ],
+]);
 
 const requestElysiaCredentials = Effect.fn("ElysiaDriver.requestCredentials")(function* (
   instanceId: ProviderInstanceId,
@@ -586,8 +644,8 @@ export const ElysiaDriver: ProviderDriver<ClaudeSettings, ElysiaDriverEnv> = {
       deferSessionStopForMethod: ELYSIA_CHANGE_CREDENTIALS_METHOD,
       timeoutMs: 1_800_000,
       methods: Effect.map(
-        Effect.all([elysia.readSettings, elysia.compression]),
-        ([settings, compression]) => [
+        Effect.all([elysia.readSettings, elysia.compression, elysia.ready]),
+        ([settings, compression, ready]) => [
           {
             id: "elysia",
             name: "Elysia credentials",
@@ -604,17 +662,8 @@ export const ElysiaDriver: ProviderDriver<ClaudeSettings, ElysiaDriverEnv> = {
                 },
               ]
             : []),
-          ...(settings._tag === "Some" &&
-          compression._tag === "Some" &&
-          compression.value.restartPending
-            ? [
-                {
-                  id: ELYSIA_RETRY_COMPRESSION_METHOD,
-                  name: "Retry compression",
-                  description: null,
-                  type: "credentials" as const,
-                },
-              ]
+          ...(ready
+            ? compressionAuthMethods(compression._tag === "Some" ? compression.value : undefined)
             : []),
         ],
       ),
@@ -626,11 +675,14 @@ export const ElysiaDriver: ProviderDriver<ClaudeSettings, ElysiaDriverEnv> = {
               operation: "connect",
               detail: "Enable Elysia before configuring credentials.",
             });
-          if (method === ELYSIA_RETRY_COMPRESSION_METHOD) {
+          const compression = compressionCommands.get(method);
+          if (compression) {
             yield* flow.verifying;
-            yield* flow.setMessage("Restarting compression…");
-            yield* elysia.run("retry-compression").pipe(Effect.ensuring(refreshProfile));
-            return "Compression restarted.";
+            yield* flow.setMessage(compression.progress);
+            yield* elysia
+              .run(compression.operation, undefined, compression.args)
+              .pipe(Effect.ensuring(refreshProfile));
+            return compression.success;
           }
           if (method === ELYSIA_CHANGE_CREDENTIALS_METHOD) return yield* rotateCredentials(flow);
           yield* elysia.bootstrap(flow.setMessage);

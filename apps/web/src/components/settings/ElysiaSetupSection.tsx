@@ -1,7 +1,7 @@
 import { useEffect, useId, useRef, useState } from "react";
 import {
   ELYSIA_CHANGE_CREDENTIALS_METHOD,
-  ELYSIA_RETRY_COMPRESSION_METHOD,
+  isElysiaCompressionMethod,
   type EnvironmentId,
   type ProviderInstanceId,
   type ServerProvider,
@@ -66,9 +66,7 @@ export function ElysiaSetupSection({
   const connected = provider?.auth.status === "authenticated" && provider.status === "ready";
   const canUpdateDetails =
     connected || auth?.methods?.some((method) => method.id === ELYSIA_CHANGE_CREDENTIALS_METHOD);
-  const retryCompression = auth?.methods?.find(
-    (method) => method.id === ELYSIA_RETRY_COMPRESSION_METHOD,
-  );
+  const compressionAction = isElysiaCompressionMethod(auth?.methodId);
   const packagesReady = installed && claudeInstalled;
   const enteringCredentials =
     auth?.phase === "waiting" && interaction?.type === "credentials" && Boolean(auth.flowId);
@@ -80,13 +78,17 @@ export function ElysiaSetupSection({
       : Math.min(100, Math.max(0, Number(auth?.message?.match(/^(\d)\/4/)?.[1] ?? 1) - 1) * 25);
   const reportedFailure = useRef<string | null>(null);
   const connectionError =
-    attemptedSetup && auth?.phase === "failed" && auth.flowId !== ignoredFlowId
+    attemptedSetup &&
+    !compressionAction &&
+    auth?.phase === "failed" &&
+    auth.flowId !== ignoredFlowId
       ? auth.message
       : null;
   // oxlint-disable-next-line elysia/no-unreasoned-state-sync -- Publish asynchronous native CLI setup failures through the imperative toast manager.
   useEffect(() => {
     if (
       !attemptedSetup ||
+      compressionAction ||
       auth?.phase !== "failed" ||
       auth.flowId === ignoredFlowId ||
       !auth.message
@@ -97,10 +99,10 @@ export function ElysiaSetupSection({
     reportedFailure.current = failure;
     toastManager.add({
       type: "error",
-      title: retryCompression ? "Elysia needs attention" : "Could not connect Elysia",
+      title: "Could not complete Elysia setup",
       description: auth.message,
     });
-  }, [attemptedSetup, ignoredFlowId, auth?.flowId, auth?.message, auth?.phase, retryCompression]);
+  }, [attemptedSetup, compressionAction, ignoredFlowId, auth?.flowId, auth?.message, auth?.phase]);
   async function run(command: () => Promise<AtomCommandResult<unknown, unknown>>) {
     setPending(true);
     setError(null);
@@ -261,7 +263,8 @@ export function ElysiaSetupSection({
           ))}
         </form>
       ) : null}
-      {auth?.phase !== "failed" &&
+      {!compressionAction &&
+      auth?.phase !== "failed" &&
       auth?.flowId !== ignoredFlowId &&
       (active || attemptedSetup) &&
       auth?.message ? (
@@ -274,23 +277,8 @@ export function ElysiaSetupSection({
           {error ?? connectionError}
         </p>
       ) : null}
-      {!onContinue && !active && retryCompression && !connectionError ? (
-        <p className="text-xs text-muted-foreground">
-          Compression is paused. Elysia is using the direct gateway.
-        </p>
-      ) : null}
       <div className={onContinue ? "flex justify-end gap-3 pt-3" : "flex flex-wrap gap-3"}>
-        {!onContinue && !active && retryCompression ? (
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={disabled}
-            onClick={() => beginSetup(retryCompression.id)}
-          >
-            {retryCompression.name}
-          </Button>
-        ) : null}
-        {active && auth?.flowId ? (
+        {active && auth?.flowId && !compressionAction ? (
           <Button
             variant="outline"
             size="sm"
@@ -303,7 +291,7 @@ export function ElysiaSetupSection({
           >
             Cancel setup
           </Button>
-        ) : provider?.auth.status === "authenticated" ? (
+        ) : !active && provider?.auth.status === "authenticated" ? (
           <Button
             variant="outline"
             size="sm"

@@ -7,7 +7,10 @@ import {
 import {
   AuthProvidersManageScope,
   ELYSIA_CHANGE_CREDENTIALS_METHOD,
+  ELYSIA_DISABLE_COMPRESSION_METHOD,
+  ELYSIA_ENABLE_COMPRESSION_METHOD,
   ELYSIA_RETRY_COMPRESSION_METHOD,
+  isElysiaCompressionMethod,
   isManagedDriverAllowed,
   type ProviderAuthResponse,
   type ServerProvider,
@@ -210,6 +213,12 @@ function ProviderAccount({
     (method) => method.id === ELYSIA_CHANGE_CREDENTIALS_METHOD,
   );
   const retryCompression = methods.find((method) => method.id === ELYSIA_RETRY_COMPRESSION_METHOD);
+  const enableCompression =
+    methods.find((method) => method.id === ELYSIA_ENABLE_COMPRESSION_METHOD) ?? retryCompression;
+  const disableCompression = methods.find(
+    (method) => method.id === ELYSIA_DISABLE_COMPRESSION_METHOD,
+  );
+  const compressionAction = isElysiaCompressionMethod(state?.methodId);
   // The status line says why a provider that is missing or turned off can't sign in.
   const canSignIn =
     !active &&
@@ -226,7 +235,7 @@ function ProviderAccount({
     provider.driver === "antigravity" &&
     (provider.auth.type === "gemini-api-key" || provider.auth.type === "agent-platform");
   const status =
-    active || state?.phase === "failed" || state?.phase === "cancelled"
+    active || state?.phase === "failed" || state?.phase === "cancelled" || compressionAction
       ? state.message
       : !provider.enabled
         ? "Turned off"
@@ -244,10 +253,12 @@ function ProviderAccount({
                   ? "Connect to load models"
                   : "Not signed in";
   // A provider with several sign-in methods picks one from a menu on the same control.
-  const methodActions: MenuAction[] = methods.map((method) => ({
-    id: `method:${method.id}`,
-    title: method.name,
-  }));
+  const methodActions: MenuAction[] = methods
+    .filter((method) => !isElysiaCompressionMethod(method.id))
+    .map((method) => ({
+      id: `method:${method.id}`,
+      title: method.name,
+    }));
   function startSignIn(methodId?: string) {
     void run(() => start(methodId ? { environmentId, input: { instanceId, methodId } } : target));
   }
@@ -293,15 +304,15 @@ function ProviderAccount({
           },
         ]
       : []),
-    ...(canSignIn && retryCompression
-      ? [
-          {
-            id: `method:${retryCompression.id}`,
-            title: retryCompression.name,
+    ...(canSignIn
+      ? [enableCompression, disableCompression]
+          .filter((method) => method !== undefined)
+          .map((method) => ({
+            id: `method:${method.id}`,
+            title: method.name,
             image: "arrow.clockwise",
             attributes: { disabled: signInDisabled },
-          },
-        ]
+          }))
       : []),
     ...(canSignOut
       ? [
@@ -314,61 +325,62 @@ function ProviderAccount({
         ]
       : []),
   ];
-  const trailing = pending ? (
-    <View className="h-11 w-11 items-center justify-center">
-      <AppActivityIndicator colorClassName="accent-icon" />
-    </View>
-  ) : needsExternalSetup && provider.setup?.documentationUrl ? (
-    <ControlPill
-      variant="pill"
-      label="Docs"
-      onPress={() => {
-        void Linking.openURL(provider.setup!.documentationUrl!).catch(() =>
-          setError("Could not open the provider docs."),
-        );
-      }}
-    />
-  ) : active && state?.flowId ? (
-    <ControlPill
-      variant="pill"
-      label="Cancel"
-      accessibilityLabel={`Cancel ${name} sign-in`}
-      disabled={disabled}
-      onPress={() => {
-        void run(() => cancel({ environmentId, input: { instanceId, flowId: state.flowId! } }));
-      }}
-    />
-  ) : signedIn && !active && accountActions.length > 0 ? (
-    <Menu
-      accessible
-      accessibilityRole="button"
-      accessibilityLabel={`${name} account options`}
-      title={name}
-      actions={accountActions}
-      onPressAction={({ nativeEvent }) => onMenuAction(nativeEvent.event)}
-    >
-      <ControlPill icon="ellipsis" accessibilityLabel={`${name} account options`} />
-    </Menu>
-  ) : canSignIn && !signedIn && methodActions.length > 1 && !signInDisabled ? (
-    <Menu
-      accessible
-      accessibilityRole="button"
-      accessibilityLabel={`Sign in to ${name}`}
-      title="Sign in with"
-      actions={methodActions}
-      onPressAction={({ nativeEvent }) => onMenuAction(nativeEvent.event)}
-    >
-      <ControlPill variant="primary" label="Sign in" accessibilityLabel={`Sign in to ${name}`} />
-    </Menu>
-  ) : canSignIn && !signedIn ? (
-    <ControlPill
-      variant="primary"
-      label={usesCredentials ? "Connect" : "Sign in"}
-      accessibilityLabel={usesCredentials ? `Connect to ${name}` : `Sign in to ${name}`}
-      disabled={signInDisabled}
-      onPress={() => startSignIn()}
-    />
-  ) : null;
+  const trailing =
+    pending || (active && compressionAction) ? (
+      <View className="h-11 w-11 items-center justify-center">
+        <AppActivityIndicator colorClassName="accent-icon" />
+      </View>
+    ) : needsExternalSetup && provider.setup?.documentationUrl ? (
+      <ControlPill
+        variant="pill"
+        label="Docs"
+        onPress={() => {
+          void Linking.openURL(provider.setup!.documentationUrl!).catch(() =>
+            setError("Could not open the provider docs."),
+          );
+        }}
+      />
+    ) : active && state?.flowId ? (
+      <ControlPill
+        variant="pill"
+        label="Cancel"
+        accessibilityLabel={`Cancel ${name} sign-in`}
+        disabled={disabled}
+        onPress={() => {
+          void run(() => cancel({ environmentId, input: { instanceId, flowId: state.flowId! } }));
+        }}
+      />
+    ) : signedIn && !active && accountActions.length > 0 ? (
+      <Menu
+        accessible
+        accessibilityRole="button"
+        accessibilityLabel={`${name} account options`}
+        title={name}
+        actions={accountActions}
+        onPressAction={({ nativeEvent }) => onMenuAction(nativeEvent.event)}
+      >
+        <ControlPill icon="ellipsis" accessibilityLabel={`${name} account options`} />
+      </Menu>
+    ) : canSignIn && !signedIn && methodActions.length > 1 && !signInDisabled ? (
+      <Menu
+        accessible
+        accessibilityRole="button"
+        accessibilityLabel={`Sign in to ${name}`}
+        title="Sign in with"
+        actions={methodActions}
+        onPressAction={({ nativeEvent }) => onMenuAction(nativeEvent.event)}
+      >
+        <ControlPill variant="primary" label="Sign in" accessibilityLabel={`Sign in to ${name}`} />
+      </Menu>
+    ) : canSignIn && !signedIn ? (
+      <ControlPill
+        variant="primary"
+        label={usesCredentials ? "Connect" : "Sign in"}
+        accessibilityLabel={usesCredentials ? `Connect to ${name}` : `Sign in to ${name}`}
+        disabled={signInDisabled}
+        onPress={() => startSignIn()}
+      />
+    ) : null;
   return (
     <View className={divider ? "border-t border-border-subtle" : undefined}>
       <View

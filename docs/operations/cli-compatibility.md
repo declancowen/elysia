@@ -179,6 +179,10 @@ The native CLI 0.3.11 remains the baseline. Rotation prefers the saved model whe
 
 The installed native CLI 0.3.11 remains the baseline. An explicit save of a replacement key can proceed after HTTP 412 if the saved workspace, Config ID and user ID match the submitted values. Settings reports that credentials were saved. The macOS bridge fixture covers the persisted key and unchanged profile, and verifies that a changed Config ID still requires gateway validation. Live gateway access with the replacement key is **Not verified**.
 
+## App v0.0.53 compression controls
+
+The managed bridge invokes native CLI 0.3.11 with `--compression-enable` or `--compression-disable`. Both platform branches ran with simulated OS services in isolated profiles. Checks covered route changes, retention of the saved key and owned port, a slow release of the port, a proxy that becomes healthy after startup, and failure recovery. A work laptop reported HTTP 200 from the running proxy while its profile was marked paused. The original failure stage and production recovery are **Not verified**.
+
 ## Recording the next release
 
 Before publishing, append the app release and source commit, resolved SDK version, actual managed CLI version tested, native package checksum if available, platforms tested, and the result. Record initialization, update and existing-sign-in adoption separately when the CLI changes setup behavior. Use “Not verified” for missing evidence; keep fixture coverage separate from native tests. Never record credentials, environment dumps or authenticated download URLs.

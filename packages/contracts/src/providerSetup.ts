@@ -94,6 +94,16 @@ export type ProviderAuthResponse = typeof ProviderAuthResponse.Type;
 
 export const ELYSIA_CHANGE_CREDENTIALS_METHOD = "elysia-change-credentials";
 export const ELYSIA_RETRY_COMPRESSION_METHOD = "elysia-retry-compression";
+export const ELYSIA_ENABLE_COMPRESSION_METHOD = "elysia-enable-compression";
+export const ELYSIA_DISABLE_COMPRESSION_METHOD = "elysia-disable-compression";
+
+export function isElysiaCompressionMethod(methodId: string | undefined) {
+  return (
+    methodId === ELYSIA_ENABLE_COMPRESSION_METHOD ||
+    methodId === ELYSIA_DISABLE_COMPRESSION_METHOD ||
+    methodId === ELYSIA_RETRY_COMPRESSION_METHOD
+  );
+}
 
 export const ProviderAuthStartInput = Schema.Struct({
   instanceId: ProviderInstanceId,
@@ -123,6 +133,7 @@ export const ProviderAuthState = Schema.Struct({
     "cancelled",
   ]),
   flowId: Schema.NullOr(SetupOperationId),
+  methodId: Schema.optionalKey(SetupOperationId),
   authorizationUrl: Schema.NullOr(Schema.String),
   expiresAt: Schema.NullOr(IsoDateTime),
   message: Schema.NullOr(Schema.String),

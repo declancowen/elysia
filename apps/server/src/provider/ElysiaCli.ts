@@ -62,6 +62,24 @@ function rotationGatewayFailureDetail(diagnostic: string): string | null {
   return `${detail} Your saved credentials were kept.`;
 }
 
+function compressionFailureDetail(diagnostic: string, directGateway = false): string {
+  const [, stage = "", direct] =
+    /(?:^|\n)ELYSIA_(?:ERROR:|WARNING:rotation-compression:)compression-(port|dependencies|start|health|route|stop|recovery)(-direct)?[:\r\n]/.exec(
+      diagnostic,
+    ) ?? [];
+  const reasons: Readonly<Record<string, string>> = {
+    port: "The compression proxy port could not be opened.",
+    dependencies: "The Elysia CLI could not find the compression proxy.",
+    start: "The Elysia CLI could not start the compression service.",
+    health: "The compression proxy did not pass its local health check.",
+    route: "The Elysia CLI did not apply the requested compression routing.",
+    stop: "The Elysia CLI could not turn compression off.",
+    recovery: "Compression failed and Elysia could not confirm direct gateway routing.",
+  };
+  const reason = reasons[stage] ?? "The Elysia CLI could not change compression.";
+  return direct || directGateway ? `${reason} Elysia is using the direct gateway.` : reason;
+}
+
 export function parseElysiaAccountUsage(output: string): ElysiaAccountUsageSnapshot {
   // Read only the native --config Usage section; never return profile IDs or credentials.
   const usage = output.split(/^Usage\s*$/m)[1]?.split(/^Compression\s*$/m)[0];
@@ -86,7 +104,7 @@ export function parseElysiaAccountUsage(output: string): ElysiaAccountUsageSnaps
 // ponytail: 0.3.8 has global paths rather than a profile flag. Import the actual
 // package in an isolated home; replace this bridge when the CLI adds --home.
 export const ELYSIA_CLI_BRIDGE = String.raw`
-import ast, contextlib, hashlib, http.client, importlib.util, io, json, math, os, re, shlex, shutil, socket, ssl, subprocess, sys, tempfile, time, urllib.error, urllib.request, zipfile
+import ast, contextlib, errno, hashlib, http.client, importlib.util, io, json, math, os, re, shlex, shutil, socket, ssl, subprocess, sys, tempfile, time, urllib.error, urllib.request, zipfile
 from pathlib import Path
 
 source, root = sys.argv[1:3]
@@ -410,7 +428,7 @@ def run(command, *args, **kwargs):
         raise
     if finishing_update and result.returncode != 0:
         post_update_failed = True
-    if (operation in ["rotate-credentials", "retry-compression"] and isinstance(command, list)
+    if (operation in ["rotate-credentials", "retry-compression", "set-compression"] and isinstance(command, list)
             and command[:2] in [["launchctl", "bootstrap"], ["launchctl", "load"]]
             and result.returncode != 0):
         raise RuntimeError("Managed compression service did not start")
@@ -554,6 +572,7 @@ def rotate_credentials():
             restart_pending_compression()
         except (Exception, SystemExit):
             warnings.add("rotation-compression")
+            warnings.add("rotation-compression:" + validation_error)
 
 def write_profile_json(file, data):
     with tempfile.TemporaryDirectory(prefix="compression-", dir=root) as temporary:
@@ -577,19 +596,10 @@ def restart_pending_compression():
     elif native.IS_WINDOWS:
         native._kill_proxy_windows(port)
     # A healthy old listener cannot confirm that the replacement key was loaded.
-    with socket.socket() as listener:
-        listener.bind(("127.0.0.1", port))
+    check_compression_port(port, wait_for_release=True)
     start_compression(port, key, config_id)
-    deadline = time.monotonic() + 8
-    while True:
-        try:
-            if compression_healthy(port):
-                break
-            raise RuntimeError("Compression proxy is not healthy")
-        except ConnectionRefusedError:
-            if time.monotonic() >= deadline:
-                raise
-            time.sleep(0.2)
+    wait_for_compression(port)
+    validation_error = "compression-route"
     settings_file = native.SETTINGS_FILE
     before = settings_file.read_text()
     data = json.loads(before)
@@ -604,6 +614,87 @@ def restart_pending_compression():
         write_profile_json(settings_file, json.loads(before))
         raise
 
+def check_compression_port(port, wait_for_release=False):
+    global validation_error
+    validation_error = "compression-port"
+    if type(port) is not int or not 1024 <= port <= 65535:
+        raise ValueError("Invalid compression port")
+    address_in_use = (errno.EADDRINUSE, getattr(errno, "WSAEADDRINUSE", errno.EADDRINUSE))
+    deadline = time.monotonic() + 4
+    while True:
+        with socket.socket() as listener:
+            try:
+                listener.bind(("127.0.0.1", port))
+                return
+            except OSError as error:
+                if (not wait_for_release or error.errno not in address_in_use
+                        or time.monotonic() >= deadline):
+                    raise
+        time.sleep(0.2)
+
+def wait_for_compression(port):
+    global validation_error
+    validation_error = "compression-health"
+    deadline = time.monotonic() + 8
+    while True:
+        try:
+            if compression_healthy(port):
+                return
+        except (ConnectionError, TimeoutError, http.client.HTTPException):
+            pass
+        if time.monotonic() >= deadline:
+            raise RuntimeError("Compression proxy is not healthy")
+        time.sleep(0.2)
+
+def verify_compression_route(enabled, port):
+    global validation_error
+    validation_error = "compression-route"
+    state = native._read_compression_state()
+    expected = f"http://localhost:{port}" if enabled else native.GATEWAY_URL
+    settings = json.loads(native.SETTINGS_FILE.read_text())
+    if (state.get("enabled") is not enabled or state.get("restartPending") is True
+            or state.get("port") != port
+            or settings["env"].get("ANTHROPIC_BASE_URL") != expected):
+        raise ValueError("Native compression routing did not change")
+
+def run_native_compression(flag, port):
+    global validation_error
+    sys.argv = [str(script), flag]
+    enabled = flag == "--compression-enable"
+    validation_error = "compression-start" if enabled else "compression-stop"
+    native.main()
+    verify_compression_route(enabled, port)
+
+def set_compression():
+    global validation_error
+    flag = sys.argv[2]
+    validation_error = "configuration"
+    if not (native.IS_MAC or native.IS_WINDOWS) or flag not in ("--compression-enable", "--compression-disable"):
+        raise ValueError("Unsupported compression operation")
+    validate_profile()
+    native._init_globals()
+    enabled = flag == "--compression-enable"
+    state = native._read_compression_state()
+    port = state.get("port", native.COMPRESSION_PORT)
+    if enabled:
+        paused = state.get("restartPending") is True
+        if paused:
+            run_native_compression("--compression-disable", port)
+        check_compression_port(port, wait_for_release=paused)
+    try:
+        run_native_compression(flag, port)
+        if enabled:
+            wait_for_compression(port)
+    except (Exception, SystemExit):
+        if enabled:
+            failed_stage = validation_error
+            try:
+                run_native_compression("--compression-disable", port)
+                validation_error = failed_stage + "-direct"
+            except (Exception, SystemExit):
+                validation_error = "compression-recovery"
+        raise
+
 def compression_healthy(port):
     connection = http.client.HTTPConnection("127.0.0.1", port, timeout=2)
     try:
@@ -614,10 +705,13 @@ def compression_healthy(port):
 
 
 def start_compression(port, api_key, config_id):
+    global validation_error
+    validation_error = "compression-dependencies"
     headroom = native._find_headroom()
     if not headroom or not api_key or not config_id:
         raise ValueError("Compression setup unavailable")
     env = native._headroom_env(api_key, config_id)
+    validation_error = "compression-start"
     if native.IS_MAC:
         native._install_launchd_agent(headroom, env, port, silent=True)
     elif native.IS_WINDOWS:
@@ -747,7 +841,8 @@ if native.COMPRESSION_STATE.exists():
 
 # Native setup includes key fragments in diagnostics. Keep credentials and
 # updater output private; read-only CLI commands retain their native output.
-sensitive = operation in ["--init", "--update", "--finish-update", "adopt", "validate", "restore-compression", "rotate-credentials", "retry-compression"]
+compression_commands = ["rotate-credentials", "retry-compression", "set-compression"]
+sensitive = operation in ["--init", "--update", "--finish-update", "adopt", "validate", "restore-compression"] + compression_commands
 if sensitive:
     saved_out, saved_err = os.dup(1), os.dup(2)
     failure = None
@@ -765,6 +860,8 @@ if sensitive:
                 rotate_credentials()
             elif operation == "retry-compression":
                 restart_pending_compression()
+            elif operation == "set-compression":
+                set_compression()
             else:
                 native.main()
                 if operation == "--update" and post_update_failed:
@@ -798,13 +895,13 @@ if sensitive and operation not in ["validate", "restore-compression"]:
             file.chmod(0o700 if file.stat().st_mode & 0o100 else 0o600)
 if sensitive and native.PLIST_PATH.exists():
     native.PLIST_PATH.chmod(0o600)
-if operation in ["--init", "--update", "--finish-update", "adopt", "rotate-credentials", "retry-compression"]:
+if operation in ["--init", "--update", "--finish-update", "adopt"] + compression_commands:
     # Publish only after setup finishes; the updater replaces its script first.
     match = re.search(r'CLI_VERSION\s*=\s*"([^"]+)"', script.read_text())
     if not match:
         raise ValueError("Missing CLI version")
     staged = root / "configuration-version.tmp"
-    staged.write_text(match[1] + (":" + os.urandom(12).hex() if operation in ["rotate-credentials", "retry-compression"] else ""))
+    staged.write_text(match[1] + (":" + os.urandom(12).hex() if operation in compression_commands else ""))
     staged.replace(root / "configuration-version")
 if operation == "--update":
     installed_version = match[1]
@@ -978,6 +1075,13 @@ export const makeElysiaCli = Effect.fn("makeElysiaCli")(function* (input: {
   let validated = false;
   let connectionError: string | null = null;
   const failure = (operation: string, diagnostic = "") => {
+    if (operation === "retry-compression" || operation === "set-compression") {
+      return new ProviderSetupError({
+        instanceId: input.instanceId,
+        operation,
+        detail: compressionFailureDetail(diagnostic, operation === "retry-compression"),
+      });
+    }
     const rotationDetail =
       operation === "rotate-credentials" ? rotationGatewayFailureDetail(diagnostic) : null;
     const errorType =
@@ -1041,15 +1145,7 @@ export const makeElysiaCli = Effect.fn("makeElysiaCli")(function* (input: {
         return yield* new ProviderSetupError({
           instanceId: input.instanceId,
           operation,
-          detail:
-            "Credentials saved. Compression could not restart. Elysia is using the direct gateway.",
-        });
-      }
-      if (operation === "retry-compression") {
-        return yield* new ProviderSetupError({
-          instanceId: input.instanceId,
-          operation,
-          detail: "Compression could not restart. Elysia is using the direct gateway.",
+          detail: `Credentials saved. ${compressionFailureDetail(result.stderr, true)}`,
         });
       }
       const error = failure(operation, result.stderr);

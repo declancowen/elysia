@@ -263,6 +263,7 @@ export const make = Effect.fn("ProviderAuthFlow.make")(function* (options: {
             methods: snapshot.value.state.methods ?? [],
             phase: "starting",
             flowId: id,
+            ...(selectedMethodId ? { methodId: selectedMethodId } : {}),
             expiresAt: DateTime.formatIso(DateTime.makeUnsafe(flow.expiresAt)),
             message: "Starting sign-in.",
           };
@@ -495,20 +496,18 @@ export const make = Effect.fn("ProviderAuthFlow.make")(function* (options: {
     }, Effect.uninterruptible),
     subscribe: (owner) =>
       SubscriptionRef.changes(snapshot).pipe(
-        Stream.map((current) =>
-          current.owner === null || current.owner === owner
-            ? current.state
-            : {
-                ...current.state,
-                flowId: null,
-                authorizationUrl: null,
-                interaction: null,
-                expiresAt: null,
-                message: active
-                  ? "Sign-in is in progress in another client."
-                  : current.state.message,
-              },
-        ),
+        Stream.map((current) => {
+          if (current.owner === null || current.owner === owner) return current.state;
+          const { methodId: _methodId, ...visible } = current.state;
+          return {
+            ...visible,
+            flowId: null,
+            authorizationUrl: null,
+            interaction: null,
+            expiresAt: null,
+            message: active ? "Sign-in is in progress in another client." : visible.message,
+          };
+        }),
       ),
   };
   yield* Effect.addFinalizer(() =>

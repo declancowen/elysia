@@ -115,6 +115,16 @@ def record():
     (HOME / "record.json").write_text(json.dumps({"home": str(HOME), "mcp": str(MCP_FILE), "label": PLIST_LABEL, "version": CLI_VERSION, "gateway": os.environ.get("ELYSIA_GATEWAY_URL")}))
 `;
 
+const compressionClock = String.raw`
+import time
+clock = 0.0
+def advance(seconds):
+    global clock
+    clock += seconds
+time.monotonic = lambda: clock
+time.sleep = advance
+`;
+
 function fixture(script = nativeFixture) {
   const directory = NodeFS.mkdtempSync(NodePath.join(NodeOS.tmpdir(), "elysia-cli-test-"));
   fixtures.push(directory);
@@ -130,8 +140,9 @@ function fixture(script = nativeFixture) {
     key = "fixture-secret",
     extraEnv: Record<string, string> = {},
     bridge = ELYSIA_CLI_BRIDGE,
+    args: string[] = [],
   ) =>
-    NodeChildProcess.spawnSync("python3", ["-c", bridge, source, profile, operation], {
+    NodeChildProcess.spawnSync("python3", ["-c", bridge, source, profile, operation, ...args], {
       env: {
         ...process.env,
         HOME: directory,
@@ -1364,6 +1375,7 @@ def validate_gateway_credentials(key, config, model):
 it("rotates the managed key across settings, Tavily and compression without reinstalling", () => {
   const { profile, run } = fixture(
     nativeFixture +
+      compressionClock +
       String.raw`
 DEFAULT_MODEL = "deepseek-v4.1-flash"
 def fetch_user_hash(user, key):
@@ -1429,6 +1441,9 @@ http.client.HTTPConnection = FixtureConnection
     const rotated = run("rotate-credentials", "replacement-fixture-key");
     expect(rotated.status).toBe(1);
     expect(rotated.stderr).toContain("ELYSIA_WARNING:rotation-compression");
+    expect(rotated.stderr).toContain(
+      `ELYSIA_WARNING:rotation-compression:compression-${failure === "unhealthy" ? "health" : "start"}`,
+    );
     expect(rotated.stdout + rotated.stderr).not.toContain("replacement-fixture-key");
     expect(JSON.parse(NodeFS.readFileSync(settingsPath, "utf8")).env).toMatchObject({
       ANTHROPIC_AUTH_TOKEN: "replacement-fixture-key",
@@ -1486,6 +1501,96 @@ it("preserves the owned port when native compression is disabled", () => {
     enabled: false,
     port: 49876,
   });
+});
+
+it("runs the native compression commands and falls back to direct routing if enable is unhealthy", () => {
+  const { profile, run } = fixture(
+    nativeFixture +
+      compressionClock +
+      String.raw`
+import errno, http.client, socket
+health_checks = 0
+class FixtureSocket(socket.socket):
+    def bind(self, address):
+        if os.environ.get("FIXTURE_STARTING") and clock == 0:
+            raise OSError(errno.EADDRINUSE, "Fixture proxy is stopping")
+        return super().bind(address)
+socket.socket = FixtureSocket
+original_main = main
+def main():
+    flag = sys.argv[1]
+    if flag not in ["--compression-enable", "--compression-disable"]:
+        return original_main()
+    key, config = _load_credentials_from_settings()
+    assert key == "fixture-secret" and config == "config"
+    print(key)
+    enabled = flag == "--compression-enable"
+    if not enabled and os.environ.get("FIXTURE_DISABLE_NOOP"):
+        return
+    port = _read_compression_state()["port"]
+    with (HOME / "compression-commands").open("a") as commands:
+        commands.write(flag + "\n")
+    data = json.loads(SETTINGS_FILE.read_text())
+    data["env"]["ANTHROPIC_BASE_URL"] = f"http://localhost:{port}" if enabled else os.environ["ELYSIA_GATEWAY_URL"]
+    SETTINGS_FILE.write_text(json.dumps(data))
+    _write_compression_state(enabled, port)
+class FixtureConnection:
+    def __init__(self, host, port, timeout):
+        assert host == "127.0.0.1" and port == _read_compression_state()["port"]
+    def request(self, method, path):
+        assert (method, path) == ("GET", "/health")
+    def getresponse(self):
+        global health_checks
+        health_checks += 1
+        starting = os.environ.get("FIXTURE_STARTING") and health_checks == 1
+        return type("Response", (), {"status": 503 if starting or os.environ.get("FIXTURE_UNHEALTHY") else 200})()
+    def close(self):
+        pass
+http.client.HTTPConnection = FixtureConnection
+`,
+  );
+  expect(run("--init").status).toBe(0);
+  const versionPath = NodePath.join(profile, "configuration-version");
+  const settingsPath = NodePath.join(profile, ".claude", "settings.json");
+  const statePath = NodePath.join(profile, ".elysia", "compression.json");
+  const { port } = JSON.parse(NodeFS.readFileSync(statePath, "utf8"));
+  const before = JSON.parse(NodeFS.readFileSync(settingsPath, "utf8"));
+  const toggle = (flag: "--compression-enable" | "--compression-disable", extraEnv = {}) =>
+    run("set-compression", "", extraEnv, ELYSIA_CLI_BRIDGE, [flag]);
+  const unhealthy = toggle("--compression-enable", { FIXTURE_UNHEALTHY: "1" });
+  expect(unhealthy.status, unhealthy.stderr).toBe(1);
+  expect(unhealthy.stderr).toContain("ELYSIA_ERROR:compression-health-direct");
+  expect(unhealthy.output.join("")).not.toContain("fixture-secret");
+  expect(JSON.parse(NodeFS.readFileSync(statePath, "utf8"))).toEqual({ enabled: false, port });
+  expect(JSON.parse(NodeFS.readFileSync(settingsPath, "utf8"))).toEqual(before);
+  const revision = NodeFS.readFileSync(versionPath, "utf8");
+  const enabled = toggle("--compression-enable");
+  expect(enabled.status, enabled.stderr).toBe(0);
+  expect(enabled.output.join("")).not.toContain("fixture-secret");
+  expect(JSON.parse(NodeFS.readFileSync(statePath, "utf8"))).toEqual({ enabled: true, port });
+  expect(JSON.parse(NodeFS.readFileSync(settingsPath, "utf8"))).toEqual({
+    ...before,
+    env: { ...before.env, ANTHROPIC_BASE_URL: `http://localhost:${port}` },
+  });
+  expect(NodeFS.readFileSync(versionPath, "utf8")).not.toBe(revision);
+  const disableNoop = toggle("--compression-disable", { FIXTURE_DISABLE_NOOP: "1" });
+  expect(disableNoop.status).toBe(1);
+  expect(disableNoop.stderr).toContain("ELYSIA_ERROR:compression-route");
+  expect(JSON.parse(NodeFS.readFileSync(statePath, "utf8"))).toEqual({ enabled: true, port });
+  expect(toggle("--compression-disable").status).toBe(0);
+  expect(JSON.parse(NodeFS.readFileSync(statePath, "utf8"))).toEqual({ enabled: false, port });
+  expect(JSON.parse(NodeFS.readFileSync(settingsPath, "utf8"))).toEqual(before);
+
+  NodeFS.writeFileSync(statePath, JSON.stringify({ enabled: false, port, restartPending: true }));
+  const commandsPath = NodePath.join(profile, "compression-commands");
+  NodeFS.writeFileSync(commandsPath, "");
+  const resumed = toggle("--compression-enable", { FIXTURE_STARTING: "1" });
+  expect(resumed.status, resumed.stderr).toBe(0);
+  expect(NodeFS.readFileSync(commandsPath, "utf8").trim().split("\n")).toEqual([
+    "--compression-disable",
+    "--compression-enable",
+  ]);
+  expect(JSON.parse(NodeFS.readFileSync(statePath, "utf8"))).toEqual({ enabled: true, port });
 });
 
 it.each(["mac", "windows"] as const)(

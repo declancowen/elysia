@@ -2,6 +2,8 @@
 import { act, render as renderDom } from "../../../test/render";
 import {
   ELYSIA_CHANGE_CREDENTIALS_METHOD,
+  ELYSIA_DISABLE_COMPRESSION_METHOD,
+  ELYSIA_ENABLE_COMPRESSION_METHOD,
   ELYSIA_RETRY_COMPRESSION_METHOD,
   EnvironmentId,
   ProviderDriverKind,
@@ -33,6 +35,7 @@ vi.mock("../../state/use-atom-command", () => ({ useAtomCommand: (command: unkno
 vi.mock("../ui/toast", () => ({ toastManager: { add: setup.toast } }));
 
 import { ElysiaSetupSection } from "./ElysiaSetupSection";
+import { ElysiaCompressionSection } from "./ElysiaCompressionSection";
 
 const instanceId = ProviderInstanceId.make("claudeAgent");
 const provider: ServerProvider = {
@@ -72,14 +75,24 @@ beforeEach(() => {
 afterEach(async () => {});
 function view(currentProvider = provider, onboarding = true) {
   return (
-    <ElysiaSetupSection
-      environmentId={EnvironmentId.make("local")}
-      instanceId={instanceId}
-      provider={currentProvider}
-      enabled
-      readOnly={false}
-      onContinue={onboarding ? onContinue : undefined}
-    />
+    <>
+      <ElysiaSetupSection
+        environmentId={EnvironmentId.make("local")}
+        instanceId={instanceId}
+        provider={currentProvider}
+        enabled
+        readOnly={false}
+        onContinue={onboarding ? onContinue : undefined}
+      />
+      {!onboarding && (
+        <ElysiaCompressionSection
+          environmentId={EnvironmentId.make("local")}
+          instanceId={instanceId}
+          provider={currentProvider}
+          disabled={false}
+        />
+      )}
+    </>
   );
 }
 function button(label: string) {
@@ -176,6 +189,12 @@ it("changes credentials in Settings without repeating onboarding package groups"
     message: savedMessage,
     methods: [
       {
+        id: ELYSIA_ENABLE_COMPRESSION_METHOD,
+        name: "Turn on compression",
+        type: "credentials",
+        description: null,
+      },
+      {
         id: ELYSIA_RETRY_COMPRESSION_METHOD,
         name: "Retry compression",
         type: "credentials",
@@ -185,10 +204,31 @@ it("changes credentials in Settings without repeating onboarding package groups"
   });
   await screen.rerender(view(connectedProvider, false));
   expect(screen.container.querySelector('[role="alert"]')?.textContent).toBe(savedMessage);
-  await act(async () => button("Retry compression")!.click());
+  await act(async () => button("Turn on compression")!.click());
   expect(setup.start).toHaveBeenLastCalledWith({
     environmentId: "local",
-    input: { instanceId, methodId: ELYSIA_RETRY_COMPRESSION_METHOD },
+    input: { instanceId, methodId: ELYSIA_ENABLE_COMPRESSION_METHOD },
+  });
+  setup.auth = authState({
+    phase: "succeeded",
+    flowId: "enable",
+    methodId: ELYSIA_ENABLE_COMPRESSION_METHOD,
+    message: "Compression is on. The local proxy passed its health check.",
+    methods: [
+      {
+        id: ELYSIA_DISABLE_COMPRESSION_METHOD,
+        name: "Turn off compression",
+        type: "credentials",
+        description: null,
+      },
+    ],
+  });
+  await screen.rerender(view(connectedProvider, false));
+  expect(screen.container.textContent).toContain(setup.auth.message);
+  await act(async () => button("Turn off compression")!.click());
+  expect(setup.start).toHaveBeenLastCalledWith({
+    environmentId: "local",
+    input: { instanceId, methodId: ELYSIA_DISABLE_COMPRESSION_METHOD },
   });
   expect(setup.respond).toHaveBeenCalledTimes(1);
 });

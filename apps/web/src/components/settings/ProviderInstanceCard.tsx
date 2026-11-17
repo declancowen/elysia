@@ -64,6 +64,7 @@ import { ClaudeAI } from "../Icons";
 import { ProviderAccentColorPicker } from "./ProviderAccentColorPicker";
 import { RedactedSensitiveText } from "./RedactedSensitiveText";
 import { SettingResetButton, SettingsRow, SettingsSection } from "./settingsLayout";
+import { ElysiaCompressionSection } from "./ElysiaCompressionSection";
 import { AcpSessionManagementSection } from "./AcpSessionManagementSection";
 import { FoldedSettingsSection } from "./FoldedSettingsSection";
 import { readCodexSetupMode } from "./CodexSetupSection.logic";
@@ -1436,6 +1437,14 @@ export function ProviderInstanceCard({
         </SettingsSection>
       ) : null}
 
+      {instance.driver === "claudeAgent" && environmentId ? (
+        <ElysiaCompressionSection
+          environmentId={environmentId}
+          instanceId={instanceId}
+          provider={liveProvider}
+          disabled={readOnly || !enabled}
+        />
+      ) : null}
       {instance.driver !== "claudeAgent" && (setup || environmentFields.length > 0) ? (
         <SettingsSection title="Setup">
           {setup}

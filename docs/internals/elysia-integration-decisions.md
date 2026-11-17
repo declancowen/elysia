@@ -62,6 +62,8 @@ The CLI's credential check uses Chat Completions. Rotation prefers the saved mod
 
 Credential persistence and compression readiness have separate outcomes. The bridge saves credentials with direct routing before renewing an enabled proxy, and only restores the compression route after the old listener has stopped and the replacement started with the saved credentials passes a loopback health check. A failed restart leaves direct routing and a persisted retry using the saved key. Credential saves and route restoration advance the configuration revision even on the same CLI version so Claude reloads the profile.
 
+Settings runs the managed CLI's native compression commands. A paused profile can still have a running proxy, so stop the scoped service through native disable before enabling again. A healthy response from the former listener cannot verify that the saved credentials were loaded. Allow bounded waits for port release and proxy readiness. If enable fails, use native disable to restore direct routing and verify it before claiming recovery. Report the failed stage without publishing native subprocess output.
+
 ## UPSTREAM-001: Adapt changes in their current owner
 
 **Accepted, 2026-10-26.** Integration baseline: upstream [`e762f09e26`](https://github.com/pingdotgg/t3code/commit/e762f09e265b31607261ead2b4517c467ff59c28).

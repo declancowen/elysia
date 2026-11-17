@@ -61,3 +61,23 @@ diff --git a/templates/nsis/include/allowOnlyOneInstallerInstance.nsh b/template
            Quit
          ${else}
            Goto loop
+diff --git a/out/codeSign/macCodeSign.js b/out/codeSign/macCodeSign.js
+--- a/out/codeSign/macCodeSign.js
++++ b/out/codeSign/macCodeSign.js
+@@ -175,10 +175,15 @@
+ }
+ async function sign(opts) {
+     const { signAsync } = await (0, dynamicImport_1.dynamicImport)("@electron/osx-sign");
++    // Apple timestamp outages need a longer bounded retry budget.
++    let failures = 0;
+     return (0, builder_util_1.retry)(() => signAsync(opts), {
+-        retries: 3,
++        retries: 8,
+         interval: 5000,
+         backoff: 5000,
++        shouldRetry: error =>
++            ++failures <= 3 ||
++            /A timestamp was expected but was not found|timestamp service is not available/i.test(String(error)),
+     });
+ }
+ exports.findIdentityRawResult = null;

@@ -134,6 +134,7 @@ jobs:
         run: |
           vp test run --config vite.config.ts \
             scripts/build-desktop-artifact.test.ts \
+            scripts/mac-signing-retry.test.ts \
             scripts/lib/brand-assets.test.ts \
             scripts/update-release-package-versions.test.ts \
             scripts/merge-update-manifests.test.ts \

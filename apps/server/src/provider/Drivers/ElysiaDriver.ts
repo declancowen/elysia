@@ -2,7 +2,9 @@
 import {
   ClaudeSettings,
   ELYSIA_CHANGE_CREDENTIALS_METHOD,
+  ELYSIA_RETRY_COMPRESSION_METHOD,
   ProviderDriverKind,
+  type ProviderInstanceId,
   ProviderSetupError,
   TextGenerationError,
 } from "@elysiatools/contracts";
@@ -14,6 +16,7 @@ import * as Effect from "effect/Effect";
 import * as FileSystem from "effect/FileSystem";
 import * as Path from "effect/Path";
 import * as Schema from "effect/Schema";
+import * as Scope from "effect/Scope";
 import { HttpClient } from "effect/http";
 import { ChildProcessSpawner } from "effect/process";
 import { makeClaudeTextGeneration } from "../../textGeneration/ClaudeTextGeneration.ts";
@@ -77,7 +80,74 @@ const Credentials = Schema.Struct({
   api_key: Schema.String.check(Schema.isMinLength(5), Schema.isMaxLength(16384)),
 });
 const decodeCredentials = Schema.decodeUnknownEffect(Credentials);
+const readCredentialIds = Schema.decodeUnknownOption(
+  Schema.fromJsonString(
+    Schema.Struct({
+      workspace_id: Schema.optionalKey(Identifier),
+      config_id: Schema.optionalKey(Identifier),
+      user_id: Schema.optionalKey(Identifier),
+    }),
+  ),
+);
 const decodeClaudeSettings = Schema.decodeSync(ClaudeSettings);
+
+const requestElysiaCredentials = Effect.fn("ElysiaDriver.requestCredentials")(function* (
+  instanceId: ProviderInstanceId,
+  flow: ProviderAuthFlow.ProviderAuthFlowContext,
+  savedEnv: Readonly<Record<string, string>>,
+) {
+  const ids = readCredentialIds(savedEnv.CC_LANGSMITH_METADATA);
+  const savedIds = ids._tag === "Some" ? ids.value : {};
+  const fields = [
+    ["workspace_id", "Workspace ID"],
+    ["config_id", "Config ID"],
+    ["user_id", "User ID"],
+  ] as const;
+  const credentials = yield* Deferred.make<typeof Credentials.Type, ProviderSetupError>();
+  yield* flow.setInteraction(
+    {
+      type: "credentials",
+      id: flow.flowId,
+      fields: [
+        ...fields.map(([name, label]) => ({
+          name,
+          label,
+          secret: false as const,
+          ...(savedIds[name] ? { initialValue: savedIds[name] } : {}),
+        })),
+        {
+          name: "api_key",
+          label: "API key",
+          secret: true,
+          ...(savedEnv.ANTHROPIC_AUTH_TOKEN ? { hasSavedValue: true } : {}),
+        },
+      ],
+    },
+    (response) =>
+      Effect.gen(function* () {
+        const values = yield* decodeCredentials(
+          response.type === "credentials"
+            ? {
+                ...savedIds,
+                ...response.values,
+                api_key: response.values.api_key?.trim() || savedEnv.ANTHROPIC_AUTH_TOKEN,
+              }
+            : null,
+        ).pipe(
+          Effect.mapError(
+            () =>
+              new ProviderSetupError({
+                instanceId,
+                operation: "respond",
+                detail: "Enter valid workspace, config and user IDs, and an API key.",
+              }),
+          ),
+        );
+        yield* Deferred.succeed(credentials, values);
+      }),
+  );
+  return yield* Deferred.await(credentials);
+});
 
 export type ElysiaDriverEnv =
   | ClaudeAgentSdkQueryRunner
@@ -466,38 +536,103 @@ export const ElysiaDriver: ProviderDriver<ClaudeSettings, ElysiaDriverEnv> = {
           }),
       ),
     );
+    const syncModelAfterSetup = Effect.gen(function* () {
+      const defaultModel = appDefaultModel ?? config.elysiaDefaultModel;
+      const nativeSettings = yield* elysia.readSettings;
+      if (nativeSettings._tag === "Some") {
+        if (defaultModel && nativeSettings.value.allowed_models.includes(defaultModel)) {
+          yield* elysia.run("--model", undefined, [defaultModel]);
+        } else {
+          yield* serverSettings
+            .updateSettings({
+              defaultModelSelection: { instanceId, model: nativeSettings.value.model },
+            })
+            .pipe(
+              Effect.catch(() =>
+                Effect.logWarning(
+                  "Native Elysia sign-in succeeded; the app default model could not be saved.",
+                ),
+              ),
+            );
+        }
+      }
+    });
+    const refreshProfile = elysia.refreshEnvironment.pipe(
+      Effect.andThen(Cache.invalidateAll(capabilities)),
+    );
+    const rotateCredentials = Effect.fn("ElysiaDriver.rotateCredentials")(function* (
+      flow: ProviderAuthFlow.ProviderAuthFlowContext,
+    ) {
+      const saved = yield* elysia.readSettings;
+      const values = yield* requestElysiaCredentials(
+        instanceId,
+        flow,
+        saved._tag === "Some" ? saved.value.env : {},
+      );
+      yield* flow.verifying;
+      yield* flow.setMessage("Updating Elysia credentials…");
+      yield* elysia.run("rotate-credentials", values).pipe(Effect.ensuring(refreshProfile));
+      const compression = yield* elysia.compression;
+      return compression._tag === "Some" && compression.value.enabled
+        ? "Credentials saved. Compression restarted."
+        : "Credentials saved.";
+    });
+    const providerScope = yield* Scope.Scope;
     const auth = yield* ProviderAuthFlow.make({
       instanceId,
       credentialBinding: { owner: "provider", key: elysia.root },
       defaultMethodId: "elysia",
       refreshMethodsAfterAuth: true,
+      deferSessionStopForMethod: ELYSIA_CHANGE_CREDENTIALS_METHOD,
       timeoutMs: 1_800_000,
-      methods: Effect.map(elysia.ready, (ready) => [
-        {
-          id: "elysia",
-          name: "Elysia credentials",
-          description: "Initialise the native Elysia CLI and context compression.",
-          type: "credentials" as const,
-        },
-        ...(ready
-          ? [
-              {
-                id: ELYSIA_CHANGE_CREDENTIALS_METHOD,
-                name: "Change credentials",
-                description: null,
-                type: "credentials" as const,
-              },
-            ]
-          : []),
-      ]),
-      authenticate: Effect.fn("ElysiaDriver.authenticate")(function* (method, flow) {
-        if (!enabled)
-          return yield* new ProviderSetupError({
-            instanceId,
-            operation: "connect",
-            detail: "Enable Elysia before configuring credentials.",
-          });
-        if (method !== ELYSIA_CHANGE_CREDENTIALS_METHOD) {
+      methods: Effect.map(
+        Effect.all([elysia.readSettings, elysia.compression]),
+        ([settings, compression]) => [
+          {
+            id: "elysia",
+            name: "Elysia credentials",
+            description: "Initialise the native Elysia CLI and context compression.",
+            type: "credentials" as const,
+          },
+          ...(settings._tag === "Some"
+            ? [
+                {
+                  id: ELYSIA_CHANGE_CREDENTIALS_METHOD,
+                  name: "Change credentials",
+                  description: null,
+                  type: "credentials" as const,
+                },
+              ]
+            : []),
+          ...(settings._tag === "Some" &&
+          compression._tag === "Some" &&
+          compression.value.restartPending
+            ? [
+                {
+                  id: ELYSIA_RETRY_COMPRESSION_METHOD,
+                  name: "Retry compression",
+                  description: null,
+                  type: "credentials" as const,
+                },
+              ]
+            : []),
+        ],
+      ),
+      authenticate: Effect.fn("ElysiaDriver.authenticate")(
+        function* (method, flow) {
+          if (!enabled)
+            return yield* new ProviderSetupError({
+              instanceId,
+              operation: "connect",
+              detail: "Enable Elysia before configuring credentials.",
+            });
+          if (method === ELYSIA_RETRY_COMPRESSION_METHOD) {
+            yield* flow.verifying;
+            yield* flow.setMessage("Restarting compression…");
+            yield* elysia.run("retry-compression").pipe(Effect.ensuring(refreshProfile));
+            return "Compression restarted.";
+          }
+          if (method === ELYSIA_CHANGE_CREDENTIALS_METHOD) return yield* rotateCredentials(flow);
           yield* elysia.bootstrap(flow.setMessage);
           yield* flow.setMessage("Reading the native Elysia CLI sign-in…");
           if (yield* elysia.reuseCredentials()) {
@@ -507,64 +642,29 @@ export const ElysiaDriver: ProviderDriver<ClaudeSettings, ElysiaDriverEnv> = {
             return;
           }
           yield* snapshot.refresh;
-        }
-        const credentials = yield* Deferred.make<typeof Credentials.Type, ProviderSetupError>();
-        yield* flow.setInteraction(
-          {
-            type: "credentials",
-            id: flow.flowId,
-            fields: [
-              { name: "workspace_id", label: "Workspace ID", secret: false },
-              { name: "config_id", label: "Config ID", secret: false },
-              { name: "user_id", label: "User ID", secret: false },
-              { name: "api_key", label: "API key", secret: true },
-            ],
-          },
-          (response) =>
-            Effect.gen(function* () {
-              const values = yield* decodeCredentials(
-                response.type === "credentials" ? response.values : null,
-              ).pipe(
-                Effect.mapError(
-                  () =>
-                    new ProviderSetupError({
-                      instanceId,
-                      operation: "respond",
-                      detail: "Enter valid workspace, config and user IDs, and an API key.",
-                    }),
-                ),
-              );
-              yield* Deferred.succeed(credentials, values);
-            }),
-        );
-        const values = yield* Deferred.await(credentials);
-        yield* flow.verifying;
-        yield* flow.setMessage(
-          "Connecting through the native Elysia CLI and preparing compression…",
-        );
-        yield* elysia.run("--init", values);
-        const defaultModel = appDefaultModel ?? config.elysiaDefaultModel;
-        const nativeSettings = yield* elysia.readSettings;
-        if (nativeSettings._tag === "Some") {
-          if (defaultModel && nativeSettings.value.allowed_models.includes(defaultModel)) {
-            yield* elysia.run("--model", undefined, [defaultModel]);
-          } else {
-            yield* serverSettings
-              .updateSettings({
-                defaultModelSelection: { instanceId, model: nativeSettings.value.model },
-              })
-              .pipe(
-                Effect.catch(() =>
-                  Effect.logWarning(
-                    "Native Elysia sign-in succeeded; the app default model could not be saved.",
-                  ),
-                ),
-              );
-          }
-        }
-        yield* elysia.refreshEnvironment;
-        yield* Cache.invalidateAll(capabilities);
-      }, Effect.ensuring(snapshot.refresh)),
+          const values = yield* requestElysiaCredentials(instanceId, flow, {});
+          yield* flow.verifying;
+          yield* flow.setMessage(
+            "Connecting through the native Elysia CLI and preparing compression…",
+          );
+          yield* elysia.run("--init", values);
+          yield* syncModelAfterSetup;
+          yield* refreshProfile;
+        },
+        (effect, method) =>
+          effect.pipe(
+            Effect.ensuring(
+              method !== "elysia"
+                ? snapshot.refresh.pipe(
+                    Effect.ignoreCause({ log: true }),
+                    Effect.interruptible,
+                    Effect.forkIn(providerScope),
+                    Effect.asVoid,
+                  )
+                : snapshot.refresh,
+            ),
+          ),
+      ),
       logout: elysia.logout.pipe(
         Effect.andThen(Cache.invalidateAll(capabilities)),
         Effect.andThen(snapshot.refresh),

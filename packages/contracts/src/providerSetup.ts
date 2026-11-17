@@ -49,11 +49,20 @@ export const ProviderAuthInteraction = Schema.Union([
     type: Schema.Literal("credentials"),
     id: SetupOperationId,
     fields: Schema.Array(
-      Schema.Struct({
-        name: SetupOperationId,
-        label: TrimmedNonEmptyString,
-        secret: Schema.Boolean,
-      }),
+      Schema.Union([
+        Schema.Struct({
+          name: SetupOperationId,
+          label: TrimmedNonEmptyString,
+          secret: Schema.Literal(false),
+          initialValue: Schema.optionalKey(Schema.String.check(Schema.isMaxLength(256))),
+        }),
+        Schema.Struct({
+          name: SetupOperationId,
+          label: TrimmedNonEmptyString,
+          secret: Schema.Literal(true),
+          hasSavedValue: Schema.optionalKey(Schema.Boolean),
+        }),
+      ]),
     ).check(Schema.isMaxLength(16)),
   }),
 ]);
@@ -84,6 +93,7 @@ export const ProviderAuthResponse = Schema.Union([
 export type ProviderAuthResponse = typeof ProviderAuthResponse.Type;
 
 export const ELYSIA_CHANGE_CREDENTIALS_METHOD = "elysia-change-credentials";
+export const ELYSIA_RETRY_COMPRESSION_METHOD = "elysia-retry-compression";
 
 export const ProviderAuthStartInput = Schema.Struct({
   instanceId: ProviderInstanceId,

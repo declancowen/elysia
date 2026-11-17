@@ -190,7 +190,14 @@ it("retains Agents beside its conversations and restores each Home sidebar and u
       host.querySelector<HTMLButtonElement>(
         '[data-app-topbar] [aria-label="Toggle main sidebar"]',
       )!;
-    for (const pathname of ["/projects", "/tasks", "/pages", "/pages/page-reference", "/mcp"]) {
+    for (const pathname of [
+      "/projects",
+      "/tasks",
+      "/pages",
+      "/pages/page-reference",
+      "/mcp",
+      "/usage",
+    ]) {
       state.pathname = pathname;
       await render();
       expect(host.querySelector("[data-app-sidebar]")).toBeNull();
@@ -203,7 +210,7 @@ it("retains Agents beside its conversations and restores each Home sidebar and u
     await render();
     expect(host.querySelector("[data-app-sidebar]")?.getAttribute("aria-label")).toBe("Settings");
     expect(sidebarToggle().getAttribute("aria-pressed")).toBe("true");
-    state.pathname = "/usage";
+    state.pathname = "/";
     await render();
     expect(host.querySelector("[data-app-sidebar]")?.getAttribute("aria-label")).toBe("Threads");
     expect(sidebarToggle().disabled).toBe(false);

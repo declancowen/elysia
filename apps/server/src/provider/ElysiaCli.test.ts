@@ -1243,6 +1243,123 @@ it("keeps the slash command and scoped CLI on the active compression port", () =
   expect(JSON.parse(stats.stdout)).toEqual({ home: profile, port });
 });
 
+it("rotates the managed key across settings, Tavily and compression without reinstalling", () => {
+  const { profile, run } = fixture(
+    nativeFixture +
+      String.raw`
+DEFAULT_MODEL = "deepseek-v4.1-flash"
+def fetch_user_hash(user, key):
+    print(key)
+    return "test-hash", "test-key-id"
+def _find_headroom():
+    return "fixture-headroom"
+def _headroom_env(key, config):
+    return {"key": key, "config": config}
+def _mac_launchctl(verb):
+    assert verb == "unload"
+def _install_launchd_agent(headroom, env, port, silent=False):
+    assert headroom == "fixture-headroom" and silent
+    if (HOME / "launch-failure").exists():
+        raise OSError("Fixture proxy launch failed")
+    (HOME / "restarted.json").write_text(json.dumps({**env, "port": port}))
+import http.client
+class FixtureConnection:
+    def __init__(self, host, port, timeout):
+        assert host == "127.0.0.1" and timeout == 2
+    def request(self, method, path):
+        assert method == "GET" and path == "/health"
+    def getresponse(self):
+        assert (HOME / "restarted.json").exists()
+        return type("Response", (), {"status": 503 if (HOME / "unhealthy").exists() else 200})()
+    def close(self):
+        pass
+http.client.HTTPConnection = FixtureConnection
+`,
+  );
+  expect(run("--init").status).toBe(0);
+  const settingsPath = NodePath.join(profile, ".claude/settings.json");
+  const mcpPath = NodePath.join(profile, ".claude/.claude.json");
+  const configVersion = NodePath.join(profile, "configuration-version");
+  const statePath = NodePath.join(profile, ".elysia/compression.json");
+  const { port } = JSON.parse(NodeFS.readFileSync(statePath, "utf8"));
+  const before = JSON.parse(NodeFS.readFileSync(settingsPath, "utf8"));
+  before.env.ANTHROPIC_CUSTOM_HEADERS += "\nx-keep: true";
+  before.env.ANTHROPIC_BASE_URL = `http://localhost:${port}`;
+  before.model = "gpt-6.1-sol";
+  before.permissions = { defaultMode: "plan" };
+  const originalMcp = {
+    mcpServers: {
+      tavily: { headers: { "x-portkey-api-key": "fixture-secret", keep: "true" } },
+      other: { type: "stdio", command: "fixture" },
+    },
+  };
+  NodeFS.writeFileSync(settingsPath, JSON.stringify(before));
+  NodeFS.writeFileSync(mcpPath, JSON.stringify(originalMcp));
+  NodeFS.writeFileSync(statePath, JSON.stringify({ enabled: true, port }));
+  const revision = NodeFS.readFileSync(configVersion, "utf8");
+
+  const rejected = run("rotate-credentials", "invalid-secret");
+  expect(rejected.status).toBe(1);
+  expect(rejected.stdout + rejected.stderr).not.toContain("invalid-secret");
+  expect(JSON.parse(NodeFS.readFileSync(settingsPath, "utf8"))).toEqual(before);
+  expect(JSON.parse(NodeFS.readFileSync(mcpPath, "utf8"))).toEqual(originalMcp);
+  expect(NodeFS.readFileSync(configVersion, "utf8")).toBe(revision);
+
+  for (const failure of ["launch-failure", "unhealthy"]) {
+    const marker = NodePath.join(profile, failure);
+    NodeFS.writeFileSync(marker, "");
+    const rotated = run("rotate-credentials", "replacement-fixture-key");
+    expect(rotated.status).toBe(1);
+    expect(rotated.stderr).toContain("ELYSIA_WARNING:rotation-compression");
+    expect(rotated.stdout + rotated.stderr).not.toContain("replacement-fixture-key");
+    expect(JSON.parse(NodeFS.readFileSync(settingsPath, "utf8")).env).toMatchObject({
+      ANTHROPIC_AUTH_TOKEN: "replacement-fixture-key",
+      ANTHROPIC_BASE_URL: "https://fixture.invalid",
+    });
+    expect(JSON.parse(NodeFS.readFileSync(statePath, "utf8"))).toEqual({
+      enabled: false,
+      port,
+      restartPending: true,
+    });
+    expect(NodeFS.existsSync(NodePath.join(profile, "ready"))).toBe(true);
+    NodeFS.unlinkSync(marker);
+  }
+  const savedRevision = NodeFS.readFileSync(configVersion, "utf8");
+  expect(savedRevision).not.toBe(revision);
+  const restarted = run("retry-compression");
+  expect(restarted.status, restarted.stderr).toBe(0);
+  expect(JSON.parse(NodeFS.readFileSync(statePath, "utf8"))).toEqual({ enabled: true, port });
+  expect(JSON.parse(NodeFS.readFileSync(settingsPath, "utf8"))).toEqual({
+    ...before,
+    env: {
+      ...before.env,
+      ANTHROPIC_AUTH_TOKEN: "replacement-fixture-key",
+      ANTHROPIC_CUSTOM_HEADERS:
+        "x-portkey-api-key: replacement-fixture-key\nx-portkey-config: config\nx-keep: true",
+      CC_LANGSMITH_METADATA: JSON.stringify({
+        ...JSON.parse(before.env.CC_LANGSMITH_METADATA),
+        user_hash: "test-hash",
+        api_key_id: "test-key-id",
+        compression: "enabled",
+      }),
+    },
+  });
+  expect(JSON.parse(NodeFS.readFileSync(mcpPath, "utf8"))).toEqual({
+    mcpServers: {
+      ...originalMcp.mcpServers,
+      tavily: { headers: { "x-portkey-api-key": "replacement-fixture-key", keep: "true" } },
+    },
+  });
+  expect(JSON.parse(NodeFS.readFileSync(NodePath.join(profile, "restarted.json"), "utf8"))).toEqual(
+    {
+      key: "replacement-fixture-key",
+      config: "config",
+      port,
+    },
+  );
+  expect(NodeFS.readFileSync(configVersion, "utf8")).not.toBe(savedRevision);
+});
+
 it("preserves the owned port when native compression is disabled", () => {
   const { profile, run } = fixture();
   expect(run("--init").status).toBe(0);

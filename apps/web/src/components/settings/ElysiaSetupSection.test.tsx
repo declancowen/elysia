@@ -2,6 +2,7 @@
 import { act, render as renderDom } from "../../../test/render";
 import {
   ELYSIA_CHANGE_CREDENTIALS_METHOD,
+  ELYSIA_RETRY_COMPRESSION_METHOD,
   EnvironmentId,
   ProviderDriverKind,
   ProviderInstanceId,
@@ -126,14 +127,70 @@ it("changes credentials in Settings without repeating onboarding package groups"
     interaction: {
       id: "credentials",
       type: "credentials",
-      fields: [{ name: "api_key", label: "API key", secret: true }],
+      fields: [
+        {
+          name: "workspace_id",
+          label: "Workspace ID",
+          secret: false,
+          initialValue: "saved-workspace",
+        },
+        { name: "config_id", label: "Config ID", secret: false, initialValue: "saved-config" },
+        { name: "user_id", label: "User ID", secret: false, initialValue: "saved-user" },
+        { name: "api_key", label: "API key", secret: true, hasSavedValue: true },
+      ],
     },
   });
   await screen.rerender(view(connectedProvider, false));
-  expect(screen.container.querySelector<HTMLInputElement>("input")?.type).toBe("password");
-  expect(button("Save credentials")).toBeDefined();
+  expect(
+    [...screen.container.querySelectorAll<HTMLInputElement>("input")].map((input) => input.value),
+  ).toEqual(["saved-workspace", "saved-config", "saved-user", ""]);
+  const key = screen.container.querySelector<HTMLInputElement>('input[type="password"]');
+  expect(key?.required).toBe(false);
+  expect(key?.placeholder).toBe("••••••••");
+  await act(async () => button("Save credentials")!.click());
+  expect(setup.respond).toHaveBeenCalledWith({
+    environmentId: "local",
+    input: {
+      instanceId,
+      flowId: "change-credentials",
+      interactionId: "credentials",
+      response: {
+        type: "credentials",
+        values: {
+          workspace_id: "saved-workspace",
+          config_id: "saved-config",
+          user_id: "saved-user",
+          api_key: "",
+        },
+      },
+    },
+  });
   expect(screen.container.querySelector('section[aria-label="Installed"]')).toBeNull();
   expect(setup.toast).not.toHaveBeenCalled();
+
+  const savedMessage =
+    "Credentials saved. Compression could not restart. Elysia is using the direct gateway.";
+  setup.auth = authState({
+    phase: "failed",
+    flowId: "change-credentials",
+    message: savedMessage,
+    methods: [
+      {
+        id: ELYSIA_RETRY_COMPRESSION_METHOD,
+        name: "Retry compression",
+        type: "credentials",
+        description: null,
+      },
+    ],
+  });
+  await screen.rerender(view(connectedProvider, false));
+  expect(screen.container.querySelector('[role="alert"]')?.textContent).toBe(savedMessage);
+  await act(async () => button("Retry compression")!.click());
+  expect(setup.start).toHaveBeenLastCalledWith({
+    environmentId: "local",
+    input: { instanceId, methodId: ELYSIA_RETRY_COMPRESSION_METHOD },
+  });
+  expect(setup.respond).toHaveBeenCalledTimes(1);
 });
 
 it("offers missing prerequisite installation when Elysia exists but Claude Code does not", async () => {

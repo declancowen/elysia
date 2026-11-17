@@ -33,7 +33,7 @@ export interface ProviderAuthFlowContext {
     respond?: (response: ProviderAuthResponse) => Effect.Effect<void, ProviderSetupError>,
     complete?: (callbackUrl: string) => Effect.Effect<void, ProviderSetupError>,
   ) => Effect.Effect<void>;
-  readonly verifying: Effect.Effect<void>;
+  readonly verifying: Effect.Effect<void, ProviderSetupError>;
   readonly setMessage: (message: string) => Effect.Effect<void>;
 }
 
@@ -64,11 +64,12 @@ export const make = Effect.fn("ProviderAuthFlow.make")(function* (options: {
   readonly methods: Effect.Effect<ReadonlyArray<ProviderAuthMethod>, ProviderSetupError>;
   readonly defaultMethodId?: string;
   readonly refreshMethodsAfterAuth?: boolean;
+  readonly deferSessionStopForMethod?: string;
   /** Fail with ProviderSetupError containing safe text for the user, never native token data. */
   readonly authenticate: (
     methodId: string,
     context: ProviderAuthFlowContext,
-  ) => Effect.Effect<void, ProviderSetupError, Scope.Scope>;
+  ) => Effect.Effect<void | string, ProviderSetupError, Scope.Scope>;
   readonly logout: Effect.Effect<void | string, ProviderSetupError>;
   readonly timeoutMs?: number;
 }) {
@@ -276,7 +277,9 @@ export const make = Effect.fn("ProviderAuthFlow.make")(function* (options: {
                 operation: "start",
                 detail: "The provider did not advertise this sign-in method.",
               });
-            yield* stopSessions.pipe(Effect.ensuring(stopOwnedSessions));
+            const releaseSessions = stopSessions.pipe(Effect.ensuring(stopOwnedSessions));
+            const deferSessionStop = methodId === options.deferSessionStopForMethod;
+            if (!deferSessionStop) yield* releaseSessions;
             yield* options.authenticate(methodId, {
               flowId: id,
               expiresAt: flow.expiresAt,
@@ -307,6 +310,7 @@ export const make = Effect.fn("ProviderAuthFlow.make")(function* (options: {
                   authorizationUrl: null,
                   message: "Checking provider sign-in.",
                 });
+                if (deferSessionStop) yield* releaseSessions;
               }),
             });
           }).pipe(
@@ -344,7 +348,7 @@ export const make = Effect.fn("ProviderAuthFlow.make")(function* (options: {
                       authorizationUrl: null,
                       expiresAt: null,
                       message: Exit.isSuccess(result)
-                        ? "Sign-in complete."
+                        ? (result.value ?? "Sign-in complete.")
                         : failureMessage(result.cause),
                     });
                     active = undefined;

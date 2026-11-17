@@ -167,6 +167,10 @@ The native CLI 0.3.11 and Claude Agent SDK 0.3.316 remain the compatibility base
 
 On macOS, the isolated bridge fixture upgraded the managed script from 0.3.8 to 0.3.9 and left the separate terminal installation untouched. Failed finalization did not publish a new configuration version. Live company credentials, installer delivery and installed-app interaction are **Not verified**.
 
+## App v0.0.50 managed credential rotation
+
+The native CLI 0.3.11 was exercised in an isolated managed profile with simulated gateway responses, including rejection, replacement of all credential fields, preserved TLS verification, and retention of existing settings. Bridge fixtures cover Tavily, launch and health failures leaving direct routing, and retry with the saved key and original port. The supplied standalone script was checked separately with a terminal-layout fixture and simulated gateway and launcher responses. Live company credential validation and real platform proxy restarts are **Not verified**.
+
 ## Recording the next release
 
 Before publishing, append the app release and source commit, resolved SDK version, actual managed CLI version tested, native package checksum if available, platforms tested, and the result. Record initialization, update and existing-sign-in adoption separately when the CLI changes setup behavior. Use “Not verified” for missing evidence; keep fixture coverage separate from native tests. Never record credentials, environment dumps or authenticated download URLs.

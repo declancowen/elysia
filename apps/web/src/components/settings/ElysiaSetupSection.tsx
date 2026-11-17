@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, useState } from "react";
 import {
   ELYSIA_CHANGE_CREDENTIALS_METHOD,
+  ELYSIA_RETRY_COMPRESSION_METHOD,
   type EnvironmentId,
   type ProviderInstanceId,
   type ServerProvider,
@@ -43,7 +44,6 @@ export function ElysiaSetupSection({
   const respond = useAtomCommand(serverEnvironment.respondProviderAuth, { reportFailure: false });
   const cancel = useAtomCommand(serverEnvironment.cancelProviderAuth, { reportFailure: false });
   const logout = useAtomCommand(serverEnvironment.logoutProviderAuth, { reportFailure: false });
-  const [values, setValues] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
   const [attemptedSetup, setAttemptedSetup] = useState(false);
@@ -64,6 +64,11 @@ export function ElysiaSetupSection({
     installationComplete ||
     (active && auth?.message?.startsWith("4/4") === true);
   const connected = provider?.auth.status === "authenticated" && provider.status === "ready";
+  const canUpdateDetails =
+    connected || auth?.methods?.some((method) => method.id === ELYSIA_CHANGE_CREDENTIALS_METHOD);
+  const retryCompression = auth?.methods?.find(
+    (method) => method.id === ELYSIA_RETRY_COMPRESSION_METHOD,
+  );
   const packagesReady = installed && claudeInstalled;
   const enteringCredentials =
     auth?.phase === "waiting" && interaction?.type === "credentials" && Boolean(auth.flowId);
@@ -92,10 +97,10 @@ export function ElysiaSetupSection({
     reportedFailure.current = failure;
     toastManager.add({
       type: "error",
-      title: "Could not connect Elysia",
+      title: retryCompression ? "Elysia needs attention" : "Could not connect Elysia",
       description: auth.message,
     });
-  }, [attemptedSetup, ignoredFlowId, auth?.flowId, auth?.message, auth?.phase]);
+  }, [attemptedSetup, ignoredFlowId, auth?.flowId, auth?.message, auth?.phase, retryCompression]);
   async function run(command: () => Promise<AtomCommandResult<unknown, unknown>>) {
     setPending(true);
     setError(null);
@@ -128,6 +133,12 @@ export function ElysiaSetupSection({
       .finally(() => {
         setPending(false);
       });
+  }
+  function beginSetup(methodId?: string) {
+    setAttemptedSetup(true);
+    setIgnoredFlowId(auth?.flowId ?? null);
+    setSignInRequested(packagesReady);
+    void run(() => start(methodId ? { environmentId, input: { instanceId, methodId } } : target));
   }
   return (
     <div className={onContinue ? "space-y-3 p-1" : "space-y-4 px-3 py-3 sm:px-4"}>
@@ -205,14 +216,19 @@ export function ElysiaSetupSection({
       ) : null}
       {enteringCredentials && interaction?.type === "credentials" && auth?.flowId ? (
         <form
+          key={interaction.id}
           id={credentialsFormId}
           className="space-y-4"
           onSubmit={(event) => {
             event.preventDefault();
             setAttemptedSetup(true);
             setIgnoredFlowId(null);
-            const submitted = values;
-            setValues({});
+            const form = event.currentTarget;
+            const data = new FormData(form);
+            const submitted = Object.fromEntries(
+              interaction.fields.map(({ name }) => [name, String(data.get(name) ?? "")]),
+            );
+            form.reset();
             void run(() =>
               respond({
                 environmentId,
@@ -230,16 +246,17 @@ export function ElysiaSetupSection({
             <label key={field.name} className="flex flex-col gap-1.5 text-xs">
               <span>{field.label}</span>
               <Input
-                required
+                required={!field.secret || !field.hasSavedValue}
                 type={field.secret ? "password" : "text"}
-                autoComplete="off"
-                placeholder={field.secret ? "****" : undefined}
+                autoComplete={field.secret ? "new-password" : "off"}
+                placeholder={field.secret ? (field.hasSavedValue ? "••••••••" : "****") : undefined}
                 disabled={disabled}
-                value={values[field.name] ?? ""}
-                onChange={(event) =>
-                  setValues((previous) => ({ ...previous, [field.name]: event.target.value }))
-                }
+                name={field.name}
+                defaultValue={field.secret ? undefined : field.initialValue}
               />
+              {field.secret && field.hasSavedValue ? (
+                <span className="text-muted-foreground">Leave blank to keep the current key.</span>
+              ) : null}
             </label>
           ))}
         </form>
@@ -259,14 +276,28 @@ export function ElysiaSetupSection({
           {error ?? connectionError}
         </p>
       ) : null}
+      {!onContinue && !active && retryCompression && !connectionError ? (
+        <p className="text-xs text-muted-foreground">
+          Compression is paused. Elysia is using the direct gateway.
+        </p>
+      ) : null}
       <div className={onContinue ? "flex justify-end gap-3 pt-3" : "flex flex-wrap gap-3"}>
+        {!onContinue && !active && retryCompression ? (
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={disabled}
+            onClick={() => beginSetup(retryCompression.id)}
+          >
+            {retryCompression.name}
+          </Button>
+        ) : null}
         {active && auth?.flowId ? (
           <Button
             variant="outline"
             size="sm"
             disabled={disabled}
             onClick={() => {
-              setValues({});
               void run(() =>
                 cancel({ environmentId, input: { instanceId, flowId: auth.flowId! } }),
               );
@@ -280,7 +311,6 @@ export function ElysiaSetupSection({
             size="sm"
             disabled={disabled}
             onClick={() => {
-              setValues({});
               void run(() => logout(target));
             }}
           >
@@ -303,28 +333,17 @@ export function ElysiaSetupSection({
             size={onContinue ? "default" : "sm"}
             disabled={disabled}
           >
-            {connected ? "Save credentials" : "Connect"}
+            {canUpdateDetails && !onContinue ? "Save credentials" : "Connect"}
           </Button>
         ) : (
           <Button
             size={onContinue ? "default" : "sm"}
             disabled={disabled || active || !provider}
-            onClick={() => {
-              setValues({});
-              setAttemptedSetup(true);
-              setIgnoredFlowId(auth?.flowId ?? null);
-              setSignInRequested(packagesReady);
-              void run(() =>
-                start(
-                  connected
-                    ? {
-                        environmentId,
-                        input: { instanceId, methodId: ELYSIA_CHANGE_CREDENTIALS_METHOD },
-                      }
-                    : target,
-                ),
-              );
-            }}
+            onClick={() =>
+              beginSetup(
+                canUpdateDetails && !onContinue ? ELYSIA_CHANGE_CREDENTIALS_METHOD : undefined,
+              )
+            }
           >
             {active
               ? auth?.phase === "verifying"
@@ -334,7 +353,7 @@ export function ElysiaSetupSection({
                   : "Installing…"
               : onContinue
                 ? "Continue"
-                : connected
+                : canUpdateDetails
                   ? "Change credentials"
                   : packagesReady
                     ? "Connect"

@@ -7,6 +7,7 @@ import {
 import {
   AuthProvidersManageScope,
   ELYSIA_CHANGE_CREDENTIALS_METHOD,
+  ELYSIA_RETRY_COMPRESSION_METHOD,
   isManagedDriverAllowed,
   type ProviderAuthResponse,
   type ServerProvider,
@@ -185,19 +186,19 @@ function ProviderAccount({
       }),
     );
   }
-  function field(name: string, label: string, secret: boolean) {
+  function field(name: string, label: string, secret: boolean, initialValue = "", saved = false) {
     return (
       <TextInput
         accessibilityLabel={label}
         className="rounded-lg border border-border-subtle px-3 py-2 text-base text-foreground"
         placeholderTextColorClassName="accent-foreground-muted"
-        placeholder={label}
+        placeholder={saved ? "••••••••" : label}
         secureTextEntry={secret}
         autoCapitalize="none"
         autoCorrect={false}
         editable={!disabled}
         maxLength={secret && interaction?.type === "terminal" ? 4_095 : 16_384}
-        value={values[name] ?? ""}
+        value={values[name] ?? initialValue}
         onChangeText={(value) => setDraft({ id: draftId, values: { ...values, [name]: value } })}
       />
     );
@@ -208,6 +209,7 @@ function ProviderAccount({
   const changeCredentialsMethod = methods.find(
     (method) => method.id === ELYSIA_CHANGE_CREDENTIALS_METHOD,
   );
+  const retryCompression = methods.find((method) => method.id === ELYSIA_RETRY_COMPRESSION_METHOD);
   // The status line says why a provider that is missing or turned off can't sign in.
   const canSignIn =
     !active &&
@@ -229,7 +231,9 @@ function ProviderAccount({
       : !provider.enabled
         ? "Turned off"
         : signedIn
-          ? "Signed in"
+          ? retryCompression
+            ? "Compression is paused. Elysia is using the direct gateway."
+            : "Signed in"
           : isDiscovering
             ? "Discovering sign-in methods…"
             : needsExternalSetup
@@ -286,6 +290,16 @@ function ProviderAccount({
                   })),
                 }
               : {}),
+          },
+        ]
+      : []),
+    ...(canSignIn && retryCompression
+      ? [
+          {
+            id: `method:${retryCompression.id}`,
+            title: retryCompression.name,
+            image: "arrow.clockwise",
+            attributes: { disabled: signInDisabled },
           },
         ]
       : []),
@@ -402,11 +416,15 @@ function ProviderAccount({
           {interaction?.type === "credentials" ? (
             <>
               {interaction.fields.map((entry) => (
-                <View key={entry.name}>{field(entry.name, entry.label, entry.secret)}</View>
+                <View key={entry.name}>
+                  {entry.secret
+                    ? field(entry.name, entry.label, true, "", entry.hasSavedValue)
+                    : field(entry.name, entry.label, false, entry.initialValue)}
+                </View>
               ))}
               <SettingsActionRow
                 icon="person.crop.circle"
-                label="Connect"
+                label={changeCredentialsMethod ? "Save credentials" : "Connect"}
                 disabled={disabled}
                 onPress={() => {
                   void send({ type: "credentials", values }).then((sent) => {

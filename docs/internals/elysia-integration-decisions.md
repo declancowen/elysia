@@ -8,7 +8,7 @@ When a CLI update or upstream change affects a decision, add a dated replacement
 
 **Accepted, 2026-10-26.** Applies to macOS and Windows. Reaffirmed against native CLI 0.3.11 after regressions in existing-sign-in reuse.
 
-The CLI owns authentication, credential validation, certificate trust and setup. Initial sign-in first reuses the CLI profile. An explicit credential change in Settings skips reuse and collects replacement values for native `--init`. The GUI must not introduce its own gateway request, VPN check or certificate export as an admission requirement. Those checks duplicated native policy and rejected sign-ins that worked in the terminal.
+The CLI owns authentication, credential validation, certificate trust and setup. Initial sign-in first reuses the CLI profile. The GUI must not introduce its own gateway request, VPN check or certificate export as an admission requirement. Those checks duplicated native policy and rejected sign-ins that worked in the terminal. The explicit credential change introduced in v0.0.49 ran native `--init`. [CLI-006](#cli-006-credential-rotation-preserves-the-managed-profile) supersedes that path.
 
 Keep this boundary in [ElysiaCli](../../apps/server/src/provider/ElysiaCli.ts). Revisit only if the CLI publishes a different supported authentication contract. A setup error must retain its native meaning; do not infer that credentials or network trust are invalid from an unrelated optional plugin failure.
 
@@ -51,6 +51,14 @@ The boundary lives in [ElysiaAgentProtection](../../apps/server/src/provider/Ely
 **Accepted, 2026-11-12.** Elysia keeps a managed Claude profile so its gateway settings and native runtime stay isolated. At query startup, [ElysiaMcpConfig](../../apps/server/src/provider/ElysiaMcpConfig.ts) reads user registrations and local registrations for the query's working directory. It reserves names configured in the managed profile or the workspace's `.mcp.json`. Claude owns repository registration, trust and approval. Account credentials, OAuth state and workspace trust are outside the import boundary.
 
 The earlier managed-file merge was superseded before release because Claude's own saves could land between the importer's comparison and rename. The adapter passes inherited servers through its existing SDK stdin registration path for the active session. It leaves both profiles under their original writers. A successful read changes the configuration revision when effective registrations change. Transient read failures retain the last valid snapshot for that workspace so an idle session can be reused and background work can continue.
+
+## CLI-006: Credential rotation preserves the managed profile
+
+**Accepted, 2026-11-17.** Extends [CLI-001](#cli-001-native-authentication-ownership).
+
+Native `--init` installs prerequisites and rewrites the whole profile before it finishes validation. Credential changes use the installed CLI's validation and proxy helpers through the managed bridge, preserving the selected model, privacy settings, unrelated headers, and the managed compression port. Opening the form leaves running sessions alone. The authorized form receives only the three editable IDs and a boolean indicating whether a key is saved.
+
+Credential persistence and compression readiness have separate outcomes. The bridge saves validated credentials with direct routing before renewing an enabled proxy, and only restores the compression route after the old listener has stopped and the replacement started with the saved credentials passes a loopback health check. A failed restart leaves direct routing and a persisted retry using the saved key. Credential saves and route restoration advance the configuration revision even on the same CLI version so Claude reloads the profile.
 
 ## UPSTREAM-001: Adapt changes in their current owner
 

@@ -516,7 +516,8 @@ export function AppSidebarLayout({ children }: { children: ReactNode }) {
 
   const sectionDialogOpen = useAgentDialogStore((state) => state.sectionDialogOpen);
   const hasDockedSidebar =
-    !SINGLE_PROVIDER_UI || (collectionKind === null && !isProjectsPage && pathname !== "/mcp");
+    !SINGLE_PROVIDER_UI ||
+    (collectionKind === null && !isProjectsPage && pathname !== "/mcp" && pathname !== "/usage");
   return (
     <PanelAnimationSuppressionProvider value={panelAnimationsSuppressed}>
       <WorkspaceSidebarContentProvider>

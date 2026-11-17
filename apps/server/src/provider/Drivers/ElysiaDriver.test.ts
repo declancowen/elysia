@@ -129,7 +129,7 @@ it.layer(testLayer)("Elysia startup", (it) => {
       rejectModel: true,
     },
   ])(
-    "applies native default policy after fresh sign-in with $name",
+    "preserves native model policy for $name",
     ({ name, savedDefault, allowed, switchModel, failSync, rejectModel, changeCredentials }) =>
       Effect.gen(function* () {
         const path = yield* Path.Path;
@@ -140,7 +140,7 @@ it.layer(testLayer)("Elysia startup", (it) => {
           defaultModelSelection: { instanceId, model: savedDefault },
         });
         let ready = changeCredentials === true;
-        let nativeModel = "gpt-6.1-sol";
+        let nativeModel = changeCredentials ? savedDefault : "gpt-6.1-sol";
         let failedSyncAttempts = 0;
         const operations: string[] = [];
         const submitted = {
@@ -161,7 +161,20 @@ it.layer(testLayer)("Elysia startup", (it) => {
             ready: Effect.sync(() => ready),
             readSettings: Effect.sync(() =>
               ready && allowed !== null
-                ? Option.some({ env: {}, model: nativeModel, allowed_models: allowed })
+                ? Option.some({
+                    env: changeCredentials
+                      ? {
+                          CC_LANGSMITH_METADATA: JSON.stringify({
+                            workspace_id: submitted.workspace_id,
+                            config_id: submitted.config_id,
+                            user_id: submitted.user_id,
+                          }),
+                          ANTHROPIC_AUTH_TOKEN: "previous-fixture-key",
+                        }
+                      : {},
+                    model: nativeModel,
+                    allowed_models: allowed,
+                  })
                 : Option.none(),
             ),
             modelEnvironment: () => Effect.succeed({ ...process.env }),
@@ -177,7 +190,7 @@ it.layer(testLayer)("Elysia startup", (it) => {
               args: ReadonlyArray<string> = [],
             ) {
               operations.push(operation);
-              if (operation === "--init") {
+              if (operation === "--init" || operation === "rotate-credentials") {
                 assert.deepEqual(values, submitted);
                 yield* Deferred.succeed(initStarted, undefined);
                 yield* Deferred.await(finishInit);
@@ -254,9 +267,12 @@ it.layer(testLayer)("Elysia startup", (it) => {
         );
         if (!instance.auth) return yield* Effect.die("Native auth controller missing");
         const auth = instance.auth;
+        let stoppedSessions = 0;
         const started = yield* auth.start(
           "owner",
-          undefined,
+          Effect.sync(() => {
+            stoppedSessions++;
+          }),
           changeCredentials ? "elysia-change-credentials" : undefined,
         );
         const waiting = yield* auth.subscribe("owner").pipe(
@@ -265,16 +281,40 @@ it.layer(testLayer)("Elysia startup", (it) => {
           Effect.map(Option.getOrThrow),
         );
         assert.equal(waiting.phase, "waiting");
+        if (changeCredentials) {
+          assert.equal(stoppedSessions, 0);
+          assert.deepEqual(waiting.interaction, {
+            type: "credentials",
+            id: waiting.interaction!.id,
+            fields: [
+              {
+                name: "workspace_id",
+                label: "Workspace ID",
+                secret: false,
+                initialValue: submitted.workspace_id,
+              },
+              {
+                name: "config_id",
+                label: "Config ID",
+                secret: false,
+                initialValue: submitted.config_id,
+              },
+              { name: "user_id", label: "User ID", secret: false, initialValue: submitted.user_id },
+              { name: "api_key", label: "API key", secret: true, hasSavedValue: true },
+            ],
+          });
+        }
         yield* auth.respond!("owner", {
           instanceId,
           flowId: started.flowId!,
           interactionId: waiting.interaction!.id,
           response: {
             type: "credentials",
-            values: submitted,
+            values: changeCredentials ? { api_key: submitted.api_key } : submitted,
           },
         });
         yield* Deferred.await(initStarted);
+        assert.equal(stoppedSessions, 1);
         yield* Deferred.succeed(finishInit, undefined);
         const finished = yield* auth.subscribe("owner").pipe(
           Stream.filter((state) => state.phase === "succeeded" || state.phase === "failed"),
@@ -283,11 +323,19 @@ it.layer(testLayer)("Elysia startup", (it) => {
         );
         assert.equal(finished.phase, rejectModel ? "failed" : "succeeded");
         if (rejectModel) assert.equal(finished.message, "Fixture native CLI rejected the model.");
-        assert.isTrue(
+        assert.equal(
           finished.methods?.some((method) => method.id === "elysia-change-credentials"),
+          allowed !== null,
         );
         assert.equal((yield* instance.snapshot.getSnapshot).auth.status, "authenticated");
-        assert.deepEqual(operations, switchModel ? ["--init", "--model"] : ["--init"]);
+        assert.deepEqual(
+          operations,
+          changeCredentials
+            ? ["rotate-credentials"]
+            : switchModel
+              ? ["--init", "--model"]
+              : ["--init"],
+        );
         assert.equal(nativeModel, switchModel && !rejectModel ? savedDefault : "gpt-6.1-sol");
         assert.deepEqual((yield* settingsService.getSettings).defaultModelSelection, {
           instanceId,

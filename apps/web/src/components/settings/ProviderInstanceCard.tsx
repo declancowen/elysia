@@ -1437,7 +1437,7 @@ export function ProviderInstanceCard({
         </SettingsSection>
       ) : null}
 
-      {instance.driver === "claudeAgent" && environmentId ? (
+      {instance.driver === "claudeAgent" && environmentId && liveProvider ? (
         <ElysiaCompressionSection
           environmentId={environmentId}
           instanceId={instanceId}

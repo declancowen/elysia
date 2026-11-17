@@ -100,6 +100,7 @@ it.each([true, false])(
       expect(container.querySelector('button[aria-label="Add provider"]')).toBeNull();
       expect(container.querySelector('[role="dialog"]')).toBeNull();
       expect(container.textContent).toContain("Elysia CLI");
+      expect(container.textContent).not.toContain("Context compression");
       expect(container.querySelector('input[placeholder="codex"]')).toBeNull();
       expect(state.mutate).not.toHaveBeenCalled();
     } finally {
